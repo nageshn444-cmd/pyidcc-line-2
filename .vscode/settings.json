@@ -1,0 +1,4 @@
+{
+    "CodeGPT.apiKey": "Docker",
+    "python-envs.defaultEnvManager": "ms-python.python:system"
+}

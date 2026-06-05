@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isBmrclStaff() {
+      return request.auth != null && request.auth.token.email.matches('.*@bmrc\\.co\\.in$');
+    }
+    
+    // Helper function to read the user's role from the system_users collection
+    function getUserRole() {
+      return get(/databases/$(database)/documents/system_users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdminOrController() {
+      return request.auth != null && (getUserRole() == 'ADMIN' || getUserRole() == 'CREW_CONTROLLER');
+    }
+
+    function isSupervisor() {
+      return isBmrclStaff() && (request.auth.token.designation == 'Station Superintendent' || request.auth.token.employeeId == '20726');
+    }
+
+    // Rules for system_users collection
+    match /system_users/{userId} {
+      // Users can read and create their own document (for initial login)
+      allow read, create: if request.auth != null && request.auth.uid == userId;
+      // Only admins can update or delete user roles
+      allow update, delete: if isAdminOrController();
+    }
+
+    // Rules for wtt_final_matrix collection
+    match /wtt_final_matrix/{documentId} {
+      // Any authenticated user can read the master matrix
+      allow read: if request.auth != null;
+      // Only admins and crew controllers can write/upload to it
+      allow write: if isAdminOrController();
+    }
+
+    match /daily_crew_tracks/{documentId} {
+      allow read: if isBmrclStaff();
+      allow write, update: if isSupervisor() && request.resource.data.trainId >= 201 && request.resource.data.trainId <= 223 && request.resource.data.activeTripIndex <= 163;
+    }
+    
+    match /working_time_table/{tripId} {
+      allow read: if isBmrclStaff();
+      allow write: if isSupervisor();
+    }
+  }
+}

@@ -1,0 +1,33 @@
+:root {
+  --occ-bg-main: #0a0f1d;
+  --occ-bg-card: #121829;
+  --occ-bg-surface: #1a2238;
+  --occ-text-primary: #f1f5f9;
+  --occ-text-secondary: #94a3b8;
+  --occ-neon-green: #00e676;
+  --occ-neon-amber: #ffb300;
+  --occ-neon-red: #ff3d00;
+  --occ-border: #263352;
+}
+.occ-panel-container {
+  background-color: var(--occ-bg-main);
+  color: var(--occ-text-primary);
+  min-height: 100vh;
+  padding: 24px;
+}
+.occ-metric-strip { display: flex; gap: 16px; margin-bottom: 24px; }
+.occ-stat-box {
+  flex: 1; background: var(--occ-bg-card); border: 1px solid var(--occ-border);
+  border-radius: 8px; padding: 16px;
+}
+.occ-stat-box.full-loop { border-left: 4px solid var(--occ-neon-green); }
+.occ-stat-box.short-loop { border-left: 4px solid var(--occ-neon-amber); }
+.occ-matrix-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
+.occ-train-card {
+  background: var(--occ-bg-card); border: 1px solid var(--occ-border);
+  border-radius: 12px; padding: 18px; position: relative;
+}
+.occ-crew-block { background: var(--occ-bg-surface); border-radius: 6px; padding: 12px; margin-top: 10px; }
+.occ-label-mini { font-size: 10px; text-transform: uppercase; color: var(--occ-text-secondary); font-weight: 700; }
+.occ-track-line { position: relative; height: 4px; background: var(--occ-border); margin: 16px 0; }
+.occ-status-banner.urgent { background: rgba(255, 61, 0, 0.15); color: var(--occ-neon-red); }
