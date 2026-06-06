@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Phone, Mail, UserPlus, Trash2, AlertCircle, Search, Users, Edit2, Save, X, Loader } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 
 export default function CrewDirectory({ crewData = [], isAdmin = false }) {
   const [crews, setCrews] = useState(crewData);
@@ -26,16 +26,31 @@ export default function CrewDirectory({ crewData = [], isAdmin = false }) {
     try {
       setLoading(true);
       const crewCollection = collection(db, 'employees');
-      const q = query(crewCollection, orderBy('id'));
-      const snapshot = await getDocs(q);
-      const crewList = snapshot.docs.map(doc => ({
-        ...doc.data(),
-        firebaseId: doc.id
-      }));
+      const snapshot = await getDocs(crewCollection);
+      
+      if (snapshot.empty) {
+        console.log('No employees found in database');
+        setCrews([]);
+        return;
+      }
+      
+      const crewList = snapshot.docs
+        .map(doc => ({
+          ...doc.data(),
+          firebaseId: doc.id
+        }))
+        .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+      
       setCrews(crewList);
     } catch (error) {
       console.error('Error loading crew data:', error);
-      alert('Error loading employee data');
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        stack: error.stack
+      });
+      alert(`Error loading employee data: ${error.message}`);
+      setCrews([]);
     } finally {
       setLoading(false);
     }
