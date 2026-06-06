@@ -5,6 +5,11 @@ import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc, writeBatch, ser
 import { Search, RefreshCw, ArrowDownCircle, ArrowUpCircle, Train, Users, Trash2, ShieldCheck, UploadCloud, UserCheck, RotateCcw, AlertTriangle, Clock, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
+// Import local components and data
+import IntegrityAudit from './IntegrityAudit';
+import CrewDirectory from './CrewDirectory';
+import { BMRCL_CREW_REGISTRY } from './BmrclCrewRegistry';
+
 export default function Dashboard() {
   const { currentUser, userRole } = useAuth();
   
@@ -45,6 +50,10 @@ export default function Dashboard() {
   const [newEmpName, setNewEmpName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newRole, setNewRole] = useState('TRAIN_OPERATOR');
+
+  // Integrity/Crew Placeholders
+  const [rosterWarnings] = useState([]);
+  const [manningStats] = useState({ totalTrains: 0, unmannedTrains: 0 });
 
   const dayTabs = [
     { id: 'WEEKDAY', label: 'WEEKDAY SCHEDULE' },
@@ -384,11 +393,16 @@ export default function Dashboard() {
             <button onClick={() => setActiveTab('ROSTER')} className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md font-mono text-xs tracking-wider transition-all ${activeTab === 'ROSTER' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold' : 'text-slate-400'}`}>
               CREW LINK ROSTER ({links.length})
             </button>
+            <button onClick={() => setActiveTab('INTEGRITY')} className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md font-mono text-xs tracking-wider transition-all ${activeTab === 'INTEGRITY' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-bold' : 'text-slate-400'}`}>
+              INTEGRITY
+            </button>
+            <button onClick={() => setActiveTab('CREW')} className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md font-mono text-xs tracking-wider transition-all ${activeTab === 'CREW' ? 'bg-pink-500/10 text-pink-400 border border-pink-500/20 font-bold' : 'text-slate-400'}`}>
+              CREW
+            </button>
           </nav>
         </div>
       </header>
 
-      {/* Usage example in your UI: */}
       <div className="px-6 py-3 bg-slate-900/50 border-b border-slate-800 flex items-center gap-4 font-mono text-xs">
         {canEdit && <button className="flex items-center gap-2 bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 px-3 py-1.5 rounded hover:bg-emerald-600/30 transition">Edit Roster</button>}
         {isTrainOperator && <p className="text-amber-400 font-semibold">Read-Only Mode Active</p>}
@@ -446,7 +460,6 @@ export default function Dashboard() {
 
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 items-start w-full">
               <div className="xl:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl">
-                {/* FIX: Used RefreshCw directly since SwapIcon alias is removed */}
                 <div className="flex items-center gap-2 text-amber-400 font-mono text-xs font-bold border-b border-slate-800 pb-2 mb-3"><RefreshCw className="h-4 w-4" /> TO MUTUAL DUTY EXCHANGE CONTROL</div>
                 <form onSubmit={handleDutyExchangeSwap} className="space-y-3 font-mono text-xs">
                   <div><label className="block text-slate-400 mb-1 font-semibold">Source Duty ID (From)</label><input type="text" placeholder="e.g., 44" value={swapFromDuty} onChange={(e) => setSwapFromDuty(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200 focus:outline-none focus:border-amber-500" /></div>
@@ -586,7 +599,6 @@ export default function Dashboard() {
                         const matchingIncident = liveIncidents.find(inc => String(inc.trainId) === String(row.trainId));
                         const delayVal = matchingIncident ? parseInt(matchingIncident.delayMins, 10) : 0;
 
-                        // FIX 3: Added `key` props directly onto the returned `<td>` blocks
                         const renderWttCell = (direction, stationName, isTidField = false) => {
                           const isEditing = editingCell.rowId === row.id && editingCell.direction === direction && editingCell.station === stationName && editingCell.isTid === isTidField;
                           const targetTrip = direction === 'DN' ? row.downTrip : row.upTrip;
@@ -619,8 +631,14 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+        ) : activeTab === 'INTEGRITY' ? (
+          <IntegrityAudit rosterWarnings={rosterWarnings} manningStats={manningStats} />
+        ) : activeTab === 'CREW' ? (
+          <CrewDirectory 
+            crewData={BMRCL_CREW_REGISTRY} 
+            isAdmin={canEdit} 
+          />
         ) : (
-          
           <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
             <div className="px-4 py-2.5 bg-slate-950 border-b border-slate-800 flex justify-between items-center text-blue-400 font-mono text-xs font-bold">
               <span>DYNAMIC CONTROL ROSTER OPERATIONAL MONITOR TERMINAL</span>
@@ -648,7 +666,6 @@ export default function Dashboard() {
                   {filteredLinks.map((duty, idx) => {
                     const rowBgClass = idx % 2 === 0 ? "bg-slate-900" : "bg-slate-950/40";
                     const stickyDutyBgClass = idx % 2 === 0 ? "bg-slate-900" : "bg-slate-950";
-                    // FIX 4: Added React keys to dynamic TD generations
                     const renderCell = (fieldName, customStyle = "text-slate-300") => {
                       const isEditing = editingCell.rowId === duty.id && editingCell.station === fieldName && !editingCell.isDeployment;
                       const displayVal = duty[fieldName] || '--';
