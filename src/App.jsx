@@ -5,7 +5,13 @@ import Dashboard from './components/Dashboard';
 import Login from './components/Login';
 import ProtectedRoute from './components/ProtectedRoute';
 import { LogOut } from 'lucide-react';
+import { debugFirebase } from './utils/firebaseDebug';
 import './index.css';
+
+// Make debug utility available globally
+if (typeof window !== 'undefined') {
+  window.debugFirebase = debugFirebase;
+}
 
 function TopNav() {
   const { currentUser, userRole, logout } = useAuth();
