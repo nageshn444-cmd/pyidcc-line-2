@@ -8,6 +8,8 @@ import { useAuth } from '../context/AuthContext';
 // Import local components and data
 import IntegrityAudit from './IntegrityAudit';
 import CrewDirectory from './CrewDirectory';
+import DelayTracker from './DelayTracker';
+import ManualOverrideForm from './ManualOverrideForm';
 import { BMRCL_CREW_REGISTRY } from './BmrclCrewRegistry';
 
 export default function Dashboard() {
@@ -22,6 +24,7 @@ export default function Dashboard() {
   const isTrainOperator = userRole === 'TRAIN_OPERATOR';
 
   const [activeTab, setActiveTab] = useState('SIGNON');
+  const [selectedActiveTrain, setSelectedActiveTrain] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeDay, setActiveDay] = useState('WEEKDAY');
   const [unifiedRows, setUnifiedRows] = useState([]);
@@ -399,6 +402,12 @@ export default function Dashboard() {
             <button onClick={() => setActiveTab('CREW')} className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md font-mono text-xs tracking-wider transition-all ${activeTab === 'CREW' ? 'bg-pink-500/10 text-pink-400 border border-pink-500/20 font-bold' : 'text-slate-400'}`}>
               CREW
             </button>
+            <button onClick={() => setActiveTab('DELAYS')} className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md font-mono text-xs tracking-wider transition-all ${activeTab === 'DELAYS' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold' : 'text-slate-400'}`}>
+              DELAY TRACKER
+            </button>
+            <button onClick={() => setActiveTab('OVERRIDE')} className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md font-mono text-xs tracking-wider transition-all ${activeTab === 'OVERRIDE' ? 'bg-red-500/10 text-red-400 border border-red-500/20 font-bold' : 'text-slate-400'}`}>
+              OVERRIDE CONTROL
+            </button>
           </nav>
         </div>
       </header>
@@ -638,6 +647,26 @@ export default function Dashboard() {
             crewData={BMRCL_CREW_REGISTRY} 
             isAdmin={canEdit} 
           />
+        ) : activeTab === 'CREW' ? (
+          <CrewDirectory crewData={BMRCL_CREW_REGISTRY} isAdmin={hasAdminRights()} />
+        ) : activeTab === 'DELAYS' ? (
+          <DelayTracker onIncidentLogged={fetchLiveData} />
+        ) : activeTab === 'OVERRIDE' ? (
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+            <div className="px-4 py-2.5 bg-slate-950 border-b border-slate-800 flex items-center text-red-400 font-mono text-xs font-bold">
+              <span>MANUAL OPERATIONAL OVERRIDE CONTROL</span>
+            </div>
+            <div className="p-6">
+              {selectedActiveTrain ? (
+                <ManualOverrideForm activeTrain={selectedActiveTrain} onClose={() => setSelectedActiveTrain(null)} />
+              ) : (
+                <div className="text-center py-12 text-slate-400 font-mono text-sm">
+                  <p className="mb-4">No train selected for override.</p>
+                  <p className="text-xs text-slate-600">Select a train from the WTT or ROSTER tabs to begin override.</p>
+                </div>
+              )}
+            </div>
+          </div>
         ) : (
           <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
             <div className="px-4 py-2.5 bg-slate-950 border-b border-slate-800 flex justify-between items-center text-blue-400 font-mono text-xs font-bold">
