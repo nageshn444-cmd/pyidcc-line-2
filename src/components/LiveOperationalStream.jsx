@@ -1,7 +1,7 @@
+/* eslint-disable react/prop-types */
 import React, { useEffect, useState } from 'react';
-import { db } from '../firebaseConfig';
+import { db } from '../firebase';
 import { collectionGroup, onSnapshot, query, where, orderBy } from 'firebase/firestore';
-import CrewControlDashboard from './CrewControlDashboard';
 
 export default function LiveOperationalStream({ filterShortLoopOnly }) {
   const [activeTracks, setActiveTracks] = useState([]);
@@ -49,23 +49,22 @@ export default function LiveOperationalStream({ filterShortLoopOnly }) {
   if (loading) {
     return (
       <div style={{ padding: '40px', color: 'var(--occ-text-secondary)', textAlign: 'center' }}>
-        <div className="occ-label-mini">Initializing Live BMRCL Data Streams...</div>
+        <div className="occ-label-mini text-slate-400 font-mono animate-pulse">Initializing Live BMRCL Data Streams...</div>
       </div>
     );
   }
 
   return (
-    <div className="occ-matrix-grid">
+    <div className="occ-matrix-grid grid grid-cols-1 md:grid-cols-2 gap-4">
       {activeTracks.map((track) => (
-        <CrewControlDashboard 
-          key={track.trainId} 
-          overrideSingleTrack={track} 
-          currentSystemTime={systemTime} 
-        />
+        <div key={track.trainId} className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+           <h4 className="text-emerald-400 font-bold mb-2 font-mono">Train ID: {track.trainId}</h4>
+           <div className="text-slate-400 text-xs font-mono">System Time: {systemTime.toLocaleTimeString()}</div>
+        </div>
       ))}
       
       {activeTracks.length === 0 && (
-        <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px', color: 'var(--occ-text-secondary)', background: 'var(--occ-bg-card)', borderRadius: '8px', border: '1px dashed var(--occ-border)' }}>
+        <div className="col-span-full text-center p-8 text-slate-500 bg-slate-900 rounded-xl border border-dashed border-slate-800 font-mono text-sm">
           No active rolling units matching this filter profile are logged on Line 2 paths today.
         </div>
       )}

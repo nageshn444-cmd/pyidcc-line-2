@@ -1,408 +1,366 @@
-import React, { useState, useEffect } from 'react';
-import { Phone, Mail, UserPlus, Trash2, AlertCircle, Search, Users, Edit2, Save, X, Loader } from 'lucide-react';
-import { db } from '../firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import React, { useState, useMemo } from 'react';
+import { BMRCL_CREW_REGISTRY } from '../data/bmrclCrewRegistry';
+import { Search, Phone, Mail, Users, Edit2, Trash2, Check, X, Plus, Download, Filter, AlertTriangle, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
 
-export default function CrewDirectory({ crewData = [], isAdmin = false }) {
-  const [crews, setCrews] = useState(crewData);
+export default function CrewDirectory() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [designationFilter, setDesignationFilter] = useState('ALL');
+  const [competencyFilter, setCompetencyFilter] = useState('ALL');
+  const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'asc' });
+  
+  const [crewData, setCrewData] = useState(BMRCL_CREW_REGISTRY);
   const [editingId, setEditingId] = useState(null);
-  const [editData, setEditData] = useState({});
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [newEmployee, setNewEmployee] = useState({
-    id: '',
-    name: '',
-    designation: 'Station Controller / Train Operator',
-    contact: '',
-    email: ''
-  });
+  const [editForm, setEditForm] = useState({});
+  const [isAdding, setIsAdding] = useState(false);
+  const [addForm, setAddForm] = useState({ id: '', name: '', designation: '', contact: '', email: '', competencyExpiry: '' });
 
-  useEffect(() => {
-    loadCrewFromFirebase();
-  }, []);
+  // Filter Logic
+  const filteredCrew = useMemo(() => {
+    let result = crewData;
 
-  const loadCrewFromFirebase = async () => {
-    try {
-      setLoading(true);
-      const crewCollection = collection(db, 'employees');
-      const snapshot = await getDocs(crewCollection);
-      
-      if (snapshot.empty) {
-        console.log('No employees found in database');
-        setCrews([]);
-        return;
-      }
-      
-      const crewList = snapshot.docs
-        .map(doc => ({
-          ...doc.data(),
-          firebaseId: doc.id
-        }))
-        .sort((a, b) => String(a.id).localeCompare(String(b.id)));
-      
-      setCrews(crewList);
-    } catch (error) {
-      console.error('Error loading crew data:', error);
-      console.error('Error details:', {
-        code: error.code,
-        message: error.message,
-        stack: error.stack
+    // Search filter
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      result = result.filter(member => 
+        member.name.toLowerCase().includes(q) ||
+        member.id.toString().includes(q) ||
+        member.designation.toLowerCase().includes(q)
+      );
+    }
+
+    // Designation filter
+    if (designationFilter !== 'ALL') {
+      result = result.filter(member => member.designation === designationFilter);
+    }
+
+    // Competency filter
+    if (competencyFilter !== 'ALL') {
+      const today = new Date();
+      result = result.filter(member => {
+        if (!member.competencyExpiry) return competencyFilter === 'NO_DATA';
+        const isExpired = new Date(member.competencyExpiry) < today;
+        if (competencyFilter === 'EXPIRED') return isExpired;
+        if (competencyFilter === 'VALID') return !isExpired;
+        return true;
       });
-      alert(`Error loading employee data: ${error.message}`);
-      setCrews([]);
-    } finally {
-      setLoading(false);
     }
-  };
 
-  const filteredCrew = crews.filter(staff => 
-    staff.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    staff.id?.includes(searchTerm)
-  );
+    return result;
+  }, [searchTerm, crewData, designationFilter, competencyFilter]);
 
-  const handleEdit = (staff) => {
-    setEditingId(staff.id);
-    setEditData({ ...staff });
-  };
-
-  const handleSave = async () => {
-    if (!editData.id || !editData.name || !editData.contact) {
-      alert('Please fill in required fields: ID, Name, Contact');
-      return;
-    }
-    try {
-      setLoading(true);
-      const docRef = doc(db, 'employees', editData.firebaseId);
-      await updateDoc(docRef, {
-        id: editData.id,
-        name: editData.name,
-        contact: editData.contact,
-        email: editData.email,
-        designation: editData.designation,
-        updatedAt: new Date()
+  // Sorting Logic
+  const sortedCrew = useMemo(() => {
+    let sortableItems = [...filteredCrew];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+        
+        if (sortConfig.key === 'competencyExpiry') {
+          const timeA = aValue ? new Date(aValue).getTime() : 0;
+          const timeB = bValue ? new Date(bValue).getTime() : 0;
+          return sortConfig.direction === 'asc' ? timeA - timeB : timeB - timeA;
+        } else {
+          const strA = (aValue || '').toString();
+          const strB = (bValue || '').toString();
+          const result = strA.localeCompare(strB, undefined, { numeric: true });
+          return sortConfig.direction === 'asc' ? result : -result;
+        }
       });
-      
-      const updatedCrews = crews.map(c => c.firebaseId === editData.firebaseId ? editData : c);
-      setCrews(updatedCrews);
-      setEditingId(null);
-      setEditData({});
-      alert('Employee updated successfully!');
-    } catch (error) {
-      console.error('Error updating employee:', error);
-      alert('Error updating employee');
-    } finally {
-      setLoading(false);
     }
+    return sortableItems;
+  }, [filteredCrew, sortConfig]);
+
+  const requestSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
   };
 
-  const handleCancel = () => {
+  // Derived Stats
+  const stats = useMemo(() => {
+    const today = new Date();
+    let valid = 0, expired = 0, noData = 0;
+    crewData.forEach(m => {
+      if (!m.competencyExpiry) noData++;
+      else if (new Date(m.competencyExpiry) < today) expired++;
+      else valid++;
+    });
+    return { total: crewData.length, valid, expired, noData };
+  }, [crewData]);
+
+  const uniqueDesignations = ['ALL', ...Array.from(new Set(crewData.map(m => m.designation).filter(Boolean)))];
+
+  const handleEditClick = (member) => {
+    setEditingId(member.id);
+    setEditForm({ ...member });
+  };
+
+  const handleCancelEdit = () => {
     setEditingId(null);
-    setEditData({});
+    setEditForm({});
   };
 
-  const handleDelete = async (staffId, firebaseId) => {
-    if (window.confirm(`Delete employee ${staffId}? This action is permanent.`)) {
-      try {
-        setLoading(true);
-        const docRef = doc(db, 'employees', firebaseId);
-        await deleteDoc(docRef);
-        setCrews(crews.filter(c => c.firebaseId !== firebaseId));
-        alert('Employee deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting employee:', error);
-        alert('Error deleting employee');
-      } finally {
-        setLoading(false);
-      }
+  const handleSaveEdit = () => {
+    setCrewData(prev => prev.map(m => m.id === editingId ? editForm : m));
+    setEditingId(null);
+    setEditForm({});
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm('Are you sure you want to delete this crew member?')) {
+      setCrewData(prev => prev.filter(m => m.id !== id));
     }
   };
 
-  const handleAddEmployee = async () => {
-    if (!newEmployee.id || !newEmployee.name || !newEmployee.contact) {
-      alert('Please fill in required fields: ID, Name, Contact');
+  const handleAddSubmit = (e) => {
+    e.preventDefault();
+    if (!addForm.id || !addForm.name) {
+      alert('ID and Name are required.');
       return;
     }
-    if (crews.some(c => c.id === newEmployee.id)) {
-      alert('Employee ID already exists!');
+    if (crewData.some(m => m.id === addForm.id)) {
+      alert('A crew member with this ID already exists.');
       return;
     }
-    try {
-      setLoading(true);
-      const crewCollection = collection(db, 'employees');
-      const docRef = await addDoc(crewCollection, {
-        id: newEmployee.id,
-        name: newEmployee.name,
-        contact: newEmployee.contact,
-        email: newEmployee.email,
-        designation: newEmployee.designation,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
-      
-      const newCrew = {
-        ...newEmployee,
-        firebaseId: docRef.id
-      };
-      setCrews([...crews, newCrew]);
-      setNewEmployee({
-        id: '',
-        name: '',
-        designation: 'Station Controller / Train Operator',
-        contact: '',
-        email: ''
-      });
-      setShowAddForm(false);
-      alert('Employee added successfully!');
-    } catch (error) {
-      console.error('Error adding employee:', error);
-      alert('Error adding employee');
-    } finally {
-      setLoading(false);
-    }
+    setCrewData(prev => [{ ...addForm }, ...prev]);
+    setIsAdding(false);
+    setAddForm({ id: '', name: '', designation: '', contact: '', email: '', competencyExpiry: '' });
   };
 
-  const handleCall = (contact) => {
-    window.location.href = `tel:${contact}`;
+  const handleExportCSV = () => {
+    const headers = ['Emp ID', 'Name', 'Designation', 'Contact', 'Email ID', 'Competency Validity'];
+    const csvRows = [headers.join(',')];
+    
+    sortedCrew.forEach(member => {
+      const row = [
+        member.id || '--',
+        `"${(member.name || '--').replace(/"/g, '""')}"`,
+        `"${(member.designation || '--').replace(/"/g, '""')}"`,
+        member.contact || '--',
+        member.email || '--',
+        member.competencyExpiry || '--'
+      ];
+      csvRows.push(row.join(','));
+    });
+    
+    const csvString = csvRows.join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Crew_Registry_Export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const SortableHeader = ({ label, sortKey, className = "" }) => {
+    const isActive = sortConfig?.key === sortKey;
+    return (
+      <th 
+        className={`p-4 font-black cursor-pointer hover:bg-slate-900 transition-colors select-none group sticky top-0 bg-slate-950 z-10 shadow-sm ${className}`}
+        onClick={() => requestSort(sortKey)}
+      >
+        <div className="flex items-center gap-1.5">
+          {label}
+          <span className={`flex flex-col items-center justify-center ${isActive ? 'text-emerald-500' : 'text-slate-600 group-hover:text-slate-400'}`}>
+            {isActive ? (
+              sortConfig.direction === 'asc' ? <ArrowUp size={12} strokeWidth={3} /> : <ArrowDown size={12} strokeWidth={3} />
+            ) : (
+              <ChevronsUpDown size={12} />
+            )}
+          </span>
+        </div>
+      </th>
+    );
   };
 
   return (
-    <div className="bg-slate-900 rounded-xl border border-slate-800 shadow-2xl overflow-hidden font-mono">
-      {/* Header Area */}
-      <div className="p-4 bg-slate-950 border-b border-slate-800 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-        <h2 className="text-emerald-400 font-black text-sm uppercase tracking-wider flex items-center gap-2">
-          <Users size={16} /> CREW DIRECTORY ({filteredCrew.length}/{crews.length} Records)
-          {loading && <Loader size={16} className="animate-spin" />}
-        </h2>
-        
-        <div className="flex gap-3 w-full lg:w-auto">
-          <div className="relative flex-1 lg:flex-none lg:w-64">
-            <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-500" />
-            <input 
-              type="text" 
-              placeholder="Filter by Name or ID..." 
-              value={searchTerm}
-              disabled={loading}
-              className="w-full bg-slate-900 border border-slate-800 rounded pl-8 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 disabled:opacity-50"
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          {isAdmin && !showAddForm && (
-            <button 
-              onClick={() => setShowAddForm(true)} 
-              disabled={loading}
-              className="flex items-center gap-2 bg-blue-600/20 border border-blue-500/30 text-blue-400 px-3 py-1.5 rounded text-xs hover:bg-blue-600/30 transition whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <UserPlus size={14} /> ADD EMPLOYEE
-            </button>
-          )}
+    <div className="space-y-6 font-mono h-full flex flex-col">
+      {/* Top Metrics Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-shrink-0">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col items-center justify-center">
+          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Total Crew</span>
+          <span className="text-3xl font-black text-cyan-400">{stats.total}</span>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col items-center justify-center">
+          <span className="text-[10px] text-emerald-500/70 font-bold uppercase tracking-widest mb-1">Valid Competency</span>
+          <span className="text-3xl font-black text-emerald-400">{stats.valid}</span>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col items-center justify-center relative overflow-hidden">
+          {stats.expired > 0 && <div className="absolute top-0 w-full h-1 bg-rose-500 animate-pulse"></div>}
+          <span className="text-[10px] text-rose-500/70 font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
+            {stats.expired > 0 && <AlertTriangle className="h-3 w-3" />} Expired
+          </span>
+          <span className="text-3xl font-black text-rose-500">{stats.expired}</span>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col items-center justify-center">
+          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">No Data</span>
+          <span className="text-3xl font-black text-amber-500">{stats.noData}</span>
         </div>
       </div>
 
-      {/* Add New Employee Form */}
-      {showAddForm && isAdmin && (
-        <div className="bg-slate-950/80 border-b border-slate-700 p-4 space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-            <input 
-              type="text" 
-              placeholder="Emp ID" 
-              value={newEmployee.id}
-              disabled={loading}
-              onChange={(e) => setNewEmployee({...newEmployee, id: e.target.value})}
-              className="bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 disabled:opacity-50"
-            />
-            <input 
-              type="text" 
-              placeholder="Name" 
-              value={newEmployee.name}
-              disabled={loading}
-              onChange={(e) => setNewEmployee({...newEmployee, name: e.target.value})}
-              className="bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 disabled:opacity-50"
-            />
-            <input 
-              type="tel" 
-              placeholder="Contact" 
-              value={newEmployee.contact}
-              disabled={loading}
-              onChange={(e) => setNewEmployee({...newEmployee, contact: e.target.value})}
-              className="bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 disabled:opacity-50"
-            />
-            <input 
-              type="email" 
-              placeholder="Email" 
-              value={newEmployee.email}
-              disabled={loading}
-              onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
-              className="bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 disabled:opacity-50"
-            />
-            <select 
-              value={newEmployee.designation}
-              disabled={loading}
-              onChange={(e) => setNewEmployee({...newEmployee, designation: e.target.value})}
-              className="bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 disabled:opacity-50"
-            >
-              <option>Station Superintendent</option>
-              <option>Station Controller / Train Operator</option>
-            </select>
+      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl flex flex-col flex-grow">
+        <div className="p-4 bg-slate-950 border-b border-slate-800 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 flex-shrink-0">
+          <div className="flex items-center gap-2 text-emerald-400 font-black tracking-widest uppercase text-sm">
+            <Users size={18} /> CREW DIRECTORY ENGINE
           </div>
-          <div className="flex gap-2 justify-end">
+          
+          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto text-xs">
+            <div className="relative flex-grow lg:flex-grow-0">
+              <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-500" />
+              <input 
+                type="text" 
+                placeholder="Search ID, Name..." 
+                className="w-full lg:w-48 bg-slate-900 border border-slate-700 rounded pl-8 pr-3 py-1.5 text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            
+            <div className="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-slate-300">
+              <Filter className="h-3.5 w-3.5 text-slate-500" />
+              <select value={designationFilter} onChange={(e) => setDesignationFilter(e.target.value)} className="bg-transparent outline-none border-none cursor-pointer uppercase font-bold tracking-wider max-w-[100px]">
+                {uniqueDesignations.map(d => <option key={d} value={d} className="bg-slate-900">{d}</option>)}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-slate-300">
+              <AlertTriangle className="h-3.5 w-3.5 text-slate-500" />
+              <select value={competencyFilter} onChange={(e) => setCompetencyFilter(e.target.value)} className="bg-transparent outline-none border-none cursor-pointer uppercase font-bold tracking-wider">
+                <option value="ALL" className="bg-slate-900">ALL STATUS</option>
+                <option value="VALID" className="bg-slate-900 text-emerald-400">VALID</option>
+                <option value="EXPIRED" className="bg-slate-900 text-rose-400">EXPIRED</option>
+                <option value="NO_DATA" className="bg-slate-900 text-amber-400">NO DATA</option>
+              </select>
+            </div>
+
             <button 
-              onClick={handleAddEmployee} 
-              disabled={loading}
-              className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-bold uppercase transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              onClick={handleExportCSV}
+              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 px-3 py-1.5 rounded transition-colors font-bold uppercase tracking-widest"
+              title="Export CSV"
             >
-              {loading && <Loader size={12} className="animate-spin" />}
-              Create
+              <Download size={14} /> EXPORT
             </button>
+
             <button 
-              onClick={() => setShowAddForm(false)} 
-              disabled={loading}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded text-xs font-bold uppercase transition disabled:opacity-50"
+              onClick={() => setIsAdding(!isAdding)}
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 px-3 py-1.5 rounded transition-colors font-black uppercase tracking-widest"
             >
-              Cancel
+              {isAdding ? <X size={14} /> : <Plus size={14} />}
+              {isAdding ? 'CLOSE' : 'ADD NEW'}
             </button>
           </div>
         </div>
-      )}
 
-      {/* Directory Table */}
-      <div className="max-h-[650px] overflow-y-auto">
-        <table className="w-full text-left border-collapse text-[11px] text-slate-300">
-          <thead className="bg-slate-900/50 sticky top-0 z-10 border-b border-slate-800">
-            <tr>
-              <th className="p-3 text-slate-400 w-20">EMP ID</th>
-              <th className="p-3 text-slate-400 w-40">NAME</th>
-              <th className="p-3 text-slate-400 w-32">CONTACT</th>
-              <th className="p-3 text-slate-400 w-40">EMAIL</th>
-              <th className="p-3 text-slate-400 w-32">DESIGNATION</th>
-              <th className="p-3 text-slate-400 text-center w-32">ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800">
-            {filteredCrew.length > 0 ? filteredCrew.map((staff) => (
-              <tr key={staff.firebaseId} className="hover:bg-slate-800/40 transition-colors">
-                {editingId === staff.id ? (
-                  <>
-                    <td className="p-3">
-                      <input 
-                        type="text" 
-                        value={editData.id}
-                        disabled={loading}
-                        onChange={(e) => setEditData({...editData, id: e.target.value})}
-                        className="w-full bg-slate-950 border border-emerald-500 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none disabled:opacity-50"
-                      />
-                    </td>
-                    <td className="p-3">
-                      <input 
-                        type="text" 
-                        value={editData.name}
-                        disabled={loading}
-                        onChange={(e) => setEditData({...editData, name: e.target.value})}
-                        className="w-full bg-slate-950 border border-emerald-500 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none disabled:opacity-50"
-                      />
-                    </td>
-                    <td className="p-3">
-                      <input 
-                        type="tel" 
-                        value={editData.contact}
-                        disabled={loading}
-                        onChange={(e) => setEditData({...editData, contact: e.target.value})}
-                        className="w-full bg-slate-950 border border-emerald-500 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none disabled:opacity-50"
-                      />
-                    </td>
-                    <td className="p-3">
-                      <input 
-                        type="email" 
-                        value={editData.email}
-                        disabled={loading}
-                        onChange={(e) => setEditData({...editData, email: e.target.value})}
-                        className="w-full bg-slate-950 border border-emerald-500 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none disabled:opacity-50"
-                      />
-                    </td>
-                    <td className="p-3">
-                      <select 
-                        value={editData.designation}
-                        disabled={loading}
-                        onChange={(e) => setEditData({...editData, designation: e.target.value})}
-                        className="w-full bg-slate-950 border border-emerald-500 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none disabled:opacity-50"
-                      >
-                        <option>Station Superintendent</option>
-                        <option>Station Controller / Train Operator</option>
-                      </select>
-                    </td>
-                    <td className="p-3 flex justify-center gap-2">
-                      <button 
-                        onClick={handleSave} 
-                        disabled={loading}
-                        className="text-emerald-400 hover:text-emerald-300 transition disabled:opacity-50" 
-                        title="Save"
-                      >
-                        {loading ? <Loader size={16} className="animate-spin" /> : <Save size={16} />}
-                      </button>
-                      <button 
-                        onClick={handleCancel} 
-                        disabled={loading}
-                        className="text-slate-400 hover:text-slate-300 transition disabled:opacity-50" 
-                        title="Cancel"
-                      >
-                        <X size={16} />
-                      </button>
-                    </td>
-                  </>
-                ) : (
-                  <>
-                    <td className="p-3 font-bold text-cyan-400">{staff.id}</td>
-                    <td className="p-3 font-bold text-slate-100">{staff.name}</td>
-                    <td className="p-3 text-amber-400 font-semibold">{staff.contact}</td>
-                    <td className="p-3 text-slate-400 truncate">{staff.email}</td>
-                    <td className="p-3 text-slate-400 text-xs">{staff.designation}</td>
-                    <td className="p-3 flex justify-center gap-3">
-                      <button 
-                        onClick={() => handleCall(staff.contact)} 
-                        className="text-emerald-400 hover:text-emerald-300 transition" 
-                        title={`Call: ${staff.contact}`}
-                      >
-                        <Phone size={16} />
-                      </button>
-                      {staff.email && (
-                        <a href={`mailto:${staff.email}`} className="text-blue-400 hover:text-blue-300 transition" title={`Email: ${staff.email}`}>
-                          <Mail size={16} />
-                        </a>
-                      )}
-                      {isAdmin && (
-                        <>
-                          <button 
-                            onClick={() => handleEdit(staff)} 
-                            disabled={loading}
-                            className="text-slate-400 hover:text-slate-300 transition disabled:opacity-50" 
-                            title="Edit"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                          <button 
-                            onClick={() => handleDelete(staff.id, staff.firebaseId)} 
-                            disabled={loading}
-                            className="text-rose-500 hover:text-rose-400 transition disabled:opacity-50" 
-                            title="Delete"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </>
-                )}
-              </tr>
-            )) : (
+        {isAdding && (
+          <div className="p-4 bg-slate-900 border-b border-slate-800 animate-in fade-in slide-in-from-top-2 flex-shrink-0">
+            <h3 className="text-emerald-400 font-bold mb-3 uppercase tracking-wider text-xs">Register New Personnel</h3>
+            <form onSubmit={handleAddSubmit} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-3 items-end text-xs">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-widest">Emp ID</label>
+                <input type="text" required value={addForm.id} onChange={e => setAddForm({...addForm, id: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200 focus:border-emerald-500 outline-none" placeholder="1045" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-widest">Full Name</label>
+                <input type="text" required value={addForm.name} onChange={e => setAddForm({...addForm, name: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200 focus:border-emerald-500 outline-none" placeholder="John Doe" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-widest">Designation</label>
+                <input type="text" value={addForm.designation} onChange={e => setAddForm({...addForm, designation: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200 focus:border-emerald-500 outline-none" placeholder="Train Operator" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-widest">Contact</label>
+                <input type="text" value={addForm.contact} onChange={e => setAddForm({...addForm, contact: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200 focus:border-emerald-500 outline-none" placeholder="Phone" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-widest">Validity</label>
+                <input type="date" value={addForm.competencyExpiry || ''} onChange={e => setAddForm({...addForm, competencyExpiry: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200 focus:border-emerald-500 outline-none" />
+              </div>
+              <div>
+                <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-slate-950 p-2 rounded font-black transition-colors tracking-widest uppercase">SAVE ENTRY</button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        <div className="overflow-x-auto overflow-y-auto max-h-[65vh] relative custom-scrollbar flex-grow">
+          <table className="w-full text-left text-xs whitespace-nowrap">
+            <thead className="text-slate-500 uppercase tracking-widest text-[10px]">
               <tr>
-                <td colSpan="6" className="py-12 text-center text-slate-600 italic">
-                  <AlertCircle size={20} className="mx-auto mb-2" />
-                  {loading ? 'Loading employee data...' : 'No crew members found matching filter.'}
-                </td>
+                <SortableHeader label="Emp ID" sortKey="id" />
+                <SortableHeader label="Name" sortKey="name" />
+                <SortableHeader label="Role" sortKey="designation" />
+                <SortableHeader label="Contact Info" sortKey="contact" />
+                <SortableHeader label="Competency Status" sortKey="competencyExpiry" />
+                <th className="p-4 font-black text-center border-l border-slate-800 sticky top-0 bg-slate-950 z-10 shadow-sm">Actions</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-800/50 text-slate-300">
+              {sortedCrew.map((member) => {
+                const isExpired = member.competencyExpiry ? new Date(member.competencyExpiry) < new Date() : false;
+                
+                return (
+                  <tr key={member.id} className={`hover:bg-slate-800/30 transition-colors ${isExpired ? 'bg-rose-950/5' : ''}`}>
+                    {editingId === member.id ? (
+                      <>
+                        <td className="p-2"><input type="text" value={editForm.id} onChange={e => setEditForm({...editForm, id: e.target.value})} className="w-full bg-slate-950 border border-emerald-500 rounded px-2 py-1 text-slate-200 outline-none" /></td>
+                        <td className="p-2"><input type="text" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="w-full bg-slate-950 border border-emerald-500 rounded px-2 py-1 text-slate-200 outline-none" /></td>
+                        <td className="p-2"><input type="text" value={editForm.designation} onChange={e => setEditForm({...editForm, designation: e.target.value})} className="w-full bg-slate-950 border border-emerald-500 rounded px-2 py-1 text-slate-200 outline-none" /></td>
+                        <td className="p-2">
+                          <input type="text" value={editForm.contact} onChange={e => setEditForm({...editForm, contact: e.target.value})} className="w-full bg-slate-950 border border-emerald-500 rounded px-2 py-1 text-slate-200 outline-none mb-1" placeholder="Phone" />
+                          <input type="text" value={editForm.email || ''} onChange={e => setEditForm({...editForm, email: e.target.value})} className="w-full bg-slate-950 border border-emerald-500 rounded px-2 py-1 text-slate-200 outline-none" placeholder="Email" />
+                        </td>
+                        <td className="p-2"><input type="date" value={editForm.competencyExpiry || ''} onChange={e => setEditForm({...editForm, competencyExpiry: e.target.value})} className="w-full bg-slate-950 border border-emerald-500 rounded px-2 py-1 text-slate-200 outline-none" /></td>
+                        <td className="p-2 flex justify-center gap-2 border-l border-slate-800 h-full items-center mt-3">
+                          <button onClick={handleSaveEdit} className="text-emerald-400 hover:text-emerald-300 p-1.5 bg-emerald-400/10 hover:bg-emerald-400/20 rounded transition-colors" title="Save"><Check size={16} /></button>
+                          <button onClick={handleCancelEdit} className="text-slate-400 hover:text-slate-300 p-1.5 bg-slate-800 hover:bg-slate-700 rounded transition-colors" title="Cancel"><X size={16} /></button>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="p-4 font-black text-cyan-400">#{member.id}</td>
+                        <td className="p-4 font-bold text-slate-100">{member.name}</td>
+                        <td className="p-4 text-slate-400"><span className="bg-slate-800 px-2 py-1 rounded text-[10px] uppercase font-bold tracking-widest">{member.designation || 'UNASSIGNED'}</span></td>
+                        <td className="p-4">
+                          <div className="flex flex-col gap-1">
+                            <span className="flex items-center gap-2 text-slate-300"><Phone size={12} className="text-slate-500"/> {member.contact || '--'}</span>
+                            <span className="flex items-center gap-2 text-slate-400 text-[10px]"><Mail size={12} className="text-slate-500"/> {member.email || '--'}</span>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          {member.competencyExpiry ? (
+                            isExpired 
+                              ? <span className="text-rose-400 font-bold bg-rose-950/40 border border-rose-500/30 px-2 py-1 rounded text-[10px] uppercase tracking-widest flex items-center gap-1 w-max"><AlertTriangle size={12} /> EXPIRED: {member.competencyExpiry}</span>
+                              : <span className="text-emerald-400 font-bold bg-emerald-950/40 border border-emerald-500/30 px-2 py-1 rounded text-[10px] uppercase tracking-widest">VALID: {member.competencyExpiry}</span>
+                          ) : <span className="text-slate-500 font-bold bg-slate-900 border border-slate-800 px-2 py-1 rounded text-[10px] uppercase tracking-widest">NO DATA</span>}
+                        </td>
+                        <td className="p-4 flex justify-center gap-2 border-l border-slate-800 bg-slate-900/20">
+                          <button onClick={() => handleEditClick(member)} className="text-slate-400 hover:text-cyan-400 p-1.5 hover:bg-slate-800 rounded transition-colors" title="Edit"><Edit2 size={16} /></button>
+                          <button onClick={() => handleDelete(member.id)} className="text-slate-400 hover:text-rose-400 p-1.5 hover:bg-slate-800 rounded transition-colors" title="Delete"><Trash2 size={16} /></button>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                );
+              })}
+              {sortedCrew.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="p-12 text-center text-slate-500 font-bold uppercase tracking-widest text-xs">No crew members match the current filters.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        
+        {/* Footer info (Replaces old pagination) */}
+        <div className="bg-slate-950 border-t border-slate-800 p-3 text-center text-[10px] text-slate-500 font-bold tracking-widest uppercase flex-shrink-0">
+          Viewing {sortedCrew.length} of {crewData.length} Registry Entries
+        </div>
+
       </div>
     </div>
   );

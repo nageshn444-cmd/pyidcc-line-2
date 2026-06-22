@@ -1,30 +1,30 @@
-import admin from 'firebase-admin';
-import fs from 'fs';
-import path from 'path';
+import admin from "firebase-admin";
+import fs from "fs";
+import path from "path";
 
 const credentialPath = "C:\\Users\\nages\\pyidcc\\config\\serviceAccount.json";
-const keyData = JSON.parse(fs.readFileSync(credentialPath, 'utf8'));
+const keyData = JSON.parse(fs.readFileSync(credentialPath, "utf8"));
 
 if (!admin.apps.length) {
-  admin.initializeApp({ credential: admin.credential.cert(keyData), projectId: keyData.project_id });
+  admin.initializeApp({credential: admin.credential.cert(keyData), projectId: keyData.project_id});
 }
 const db = admin.firestore();
 
 function cleanRow(line) {
-  if (!line || !line.includes('|')) return [];
-  const parts = line.split('|');
-  return parts.slice(1, parts.length - 1).map(cell => cell.trim());
+  if (!line || !line.includes("|")) return [];
+  const parts = line.split("|");
+  return parts.slice(1, parts.length - 1).map((cell) => cell.trim());
 }
 
 async function executeCrewPipeline() {
   console.log("Beginning authenticated Dual-Table Crew Link injection framework...");
   const sourceFolder = "C:\\Users\\nages\\OneDrive\\Desktop\\all day roster and Time table\\Only links";
-  
+
   const rosters = [
-    { file: 'Weekday link csv.csv', type: 'WEEKDAY' },
-    { file: 'monday link roster csv', type: 'MONDAY' },
-    { file: 'sat & GH link roster csv.csv', type: 'SATURDAY' },
-    { file: 'sunday link roster csv.csv', type: 'SUNDAY' }
+    {file: "Weekday link csv.csv", type: "WEEKDAY"},
+    {file: "monday link roster csv", type: "MONDAY"},
+    {file: "sat & GH link roster csv.csv", type: "SATURDAY"},
+    {file: "sunday link roster csv.csv", type: "SUNDAY"},
   ];
 
   console.log("Writing directly to new target collection to bypass read/delete quotas...");
@@ -37,31 +37,31 @@ async function executeCrewPipeline() {
     }
 
     console.log(`Processing roster document grid stream: [${cfg.file}]`);
-    const content = fs.readFileSync(absolutePath, 'utf8');
+    const content = fs.readFileSync(absolutePath, "utf8");
     const lines = content.split(/\r?\n/);
-    
+
     let batch = db.batch();
     let entriesAdded = 0;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (!line || !line.trim() || !line.includes('|')) continue;
+      if (!line || !line.trim() || !line.includes("|")) continue;
 
       const row = cleanRow(line);
-      if (row.length < 15 || row[0].includes('---') || row[0].toLowerCase().includes('duty')) continue;
+      if (row.length < 15 || row[0].includes("---") || row[0].toLowerCase().includes("duty")) continue;
 
       const dutyId = row[0];
-      if (!dutyId || isNaN(parseInt(dutyId))) continue; 
+      if (!dutyId || isNaN(parseInt(dutyId))) continue;
 
       const docId = `link_${cfg.type.toLowerCase()}_duty_${dutyId}`;
-      
+
       // CRITICAL UPGRADE: Pointing directly to the new quota-free destination path
-      const docRef = db.collection('crew_final_links').doc(docId);
+      const docRef = db.collection("crew_final_links").doc(docId);
 
       batch.set(docRef, {
         scheduleType: cfg.type,
         dutyId: String(dutyId),
-        
+
         // Leg 1 Base Mapping [cite: 10, 11]
         signOnTime: row[1] || "--",
         signOnLocation: row[2] || "PYID",
@@ -79,7 +79,7 @@ async function executeCrewPipeline() {
         // Leg 3 Base Mapping [cite: 15]
         leg3HandoverLoc: row[14] || "--",
         leg3HandoverTime: row[12] || "--",
-        leg3TakeoverLoc: row[13] || "--", 
+        leg3TakeoverLoc: row[13] || "--",
         leg3TakeoverTime: row[15] || "--",
         leg3TrainNo: row[11] || "--",
         leg3TimeFrom: row[12] || "--",
@@ -97,8 +97,8 @@ async function executeCrewPipeline() {
         signOffLocation: row[row.length - 6] || "PYID",
         totalHours: row[row.length - 4] || "08:00",
         remarks: row[row.length - 1] || "Line 2 Special Run",
-        lastModified: admin.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
+        lastModified: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
 
       entriesAdded++;
       if (entriesAdded % 400 === 0) {

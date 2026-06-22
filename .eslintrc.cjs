@@ -17,11 +17,10 @@ module.exports = {
   plugins: ['react', 'react-refresh'],
   rules: {
     'react/react-in-jsx-scope': 'off',
-    'react/prop-types': 'off',
-    'react/no-unescaped-entities': 'off',
-    'react-hooks/exhaustive-deps': 'off',
-    'no-unused-vars': 'off',
-    'react-refresh/only-export-components': 'off',
+    'react-refresh/only-export-components': [
+      'warn',
+      { allowConstantExport: true },
+    ],
   },
   settings: {
     react: {

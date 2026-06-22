@@ -97,6 +97,7 @@ export default function RosterIntegrity() {
 
       // Audit for Unmanned WTT lines
       let unmannedCount = 0;
+      let unmannedDetails = [];
       const ignoredHeaders = ['TID', 'APTS DN', 'APTS UP', 'NLC DN', 'NLC UP', 'PUTH DN', 'PUTH UP', 'SRR DN', 'SRR UP', 'MAD DN', 'MAD UP', 'RESV', 'RESERVE', 'SPARE', 'STANDBY'];
       const uniqueWttTrainIds = [...new Set(activeWtt.map(t => t.trainId).filter(Boolean))];
 
@@ -107,6 +108,40 @@ export default function RosterIntegrity() {
         const isManned = Object.keys(trainTimelineMap).includes(String(tid));
         if (!isManned) {
           unmannedCount++;
+          // Find WTT details for the gap
+          const trainWttRows = activeWtt.filter(t => t.trainId === tid);
+          // Sort by start time if available
+          const firstRow = trainWttRows.length > 0 ? trainWttRows[0] : null;
+          
+          let startTime = '--:--';
+          let endTime = '--:--';
+          
+          if (firstRow) {
+             // Heuristic: Try to find the earliest departure and latest arrival from the WTT entries
+             // This might need adjustment based on exact WTT data structure.
+             const times = [];
+             trainWttRows.forEach(row => {
+               Object.keys(row).forEach(key => {
+                 if (key.toLowerCase().includes('time') && row[key] && row[key] !== '--') {
+                   times.push(row[key]);
+                 }
+               });
+             });
+             
+             if (times.length > 0) {
+               times.sort((a,b) => timeToSeconds(a) - timeToSeconds(b));
+               startTime = times[0];
+               endTime = times[times.length - 1];
+             }
+          }
+
+          unmannedDetails.push({
+            trainId: tid,
+            startTime,
+            endTime,
+            numberOfTrips: trainWttRows.length
+          });
+
           validationAlerts.push({
             type: 'MANNING GAP',
             details: `Train ID ${tid} is scheduled in the Working Timetable (WTT) matrix but has no rostered operator allocation.`
@@ -117,7 +152,8 @@ export default function RosterIntegrity() {
       setWarnings(validationAlerts);
       setManningStats({
         totalTrains: uniqueWttTrainIds.length,
-        unmannedTrains: unmannedCount
+        unmannedTrains: unmannedCount,
+        unmannedDetails: unmannedDetails
       });
 
     } catch (err) {
@@ -173,29 +209,66 @@ export default function RosterIntegrity() {
             </div>
 
             {/* Right Alerts Table Block */}
-            <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
-              <div className="px-4 py-3 bg-slate-950 border-b border-slate-800 font-bold text-xs text-slate-300">
-                ACTIVE SYSTEM ANOMALY LOGS
-              </div>
-              <div className="p-4 max-h-[500px] overflow-y-auto space-y-3">
-                {warnings.map((warn, index) => (
-                  <div key={index} className={`flex items-start gap-3 p-3 rounded-lg border text-xs leading-relaxed ${warn.type.includes('CRITICAL') ? 'bg-rose-950/20 border-rose-500/20 text-rose-300' : 'bg-amber-950/20 border-amber-500/20 text-amber-300'}`}>
-                    <AlertTriangle className={`h-4 w-4 mt-0.5 flex-shrink-0 ${warn.type.includes('CRITICAL') ? 'text-rose-500' : 'text-amber-500'}`} />
-                    <div>
-                      <span className="font-black uppercase tracking-wide block mb-1">[{warn.type}]</span>
-                      {warn.details}
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+                <div className="px-4 py-3 bg-slate-950 border-b border-slate-800 font-bold text-xs text-slate-300">
+                  ACTIVE SYSTEM ANOMALY LOGS
+                </div>
+                <div className="p-4 max-h-[500px] overflow-y-auto space-y-3">
+                  {warnings.map((warn, index) => (
+                    <div key={index} className={`flex items-start gap-3 p-3 rounded-lg border text-xs leading-relaxed ${warn.type.includes('CRITICAL') ? 'bg-rose-950/20 border-rose-500/20 text-rose-300' : 'bg-amber-950/20 border-amber-500/20 text-amber-300'}`}>
+                      <AlertTriangle className={`h-4 w-4 mt-0.5 flex-shrink-0 ${warn.type.includes('CRITICAL') ? 'text-rose-500' : 'text-amber-500'}`} />
+                      <div>
+                        <span className="font-black uppercase tracking-wide block mb-1">[{warn.type}]</span>
+                        {warn.details}
+                      </div>
                     </div>
-                  </div>
-                ))}
-                
-                {warnings.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-16 text-center text-slate-500 space-y-2">
-                    <CheckCircle2 className="h-8 w-8 text-emerald-500" />
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Roster Fully Compliant</span>
-                    <p className="text-[10px] max-w-xs text-slate-600">Zero timeline overlaps or unmanned timetabled blocks discovered for this operational shift run.</p>
-                  </div>
-                )}
+                  ))}
+                  
+                  {warnings.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-16 text-center text-slate-500 space-y-2">
+                      <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Roster Fully Compliant</span>
+                      <p className="text-[10px] max-w-xs text-slate-600">Zero timeline overlaps or unmanned timetabled blocks discovered for this operational shift run.</p>
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Detailed Gap Analysis Table */}
+              {manningStats.unmannedTrains > 0 && manningStats.unmannedDetails && (
+                <div className="bg-slate-900 border border-amber-900/50 rounded-xl overflow-hidden shadow-xl">
+                  <div className="px-4 py-3 bg-amber-950/20 border-b border-amber-900/50 font-bold text-xs text-amber-500 flex items-center gap-2">
+                    <Train className="h-4 w-4" /> UNMANNED TRAIN GAP ANALYSIS DETAILS
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs whitespace-nowrap">
+                      <thead className="bg-slate-950 text-slate-500 uppercase tracking-widest text-[10px]">
+                        <tr>
+                          <th className="p-3 font-black">Train ID</th>
+                          <th className="p-3 font-black">Expected Start</th>
+                          <th className="p-3 font-black">Expected End</th>
+                          <th className="p-3 font-black">Trips/Legs</th>
+                          <th className="p-3 font-black text-right">Severity</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/50">
+                        {manningStats.unmannedDetails.map((gap, i) => (
+                          <tr key={i} className="hover:bg-slate-800/30">
+                            <td className="p-3 font-black text-cyan-400">{gap.trainId}</td>
+                            <td className="p-3 text-slate-300">{gap.startTime}</td>
+                            <td className="p-3 text-slate-300">{gap.endTime}</td>
+                            <td className="p-3 text-slate-400">{gap.numberOfTrips} scheduled points</td>
+                            <td className="p-3 text-right">
+                              <span className="bg-rose-950 border border-rose-800 text-rose-400 px-2 py-1 rounded text-[9px] uppercase tracking-widest font-black">HIGH</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
 
           </div>

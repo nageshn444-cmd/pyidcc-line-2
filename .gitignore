@@ -67,3 +67,39 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+# Production build folder
+dist/
+
+# IDE and agent settings/skills
+.continue/
+.agents/
+
+# Temporary run logs and text outputs
+eslint-errors.txt
+eslint-errors-utf8.txt
+b64.txt
+matrixCode.txt
+reliefCode.txt
+wtt_extracted.txt
+*.err.log
+*.out.log
+
+# Temporary helper scripts in the root
+fix_shiftexchange.cjs
+modify_dash.cjs
+replace_dashboard.cjs
+build_components.cjs
+extract.cjs
+fix.js
+list_models.js
+run.py
+WTTPage.jsx
+AuthContext.jsx
+login.jsx
+config.js
+settings.json
+test.js
+test_provided_key.js
+*.html
+*_files/

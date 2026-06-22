@@ -1,5 +1,7 @@
 {
   "projects": {
     "default": "pyidline2crew-41022"
-  }
+  },
+  "targets": {},
+  "etags": {}
 }

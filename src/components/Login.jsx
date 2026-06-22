@@ -1,84 +1,295 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Train, ShieldAlert } from 'lucide-react';
+import { Train, User, Lock, Globe, ShieldAlert, CheckSquare, Square, KeyRound } from 'lucide-react';
 
 export default function Login() {
-  const { login, currentUser } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [error, setError] = useState('');
+  const [isRegister, setIsRegister] = useState(false);
+  const [employeeId, setEmployeeId] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmpId, setForgotEmpId] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  
+  const { loginWithIdAndPassword, registerWithIdAndPassword, loginWithGoogle, requestPasswordReset } = useAuth();
+  const navigate = useNavigate();
 
-  const from = location.state?.from?.pathname || "/";
-
-  React.useEffect(() => {
-    if (currentUser) {
-      navigate(from, { replace: true });
+  // Load remembered Employee ID on mount
+  useEffect(() => {
+    const savedId = localStorage.getItem('rememberedEmployeeId');
+    if (savedId) {
+      setEmployeeId(savedId);
+      setRememberMe(true);
     }
-  }, [currentUser, navigate, from]);
+  }, []);
 
-  async function handleGoogleLogin() {
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    if (!employeeId || !password) {
+      return setError('Please enter both Employee ID and Password.');
+    }
+    setError('');
+    setLoading(true);
+
     try {
-      setError('');
-      setLoading(true);
-      await login();
-      navigate(from, { replace: true });
+      await loginWithIdAndPassword(employeeId, password);
+      if (rememberMe) {
+        localStorage.setItem('rememberedEmployeeId', employeeId);
+      } else {
+        localStorage.removeItem('rememberedEmployeeId');
+      }
+      navigate('/');
     } catch (err) {
-      console.error("Login component error:", err);
-      setError(`Failed to sign in: ${err.message || 'Unknown error'}`);
+      setError(err.message || 'Failed to sign in. Please check your credentials.');
     } finally {
       setLoading(false);
     }
-  }
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    if (!employeeId || !password || !confirmPassword) {
+      return setError('Please fill in all registration fields.');
+    }
+    if (password.length < 8) {
+      return setError('Password must be at least 8 characters long.');
+    }
+    if (password !== confirmPassword) {
+      return setError('Passwords do not match.');
+    }
+    setError('');
+    setLoading(true);
+
+    try {
+      await registerWithIdAndPassword(employeeId, password);
+      alert('Registration successful! Logging in...');
+      navigate('/');
+    } catch (err) {
+      setError(err.message || 'Failed to register account.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      await loginWithGoogle();
+      navigate('/');
+    } catch (err) {
+      setError(err.message || 'Google sign-in failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    if (!forgotEmpId) {
+      return alert('Please enter your Employee ID.');
+    }
+    try {
+      await requestPasswordReset(forgotEmpId);
+      alert(`If the account exists, a password reset email has been dispatched for Employee ID: ${forgotEmpId}`);
+      setShowForgotModal(false);
+      setForgotEmpId('');
+    } catch (err) {
+      alert('Error sending reset request: ' + err.message);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4">
-      <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-xl p-8 shadow-2xl">
+    <div className="min-h-screen bg-slate-950 flex justify-center items-center p-4 relative overflow-hidden font-mono">
+      {/* Background ambient lighting effects */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-[120px] pointer-events-none"></div>
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none"></div>
+
+      <div className="w-full max-w-md bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-2xl shadow-2xl p-8 relative z-10">
+        
+        {/* LOGO */}
         <div className="flex flex-col items-center mb-8">
-          <div className="h-16 w-16 bg-emerald-500 rounded-2xl flex items-center justify-center font-bold text-white shadow-[0_0_30px_rgba(16,185,129,0.3)] mb-4">
-            <Train size={32} />
+          <div className="h-16 w-16 bg-amber-500/10 border-2 border-amber-500/40 rounded-xl flex items-center justify-center mb-3 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+            <Train className="h-8 w-8 text-amber-400" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-100 tracking-tight text-center">
-            PYID Crew Control
-          </h1>
-          <p className="text-slate-400 mt-2 text-center text-sm">
-            Master System Control Portal
-          </p>
+          <h1 className="text-xl font-black text-slate-100 tracking-wider">BMRCL PYIDCC</h1>
+          <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Crew Control & Dispatch Workstation</p>
+        </div>
+
+        {/* Tab Selection */}
+        <div className="flex bg-slate-950 p-1 border border-slate-800 rounded-lg mb-6">
+          <button 
+            type="button"
+            onClick={() => { setIsRegister(false); setError(''); }}
+            className={`flex-1 py-2 text-xs font-bold rounded transition-colors ${!isRegister ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-slate-200'}`}
+          >
+            SIGN IN
+          </button>
+          <button 
+            type="button"
+            onClick={() => { setIsRegister(true); setError(''); }}
+            className={`flex-1 py-2 text-xs font-bold rounded transition-colors ${isRegister ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-slate-200'}`}
+          >
+            REGISTER
+          </button>
         </div>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 mb-6 flex items-start">
-            <ShieldAlert className="text-red-400 mt-0.5 mr-3 flex-shrink-0" size={18} />
-            <p className="text-red-200 text-sm">{error}</p>
+          <div className="mb-6 p-3 bg-red-950/20 border border-red-500/30 rounded-lg flex items-start gap-2.5">
+            <ShieldAlert className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+            <span className="text-[10px] text-red-300 font-bold leading-normal uppercase">{error}</span>
           </div>
         )}
 
-        <button
-          onClick={handleGoogleLogin}
-          disabled={loading}
-          className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? (
-            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-          ) : (
-            <>
-              <svg className="w-5 h-5 mr-3 bg-white rounded-full p-0.5" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                <path fill="none" d="M1 1h22v22H1z" />
-              </svg>
-              Sign in with Google
-            </>
+        <form onSubmit={isRegister ? handleRegister : handleLogin} className="space-y-4">
+          
+          {/* Employee ID */}
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Employee ID</label>
+            <div className="relative">
+              <User className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+              <input 
+                type="number"
+                required
+                value={employeeId}
+                onChange={(e) => setEmployeeId(e.target.value)}
+                placeholder="Enter 5-digit ID (e.g. 20726)"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-amber-500 transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Password */}
+          <div>
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Password</label>
+              {!isRegister && (
+                <button 
+                  type="button"
+                  onClick={() => setShowForgotModal(true)}
+                  className="text-[9px] font-bold text-amber-500 hover:text-amber-400 uppercase tracking-wider"
+                >
+                  Forgot Password?
+                </button>
+              )}
+            </div>
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+              <input 
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={isRegister ? "Minimum 8 characters" : "Enter Password"}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-amber-500 transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Confirm Password (Register only) */}
+          {isRegister && (
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Confirm Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+                <input 
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter Password"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-amber-500 transition-colors"
+                />
+              </div>
+            </div>
           )}
+
+          {/* Remember Me Checkbox */}
+          {!isRegister && (
+            <button 
+              type="button" 
+              onClick={() => setRememberMe(!rememberMe)}
+              className="flex items-center gap-2 text-slate-400 hover:text-slate-300 transition-colors text-left"
+            >
+              {rememberMe ? (
+                <CheckSquare className="h-4 w-4 text-amber-500 shrink-0" />
+              ) : (
+                <Square className="h-4 w-4 text-slate-600 shrink-0" />
+              )}
+              <span className="text-[10px] font-bold uppercase tracking-wider">Remember Me</span>
+            </button>
+          )}
+
+          {/* Submit Button */}
+          <button 
+            type="submit"
+            disabled={loading}
+            className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-slate-950 font-black py-3 rounded-lg text-[10px] tracking-widest uppercase shadow-md transition-colors"
+          >
+            {loading ? 'Processing...' : (isRegister ? 'REGISTER & ACCOUNT CREATION' : 'AUTHORIZE LOGIN')}
+          </button>
+        </form>
+
+        {/* Divider */}
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-800"></div></div>
+          <div className="relative flex justify-center text-[9px] uppercase font-bold tracking-widest"><span className="bg-slate-900/40 px-2 text-slate-500">OR</span></div>
+        </div>
+
+        {/* Google Sign-in */}
+        <button 
+          onClick={handleGoogleSignIn}
+          disabled={loading}
+          className="w-full bg-slate-950 border border-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-lg text-[10px] tracking-widest uppercase flex items-center justify-center gap-2.5 transition-colors"
+        >
+          <Globe className="h-4 w-4 text-amber-500" />
+          <span>Sign in with Google</span>
         </button>
 
-        <div className="mt-8 text-center text-xs text-slate-500">
-          Secure access restricted to authorized BMRCL personnel.
-        </div>
+        <p className="text-[9px] text-slate-600 text-center mt-6 uppercase tracking-wider leading-relaxed">Secure terminal access. Operations are monitored & audit-logged.</p>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-center items-center p-4">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-2 text-amber-500">
+              <KeyRound size={20} />
+              <h3 className="text-sm font-black uppercase tracking-wider">Reset Roster Password</h3>
+            </div>
+            <p className="text-[10px] text-slate-400 uppercase tracking-widest leading-relaxed">Enter your registered Employee ID. If authenticated, a standard Firebase recovery link will be sent to your registry email.</p>
+            
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <input 
+                type="number"
+                required
+                placeholder="Employee ID"
+                value={forgotEmpId}
+                onChange={(e) => setForgotEmpId(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+              />
+              <div className="flex justify-end gap-2.5 text-[9px] font-black tracking-widest">
+                <button 
+                  type="button" 
+                  onClick={() => { setShowForgotModal(false); setForgotEmpId(''); }}
+                  className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded transition-colors uppercase"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="bg-amber-600 hover:bg-amber-500 text-slate-950 px-4 py-2.5 rounded transition-colors uppercase"
+                >
+                  Send Recovery Link
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

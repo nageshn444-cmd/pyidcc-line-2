@@ -1,7 +1,141 @@
 @import "tailwindcss";
 
+:root {
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
-  background-color: #020617; /* Force slate-950 dark background */
-  color: #f8fafc;            /* Force slate-50 light text */
+  background-color: #020617; /* Absolute dark base */
+  background-image: 
+    radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+    radial-gradient(at 50% 0%, hsla(225,39%,30%,0.15) 0, transparent 50%), 
+    radial-gradient(at 100% 0%, hsla(339,49%,30%,0.15) 0, transparent 50%);
+  background-attachment: fixed;
+  color: #f8fafc;
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* ==========================================================================
+   1. GLOBAL HIGH CONTRAST TEXT ADJUSTMENTS
+   Overrides low-visibility text classes across all pages to ensure legibility.
+   ========================================================================== */
+.text-slate-500, .text-gray-500 { color: #cbd5e1 !important; } /* Mapped up to slate-300 */
+.text-slate-600, .text-gray-600 { color: #94a3b8 !important; } /* Mapped up to slate-400 */
+.text-slate-700, .text-gray-700 { color: #cbd5e1 !important; } /* Mapped up to slate-300 */
+.text-slate-400, .text-gray-400 { color: #f8fafc !important; font-weight: 500; } /* Almost white for headers */
+
+/* Increase extremely small font sizes for readability */
+.text-\[9px\] { font-size: 11px !important; font-weight: 700 !important; }
+.text-\[10px\] { font-size: 11px !important; font-weight: 700 !important; }
+.text-\[11px\] { font-size: 12px !important; font-weight: 600 !important; }
+
+/* Ensure borders are visible but subtle */
+.border-slate-800 { border-color: rgba(255, 255, 255, 0.12) !important; }
+.border-slate-700 { border-color: rgba(255, 255, 255, 0.2) !important; }
+
+/* ==========================================================================
+   2. ADVANCED EFFECTS: GLASSMORPHISM ON BACKGROUNDS
+   Converts standard solid dark colors into transparent frosted glass layers.
+   ========================================================================== */
+.bg-slate-900 {
+  background-color: rgba(15, 23, 42, 0.45) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+}
+
+.bg-slate-950 {
+  background-color: rgba(2, 6, 23, 0.55) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+/* Ensure solid background for Top Nav and Workstation Headers so they don't look messy over scrolling content */
+header.bg-slate-900, div.sticky.top-0 {
+  background-color: rgba(15, 23, 42, 0.85) !important;
+  backdrop-filter: blur(20px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ==========================================================================
+   3. ADVANCED EFFECTS: INPUTS & FORMS
+   Adds glowing focus states and glass styling to inputs.
+   ========================================================================== */
+input, select, textarea {
+  background-color: rgba(15, 23, 42, 0.6) !important;
+  backdrop-filter: blur(4px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+  transition: all 0.3s ease !important;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.4) !important;
+  background-color: rgba(15, 23, 42, 0.8) !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* ==========================================================================
+   4. ADVANCED EFFECTS: BUTTONS & INTERACTIVITY
+   ========================================================================== */
+button, a {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.15);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.5) !important;
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* Neon Glows for specific functional buttons */
+.bg-emerald-500, .bg-emerald-600 {
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4) !important;
+}
+.bg-emerald-500:hover, .bg-emerald-600:hover {
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.7) !important;
+}
+
+.bg-purple-500, .bg-purple-600 {
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.4) !important;
+}
+.bg-purple-500:hover, .bg-purple-600:hover {
+  box-shadow: 0 0 25px rgba(168, 85, 247, 0.7) !important;
+}
+
+.bg-blue-500, .bg-blue-600 {
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.4) !important;
+}
+.bg-blue-500:hover, .bg-blue-600:hover {
+  box-shadow: 0 0 25px rgba(59, 130, 246, 0.7) !important;
+}
+
+/* Subtle Table hover effects */
+tbody tr {
+  transition: background-color 0.2s ease !important;
+}
+tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Make modules glow slightly */
+.rounded-xl.border {
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.rounded-xl.border:hover {
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
 }
