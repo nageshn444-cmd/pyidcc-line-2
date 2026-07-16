@@ -975,7 +975,7 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       if (parsedDuties.length === 0) {
         const apiKeyToUse = localStorage.getItem('custom_gemini_api_key') ||
           import.meta.env.VITE_GEMINI_API_KEY ||
-          "AQ.Ab8RN6I94EJTGn6eI_No5KseFGBxVdh2vkzGZ0erFxkyhJzbVw";
+          '';
 
         const genAI = new GoogleGenerativeAI(apiKeyToUse);
         const model = genAI.getGenerativeModel({
