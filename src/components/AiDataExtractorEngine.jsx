@@ -1215,7 +1215,7 @@ Return ONLY structured JSON matching:
               </span>
             </div>
             <div className="flex gap-2">
-              <input
+              <input id="aidataextractorengin-i1" name="aidataextractorengin-i1"
                 type="password"
                 value={apiKeyInput}
                 onChange={(e) => setApiKeyInput(e.target.value)}
@@ -1249,7 +1249,7 @@ Return ONLY structured JSON matching:
                 onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
                 className={`border border-dashed rounded-lg p-4 text-center cursor-pointer transition relative ${dragActive ? 'border-emerald-500 bg-emerald-950/10' : 'border-slate-800 hover:border-slate-700 bg-slate-950/40'}`}
               >
-                <input type="file" multiple onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".csv,.txt,.xlsx,.xls,.pdf,.docx,image/*" />
+                <input id="aidataextractorengin-i2" name="aidataextractorengin-i2" type="file" multiple onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".csv,.txt,.xlsx,.xls,.pdf,.docx,image/*" />
                 <UploadCloud className="h-6 w-6 text-slate-500 mx-auto mb-1 group-hover:text-emerald-400" />
                 <span className="block text-[9px] text-slate-400 uppercase font-black">Drop files or click</span>
                 <span className="block text-[7px] text-slate-600 mt-0.5">Accepts Excel, CSV, PDF, Image, Word</span>
@@ -1318,7 +1318,7 @@ Return ONLY structured JSON matching:
                   </div>
 
                   <div className="flex gap-2">
-                    <select
+                    <select id="aidataextractorengin-i3" name="aidataextractorengin-i3"
                       value={activeFile.documentType}
                       onChange={(e) => updateFileState(activeFile.id, { documentType: e.target.value })}
                       className="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-[9px] text-slate-300 font-bold uppercase"
@@ -1383,7 +1383,7 @@ Return ONLY structured JSON matching:
                         )}
                       </div>
                     ) : (
-                      <textarea
+                      <textarea id="aidataextractorengin-i4" name="aidataextractorengin-i4"
                         value={activeFile.csvText}
                         onChange={handleCsvChange}
                         className="w-full h-72 bg-slate-950 border border-slate-805 rounded-xl p-3 text-[10px] text-emerald-400 focus:outline-none focus:border-emerald-500 font-mono resize-none leading-normal"
@@ -1609,10 +1609,10 @@ function EditModal({ record, index, onSave, onCancel }) {
         <div className="p-5 grid grid-cols-2 gap-3 text-xs uppercase font-bold">
           {EDIT_FIELDS.map(({ key, label, placeholder, color }) => (
             <div key={key} className="col-span-1 space-y-1 relative">
-              <label className="text-[8px] tracking-widest text-slate-500">{label}</label>
+              <label className="text-[8px] tracking-widest text-slate-500" htmlFor="aidataextractorengin-l1">{label}</label>
               {key === 'name' ? (
                 <>
-                  <input
+                  <input id="aidataextractorengin-i5" name="aidataextractorengin-i5"
                     type="text"
                     value={form.name || ''}
                     onChange={(e) => handleNameChange(e.target.value)}
@@ -1635,7 +1635,7 @@ function EditModal({ record, index, onSave, onCancel }) {
                   )}
                 </>
               ) : (
-                <input
+                <input id="aidataextractorengin-i6" name="aidataextractorengin-i6"
                   type="text"
                   value={form[key] || ''}
                   onChange={(e) => handleChange(key, e.target.value)}

@@ -20,10 +20,15 @@ import {
 export default function LiveTrainPositionTracker() {
   // States
   const [dailyDeployments, setDailyDeployments] = useState([]);
+  const [dailyCrewTracks, setDailyCrewTracks] = useState([]);
+  const [linkRoster, setLinkRoster] = useState([]);
   const [wttMatrix, setWttMatrix] = useState([]);
   const [liveIncidents, setLiveIncidents] = useState([]);
   const [stationChainageDB, setStationChainageDB] = useState({});
-  const [simulatedTime, setSimulatedTime] = useState('08:30'); // Simulated Time for Live Map
+  const [simulatedTime, setSimulatedTime] = useState(() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  });
   const [isLiveClock, setIsLiveClock] = useState(false);
   const [clockIntervalId, setClockIntervalId] = useState(null);
   const [selectedTrain, setSelectedTrain] = useState(null);
@@ -38,6 +43,16 @@ export default function LiveTrainPositionTracker() {
   useEffect(() => {
     const unsubDeploy = onSnapshot(collection(db, 'crew_daily_deployment'), (snap) => {
       setDailyDeployments(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    // crew_final_links: maps dutyId → leg1TrainNo, leg2TrainNo, leg3TrainNo, leg4TrainNo
+    const unsubLinks = onSnapshot(collection(db, 'crew_final_links'), (snap) => {
+      setLinkRoster(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    // daily_crew_tracks: keyed {date}_{trainId}, has currentOperator.name as a direct fallback
+    const unsubTracks = onSnapshot(collection(db, 'daily_crew_tracks'), (snap) => {
+      setDailyCrewTracks(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
     const unsubWtt = onSnapshot(collection(db, 'wtt_final_matrix'), (snap) => {
@@ -60,6 +75,8 @@ export default function LiveTrainPositionTracker() {
 
     return () => {
       unsubDeploy();
+      unsubLinks();
+      unsubTracks();
       unsubWtt();
       unsubIncidents();
       unsubChainage();
@@ -86,6 +103,70 @@ export default function LiveTrainPositionTracker() {
       if (clockIntervalId) clearInterval(clockIntervalId);
     };
   }, [isLiveClock]);
+
+  // Build trainId → {name, id} operator map using a 3-layer join:
+  // Layer 1 (best): daily_crew_tracks has currentOperator.name keyed by {date}_{trainId}
+  // Layer 2: crew_final_links (linkRoster) maps dutyId → leg1TrainNo..leg4TrainNo
+  //          + crew_daily_deployment maps dutyId → empName
+  // Layer 3: crew_daily_deployment docs that directly store trainId (AI extractor docs)
+  const trainOperatorMap = useMemo(() => {
+    const map = {};
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // --- Layer 2: dutyId join (most comprehensive for GCC roster uploads) ---
+    // Build dutyId → deployment lookup
+    const deployByDuty = {};
+    dailyDeployments.forEach(d => {
+      const dId = String(d.dutyId || '').trim().padStart(2, '0');
+      if (dId && d.empName) deployByDuty[dId] = d;
+    });
+
+    // Walk every link and map each train leg to the operator assigned to that duty
+    const activeSched = activeSchedule.toUpperCase();
+    linkRoster
+      .filter(link => String(link.scheduleType || '').toUpperCase() === activeSched)
+      .forEach(link => {
+        const normDuty = String(link.dutyId || '').trim().padStart(2, '0');
+        const dep = deployByDuty[normDuty];
+        if (!dep) return; // no operator assigned to this duty yet
+
+        // Each link can have up to 4 legs, each with a different trainId
+        for (let i = 1; i <= 4; i++) {
+          const tId = String(link[`leg${i}TrainNo`] || '').trim();
+          if (tId && tId !== '--' && tId !== '-' && !map[tId]) {
+            map[tId] = { name: dep.empName, id: dep.empId || '--' };
+          }
+        }
+        // Also cover the top-level trainId field
+        const topTId = String(link.trainId || '').trim();
+        if (topTId && topTId !== '--' && !map[topTId]) {
+          map[topTId] = { name: dep.empName, id: dep.empId || '--' };
+        }
+      });
+
+    // --- Layer 1 (override with today's daily_crew_tracks if available) ---
+    dailyCrewTracks.forEach(track => {
+      const tId = String(track.trainId || '').trim();
+      if (!tId) return;
+      const isToday = String(track.id || '').startsWith(todayStr);
+      const opName = track.currentOperator?.name || track.empName || '';
+      if (opName && (!map[tId] || isToday)) {
+        map[tId] = {
+          name: opName,
+          id: track.currentOperator?.employeeId || track.empId || '--',
+        };
+      }
+    });
+
+    // --- Layer 3: crew_daily_deployment docs with direct trainId field ---
+    dailyDeployments.forEach(d => {
+      const tId = String(d.trainId || '').trim();
+      if (!tId || map[tId]) return;
+      if (d.empName) map[tId] = { name: d.empName, id: d.empId || '--' };
+    });
+
+    return map;
+  }, [dailyCrewTracks, dailyDeployments, linkRoster, activeSchedule]);
 
   // Position detection logic for active trains moving along Green Line
   const liveTrainPositions = useMemo(() => {
@@ -172,26 +253,15 @@ export default function LiveTrainPositionTracker() {
         // Get direction
         const { direction } = getTripEndpoints(activeTrip);
 
-        // Get current operator name
-        const currentDeploy = dailyDeployments.find(d => {
-          if (String(d.trainId).trim() !== tId) return false;
-          if (d.scheduleType && String(d.scheduleType).toUpperCase() !== activeSchedule) return false;
-          if (!d.rawLegs) return false;
-          const processLeg = (start, end) => {
-            const startMin = timeToMinutes(start);
-            const endMin = timeToMinutes(end);
-            return timeMins >= startMin && timeMins <= endMin;
-          };
-          return processLeg(d.rawLegs.l1Start, d.rawLegs.l1End) ||
-                 processLeg(d.rawLegs.l2Start, d.rawLegs.l2End) ||
-                 processLeg(d.rawLegs.l3Start, d.rawLegs.l3End) ||
-                 processLeg(d.rawLegs.l4Start, d.rawLegs.l4End);
-        });
+        // Lookup operator from the pre-built map (daily_crew_tracks first, then deployment)
+        const operatorInfo = trainOperatorMap[tId] || {};
+        const operatorName = operatorInfo.name || 'Unassigned';
+        const operatorId = operatorInfo.id || '--';
 
         positions.push({
           trainId: tId,
-          operatorName: currentDeploy?.empName || 'Unassigned Operator',
-          operatorId: currentDeploy?.empId || '--',
+          operatorName,
+          operatorId,
           currentStation: pct > 0.8 ? nextSt.station : pct < 0.2 ? prevSt.station : `${prevSt.station} ➔ ${nextSt.station}`,
           previousStation: prevSt.station,
           nextStation: nextSt.station,
@@ -199,13 +269,13 @@ export default function LiveTrainPositionTracker() {
           chainage: parseFloat(currentChainage.toFixed(3)),
           distanceTravelled: parseFloat(distanceTravelled.toFixed(2)),
           distanceRemaining: parseFloat(distanceRemaining.toFixed(2)),
-          pctLine: (currentChainage - activeChainages.BIET) / (activeChainages.APTS - activeChainages.BIET) // position percentage on Green Line
+          pctLine: (currentChainage - activeChainages.BIET) / (activeChainages.APTS - activeChainages.BIET)
         });
       }
     });
 
     return positions;
-  }, [simulatedTime, wttMatrix, liveIncidents, dailyDeployments, stationChainageDB, activeSchedule]);
+  }, [simulatedTime, wttMatrix, liveIncidents, trainOperatorMap, stationChainageDB, activeSchedule]);
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-2xl relative overflow-hidden font-mono text-slate-200">
@@ -217,6 +287,13 @@ export default function LiveTrainPositionTracker() {
           <p className="text-[9px] text-slate-500 uppercase tracking-widest mt-0.5">
             Calculating live segments, distance traveled, remaining chainages, and active operators
           </p>
+          <div className="flex flex-wrap gap-2 mt-1">
+            <span className="text-[8px] font-mono text-slate-600">
+              Links: <span className="text-cyan-600 font-bold">{linkRoster.filter(l => String(l.scheduleType||'').toUpperCase() === activeSchedule).length}</span>
+              {' | '}Deployments: <span className="text-emerald-600 font-bold">{dailyDeployments.filter(d=>d.empName).length}</span>
+              {' | '}Operators Resolved: <span className={`font-bold ${Object.keys(trainOperatorMap).length > 0 ? 'text-emerald-400' : 'text-rose-500'}`}>{Object.keys(trainOperatorMap).length}</span>
+            </span>
+          </div>
         </div>
 
         {/* Simulated Time Panel */}
@@ -224,7 +301,7 @@ export default function LiveTrainPositionTracker() {
           <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
             <Clock className="h-3.5 w-3.5 text-cyan-400" /> Time Simulator:
           </div>
-          <input
+          <input id="livetrainpositiontra-i1" name="livetrainpositiontra-i1"
             type="time"
             value={simulatedTime}
             onChange={(e) => {
@@ -245,7 +322,7 @@ export default function LiveTrainPositionTracker() {
           <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase tracking-wider pl-2 border-l border-slate-800">
             Schedule:
           </div>
-          <select
+          <select id="livetrainpositiontra-i2" name="livetrainpositiontra-i2"
             value={activeSchedule}
             onChange={(e) => setActiveSchedule(e.target.value)}
             className="bg-slate-900 border border-slate-700 text-xs rounded px-2 py-1 focus:outline-none focus:border-cyan-500 font-bold text-cyan-300 font-mono"
@@ -260,7 +337,7 @@ export default function LiveTrainPositionTracker() {
       {/* Time range slider */}
       <div className="mb-6 bg-slate-950 p-4 rounded-xl border border-slate-850/80 flex items-center gap-4">
         <span className="text-[10px] font-bold text-slate-500 uppercase">05:00</span>
-        <input 
+        <input id="livetrainpositiontra-i3" name="livetrainpositiontra-i3" 
           type="range"
           min="300" // 5:00 AM in minutes
           max="1439" // 11:59 PM in minutes
@@ -363,8 +440,8 @@ export default function LiveTrainPositionTracker() {
                 </div>
 
                 {/* Operator Name label directly below train marker */}
-                <div className="absolute top-6 bg-slate-900/90 text-[8px] font-bold text-slate-350 px-1 py-0.2 rounded border border-slate-800 whitespace-nowrap max-w-[85px] truncate shadow-md">
-                  {train.operatorName.split(' ')[0]}
+                <div className="absolute top-6 bg-slate-900/90 text-[8px] font-bold text-cyan-300 px-1.5 py-0.5 rounded border border-slate-700 whitespace-nowrap max-w-[100px] truncate shadow-md">
+                  {train.operatorName === 'Unassigned' ? '—' : train.operatorName.split(' ').slice(0, 2).join(' ')}
                 </div>
 
                 {/* Popover detailed info panel on hover */}

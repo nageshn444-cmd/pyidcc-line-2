@@ -408,14 +408,14 @@ export default function ReportsCenter() {
             <span className='text-[10px] font-black text-slate-400 uppercase tracking-widest'>Period:</span>
           </div>
           <div className='flex items-center gap-2'>
-            <input 
+            <input id="reportscenter-i1" name="reportscenter-i1" 
               type="date" 
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               className="bg-slate-950 border border-slate-700 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500 text-slate-200 transition-colors"
             />
             <span className='text-slate-500 font-bold'>-</span>
-            <input 
+            <input id="reportscenter-i2" name="reportscenter-i2" 
               type="date" 
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
@@ -446,8 +446,8 @@ export default function ReportsCenter() {
           </span>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="space-y-1">
-              <label className="text-[9px] text-slate-550 uppercase font-black">Employee ID Filter</label>
-              <input 
+              <label className="text-[9px] text-slate-550 uppercase font-black" htmlFor="reportscenter-l1">Employee ID Filter</label>
+              <input id="reportscenter-i3" name="reportscenter-i3" 
                 type="text" 
                 placeholder="e.g. 22464" 
                 value={filterEmployeeId}
@@ -456,8 +456,8 @@ export default function ReportsCenter() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[9px] text-slate-550 uppercase font-black">Location Filter</label>
-              <input 
+              <label className="text-[9px] text-slate-550 uppercase font-black" htmlFor="reportscenter-l2">Location Filter</label>
+              <input id="reportscenter-i4" name="reportscenter-i4" 
                 type="text" 
                 placeholder="e.g. PYID" 
                 value={filterLocation}
@@ -466,8 +466,8 @@ export default function ReportsCenter() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[9px] text-slate-550 uppercase font-black">Train ID Filter</label>
-              <input 
+              <label className="text-[9px] text-slate-550 uppercase font-black" htmlFor="reportscenter-l3">Train ID Filter</label>
+              <input id="reportscenter-i5" name="reportscenter-i5" 
                 type="text" 
                 placeholder="e.g. 204" 
                 value={filterTrainId}
@@ -489,7 +489,7 @@ export default function ReportsCenter() {
             {!isTrainOperator && (
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-slate-550 font-bold uppercase">Format:</span>
-                <select 
+                <select id="reportscenter-i6" name="reportscenter-i6" 
                   value={exportFormat} 
                   onChange={(e) => setExportFormat(e.target.value)}
                   className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 focus:border-emerald-500 outline-none"
@@ -663,8 +663,8 @@ export default function ReportsCenter() {
                 </h3>
                 <form onSubmit={handleScheduleReport} className="space-y-4">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Target Report</label>
-                    <select 
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1" htmlFor="reportscenter-l4">Target Report</label>
+                    <select id="reportscenter-i7" name="reportscenter-i7" 
                       value={scheduleConfig.reportType}
                       onChange={(e) => setScheduleConfig({...scheduleConfig, reportType: e.target.value})}
                       className="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 font-mono"
@@ -679,8 +679,8 @@ export default function ReportsCenter() {
                   <div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Frequency</label>
-                        <select 
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1" htmlFor="reportscenter-l5">Frequency</label>
+                        <select id="reportscenter-i8" name="reportscenter-i8" 
                           value={scheduleConfig.frequency}
                           onChange={(e) => setScheduleConfig({...scheduleConfig, frequency: e.target.value})}
                           className="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 font-mono"
@@ -691,8 +691,8 @@ export default function ReportsCenter() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Dispatch Time</label>
-                        <input 
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1" htmlFor="reportscenter-l6">Dispatch Time</label>
+                        <input id="reportscenter-i9" name="reportscenter-i9" 
                           type="time" 
                           value={scheduleConfig.time}
                           onChange={(e) => setScheduleConfig({...scheduleConfig, time: e.target.value})}
@@ -702,10 +702,10 @@ export default function ReportsCenter() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Recipient Email</label>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1" htmlFor="reportscenter-l7">Recipient Email</label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
-                      <input 
+                      <input id="reportscenter-i10" name="reportscenter-i10" 
                         type="email" 
                         required
                         placeholder="manager@occ-rail.com"

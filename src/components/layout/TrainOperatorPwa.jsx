@@ -279,8 +279,8 @@ export default function TrainOperatorPwa({
                       
                       <div className="grid grid-cols-2 gap-3 text-xs">
                         <div className="space-y-1">
-                          <label className="text-[9px] text-neutral-500 uppercase font-bold">Duty ID</label>
-                          <input
+                          <label className="text-[9px] text-neutral-500 uppercase font-bold" htmlFor="trainoperatorpwa-l1">Duty ID</label>
+                          <input id="trainoperatorpwa-i1" name="trainoperatorpwa-i1"
                             type="text"
                             placeholder="e.g. D10 or 12"
                             value={manualDutyId}
@@ -290,8 +290,8 @@ export default function TrainOperatorPwa({
                           />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[9px] text-neutral-500 uppercase font-bold">Train ID</label>
-                          <input
+                          <label className="text-[9px] text-neutral-500 uppercase font-bold" htmlFor="trainoperatorpwa-l2">Train ID</label>
+                          <input id="trainoperatorpwa-i2" name="trainoperatorpwa-i2"
                             type="text"
                             placeholder="e.g. 201"
                             value={manualTrainId}
@@ -304,8 +304,8 @@ export default function TrainOperatorPwa({
 
                       <div className="grid grid-cols-2 gap-3 text-xs">
                         <div className="space-y-1">
-                          <label className="text-[9px] text-neutral-500 uppercase font-bold">Sign-On Time</label>
-                          <input
+                          <label className="text-[9px] text-neutral-500 uppercase font-bold" htmlFor="trainoperatorpwa-l3">Sign-On Time</label>
+                          <input id="trainoperatorpwa-i3" name="trainoperatorpwa-i3"
                             type="text"
                             placeholder="e.g. 06:00:00"
                             value={manualSignOnTime}
@@ -315,8 +315,8 @@ export default function TrainOperatorPwa({
                           />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[9px] text-neutral-500 uppercase font-bold">Sign-Off Time</label>
-                          <input
+                          <label className="text-[9px] text-neutral-500 uppercase font-bold" htmlFor="trainoperatorpwa-l4">Sign-Off Time</label>
+                          <input id="trainoperatorpwa-i4" name="trainoperatorpwa-i4"
                             type="text"
                             placeholder="e.g. 14:00:00"
                             value={manualSignOffTime}
@@ -328,8 +328,8 @@ export default function TrainOperatorPwa({
                       </div>
 
                       <div className="space-y-1 text-xs">
-                        <label className="text-[9px] text-neutral-500 uppercase font-bold">Sign-On Location</label>
-                        <select
+                        <label className="text-[9px] text-neutral-500 uppercase font-bold" htmlFor="trainoperatorpwa-l5">Sign-On Location</label>
+                        <select id="trainoperatorpwa-i5" name="trainoperatorpwa-i5"
                           value={manualLocation}
                           onChange={(e) => setManualLocation(e.target.value)}
                           className="w-full bg-neutral-900 border border-neutral-800 rounded p-2 text-white font-mono"
@@ -460,8 +460,8 @@ export default function TrainOperatorPwa({
               
               <div className="space-y-3 text-xs">
                 <div>
-                  <label className="block text-[10px] text-neutral-500 mb-1 uppercase">Full Name (Read Only)</label>
-                  <input 
+                  <label className="block text-[10px] text-neutral-500 mb-1 uppercase" htmlFor="trainoperatorpwa-l6">Full Name (Read Only)</label>
+                  <input id="trainoperatorpwa-i6" name="trainoperatorpwa-i6" 
                     type="text" 
                     value={userProfile?.employeeName || ''} 
                     disabled 
@@ -470,8 +470,8 @@ export default function TrainOperatorPwa({
                 </div>
 
                 <div>
-                  <label className="block text-[10px] text-neutral-500 mb-1 uppercase">Contact Mobile</label>
-                  <input 
+                  <label className="block text-[10px] text-neutral-500 mb-1 uppercase" htmlFor="trainoperatorpwa-l7">Contact Mobile</label>
+                  <input id="trainoperatorpwa-i7" name="trainoperatorpwa-i7" 
                     type="text" 
                     value={profileForm.contact} 
                     onChange={e => setProfileForm({ ...profileForm, contact: e.target.value })} 
@@ -481,8 +481,8 @@ export default function TrainOperatorPwa({
                 </div>
 
                 <div>
-                  <label className="block text-[10px] text-neutral-500 mb-1 uppercase">Email Address</label>
-                  <input 
+                  <label className="block text-[10px] text-neutral-500 mb-1 uppercase" htmlFor="trainoperatorpwa-l8">Email Address</label>
+                  <input id="trainoperatorpwa-i8" name="trainoperatorpwa-i8" 
                     type="email" 
                     value={profileForm.email} 
                     onChange={e => setProfileForm({ ...profileForm, email: e.target.value })} 
@@ -493,8 +493,8 @@ export default function TrainOperatorPwa({
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-[10px] text-neutral-500 mb-1 uppercase">Blood Group</label>
-                    <input 
+                    <label className="block text-[10px] text-neutral-500 mb-1 uppercase" htmlFor="trainoperatorpwa-l9">Blood Group</label>
+                    <input id="trainoperatorpwa-i9" name="trainoperatorpwa-i9" 
                       type="text" 
                       value={profileForm.bloodGroup} 
                       onChange={e => setProfileForm({ ...profileForm, bloodGroup: e.target.value })} 
@@ -503,8 +503,8 @@ export default function TrainOperatorPwa({
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-neutral-500 mb-1 uppercase">Emergency Contact</label>
-                    <input 
+                    <label className="block text-[10px] text-neutral-500 mb-1 uppercase" htmlFor="trainoperatorpwa-l10">Emergency Contact</label>
+                    <input id="trainoperatorpwa-i10" name="trainoperatorpwa-i10" 
                       type="text" 
                       value={profileForm.emergencyContact} 
                       onChange={e => setProfileForm({ ...profileForm, emergencyContact: e.target.value })} 
@@ -515,8 +515,8 @@ export default function TrainOperatorPwa({
                 </div>
 
                 <div>
-                  <label className="block text-[10px] text-neutral-500 mb-1 uppercase">PME Medical Expiry</label>
-                  <input 
+                  <label className="block text-[10px] text-neutral-500 mb-1 uppercase" htmlFor="trainoperatorpwa-l11">PME Medical Expiry</label>
+                  <input id="trainoperatorpwa-i11" name="trainoperatorpwa-i11" 
                     type="date" 
                     value={profileForm.medicalValidTill} 
                     onChange={e => setProfileForm({ ...profileForm, medicalValidTill: e.target.value })} 

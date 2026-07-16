@@ -26,7 +26,7 @@ export default function StationSafetyChecklist() {
       <h2 className='text-emerald-400 font-bold mb-6 flex items-center gap-2'><ShieldCheck /> Daily Station Safety</h2>
       <div className='space-y-4 mb-6'>
         {['fireSafety', 'cctv', 'platformEdge'].map(item => (
-          <label key={item} className='flex items-center gap-3 text-slate-300'>
+          <label key={item} className='flex items-center gap-3 text-slate-300' htmlFor="stationsafetycheckli-l1">
             <input type="checkbox" className='w-4 h-4' checked={report[item]} onChange={e => setReport({...report, [item]: e.target.checked})} />
             {item.toUpperCase()} Verified
           </label>

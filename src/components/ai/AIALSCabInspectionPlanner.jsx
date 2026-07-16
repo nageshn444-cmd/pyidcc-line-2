@@ -674,7 +674,7 @@ export default function AIALSCabInspectionPlanner() {
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
           <div className="bg-slate-950 border border-slate-850 p-1.5 rounded-lg flex items-center gap-2">
             <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider px-1">Officer:</span>
-            <select
+            <select id="aialscabinspectionpl-i1" name="aialscabinspectionpl-i1"
               value={activeOfficer}
               onChange={e => {
                 setActiveOfficer(e.target.value);
@@ -691,7 +691,7 @@ export default function AIALSCabInspectionPlanner() {
           <div className="bg-slate-950 border border-slate-850 p-1.5 rounded-lg flex items-center gap-2">
             <Calendar className="h-3.5 w-3.5 text-indigo-400" />
             <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Date:</span>
-            <input
+            <input id="aialscabinspectionpl-i2" name="aialscabinspectionpl-i2"
               type="date"
               value={selectedDate}
               onChange={e => {
@@ -707,7 +707,7 @@ export default function AIALSCabInspectionPlanner() {
           <div className="bg-slate-950 border border-slate-850 p-1.5 rounded-lg flex items-center gap-2">
             <MapPin className="h-3.5 w-3.5 text-emerald-400" />
             <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Start:</span>
-            <select
+            <select id="aialscabinspectionpl-i3" name="aialscabinspectionpl-i3"
               value={startingStation}
               onChange={e => setStartingStation(e.target.value)}
               className="bg-transparent border-none text-emerald-400 font-bold focus:outline-none cursor-pointer"
@@ -721,7 +721,7 @@ export default function AIALSCabInspectionPlanner() {
           <div className="bg-slate-950 border border-slate-850 p-1.5 rounded-lg flex items-center gap-2">
             <Clock className="h-3.5 w-3.5 text-amber-400" />
             <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Time:</span>
-            <input
+            <input id="aialscabinspectionpl-i4" name="aialscabinspectionpl-i4"
               type="time"
               value={startingTime}
               onChange={e => setStartingTime(e.target.value)}
@@ -829,10 +829,10 @@ export default function AIALSCabInspectionPlanner() {
                 <h3 className="text-xs font-black text-slate-200 uppercase tracking-widest border-b border-slate-800 pb-2">Filter Operators</h3>
                 
                 <div className="space-y-1">
-                  <label className="text-[9px] text-slate-500 font-bold uppercase block">Search Name or ID</label>
+                  <label className="text-[9px] text-slate-500 font-bold uppercase block" htmlFor="aialscabinspectionpl-l1">Search Name or ID</label>
                   <div className="relative">
                     <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-slate-500" />
-                    <input
+                    <input id="aialscabinspectionpl-i5" name="aialscabinspectionpl-i5"
                       type="text"
                       placeholder="e.g. BHARATH"
                       value={searchQuery}
@@ -843,8 +843,8 @@ export default function AIALSCabInspectionPlanner() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[9px] text-slate-500 font-bold uppercase block">Shift Filter</label>
-                  <select
+                  <label className="text-[9px] text-slate-500 font-bold uppercase block" htmlFor="aialscabinspectionpl-l2">Shift Filter</label>
+                  <select id="aialscabinspectionpl-i6" name="aialscabinspectionpl-i6"
                     value={filterShift}
                     onChange={e => setFilterShift(e.target.value)}
                     className="w-full bg-slate-955 border border-slate-850 p-2 rounded outline-none text-slate-350 cursor-pointer focus:border-cyan-500"
@@ -915,7 +915,7 @@ export default function AIALSCabInspectionPlanner() {
                             className={`hover:bg-slate-955/40 cursor-pointer transition ${isSelected ? 'bg-cyan-950/10' : ''}`}
                           >
                             <td className="p-3 text-center" onClick={e => e.stopPropagation()}>
-                              <input
+                              <input id="aialscabinspectionpl-i7" name="aialscabinspectionpl-i7"
                                 type="checkbox"
                                 checked={isSelected}
                                 onChange={() => toggleSelectOp(op.empId)}
@@ -1298,8 +1298,8 @@ export default function AIALSCabInspectionPlanner() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-400 font-bold block">ALS Officer Name*</label>
-                <select
+                <label className="text-slate-400 font-bold block" htmlFor="aialscabinspectionpl-l3">ALS Officer Name*</label>
+                <select id="aialscabinspectionpl-i8" name="aialscabinspectionpl-i8"
                   value={inspectionForm.alsName}
                   onChange={e => setInspectionForm({ ...inspectionForm, alsName: e.target.value })}
                   className="w-full bg-slate-955 border border-slate-750 rounded p-2 focus:border-cyan-500 outline-none text-slate-255 cursor-pointer"
@@ -1311,9 +1311,9 @@ export default function AIALSCabInspectionPlanner() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-400 font-bold block">Overall Inspection Score (1-10)*</label>
+                <label className="text-slate-400 font-bold block" htmlFor="aialscabinspectionpl-l4">Overall Inspection Score (1-10)*</label>
                 <div className="flex items-center gap-3">
-                  <input
+                  <input id="aialscabinspectionpl-i9" name="aialscabinspectionpl-i9"
                     type="range"
                     min="1"
                     max="10"
@@ -1326,8 +1326,8 @@ export default function AIALSCabInspectionPlanner() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-400 font-bold block">Result Decision*</label>
-                <select
+                <label className="text-slate-400 font-bold block" htmlFor="aialscabinspectionpl-l5">Result Decision*</label>
+                <select id="aialscabinspectionpl-i10" name="aialscabinspectionpl-i10"
                   value={inspectionForm.inspectionResult}
                   onChange={e => setInspectionForm({ ...inspectionForm, inspectionResult: e.target.value })}
                   className="w-full bg-slate-955 border border-slate-750 rounded p-2 focus:border-cyan-500 outline-none text-slate-255 cursor-pointer"
@@ -1339,8 +1339,8 @@ export default function AIALSCabInspectionPlanner() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-400 font-bold block">Remarks & Observational Notes</label>
-                <textarea
+                <label className="text-slate-400 font-bold block" htmlFor="aialscabinspectionpl-l6">Remarks & Observational Notes</label>
+                <textarea id="aialscabinspectionpl-i11" name="aialscabinspectionpl-i11"
                   placeholder="e.g. Followed all safety protocols, punctual sign-on, tidy cab cabin."
                   value={inspectionForm.remarks}
                   onChange={e => setInspectionForm({ ...inspectionForm, remarks: e.target.value })}
@@ -1349,8 +1349,8 @@ export default function AIALSCabInspectionPlanner() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-400 font-bold block">Photo Asset Link URL (Optional)</label>
-                <input
+                <label className="text-slate-400 font-bold block" htmlFor="aialscabinspectionpl-l7">Photo Asset Link URL (Optional)</label>
+                <input id="aialscabinspectionpl-i12" name="aialscabinspectionpl-i12"
                   type="text"
                   placeholder="e.g. /assets/photos/insp_20009.jpg"
                   value={inspectionForm.photo}

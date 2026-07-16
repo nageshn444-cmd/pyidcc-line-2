@@ -680,7 +680,7 @@ export default function UserManagement() {
             {/* Search Input */}
             <div className="relative flex-1 md:w-64">
               <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-500" />
-              <input 
+              <input id="usermanagement-i1" name="usermanagement-i1" 
                 type="text" 
                 placeholder="Search Emp ID / Name / Designation..." 
                 value={searchTerm} 
@@ -690,7 +690,7 @@ export default function UserManagement() {
             </div>
 
             {/* Filter Status */}
-            <select 
+            <select id="usermanagement-i2" name="usermanagement-i2" 
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-slate-300 focus:outline-none focus:border-amber-500"
@@ -702,7 +702,7 @@ export default function UserManagement() {
             </select>
 
             {/* Filter Role */}
-            <select 
+            <select id="usermanagement-i3" name="usermanagement-i3" 
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
               className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-slate-300 focus:outline-none focus:border-amber-500"
@@ -853,8 +853,8 @@ export default function UserManagement() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Select Role</label>
-              <select 
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5" htmlFor="usermanagement-l1">Select Role</label>
+              <select id="usermanagement-i4" name="usermanagement-i4" 
                 value={newRole}
                 onChange={(e) => setNewRole(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 focus:outline-none"
@@ -901,8 +901,8 @@ export default function UserManagement() {
 
             <div className="space-y-3">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 font-mono">Select Rejection Reason</label>
-                <select 
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 font-mono" htmlFor="usermanagement-l2">Select Rejection Reason</label>
+                <select id="usermanagement-i5" name="usermanagement-i5" 
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-805 rounded-lg p-2 text-xs text-slate-250 focus:outline-none font-mono"
@@ -918,8 +918,8 @@ export default function UserManagement() {
 
               {rejectionReason === 'Others' && (
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 font-mono">Custom Reason</label>
-                  <input
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 font-mono" htmlFor="usermanagement-l3">Custom Reason</label>
+                  <input id="usermanagement-i6" name="usermanagement-i6"
                     type="text"
                     required
                     placeholder="Enter custom reason..."
@@ -976,8 +976,8 @@ export default function UserManagement() {
                     <span className="text-xs font-black text-slate-200 uppercase tracking-wide block">{modName} Module</span>
                     
                     <div className="flex flex-wrap gap-4 pt-1">
-                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-350 cursor-pointer">
-                        <input 
+                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-350 cursor-pointer" htmlFor="usermanagement-l4">
+                        <input id="usermanagement-i7" name="usermanagement-i7" 
                           type="checkbox" 
                           checked={viewVal}
                           onChange={(e) => {
@@ -994,8 +994,8 @@ export default function UserManagement() {
                         View
                       </label>
 
-                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-350 cursor-pointer">
-                        <input 
+                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-350 cursor-pointer" htmlFor="usermanagement-l5">
+                        <input id="usermanagement-i8" name="usermanagement-i8" 
                           type="checkbox" 
                           checked={editVal}
                           onChange={(e) => {
@@ -1012,8 +1012,8 @@ export default function UserManagement() {
                         Edit
                       </label>
 
-                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-350 cursor-pointer">
-                        <input 
+                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-350 cursor-pointer" htmlFor="usermanagement-l6">
+                        <input id="usermanagement-i9" name="usermanagement-i9" 
                           type="checkbox" 
                           checked={createVal}
                           onChange={(e) => {
@@ -1030,8 +1030,8 @@ export default function UserManagement() {
                         Create
                       </label>
 
-                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-350 cursor-pointer">
-                        <input 
+                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-350 cursor-pointer" htmlFor="usermanagement-l7">
+                        <input id="usermanagement-i10" name="usermanagement-i10" 
                           type="checkbox" 
                           checked={approveVal}
                           onChange={(e) => {
@@ -1048,8 +1048,8 @@ export default function UserManagement() {
                         Approve
                       </label>
 
-                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-350 cursor-pointer">
-                        <input 
+                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-350 cursor-pointer" htmlFor="usermanagement-l8">
+                        <input id="usermanagement-i11" name="usermanagement-i11" 
                           type="checkbox" 
                           checked={deleteVal}
                           onChange={(e) => {

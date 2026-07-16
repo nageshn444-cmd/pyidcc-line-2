@@ -638,7 +638,7 @@ export default function UserControlCenter() {
         <div className="space-y-3 mb-4">
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500" />
-            <input 
+            <input id="usercontrolcenter-i1" name="usercontrolcenter-i1" 
               type="text" 
               placeholder="Search ID / Name..." 
               value={searchQuery}
@@ -649,8 +649,8 @@ export default function UserControlCenter() {
 
           <div className="grid grid-cols-2 gap-2 text-[9px] text-slate-400">
             <div>
-              <label className="block mb-1 font-bold uppercase">Designation</label>
-              <select 
+              <label className="block mb-1 font-bold uppercase" htmlFor="usercontrolcenter-l1">Designation</label>
+              <select id="usercontrolcenter-i2" name="usercontrolcenter-i2" 
                 value={filterDesignation}
                 onChange={(e) => setFilterDesignation(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded p-1 text-[9px] focus:outline-none"
@@ -665,8 +665,8 @@ export default function UserControlCenter() {
               </select>
             </div>
             <div>
-              <label className="block mb-1 font-bold uppercase">Depot</label>
-              <select 
+              <label className="block mb-1 font-bold uppercase" htmlFor="usercontrolcenter-l2">Depot</label>
+              <select id="usercontrolcenter-i3" name="usercontrolcenter-i3" 
                 value={filterDepot}
                 onChange={(e) => setFilterDepot(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded p-1 text-[9px] focus:outline-none"
@@ -679,8 +679,8 @@ export default function UserControlCenter() {
 
           <div className="grid grid-cols-2 gap-2 text-[9px] text-slate-400">
             <div>
-              <label className="block mb-1 font-bold uppercase">Assigned Role</label>
-              <select 
+              <label className="block mb-1 font-bold uppercase" htmlFor="usercontrolcenter-l3">Assigned Role</label>
+              <select id="usercontrolcenter-i4" name="usercontrolcenter-i4" 
                 value={filterRole}
                 onChange={(e) => setFilterRole(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded p-1 text-[9px] focus:outline-none"
@@ -695,8 +695,8 @@ export default function UserControlCenter() {
               </select>
             </div>
             <div>
-              <label className="block mb-1 font-bold uppercase">Status</label>
-              <select 
+              <label className="block mb-1 font-bold uppercase" htmlFor="usercontrolcenter-l4">Status</label>
+              <select id="usercontrolcenter-i5" name="usercontrolcenter-i5" 
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded p-1 text-[9px] focus:outline-none"
@@ -740,7 +740,7 @@ export default function UserControlCenter() {
                   }`}
                 >
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <input 
+                    <input id="usercontrolcenter-i6" name="usercontrolcenter-i6" 
                       type="checkbox"
                       checked={selectedEmpIds.includes(emp.employeeId)}
                       onChange={(e) => handleCheckboxToggle(e, emp.employeeId)}
@@ -825,7 +825,7 @@ export default function UserControlCenter() {
               </p>
               
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <select
+                <select id="usercontrolcenter-i7" name="usercontrolcenter-i7"
                   defaultValue=""
                   onChange={(e) => {
                     const val = e.target.value;
@@ -964,7 +964,7 @@ export default function UserControlCenter() {
                   {/* Role dropdown */}
                   <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg px-3 py-1">
                     <span className="text-slate-500 mr-2 text-[9px] tracking-wider">Role:</span>
-                    <select
+                    <select id="usercontrolcenter-i8" name="usercontrolcenter-i8"
                       value={selectedUser.role || ''}
                       onChange={(e) => handleRoleChange(e.target.value)}
                       disabled={isSelectedOwner}

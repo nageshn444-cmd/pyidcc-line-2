@@ -231,7 +231,7 @@ export default function AIRouteCopilot({ stations, onApplySequence }) {
               </button>
             </div>
 
-            <textarea
+            <textarea id="airoutecopilot-i1" name="airoutecopilot-i1"
               id="ai-prompt-input"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}

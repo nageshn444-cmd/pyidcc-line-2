@@ -137,7 +137,7 @@ export default function RoleManagement() {
                           {isSuper ? (
                             <span className="text-emerald-500 font-black uppercase text-[10px] tracking-wider">Full</span>
                           ) : (
-                            <select 
+                            <select id="rolemanagement-i1" name="rolemanagement-i1" 
                               value={currentVal}
                               onChange={(e) => handlePermissionChange(role.id, mod, e.target.value)}
                               disabled={saving}

@@ -61,7 +61,7 @@ export default function OccControllerLayout({
           {/* Local theme switch */}
           <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg p-1 text-[10px]">
             <span className="text-slate-500 px-1 font-bold">THEME:</span>
-            <select 
+            <select id="occcontrollerlayout-i1" name="occcontrollerlayout-i1" 
               value={theme} 
               onChange={(e) => setTheme(e.target.value)}
               className="bg-transparent border-none text-emerald-400 font-bold outline-none cursor-pointer"

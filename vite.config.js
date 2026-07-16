@@ -6,7 +6,9 @@ import fs from 'fs';
 export default defineConfig({
   plugins: [
     react({
-      fastRefresh: false,
+      // fastRefresh MUST be true — setting false forces full-page reloads
+      // on every save and is the primary HMR invalidation cause.
+      fastRefresh: true,
     }),
     {
       name: 'crew-registry-api',
@@ -19,11 +21,8 @@ export default defineConfig({
             let body = '';
             req.on('data', chunk => { body += chunk; });
             req.on('end', () => {
-              try {
-                resolve(JSON.parse(body));
-              } catch (e) {
-                reject(e);
-              }
+              try { resolve(JSON.parse(body)); }
+              catch (e) { reject(e); }
             });
             req.on('error', err => reject(err));
           });
@@ -41,7 +40,11 @@ export default defineConfig({
 
               for (const { path: filePath, jsonLike } of filesToUpdate) {
                 const fileContent = fs.readFileSync(filePath, 'utf8');
-                if (fileContent.includes(`id: "${member.id}"`) || fileContent.includes(`id: '${member.id}'`) || fileContent.includes(`"id": "${member.id}"`)) {
+                if (
+                  fileContent.includes(`id: "${member.id}"`) ||
+                  fileContent.includes(`id: '${member.id}'`) ||
+                  fileContent.includes(`"id": "${member.id}"`)
+                ) {
                   console.log(`[Crew API] Member ID ${member.id} already exists in ${filePath}`);
                   continue;
                 }
@@ -51,15 +54,14 @@ export default defineConfig({
                   const lastBraceIndex = fileContent.lastIndexOf('}', lastBracketIndex);
                   if (lastBraceIndex !== -1) {
                     const before = fileContent.slice(0, lastBraceIndex + 1);
-                    const after = fileContent.slice(lastBraceIndex + 1);
+                    const after  = fileContent.slice(lastBraceIndex + 1);
                     
                     const entry = jsonLike
                       ? `\n  { "id": "${member.id}", "name": "${member.name}", "designation": "${member.designation}", "contact": "${member.contact}", "email": "${member.email}", "competencyExpiry": "${member.competencyExpiry || ''}" }`
                       : `\n  { id: "${member.id}", name: "${member.name}", designation: "${member.designation}", contact: "${member.contact}", email: "${member.email}", competencyExpiry: "${member.competencyExpiry || ''}" }`;
                     
-                    const updatedContent = before + ',' + entry + after;
-                    fs.writeFileSync(filePath, updatedContent, 'utf8');
-                    console.log(`[Crew API] Successfully appended member ID ${member.id} to ${filePath}`);
+                    fs.writeFileSync(filePath, before + ',' + entry + after, 'utf8');
+                    console.log(`[Crew API] Appended member ID ${member.id} to ${filePath}`);
                   }
                 }
               }
@@ -71,6 +73,7 @@ export default defineConfig({
               res.writeHead(500, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ error: err.message }));
             }
+
           } else if (pathName === '/api/crew/edit' && req.method === 'POST') {
             console.log("[Crew API] Editing crew member...");
             try {
@@ -83,15 +86,19 @@ export default defineConfig({
 
               for (const { path: filePath, jsonLike } of filesToUpdate) {
                 const fileContent = fs.readFileSync(filePath, 'utf8');
-                const lines = fileContent.split('\n');
-                const lineIdx = lines.findIndex(l => l.includes(`id: "${member.id}"`) || l.includes(`id: '${member.id}'`) || l.includes(`"id": "${member.id}"`));
+                const lines   = fileContent.split('\n');
+                const lineIdx = lines.findIndex(l =>
+                  l.includes(`id: "${member.id}"`) ||
+                  l.includes(`id: '${member.id}'`) ||
+                  l.includes(`"id": "${member.id}"`)
+                );
                 
                 if (lineIdx !== -1) {
                   lines[lineIdx] = jsonLike
                     ? `  { "id": "${member.id}", "name": "${member.name}", "designation": "${member.designation}", "contact": "${member.contact}", "email": "${member.email}", "competencyExpiry": "${member.competencyExpiry || ''}" },`
                     : `  { id: "${member.id}", name: "${member.name}", designation: "${member.designation}", contact: "${member.contact}", email: "${member.email}", competencyExpiry: "${member.competencyExpiry || ''}" },`;
                   fs.writeFileSync(filePath, lines.join('\n'), 'utf8');
-                  console.log(`[Crew API] Successfully edited member ID ${member.id} in ${filePath}`);
+                  console.log(`[Crew API] Edited member ID ${member.id} in ${filePath}`);
                 }
               }
 
@@ -102,6 +109,7 @@ export default defineConfig({
               res.writeHead(500, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ error: err.message }));
             }
+
           } else if (pathName === '/api/crew/delete' && req.method === 'POST') {
             console.log("[Crew API] Deleting crew member...");
             try {
@@ -114,13 +122,16 @@ export default defineConfig({
 
               for (const filePath of filesToUpdate) {
                 const fileContent = fs.readFileSync(filePath, 'utf8');
-                const lines = fileContent.split('\n');
-                const lineIdx = lines.findIndex(l => l.includes(`id: "${id}"`) || l.includes(`id: '${id}'`) || l.includes(`"id": "${id}"`));
+                const lines   = fileContent.split('\n');
+                const lineIdx = lines.findIndex(l =>
+                  l.includes(`id: "${id}"`) ||
+                  l.includes(`id: '${id}'`) ||
+                  l.includes(`"id": "${id}"`)
+                );
                 
                 if (lineIdx !== -1) {
-                  const updatedLines = lines.filter((_, idx) => idx !== lineIdx);
-                  fs.writeFileSync(filePath, updatedLines.join('\n'), 'utf8');
-                  console.log(`[Crew API] Successfully deleted member ID ${id} from ${filePath}`);
+                  fs.writeFileSync(filePath, lines.filter((_, i) => i !== lineIdx).join('\n'), 'utf8');
+                  console.log(`[Crew API] Deleted member ID ${id} from ${filePath}`);
                 }
               }
 
@@ -138,36 +149,46 @@ export default defineConfig({
       }
     }
   ],
+
   server: {
     host: 'localhost',
     port: 5173,
-    strictPort: true, // Ensures the server stays on this port to prevent HMR drift
+    strictPort: true,
     hmr: {
-      // Explicitly configured to resolve WebSocket connection failure
       protocol: 'ws',
       host: 'localhost',
+      // Prevent false HMR disconnections during slow transforms
+      timeout: 5000,
     },
     watch: {
-      usePolling: false, // Set to true only if HMR fails to detect file changes on Windows
-    }
+      usePolling: false,
+      // ─── KEY FIX ──────────────────────────────────────────────────────────
+      // The crew-registry-api plugin above writes to bmrclCrewRegistry.js and
+      // BmrclCrewRegistry.js at runtime.  Without this 'ignored' list, every
+      // API write causes Vite to re-transform those modules → HMR invalidates
+      // all their dependents → browser full-reloads → infinite invalidation.
+      ignored: [
+        '**/node_modules/**',
+        '**/.git/**',
+        '**/src/data/bmrclCrewRegistry.js',
+        '**/src/components/BmrclCrewRegistry.js',
+      ],
+    },
   },
+
   build: {
-    chunkSizeWarningLimit: 1600, // Accommodates enterprise modules
+    // Raise the limit to suppress warnings for large enterprise modules
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
         manualChunks(id) {
-          // Code-splitting logic to separate heavy vendor dependencies
           if (id.includes('node_modules')) {
-            if (id.includes('firebase')) {
-              return 'vendor-firebase'; // Isolates cloud database communication engines
-            }
-            if (id.includes('lucide-react')) {
-              return 'vendor-ui-icons'; // Separates control room UI vector assets
-            }
-            return 'vendor-core-framework'; // Standard rendering modules
+            if (id.includes('firebase'))     return 'vendor-firebase';
+            if (id.includes('lucide-react')) return 'vendor-ui-icons';
+            return 'vendor-core-framework';
           }
-        }
-      }
-    }
-  }
+        },
+      },
+    },
+  },
 });

@@ -20,6 +20,7 @@ export default function StationControllerLayout({
 }) {
   const { theme, setTheme, accessibility, setAccessibility } = useTheme();
   const { userProfile, logout, hasPermission, permissions } = useAuth();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const menuItems = [
     { id: 'CHECKLIST', label: 'Safety Checklist', icon: ClipboardCheck, module: 'Shift Handovers' },
@@ -55,8 +56,16 @@ export default function StationControllerLayout({
   return (
     <div className={`min-h-screen flex bg-slate-950 font-mono text-slate-200 ${theme}`}>
       
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-4 sticky top-0 h-screen select-none z-40">
+      <aside className={`fixed lg:static top-0 left-0 h-screen w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-4 select-none z-50 overflow-y-auto transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div>
           <div className="flex items-center gap-2.5 pb-5 mb-5 border-b border-slate-800">
             <div className="h-8 w-8 bg-purple-600 rounded flex items-center justify-center font-black text-slate-100 shadow-[0_0_15px_rgba(147,51,234,0.3)]">
@@ -72,7 +81,7 @@ export default function StationControllerLayout({
             {allowedMenuItems.map(item => (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => { setActiveTab(item.id); setIsSidebarOpen(false); }}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-left text-xs font-bold transition-all ${activeTab === item.id ? 'bg-purple-600/15 text-purple-400 border border-purple-800/40 font-bold' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
               >
                 <item.icon className="h-4 w-4" />
@@ -96,20 +105,30 @@ export default function StationControllerLayout({
       </aside>
 
       {/* Main Workstation */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
         
         {/* Top Control Bar */}
-        <header className="h-16 bg-[var(--header-bg)] backdrop-blur-md border-b border-[var(--border-color)] px-6 flex items-center justify-between sticky top-0 z-30 shadow-sm">
+        <header className="h-16 bg-[var(--header-bg)] backdrop-blur-md border-b border-[var(--border-color)] px-3 lg:px-6 flex items-center justify-between sticky top-0 z-30 shadow-sm">
           <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-purple-400" />
-            <span className="text-xs font-bold uppercase text-slate-400">Local Station Operations Terminal | {stationCode}</span>
+            {/* Mobile Hamburger */}
+            <button
+              onClick={() => setIsSidebarOpen(prev => !prev)}
+              className="lg:hidden p-1.5 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-white transition"
+              title="Toggle navigation"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <MapPin className="h-4 w-4 text-purple-400 hidden sm:block" />
+            <span className="text-xs font-bold uppercase text-slate-400 hidden sm:block">Local Station Operations Terminal | {stationCode}</span>
           </div>
 
           <div className="flex items-center gap-3">
             {/* Accessibility scale */}
             <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg p-1 text-[10px]">
               <span className="text-slate-500 px-1 font-bold">FONT:</span>
-              <select 
+              <select id="stationcontrollerlay-i1" name="stationcontrollerlay-i1" 
                 value={accessibility.fontSize} 
                 onChange={(e) => setAccessibility({ fontSize: e.target.value })}
                 className="bg-transparent border-none text-purple-400 font-bold outline-none cursor-pointer"
@@ -123,7 +142,7 @@ export default function StationControllerLayout({
         </header>
 
         {/* Content Body */}
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-3 lg:p-6 overflow-y-auto">
           {activeTab === 'CHECKLIST' ? (
             <div className="space-y-6">
               <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl">

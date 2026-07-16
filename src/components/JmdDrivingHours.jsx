@@ -641,7 +641,7 @@ export default function JmdDrivingHours() {
         <div className="flex flex-wrap items-center gap-3 bg-slate-900/60 p-3 rounded-xl border border-slate-800 shadow-inner">
           <div className="flex items-center gap-2 border-r border-slate-800 pr-3">
             <Calendar className="h-4 w-4 text-cyan-400" />
-            <select
+            <select id="jmddrivinghours-i1" name="jmddrivinghours-i1"
               value={dateRangeType}
               onChange={(e) => setDateRangeType(e.target.value)}
               className="bg-slate-950 border border-slate-700 text-xs rounded px-2.5 py-1 focus:outline-none text-slate-300 font-bold"
@@ -653,7 +653,7 @@ export default function JmdDrivingHours() {
 
           <div className="flex items-center gap-2 border-r border-slate-800 pr-3">
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Day Type:</span>
-            <select
+            <select id="jmddrivinghours-i2" name="jmddrivinghours-i2"
               value={activeDayType}
               onChange={(e) => setActiveDayType(e.target.value)}
               className="bg-slate-950 border border-slate-700 text-xs rounded px-2.5 py-1 focus:outline-none text-slate-350 font-bold"
@@ -666,7 +666,7 @@ export default function JmdDrivingHours() {
           </div>
 
           <div className="flex items-center gap-2">
-            <input
+            <input id="jmddrivinghours-i3" name="jmddrivinghours-i3"
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
@@ -675,7 +675,7 @@ export default function JmdDrivingHours() {
             {dateRangeType === 'RANGE' && (
               <>
                 <span className="text-slate-500 font-bold">-</span>
-                <input
+                <input id="jmddrivinghours-i4" name="jmddrivinghours-i4"
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
@@ -767,7 +767,7 @@ export default function JmdDrivingHours() {
             <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
               <div className="relative w-full sm:w-56">
                 <Search size={14} className="absolute left-3 top-2.5 text-slate-500" />
-                <input
+                <input id="jmddrivinghours-i5" name="jmddrivinghours-i5"
                   type="text"
                   placeholder="Search Duty ID..."
                   value={searchQuery}
@@ -776,7 +776,7 @@ export default function JmdDrivingHours() {
                 />
               </div>
 
-              <select
+              <select id="jmddrivinghours-i6" name="jmddrivinghours-i6"
                 value={filterDutyType}
                 onChange={(e) => setFilterDutyType(e.target.value)}
                 className="bg-slate-955 border border-slate-800 text-xs rounded px-3 py-1.5 focus:outline-none text-slate-300 font-bold"
@@ -787,7 +787,7 @@ export default function JmdDrivingHours() {
                 <option value="LOW">Low load (&lt;= 3h)</option>
               </select>
 
-              <select
+              <select id="jmddrivinghours-i7" name="jmddrivinghours-i7"
                 value={sortField}
                 onChange={(e) => setSortField(e.target.value)}
                 className="bg-slate-955 border border-slate-800 text-xs rounded px-3 py-1.5 focus:outline-none text-slate-300 font-bold"
@@ -893,7 +893,7 @@ export default function JmdDrivingHours() {
                         onClick={() => setExpandedDuty(isExpanded ? null : duty.dutyId)}
                       >
                         <td className="py-2.5 px-4" onClick={(e) => e.stopPropagation()}>
-                          <input
+                          <input id="jmddrivinghours-i8" name="jmddrivinghours-i8"
                             type="checkbox"
                             checked={selectedDuties.includes(duty.dutyId)}
                             onChange={() => toggleSelectDuty(duty.dutyId)}
@@ -987,7 +987,7 @@ export default function JmdDrivingHours() {
 
             <div className="space-y-3.5">
               <div className="space-y-1">
-                <label className="text-[9px] text-slate-500 font-black uppercase">Selected Duties for Group</label>
+                <label className="text-[9px] text-slate-500 font-black uppercase" htmlFor="jmddrivinghours-l1">Selected Duties for Group</label>
                 <div className="bg-slate-950/60 p-3 rounded-lg border border-slate-800 max-h-32 overflow-y-auto text-[10px] flex flex-wrap gap-1.5">
                   {selectedDuties.map(d => (
                     <span key={d} className="bg-cyan-950/40 text-cyan-400 border border-cyan-900/30 px-2 py-0.5 rounded font-bold">Duty {d}</span>
@@ -997,8 +997,8 @@ export default function JmdDrivingHours() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[9px] text-slate-500 font-black uppercase">Group Name</label>
-                <input
+                <label className="text-[9px] text-slate-500 font-black uppercase" htmlFor="jmddrivinghours-l2">Group Name</label>
+                <input id="jmddrivinghours-i9" name="jmddrivinghours-i9"
                   type="text"
                   placeholder="e.g. Weekday Morning Peak"
                   value={newGroupName}
@@ -1073,8 +1073,8 @@ export default function JmdDrivingHours() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-[9px] text-slate-500 font-black uppercase">Select Duty A</label>
-                <select
+                <label className="text-[9px] text-slate-500 font-black uppercase" htmlFor="jmddrivinghours-l3">Select Duty A</label>
+                <select id="jmddrivinghours-i10" name="jmddrivinghours-i10"
                   value={compDutyA}
                   onChange={(e) => setCompDutyA(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 text-xs rounded px-2.5 py-1.5 focus:outline-none text-slate-200"
@@ -1087,8 +1087,8 @@ export default function JmdDrivingHours() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[9px] text-slate-500 font-black uppercase">Select Duty B</label>
-                <select
+                <label className="text-[9px] text-slate-500 font-black uppercase" htmlFor="jmddrivinghours-l4">Select Duty B</label>
+                <select id="jmddrivinghours-i11" name="jmddrivinghours-i11"
                   value={compDutyB}
                   onChange={(e) => setCompDutyB(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 text-xs rounded px-2.5 py-1.5 focus:outline-none text-slate-200"
@@ -1147,8 +1147,8 @@ export default function JmdDrivingHours() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-[9px] text-slate-500 font-black uppercase">Select Group A</label>
-                <select
+                <label className="text-[9px] text-slate-500 font-black uppercase" htmlFor="jmddrivinghours-l5">Select Group A</label>
+                <select id="jmddrivinghours-i12" name="jmddrivinghours-i12"
                   value={compGroupA}
                   onChange={(e) => setCompGroupA(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 text-xs rounded px-2.5 py-1.5 focus:outline-none text-slate-200"
@@ -1161,8 +1161,8 @@ export default function JmdDrivingHours() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[9px] text-slate-500 font-black uppercase">Select Group B</label>
-                <select
+                <label className="text-[9px] text-slate-500 font-black uppercase" htmlFor="jmddrivinghours-l6">Select Group B</label>
+                <select id="jmddrivinghours-i13" name="jmddrivinghours-i13"
                   value={compGroupB}
                   onChange={(e) => setCompGroupB(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 text-xs rounded px-2.5 py-1.5 focus:outline-none text-slate-200"

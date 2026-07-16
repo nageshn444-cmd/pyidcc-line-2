@@ -183,7 +183,7 @@ export default function ThemeSettings() {
             {/* Test input elements */}
             <div className="space-y-1">
               <span className="text-[8px] uppercase tracking-wider text-slate-500">Form Fields</span>
-              <input 
+              <input id="themesettings-i1" name="themesettings-i1" 
                 type="text" 
                 value="Active Dispatch Desk Input" 
                 readOnly
@@ -222,7 +222,7 @@ export default function ThemeSettings() {
             <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
               <Type className="h-3.5 w-3.5" /> Font Scaling
             </h4>
-            <select
+            <select id="themesettings-i2" name="themesettings-i2"
               value={accessibility.fontSize}
               onChange={(e) => setAccessibility({ fontSize: e.target.value })}
               className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-200 focus:outline-none"
@@ -239,7 +239,7 @@ export default function ThemeSettings() {
             <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
               <LayoutGrid className="h-3.5 w-3.5" /> Card / Table Density
             </h4>
-            <select
+            <select id="themesettings-i3" name="themesettings-i3"
               value={personalization.density}
               onChange={(e) => setPersonalization({ density: e.target.value })}
               className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-200 focus:outline-none"
@@ -255,7 +255,7 @@ export default function ThemeSettings() {
             <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
               <Activity className="h-3.5 w-3.5" /> Animation Speeds
             </h4>
-            <select
+            <select id="themesettings-i4" name="themesettings-i4"
               value={accessibility.animations}
               onChange={(e) => setAccessibility({ animations: e.target.value })}
               className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-200 focus:outline-none"
@@ -272,8 +272,8 @@ export default function ThemeSettings() {
               <Sliders className="h-3.5 w-3.5" /> Eye Shield Filters
             </h4>
             <div className="space-y-2 bg-slate-900 border border-slate-800 rounded-lg p-2 flex flex-col justify-center">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input 
+              <label className="flex items-center gap-2 cursor-pointer select-none" htmlFor="themesettings-l1">
+                <input id="themesettings-i5" name="themesettings-i5" 
                   type="checkbox"
                   checked={accessibility.blueLightReduction}
                   onChange={(e) => setAccessibility({ blueLightReduction: e.target.checked })}
@@ -281,8 +281,8 @@ export default function ThemeSettings() {
                 />
                 <span className="text-[10.5px] uppercase font-bold text-blue-450">Reduce Blue Light</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input 
+              <label className="flex items-center gap-2 cursor-pointer select-none" htmlFor="themesettings-l2">
+                <input id="themesettings-i6" name="themesettings-i6" 
                   type="checkbox"
                   checked={accessibility.highContrast}
                   onChange={(e) => setAccessibility({ highContrast: e.target.checked })}
@@ -303,7 +303,7 @@ export default function ThemeSettings() {
               <span>Overall Board Brightness</span>
               <span className="text-blue-400 font-black">{accessibility.brightness}%</span>
             </div>
-            <input 
+            <input id="themesettings-i7" name="themesettings-i7" 
               type="range" 
               min="50" 
               max="100" 
@@ -341,8 +341,8 @@ export default function ThemeSettings() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Visual Preference Profile Import</label>
-            <textarea
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest" htmlFor="themesettings-l3">Visual Preference Profile Import</label>
+            <textarea id="themesettings-i8" name="themesettings-i8"
               rows={4}
               placeholder='Paste visual config JSON payload here...'
               value={importString}
@@ -368,7 +368,7 @@ export default function ThemeSettings() {
 
           <div className="flex flex-col justify-between space-y-2">
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Profile Export</label>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest" htmlFor="themesettings-l4">Active Profile Export</label>
               <div className="p-3 bg-slate-900 border border-slate-800 rounded-lg text-[10.5px] text-slate-450 font-mono select-all overflow-x-auto whitespace-pre">
 {`{
   "theme": "${rawTheme}",

@@ -517,8 +517,8 @@ export default function EmergencyReliefEngine() {
             </div>
                   <form onSubmit={handleGenerateRecommendation} className="space-y-4 text-xs font-bold uppercase">
               <div className="space-y-2">
-                <label className="text-[10px] text-slate-500 tracking-wider">Select Incident Event</label>
-                <select
+                <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="emergencyreliefengin-l1">Select Incident Event</label>
+                <select id="emergencyreliefengin-i1" name="emergencyreliefengin-i1"
                   value={selectedIncidentType}
                   onChange={(e) => setSelectedIncidentType(e.target.value)}
                   disabled={isTrainOperator}
@@ -529,8 +529,8 @@ export default function EmergencyReliefEngine() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] text-slate-500 tracking-wider">Select Target Train ID</label>
-                <select
+                <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="emergencyreliefengin-l2">Select Target Train ID</label>
+                <select id="emergencyreliefengin-i2" name="emergencyreliefengin-i2"
                   value={selectedTrainId}
                   onChange={(e) => setSelectedTrainId(e.target.value)}
                   disabled={isTrainOperator}
@@ -549,8 +549,8 @@ export default function EmergencyReliefEngine() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] text-slate-500 tracking-wider">Incident Station / Location</label>
-                <select
+                <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="emergencyreliefengin-l3">Incident Station / Location</label>
+                <select id="emergencyreliefengin-i3" name="emergencyreliefengin-i3"
                   value={selectedLocation}
                   onChange={(e) => setSelectedLocation(e.target.value)}
                   disabled={isTrainOperator}
@@ -853,8 +853,8 @@ export default function EmergencyReliefEngine() {
 
               <form onSubmit={handleAddExtraOp} className="space-y-4 text-xs font-bold uppercase">
                 <div className="space-y-2">
-                  <label className="text-[10px] text-slate-500 tracking-wider">Employee ID</label>
-                  <input
+                  <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="emergencyreliefengin-l4">Employee ID</label>
+                  <input id="emergencyreliefengin-i4" name="emergencyreliefengin-i4"
                     type="text"
                     placeholder="e.g. 22464"
                     value={newExtraOp.employeeId}
@@ -864,8 +864,8 @@ export default function EmergencyReliefEngine() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] text-slate-500 tracking-wider">Employee Name</label>
-                  <input
+                  <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="emergencyreliefengin-l5">Employee Name</label>
+                  <input id="emergencyreliefengin-i5" name="emergencyreliefengin-i5"
                     type="text"
                     placeholder="e.g. NAVEEN KUMAR"
                     value={newExtraOp.employeeName}
@@ -875,8 +875,8 @@ export default function EmergencyReliefEngine() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] text-slate-550 tracking-wider">Current Standby Location</label>
-                  <select
+                  <label className="text-[10px] text-slate-550 tracking-wider" htmlFor="emergencyreliefengin-l6">Current Standby Location</label>
+                  <select id="emergencyreliefengin-i6" name="emergencyreliefengin-i6"
                     value={newExtraOp.currentLocation}
                     onChange={(e) => setNewExtraOp({ ...newExtraOp, currentLocation: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none"
@@ -890,8 +890,8 @@ export default function EmergencyReliefEngine() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] text-slate-500 tracking-wider">Sign On Time</label>
-                  <input
+                  <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="emergencyreliefengin-l7">Sign On Time</label>
+                  <input id="emergencyreliefengin-i7" name="emergencyreliefengin-i7"
                     type="text"
                     placeholder="e.g. 06:00:00"
                     value={newExtraOp.signOnTime}
@@ -988,8 +988,8 @@ export default function EmergencyReliefEngine() {
 
               <form onSubmit={handleAddMissedTrip} className="space-y-4 text-xs font-bold uppercase">
                 <div className="space-y-2">
-                  <label className="text-[10px] text-slate-500 tracking-wider">Employee ID</label>
-                  <input
+                  <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="emergencyreliefengin-l8">Employee ID</label>
+                  <input id="emergencyreliefengin-i8" name="emergencyreliefengin-i8"
                     type="text"
                     placeholder="e.g. 21460"
                     value={newMissedTrip.employeeId}
@@ -999,8 +999,8 @@ export default function EmergencyReliefEngine() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] text-slate-500 tracking-wider">Employee Name</label>
-                  <input
+                  <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="emergencyreliefengin-l9">Employee Name</label>
+                  <input id="emergencyreliefengin-i9" name="emergencyreliefengin-i9"
                     type="text"
                     placeholder="e.g. KAVITHA M N"
                     value={newMissedTrip.employeeName}
@@ -1010,8 +1010,8 @@ export default function EmergencyReliefEngine() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] text-slate-500 tracking-wider">Missed Trip ID / Run File</label>
-                  <input
+                  <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="emergencyreliefengin-l10">Missed Trip ID / Run File</label>
+                  <input id="emergencyreliefengin-i10" name="emergencyreliefengin-i10"
                     type="text"
                     placeholder="e.g. Run 104"
                     value={newMissedTrip.missedTrip}
@@ -1021,8 +1021,8 @@ export default function EmergencyReliefEngine() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] text-slate-500 tracking-wider">Incident Time</label>
-                  <input
+                  <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="emergencyreliefengin-l11">Incident Time</label>
+                  <input id="emergencyreliefengin-i11" name="emergencyreliefengin-i11"
                     type="text"
                     placeholder="e.g. 12:00:00"
                     value={newMissedTrip.missedTime}
@@ -1106,14 +1106,14 @@ export default function EmergencyReliefEngine() {
 
             <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase">
               <Calendar size={14} className="text-slate-500" />
-              <input
+              <input id="emergencyreliefengin-i12" name="emergencyreliefengin-i12"
                 type="date"
                 value={reportStartDate}
                 onChange={(e) => setReportStartDate(e.target.value)}
                 className="bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-slate-200"
               />
               <span className="text-slate-650">to</span>
-              <input
+              <input id="emergencyreliefengin-i13" name="emergencyreliefengin-i13"
                 type="date"
                 value={reportEndDate}
                 onChange={(e) => setReportEndDate(e.target.value)}
