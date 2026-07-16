@@ -367,7 +367,7 @@ Format the response strictly as a single JSON object.`;
         let responseText = '';
         const apiKeyToUse = customApiKey.trim() ||
           import.meta.env.VITE_GEMINI_API_KEY ||
-          "";
+          '';
         if (apiKeyToUse) {
           const genAI = new GoogleGenerativeAI(apiKeyToUse);
           const model = genAI.getGenerativeModel({
@@ -391,7 +391,7 @@ Format the response strictly as a single JSON object.`;
           } catch (firebaseErr) {
             console.error("Firebase AI failed, attempting fallback API key:", firebaseErr);
             // 3. Fallback to direct client-side SDK with default key
-            const defaultKey = "";
+            const defaultKey = import.meta.env.VITE_GEMINI_API_KEY || '';
             const genAI = new GoogleGenerativeAI(defaultKey);
             const model = genAI.getGenerativeModel({
               model: "gemini-2.5-flash",
