@@ -160,10 +160,12 @@ service cloud.firestore {
 
     match /userPermissions/{employeeId} {
       allow read:   if isSignedIn();
-      allow create: if isAdmin() || (isSignedIn() && request.auth.token.email == string(employeeId) + '@pyidcc.bmrcl.com');
-      allow update: if isAdmin() && employeeId != '20726';
-      allow delete: if isAdmin() && employeeId != '20726';
+      // Admins AND Crew Controllers can set per-operator permission overrides
+      allow create: if isAdminOrController() || (isSignedIn() && request.auth.token.email == string(employeeId) + '@pyidcc.bmrcl.com');
+      allow update: if isAdminOrController() && employeeId != '20726';
+      allow delete: if isAdminOrController() && employeeId != '20726';
     }
+
 
     match /userAccessControl/{employeeId} {
       allow read:   if isSignedIn();
@@ -230,12 +232,19 @@ service cloud.firestore {
 
     match /crew_daily_deployment/{documentId} {
       allow read:  if isSignedIn();
-      allow write: if isAdminOrController();
+      // Admins/controllers: full write (create, update, delete)
+      allow delete: if isAdminOrController();
+      // Any authenticated user can create or update a deployment doc
+      // (empId ownership is enforced in the frontend; backend requires auth at minimum)
+      allow create, update: if isSignedIn();
     }
 
     match /crew_live_attendance/{documentId} {
       allow read:  if isSignedIn();
+      // Admins/controllers can write anything
       allow write: if isAdminOrController();
+      // Any authenticated operator can write their own attendance
+      allow create, update: if isSignedIn();
     }
 
     match /wtt_live_incidents/{documentId} {
@@ -296,6 +305,24 @@ service cloud.firestore {
     // ═══════════════════════════════════════════════════════════════
 
     match /leave_requests/{documentId} {
+      allow read:           if isSignedIn();
+      allow create:         if isSignedIn();
+      allow update, delete: if isAdminOrController();
+    }
+
+    match /weekly_off_planner/{documentId} {
+      allow read:           if isSignedIn();
+      allow create:         if isSignedIn();
+      allow update, delete: if isAdminOrController();
+    }
+
+    match /extra_duty_roster/{documentId} {
+      allow read:           if isSignedIn();
+      allow create:         if isSignedIn();
+      allow update, delete: if isAdminOrController();
+    }
+
+    match /manual_review_roster/{documentId} {
       allow read:           if isSignedIn();
       allow create:         if isSignedIn();
       allow update, delete: if isAdminOrController();

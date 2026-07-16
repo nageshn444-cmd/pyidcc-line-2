@@ -90,7 +90,7 @@ export default function AuditLogs() {
       <div className="flex flex-col sm:flex-row gap-3 bg-slate-900 border border-slate-800 p-3 rounded-lg shadow-md">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-          <input 
+          <input id="auditlogs-i1" name="auditlogs-i1" 
             type="text" 
             placeholder={activeSubTab === 'AUDIT' ? "Search Name, details..." : "Search Employee, device, status..."}
             value={searchTerm}
@@ -101,7 +101,7 @@ export default function AuditLogs() {
 
         {activeSubTab === 'AUDIT' && (
           <div className="w-full sm:w-48">
-            <select 
+            <select id="auditlogs-i2" name="auditlogs-i2" 
               value={filterAction}
               onChange={(e) => setFilterAction(e.target.value)}
               className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500"

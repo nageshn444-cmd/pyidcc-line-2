@@ -330,7 +330,7 @@ export default function ChronologicalMatrix({
                     const editBg = stationName === 'PYID' ? 'bg-emerald-900/40' : 'bg-slate-950';
                     return (
                       <td key={`edit-${row.id || rowIdx}-${direction}-${stationName || 'tid'}`} className={`p-0 border border-slate-800 ${editBg} ${isTidField ? 'bg-slate-950 sticky left-0 z-20 border-r-2' : ''}`}>
-                        <input
+                        <input id="chronologicalmatrix-i1" name="chronologicalmatrix-i1"
                           type="text"
                           value={baseValue === '--' ? '' : baseValue}
                           onChange={(e) => handleLocalCellChange(rowIdx, direction, stationName, isTidField, e.target.value)}

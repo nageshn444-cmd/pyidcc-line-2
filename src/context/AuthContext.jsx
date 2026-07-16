@@ -261,16 +261,21 @@ export function AuthProvider({ children }) {
   const applyTrainOpOverride = (perms, role) => {
     if (role !== 'TRAIN_OPERATOR') return perms;
     const p = { ...perms };
-    const modules = ['Dashboard', 'Crew Registry', 'Duty Roster', 'Shift Exchange', 'Duty Swap',
-      'Automated Dispatch Gate', 'Live Relief Tracking', 'Emergency Relief Module',
-      'Reports Center', 'KM Calculator Suite', 'Rake Registry', 'Leave Requests'];
-    modules.forEach(mod => {
-      if (!p[mod]) p[mod] = {};
-      p[mod]['View'] = true;
-      if (mod === 'Crew Registry') p[mod]['Edit'] = true;
+    const defaults = {
+      'Dashboard': 'View', 'Crew Registry': 'View', 'Duty Roster': 'View',
+      'Shift Exchange': 'Request', 'Duty Swap': 'Request',
+      'Automated Dispatch Gate': 'View', 'Live Relief Tracking': 'View',
+      'Emergency Relief Module': 'View', 'Reports Center': 'View',
+      'KM Calculator Suite': 'View', 'Rake Registry': 'View', 'Leave Requests': 'Request',
+    };
+    Object.entries(defaults).forEach(([mod, val]) => {
+      const cur = p[mod];
+      // Only set default when unset, 'No', or leftover object from old code
+      if (!cur || cur === 'No' || typeof cur === 'object') p[mod] = val;
     });
     return p;
   };
+
 
   const getBrowserName = () => {
     const ua = navigator.userAgent;

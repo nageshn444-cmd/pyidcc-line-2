@@ -510,7 +510,7 @@ export default function RouteCalculator({ stations, selectedSequence, setSelecte
                       </div>
 
                       <div className="flex-1">
-                        <select
+                        <select id="routecalculator-i1" name="routecalculator-i1"
                           id={`select-sequence-${index}`}
                           value={currentCode}
                           onChange={e => updateStationInSequence(index, e.target.value)}

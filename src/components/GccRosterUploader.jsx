@@ -668,7 +668,7 @@ Format the response strictly as a single JSON object.`;
               If the default Firebase backend key fails with a block restriction, you can supply your own Google AI Studio Gemini API Key below. This key will be saved securely in your browser's local storage.
             </p>
             <div className="flex gap-2">
-              <input
+              <input id="gccrosteruploader-i1" name="gccrosteruploader-i1"
                 type="password"
                 placeholder="Paste Gemini API Key here (starts with AIzaSy...)"
                 value={customApiKey}
@@ -703,10 +703,10 @@ Format the response strictly as a single JSON object.`;
         {/* Controls Configuration */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-950/40 p-4 rounded-lg border border-slate-800/80">
           <div className="space-y-1.5">
-            <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest flex items-center gap-1.5">
+            <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest flex items-center gap-1.5" htmlFor="gccrosteruploader-l1">
               <Calendar className="h-3.5 w-3.5 text-slate-400" /> Target Ingestion Date
             </label>
-            <input
+            <input id="gccrosteruploader-i2" name="gccrosteruploader-i2"
               type="date"
               value={selectedDate}
               onChange={(e) => handleDateChange(e.target.value)}
@@ -714,10 +714,10 @@ Format the response strictly as a single JSON object.`;
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest flex items-center gap-1.5">
+            <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest flex items-center gap-1.5" htmlFor="gccrosteruploader-l2">
               <ShieldAlert className="h-3.5 w-3.5 text-slate-400" /> Schedule Roster Profile
             </label>
-            <select
+            <select id="gccrosteruploader-i3" name="gccrosteruploader-i3"
               value={scheduleType}
               onChange={(e) => setScheduleType(e.target.value)}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none transition-colors appearance-none"
@@ -767,7 +767,7 @@ Format the response strictly as a single JSON object.`;
                   : 'border-slate-800 bg-slate-950/20 hover:border-slate-700 hover:bg-slate-950/40'
                   }`}
               >
-                <input
+                <input id="gccrosteruploader-i4" name="gccrosteruploader-i4"
                   type="file"
                   id="file-upload-input"
                   multiple={false}
@@ -822,7 +822,7 @@ Format the response strictly as a single JSON object.`;
                     Insert Example
                   </button>
                 </div>
-                <textarea
+                <textarea id="gccrosteruploader-i5" name="gccrosteruploader-i5"
                   rows={8}
                   placeholder={`Paste Roster JSON data here, e.g.:\n{\n  "tables": [\n    {\n      "rows": [\n        { "Duty No": "1", "NAME": "Harshith D", "Emp No": "22527" }\n      ]\n    }\n  ]\n}`}
                   value={pastedJson}

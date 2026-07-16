@@ -187,7 +187,7 @@ Guidelines:
 
       {/* Input Tray */}
       <div className="p-4 border-t border-slate-800 bg-slate-950 flex gap-2">
-        <input
+        <input id="aiassistantsidebar-i1" name="aiassistantsidebar-i1"
           type="text"
           placeholder="Ask AI for operations suggestions..."
           value={queryText}

@@ -941,8 +941,8 @@ export default function AutomatedDispatchGate({
                   </h4>
                   <div className="bg-slate-950 border border-slate-800 rounded-lg p-4">
                     <p className="text-[10px] text-slate-500 mb-3 leading-relaxed">If algorithmic recommendations are unsuitable, GCC may manually designate a relief Duty ID.</p>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Target Duty ID</label>
-                    <input 
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1" htmlFor="automateddispatchgat-l1">Target Duty ID</label>
+                    <input id="automateddispatchgat-i1" name="automateddispatchgat-i1" 
                       type="number" 
                       value={overrideDutyId}
                       onChange={(e) => setOverrideDutyId(e.target.value)}
@@ -974,7 +974,7 @@ export default function AutomatedDispatchGate({
             <div className="flex gap-2 w-full sm:w-auto">
               <div className="relative flex-1 sm:w-64">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                <input 
+                <input id="automateddispatchgat-i2" name="automateddispatchgat-i2" 
                   type="text" 
                   placeholder="Search Duty ID, Name, Train..." 
                   value={searchQuery}
@@ -1015,7 +1015,7 @@ export default function AutomatedDispatchGate({
                   <tr>
                     <th className="p-4 w-10 text-center">
                       {eligibleDeployments.length > 0 && (
-                        <input 
+                        <input id="automateddispatchgat-i3" name="automateddispatchgat-i3" 
                           type="checkbox" 
                           checked={selectedIds.length === eligibleDeployments.length && eligibleDeployments.length > 0} 
                           onChange={handleSelectAll} 
@@ -1045,7 +1045,7 @@ export default function AutomatedDispatchGate({
                         <tr key={d.id} className={`hover:bg-slate-800/30 transition-colors ${activeAbnormalEvent?.deployment?.id === d.id ? 'bg-amber-950/20' : ''}`}>
                           <td className="p-4 w-10 text-center border-r border-slate-800">
                             {d.status !== 'DISPATCHED' && d.status !== 'RELIEF_DISPATCHED' ? (
-                              <input 
+                              <input id="automateddispatchgat-i4" name="automateddispatchgat-i4" 
                                 type="checkbox" 
                                 checked={selectedIds.includes(d.id)} 
                                 onChange={() => handleToggleSelect(d.id)} 
@@ -1076,8 +1076,8 @@ export default function AutomatedDispatchGate({
                             {editingDeploymentId === d.id ? (
                               <div className="flex flex-col gap-2 bg-slate-950 p-2.5 rounded border border-slate-700 min-w-[220px]">
                                 <div>
-                                  <label className="block text-[8px] text-slate-500 uppercase tracking-widest mb-0.5">Operator Name</label>
-                                  <input
+                                  <label className="block text-[8px] text-slate-500 uppercase tracking-widest mb-0.5" htmlFor="automateddispatchgat-l2">Operator Name</label>
+                                  <input id="automateddispatchgat-i5" name="automateddispatchgat-i5"
                                     type="text"
                                     value={editName}
                                     onChange={(e) => setEditName(e.target.value)}
@@ -1086,8 +1086,8 @@ export default function AutomatedDispatchGate({
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-[8px] text-slate-500 uppercase tracking-widest mb-0.5">Employee ID</label>
-                                  <input
+                                  <label className="block text-[8px] text-slate-500 uppercase tracking-widest mb-0.5" htmlFor="automateddispatchgat-l3">Employee ID</label>
+                                  <input id="automateddispatchgat-i6" name="automateddispatchgat-i6"
                                     type="text"
                                     list="crew-employees"
                                     value={editEmpId}
@@ -1098,8 +1098,8 @@ export default function AutomatedDispatchGate({
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                   <div>
-                                    <label className="block text-[8px] text-slate-500 uppercase tracking-widest mb-0.5">Train ID</label>
-                                    <input
+                                    <label className="block text-[8px] text-slate-500 uppercase tracking-widest mb-0.5" htmlFor="automateddispatchgat-l4">Train ID</label>
+                                    <input id="automateddispatchgat-i7" name="automateddispatchgat-i7"
                                       type="text"
                                       value={editTrainId}
                                       onChange={(e) => setEditTrainId(e.target.value)}
@@ -1108,8 +1108,8 @@ export default function AutomatedDispatchGate({
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-[8px] text-slate-500 uppercase tracking-widest mb-0.5">Duty ID</label>
-                                    <input
+                                    <label className="block text-[8px] text-slate-500 uppercase tracking-widest mb-0.5" htmlFor="automateddispatchgat-l5">Duty ID</label>
+                                    <input id="automateddispatchgat-i8" name="automateddispatchgat-i8"
                                       type="text"
                                       value={editDutyId}
                                       onChange={(e) => setEditDutyId(e.target.value)}
@@ -1274,8 +1274,8 @@ export default function AutomatedDispatchGate({
               <form onSubmit={handleAddExtraOperator} className="space-y-4 text-xs font-bold uppercase">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] text-slate-500 tracking-wider">Employee ID</label>
-                    <input
+                    <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="automateddispatchgat-l6">Employee ID</label>
+                    <input id="automateddispatchgat-i9" name="automateddispatchgat-i9"
                       type="text"
                       list="crew-employees"
                       placeholder="e.g. 22464"
@@ -1285,8 +1285,8 @@ export default function AutomatedDispatchGate({
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] text-slate-500 tracking-wider">Operator Name</label>
-                    <input
+                    <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="automateddispatchgat-l7">Operator Name</label>
+                    <input id="automateddispatchgat-i10" name="automateddispatchgat-i10"
                       type="text"
                       placeholder="e.g. NAVEEN KUMAR"
                       value={newExtraOp.empName}
@@ -1298,8 +1298,8 @@ export default function AutomatedDispatchGate({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] text-slate-500 tracking-wider">Duty ID (Optional)</label>
-                    <input
+                    <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="automateddispatchgat-l8">Duty ID (Optional)</label>
+                    <input id="automateddispatchgat-i11" name="automateddispatchgat-i11"
                       type="text"
                       placeholder="e.g. 105 or empty"
                       value={newExtraOp.dutyId}
@@ -1308,8 +1308,8 @@ export default function AutomatedDispatchGate({
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] text-slate-500 tracking-wider">Train ID</label>
-                    <select
+                    <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="automateddispatchgat-l9">Train ID</label>
+                    <select id="automateddispatchgat-i12" name="automateddispatchgat-i12"
                       value={newExtraOp.trainId}
                       onChange={(e) => setNewExtraOp({ ...newExtraOp, trainId: e.target.value })}
                       className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-mono font-bold"
@@ -1324,8 +1324,8 @@ export default function AutomatedDispatchGate({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] text-slate-500 tracking-wider">Sign On Time</label>
-                    <input
+                    <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="automateddispatchgat-l10">Sign On Time</label>
+                    <input id="automateddispatchgat-i13" name="automateddispatchgat-i13"
                       type="text"
                       placeholder="e.g. 06:00:00"
                       value={newExtraOp.signOnTime}
@@ -1334,8 +1334,8 @@ export default function AutomatedDispatchGate({
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] text-slate-500 tracking-wider">Sign Off Time</label>
-                    <input
+                    <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="automateddispatchgat-l11">Sign Off Time</label>
+                    <input id="automateddispatchgat-i14" name="automateddispatchgat-i14"
                       type="text"
                       placeholder="e.g. 14:00:00"
                       value={newExtraOp.signOffTime}
@@ -1365,8 +1365,8 @@ export default function AutomatedDispatchGate({
               <form onSubmit={handleAddStepback} className="space-y-4 text-xs font-bold uppercase">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] text-slate-500 tracking-wider">Employee ID</label>
-                    <input
+                    <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="automateddispatchgat-l12">Employee ID</label>
+                    <input id="automateddispatchgat-i15" name="automateddispatchgat-i15"
                       type="text"
                       list="crew-employees"
                       placeholder="e.g. 21460"
@@ -1376,8 +1376,8 @@ export default function AutomatedDispatchGate({
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] text-slate-500 tracking-wider">Operator Name</label>
-                    <input
+                    <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="automateddispatchgat-l13">Operator Name</label>
+                    <input id="automateddispatchgat-i16" name="automateddispatchgat-i16"
                       type="text"
                       placeholder="e.g. KAVITHA M N"
                       value={newStepback.empName}
@@ -1389,8 +1389,8 @@ export default function AutomatedDispatchGate({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] text-slate-500 tracking-wider">Step-back Station</label>
-                    <select
+                    <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="automateddispatchgat-l14">Step-back Station</label>
+                    <select id="automateddispatchgat-i17" name="automateddispatchgat-i17"
                       value={newStepback.station}
                       onChange={(e) => setNewStepback({ ...newStepback, station: e.target.value })}
                       className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-mono font-bold"
@@ -1400,8 +1400,8 @@ export default function AutomatedDispatchGate({
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] text-slate-500 tracking-wider">Duty ID</label>
-                    <input
+                    <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="automateddispatchgat-l15">Duty ID</label>
+                    <input id="automateddispatchgat-i18" name="automateddispatchgat-i18"
                       type="text"
                       placeholder="e.g. SB12"
                       value={newStepback.dutyId}
@@ -1413,8 +1413,8 @@ export default function AutomatedDispatchGate({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] text-slate-500 tracking-wider">Start Time</label>
-                    <input
+                    <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="automateddispatchgat-l16">Start Time</label>
+                    <input id="automateddispatchgat-i19" name="automateddispatchgat-i19"
                       type="time"
                       value={newStepback.startTime}
                       onChange={(e) => setNewStepback({ ...newStepback, startTime: e.target.value })}
@@ -1422,8 +1422,8 @@ export default function AutomatedDispatchGate({
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] text-slate-500 tracking-wider">End Time</label>
-                    <input
+                    <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="automateddispatchgat-l17">End Time</label>
+                    <input id="automateddispatchgat-i20" name="automateddispatchgat-i20"
                       type="time"
                       value={newStepback.endTime}
                       onChange={(e) => setNewStepback({ ...newStepback, endTime: e.target.value })}

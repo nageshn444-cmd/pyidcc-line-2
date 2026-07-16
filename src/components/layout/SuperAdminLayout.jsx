@@ -98,6 +98,7 @@ export default function SuperAdminLayout({
 }) {
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const defaultHeaders = [
     // Leg 1
@@ -748,8 +749,16 @@ export default function SuperAdminLayout({
   return (
     <div className={`min-h-screen flex bg-slate-950 font-mono text-slate-200 ${theme}`}>
       
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* 1. Left Mega Navigation */}
-      <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-4 sticky top-0 h-screen select-none z-45 overflow-y-auto">
+      <aside className={`fixed lg:static top-0 left-0 h-screen w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-4 select-none z-50 overflow-y-auto transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="space-y-6">
           {/* Brand header */}
           <div className="flex items-center gap-2.5 pb-3 mb-2 border-b border-slate-800">
@@ -767,7 +776,7 @@ export default function SuperAdminLayout({
             {allowedMenuItems.map(item => (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => { setActiveTab(item.id); setIsSidebarOpen(false); }}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left text-xs font-bold transition-all ${activeTab === item.id ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
               >
                 <item.icon className="h-4 w-4 shrink-0" />
@@ -797,20 +806,30 @@ export default function SuperAdminLayout({
       </aside>
 
       {/* 2. Main Workstation Space */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
         
         {/* Top Control Bar */}
-        <header className="h-16 bg-[var(--header-bg)] backdrop-blur-md border-b border-[var(--border-color)] px-6 flex items-center justify-between sticky top-0 z-30 shrink-0 shadow-sm">
-          <div className="flex items-center gap-3">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping"></span>
-            <span className="text-xs font-bold uppercase text-slate-400">System Telemetry Network Status: Operational</span>
+        <header className="h-16 bg-[var(--header-bg)] backdrop-blur-md border-b border-[var(--border-color)] px-3 lg:px-6 flex items-center justify-between sticky top-0 z-30 shrink-0 shadow-sm">
+          <div className="flex items-center gap-2 lg:gap-3">
+            {/* Mobile Hamburger */}
+            <button
+              onClick={() => setIsSidebarOpen(prev => !prev)}
+              className="lg:hidden p-1.5 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-white transition"
+              title="Toggle navigation"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping hidden sm:block"></span>
+            <span className="text-xs font-bold uppercase text-slate-400 hidden sm:block">System Telemetry Network Status: Operational</span>
           </div>
 
           <div className="flex items-center gap-4">
             
             {/* Control Ribbon (Upload, Day Switcher, Search) */}
             <div className="hidden lg:flex items-center gap-3">
-              <input 
+              <input id="superadminlayout-i1" name="superadminlayout-i1" 
                 type="text" 
                 placeholder="Filter Matrix..." 
                 value={searchTerm} 
@@ -828,7 +847,7 @@ export default function SuperAdminLayout({
             {/* Global Theme Selector */}
             <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg p-1 text-[10px]">
               <span className="text-slate-500 px-1 font-bold">THEME:</span>
-              <select 
+              <select id="superadminlayout-i2" name="superadminlayout-i2" 
                 value={rawTheme} 
                 onChange={(e) => setTheme(e.target.value)}
                 className="bg-transparent border-none text-amber-400 font-bold outline-none cursor-pointer"
@@ -848,7 +867,7 @@ export default function SuperAdminLayout({
             {/* Accessibility scale */}
             <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg p-1 text-[10px]">
               <span className="text-slate-500 px-1 font-bold">FONT:</span>
-              <select 
+              <select id="superadminlayout-i3" name="superadminlayout-i3" 
                 value={accessibility.fontSize} 
                 onChange={(e) => setAccessibility({ fontSize: e.target.value })}
                 className="bg-transparent border-none text-cyan-400 font-bold outline-none cursor-pointer"
@@ -890,7 +909,7 @@ export default function SuperAdminLayout({
         </header>
 
         {/* Content Body */}
-        <main className="flex-1 p-6 overflow-y-auto min-w-0">
+        <main className="flex-1 p-3 lg:p-6 overflow-y-auto min-w-0">
           {activeTab === 'DASHBOARD' ? (
             <div className="space-y-6">
               
@@ -934,7 +953,7 @@ export default function SuperAdminLayout({
                 <div className="flex items-center bg-slate-950 border border-slate-800 px-3 py-1.5 rounded cursor-pointer relative hover:bg-slate-850 transition">
                   <UploadCloud className="h-3.5 w-3.5 mr-2 text-emerald-400" />
                   <span className="text-xs font-mono text-slate-300 font-bold uppercase tracking-wide">UPLOAD GCC ROSTER</span>
-                  <input type="file" accept=".csv, .txt, .xlsx, .xls, .pdf, image/*" onChange={handleGccRosterUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
+                  <input id="superadminlayout-i4" name="superadminlayout-i4" type="file" accept=".csv, .txt, .xlsx, .xls, .pdf, image/*" onChange={handleGccRosterUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
                 </div>
               </div>
               <AutomatedDispatchGate 
@@ -1026,7 +1045,7 @@ export default function SuperAdminLayout({
                   {/* Dedicated Duty ID Search */}
                   <div className="relative w-48">
                     <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-500" />
-                    <input 
+                    <input id="superadminlayout-i5" name="superadminlayout-i5" 
                       type="text" 
                       placeholder="Search Duty ID (e.g. D10)..." 
                       value={rosterDutySearch} 
@@ -1102,7 +1121,7 @@ export default function SuperAdminLayout({
 
                           <form onSubmit={handleBulkEditSubmit} className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded px-2 py-0.5">
                             <span className="text-[10px] text-slate-500 font-bold uppercase">Modify Column:</span>
-                            <select
+                            <select id="superadminlayout-i6" name="superadminlayout-i6"
                               value={bulkEditField}
                               onChange={(e) => setBulkEditField(e.target.value)}
                               className="bg-slate-950 text-slate-250 border-none text-[10px] font-bold focus:outline-none focus:ring-0 py-0.5"
@@ -1116,7 +1135,7 @@ export default function SuperAdminLayout({
                               <option value="signOffTime">Sign Off Time</option>
                               <option value="signOffLocation">Sign Off Loc</option>
                             </select>
-                            <input
+                            <input id="superadminlayout-i7" name="superadminlayout-i7"
                               type="text"
                               placeholder="New Value..."
                               value={bulkEditValue}
@@ -1202,7 +1221,7 @@ export default function SuperAdminLayout({
                     <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 text-center font-semibold">
                       {!isTrainOperator && (
                         <th className="py-2 px-1 border-r border-slate-800 text-center w-[60px] select-none">
-                          <input
+                          <input id="superadminlayout-i8" name="superadminlayout-i8"
                             type="checkbox"
                             checked={finalRosterLinks.length > 0 && selectedRowIds.length === finalRosterLinks.length}
                             onChange={handleSelectAllRows}
@@ -1228,7 +1247,7 @@ export default function SuperAdminLayout({
                         if (isEditing) {
                           return (
                             <th key={hdr.key} className={`py-1 px-1 ${borderClass} ${widthClass} bg-slate-950`}>
-                              <input 
+                              <input id="superadminlayout-i9" name="superadminlayout-i9" 
                                 type="text" 
                                 value={editHeaderValue} 
                                 onChange={(e) => setEditHeaderValue(e.target.value)} 
@@ -1279,7 +1298,7 @@ export default function SuperAdminLayout({
                             return (
                               <td key={fieldName} className="p-1 border-r border-slate-800/40 bg-slate-950">
                                 <div className="flex items-center gap-1">
-                                  <input
+                                  <input id="superadminlayout-i10" name="superadminlayout-i10"
                                     type="text"
                                     value={editValue}
                                     onChange={(e) => setEditValue(e.target.value)}
@@ -1375,7 +1394,7 @@ export default function SuperAdminLayout({
                           <tr key={duty.id} className={`${rowBgClass} ${selectedRowIds.includes(duty.id) ? 'bg-amber-500/5' : ''} hover:bg-slate-850/20 border-b border-slate-800/40 transition-colors`}>
                             {!isTrainOperator && (
                               <td className="py-2 border-r border-slate-800 text-center font-bold flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                                <input
+                                <input id="superadminlayout-i11" name="superadminlayout-i11"
                                   type="checkbox"
                                   checked={selectedRowIds.includes(duty.id)}
                                   onChange={() => handleToggleSelectRow(duty.id)}
@@ -1709,8 +1728,8 @@ export default function SuperAdminLayout({
 
             <div className="space-y-3">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Select Reason</label>
-                <select 
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5" htmlFor="superadminlayout-l1">Select Reason</label>
+                <select id="superadminlayout-i12" name="superadminlayout-i12" 
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 focus:outline-none"
@@ -1726,8 +1745,8 @@ export default function SuperAdminLayout({
 
               {rejectionReason === 'Others' && (
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Custom Reason</label>
-                  <input
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5" htmlFor="superadminlayout-l2">Custom Reason</label>
+                  <input id="superadminlayout-i13" name="superadminlayout-i13"
                     type="text"
                     required
                     placeholder="Enter custom reason..."

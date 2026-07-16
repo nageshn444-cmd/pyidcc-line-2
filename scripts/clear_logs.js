@@ -28,6 +28,7 @@ async function clearCollection(collectionName) {
   const ref = db.collection(collectionName);
   let totalDeleted = 0;
 
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const snap = await ref.limit(400).get();
     if (snap.empty) break;

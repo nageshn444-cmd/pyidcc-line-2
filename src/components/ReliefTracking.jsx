@@ -73,7 +73,7 @@ export default function ReliefTracking({
           {/* General Search */}
           <div className="relative flex-1 sm:w-48">
             <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-500" />
-            <input 
+            <input id="relieftracking-i1" name="relieftracking-i1" 
               type="text" 
               placeholder="Search TID, Name..." 
               value={searchTerm} 
@@ -85,7 +85,7 @@ export default function ReliefTracking({
           {/* Dedicated Duty Search */}
           <div className="relative flex-1 sm:w-48">
             <Filter className="absolute left-3 top-2.5 h-3.5 w-3.5 text-cyan-500/70" />
-            <input 
+            <input id="relieftracking-i2" name="relieftracking-i2" 
               type="text" 
               placeholder="Filter by Duty No (e.g. D10)" 
               value={dutySearch} 

@@ -153,7 +153,7 @@ export default function TrainRakeRegistry() {
         <div className='flex flex-wrap items-center gap-4'>
            <div className='relative w-full md:w-64'>
              <Search className='absolute left-3 top-1/2 -translate-y-1/2 text-slate-500' size={16} />
-             <input 
+             <input id="trainrakeregistry-i1" name="trainrakeregistry-i1" 
                className='w-full bg-slate-950 border border-slate-700 rounded-lg py-2 pl-10 pr-4 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors' 
                placeholder='Search ID or Set...' 
                value={searchQuery} 
@@ -162,7 +162,7 @@ export default function TrainRakeRegistry() {
            </div>
            <div className='flex items-center gap-3 bg-slate-950 p-2 rounded-lg border border-slate-800'>
              <h3 className='text-slate-400 font-bold text-xs flex items-center gap-2'><CalendarDays size={16}/> DATE</h3>
-             <input 
+             <input id="trainrakeregistry-i2" name="trainrakeregistry-i2" 
                type='date' 
                className='bg-slate-900 border border-slate-700 p-1.5 rounded text-sm text-slate-200 focus:border-emerald-500 focus:outline-none' 
                value={selectedDate} 
@@ -244,7 +244,7 @@ export default function TrainRakeRegistry() {
               <th className='p-4 border-b border-slate-800 bg-amber-950/20 w-32'>
                 <div className='flex flex-col items-center gap-2'>
                   <span className='flex items-center gap-1'><Sun size={14} className='text-amber-500'/> Morning</span>
-                  <label className='flex items-center gap-2 cursor-pointer text-[10px] text-amber-500 normal-case bg-amber-900/30 px-3 py-1 rounded-full transition-colors hover:bg-amber-900/50'>
+                  <label className='flex items-center gap-2 cursor-pointer text-[10px] text-amber-500 normal-case bg-amber-900/30 px-3 py-1 rounded-full transition-colors hover:bg-amber-900/50' htmlFor="trainrakeregistry-l1">
                     <input type="checkbox" className="accent-amber-500 h-3 w-3 cursor-pointer" checked={isAllMorning} onChange={e => handleBulkToggle('morningRake', e.target.checked)} />
                     Select All
                   </label>
@@ -253,7 +253,7 @@ export default function TrainRakeRegistry() {
               <th className='p-4 border-b border-slate-800 bg-indigo-950/20 w-32'>
                 <div className='flex flex-col items-center gap-2'>
                   <span className='flex items-center gap-1'><Moon size={14} className='text-indigo-400'/> Evening</span>
-                  <label className='flex items-center gap-2 cursor-pointer text-[10px] text-indigo-400 normal-case bg-indigo-900/30 px-3 py-1 rounded-full transition-colors hover:bg-indigo-900/50'>
+                  <label className='flex items-center gap-2 cursor-pointer text-[10px] text-indigo-400 normal-case bg-indigo-900/30 px-3 py-1 rounded-full transition-colors hover:bg-indigo-900/50' htmlFor="trainrakeregistry-l2">
                     <input type="checkbox" className="accent-indigo-500 h-3 w-3 cursor-pointer" checked={isAllEvening} onChange={e => handleBulkToggle('eveningRake', e.target.checked)} />
                     Select All
                   </label>
@@ -274,7 +274,7 @@ export default function TrainRakeRegistry() {
                 <tr key={tid} className='hover:bg-slate-800/30 transition-colors bg-slate-900'>
                   <td className='p-3 font-black text-emerald-400 text-lg bg-slate-950/30 border-r border-slate-800/30'>{tid}</td>
                   <td className='p-3'>
-                      <input 
+                      <input id="trainrakeregistry-i3" name="trainrakeregistry-i3" 
                         className='bg-slate-950 border border-slate-700 p-2 rounded-lg text-sm w-full text-center focus:border-emerald-500 focus:outline-none text-white font-bold placeholder:text-slate-600 transition-colors' 
                         placeholder='Set (e.g. TS01)'
                         value={lText.trainSet} 
@@ -282,7 +282,7 @@ export default function TrainRakeRegistry() {
                       />
                   </td>
                   <td className='p-3'>
-                    <select
+                    <select id="trainrakeregistry-i4" name="trainrakeregistry-i4"
                       className={`bg-slate-950 border p-2 rounded-lg text-sm w-full focus:outline-none transition-colors font-semibold ${
                         currentStatus === 'Maintenance' 
                           ? 'border-rose-500/50 text-rose-400 focus:border-rose-500' 
@@ -299,7 +299,7 @@ export default function TrainRakeRegistry() {
                     </select>
                   </td>
                   <td className='p-3 bg-amber-950/5'>
-                    <input 
+                    <input id="trainrakeregistry-i5" name="trainrakeregistry-i5" 
                       type="checkbox" 
                       className="h-5 w-5 accent-amber-500 cursor-pointer hover:scale-110 transition-transform" 
                       checked={!!lText.morningRake} 
@@ -307,7 +307,7 @@ export default function TrainRakeRegistry() {
                     />
                   </td>
                   <td className='p-3 bg-indigo-950/5'>
-                    <input 
+                    <input id="trainrakeregistry-i6" name="trainrakeregistry-i6" 
                       type="checkbox" 
                       className="h-5 w-5 accent-indigo-500 cursor-pointer hover:scale-110 transition-transform" 
                       checked={!!lText.eveningRake} 

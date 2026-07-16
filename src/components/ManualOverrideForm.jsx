@@ -208,13 +208,13 @@ export default function ManualOverrideForm() {
           </div>
 
           <div className="grid grid-cols-2 gap-2 bg-slate-900/50 p-2 rounded border border-slate-800 text-xs">
-            <input 
+            <input id="manualoverrideform-i1" name="manualoverrideform-i1" 
               type="date" 
               value={filterDate} 
               onChange={e => setFilterDate(e.target.value)}
               className="bg-slate-900 border border-slate-700 rounded p-1.5 text-slate-300 focus:border-amber-500 outline-none"
             />
-            <select 
+            <select id="manualoverrideform-i2" name="manualoverrideform-i2" 
               value={filterTrain} 
               onChange={e => setFilterTrain(e.target.value)}
               className="bg-slate-900 border border-slate-700 rounded p-1.5 text-slate-300 focus:border-amber-500 outline-none"
@@ -222,14 +222,14 @@ export default function ManualOverrideForm() {
               <option value="">All Trains</option>
               {TRAIN_IDS.map(id => <option key={id} value={id}>Train {id}</option>)}
             </select>
-            <input 
+            <input id="manualoverrideform-i3" name="manualoverrideform-i3" 
               type="text" 
               placeholder="Operator ID/Name" 
               value={filterOp} 
               onChange={e => setFilterOp(e.target.value)}
               className="bg-slate-900 border border-slate-700 rounded p-1.5 text-slate-300 focus:border-amber-500 outline-none"
             />
-            <select 
+            <select id="manualoverrideform-i4" name="manualoverrideform-i4" 
               value={filterReason} 
               onChange={e => setFilterReason(e.target.value)}
               className="bg-slate-900 border border-slate-700 rounded p-1.5 text-slate-300 focus:border-amber-500 outline-none"
@@ -313,8 +313,8 @@ export default function ManualOverrideForm() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 sm:col-span-1">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Date</label>
-              <input 
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-l1">Date</label>
+              <input id="manualoverrideform-i5" name="manualoverrideform-i5" 
                 type="date" 
                 name="date"
                 value={formData.date}
@@ -325,8 +325,8 @@ export default function ManualOverrideForm() {
             </div>
             
             <div className="col-span-2 sm:col-span-1">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Train ID</label>
-              <select 
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-l2">Train ID</label>
+              <select id="manualoverrideform-i6" name="manualoverrideform-i6" 
                 name="trainId"
                 value={formData.trainId}
                 onChange={handleInputChange}
@@ -339,8 +339,8 @@ export default function ManualOverrideForm() {
             </div>
 
             <div className="col-span-1">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1"><Clock className="w-3 h-3"/> From Time</label>
-              <input 
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1" htmlFor="manualoverrideform-l3"><Clock className="w-3 h-3"/> From Time</label>
+              <input id="manualoverrideform-i7" name="manualoverrideform-i7" 
                 type="time"
                 name="fromTime"
                 value={formData.fromTime}
@@ -351,8 +351,8 @@ export default function ManualOverrideForm() {
             </div>
 
             <div className="col-span-1">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1"><Clock className="w-3 h-3"/> To Time</label>
-              <input 
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1" htmlFor="manualoverrideform-l4"><Clock className="w-3 h-3"/> To Time</label>
+              <input id="manualoverrideform-i8" name="manualoverrideform-i8" 
                 type="time"
                 name="toTime"
                 value={formData.toTime}
@@ -363,8 +363,8 @@ export default function ManualOverrideForm() {
             </div>
 
             <div className="col-span-2">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Train Operator</label>
-              <select 
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-l5">Train Operator</label>
+              <select id="manualoverrideform-i9" name="manualoverrideform-i9" 
                 name="operatorId"
                 value={formData.operatorId}
                 onChange={handleInputChange}
@@ -379,8 +379,8 @@ export default function ManualOverrideForm() {
             </div>
 
             <div className="col-span-1">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Station Name</label>
-              <input 
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-l6">Station Name</label>
+              <input id="manualoverrideform-i10" name="manualoverrideform-i10" 
                 type="text" 
                 name="stationName"
                 value={formData.stationName}
@@ -392,8 +392,8 @@ export default function ManualOverrideForm() {
             </div>
 
             <div className="col-span-1">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Direction</label>
-              <select 
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-l7">Direction</label>
+              <select id="manualoverrideform-i11" name="manualoverrideform-i11" 
                 name="direction"
                 value={formData.direction}
                 onChange={handleInputChange}
@@ -407,8 +407,8 @@ export default function ManualOverrideForm() {
             </div>
 
             <div className="col-span-1">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Boarding Loc</label>
-              <input 
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-l8">Boarding Loc</label>
+              <input id="manualoverrideform-i12" name="manualoverrideform-i12" 
                 type="text" 
                 name="boardingLocation"
                 value={formData.boardingLocation}
@@ -420,8 +420,8 @@ export default function ManualOverrideForm() {
             </div>
 
             <div className="col-span-1">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Deboard Loc</label>
-              <input 
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-l9">Deboard Loc</label>
+              <input id="manualoverrideform-i13" name="manualoverrideform-i13" 
                 type="text" 
                 name="deboardingLocation"
                 value={formData.deboardingLocation}
@@ -433,8 +433,8 @@ export default function ManualOverrideForm() {
             </div>
 
             <div className="col-span-2">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Override Reason</label>
-              <select 
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-l10">Override Reason</label>
+              <select id="manualoverrideform-i14" name="manualoverrideform-i14" 
                 name="reason"
                 value={formData.reason}
                 onChange={handleInputChange}
@@ -448,8 +448,8 @@ export default function ManualOverrideForm() {
 
             {formData.reason === 'OTHER' && (
               <div className="col-span-2">
-                <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Specify Other Reason</label>
-                <input 
+                <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-l11">Specify Other Reason</label>
+                <input id="manualoverrideform-i15" name="manualoverrideform-i15" 
                   type="text" 
                   name="otherReason"
                   value={formData.otherReason}
@@ -462,8 +462,8 @@ export default function ManualOverrideForm() {
             )}
 
             <div className="col-span-2">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Remarks</label>
-              <textarea 
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-l12">Remarks</label>
+              <textarea id="manualoverrideform-i16" name="manualoverrideform-i16" 
                 name="remarks"
                 value={formData.remarks}
                 onChange={handleInputChange}
