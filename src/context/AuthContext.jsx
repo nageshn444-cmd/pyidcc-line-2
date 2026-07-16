@@ -1,585 +1,617 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, db } from '../firebase';
 import { 
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   signOut, 
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
-  sendPasswordResetEmail
+  signInWithRedirect,
+  getRedirectResult,
+  updatePassword,
+  reauthenticateWithPopup
 } from 'firebase/auth';
 import { 
-  collection, 
-  doc, 
-  getDoc, 
-  getDocs, 
-  setDoc, 
-  addDoc, 
-  query, 
-  where, 
-  serverTimestamp, 
-  updateDoc,
-  onSnapshot
+  collection, doc, getDoc, getDocs, query, where,
+  setDoc, addDoc, serverTimestamp, updateDoc, onSnapshot 
 } from 'firebase/firestore';
-import { seedDatabaseIfNeeded } from '../utils/dbSeeder';
-import { BMRCL_CREW_REGISTRY } from '../data/bmrclCrewRegistry';
+import { getRoleDefaultPermissions } from '../utils/dbSeeder';
+
+const OWNER_EMAIL = 'nageshn444@gmail.com';
+const OWNER_UID   = 'EByfpLYSWsM2nxTKB1urzXgHjV02';
+
+const OWNER_PROFILE = {
+  employeeId: '20726',
+  employeeName: 'Nagesha N',
+  email: OWNER_EMAIL,
+  designation: 'Station Superintendent',
+  role: 'SUPER_ADMIN',
+  active: true,
+  approved: true,
+  loginEnabled: true,
+  status: 'ACTIVE',
+  firstLogin: false,
+  passwordResetRequired: false
+};
+
+const isOwner = (user) => {
+  const email = String(user?.email || '').toLowerCase();
+  return email === OWNER_EMAIL || email === '20726@pyidcc.bmrcl.com' || user?.uid === OWNER_UID;
+};
+
+const normalizeEmployeeId = (value) => String(value ?? '').trim();
+
+const isApprovedProfile = (profile) => {
+  if (!profile) return false;
+  if (profile.approved === true) return true;
+  if (profile.active === false && profile.status !== 'ACTIVE' && profile.status !== 'active' && profile.status !== 'approved' && profile.status !== 'APPROVED') {
+    return false;
+  }
+  return ['ACTIVE', 'active', 'approved', 'APPROVED'].includes(profile.status) || profile.loginEnabled !== false;
+};
+
+const isAccessReadyProfile = (profile) => {
+  if (!profile) return false;
+  if (isApprovedProfile(profile)) return true;
+  return profile.active === true || profile.status === 'ACTIVE' || profile.loginEnabled === true;
+};
+
+const findSystemUserProfile = async (employeeId, email = '') => {
+  const id = normalizeEmployeeId(employeeId);
+  const candidates = [];
+  if (id) {
+    candidates.push({ field: 'employeeId', value: id });
+    const numericId = Number(id);
+    if (!Number.isNaN(numericId)) candidates.push({ field: 'employeeId', value: numericId });
+  }
+  if (email) candidates.push({ field: 'email', value: email });
+
+  for (const candidate of candidates) {
+    try {
+      const q = query(collection(db, 'system_users'), where(candidate.field, '==', candidate.value));
+      const snap = await getDocs(q);
+      if (!snap.empty) return snap.docs[0];
+    } catch (_) {
+      // Ignore and continue searching with the next candidate.
+    }
+  }
+
+  return null;
+};
+
+const mapDesignationToRole = (employeeId, designation) => {
+  if (String(employeeId) === '20726') return 'SUPER_ADMIN';
+  if (!designation) return 'VIEWER';
+  const d = String(designation).trim();
+  if (d === 'Station Superintendent') return 'ADMIN_Station_Superintendent';
+  if (d === 'Crew Controller' || d === 'CREW_CONTROLLER') return 'CREW_CONTROLLER';
+  if (d === 'Station Controller') return 'STATION_CONTROLLER';
+  if (d === 'Train Operator' || d === 'Station Controller / Train Operator') return 'TRAIN_OPERATOR';
+  return 'VIEWER';
+};
 
 const AuthContext = createContext();
-
-export function useAuth() { return useContext(AuthContext); }
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    return {
+      currentUser: null,
+      userProfile: null,
+      permissions: {},
+      loading: false,
+      approvalPending: false,
+      loginWithGoogle: async () => { throw new Error('Authentication context is not ready.'); },
+      logout: async () => {},
+      hasPermission: () => false,
+      logAudit: async () => {},
+      submitLoginRequest: async () => {},
+      updateAuthPassword: async () => {}
+    };
+  }
+  return context;
+}
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [permissions, setPermissions] = useState({});
   const [loading, setLoading] = useState(true);
+  const [approvalPending, setApprovalPending] = useState(false);
 
-  // Initialize DB data (roles and crew registry) only when a SUPER_ADMIN logs in
-  useEffect(() => {
-    const initDb = async () => {
-      if (userProfile?.role === 'SUPER_ADMIN') {
-        await seedDatabaseIfNeeded(db);
-      }
-    };
-    initDb();
-  }, [userProfile]);
-
-  // Monitor auth state changes in real-time
+  // ─── Auth State Listener ────────────────────────────────────────────────────
   useEffect(() => {
     let unsubscribeSystemUser = () => {};
-    let unsubscribeUser = () => {};
-    let unsubscribeAccessControl = () => {};
     let unsubscribePermissions = () => {};
+    let unsubscribeRole = () => {};
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      // Clean up previous listeners
+      unsubscribeSystemUser();
+      unsubscribePermissions();
+      unsubscribeRole();
+
       setCurrentUser(user);
-      if (user) {
-        // 1. Listen to system_users using UID
-        unsubscribeSystemUser = onSnapshot(doc(db, 'system_users', user.uid), (sysUserDoc) => {
-          if (sysUserDoc.exists()) {
-            const sysProfile = sysUserDoc.data();
-            const empId = String(sysProfile.employeeId);
 
-            // 2. Listen to users (master employee access profile) using employeeId
-            unsubscribeUser();
-            unsubscribeUser = onSnapshot(doc(db, 'users', empId), (userDoc) => {
-              if (userDoc.exists()) {
-                const userData = userDoc.data();
-                
-                // Combine system_users data with users data
-                setUserProfile(prev => ({
-                  ...prev,
-                  ...sysProfile,
-                  ...userData
-                }));
-
-                // Check active/block status
-                if (!userData.active || userData.status === 'INACTIVE' || userData.status === 'SUSPENDED' || userData.status === 'BLOCKED') {
-                  console.log(`User status is ${userData.status || 'INACTIVE'}. Forcing sign out...`);
-                  signOut(auth);
-                  return;
-                }
-              }
-            }, (error) => {
-              console.error("Error listening to users collection:", error);
-            });
-
-            // 3. Listen to userAccessControl using employeeId
-            unsubscribeAccessControl();
-            unsubscribeAccessControl = onSnapshot(doc(db, 'userAccessControl', empId), (accessDoc) => {
-              if (accessDoc.exists()) {
-                const accessData = accessDoc.data();
-                
-                // Combine with profile
-                setUserProfile(prev => ({
-                  ...prev,
-                  accessControl: accessData
-                }));
-
-                // Check access controls & device status
-                const isUserAgentBlocked = accessData.blockedDevices && accessData.blockedDevices.includes(navigator.userAgent);
-                if (
-                  accessData.canLogin === false || 
-                  accessData.canAccessWebApp === false || 
-                  accessData.deviceStatus === 'BLOCKED' ||
-                  isUserAgentBlocked ||
-                  accessData.forceLogout === true
-                ) {
-                  console.log("Access control restriction or force logout triggered. Logging out...");
-                  
-                  // Reset forceLogout flag if it was true, so user can log in later if unblocked
-                  if (accessData.forceLogout === true) {
-                    updateDoc(doc(db, 'userAccessControl', empId), { forceLogout: false }).catch(() => {});
-                  }
-                  
-                  signOut(auth);
-                  return;
-                }
-              }
-            }, (error) => {
-              console.error("Error listening to userAccessControl:", error);
-            });
-
-            // 4. Listen to userPermissions using employeeId
-            unsubscribePermissions();
-            unsubscribePermissions = onSnapshot(doc(db, 'userPermissions', empId), (permDoc) => {
-              if (permDoc.exists()) {
-                setPermissions(permDoc.data().permissions || {});
-              } else {
-                // Fallback to role permissions if no custom document
-                if (sysProfile.role) {
-                  getDoc(doc(db, 'roles', sysProfile.role)).then((roleDoc) => {
-                    if (roleDoc.exists()) {
-                      setPermissions(roleDoc.data().permissions || {});
-                    }
-                  });
-                }
-              }
-            }, (error) => {
-              console.error("Error listening to userPermissions:", error);
-            });
-
-          } else {
-            setUserProfile(null);
-            setPermissions({});
-          }
-        }, (error) => {
-          console.error("Error listening to system_users:", error);
-        });
-      } else {
+      if (!user) {
         setUserProfile(null);
         setPermissions({});
+        setApprovalPending(false);
+        setLoading(false);
+        return;
       }
-      setLoading(false);
+
+      // ── Owner fast-pass ──
+      if (isOwner(user)) {
+        setUserProfile({ ...OWNER_PROFILE, uid: user.uid });
+        setPermissions(getRoleDefaultPermissions('SUPER_ADMIN'));
+        setApprovalPending(false);
+        setLoading(false);
+        return;
+      }
+
+      // ── Regular user: listen to system_users in real-time ──
+      unsubscribeSystemUser = onSnapshot(
+        doc(db, 'system_users', user.uid),
+        (snap) => {
+          if (!snap.exists()) {
+            setUserProfile(null);
+            setPermissions({});
+            setApprovalPending(false);
+            setLoading(false);
+            return;
+          }
+
+          const profile = snap.data();
+
+          // Force-logout flag
+          if (profile.forceLogout === true) {
+            signOut(auth);
+            updateDoc(doc(db, 'system_users', user.uid), { forceLogout: false }).catch(() => {});
+            alert('Your session has been reset by the Administrator. Please log in again.');
+            return;
+          }
+
+          // Block check
+          const approved      = profile.approved === true;
+          const loginEnabled  = profile.loginEnabled === true;
+          const active        = profile.active === true || profile.status === 'ACTIVE';
+
+          if (!approved || !loginEnabled || !active) {
+            setUserProfile(profile);
+            setPermissions({});
+            setApprovalPending(true);
+            setLoading(false);
+            return;
+          }
+
+          setApprovalPending(false);
+          setUserProfile(profile);
+
+          // ── Load permissions ──
+          if (!profile.employeeId) {
+            setLoading(false);
+            return;
+          }
+
+          let baseRolePermissions = {};
+          
+          const resolveAndSetPermissions = (rolePerms, userPermsDoc) => {
+            if (userPermsDoc.exists() && userPermsDoc.data().custom === true) {
+              setPermissions(applyTrainOpOverride(userPermsDoc.data().permissions || {}, profile.role));
+            } else {
+              setPermissions(applyTrainOpOverride(rolePerms, profile.role));
+            }
+          };
+
+          unsubscribeRole = onSnapshot(
+            doc(db, 'role_permissions', profile.role),
+            (roleDoc) => {
+              baseRolePermissions = roleDoc.data()?.permissions || {};
+              
+              // Now listen to the user permissions override in real-time
+              unsubscribePermissions = onSnapshot(
+                doc(db, 'userPermissions', String(profile.employeeId)),
+                (permsDoc) => {
+                  resolveAndSetPermissions(baseRolePermissions, permsDoc);
+                  setLoading(false);
+                },
+                (err) => {
+                  if (err.code !== 'permission-denied') console.error('userPermissions error:', err);
+                  // fallback to role permissions on error
+                  setPermissions(applyTrainOpOverride(baseRolePermissions, profile.role));
+                  setLoading(false);
+                }
+              );
+            },
+            (err) => {
+              if (err.code !== 'permission-denied') console.error('role_permissions error:', err);
+              setLoading(false);
+            }
+          );
+        },
+        (err) => {
+          if (err.code !== 'permission-denied') console.error('system_users error:', err);
+          setLoading(false);
+        }
+      );
     });
 
     return () => {
       unsubscribeAuth();
       unsubscribeSystemUser();
-      unsubscribeUser();
-      unsubscribeAccessControl();
       unsubscribePermissions();
+      unsubscribeRole();
     };
   }, []);
 
-  // Log user actions into the Firestore auditLogs collection
+  // ─── Google Redirect Result Handler ─────────────────────────────────────────
+  useEffect(() => {
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (!result?.user) return;
+        await finishLogin(result.user);
+      })
+      .catch((err) => {
+        if (!err.message?.includes('Cross-Origin')) {
+          console.error('Redirect result error:', err);
+        }
+      });
+  }, []);
+
+  // ─── Helpers ────────────────────────────────────────────────────────────────
+  const applyTrainOpOverride = (perms, role) => {
+    if (role !== 'TRAIN_OPERATOR') return perms;
+    const p = { ...perms };
+    const modules = ['Dashboard', 'Crew Registry', 'Duty Roster', 'Shift Exchange', 'Duty Swap',
+      'Automated Dispatch Gate', 'Live Relief Tracking', 'Emergency Relief Module',
+      'Reports Center', 'KM Calculator Suite', 'Rake Registry', 'Leave Requests'];
+    modules.forEach(mod => {
+      if (!p[mod]) p[mod] = {};
+      p[mod]['View'] = true;
+      if (mod === 'Crew Registry') p[mod]['Edit'] = true;
+    });
+    return p;
+  };
+
+  const getBrowserName = () => {
+    const ua = navigator.userAgent;
+    if (ua.includes('Firefox')) return 'Firefox';
+    if (ua.includes('Chrome'))  return 'Chrome';
+    if (ua.includes('Safari') && !ua.includes('Chrome')) return 'Safari';
+    if (ua.includes('Edge'))    return 'Edge';
+    return 'Web Browser';
+  };
+
   const logAudit = async (action, performedBy, performedByName, details) => {
     try {
       await addDoc(collection(db, 'auditLogs'), {
         action,
         performedBy,
-        performedByName,
-        details,
+        performedByName: performedByName || 'Unknown',
+        details: details || '',
         timestamp: serverTimestamp()
       });
     } catch (e) {
-      console.error("Failed to write audit log:", e);
+      console.error('Failed to write audit log:', e);
     }
   };
 
-  // Helper to log logins to loginHistory
-  const logLoginHistory = async (employeeId, name, status, reason = "") => {
-    // Under Firestore rules, only authenticated users can write to login_history.
-    // Therefore, we skip writing failed login attempts (where auth.currentUser is null) to Firestore.
-    if (!auth.currentUser) {
-      console.warn(`Skipping writing FAILED login log for ${employeeId} to Firestore because user is not authenticated.`);
-      return;
-    }
+  const logLoginHistory = async (employeeId, name, status, reason = '') => {
+    if (!auth.currentUser) return;
     try {
       await addDoc(collection(db, 'login_history'), {
-        employeeId,
-        employeeName: name,
+        employeeId: employeeId || '',
+        employeeName: name || 'Unknown',
         timestamp: serverTimestamp(),
         device: navigator.userAgent,
         status,
         reason
       });
     } catch (e) {
-      console.error("Failed to log login history:", e);
+      console.error('Failed to log login history:', e);
     }
   };
 
-  // 1. Employee ID + Password Login
-  const loginWithIdAndPassword = async (employeeId, password) => {
-    const email = `${employeeId}@pyidcc.bmrcl.com`;
+  async function createLoginRequest(employeeId, employeeName, designation, depot, email, loginMethod, firebaseUid = null) {
     try {
-      // 1. Authenticate with Firebase Auth first to establish credentials
-      const result = await signInWithEmailAndPassword(auth, email, password);
-
-      // 2. Perform Firestore authorization checks using the authenticated user credentials
-      // Prior check in users collection
-      const userRecordDoc = await getDoc(doc(db, 'users', String(employeeId)));
-      if (userRecordDoc.exists()) {
-        const uData = userRecordDoc.data();
-        if (!uData.active || uData.status === 'INACTIVE' || uData.status === 'SUSPENDED' || uData.status === 'BLOCKED') {
-          await signOut(auth);
-          throw new Error(`Your account status is currently ${uData.status || 'INACTIVE'}. Access Denied.`);
-        }
-      }
-
-      // Prior check in userAccessControl collection
-      const accessControlDoc = await getDoc(doc(db, 'userAccessControl', String(employeeId)));
-      if (accessControlDoc.exists()) {
-        const aData = accessControlDoc.data();
-        const isUserAgentBlocked = aData.blockedDevices && aData.blockedDevices.includes(navigator.userAgent);
-        if (aData.canLogin === false || aData.canAccessWebApp === false || aData.deviceStatus === 'BLOCKED' || isUserAgentBlocked) {
-          await signOut(auth);
-          throw new Error("Access is disabled for this account or device.");
-        }
-      }
-
-      // Load user profile
-      const userDoc = await getDoc(doc(db, 'system_users', result.user.uid));
-      if (!userDoc.exists()) {
-        await signOut(auth);
-        throw new Error("User Profile not found in database.");
-      }
-
-      const profile = userDoc.data();
-      if (!profile.active) {
-        await signOut(auth);
-        throw new Error("This account is currently deactivated. Please contact an Administrator.");
-      }
-
-      // Update last login timestamp
-      await updateDoc(doc(db, 'system_users', result.user.uid), {
-        lastLogin: serverTimestamp()
-      });
-      // Also update in users collection
-      await updateDoc(doc(db, 'users', String(employeeId)), {
-        lastLogin: serverTimestamp(),
-        lastLoginDevice: navigator.userAgent
-      });
-
-      await logLoginHistory(employeeId, profile.employeeName, "SUCCESS");
-      await logAudit("LOGIN", result.user.uid, profile.employeeName, `Logged in via Employee ID + Password.`);
-      return result.user;
-    } catch (err) {
-      await logLoginHistory(employeeId, "Unknown", "FAILED", err.message);
-      throw err;
-    }
-  };
-
-  // 2. Register Employee ID + Password Account
-  const registerWithIdAndPassword = async (employeeId, password, name) => {
-    // Validate Employee ID against local registry data to avoid read permission errors before authentication
-    const registryEmployee = BMRCL_CREW_REGISTRY.find(emp => String(emp.id) === String(employeeId));
-    if (!registryEmployee) {
-      throw new Error("Employee ID is not found in the BMRCL Crew Registry.");
-    }
-
-    const email = `${employeeId}@pyidcc.bmrcl.com`;
-    try {
-      // 1. Create Firebase Auth user first
-      const result = await createUserWithEmailAndPassword(auth, email, password);
-
-      // 2. Perform Firestore checks using the newly established credentials
-      // Prior check in users collection
-      const userRecordDoc = await getDoc(doc(db, 'users', String(employeeId)));
-      if (userRecordDoc.exists()) {
-        const uData = userRecordDoc.data();
-        if (!uData.active || uData.status === 'INACTIVE' || uData.status === 'SUSPENDED' || uData.status === 'BLOCKED') {
-          await signOut(auth);
-          throw new Error(`Your account status is currently ${uData.status || 'INACTIVE'}. Registration Denied.`);
-        }
-      }
-
-      // Prior check in userAccessControl collection
-      const accessControlDoc = await getDoc(doc(db, 'userAccessControl', String(employeeId)));
-      if (accessControlDoc.exists()) {
-        const aData = accessControlDoc.data();
-        if (aData.canLogin === false || aData.canAccessWebApp === false || aData.deviceStatus === 'BLOCKED') {
-          await signOut(auth);
-          throw new Error("Access is disabled for this account or device.");
-        }
-      }
-
-      // Map roles: 20726 = SUPER_ADMIN
-      // Station Superintendent = ADMIN_Station_Superintendent
-      // CREW_CONTROLLER = CREW_CONTROLLER
-      // Train Operator / Station Controller = TRAIN_OPERATOR
-      const isSuperAdmin = String(employeeId) === '20726';
-      let role = 'TRAIN_OPERATOR';
-      if (isSuperAdmin) {
-        role = 'SUPER_ADMIN';
-      } else if (registryEmployee.designation === 'Station Superintendent') {
-        role = 'ADMIN_Station_Superintendent';
-      } else if (registryEmployee.designation === 'CREW_CONTROLLER') {
-        role = 'CREW_CONTROLLER';
-      } else if (registryEmployee.designation === 'Station Controller / Train Operator') {
-        role = 'TRAIN_OPERATOR';
-      }
-
-      const userProfileData = {
-        employeeId: String(employeeId),
-        employeeName: registryEmployee.name,
-        email: registryEmployee.email || email,
-        designation: registryEmployee.designation,
-        role,
-        depot: "Peenya Industry Depot",
-        active: true,
-        passwordResetRequired: false,
-        lastLogin: serverTimestamp()
+      const now = new Date();
+      const fallbackEmployeeId = normalizeEmployeeId(employeeId) || (email ? email.split('@')[0] : 'google-user');
+      const reqId = `req_${Date.now()}_${fallbackEmployeeId}`;
+      const payload = {
+        requestId: reqId,
+        employeeId: fallbackEmployeeId ? String(fallbackEmployeeId) : '',
+        employeeName: employeeName || 'Unknown',
+        designation: designation || 'Train Operator',
+        depot: depot || 'Peenya Depot (PYID)',
+        email: email || '',
+        requestedRole: mapDesignationToRole(fallbackEmployeeId, designation) || 'TRAIN_OPERATOR',
+        loginMethod,
+        requestStatus: 'Pending',
+        requestDate: now.toLocaleDateString('en-GB').replace(/\//g, '-'),
+        requestTime: now.toTimeString().split(' ')[0].substring(0, 5),
+        device: navigator.userAgent,
+        browser: getBrowserName(),
+        ipAddress: '192.168.1.100',
+        firebaseUid: firebaseUid || '',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       };
-
-      // Save user doc in system_users
-      await setDoc(doc(db, 'system_users', result.user.uid), userProfileData);
-      
-      // Save or merge user doc in users
-      await setDoc(doc(db, 'users', String(employeeId)), {
-        employeeId: String(employeeId),
-        employeeName: registryEmployee.name,
-        email: registryEmployee.email || email,
-        designation: registryEmployee.designation,
-        role,
-        depot: "Peenya Industry Depot",
-        active: true,
-        status: "ACTIVE",
-        lastLogin: serverTimestamp(),
-        lastLoginDevice: navigator.userAgent
-      }, { merge: true });
-
-      // Update local profile states instantly
-      setUserProfile(userProfileData);
-      
-      // Fetch permissions
-      const roleDoc = await getDoc(doc(db, 'roles', role));
-      if (roleDoc.exists()) {
-        setPermissions(roleDoc.data().permissions || {});
-      }
-
-      await logLoginHistory(employeeId, registryEmployee.name, "SUCCESS", "Account registered & logged in");
-      await logAudit("USER_REGISTER", result.user.uid, registryEmployee.name, `Account created for Employee ID ${employeeId}.`);
-      return result.user;
-    } catch (err) {
-      if (err.code === 'auth/email-already-in-use') {
-        throw new Error("This Employee ID is already registered. Please login instead.");
-      }
-      throw err;
+      await setDoc(doc(db, 'login_requests', reqId), payload);
+      return payload;
+    } catch (e) {
+      console.error('Failed to create login request:', e);
+      throw e;
     }
+  }
+
+  async function findApprovedLoginRequest(email) {
+    if (!email) return null;
+    try {
+      const q = query(collection(db, 'login_requests'), where('email', '==', email));
+      const snap = await getDocs(q);
+      const approved = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .find((item) => {
+          const status = String(item.requestStatus || item.status || '').toLowerCase();
+          return status === 'approved' || status === 'approved by admin' || status === 'approved_by_admin';
+        });
+      return approved || null;
+    } catch (e) {
+      console.warn('Unable to resolve approved login request:', e);
+      return null;
+    }
+  }
+
+  const finishLogin = async (user) => {
+    if (!user) return { ok: false, reason: 'No user returned' };
+
+    if (isOwner(user)) {
+      // Always guarantee the owner has the correct local profile immediately
+      setUserProfile({ ...OWNER_PROFILE, uid: user.uid });
+      setPermissions(getRoleDefaultPermissions('SUPER_ADMIN'));
+      setApprovalPending(false);
+      try {
+        await setDoc(doc(db, 'system_users', user.uid), {
+          uid: user.uid,
+          ...OWNER_PROFILE,
+          email: user.email || OWNER_PROFILE.email,
+          employeeName: user.displayName || OWNER_PROFILE.employeeName,
+          role: 'SUPER_ADMIN',
+          approved: true,
+          loginEnabled: true,
+          active: true,
+          status: 'ACTIVE',
+          firstLogin: false,
+          passwordResetRequired: false,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+        await setDoc(doc(db, 'users', '20726'), {
+          employeeId: '20726',
+          ...OWNER_PROFILE,
+          email: user.email || OWNER_PROFILE.email,
+          operationalCrew: 'YES',
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      } catch (profileErr) {
+        console.warn('Owner profile sync skipped due to Firestore permissions:', profileErr);
+      }
+      return { ok: true, user, approved: true };
+    }
+
+    let profile = null;
+    try {
+      const uidProfileDoc = await getDoc(doc(db, 'system_users', user.uid));
+      if (uidProfileDoc.exists()) {
+        profile = uidProfileDoc.data();
+      }
+    } catch (profileErr) {
+      console.warn('Unable to read system user profile during Google sign-in:', profileErr);
+    }
+
+    if (profile) {
+      const approved = isAccessReadyProfile(profile);
+      if (approved) {
+        try {
+          await setDoc(doc(db, 'system_users', user.uid), {
+            ...profile,
+            uid: user.uid,
+            email: user.email || profile.email,
+            employeeName: user.displayName || profile.employeeName || 'Unknown',
+            role: profile.role || 'VIEWER',
+            approved: true,
+            loginEnabled: true,
+            active: true,
+            status: 'ACTIVE',
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+        } catch (profileWriteErr) {
+          console.warn('Profile update skipped during Google sign-in:', profileWriteErr);
+        }
+        setApprovalPending(false);
+        return { ok: true, user, approved: true };
+      }
+      setApprovalPending(true);
+      return { ok: true, user, pendingApproval: true, message: 'Your Google account is pending admin approval.' };
+    }
+
+    const approvedRequest = await findApprovedLoginRequest(user.email);
+    if (approvedRequest) {
+      try {
+        await setDoc(doc(db, 'system_users', user.uid), {
+          uid: user.uid,
+          employeeId: approvedRequest.employeeId || user.email?.split('@')[0] || '',
+          employeeName: approvedRequest.employeeName || user.displayName || user.email || 'Unknown',
+          email: user.email || approvedRequest.email,
+          designation: approvedRequest.designation || 'Station Controller / Train Operator',
+          role: approvedRequest.requestedRole || 'VIEWER',
+          depot: approvedRequest.depot || 'Peenya Depot (PYID)',
+          approved: true,
+          loginEnabled: true,
+          active: true,
+          status: 'ACTIVE',
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      } catch (profileWriteErr) {
+        console.warn('Approved-request profile sync skipped during Google sign-in:', profileWriteErr);
+      }
+      setApprovalPending(false);
+      return { ok: true, user, approved: true };
+    }
+
+    try {
+      await createLoginRequest(
+        user.email?.split('@')[0] || '',
+        user.displayName || user.email || 'Unknown',
+        'Station Controller / Train Operator',
+        'Peenya Depot (PYID)',
+        user.email || '',
+        'Google',
+        user.uid
+      );
+    } catch (requestErr) {
+      console.warn('Login request creation skipped during Google sign-in:', requestErr);
+    }
+
+    setApprovalPending(true);
+    return { ok: true, user, pendingApproval: true, message: 'Your Google login request has been submitted. Please wait for Super Admin or Admin SS approval.' };
   };
 
-  // 3. Google Sign-In with Registry fallback
+  const submitLoginRequest = async (employeeId, employeeName) =>
+    createLoginRequest(
+      employeeId,
+      employeeName,
+      'Station Controller / Train Operator',
+      'Peenya Depot (PYID)',
+      `${employeeId}@pyidcc.bmrcl.com`,
+      'Google'
+    );
+
   const loginWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    const userEmail = result.user.email;
+    provider.addScope('email');
+    provider.addScope('profile');
+    provider.setCustomParameters({ prompt: 'select_account' });
 
+    let result;
     try {
-      // Find in registry
-      const registryQuery = query(collection(db, 'crewRegistry'), where('email', '==', userEmail));
-      const registrySnap = await getDocs(registryQuery);
-
-      if (registrySnap.empty) {
-        // Submit registration request
-        // First check if pending request exists
-        const reqQuery = query(
-          collection(db, 'registrationRequests'), 
-          where('email', '==', userEmail),
-          where('status', '==', 'PENDING')
-        );
-        const reqSnap = await getDocs(reqQuery);
-
-        if (reqSnap.empty) {
-          await addDoc(collection(db, 'registrationRequests'), {
-            email: userEmail,
-            name: result.user.displayName || "Unknown",
-            status: "PENDING",
-            requestedAt: serverTimestamp()
-          });
-        }
-
-        await signOut(auth);
-        throw new Error("Your Google email is not associated with any Crew Registry record. A registration request has been submitted for Admin approval.");
+      result = await signInWithPopup(auth, provider);
+    } catch (popupErr) {
+      if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/popup-closed-by-user') {
+        await signInWithRedirect(auth, provider);
+        return { ok: true, redirected: true };
       }
-
-      const employee = registrySnap.docs[0].data();
-      const empId = employee.employeeId;
-
-      // Prior check in users collection
-      const userRecordDoc = await getDoc(doc(db, 'users', String(empId)));
-      if (userRecordDoc.exists()) {
-        const uData = userRecordDoc.data();
-        if (!uData.active || uData.status === 'INACTIVE' || uData.status === 'SUSPENDED' || uData.status === 'BLOCKED') {
-          await signOut(auth);
-          throw new Error(`Your account status is currently ${uData.status || 'INACTIVE'}. Access Denied.`);
-        }
-      }
-
-      // Prior check in userAccessControl collection
-      const accessControlDoc = await getDoc(doc(db, 'userAccessControl', String(empId)));
-      if (accessControlDoc.exists()) {
-        const aData = accessControlDoc.data();
-        const isUserAgentBlocked = aData.blockedDevices && aData.blockedDevices.includes(navigator.userAgent);
-        if (aData.canLogin === false || aData.canAccessWebApp === false || aData.deviceStatus === 'BLOCKED' || isUserAgentBlocked) {
-          await signOut(auth);
-          throw new Error("Access is disabled for this account or device.");
-        }
-      }
-
-      // Check if user doc exists, otherwise create it
-      const userDocRef = doc(db, 'system_users', result.user.uid);
-      const userDocSnap = await getDoc(userDocRef);
-      
-      let finalProfile;
-      if (!userDocSnap.exists()) {
-        const isSuperAdmin = empId === '20726' || userEmail === 'nageshn444@gmail.com';
-        let role = 'TRAIN_OPERATOR';
-        if (isSuperAdmin) {
-          role = 'SUPER_ADMIN';
-        } else if (employee.designation === 'Station Superintendent') {
-          role = 'ADMIN_Station_Superintendent';
-        } else if (employee.designation === 'CREW_CONTROLLER') {
-          role = 'CREW_CONTROLLER';
-        } else if (employee.designation === 'Station Controller / Train Operator') {
-          role = 'TRAIN_OPERATOR';
-        }
-
-        finalProfile = {
-          employeeId: empId,
-          employeeName: employee.employeeName,
-          email: userEmail,
-          designation: employee.designation,
-          role,
-          depot: "Peenya Industry Depot",
-          active: true,
-          passwordResetRequired: false,
-          lastLogin: serverTimestamp()
-        };
-
-        await setDoc(userDocRef, finalProfile);
-        
-        // Ensure registered in users collection as well
-        await setDoc(doc(db, 'users', String(empId)), {
-          employeeId: empId,
-          employeeName: employee.employeeName,
-          email: userEmail,
-          designation: employee.designation,
-          role,
-          depot: "Peenya Industry Depot",
-          active: true,
-          status: "ACTIVE",
-          lastLogin: serverTimestamp(),
-          lastLoginDevice: navigator.userAgent
-        }, { merge: true });
-
-        await logAudit("USER_CREATE", result.user.uid, employee.employeeName, `User profile created via Google Sign-In.`);
-      } else {
-        finalProfile = userDocSnap.data();
-        if (!finalProfile.active) {
-          await signOut(auth);
-          throw new Error("This account is currently deactivated. Please contact an Administrator.");
-        }
-        await updateDoc(userDocRef, {
-          lastLogin: serverTimestamp()
-        });
-        await updateDoc(doc(db, 'users', String(empId)), {
-          lastLogin: serverTimestamp(),
-          lastLoginDevice: navigator.userAgent
-        });
-      }
-
-      setUserProfile(finalProfile);
-
-      // Load permissions
-      const roleDoc = await getDoc(doc(db, 'roles', finalProfile.role));
-      if (roleDoc.exists()) {
-        setPermissions(roleDoc.data().permissions || {});
-      }
-
-      await logLoginHistory(empId, employee.employeeName, "SUCCESS", "Logged in via Google");
-      await logAudit("LOGIN", result.user.uid, employee.employeeName, `Logged in via Google account.`);
-      return result.user;
-    } catch (err) {
-      await logLoginHistory("Unknown", result.user.displayName || "Unknown", "FAILED", err.message);
-      await signOut(auth);
-      throw err;
+      throw popupErr;
     }
+
+    return finishLogin(result.user);
   };
 
-  // 4. Send Password Reset
   const requestPasswordReset = async (employeeId) => {
     const email = `${employeeId}@pyidcc.bmrcl.com`;
+    await sendPasswordResetEmail(auth, email);
+    await logAudit('PASSWORD_RESET_REQUEST', 'system', 'System', `Password reset email dispatched for Employee ID: ${employeeId}.`);
+  };
+
+  const updateAuthPassword = async (newPassword) => {
+    if (!auth.currentUser) throw new Error('No authenticated user session found.');
+
+    const performUpdate = async () => {
+      await updatePassword(auth.currentUser, newPassword);
+      const empId = userProfile?.employeeId;
+      if (empId) {
+        await updateDoc(doc(db, 'system_users', auth.currentUser.uid), { firstLogin: false, passwordResetRequired: false });
+        try { await updateDoc(doc(db, 'users', String(empId)), { firstLogin: false, passwordResetRequired: false }); } catch (_) {}
+        await logAudit('PASSWORD_CHANGE', auth.currentUser.uid, userProfile.employeeName, 'Password reset/changed successfully.');
+        setUserProfile(prev => ({ ...prev, firstLogin: false, passwordResetRequired: false }));
+      }
+    };
+
     try {
-      await sendPasswordResetEmail(auth, email);
-      await logAudit("PASSWORD_RESET_REQUEST", "system", "System", `Password reset email dispatched for Employee ID: ${employeeId}.`);
+      await performUpdate();
     } catch (err) {
-      throw err;
+      // Firebase requires a recent login for sensitive operations like password change.
+      // Re-authenticate via Google and retry.
+      if (err.code === 'auth/requires-recent-login') {
+        try {
+          const provider = new GoogleAuthProvider();
+          provider.setCustomParameters({ prompt: 'select_account', login_hint: auth.currentUser.email || '' });
+          await reauthenticateWithPopup(auth.currentUser, provider);
+          await performUpdate();
+        } catch (reAuthErr) {
+          throw new Error(
+            reAuthErr.code === 'auth/popup-closed-by-user'
+              ? 'Re-authentication cancelled. Please try again.'
+              : 'Re-authentication failed. Please sign out and sign back in, then try again.'
+          );
+        }
+      } else {
+        throw err;
+      }
     }
   };
 
-  // 5. Logout
   const logout = async () => {
     if (currentUser && userProfile) {
-      await logAudit("LOGOUT", currentUser.uid, userProfile.employeeName, `Logged out of session.`);
+      await logAudit('LOGOUT', currentUser.uid, userProfile.employeeName, 'Logged out of session.');
     }
     await signOut(auth);
     setCurrentUser(null);
     setUserProfile(null);
     setPermissions({});
+    setApprovalPending(false);
   };
 
-  // Helper to check user permissions (supports both legacy structure and new detailed structure)
+  // ─── Permission Helper ───────────────────────────────────────────────────────
   const hasPermission = (moduleName, requiredLevel) => {
     if (userProfile?.role === 'SUPER_ADMIN') return true;
-    
-    // 1. Map legacy module names to new modules
-    let newModuleName = moduleName;
-    if (moduleName === 'Reports') newModuleName = 'Reports Center';
-    if (moduleName === 'User Management' || moduleName === 'Role Management' || moduleName === 'Settings') {
-      newModuleName = 'User Control Center';
-    }
-    if (moduleName === 'Manual Override') newModuleName = 'Automated Dispatch Gate';
 
-    const levelOrObj = permissions[newModuleName] || permissions[moduleName];
+    const altMap = {
+      'Reports Center': 'Reports',
+      'Reports': 'Reports Center',
+      'User Control Center': 'User Management',
+      'User Management': 'User Control Center',
+      'Role Management': 'User Control Center',
+      'Settings': 'User Control Center',
+      'Automated Dispatch Gate': 'Manual Override',
+      'Manual Override': 'Automated Dispatch Gate',
+    };
+    const alt = altMap[moduleName];
+    const levelOrObj = permissions[moduleName] || (alt ? permissions[alt] : undefined);
     if (!levelOrObj) return false;
 
-    // 2. Check if it's the new detailed permission object
     if (typeof levelOrObj === 'object') {
       if (requiredLevel === 'Full') {
-        return (
-          levelOrObj['Full Control'] === true ||
-          levelOrObj['Approve'] === true ||
-          levelOrObj['Admin Access'] === true ||
-          levelOrObj['Delete'] === true ||
-          levelOrObj['Manage Users'] === true ||
-          levelOrObj['Assign Permissions'] === true ||
-          levelOrObj['Assign Roles'] === true ||
-          levelOrObj['Override Dispatch'] === true
-        );
+        return !!(levelOrObj['Full Control'] || levelOrObj['Approve'] || levelOrObj['Admin Access'] ||
+                  levelOrObj['Delete'] || levelOrObj['Manage Users'] || levelOrObj['Assign Permissions'] ||
+                  levelOrObj['Assign Roles'] || levelOrObj['Override Dispatch']);
       }
-      if (requiredLevel === 'View' || requiredLevel === 'Own') {
-        return levelOrObj['View'] === true;
-      }
-      if (requiredLevel === 'Request') {
-        return levelOrObj['Create Request'] === true || levelOrObj['View'] === true;
-      }
+      if (requiredLevel === 'View' || requiredLevel === 'Own') return levelOrObj['View'] === true;
+      if (requiredLevel === 'Request') return levelOrObj['Create Request'] === true || levelOrObj['View'] === true;
       return false;
     }
 
-    // 3. Fallback to legacy string permissions
+    // Legacy string permissions
     if (levelOrObj === 'No') return false;
     if (requiredLevel === 'Full') return levelOrObj === 'Full';
-    if (requiredLevel === 'View' || requiredLevel === 'Own') return levelOrObj === 'Full' || levelOrObj === 'View' || levelOrObj === 'Own';
-    if (requiredLevel === 'Request') return levelOrObj === 'Full' || levelOrObj === 'Request';
+    if (requiredLevel === 'View' || requiredLevel === 'Own') return ['Full', 'View', 'Own'].includes(levelOrObj);
+    if (requiredLevel === 'Request') return ['Full', 'Request'].includes(levelOrObj);
     return false;
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      currentUser, 
-      userProfile, 
+    <AuthContext.Provider value={{
+      currentUser,
+      userProfile,
       permissions,
-      loginWithIdAndPassword, 
-      registerWithIdAndPassword,
-      loginWithGoogle, 
+      loading,
+      approvalPending,
+      loginWithGoogle,
       logout,
-      requestPasswordReset,
       hasPermission,
-      logAudit
+      logAudit,
+      submitLoginRequest,
+      updateAuthPassword
     }}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 }

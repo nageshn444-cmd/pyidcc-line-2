@@ -2,9 +2,9 @@
 import React from 'react';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 
-export default function IntegrityAudit({ rosterWarnings, manningStats }) {
+export default function IntegrityAudit({ rosterWarnings = [], manningStats = {} }) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 font-mono text-sm">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 font-mono text-sm w-full">
       {/* Metrics */}
       <div className="space-y-4 lg:col-span-1">
         <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-md">
@@ -30,10 +30,10 @@ export default function IntegrityAudit({ rosterWarnings, manningStats }) {
         <div className="p-4 max-h-[500px] overflow-y-auto space-y-3">
           {rosterWarnings.map((warn, index) => (
             <div key={index} className={`flex items-start gap-3 p-3 rounded-lg border text-xs leading-relaxed ${warn.type.includes('CRITICAL') ? 'bg-rose-950/20 border-rose-500/20 text-rose-300' : 'bg-amber-950/20 border-amber-500/20 text-amber-300'}`}>
-              <AlertTriangle className={`h-4 w-4 mt-0.5 ${warn.type.includes('CRITICAL') ? 'text-rose-500' : 'text-amber-500'}`} />
+              <AlertTriangle className={`h-4 w-4 mt-0.5 flex-shrink-0 ${warn.type.includes('CRITICAL') ? 'text-rose-500' : 'text-amber-500'}`} />
               <div>
                 <span className="font-black uppercase tracking-wide block mb-1">[{warn.type}]</span>
-                {warn.msg}
+                {warn.details || warn.msg || warn.message}
               </div>
             </div>
           ))}

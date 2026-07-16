@@ -11,7 +11,8 @@ import {
   orderBy, 
   onSnapshot, 
   serverTimestamp,
-  addDoc
+  addDoc,
+  writeBatch
 } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { getRoleDefaultPermissions } from '../utils/dbSeeder';
@@ -31,7 +32,11 @@ const MODULE_PERMISSIONS_MAP = {
   'Live Relief Tracking': ['View', 'Update', 'Approve'],
   'Emergency Relief Module': ['View', 'Generate Relief', 'Approve Relief', 'Full Control'],
   'Reports Center': ['View', 'Export Excel', 'Export CSV', 'Export PDF', 'Print Reports'],
-  'User Control Center': ['View', 'Manage Users', 'Assign Permissions', 'Assign Roles', 'Delete Users']
+  'User Control Center': ['View', 'Manage Users', 'Assign Permissions', 'Assign Roles', 'Delete Users'],
+  'KM Calculator Suite': ['View', 'Calculate', 'Export', 'Full Control'],
+  'Rake Registry': ['View', 'Register Rake', 'Edit', 'Full Control'],
+  'Leave Requests': ['View', 'Submit Request', 'Approve Request', 'Full Control'],
+  'AI ALS Cab Inspection': ['View', 'Generate Plan', 'Optimize', 'Full Control']
 };
 
 const DEPLOYMENT_DEPOTS = ['Peenya Industry Depot', 'Baiyappanahalli Depot', 'Kengeri Depot', 'Silk Institute Depot'];
@@ -57,6 +62,8 @@ export default function UserControlCenter() {
   const [selectedPermissions, setSelectedPermissions] = useState(null);
   const [selectedAuditLogs, setSelectedAuditLogs] = useState([]);
 
+  const [selectedEmpIds, setSelectedEmpIds] = useState([]);
+
   // Load master employee registry and sync employee lists
   useEffect(() => {
     const q = collection(db, 'users');
@@ -67,6 +74,7 @@ export default function UserControlCenter() {
       // Auto-select first employee if none selected
       if (empList.length > 0 && !selectedEmpId) {
         setSelectedEmpId(empList[0].employeeId);
+        setSelectedEmpIds([empList[0].employeeId]);
       }
     });
 
@@ -101,15 +109,164 @@ export default function UserControlCenter() {
       result = result.filter(emp => emp.status === filterStatus);
     }
 
-    // Always sort by ID (Permanent owner 20726 at the top is helpful)
+    // Sort selected crew first, then by ID (Permanent owner 20726 at the top is helpful)
     result.sort((a, b) => {
+      const aSelected = selectedEmpIds.includes(a.employeeId);
+      const bSelected = selectedEmpIds.includes(b.employeeId);
+
+      if (aSelected && !bSelected) return -1;
+      if (!aSelected && bSelected) return 1;
+
       if (a.employeeId === '20726') return -1;
       if (b.employeeId === '20726') return 1;
       return String(a.employeeId).localeCompare(String(b.employeeId), undefined, { numeric: true });
     });
 
     setFilteredEmployees(result);
-  }, [employees, searchQuery, filterDesignation, filterDepot, filterRole, filterStatus]);
+  }, [employees, searchQuery, filterDesignation, filterDepot, filterRole, filterStatus, selectedEmpIds]);
+
+  const handleCheckboxToggle = (e, employeeId) => {
+    e.stopPropagation();
+    if (selectedEmpIds.includes(employeeId)) {
+      const updated = selectedEmpIds.filter(id => id !== employeeId);
+      setSelectedEmpIds(updated);
+      if (updated.length > 0) {
+        setSelectedEmpId(updated[updated.length - 1]);
+      } else {
+        setSelectedEmpId(null);
+      }
+    } else {
+      const updated = [...selectedEmpIds, employeeId];
+      setSelectedEmpIds(updated);
+      setSelectedEmpId(employeeId);
+    }
+  };
+
+  const handleSelectAllFiltered = () => {
+    if (selectedEmpIds.length === filteredEmployees.length) {
+      setSelectedEmpIds([]);
+    } else {
+      setSelectedEmpIds(filteredEmployees.map(emp => emp.employeeId));
+    }
+  };
+
+  const handleBulkRoleChange = async (newRole) => {
+    if (selectedEmpIds.length === 0) return;
+    
+    const containsOwner = selectedEmpIds.includes('20726');
+    const idsToUpdate = containsOwner ? selectedEmpIds.filter(id => id !== '20726') : selectedEmpIds;
+    
+    if (containsOwner && idsToUpdate.length === 0) {
+      alert("SUPER_ADMIN (NAGESHA N) role is permanent and cannot be downgraded.");
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to change the role of ${idsToUpdate.length} selected operator(s) to ${newRole}? Permissions will reset to the template defaults.`)) return;
+
+    try {
+      const templatePerms = getRoleDefaultPermissions(newRole);
+      const batch = writeBatch(db);
+      
+      for (const empId of idsToUpdate) {
+        const emp = employees.find(e => e.employeeId === empId);
+        const oldRole = emp?.role || 'Unknown';
+
+        batch.update(doc(db, 'users', empId), { role: newRole });
+        batch.update(doc(db, 'userPermissions', empId), { permissions: templatePerms });
+
+        const isManagement = ['SUPER_ADMIN', 'ADMIN_Station_Superintendent', 'ADMIN_SS', 'CREW_CONTROLLER'].includes(newRole);
+        const isSuper = newRole === 'SUPER_ADMIN';
+        const isSS = ['SUPER_ADMIN', 'ADMIN_Station_Superintendent', 'ADMIN_SS'].includes(newRole);
+        
+        batch.update(doc(db, 'userAccessControl', empId), {
+          canApproveRequests: isManagement,
+          canAccessAdminModules: isSS,
+          canManageUsers: isSuper
+        });
+
+        await addDoc(collection(db, 'auditLogs'), {
+          employeeId: empId,
+          employeeName: emp?.employeeName || 'Unknown',
+          action: 'BULK_ROLE_CHANGE',
+          module: 'Role Management',
+          oldValue: oldRole,
+          newValue: newRole,
+          changedBy: userProfile?.employeeName || 'System Admin',
+          timestamp: serverTimestamp()
+        });
+      }
+
+      await batch.commit();
+
+      for (const empId of idsToUpdate) {
+        let systemUserDocId = null;
+        const qSystemStr = query(collection(db, 'system_users'), where('employeeId', '==', String(empId)));
+        const snapSystemStr = await getDocs(qSystemStr);
+        if (!snapSystemStr.empty) {
+          systemUserDocId = snapSystemStr.docs[0].id;
+        } else {
+          const qSystemNum = query(collection(db, 'system_users'), where('employeeId', '==', Number(empId)));
+          const snapSystemNum = await getDocs(qSystemNum);
+          if (!snapSystemNum.empty) {
+            systemUserDocId = snapSystemNum.docs[0].id;
+          }
+        }
+        if (systemUserDocId) {
+          await updateDoc(doc(db, 'system_users', systemUserDocId), { role: newRole });
+        }
+      }
+
+      await logAudit("UCC_BULK_CHANGE", userProfile.employeeId, userProfile.employeeName, 
+        `Updated role in bulk for ${idsToUpdate.length} operators to ${newRole}`);
+
+      alert(`Successfully changed role to ${newRole} for ${idsToUpdate.length} operator(s).`);
+      setSelectedEmpIds([]);
+    } catch (err) {
+      alert("Failed to update roles in bulk: " + err.message);
+    }
+  };
+
+  const handleBulkApplyTemplate = async (templateRole) => {
+    if (selectedEmpIds.length === 0) return;
+    
+    const containsOwner = selectedEmpIds.includes('20726');
+    const idsToUpdate = containsOwner ? selectedEmpIds.filter(id => id !== '20726') : selectedEmpIds;
+
+    if (containsOwner && idsToUpdate.length === 0) {
+      alert("SUPER_ADMIN (NAGESHA N) permissions are permanent and cannot be modified.");
+      return;
+    }
+
+    if (!window.confirm(`Apply default template for "${templateRole}" to ${idsToUpdate.length} selected operator(s)? This will reset all current module toggles.`)) return;
+
+    try {
+      const templatePerms = getRoleDefaultPermissions(templateRole);
+      const batch = writeBatch(db);
+
+      for (const empId of idsToUpdate) {
+        const emp = employees.find(e => e.employeeId === empId);
+        batch.update(doc(db, 'userPermissions', empId), { permissions: templatePerms });
+
+        await addDoc(collection(db, 'auditLogs'), {
+          employeeId: empId,
+          employeeName: emp?.employeeName || 'Unknown',
+          action: 'BULK_APPLY_TEMPLATE',
+          module: 'Permission Templates',
+          oldValue: emp?.role || 'Unknown',
+          newValue: templateRole,
+          changedBy: userProfile?.employeeName || 'System Admin',
+          timestamp: serverTimestamp()
+        });
+      }
+
+      await batch.commit();
+
+      alert(`Applied "${templateRole}" template successfully to ${idsToUpdate.length} operator(s).`);
+      setSelectedEmpIds([]);
+    } catch (err) {
+      alert("Failed to apply bulk template: " + err.message);
+    }
+  };
 
   // Real-time listener for the selected employee's documents
   useEffect(() => {
@@ -226,23 +383,38 @@ export default function UserControlCenter() {
     const oldRole = selectedUser.role;
     if (oldRole === newRole) return;
 
-    if (!window.confirm(`Are you sure you want to change the role of ${selectedUser.employeeName} from ${oldRole} to ${newRole}? Permissions will reset to the template defaults.`)) return;
+    if (!window.confirm(`Are you sure you want to change the role of ${selectedUser.employeeName} from ${oldRole} to ${newRole}?`)) return;
+
+    // Ask if they want to reset permissions or preserve them
+    const resetPerms = window.confirm(`Apply default permission templates for ${newRole}? Click Cancel to keep current custom permissions.`);
 
     try {
-      const templatePerms = getRoleDefaultPermissions(newRole);
-      
       // Update users collection
       await updateDoc(doc(db, 'users', selectedEmpId), { role: newRole });
       
-      // Update system_users collection if they exist there
-      const qSystem = query(collection(db, 'system_users'), where('employeeId', '==', selectedEmpId));
-      const snapSystem = await getDocs(qSystem);
-      if (!snapSystem.empty) {
-        await updateDoc(doc(db, 'system_users', snapSystem.docs[0].id), { role: newRole });
+      // Update system_users collection if they exist there (checking both string and number types)
+      let systemUserDocId = null;
+      const qSystemStr = query(collection(db, 'system_users'), where('employeeId', '==', String(selectedEmpId)));
+      const snapSystemStr = await getDocs(qSystemStr);
+      if (!snapSystemStr.empty) {
+        systemUserDocId = snapSystemStr.docs[0].id;
+      } else {
+        const qSystemNum = query(collection(db, 'system_users'), where('employeeId', '==', Number(selectedEmpId)));
+        const snapSystemNum = await getDocs(qSystemNum);
+        if (!snapSystemNum.empty) {
+          systemUserDocId = snapSystemNum.docs[0].id;
+        }
       }
 
-      // Update userPermissions collection
-      await updateDoc(doc(db, 'userPermissions', selectedEmpId), { permissions: templatePerms });
+      if (systemUserDocId) {
+        await updateDoc(doc(db, 'system_users', systemUserDocId), { role: newRole });
+      }
+
+      // Update userPermissions collection ONLY if resetting permissions is requested
+      if (resetPerms) {
+        const templatePerms = getRoleDefaultPermissions(newRole);
+        await updateDoc(doc(db, 'userPermissions', selectedEmpId), { permissions: templatePerms });
+      }
 
       // Update access control flags based on role defaults
       const isManagement = ['SUPER_ADMIN', 'ADMIN_Station_Superintendent', 'ADMIN_SS', 'CREW_CONTROLLER'].includes(newRole);
@@ -256,7 +428,7 @@ export default function UserControlCenter() {
       });
 
       await writeUccAuditLog("ROLE_CHANGE", "Role Management", oldRole, newRole);
-      alert(`Role successfully changed to ${newRole}. Template permissions applied.`);
+      alert(`Role successfully changed to ${newRole}.${resetPerms ? ' Template permissions applied.' : ' Existing permissions preserved.'}`);
     } catch (err) {
       alert("Failed to update role: " + err.message);
     }
@@ -301,10 +473,20 @@ export default function UserControlCenter() {
         await updateDoc(doc(db, 'users', selectedEmpId), { active: newVal, status: newVal ? "ACTIVE" : "INACTIVE" });
         
         // Sync with system_users if registered
-        const qSystem = query(collection(db, 'system_users'), where('employeeId', '==', selectedEmpId));
-        const snapSystem = await getDocs(qSystem);
-        if (!snapSystem.empty) {
-          await updateDoc(doc(db, 'system_users', snapSystem.docs[0].id), { active: newVal });
+        let systemUserDocId = null;
+        const qSystemStr = query(collection(db, 'system_users'), where('employeeId', '==', String(selectedEmpId)));
+        const snapSystemStr = await getDocs(qSystemStr);
+        if (!snapSystemStr.empty) {
+          systemUserDocId = snapSystemStr.docs[0].id;
+        } else {
+          const qSystemNum = query(collection(db, 'system_users'), where('employeeId', '==', Number(selectedEmpId)));
+          const snapSystemNum = await getDocs(qSystemNum);
+          if (!snapSystemNum.empty) {
+            systemUserDocId = snapSystemNum.docs[0].id;
+          }
+        }
+        if (systemUserDocId) {
+          await updateDoc(doc(db, 'system_users', systemUserDocId), { active: newVal });
         }
       }
 
@@ -529,6 +711,17 @@ export default function UserControlCenter() {
           </div>
         </div>
 
+        {/* Select All Toggle */}
+        <div className="flex items-center justify-between mb-2 px-1 text-[10px] text-slate-500 border-b border-slate-800/40 pb-2">
+          <button 
+            onClick={handleSelectAllFiltered}
+            className="text-emerald-400 hover:text-emerald-300 font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+          >
+            {selectedEmpIds.length === filteredEmployees.length ? 'Deselect All' : 'Select All (' + filteredEmployees.length + ')'}
+          </button>
+          <span className="font-bold">{selectedEmpIds.length} Selected</span>
+        </div>
+
         {/* Dynamic List */}
         <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 border-t border-slate-800/80 pt-3">
           {filteredEmployees.length === 0 ? (
@@ -538,21 +731,34 @@ export default function UserControlCenter() {
               const isSelected = selectedEmpId === emp.employeeId;
               const isOwner = emp.employeeId === '20726';
               return (
-                <button
+                <div
                   key={emp.employeeId}
-                  onClick={() => setSelectedEmpId(emp.employeeId)}
-                  className={`w-full text-left p-2.5 rounded-lg border text-xs flex justify-between items-center transition-all ${
+                  className={`w-full text-left p-2 rounded-lg border text-xs flex items-center justify-between transition-all ${
                     isSelected 
                       ? 'bg-slate-800 border-emerald-500/50 shadow-md' 
                       : 'bg-slate-950/40 border-slate-800 hover:bg-slate-800/40 hover:border-slate-700'
                   }`}
                 >
-                  <div className="truncate pr-2">
-                    <div className="font-bold flex items-center gap-1">
-                      {isOwner && <Shield className="h-3 w-3 text-amber-400 fill-amber-400/20" />}
-                      <span className={isSelected ? 'text-emerald-400' : 'text-slate-200'}>{emp.employeeName}</span>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <input 
+                      type="checkbox"
+                      checked={selectedEmpIds.includes(emp.employeeId)}
+                      onChange={(e) => handleCheckboxToggle(e, emp.employeeId)}
+                      className="accent-emerald-500 h-3.5 w-3.5 rounded cursor-pointer"
+                    />
+                    <div 
+                      onClick={() => {
+                        setSelectedEmpId(emp.employeeId);
+                        setSelectedEmpIds([emp.employeeId]);
+                      }}
+                      className="flex-1 min-w-0 cursor-pointer py-1"
+                    >
+                      <div className="font-bold flex items-center gap-1">
+                        {isOwner && <Shield className="h-3 w-3 text-amber-400 fill-amber-400/20" />}
+                        <span className={isSelected ? 'text-emerald-400' : 'text-slate-200'}>{emp.employeeName}</span>
+                      </div>
+                      <div className="text-[9px] text-slate-500 mt-0.5">ID: {emp.employeeId} | {emp.designation}</div>
                     </div>
-                    <div className="text-[9px] text-slate-500 mt-0.5">ID: {emp.employeeId} | {emp.designation}</div>
                   </div>
                   <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${
                     emp.status === 'ACTIVE' ? 'text-emerald-400 bg-emerald-500/10' :
@@ -562,7 +768,7 @@ export default function UserControlCenter() {
                   }`}>
                     {emp.status || 'ACTIVE'}
                   </span>
-                </button>
+                </div>
               );
             })
           )}
@@ -574,7 +780,119 @@ export default function UserControlCenter() {
 
       {/* 2. DYNAMIC MAIN DASHBOARD (3 Columns) */}
       <div className="xl:col-span-3 space-y-6 h-[calc(100vh-140px)] overflow-y-auto pr-1">
-        {selectedUser ? (
+        {selectedEmpIds.length > 1 ? (
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <Users className="text-emerald-400 h-6 w-6" />
+                <div>
+                  <h2 className="text-lg font-black text-slate-100 uppercase tracking-wider">Bulk Operation Panel</h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Apply roles or permission templates to <span className="text-emerald-400 font-bold font-mono">{selectedEmpIds.length}</span> selected operators in one shot.
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedEmpIds([])}
+                className="text-xs bg-slate-850 hover:bg-slate-800 border border-slate-800 px-3 py-1.5 rounded text-slate-400 font-bold uppercase transition-colors cursor-pointer"
+              >
+                Clear Selection
+              </button>
+            </div>
+
+            {/* Selected Operators Names */}
+            <div className="bg-slate-950/60 border border-slate-800/80 rounded-lg p-4 space-y-2">
+              <span className="text-[10px] text-slate-500 font-bold block uppercase tracking-widest">Selected Operators ({selectedEmpIds.length})</span>
+              <div className="flex flex-wrap gap-2 max-h-[100px] overflow-y-auto py-1">
+                {selectedEmpIds.map(id => {
+                  const emp = employees.find(e => e.employeeId === id);
+                  return (
+                    <span key={`bulk-badge-${id}`} className="bg-slate-900 border border-slate-800 text-slate-300 px-2.5 py-1 rounded text-[10px] font-bold font-mono flex items-center gap-1">
+                      {emp?.employeeName || id} <span className="text-[8px] text-slate-500 font-normal">({id})</span>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Bulk Role Assignment Option */}
+            <div className="bg-slate-950/60 border border-slate-800/80 rounded-lg p-5 space-y-4">
+              <h3 className="text-sm font-bold text-slate-200 border-b border-slate-900 pb-2 flex items-center gap-2">
+                <Shield size={16} className="text-cyan-400" /> Assign Role In Bulk
+              </h3>
+              <p className="text-xs text-slate-400">
+                Updating the role will apply the default permission template and adjust system module access settings.
+              </p>
+              
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <select
+                  defaultValue=""
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val) {
+                      handleBulkRoleChange(val);
+                      e.target.value = ""; // Reset
+                    }
+                  }}
+                  className="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs font-bold text-slate-200 focus:outline-none cursor-pointer sm:w-64"
+                >
+                  <option value="" disabled>-- Select Role to Assign --</option>
+                  <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                  <option value="ADMIN_Station_Superintendent">ADMIN_Station_Superintendent</option>
+                  <option value="CREW_CONTROLLER">CREW_CONTROLLER</option>
+                  <option value="STATION_CONTROLLER">STATION_CONTROLLER</option>
+                  <option value="TRAIN_OPERATOR">TRAIN_OPERATOR</option>
+                  <option value="VIEWER">VIEWER</option>
+                </select>
+                <span className="text-[10px] text-slate-500 self-center uppercase font-bold">Or apply preset template below</span>
+              </div>
+            </div>
+
+            {/* Bulk Permission Templates */}
+            <div className="bg-slate-950/60 border border-slate-800/80 rounded-lg p-5 space-y-4">
+              <h3 className="text-sm font-bold text-slate-200 border-b border-slate-900 pb-2 flex items-center gap-2">
+                <ShieldCheck size={16} className="text-emerald-400" /> Apply Permission Presets In Bulk
+              </h3>
+              <p className="text-xs text-slate-400">
+                Resets granular feature access toggles to standard system-defined defaults for the selected profile.
+              </p>
+
+              <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase">
+                <button 
+                  onClick={() => handleBulkApplyTemplate('SUPER_ADMIN')} 
+                  className="bg-amber-600/15 hover:bg-amber-600 hover:text-slate-950 text-amber-500 px-4 py-2.5 rounded-lg border border-amber-550/20 transition-all font-bold cursor-pointer"
+                >
+                  Super Admin (SA)
+                </button>
+                <button 
+                  onClick={() => handleBulkApplyTemplate('ADMIN_Station_Superintendent')} 
+                  className="bg-emerald-600/15 hover:bg-emerald-600 hover:text-slate-950 text-emerald-400 px-4 py-2.5 rounded-lg border border-emerald-550/20 transition-all font-bold cursor-pointer"
+                >
+                  Station SS (Admin)
+                </button>
+                <button 
+                  onClick={() => handleBulkApplyTemplate('CREW_CONTROLLER')} 
+                  className="bg-blue-600/15 hover:bg-blue-600 hover:text-white text-blue-400 px-4 py-2.5 rounded-lg border border-blue-550/20 transition-all font-bold cursor-pointer"
+                >
+                  Crew Controller (CC)
+                </button>
+                <button 
+                  onClick={() => handleBulkApplyTemplate('TRAIN_OPERATOR')} 
+                  className="bg-indigo-600/15 hover:bg-indigo-600 hover:text-white text-indigo-400 px-4 py-2.5 rounded-lg border border-indigo-550/20 transition-all font-bold cursor-pointer"
+                >
+                  Train Operator (TO)
+                </button>
+                <button 
+                  onClick={() => handleBulkApplyTemplate('VIEWER')} 
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2.5 rounded-lg border border-slate-700 transition-all font-bold cursor-pointer"
+                >
+                  Viewer
+                </button>
+              </div>
+            </div>
+
+          </div>
+        ) : selectedUser ? (
           <>
             {/* PANEL A: EMPLOYEE GENERAL INFO & QUICK ACTIONS */}
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl relative overflow-hidden">

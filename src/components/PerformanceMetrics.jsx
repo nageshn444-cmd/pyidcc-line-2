@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-﻿import React from 'react';
+import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { TrendingUp } from 'lucide-react';
 
@@ -21,7 +21,7 @@ export default function PerformanceMetrics({ incidents = [] }) {
         <TrendingUp className='h-5 w-5' /> TRAIN DELAY IMPACT ANALYSIS
       </h2>
       <div className='h-64 w-full'>
-        <ResponsiveContainer width='100%' height='100%'>
+        <ResponsiveContainer width={250} height={250}>
           <BarChart data={data}>
             <CartesianGrid strokeDasharray='3 3' stroke='#334155' />
             <XAxis dataKey='trainId' stroke='#94a3b8' fontSize={12} />

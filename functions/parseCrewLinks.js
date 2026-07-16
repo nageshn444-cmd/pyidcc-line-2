@@ -2,11 +2,13 @@ import admin from "firebase-admin";
 import fs from "fs";
 import path from "path";
 
-const credentialPath = "C:\\Users\\nages\\pyidcc\\config\\serviceAccount.json";
-const keyData = JSON.parse(fs.readFileSync(credentialPath, "utf8"));
+// Use Application Default Credentials from gcloud config path
+process.env.GOOGLE_APPLICATION_CREDENTIALS = "C:\\Users\\nages\\.gcloud-config\\application_default_credentials.json";
 
 if (!admin.apps.length) {
-  admin.initializeApp({credential: admin.credential.cert(keyData), projectId: keyData.project_id});
+  admin.initializeApp({
+    projectId: "pyidline2crew-41022"
+  });
 }
 const db = admin.firestore();
 
@@ -50,53 +52,64 @@ async function executeCrewPipeline() {
       const row = cleanRow(line);
       if (row.length < 15 || row[0].includes("---") || row[0].toLowerCase().includes("duty")) continue;
 
-      const dutyId = row[0];
+      let dutyId = row[0];
       if (!dutyId || isNaN(parseInt(dutyId))) continue;
+      
+      const num = parseInt(dutyId, 10);
+      if (num >= 1 && num <= 9) {
+        dutyId = '0' + num;
+      }
 
       const docId = `link_${cfg.type.toLowerCase()}_duty_${dutyId}`;
-
-      // CRITICAL UPGRADE: Pointing directly to the new quota-free destination path
       const docRef = db.collection("crew_final_links").doc(docId);
+
+      // Handle column shifting for night shift rows (where Kms is omitted and columns shift left)
+      const hasColonInCol24 = row[24] && row[24].includes(":");
+      const totalHours = hasColonInCol24 ? (row[24] || "08:00") : (row[25] || "08:00");
+      const remarks = hasColonInCol24 ? (row[26] || "--") : (row[27] || row[row.length - 1] || "Line 2 Special Run");
 
       batch.set(docRef, {
         scheduleType: cfg.type,
         dutyId: String(dutyId),
 
-        // Leg 1 Base Mapping [cite: 10, 11]
+        // Leg 1 Base Mapping
         signOnTime: row[1] || "--",
         signOnLocation: row[2] || "PYID",
         trainId: row[3] || "--",
         leg1TimeFrom: row[4] || "--",
+        leg1TimeTo: row[5] || "--",
+        leg1TripTime: row[6] || "--",
+        leg1HandoverLoc: row[7] || "--",
 
-        // Leg 2 Base Mapping [cite: 14]
-        leg2ArrLoc: row[7] || "--",
-        leg2ArrTime: row[5] || "--",
+        // Leg 2 Base Mapping
         leg2DepLoc: row[9] || "--",
-        leg2DepTime: row[11] || "--",
         leg2TrainNo: row[10] || "--",
-        leg2TimeTo: row[6] || "--",
+        leg2DepTime: row[11] || "--",
+        leg2ArrTime: row[12] || "--",
+        leg2TimeTo: row[13] || "--",
+        leg2ArrLoc: row[14] || "--",
 
-        // Leg 3 Base Mapping [cite: 15]
-        leg3HandoverLoc: row[14] || "--",
-        leg3HandoverTime: row[12] || "--",
-        leg3TakeoverLoc: row[13] || "--",
-        leg3TakeoverTime: row[15] || "--",
-        leg3TrainNo: row[11] || "--",
-        leg3TimeFrom: row[12] || "--",
+        // Leg 3 Base Mapping
+        leg3DepLoc: row[16] || "--",
+        leg3TrainNo: row[17] || "--",
+        leg3DepTime: row[18] || "--",
+        leg3ArrTime: row[19] || "--",
+        leg3TimeTo: row[20] || "--",
+        leg3ArrLoc: row[21] || "--",
 
-        // Leg 4 Base Mapping [cite: 15]
-        leg4FinalArrLoc: row[21] || "--",
-        leg4FinalArrTime: row[19] || "--",
+        // Leg 4 Base Mapping (Empty fallback for 3-leg rosters)
+        leg4FinalArrLoc: "--",
+        leg4FinalArrTime: "--",
         leg4FinalDepLoc: "--",
         leg4FinalDepTime: "--",
         leg4TrainNo: "--",
-        leg4TimeTo: row[20] || "--",
+        leg4TimeTo: "--",
 
-        // Global Structural Closures [cite: 11]
-        signOffTime: row[row.length - 7] || row[row.length - 6] || "--",
-        signOffLocation: row[row.length - 6] || "PYID",
-        totalHours: row[row.length - 4] || "08:00",
-        remarks: row[row.length - 1] || "Line 2 Special Run",
+        // Global Structural Closures
+        signOffTime: row[22] || "--",
+        signOffLocation: row[23] || "PYID",
+        totalHours: totalHours,
+        remarks: remarks,
         lastModified: admin.firestore.FieldValue.serverTimestamp(),
       }, {merge: true});
 

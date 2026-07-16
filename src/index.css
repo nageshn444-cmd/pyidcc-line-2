@@ -1,141 +1,402 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   1. GLOBAL SYSTEM PROPERTIES
+   ========================================================================== */
 :root {
   color-scheme: dark;
 }
 
+/* ==========================================================================
+   2. THEME DEFINITIONS
+   ========================================================================== */
+
+/* 1. Metro OCC Dark Theme */
+/* 1. Metro OCC Dark */
+.theme-occ-dark {
+  --app-bg: #0B1220;
+  --panel-bg: rgba(17, 24, 39, 0.7);
+  --panel-bg-solid: #0A0F1D;
+  --sidebar-bg: #0A0F1D;
+  --header-bg: rgba(10, 15, 29, 0.85);
+  --text-main: #F8FAFC;
+  --text-sub: #CBD5E1;
+  --text-muted: #64748B;
+  --border-color: #334155;
+  --border-color-strong: #475569;
+  --accent-color: #3B82F6;
+  --accent-glow: rgba(59, 130, 246, 0.25);
+  --accent-text: #ffffff;
+  --hover-bg: rgba(59, 130, 246, 0.08);
+  --selected-bg: rgba(59, 130, 246, 0.15);
+  --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --success-color: #22C55E;
+  --warning-color: #F59E0B;
+  --error-color: #EF4444;
+  --info-color: #3B82F6;
+  color-scheme: dark;
+}
+
+/* 2. Metro OCC Light */
+.theme-occ-light {
+  --app-bg: #F5F7FA;
+  --panel-bg: rgba(255, 255, 255, 0.95);
+  --panel-bg-solid: #FFFFFF;
+  --sidebar-bg: #EEF2F7;
+  --header-bg: rgba(238, 242, 247, 0.85);
+  --text-main: #1E293B;
+  --text-sub: #64748B;
+  --text-muted: #94A3B8;
+  --border-color: #CBD5E1;
+  --border-color-strong: #94A3B8;
+  --accent-color: #2563EB;
+  --accent-glow: rgba(37, 99, 235, 0.15);
+  --accent-text: #ffffff;
+  --hover-bg: rgba(37, 99, 235, 0.05);
+  --selected-bg: rgba(37, 99, 235, 0.1);
+  --card-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  --success-color: #16A34A;
+  --warning-color: #D97706;
+  --error-color: #DC2626;
+  --info-color: #2563EB;
+  color-scheme: light;
+}
+
+/* 3. Night Operations */
+.theme-night-ops {
+  --app-bg: #05070D;
+  --panel-bg: rgba(11, 18, 32, 0.8);
+  --panel-bg-solid: #0B1220;
+  --sidebar-bg: #05070D;
+  --header-bg: rgba(5, 7, 13, 0.85);
+  --text-main: #00D9FF;
+  --text-sub: #E2E8F0;
+  --text-muted: #64748b;
+  --border-color: rgba(0, 217, 255, 0.15);
+  --border-color-strong: rgba(0, 217, 255, 0.3);
+  --accent-color: #00D9FF;
+  --accent-glow: rgba(0, 217, 255, 0.3);
+  --accent-text: #000000;
+  --hover-bg: rgba(0, 217, 255, 0.08);
+  --selected-bg: rgba(0, 217, 255, 0.15);
+  --card-shadow: 0 0 15px rgba(0, 217, 255, 0.08);
+  --success-color: #10B981;
+  --warning-color: #F59E0B;
+  --error-color: #FF4D4F;
+  --info-color: #00D9FF;
+  color-scheme: dark;
+}
+
+/* 4. Eye Comfort Day */
+.theme-comfort-day {
+  --app-bg: #F5F1E8;
+  --panel-bg: rgba(250, 247, 242, 0.95);
+  --panel-bg-solid: #FAF7F2;
+  --sidebar-bg: #EFEBE0;
+  --header-bg: rgba(239, 235, 224, 0.85);
+  --text-main: #2E2E2E;
+  --text-sub: #4A4A4A;
+  --text-muted: #787878;
+  --border-color: #D3CBB5;
+  --border-color-strong: #A89E84;
+  --accent-color: #4682B4;
+  --accent-glow: rgba(70, 130, 180, 0.15);
+  --accent-text: #ffffff;
+  --hover-bg: rgba(70, 130, 180, 0.05);
+  --selected-bg: rgba(70, 130, 180, 0.1);
+  --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+  --success-color: #2E7D32;
+  --warning-color: #EF6C00;
+  --error-color: #C62828;
+  --info-color: #1565C0;
+  color-scheme: light;
+}
+
+/* 5. Eye Comfort Night */
+.theme-comfort-night {
+  --app-bg: #1C1C1E;
+  --panel-bg: rgba(37, 37, 40, 0.85);
+  --panel-bg-solid: #252528;
+  --sidebar-bg: #151517;
+  --header-bg: rgba(28, 28, 30, 0.85);
+  --text-main: #E6E6E6;
+  --text-sub: #B5B5B5;
+  --text-muted: #707070;
+  --border-color: #3A3A3C;
+  --border-color-strong: #48484A;
+  --accent-color: #2E7D32;
+  --accent-glow: rgba(46, 125, 50, 0.2);
+  --accent-text: #ffffff;
+  --hover-bg: rgba(46, 125, 50, 0.06);
+  --selected-bg: rgba(46, 125, 50, 0.12);
+  --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  --success-color: #2E7D32;
+  --warning-color: #E65100;
+  --error-color: #C62828;
+  --info-color: #1565C0;
+  color-scheme: dark;
+}
+
+/* 6. Emerald Operations */
+.theme-emerald-ops {
+  --app-bg: #334155;
+  --panel-bg: rgba(15, 23, 42, 0.7);
+  --panel-bg-solid: #0F172A;
+  --sidebar-bg: #0F172A;
+  --header-bg: rgba(15, 23, 42, 0.85);
+  --text-main: #F8FAFC;
+  --text-sub: #A7F3D0;
+  --text-muted: #34D399;
+  --border-color: #475569;
+  --border-color-strong: #10B981;
+  --accent-color: #10B981;
+  --accent-glow: rgba(16, 185, 129, 0.25);
+  --accent-text: #000000;
+  --hover-bg: rgba(16, 185, 129, 0.06);
+  --selected-bg: rgba(16, 185, 129, 0.12);
+  --card-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+  --success-color: #34D399;
+  --warning-color: #FBBF24;
+  --error-color: #F87171;
+  --info-color: #60a5fa;
+  color-scheme: dark;
+}
+
+/* 7. High Contrast */
+.theme-contrast {
+  --app-bg: #000000;
+  --panel-bg: #000000;
+  --panel-bg-solid: #000000;
+  --sidebar-bg: #000000;
+  --header-bg: #000000;
+  --text-main: #FFFFFF;
+  --text-sub: #FFFFFF;
+  --text-muted: #FFFF00;
+  --border-color: #FFFFFF;
+  --border-color-strong: #FFFF00;
+  --accent-color: #FFFF00;
+  --accent-glow: none;
+  --accent-text: #000000;
+  --hover-bg: #222222;
+  --selected-bg: #333333;
+  --card-shadow: none;
+  --success-color: #00FF00;
+  --warning-color: #FFFF00;
+  --error-color: #FF0000;
+  --info-color: #00FFFF;
+  color-scheme: dark;
+}
+
+/* 8. BMRCL Classic */
+.theme-bmrcl {
+  --app-bg: #E5E7EB;
+  --panel-bg: #FFFFFF;
+  --panel-bg-solid: #1E3A8A;
+  --sidebar-bg: #1E3A8A;
+  --header-bg: rgba(30, 58, 138, 0.85);
+  --text-main: #1F2937;
+  --text-sub: #4B5563;
+  --text-muted: #6B7280;
+  --border-color: #D1D5DB;
+  --border-color-strong: #9CA3AF;
+  --accent-color: #16A34A;
+  --accent-glow: rgba(22, 163, 74, 0.2);
+  --accent-text: #ffffff;
+  --hover-bg: rgba(22, 163, 74, 0.05);
+  --selected-bg: rgba(22, 163, 74, 0.1);
+  --card-shadow: 0 4px 16px rgba(30, 58, 138, 0.06);
+  --success-color: #16A34A;
+  --warning-color: #EAB308;
+  --error-color: #DC2626;
+  --info-color: #2563EB;
+  color-scheme: light;
+}
+
+/* Default Fallbacks */
+:root {
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --error-color: #ef4444;
+  --info-color: #3b82f6;
+}
+
+/* ==========================================================================
+   3. ACCESSIBILITY VARIABLES
+   ========================================================================== */
+.text-sz-small { font-size: 13px !important; }
+.text-sz-medium { font-size: 15px !important; }
+.text-sz-large { font-size: 18px !important; }
+.text-sz-xlarge { font-size: 22px !important; }
+
+/* ==========================================================================
+   4. BODY AND WRAPPER OVERRIDES
+   ========================================================================== */
 body {
   margin: 0;
-  background-color: #020617; /* Absolute dark base */
-  background-image: 
-    radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
-    radial-gradient(at 50% 0%, hsla(225,39%,30%,0.15) 0, transparent 50%), 
-    radial-gradient(at 100% 0%, hsla(339,49%,30%,0.15) 0, transparent 50%);
+  background-color: var(--app-bg) !important;
+  background-image: var(--bg-gradient) !important;
   background-attachment: fixed;
-  color: #f8fafc;
+  color: var(--text-main) !important;
   min-height: 100vh;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* ==========================================================================
-   1. GLOBAL HIGH CONTRAST TEXT ADJUSTMENTS
-   Overrides low-visibility text classes across all pages to ensure legibility.
+   5. MAPPING TAILWIND GLASS CLASSES & UTILITIES
    ========================================================================== */
-.text-slate-500, .text-gray-500 { color: #cbd5e1 !important; } /* Mapped up to slate-300 */
-.text-slate-600, .text-gray-600 { color: #94a3b8 !important; } /* Mapped up to slate-400 */
-.text-slate-700, .text-gray-700 { color: #cbd5e1 !important; } /* Mapped up to slate-300 */
-.text-slate-400, .text-gray-400 { color: #f8fafc !important; font-weight: 500; } /* Almost white for headers */
 
-/* Increase extremely small font sizes for readability */
-.text-\[9px\] { font-size: 11px !important; font-weight: 700 !important; }
-.text-\[10px\] { font-size: 11px !important; font-weight: 700 !important; }
-.text-\[11px\] { font-size: 12px !important; font-weight: 600 !important; }
-
-/* Ensure borders are visible but subtle */
-.border-slate-800 { border-color: rgba(255, 255, 255, 0.12) !important; }
-.border-slate-700 { border-color: rgba(255, 255, 255, 0.2) !important; }
-
-/* ==========================================================================
-   2. ADVANCED EFFECTS: GLASSMORPHISM ON BACKGROUNDS
-   Converts standard solid dark colors into transparent frosted glass layers.
-   ========================================================================== */
+/* Overrides bg-slate-900 with panel backgrounds */
 .bg-slate-900 {
-  background-color: rgba(15, 23, 42, 0.45) !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
-}
-
-.bg-slate-950 {
-  background-color: rgba(2, 6, 23, 0.55) !important;
+  background-color: var(--panel-bg) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: var(--card-shadow) !important;
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
 }
 
-/* Ensure solid background for Top Nav and Workstation Headers so they don't look messy over scrolling content */
-header.bg-slate-900, div.sticky.top-0 {
-  background-color: rgba(15, 23, 42, 0.85) !important;
+/* Overrides bg-slate-950 with absolute background */
+.bg-slate-950 {
+  background-color: var(--panel-bg-solid) !important;
+}
+
+header.bg-slate-900, div.sticky.top-0, .sticky-nav {
+  background-color: var(--header-bg) !important;
   backdrop-filter: blur(20px) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-bottom: 1px solid var(--border-color-strong) !important;
+}
+
+/* Text class overrides */
+.text-slate-100 { color: var(--text-main) !important; }
+.text-slate-200 { color: var(--text-sub) !important; }
+.text-slate-300, .text-slate-350, .text-slate-400 { color: var(--text-sub) !important; }
+.text-slate-500, .text-slate-550, .text-gray-500 { color: var(--text-muted) !important; opacity: 1 !important; }
+
+/* Border overrides */
+.border-slate-850, .border-slate-800 {
+  border-color: var(--border-color) !important;
+}
+.border-slate-700 {
+  border-color: var(--border-color-strong) !important;
+}
+
+/* Dynamic glow effects for primary buttons */
+.btn-primary, .bg-emerald-500, .bg-emerald-600, .bg-blue-500, .bg-blue-600 {
+  box-shadow: 0 0 10px var(--accent-glow) !important;
+}
+
+/* High Contrast rules */
+.high-contrast * {
+  border-width: 1.5px !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
 }
 
 /* ==========================================================================
-   3. ADVANCED EFFECTS: INPUTS & FORMS
-   Adds glowing focus states and glass styling to inputs.
+   6. EMERGENCIES AND KEYFRAMES
    ========================================================================== */
+
+/* Incident Flashing Alert */
+.animate-flash-emergency {
+  animation: flash 1s infinite alternate;
+}
+
+@keyframes flash {
+  0% { background-color: #7f1d1d; color: #ffffff; }
+  100% { background-color: #ef4444; color: #ffffff; }
+}
+
+/* Pulse Glows */
+.animate-pulse-alert {
+  animation: pulse-alert 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-alert {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  50% {
+    opacity: .8;
+    transform: scale(1.02);
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+}
+
+/* Slide in from right */
+.animate-slide-in {
+  animation: slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--app-bg);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-color-strong);
+  border-radius: 5px;
+  border: 2.5px solid var(--app-bg); /* Floating scrollbar look */
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-color) !important;
+  box-shadow: 0 0 10px var(--accent-glow) !important;
+}
+
+/* ==========================================================================
+   7. THEMED ELEMENT STYLES (BUTTONS, TABLES, FORMS)
+   ========================================================================== */
+
+/* Modern themeable tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  background-color: var(--header-bg) !important;
+  color: var(--text-main) !important;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border-color-strong) !important;
+}
+
+tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.015);
+}
+
+tr:hover {
+  background-color: var(--hover-bg) !important;
+}
+
+/* Common form elements standard styling */
 input, select, textarea {
-  background-color: rgba(15, 23, 42, 0.6) !important;
-  backdrop-filter: blur(4px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  color: #ffffff !important;
-  transition: all 0.3s ease !important;
+  background-color: var(--panel-bg-solid) !important;
+  color: var(--text-main) !important;
+  border: 1px solid var(--border-color) !important;
+  transition: all 0.2s ease-in-out;
 }
 
 input:focus, select:focus, textarea:focus {
-  outline: none !important;
-  border-color: #10b981 !important;
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.4) !important;
-  background-color: rgba(15, 23, 42, 0.8) !important;
+  border-color: var(--accent-color) !important;
+  box-shadow: 0 0 8px var(--accent-glow) !important;
 }
 
-input::placeholder, textarea::placeholder {
-  color: #94a3b8 !important;
-}
-
-/* ==========================================================================
-   4. ADVANCED EFFECTS: BUTTONS & INTERACTIVITY
-   ========================================================================== */
-button, a {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  filter: brightness(1.15);
-  box-shadow: 0 8px 25px rgba(0,0,0,0.5) !important;
-}
-
-button:active:not(:disabled) {
-  transform: translateY(1px);
-}
-
-/* Neon Glows for specific functional buttons */
-.bg-emerald-500, .bg-emerald-600 {
-  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4) !important;
-}
-.bg-emerald-500:hover, .bg-emerald-600:hover {
-  box-shadow: 0 0 25px rgba(16, 185, 129, 0.7) !important;
-}
-
-.bg-purple-500, .bg-purple-600 {
-  box-shadow: 0 0 12px rgba(168, 85, 247, 0.4) !important;
-}
-.bg-purple-500:hover, .bg-purple-600:hover {
-  box-shadow: 0 0 25px rgba(168, 85, 247, 0.7) !important;
-}
-
-.bg-blue-500, .bg-blue-600 {
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.4) !important;
-}
-.bg-blue-500:hover, .bg-blue-600:hover {
-  box-shadow: 0 0 25px rgba(59, 130, 246, 0.7) !important;
-}
-
-/* Subtle Table hover effects */
-tbody tr {
-  transition: background-color 0.2s ease !important;
-}
-tbody tr:hover {
-  background-color: rgba(255, 255, 255, 0.08) !important;
-}
-
-/* Make modules glow slightly */
-.rounded-xl.border {
-  transition: box-shadow 0.3s ease, border-color 0.3s ease;
-}
-.rounded-xl.border:hover {
-  border-color: rgba(255, 255, 255, 0.25) !important;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+/* Dropdown list items styling */
+option {
+  background-color: var(--panel-bg-solid) !important;
+  color: var(--text-main) !important;
 }

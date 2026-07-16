@@ -80,6 +80,14 @@ const getStationLabel = (code) => {
 
 export default function EmergencyReliefEngine() {
   const { userProfile } = useAuth();
+  const isTrainOperator = userProfile?.role === 'TRAIN_OPERATOR' || 
+                          userProfile?.role === 'STATION_CONTROLLER' || 
+                          userProfile?.role === 'VIEWER' ||
+                          String(userProfile?.role || '').toLowerCase().includes('operator') ||
+                          String(userProfile?.role || '').toLowerCase().includes('controller') ||
+                          String(userProfile?.designation || '').toLowerCase().includes('operator') ||
+                          String(userProfile?.designation || '').toLowerCase().includes('controller') ||
+                          String(userProfile?.designation || '').toLowerCase().includes('viewer');
   
   // Tab control inside relief module
   const [reliefTab, setReliefTab] = useState('DASHBOARD'); // DASHBOARD, EXTRA_POOL, MISSED_TRIPS, REPORTS
@@ -401,6 +409,7 @@ export default function EmergencyReliefEngine() {
   }, [reports, reportStartDate, reportEndDate]);
 
   const handleExportCSV = () => {
+    if (isTrainOperator) return;
     if (filteredReports.length === 0) {
       alert("No data available to export.");
       return;
@@ -433,6 +442,7 @@ export default function EmergencyReliefEngine() {
   };
 
   const handleExportExcel = () => {
+    if (isTrainOperator) return;
     if (filteredReports.length === 0) {
       alert("No data available to export.");
       return;
@@ -458,6 +468,7 @@ export default function EmergencyReliefEngine() {
   };
 
   const handlePrintReport = () => {
+    if (isTrainOperator) return;
     window.print();
   };
 
@@ -504,14 +515,14 @@ export default function EmergencyReliefEngine() {
                 <AlertTriangle size={15} /> Trigger Crew Relief incident
               </span>
             </div>
-            
-            <form onSubmit={handleGenerateRecommendation} className="space-y-4 text-xs font-bold uppercase">
+                  <form onSubmit={handleGenerateRecommendation} className="space-y-4 text-xs font-bold uppercase">
               <div className="space-y-2">
                 <label className="text-[10px] text-slate-500 tracking-wider">Select Incident Event</label>
                 <select
                   value={selectedIncidentType}
                   onChange={(e) => setSelectedIncidentType(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none"
+                  disabled={isTrainOperator}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {EMERGENCY_EVENTS.map(ev => <option key={ev} value={ev}>{ev}</option>)}
                 </select>
@@ -522,7 +533,8 @@ export default function EmergencyReliefEngine() {
                 <select
                   value={selectedTrainId}
                   onChange={(e) => setSelectedTrainId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none"
+                  disabled={isTrainOperator}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="">-- SELECT TRAIN --</option>
                   {TRAIN_IDS.map(tid => {
@@ -541,7 +553,8 @@ export default function EmergencyReliefEngine() {
                 <select
                   value={selectedLocation}
                   onChange={(e) => setSelectedLocation(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none"
+                  disabled={isTrainOperator}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {STATION_DETAILS.map(st => (
                     <option key={st.code} value={st.code}>
@@ -568,10 +581,10 @@ export default function EmergencyReliefEngine() {
 
               <button
                 type="submit"
-                disabled={!selectedTrainId}
+                disabled={!selectedTrainId || isTrainOperator}
                 className="w-full bg-rose-600 hover:bg-rose-500 disabled:opacity-30 disabled:cursor-not-allowed text-slate-950 font-black py-3.5 rounded-lg tracking-widest uppercase transition-all shadow-lg shadow-rose-600/10 flex items-center justify-center gap-2"
               >
-                <Sparkles size={16} /> Generate Relief Recommendation
+                <Sparkles size={16} /> {isTrainOperator ? "VIEW-ONLY CONSOLE" : "Generate Relief Recommendation"}
               </button>
             </form>
           </div>
@@ -659,12 +672,14 @@ export default function EmergencyReliefEngine() {
                         <div className="text-[11px] font-medium text-slate-400 lowercase leading-relaxed max-w-md">
                           {evaluationResults.bestPlan.description}
                         </div>
-                        <button
-                          onClick={() => handleExecuteRelief(evaluationResults.bestPlan)}
-                          className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black px-5 py-2.5 rounded-lg text-xs tracking-wider uppercase transition shadow-md flex items-center gap-1.5 shrink-0"
-                        >
-                          <Send size={14} /> Execute Relief Plan
-                        </button>
+                        {!isTrainOperator && (
+                          <button
+                            onClick={() => handleExecuteRelief(evaluationResults.bestPlan)}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black px-5 py-2.5 rounded-lg text-xs tracking-wider uppercase transition shadow-md flex items-center gap-1.5 shrink-0"
+                          >
+                            <Send size={14} /> Execute Relief Plan
+                          </button>
+                        )}
                       </div>
 
                     </div>
@@ -763,7 +778,7 @@ export default function EmergencyReliefEngine() {
                           <th className="p-2">Duty ID</th>
                           <th className="p-2">Location</th>
                           <th className="p-2 text-center">Score</th>
-                          <th className="p-2 text-right">Action</th>
+                          {!isTrainOperator && <th className="p-2 text-right">Action</th>}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-850">
@@ -777,14 +792,16 @@ export default function EmergencyReliefEngine() {
                             <td className="p-2 text-slate-400 font-bold">{candidate.currentDuty}</td>
                             <td className="p-2 text-slate-400">{getStationLabel(candidate.currentLocation)}</td>
                             <td className="p-2 text-center text-emerald-400 font-black">+{candidate.recommendationScore}</td>
-                            <td className="p-2 text-right">
-                              <button
-                                onClick={() => handleExecuteRelief({ available: true, operator: candidate, score: candidate.recommendationScore, recoveryTimeMinutes: candidate.travelTimeMinutes + 3 })}
-                                className="bg-slate-950 border border-slate-800 hover:bg-slate-800 text-slate-200 px-2 py-1 rounded font-bold uppercase"
-                              >
-                                Assign
-                              </button>
-                            </td>
+                            {!isTrainOperator && (
+                              <td className="p-2 text-right">
+                                <button
+                                  onClick={() => handleExecuteRelief({ available: true, operator: candidate, score: candidate.recommendationScore, recoveryTimeMinutes: candidate.travelTimeMinutes + 3 })}
+                                  className="bg-slate-950 border border-slate-800 hover:bg-slate-800 text-slate-200 px-2 py-1 rounded font-bold uppercase"
+                                >
+                                  Assign
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                         
@@ -826,73 +843,75 @@ export default function EmergencyReliefEngine() {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           
           {/* Add Operator Form (1 Column) */}
-          <div className="xl:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
-            <div className="border-b border-slate-800 pb-3 flex justify-between items-center text-emerald-400">
-              <span className="font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
-                <Plus size={16} /> Add Extra Train Operator
-              </span>
-            </div>
-
-            <form onSubmit={handleAddExtraOp} className="space-y-4 text-xs font-bold uppercase">
-              <div className="space-y-2">
-                <label className="text-[10px] text-slate-500 tracking-wider">Employee ID</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 22464"
-                  value={newExtraOp.employeeId}
-                  onChange={(e) => setNewExtraOp({ ...newExtraOp, employeeId: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none"
-                />
+          {!isTrainOperator && (
+            <div className="xl:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+              <div className="border-b border-slate-800 pb-3 flex justify-between items-center text-emerald-400">
+                <span className="font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <Plus size={16} /> Add Extra Train Operator
+                </span>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] text-slate-500 tracking-wider">Employee Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. NAVEEN KUMAR"
-                  value={newExtraOp.employeeName}
-                  onChange={(e) => setNewExtraOp({ ...newExtraOp, employeeName: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none"
-                />
-              </div>
+              <form onSubmit={handleAddExtraOp} className="space-y-4 text-xs font-bold uppercase">
+                <div className="space-y-2">
+                  <label className="text-[10px] text-slate-500 tracking-wider">Employee ID</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 22464"
+                    value={newExtraOp.employeeId}
+                    onChange={(e) => setNewExtraOp({ ...newExtraOp, employeeId: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] text-slate-550 tracking-wider">Current Standby Location</label>
-                <select
-                  value={newExtraOp.currentLocation}
-                  onChange={(e) => setNewExtraOp({ ...newExtraOp, currentLocation: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none"
+                <div className="space-y-2">
+                  <label className="text-[10px] text-slate-500 tracking-wider">Employee Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. NAVEEN KUMAR"
+                    value={newExtraOp.employeeName}
+                    onChange={(e) => setNewExtraOp({ ...newExtraOp, employeeName: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] text-slate-550 tracking-wider">Current Standby Location</label>
+                  <select
+                    value={newExtraOp.currentLocation}
+                    onChange={(e) => setNewExtraOp({ ...newExtraOp, currentLocation: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none"
+                  >
+                    {STATION_DETAILS.map(st => (
+                      <option key={st.code} value={st.code}>
+                        {st.name} ({st.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] text-slate-500 tracking-wider">Sign On Time</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 06:00:00"
+                    value={newExtraOp.signOnTime}
+                    onChange={(e) => setNewExtraOp({ ...newExtraOp, signOnTime: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black py-3 rounded-lg tracking-widest uppercase transition-all shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-1.5"
                 >
-                  {STATION_DETAILS.map(st => (
-                    <option key={st.code} value={st.code}>
-                      {st.name} ({st.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  <Plus size={16} /> Add to Extra Pool
+                </button>
+              </form>
+            </div>
+          )}
 
-              <div className="space-y-2">
-                <label className="text-[10px] text-slate-500 tracking-wider">Sign On Time</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 06:00:00"
-                  value={newExtraOp.signOnTime}
-                  onChange={(e) => setNewExtraOp({ ...newExtraOp, signOnTime: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black py-3 rounded-lg tracking-widest uppercase transition-all shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-1.5"
-              >
-                <Plus size={16} /> Add to Extra Pool
-              </button>
-            </form>
-          </div>
-
-          {/* Extra Pool Table (2 Columns) */}
-          <div className="xl:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+          {/* Extra Pool Table (2 Columns / 3 Columns) */}
+          <div className={`${isTrainOperator ? 'xl:col-span-3' : 'xl:col-span-2'} bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4`}>
             <div className="border-b border-slate-800 pb-2">
               <span className="font-bold text-xs uppercase text-slate-200 tracking-wider">
                 Extra Train Operators Available Today (Priority 1 Pool)
@@ -908,13 +927,13 @@ export default function EmergencyReliefEngine() {
                     <th className="p-3">Location</th>
                     <th className="p-3">Sign On Time</th>
                     <th className="p-3">Status</th>
-                    <th className="p-3 text-right">Action</th>
+                    {!isTrainOperator && <th className="p-3 text-right">Action</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-850 text-slate-300">
                   {extraOps.length === 0 ? (
                     <tr>
-                      <td colSpan="6" className="p-6 text-center text-slate-500 italic text-[11px] uppercase">
+                      <td colSpan={isTrainOperator ? "5" : "6"} className="p-6 text-center text-slate-500 italic text-[11px] uppercase">
                         No Extra Operators manually registered for today.
                       </td>
                     </tr>
@@ -934,14 +953,16 @@ export default function EmergencyReliefEngine() {
                             {op.availabilityStatus}
                           </span>
                         </td>
-                        <td className="p-3 text-right">
-                          <button
-                            onClick={() => handleDeleteExtraOp(op.employeeId)}
-                            className="text-rose-500 hover:text-rose-400 p-1"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </td>
+                        {!isTrainOperator && (
+                          <td className="p-3 text-right">
+                            <button
+                              onClick={() => handleDeleteExtraOp(op.employeeId)}
+                              className="text-rose-500 hover:text-rose-400 p-1"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))
                   )}
@@ -957,69 +978,71 @@ export default function EmergencyReliefEngine() {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           
           {/* Add Missed Trip Form (1 Column) */}
-          <div className="xl:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
-            <div className="border-b border-slate-800 pb-3 flex justify-between items-center text-amber-400">
-              <span className="font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
-                <AlertTriangle size={16} /> Log Missed Trip Variance
-              </span>
+          {!isTrainOperator && (
+            <div className="xl:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+              <div className="border-b border-slate-800 pb-3 flex justify-between items-center text-amber-400">
+                <span className="font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <AlertTriangle size={16} /> Log Missed Trip Variance
+                </span>
+              </div>
+
+              <form onSubmit={handleAddMissedTrip} className="space-y-4 text-xs font-bold uppercase">
+                <div className="space-y-2">
+                  <label className="text-[10px] text-slate-500 tracking-wider">Employee ID</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 21460"
+                    value={newMissedTrip.employeeId}
+                    onChange={(e) => setNewMissedTrip({ ...newMissedTrip, employeeId: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] text-slate-500 tracking-wider">Employee Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. KAVITHA M N"
+                    value={newMissedTrip.employeeName}
+                    onChange={(e) => setNewMissedTrip({ ...newMissedTrip, employeeName: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] text-slate-500 tracking-wider">Missed Trip ID / Run File</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Run 104"
+                    value={newMissedTrip.missedTrip}
+                    onChange={(e) => setNewMissedTrip({ ...newMissedTrip, missedTrip: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] text-slate-500 tracking-wider">Incident Time</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 12:00:00"
+                    value={newMissedTrip.missedTime}
+                    onChange={(e) => setNewMissedTrip({ ...newMissedTrip, missedTime: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-amber-600 hover:bg-amber-500 text-slate-950 font-black py-3 rounded-lg tracking-widest uppercase transition-all shadow-lg shadow-amber-500/10 flex items-center justify-center gap-1.5"
+                >
+                  <AlertTriangle size={16} /> Log Missed Trip
+                </button>
+              </form>
             </div>
+          )}
 
-            <form onSubmit={handleAddMissedTrip} className="space-y-4 text-xs font-bold uppercase">
-              <div className="space-y-2">
-                <label className="text-[10px] text-slate-500 tracking-wider">Employee ID</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 21460"
-                  value={newMissedTrip.employeeId}
-                  onChange={(e) => setNewMissedTrip({ ...newMissedTrip, employeeId: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] text-slate-500 tracking-wider">Employee Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. KAVITHA M N"
-                  value={newMissedTrip.employeeName}
-                  onChange={(e) => setNewMissedTrip({ ...newMissedTrip, employeeName: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] text-slate-500 tracking-wider">Missed Trip ID / Run File</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Run 104"
-                  value={newMissedTrip.missedTrip}
-                  onChange={(e) => setNewMissedTrip({ ...newMissedTrip, missedTrip: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] text-slate-500 tracking-wider">Incident Time</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 12:00:00"
-                  value={newMissedTrip.missedTime}
-                  onChange={(e) => setNewMissedTrip({ ...newMissedTrip, missedTime: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 focus:outline-none"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-amber-600 hover:bg-amber-500 text-slate-950 font-black py-3 rounded-lg tracking-widest uppercase transition-all shadow-lg shadow-amber-500/10 flex items-center justify-center gap-1.5"
-              >
-                <AlertTriangle size={16} /> Log Missed Trip
-              </button>
-            </form>
-          </div>
-
-          {/* Missed Trips Table (2 Columns) */}
-          <div className="xl:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+          {/* Missed Trips Table (2 Columns / 3 Columns) */}
+          <div className={`${isTrainOperator ? 'xl:col-span-3' : 'xl:col-span-2'} bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4`}>
             <div className="border-b border-slate-800 pb-2">
               <span className="font-bold text-xs uppercase text-slate-200 tracking-wider">
                 Missed Trip Recovery Registry (Highest Priority Allocation Boost)
@@ -1034,13 +1057,13 @@ export default function EmergencyReliefEngine() {
                     <th className="p-3">Employee Name</th>
                     <th className="p-3">Missed Trip ID</th>
                     <th className="p-3">Incident Time</th>
-                    <th className="p-3 text-right">Action</th>
+                    {!isTrainOperator && <th className="p-3 text-right">Action</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-850 text-slate-300">
                   {missedTrips.length === 0 ? (
                     <tr>
-                      <td colSpan="5" className="p-6 text-center text-slate-500 italic text-[11px] uppercase">
+                      <td colSpan={isTrainOperator ? "4" : "5"} className="p-6 text-center text-slate-500 italic text-[11px] uppercase">
                         No missed trip recovery records currently logged.
                       </td>
                     </tr>
@@ -1051,14 +1074,16 @@ export default function EmergencyReliefEngine() {
                         <td className="p-3 font-bold uppercase text-slate-200">{mt.employeeName}</td>
                         <td className="p-3 font-bold">{mt.missedTrip}</td>
                         <td className="p-3 font-mono">{mt.missedTime}</td>
-                        <td className="p-3 text-right">
-                          <button
-                            onClick={() => handleDeleteMissedTrip(mt.id)}
-                            className="text-rose-500 hover:text-rose-400 p-1"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </td>
+                        {!isTrainOperator && (
+                          <td className="p-3 text-right">
+                            <button
+                              onClick={() => handleDeleteMissedTrip(mt.id)}
+                              className="text-rose-500 hover:text-rose-400 p-1"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))
                   )}
@@ -1095,29 +1120,31 @@ export default function EmergencyReliefEngine() {
                 className="bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-slate-200"
               />
               
-              <div className="flex gap-1.5 ml-2">
-                <button
-                  onClick={handleExportExcel}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 px-3 py-1.5 rounded font-black text-xs flex items-center gap-1 transition shadow"
-                  title="Export to Excel Spreadsheet"
-                >
-                  <FileSpreadsheet size={14} /> XLSX
-                </button>
-                <button
-                  onClick={handleExportCSV}
-                  className="bg-slate-950 border border-slate-850 hover:bg-slate-800 text-slate-200 px-3 py-1.5 rounded font-black text-xs flex items-center gap-1 transition"
-                  title="Export to CSV Format"
-                >
-                  <Download size={14} /> CSV
-                </button>
-                <button
-                  onClick={handlePrintReport}
-                  className="bg-slate-950 border border-slate-850 hover:bg-slate-800 text-slate-200 px-3 py-1.5 rounded font-black text-xs flex items-center gap-1 transition"
-                  title="Print Reports Matrix"
-                >
-                  <Printer size={14} /> Print
-                </button>
-              </div>
+              {!isTrainOperator && (
+                <div className="flex gap-1.5 ml-2">
+                  <button
+                    onClick={handleExportExcel}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 px-3 py-1.5 rounded font-black text-xs flex items-center gap-1 transition shadow"
+                    title="Export to Excel Spreadsheet"
+                  >
+                    <FileSpreadsheet size={14} /> XLSX
+                  </button>
+                  <button
+                    onClick={handleExportCSV}
+                    className="bg-slate-950 border border-slate-850 hover:bg-slate-800 text-slate-200 px-3 py-1.5 rounded font-black text-xs flex items-center gap-1 transition"
+                    title="Export to CSV Format"
+                  >
+                    <Download size={14} /> CSV
+                  </button>
+                  <button
+                    onClick={handlePrintReport}
+                    className="bg-slate-950 border border-slate-850 hover:bg-slate-800 text-slate-200 px-3 py-1.5 rounded font-black text-xs flex items-center gap-1 transition"
+                    title="Print Reports Matrix"
+                  >
+                    <Printer size={14} /> Print
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

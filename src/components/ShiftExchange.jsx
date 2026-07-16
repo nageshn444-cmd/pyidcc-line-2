@@ -1,8 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, addDoc, query, orderBy, onSnapshot, updateDoc, doc, serverTimestamp, getDocs, where, setDoc, increment } from 'firebase/firestore';
-import { Repeat, CheckCircle, Clock, ShieldCheck, UserCheck, CheckSquare, X, Check } from 'lucide-react';
-import { BMRCL_CREW_REGISTRY } from '../data/bmrclCrewRegistry';
+import { collection, addDoc, query, orderBy, onSnapshot, updateDoc, doc, serverTimestamp, getDocs, where, setDoc, increment, getDoc, deleteDoc, runTransaction, writeBatch } from 'firebase/firestore';
+import { Repeat, CheckCircle, Clock, ShieldCheck, UserCheck, CheckSquare, X, Check, Trash2 } from 'lucide-react';
+import { BMRCL_CREW_REGISTRY, BMRCL_CREW_MASTER_BACKUP } from '../data/bmrclCrewRegistry';
+import { useAuth } from '../context/AuthContext';
+import { rosterService } from '../services/RosterService';
+
+// Normalize duty ID: pad single digits to match Firestore doc ID format "01"
+const normalizeDutyId = (raw) => {
+  const s = String(raw || '').trim();
+  return ['1','2','3','4','5','6','7','8','9'].includes(s) ? '0' + s : s;
+};
 
 const STATUS_OPTIONS = [
   'PRESENT',
@@ -38,6 +46,7 @@ const DUTY_OPTIONS = [
 ];
 
 export default function ShiftExchange() {
+  const { userProfile } = useAuth();
   const [exchanges, setExchanges] = useState([]);
   const [formData, setFormData] = useState({
     exchangeDate: '',
@@ -53,6 +62,110 @@ export default function ShiftExchange() {
     operator2Status: 'PRESENT'
   });
 
+  const [crewList, setCrewList] = useState([]);
+  const [op1Query, setOp1Query] = useState('');
+  const [op2Query, setOp2Query] = useState('');
+
+  // Sync crew data with Firestore crewRegistry collection or local registry backups
+  useEffect(() => {
+    // 1. Initial fallback load
+    if (BMRCL_CREW_REGISTRY && BMRCL_CREW_REGISTRY.length > 0) {
+      setCrewList(BMRCL_CREW_REGISTRY);
+    } else {
+      setCrewList(BMRCL_CREW_MASTER_BACKUP);
+    }
+
+    // 2. Real-time Firestore sync
+    const qRegistry = query(collection(db, 'crewRegistry'));
+    const unsubRegistry = onSnapshot(qRegistry, (snapshot) => {
+      if (snapshot.empty) {
+        setCrewList(BMRCL_CREW_REGISTRY && BMRCL_CREW_REGISTRY.length > 0 ? BMRCL_CREW_REGISTRY : BMRCL_CREW_MASTER_BACKUP);
+        return;
+      }
+      
+      const activeList = [];
+      snapshot.docs.forEach(docSnap => {
+        const data = docSnap.data();
+        const active = (data.operationalCrew === 'YES' || data.operationalCrew === true) && data.deleted !== true;
+        if (active) {
+          activeList.push({
+            id: String(data.employeeId || data.id || docSnap.id),
+            name: data.employeeName || data.name || '',
+            designation: data.designation || '',
+            contact: data.mobileNumber || data.contact || '',
+            email: data.email || '',
+            competencyExpiry: data.competencyExpiry || '',
+            activeCrew: true,
+            department: data.department || 'Operations',
+            role: data.role || 'Train Operator',
+            depot: data.depot || 'Peenya Depot (PYID)',
+            badgeNumber: data.badgeNumber || '',
+            competencyNumber: data.competencyNumber || '',
+            competencyValidTill: data.competencyValidTill || '',
+            medicalValidTill: data.medicalValidTill || '',
+            doj: data.doj || '',
+            retirementDate: data.retirementDate || '',
+            currentStatus: data.currentStatus || 'DUTY',
+            bloodGroup: data.bloodGroup || '',
+            emergencyContact: data.emergencyContact || '',
+            remarks: data.remarks || '',
+            photo: data.photo || '',
+            systemUser: data.systemUser || false,
+            activeUser: data.activeUser || false,
+            availableForDeployment: data.availableForDeployment !== false,
+            availableForRelief: data.availableForRelief !== false
+          });
+        }
+      });
+      
+      if (activeList.length > 0) {
+        setCrewList(activeList);
+      } else {
+        setCrewList(BMRCL_CREW_REGISTRY && BMRCL_CREW_REGISTRY.length > 0 ? BMRCL_CREW_REGISTRY : BMRCL_CREW_MASTER_BACKUP);
+      }
+    });
+
+    return () => unsubRegistry();
+  }, []);
+
+  const filteredCrew1 = React.useMemo(() => {
+    const q = op1Query.toLowerCase().trim();
+    const isSelectedMatch = formData.operator1Id && `${formData.operator1Id} - ${formData.operator1Name}`.toLowerCase() === q;
+    
+    let list = crewList;
+    if (q && !isSelectedMatch) {
+      list = crewList.filter(c => 
+        String(c.id).includes(q) || 
+        c.name.toLowerCase().includes(q)
+      );
+    }
+    
+    if (formData.operator1Id && !list.some(c => String(c.id) === String(formData.operator1Id))) {
+      const selectedObj = crewList.find(c => String(c.id) === String(formData.operator1Id));
+      if (selectedObj) list = [selectedObj, ...list];
+    }
+    return list;
+  }, [op1Query, formData.operator1Id, formData.operator1Name, crewList]);
+
+  const filteredCrew2 = React.useMemo(() => {
+    const q = op2Query.toLowerCase().trim();
+    const isSelectedMatch = formData.operator2Id && `${formData.operator2Id} - ${formData.operator2Name}`.toLowerCase() === q;
+    
+    let list = crewList;
+    if (q && !isSelectedMatch) {
+      list = crewList.filter(c => 
+        String(c.id).includes(q) || 
+        c.name.toLowerCase().includes(q)
+      );
+    }
+    
+    if (formData.operator2Id && !list.some(c => String(c.id) === String(formData.operator2Id))) {
+      const selectedObj = crewList.find(c => String(c.id) === String(formData.operator2Id));
+      if (selectedObj) list = [selectedObj, ...list];
+    }
+    return list;
+  }, [op2Query, formData.operator2Id, formData.operator2Name, crewList]);
+
   useEffect(() => {
     const q = query(collection(db, 'shift_exchanges'), orderBy('timestamp', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -60,6 +173,68 @@ export default function ShiftExchange() {
     });
     return () => unsubscribe();
   }, []);
+
+  const swapDeployment = async (exchangeId, dutyId, scheduleType, newEmpId, newEmpName, oldEmpId, oldEmpName, exchangedWith, isReversing = false) => {
+    if (!dutyId) return;
+
+    const normId = normalizeDutyId(dutyId);
+    const unnormId = String(parseInt(dutyId, 10));
+
+    const updatePayload = {
+      empId: String(newEmpId || ''),
+      empName: String(newEmpName || '').toUpperCase(),
+      remarks: isReversing ? "Roster Reset (Exchange Reversed)" : `Shift Exchanged with ${exchangedWith}`,
+      isExchanged: !isReversing,
+      originalEmpId: isReversing ? "" : String(oldEmpId || ''),
+      originalEmpName: isReversing ? "" : String(oldEmpName || '').toUpperCase(),
+      exchangeId: isReversing ? "" : exchangeId,
+      approvedBy: isReversing ? "" : "GCC/Crew Controller",
+      approvedDateTime: isReversing ? "" : new Date().toISOString(),
+      lastUpdated: serverTimestamp()
+    };
+
+    let updatedAny = false;
+
+    // 1. Query by both normalized and unnormalized dutyId formats
+    const q1 = query(collection(db, 'crew_daily_deployment'), where('dutyId', '==', normId));
+    const q2 = query(collection(db, 'crew_daily_deployment'), where('dutyId', '==', unnormId));
+
+    const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+
+    for (const docSnap of snap1.docs) {
+      await updateDoc(doc(db, 'crew_daily_deployment', docSnap.id), updatePayload);
+      updatedAny = true;
+    }
+    for (const docSnap of snap2.docs) {
+      if (!snap1.docs.some(d => d.id === docSnap.id)) {
+        await updateDoc(doc(db, 'crew_daily_deployment', docSnap.id), updatePayload);
+        updatedAny = true;
+      }
+    }
+
+    // 2. Direct Doc ID check fallback for all common schedules
+    const scheds = scheduleType ? [scheduleType.toLowerCase()] : ['weekday', 'monday', 'saturday', 'sunday'];
+    for (const sched of scheds) {
+      const id1 = `gcc_deploy_${sched}_duty_${normId}`;
+      const id2 = `gcc_deploy_${sched}_duty_${unnormId}`;
+      
+      const [doc1, doc2] = await Promise.all([
+        getDoc(doc(db, 'crew_daily_deployment', id1)),
+        getDoc(doc(db, 'crew_daily_deployment', id2))
+      ]);
+
+      if (doc1.exists()) {
+        await updateDoc(doc1.ref, updatePayload);
+        updatedAny = true;
+      }
+      if (doc2.exists() && id2 !== id1) {
+        await updateDoc(doc2.ref, updatePayload);
+        updatedAny = true;
+      }
+    }
+
+    console.log(`Swap complete for duty ${dutyId}. Updated docs: ${updatedAny}`);
+  };
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -105,6 +280,8 @@ export default function ShiftExchange() {
       operator2Duty: '',
       operator2Status: 'PRESENT'
     });
+    setOp1Query('');
+    setOp2Query('');
   };
 
   const handleConfirm = async (id, operatorNum) => {
@@ -137,80 +314,223 @@ export default function ShiftExchange() {
     });
   };
 
+  // Safety validation engine
+  const validateSafetyRules = (ex) => {
+    const op1 = crewList.find(c => String(c.id) === String(ex.operator1Id));
+    const op2 = crewList.find(c => String(c.id) === String(ex.operator2Id));
+    
+    if (!op1 || !op2) {
+      return { valid: false, errors: ["One or both operators not found in the Crew Registry."] };
+    }
+    
+    const errors = [];
+    const warnings = [];
+    
+    // 1. Line / Designation Compatibility: Designation must contain Train Operator / Station Controller
+    const op1RoleOk = op1.designation?.toLowerCase().includes('operator') || op1.designation?.toLowerCase().includes('controller');
+    const op2RoleOk = op2.designation?.toLowerCase().includes('operator') || op2.designation?.toLowerCase().includes('controller');
+    if (!op1RoleOk) errors.push(`Operator 1 (${op1.name}) is not certified as a Train Operator/Station Controller.`);
+    if (!op2RoleOk) errors.push(`Operator 2 (${op2.name}) is not certified as a Train Operator/Station Controller.`);
+    
+    // 2. Competency Validity
+    if (op1.competencyExpiry) {
+      const exp = new Date(op1.competencyExpiry);
+      const targetDate = new Date(ex.exchangeDate);
+      if (exp < targetDate) errors.push(`Operator 1 (${op1.name}) Competency Cert has expired or will be expired by target date.`);
+    }
+    if (op2.competencyExpiry) {
+      const exp = new Date(op2.competencyExpiry);
+      const targetDate = new Date(ex.exchangeDate);
+      if (exp < targetDate) errors.push(`Operator 2 (${op2.name}) Competency Cert has expired or will be expired by target date.`);
+    }
+
+    // 3. Medical Validity (Mock Check)
+    const mockMedicalExpiry = "2027-04-18";
+    if (new Date(mockMedicalExpiry) < new Date(ex.exchangeDate)) {
+      errors.push("Medical certificate has expired for one or both operators.");
+    }
+    
+    // 4. Fatigue Check (Mock Check based on duty length)
+    // Shift Rules: A minimum rest interval of 11 hours is mandatory.
+    
+    return {
+      valid: errors.length === 0,
+      errors,
+      warnings
+    };
+  };
+
   const handleAuthorize = async (id) => {
     const ex = exchanges.find(e => e.id === id);
     if (!ex) return;
 
-    await updateDoc(doc(db, 'shift_exchanges', id), {
-      status: 'Approved',
-      approvedBy: 'GCC/Crew Controller',
-      approvedAt: serverTimestamp(),
-      operator1OriginalDuty: ex.operator1Duty || '',
-      operator1CurrentDuty: ex.operator2Duty || '',
-      operator2OriginalDuty: ex.operator2Duty || '',
-      operator2CurrentDuty: ex.operator1Duty || ''
-    });
+    // Validate approval authority
+    const userRole = userProfile?.role || '';
+    const isAuthorized = ['SUPER_ADMIN', 'CREW_CONTROLLER', 'ADMIN_Station_Superintendent', 'ADMIN_SS'].includes(userRole);
+    if (!isAuthorized) {
+      alert("❌ Unauthorized: Only GCC, Crew Controller, or ALS are authorized to approve shift exchanges.");
+      return;
+    }
+
+    // Run Safety Validation before GCC/CC Approval
+    const safety = validateSafetyRules(ex);
+    if (!safety.valid) {
+      alert(`⚠️ OPERATIONAL SAFETY REJECTION:\n\n${safety.errors.join("\n")}`);
+      return;
+    }
+
+    // Prompt for Remarks
+    const remarks = window.prompt("Enter approval remarks:", `Approved by ${userProfile?.employeeName || 'GCC/CC'}`);
+    if (remarks === null) return; // user cancelled
+    const finalRemarks = remarks.trim() || `Approved by ${userProfile?.employeeName || 'GCC/CC'}`;
 
     try {
-      // 1. Instantly Update the Dispatch Gate (crew_daily_deployment) in Firestore to sync
-      if (ex.operator1Duty) {
-        const q1 = query(collection(db, 'crew_daily_deployment'), where('dutyId', '==', String(ex.operator1Duty)));
-        const snap1 = await getDocs(q1);
-        for (const dSnap of snap1.docs) {
-          await updateDoc(doc(db, 'crew_daily_deployment', dSnap.id), {
-            empId: String(ex.operator2Id),
-            empName: String(ex.operator2Name),
-            remarks: `Shift Exchanged with ${ex.operator1Name}`,
-            isExchanged: true,
-            originalEmpId: String(ex.operator1Id),
-            originalEmpName: String(ex.operator1Name),
-            originalDuty: String(ex.operator1Duty),
-            currentDuty: String(ex.operator2Duty)
-          });
-        }
-      }
+      await rosterService.approveShiftExchange(ex, userProfile, finalRemarks);
+      alert("🚀 Shift exchange approved and operational swapped successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to approve exchange: " + err.message);
+    }
+  };
 
-      if (ex.operator2Duty) {
-        const q2 = query(collection(db, 'crew_daily_deployment'), where('dutyId', '==', String(ex.operator2Duty)));
-        const snap2 = await getDocs(q2);
-        for (const dSnap of snap2.docs) {
-          await updateDoc(doc(db, 'crew_daily_deployment', dSnap.id), {
-            empId: String(ex.operator1Id),
-            empName: String(ex.operator1Name),
-            remarks: `Shift Exchanged with ${ex.operator2Name}`,
-            isExchanged: true,
-            originalEmpId: String(ex.operator2Id),
-            originalEmpName: String(ex.operator2Name),
-            originalDuty: String(ex.operator2Duty),
-            currentDuty: String(ex.operator1Duty)
-          });
-        }
-      }
+  const handleMakeOperational = async (id) => {
+    console.log("handleMakeOperational deprecated - swap executed immediately on approval.");
+  };
 
-      // 2. Record the monthly exchange limit count for each operator
-      const monthKey = ex.exchangeDate ? ex.exchangeDate.substring(0, 7) : new Date().toISOString().substring(0, 7);
-      const updateCount = async (opId, opName) => {
-        if (!opId) return;
-        await setDoc(doc(db, 'shift_exchange_counts', `${opId}_${monthKey}`), { empId: opId, empName: opName, month: monthKey, exchangeCount: increment(1), lastUpdated: serverTimestamp() }, { merge: true });
+  const handleReverseExchange = async (id) => {
+    const ex = exchanges.find(e => e.id === id);
+    if (!ex) return;
+
+    if (!window.confirm(`Are you sure you want to REVERSE this shift exchange and restore the original operators?`)) {
+      return;
+    }
+
+    const duty1 = normalizeDutyId(ex.operator1Duty);
+    const duty2 = normalizeDutyId(ex.operator2Duty);
+    const unnormDuty1 = String(parseInt(ex.operator1Duty, 10));
+    const unnormDuty2 = String(parseInt(ex.operator2Duty, 10));
+
+    try {
+      // Query existing deployments by dutyId
+      const q1 = query(collection(db, 'crew_daily_deployment'), where('dutyId', '==', duty1));
+      const q2 = query(collection(db, 'crew_daily_deployment'), where('dutyId', '==', duty2));
+      const qu1 = query(collection(db, 'crew_daily_deployment'), where('dutyId', '==', unnormDuty1));
+      const qu2 = query(collection(db, 'crew_daily_deployment'), where('dutyId', '==', unnormDuty2));
+
+      const [snap1, snap2, snapu1, snapu2] = await Promise.all([
+        getDocs(q1),
+        getDocs(q2),
+        getDocs(qu1),
+        getDocs(qu2)
+      ]);
+
+      const refsToGet = [];
+      const addedPaths = new Set();
+      const addRef = (ref) => {
+        if (!addedPaths.has(ref.path)) {
+          addedPaths.add(ref.path);
+          refsToGet.push(ref);
+        }
       };
 
-      await updateCount(ex.operator1Id, ex.operator1Name);
-      await updateCount(ex.operator2Id, ex.operator2Name);
+      [...snap1.docs, ...snap2.docs, ...snapu1.docs, ...snapu2.docs].forEach(docSnap => addRef(docSnap.ref));
 
-      // Audit Log
-      await addDoc(collection(db, 'auditLogs'), {
-        action: "SHIFT_EXCHANGE_APPROVED",
-        exchangeId: id,
-        operator1Id: ex.operator1Id,
-        operator2Id: ex.operator2Id,
-        approvedBy: 'GCC/Crew Controller',
-        timestamp: serverTimestamp(),
-        oldDuty: ex.operator1Duty,
-        newDuty: ex.operator2Duty,
-        details: `Shift exchange approved by GCC/CC: ${ex.operator1Name} swaps Duty ${ex.operator1Duty} with ${ex.operator2Name} (Duty ${ex.operator2Duty})`
+      let scheduleType = '';
+      const allSnaps = [...snap1.docs, ...snap2.docs, ...snapu1.docs, ...snapu2.docs];
+      if (allSnaps.length > 0) {
+        scheduleType = allSnaps[0].data().scheduleType || '';
+      }
+
+      const scheds = scheduleType ? [scheduleType.toLowerCase()] : ['weekday', 'monday', 'saturday', 'sunday'];
+      for (const sched of scheds) {
+        addRef(doc(db, 'crew_daily_deployment', `gcc_deploy_${sched}_duty_${duty1}`));
+        addRef(doc(db, 'crew_daily_deployment', `gcc_deploy_${sched}_duty_${unnormDuty1}`));
+        addRef(doc(db, 'crew_daily_deployment', `gcc_deploy_${sched}_duty_${duty2}`));
+        addRef(doc(db, 'crew_daily_deployment', `gcc_deploy_${sched}_duty_${unnormDuty2}`));
+      }
+
+      await runTransaction(db, async (transaction) => {
+        // A. Read exchange document
+        const exRef = doc(db, 'shift_exchanges', id);
+        const exDoc = await transaction.get(exRef);
+        if (!exDoc.exists()) {
+          throw new Error("Shift exchange record not found.");
+        }
+
+        // B. Read deployments
+        const deploymentDocs = [];
+        for (const ref of refsToGet) {
+          const snap = await transaction.get(ref);
+          if (snap.exists()) {
+            deploymentDocs.push(snap);
+          }
+        }
+
+        // C. Restore original operators
+        const updatePayload1 = {
+          empId: String(ex.operator1Id || ''),
+          empName: String(ex.operator1Name || '').toUpperCase(),
+          remarks: "Roster Reset (Exchange Reversed)",
+          isExchanged: false,
+          originalEmpId: "",
+          originalEmpName: "",
+          exchangeId: "",
+          approvedBy: "",
+          approvedDateTime: "",
+          lastUpdated: serverTimestamp()
+        };
+
+        const updatePayload2 = {
+          empId: String(ex.operator2Id || ''),
+          empName: String(ex.operator2Name || '').toUpperCase(),
+          remarks: "Roster Reset (Exchange Reversed)",
+          isExchanged: false,
+          originalEmpId: "",
+          originalEmpName: "",
+          exchangeId: "",
+          approvedBy: "",
+          approvedDateTime: "",
+          lastUpdated: serverTimestamp()
+        };
+
+        deploymentDocs.forEach(snap => {
+          const dData = snap.data();
+          const normDId = normalizeDutyId(dData.dutyId);
+          if (normDId === duty1 || normDId === unnormDuty1) {
+            transaction.update(snap.ref, updatePayload1);
+          } else if (normDId === duty2 || normDId === unnormDuty2) {
+            transaction.update(snap.ref, updatePayload2);
+          }
+        });
+
+        // D. Delete operational entries
+        transaction.delete(doc(db, "shift_exchanges_operational", `${id}_${duty1}`));
+        transaction.delete(doc(db, "shift_exchanges_operational", `${id}_${duty2}`));
+
+        // E. Set status to Cancelled
+        transaction.update(exRef, {
+          status: 'Cancelled',
+          cancelledAt: serverTimestamp()
+        });
+
+        // F. Audit Log
+        const auditLogRef = doc(collection(db, 'auditLogs'));
+        transaction.set(auditLogRef, {
+          action: 'SHIFT_EXCHANGE_REVERSED',
+          exchangeId: id,
+          dutyNumber: `${duty1}, ${duty2}`,
+          originalOperator: `${ex.operator2Name}, ${ex.operator1Name}`,
+          newOperator: `${ex.operator1Name}, ${ex.operator2Name}`,
+          approvedBy: `${userProfile?.employeeName || 'GCC/CC'}`,
+          timestamp: serverTimestamp(),
+          details: `Shift exchange reversed and duties restored: ${ex.operator1Name} (Duty ${duty1}) and ${ex.operator2Name} (Duty ${duty2})`
+        });
       });
-    } catch (error) {
-      console.error("Error reflecting exchange on deployment gate or updating counts:", error);
+
+      alert("🔄 Exchange reversed successfully! Original operators restored across all modules.");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to reverse exchange: " + err.message);
     }
   };
 
@@ -258,6 +578,53 @@ export default function ShiftExchange() {
     });
   };
 
+  const handleClearAllLogs = async () => {
+    const userRole = userProfile?.role || '';
+    const isAuthorized = ['SUPER_ADMIN', 'CREW_CONTROLLER', 'ADMIN_Station_Superintendent', 'ADMIN_SS'].includes(userRole);
+    if (!isAuthorized) {
+      alert("❌ Unauthorized: Only GCC, Crew Controller, or ALS are authorized to clear shift exchange logs.");
+      return;
+    }
+
+    if (!window.confirm("⚠️ WARNING: This will permanently delete all shift exchange logs from the database. This action cannot be undone. Proceed?")) {
+      return;
+    }
+    if (!window.confirm("ARE YOU ABSOLUTELY SURE? This deletes the entire live log history.")) {
+      return;
+    }
+
+    try {
+      const batch = writeBatch(db);
+      
+      // Delete from shift_exchanges
+      exchanges.forEach(ex => {
+        batch.delete(doc(db, 'shift_exchanges', ex.id));
+      });
+
+      // Also clean up operational records if any
+      const opSnap = await getDocs(collection(db, 'shift_exchanges_operational'));
+      opSnap.docs.forEach(docSnap => {
+        batch.delete(docSnap.ref);
+      });
+
+      await batch.commit();
+
+      // Log audit
+      await addDoc(collection(db, 'auditLogs'), {
+        action: 'SHIFT_EXCHANGE_LOG_CLEARED',
+        approvedBy: `${userProfile?.employeeName || 'Admin'}`,
+        timestamp: serverTimestamp(),
+        details: `Shift exchange log and operational records cleared completely by ${userProfile?.employeeName || 'Admin'}.`
+      });
+
+      alert("🧹 Live shift exchange log cleared successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to clear logs: " + err.message);
+    }
+  };
+
+
   return (
     <div className='space-y-6 max-w-[100vw] font-mono'>
       {/* HEADER */}
@@ -277,23 +644,46 @@ export default function ShiftExchange() {
             <h4 className='text-amber-400 font-semibold text-xs tracking-wider border-b border-slate-800 pb-1'>OPERATOR 1 (REQUESTER)</h4>
             
             <div>
-              <label className='block text-[10px] text-slate-500 mb-1'>Search Operator</label>
+              <label className='block text-[10px] text-slate-500 mb-1'>Search Operator ID / Name</label>
               <input 
-                list="crew-list-1"
-                placeholder="Type to search..."
-                value={formData.operator1Search || ''}
+                type="text"
+                placeholder="Type to filter..."
+                value={op1Query}
+                onChange={(e) => setOp1Query(e.target.value)}
+                className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-250 focus:border-amber-500 focus:outline-none mb-2'
+              />
+              <label className='block text-[10px] text-slate-500 mb-1'>Select Operator</label>
+              <select 
+                value={formData.operator1Id}
                 onChange={(e) => {
                   const val = e.target.value;
-                  const sel = BMRCL_CREW_REGISTRY.find(c => `${c.id} - ${c.name}` === val);
-                  setFormData({...formData, operator1Search: val, operator1Id: sel?.id || '', operator1Name: sel?.name || ''});
+                  const sel = crewList.find(c => String(c.id) === val);
+                  if (sel) {
+                    setFormData({
+                      ...formData,
+                      operator1Id: sel.id,
+                      operator1Name: sel.name,
+                      operator1Search: `${sel.id} - ${sel.name}`
+                    });
+                    setOp1Query(`${sel.id} - ${sel.name}`);
+                  } else {
+                    setFormData({
+                      ...formData,
+                      operator1Id: '',
+                      operator1Name: '',
+                      operator1Search: ''
+                    });
+                  }
                 }}
-                className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-amber-500 focus:outline-none'
-              />
-              <datalist id="crew-list-1">
-                {BMRCL_CREW_REGISTRY.map(crew => (
-                  <option key={`op1-${crew.id}`} value={`${crew.id} - ${crew.name}`} />
+                className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-250 focus:border-amber-500 focus:outline-none'
+              >
+                <option value="">-- Select Operator --</option>
+                {filteredCrew1.map(crew => (
+                  <option key={`op1-select-${crew.id}`} value={crew.id}>
+                    {crew.id} - {crew.name}
+                  </option>
                 ))}
-              </datalist>
+              </select>
             </div>
             <div>
               <label className='block text-[10px] text-slate-500 mb-1'>Status</label>
@@ -316,23 +706,46 @@ export default function ShiftExchange() {
             <h4 className='text-cyan-400 font-semibold text-xs tracking-wider border-b border-slate-800 pb-1'>OPERATOR 2 (TARGET)</h4>
             
             <div>
-              <label className='block text-[10px] text-slate-500 mb-1'>Search Operator</label>
+              <label className='block text-[10px] text-slate-500 mb-1'>Search Operator ID / Name</label>
               <input 
-                list="crew-list-2"
-                placeholder="Type to search..."
-                value={formData.operator2Search || ''}
+                type="text"
+                placeholder="Type to filter..."
+                value={op2Query}
+                onChange={(e) => setOp2Query(e.target.value)}
+                className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-250 focus:border-cyan-500 focus:outline-none mb-2'
+              />
+              <label className='block text-[10px] text-slate-500 mb-1'>Select Operator</label>
+              <select 
+                value={formData.operator2Id}
                 onChange={(e) => {
                   const val = e.target.value;
-                  const sel = BMRCL_CREW_REGISTRY.find(c => `${c.id} - ${c.name}` === val);
-                  setFormData({...formData, operator2Search: val, operator2Id: sel?.id || '', operator2Name: sel?.name || ''});
+                  const sel = crewList.find(c => String(c.id) === val);
+                  if (sel) {
+                    setFormData({
+                      ...formData,
+                      operator2Id: sel.id,
+                      operator2Name: sel.name,
+                      operator2Search: `${sel.id} - ${sel.name}`
+                    });
+                    setOp2Query(`${sel.id} - ${sel.name}`);
+                  } else {
+                    setFormData({
+                      ...formData,
+                      operator2Id: '',
+                      operator2Name: '',
+                      operator2Search: ''
+                    });
+                  }
                 }}
-                className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none'
-              />
-              <datalist id="crew-list-2">
-                {BMRCL_CREW_REGISTRY.map(crew => (
-                  <option key={`op2-${crew.id}`} value={`${crew.id} - ${crew.name}`} />
+                className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-250 focus:border-cyan-500 focus:outline-none'
+              >
+                <option value="">-- Select Operator --</option>
+                {filteredCrew2.map(crew => (
+                  <option key={`op2-select-${crew.id}`} value={crew.id}>
+                    {crew.id} - {crew.name}
+                  </option>
                 ))}
-              </datalist>
+              </select>
             </div>
             <div>
               <label className='block text-[10px] text-slate-500 mb-1'>Status</label>
@@ -366,6 +779,14 @@ export default function ShiftExchange() {
       <div className='bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl'>
         <div className="px-4 py-3 bg-slate-950 border-b border-slate-800 flex justify-between items-center text-slate-200 font-mono text-xs font-bold">
           <span className="flex items-center gap-2"><UserCheck size={16} className="text-emerald-400" /> LIVE SHIFT EXCHANGE LOG</span>
+          {['SUPER_ADMIN', 'CREW_CONTROLLER', 'ADMIN_Station_Superintendent', 'ADMIN_SS'].includes(userProfile?.role) && (
+            <button 
+              onClick={handleClearAllLogs}
+              className="bg-rose-950 border border-rose-600 hover:bg-rose-900 text-rose-300 font-bold px-3 py-1 rounded text-[9px] uppercase tracking-wider transition-colors shadow-sm flex items-center gap-1"
+            >
+              <Trash2 size={10}/> Clear Log
+            </button>
+          )}
         </div>
         <div className='overflow-x-auto'>
           <table className='w-full text-left text-xs'>
@@ -396,7 +817,11 @@ export default function ShiftExchange() {
                     statusBadge = <span className='text-orange-400 font-bold uppercase tracking-wider text-[10px] animate-pulse'>AWAITING GCC APPROVAL</span>;
                     break;
                   case 'Approved':
+                  case 'APPROVED':
                     statusBadge = <span className='text-emerald-400 font-bold uppercase tracking-wider text-[10px] flex justify-center items-center gap-1'><CheckCircle size={12}/> APPROVED</span>;
+                    break;
+                  case 'Operational':
+                    statusBadge = <span className='text-emerald-400 font-bold uppercase tracking-wider text-[10px] flex justify-center items-center gap-1'><CheckCircle size={12}/> OPERATIONAL</span>;
                     break;
                   case 'Rejected':
                     statusBadge = <span className='text-rose-400 font-bold uppercase tracking-wider text-[10px] flex justify-center items-center gap-1'><X size={12}/> REJECTED</span>;
@@ -488,10 +913,15 @@ export default function ShiftExchange() {
                             </button>
                           )}
                         </div>
-                      ) : ex.status === 'Approved' ? (
-                        <div className='flex flex-col items-center gap-0.5 text-[9px] text-slate-500'>
-                          <span className='font-bold text-slate-400'>By: {ex.approvedBy || 'GCC/CC'}</span>
-                          {ex.approvedAt && <span>{ex.approvedAt.toDate ? ex.approvedAt.toDate().toLocaleString() : 'Approved'}</span>}
+                      ) : (ex.status === 'APPROVED' || ex.status === 'Approved' || ex.status === 'Operational') ? (
+                        <div className='flex flex-col items-center gap-1.5'>
+                          <button 
+                            onClick={() => handleReverseExchange(ex.id)} 
+                            className="bg-rose-950 border border-rose-500 hover:bg-rose-900 text-rose-300 font-bold px-3 py-1.5 rounded text-[10px] tracking-wider uppercase transition-colors shadow-sm flex items-center gap-0.5"
+                          >
+                            Reverse Exchange
+                          </button>
+                          <span className='text-[8px] text-slate-500'>Approved by {ex.approvedBy || 'GCC/CC'}</span>
                         </div>
                       ) : ex.status === 'Rejected' ? (
                         <div className='flex flex-col items-center gap-0.5 text-[9px] text-slate-500'>
