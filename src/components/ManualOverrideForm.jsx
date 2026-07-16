@@ -18,7 +18,8 @@ const REASONS = [
 
 
 export default function ManualOverrideForm() {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
+  const isTrainOperator = userProfile?.role === 'TRAIN_OPERATOR' || userProfile?.role === 'STATION_CONTROLLER' || userProfile?.role === 'VIEWER';
   const [overrides, setOverrides] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -78,6 +79,7 @@ export default function ManualOverrideForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isTrainOperator) return;
     setErrorMsg('');
     setSuccessMsg('');
 
@@ -169,6 +171,7 @@ export default function ManualOverrideForm() {
   };
 
   const handleDelete = async (id) => {
+    if (isTrainOperator) return;
     if (!window.confirm('Are you sure you want to delete this override?')) return;
     try {
       await deleteDoc(doc(db, 'manual_overrides', id));
@@ -194,12 +197,14 @@ export default function ManualOverrideForm() {
             <h4 className="text-amber-400 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
               <Train className="w-4 h-4" /> Override Registry
             </h4>
-            <button 
-              onClick={() => { resetForm(); setShowForm(true); }}
-              className="bg-amber-600 hover:bg-amber-500 text-slate-950 px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1 transition-colors"
-            >
-              <Plus className="w-3 h-3" /> NEW OVERRIDE
-            </button>
+            {!isTrainOperator && (
+              <button 
+                onClick={() => { resetForm(); setShowForm(true); }}
+                className="bg-amber-600 hover:bg-amber-500 text-slate-950 px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1 transition-colors"
+              >
+                <Plus className="w-3 h-3" /> NEW OVERRIDE
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-2 bg-slate-900/50 p-2 rounded border border-slate-800 text-xs">
@@ -243,13 +248,13 @@ export default function ManualOverrideForm() {
                   <th className="p-2 border-b border-slate-700 text-amber-500 font-bold uppercase">Time</th>
                   <th className="p-2 border-b border-slate-700 text-amber-500 font-bold uppercase">Operator</th>
                   <th className="p-2 border-b border-slate-700 text-amber-500 font-bold uppercase">Reason</th>
-                  <th className="p-2 border-b border-slate-700 text-amber-500 font-bold uppercase text-right">Actions</th>
+                  {!isTrainOperator && <th className="p-2 border-b border-slate-700 text-amber-500 font-bold uppercase text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/50">
                 {filteredOverrides.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="p-4 text-center text-slate-500 italic">No overrides found for selected filters.</td>
+                    <td colSpan={isTrainOperator ? "5" : "6"} className="p-4 text-center text-slate-500 italic">No overrides found for selected filters.</td>
                   </tr>
                 ) : (
                   filteredOverrides.map(ov => (
@@ -274,14 +279,16 @@ export default function ManualOverrideForm() {
                           {ov.reason === 'OTHER' ? ov.otherReason : ov.reason}
                         </span>
                       </td>
-                      <td className="p-2 text-right whitespace-nowrap">
-                        <button onClick={() => handleEdit(ov)} className="p-1 text-blue-400 hover:bg-blue-400/10 rounded mr-1" title="Edit">
-                          <Edit2 className="w-3 h-3" />
-                        </button>
-                        <button onClick={() => handleDelete(ov.id)} className="p-1 text-red-400 hover:bg-red-400/10 rounded" title="Delete">
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </td>
+                      {!isTrainOperator && (
+                        <td className="p-2 text-right whitespace-nowrap">
+                          <button onClick={() => handleEdit(ov)} className="p-1 text-blue-400 hover:bg-blue-400/10 rounded mr-1" title="Edit">
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                          <button onClick={() => handleDelete(ov.id)} className="p-1 text-red-400 hover:bg-red-400/10 rounded" title="Delete">
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}

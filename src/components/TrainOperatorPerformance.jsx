@@ -10,6 +10,7 @@ import {
   collection, onSnapshot
 } from 'firebase/firestore';
 import { BMRCL_CREW_REGISTRY } from '../data/bmrclCrewRegistry';
+import { useAuth } from '../context/AuthContext';
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, 
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line
@@ -23,6 +24,19 @@ import {
 } from '../utils/kpiEngine';
 
 export default function TrainOperatorPerformance() {
+  const { userProfile } = useAuth();
+  const isTrainOperator = !['SUPER_ADMIN', 'CREW_CONTROLLER', 'ADMIN_SS', 'ADMIN_Station_Superintendent', 'JMD'].includes(userProfile?.role) && 
+                          !String(userProfile?.role || '').toLowerCase().includes('admin') && (
+                            userProfile?.role === 'TRAIN_OPERATOR' || 
+                            userProfile?.role === 'STATION_CONTROLLER' || 
+                            userProfile?.role === 'VIEWER' ||
+                            String(userProfile?.role || '').toLowerCase().includes('operator') ||
+                            String(userProfile?.role || '').toLowerCase().includes('controller') ||
+                            String(userProfile?.designation || '').toLowerCase().includes('operator') ||
+                            String(userProfile?.designation || '').toLowerCase().includes('controller') ||
+                            String(userProfile?.designation || '').toLowerCase().includes('viewer')
+                          );
+
   // Filter States
   const [selectedEmpId, setSelectedEmpId] = useState('21430'); // Default to KRISHNA MURTHY V
   const [selectedMonth, setSelectedMonth] = useState(5); // June (0-indexed: 5)
@@ -151,6 +165,7 @@ export default function TrainOperatorPerformance() {
 
   // Export handlers
   const handleExportCSV = () => {
+    if (isTrainOperator) return;
     const headers = ["Date", "Day", "Duty Number", "Duty Type", "Sign On Time", "Sign Off Time", "Train ID", "Trips Operated", "Driving Hours", "Distance Covered (km)", "Remarks"];
     const rows = monthlyData.days.map(d => [
       d.date, d.dayName, d.dutyNo, d.dutyType, d.signOnTime, d.signOffTime, d.trainId, d.tripsOperated, d.drivingHours, d.distanceCovered, d.remarks
@@ -168,6 +183,7 @@ export default function TrainOperatorPerformance() {
   };
 
   const handleExportExcel = () => {
+    if (isTrainOperator) return;
     const data = monthlyData.days.map(d => ({
       "Date": d.date,
       "Day": d.dayName,
@@ -189,6 +205,7 @@ export default function TrainOperatorPerformance() {
   };
 
   const handlePrintPDF = () => {
+    if (isTrainOperator) return;
     window.print();
   };
 
@@ -268,26 +285,28 @@ export default function TrainOperatorPerformance() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-end gap-2">
-          <button 
-            onClick={handleExportCSV} 
-            className="bg-slate-950 border border-slate-700 hover:border-emerald-500 hover:text-emerald-400 px-3 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1.5"
-          >
-            <Download size={14} /> CSV
-          </button>
-          <button 
-            onClick={handleExportExcel} 
-            className="bg-slate-950 border border-slate-700 hover:border-emerald-500 hover:text-emerald-400 px-3 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1.5"
-          >
-            <Layers size={14} /> EXCEL
-          </button>
-          <button 
-            onClick={handlePrintPDF} 
-            className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 px-4 py-1.5 rounded text-xs font-black transition-all flex items-center gap-1.5 shadow-md"
-          >
-            <FileText size={14} /> GENERATE REPORT / PRINT
-          </button>
-        </div>
+        {!isTrainOperator && (
+          <div className="flex items-end gap-2">
+            <button 
+              onClick={handleExportCSV} 
+              className="bg-slate-950 border border-slate-700 hover:border-emerald-500 hover:text-emerald-400 px-3 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1.5"
+            >
+              <Download size={14} /> CSV
+            </button>
+            <button 
+              onClick={handleExportExcel} 
+              className="bg-slate-950 border border-slate-700 hover:border-emerald-500 hover:text-emerald-400 px-3 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1.5"
+            >
+              <Layers size={14} /> EXCEL
+            </button>
+            <button 
+              onClick={handlePrintPDF} 
+              className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 px-4 py-1.5 rounded text-xs font-black transition-all flex items-center gap-1.5 shadow-md"
+            >
+              <FileText size={14} /> GENERATE REPORT / PRINT
+            </button>
+          </div>
+        )}
       </div>
 
       {/* MONTHLY SUMMARY ROW */}
@@ -658,7 +677,7 @@ export default function TrainOperatorPerformance() {
             <TrendingUp size={16} /> Monthly Driving & Mileage Trend
           </h4>
           <div className="h-[250px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width={250} height={250}>
               <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
@@ -683,7 +702,7 @@ export default function TrainOperatorPerformance() {
             <BarChart2 size={16} /> Trips Operated Distribution
           </h4>
           <div className="h-[250px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width={250} height={250}>
               <BarChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                 <XAxis dataKey="name" stroke="#64748b" fontSize={9} />

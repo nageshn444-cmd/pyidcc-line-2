@@ -1,4 +1,4 @@
-import { collection, getDocs, doc, setDoc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, getDoc, writeBatch } from 'firebase/firestore';
 import { BMRCL_CREW_REGISTRY } from '../data/bmrclCrewRegistry';
 
 export const seedDatabaseIfNeeded = async (db) => {
@@ -102,10 +102,15 @@ export const seedDatabaseIfNeeded = async (db) => {
       
       for (const [roleId, roleData] of Object.entries(defaultRoles)) {
         await setDoc(doc(db, 'roles', roleId), roleData);
+        await setDoc(doc(db, 'role_permissions', roleId), roleData);
       }
       
       // Also add ADMIN_Station_Superintendent role doc explicitly
       await setDoc(doc(db, 'roles', 'ADMIN_Station_Superintendent'), {
+        roleName: "ADMIN_Station_Superintendent",
+        permissions: defaultRoles.ADMIN_SS.permissions
+      });
+      await setDoc(doc(db, 'role_permissions', 'ADMIN_Station_Superintendent'), {
         roleName: "ADMIN_Station_Superintendent",
         permissions: defaultRoles.ADMIN_SS.permissions
       });
@@ -124,64 +129,74 @@ export const seedDatabaseIfNeeded = async (db) => {
           email: employee.email || "",
           designation: employee.designation,
           contact: employee.contact,
-          active: true
+          active: true,
+          operationalCrew: (employee.activeCrew === true) ? 'YES' : 'NO'
         });
       });
       await batch.commit();
     }
 
-    // 3. Seed users, userPermissions, and userAccessControl if empty
-    const usersCheck = await getDocs(collection(db, 'users'));
-    if (usersCheck.empty) {
-      console.log("Seeding users, userPermissions, and userAccessControl collections...");
-      const batch = writeBatch(db);
+    // 3. One-time self-healing synchronization for active crew accounts
+    console.log("Running self-healing account synchronization...");
+    const regSnap = await getDocs(collection(db, 'crewRegistry'));
+    const batch = writeBatch(db);
+    let counts = 0;
+
+    for (const d of regSnap.docs) {
+      const emp = d.data();
+      const empId = String(emp.employeeId || emp.id);
+      const isOperational = emp.operationalCrew === 'YES' || emp.activeCrew === true || emp.active === true;
       
-      BMRCL_CREW_REGISTRY.forEach(employee => {
-        const empId = String(employee.id);
-        const role = getDefaultRole(empId, employee.designation);
-        
-        // A. Seed users doc
+      if (isOperational) {
+        const role = getDefaultRole(empId, emp.designation);
+
+        // Ensure users doc exists
         const userRef = doc(db, 'users', empId);
         batch.set(userRef, {
           employeeId: empId,
-          employeeName: employee.name,
-          designation: employee.designation,
-          mobileNumber: employee.contact || "",
-          email: employee.email || "",
-          depot: "Peenya Industry Depot",
+          employeeName: emp.employeeName || emp.name || '',
+          designation: emp.designation || '',
+          mobileNumber: emp.mobileNumber || emp.contact || '',
+          email: emp.email || `${empId}@pyidcc.bmrcl.com`,
+          depot: emp.depot || "Peenya Industry Depot",
           role: role,
           active: true,
           status: "ACTIVE",
-          lastLogin: null,
-          lastLoginDevice: ""
-        });
-        
-        // B. Seed userAccessControl doc
+          operationalCrew: "YES"
+        }, { merge: true });
+
+        // Ensure userAccessControl exists
         const accessRef = doc(db, 'userAccessControl', empId);
         batch.set(accessRef, {
+          employeeId: empId,
           canLogin: true,
           canAccessWebApp: true,
           canAccessMobileApp: true,
           canExportReports: true,
           canApproveRequests: (role === 'SUPER_ADMIN' || role === 'ADMIN_Station_Superintendent' || role === 'ADMIN_SS' || role === 'CREW_CONTROLLER'),
           canAccessAdminModules: (role === 'SUPER_ADMIN' || role === 'ADMIN_Station_Superintendent' || role === 'ADMIN_SS'),
-          canManageUsers: (role === 'SUPER_ADMIN'),
+          canManageUsers: (role === 'SUPER_ADMIN' || role === 'ADMIN_Station_Superintendent' || role === 'ADMIN_SS'),
           forceLogout: false,
           blockedDevices: [],
-          deviceStatus: "ACTIVE"
-        });
-        
-        // C. Seed userPermissions doc
+          deviceStatus: "ACTIVE",
+          active: true
+        }, { merge: true });
+
+        // Ensure userPermissions exists
         const permsRef = doc(db, 'userPermissions', empId);
         batch.set(permsRef, {
           employeeId: empId,
           permissions: getRoleDefaultPermissions(role)
-        });
-      });
-      
-      await batch.commit();
-      console.log("Seeding completed successfully.");
+        }, { merge: true });
+
+        counts++;
+      }
     }
+    if (counts > 0) {
+      await batch.commit();
+      console.log(`✓ Synchronized & verified ${counts} active operational crew accounts.`);
+    }
+
   } catch (error) {
     console.error("Error in seeding database:", error);
   }
@@ -207,7 +222,11 @@ export const getRoleDefaultPermissions = (role) => {
     'Live Relief Tracking',
     'Emergency Relief Module',
     'Reports Center',
-    'User Control Center'
+    'User Control Center',
+    'KM Calculator Suite',
+    'Rake Registry',
+    'Leave Requests',
+    'AI ALS Cab Inspection'
   ];
 
   const defaultPerms = {};
@@ -229,6 +248,8 @@ export const getRoleDefaultPermissions = (role) => {
         defaultPerms[mod] = { 'View': true, 'Export Excel': true, 'Export CSV': true, 'Export PDF': true, 'Print Reports': true };
       } else if (mod === 'User Control Center') {
         defaultPerms[mod] = { 'View': true, 'Manage Users': true, 'Assign Permissions': true, 'Assign Roles': true, 'Delete Users': true };
+      } else {
+        defaultPerms[mod] = { 'View': true, 'Create Note': true, 'Approve': true, 'Full Control': true, 'Calculate': true, 'Export': true, 'Reconcile': true, 'Edit': true, 'Register Rake': true, 'Submit Request': true, 'Approve Request': true, 'Trigger Alert': true, 'Clear Alert': true, 'Certify': true, 'Optimize': true, 'Run Analysis': true };
       }
     });
   } else if (role === 'ADMIN_Station_Superintendent' || role === 'ADMIN_SS') {
@@ -245,6 +266,8 @@ export const getRoleDefaultPermissions = (role) => {
         defaultPerms[mod] = { 'View': true, 'Export Excel': true, 'Export CSV': true, 'Export PDF': true, 'Print Reports': true };
       } else if (mod === 'User Control Center') {
         defaultPerms[mod] = { 'View': true, 'Manage Users': false, 'Assign Permissions': false, 'Assign Roles': false, 'Delete Users': false };
+      } else {
+        defaultPerms[mod] = { 'View': true, 'Create Note': true, 'Approve': true, 'Full Control': true, 'Calculate': true, 'Export': true, 'Reconcile': true, 'Edit': true, 'Register Rake': true, 'Submit Request': true, 'Approve Request': true, 'Trigger Alert': true, 'Clear Alert': true, 'Certify': true, 'Optimize': true, 'Run Analysis': true };
       }
     });
   } else if (role === 'CREW_CONTROLLER') {
@@ -261,6 +284,8 @@ export const getRoleDefaultPermissions = (role) => {
         defaultPerms[mod] = { 'View': true, 'Export Excel': true, 'Export CSV': true, 'Export PDF': true, 'Print Reports': true };
       } else if (mod === 'User Control Center') {
         defaultPerms[mod] = { 'View': false, 'Manage Users': false, 'Assign Permissions': false, 'Assign Roles': false, 'Delete Users': false };
+      } else {
+        defaultPerms[mod] = { 'View': true, 'Create Note': true, 'Approve': true, 'Full Control': true, 'Calculate': true, 'Export': true, 'Reconcile': true, 'Edit': true, 'Register Rake': true, 'Submit Request': true, 'Approve Request': true, 'Trigger Alert': true, 'Clear Alert': true, 'Certify': true, 'Optimize': true, 'Run Analysis': true };
       }
     });
   } else if (role === 'STATION_CONTROLLER') {
@@ -279,24 +304,18 @@ export const getRoleDefaultPermissions = (role) => {
         defaultPerms[mod] = { 'View': true, 'Export Excel': false, 'Export CSV': false, 'Export PDF': false, 'Print Reports': false };
       } else if (mod === 'User Control Center') {
         defaultPerms[mod] = { 'View': false, 'Manage Users': false, 'Assign Permissions': false, 'Assign Roles': false, 'Delete Users': false };
+      } else {
+        defaultPerms[mod] = { 'View': true };
       }
     });
   } else if (role === 'TRAIN_OPERATOR') {
     allModules.forEach(mod => {
-      if (mod === 'Dashboard') {
-        defaultPerms[mod] = { 'View': true, 'Edit': false, 'Admin Access': false };
-      } else if (mod === 'Crew Registry' || mod === 'Duty Roster') {
-        defaultPerms[mod] = { 'View': false, 'Create': false, 'Edit': false, 'Delete': false, 'Approve': false };
-      } else if (mod === 'Shift Exchange' || mod === 'Duty Swap') {
-        defaultPerms[mod] = { 'View': true, 'Create Request': true, 'Approve Request': false, 'Reject Request': false, 'Full Control': false };
-      } else if (mod === 'Automated Dispatch Gate' || mod === 'Emergency Relief Module') {
-        defaultPerms[mod] = { 'View': true, 'Dispatch': false, 'Override Dispatch': false, 'Full Control': false, 'Generate Relief': false, 'Approve Relief': false };
-      } else if (mod === 'Live Relief Tracking') {
-        defaultPerms[mod] = { 'View': true, 'Update': false, 'Approve': false };
-      } else if (mod === 'Reports Center') {
-        defaultPerms[mod] = { 'View': false, 'Export Excel': false, 'Export CSV': false, 'Export PDF': false, 'Print Reports': false };
-      } else if (mod === 'User Control Center') {
-        defaultPerms[mod] = { 'View': false, 'Manage Users': false, 'Assign Permissions': false, 'Assign Roles': false, 'Delete Users': false };
+      if (mod === 'Crew Registry') {
+        defaultPerms[mod] = { 'View': true, 'Create': false, 'Edit': true, 'Delete': false, 'Approve': false };
+      } else if (mod === 'AI ALS Cab Inspection' || mod === 'User Control Center') {
+        defaultPerms[mod] = { 'View': false };
+      } else {
+        defaultPerms[mod] = { 'View': true };
       }
     });
   } else if (role === 'VIEWER') {
@@ -315,6 +334,8 @@ export const getRoleDefaultPermissions = (role) => {
         defaultPerms[mod] = { 'View': true, 'Export Excel': false, 'Export CSV': false, 'Export PDF': false, 'Print Reports': false };
       } else if (mod === 'User Control Center') {
         defaultPerms[mod] = { 'View': false, 'Manage Users': false, 'Assign Permissions': false, 'Assign Roles': false, 'Delete Users': false };
+      } else {
+        defaultPerms[mod] = { 'View': true };
       }
     });
   }

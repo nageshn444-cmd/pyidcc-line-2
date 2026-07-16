@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { Shield, ShieldAlert, Check, X, RefreshCw } from 'lucide-react';
 
@@ -10,11 +10,15 @@ const MODULES = [
   "Duty Roster",
   "Shift Exchange",
   "Duty Swap",
-  "Manual Override",
-  "Reports",
-  "User Management",
-  "Role Management",
-  "Settings"
+  "Automated Dispatch Gate",
+  "Live Relief Tracking",
+  "Emergency Relief Module",
+  "Reports Center",
+  "User Control Center",
+  "KM Calculator Suite",
+  "Rake Registry",
+  "Leave Requests",
+  "AI ALS Cab Inspection"
 ];
 
 const PERMISSION_OPTIONS = ["Full", "View", "Own", "Request", "No"];
@@ -56,9 +60,12 @@ export default function RoleManagement() {
         [moduleName]: newValue
       };
 
-      await updateDoc(doc(db, 'roles', roleId), {
+      await setDoc(doc(db, 'roles', roleId), {
         permissions: updatedPermissions
-      });
+      }, { merge: true });
+      await setDoc(doc(db, 'role_permissions', roleId), {
+        permissions: updatedPermissions
+      }, { merge: true });
 
       await logAudit("ROLE_PERMISSIONS_CHANGE", userProfile.employeeId, userProfile.employeeName, 
         `Updated role ${roleId} module ${moduleName} permission to ${newValue}`);
@@ -71,6 +78,20 @@ export default function RoleManagement() {
       setSaving(false);
     }
   };
+
+  const isAuthorized = userProfile?.role === 'SUPER_ADMIN' || 
+                       userProfile?.role === 'ADMIN_Station_Superintendent' || 
+                       userProfile?.role === 'ADMIN_SS' || 
+                       userProfile?.role === 'ADMIN' || 
+                       userProfile?.role === 'CREW_CONTROLLER' || 
+                       userProfile?.role === 'ALS' || 
+                       userProfile?.role === 'GCC' || 
+                       userProfile?.role === 'co ordinators' ||
+                       userProfile?.role === 'COORDINATOR';
+
+  if (!isAuthorized) {
+    return null;
+  }
 
   return (
     <div className="space-y-6 font-mono text-slate-100">

@@ -2,14 +2,24 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Helper Functions ---
-    function getUserRole() {
-      let userDoc = get(/databases/$(database)/documents/system_users/$(request.auth.uid));
-      return (userDoc.data != null) ? userDoc.data.role : null;
+    // ═══════════════════════════════════════════════════════════════
+    //  HELPER FUNCTIONS
+    // ═══════════════════════════════════════════════════════════════
+
+    function isSignedIn() {
+      return request.auth != null;
     }
 
+    function getUserRole() {
+      let path = /databases/$(database)/documents/system_users/$(request.auth.uid);
+      return exists(path) ? get(path).data.role : null;
+    }
+
+    // Owner: nageshn444@gmail.com OR 20726@pyidcc.bmrcl.com
+    // Use the authenticated UID too so Google sign-in works reliably even if the email claim is missing.
     function isOwner() {
-      return request.auth != null && (
+      return isSignedIn() && (
+        request.auth.uid == 'EByfpLYSWsM2nxTKB1urzXgHjV02' ||
         request.auth.token.email == 'nageshn444@gmail.com' ||
         request.auth.token.email == '20726@pyidcc.bmrcl.com' ||
         getUserRole() == 'SUPER_ADMIN'
@@ -18,59 +28,129 @@ service cloud.firestore {
 
     function isAdmin() {
       let role = getUserRole();
-      return isOwner() || role == 'ADMIN_Station_Superintendent' || role == 'ADMIN_SS' || role == 'ADMIN';
+      return isOwner() ||
+             role == 'ADMIN_Station_Superintendent' ||
+             role == 'ADMIN_SS' ||
+             role == 'ADMIN' ||
+             role == 'ALS' ||
+             role == 'GCC' ||
+             role == 'co ordinators' ||
+             role == 'COORDINATOR';
     }
 
     function isAdminOrController() {
-      let role = getUserRole();
-      return isAdmin() || (request.auth != null && role == 'CREW_CONTROLLER');
+      return isAdmin() || (isSignedIn() && getUserRole() == 'CREW_CONTROLLER');
     }
 
     function isBmrclStaff() {
-      return request.auth != null && (isAdminOrController() || (request.auth.token.email != null && request.auth.token.email.matches('.*@bmrc\\.co\\.in$')));
-    }
-
-    function isSupervisor() {
-      return isOwner() || (isBmrclStaff() && (request.auth.token.designation == 'Station Superintendent' || getUserRole() == 'CREW_CONTROLLER'));
-    }
-
-    // --- Global Owner Override ---
-    // Allows you to seed database and perform maintenance regardless of role
-    // Safeguards NAGESHA N (20726) from accidental deletion, deactivation, or blocking
-    match /{document=**} {
-      allow write: if isOwner() && (
-        !request.path.toString().matches('.*/(users|userAccessControl|userPermissions|system_users)/20726$') || (
-          request.method == 'update' && (
-            (!request.path.toString().matches('.*/(users|system_users)/20726$') || (
-              request.resource.data.role == 'SUPER_ADMIN' &&
-              request.resource.data.active == true &&
-              (request.resource.data.status == null || request.resource.data.status == 'ACTIVE')
-            )) &&
-            (!request.path.toString().matches('.*/userAccessControl/20726$') || (
-              request.resource.data.canLogin == true &&
-              request.resource.data.canAccessWebApp == true &&
-              request.resource.data.canAccessMobileApp == true &&
-              request.resource.data.forceLogout == false &&
-              request.resource.data.deviceStatus == 'ACTIVE'
-            ))
-          )
-        )
+      return isSignedIn() && (
+        isAdminOrController() ||
+        (request.auth.token.email != null && (
+          request.auth.token.email.matches('.*@bmrc\\.co\\.in$') ||
+          request.auth.token.email.matches('.*@pyidcc\\.bmrcl\\.com$')
+        ))
       );
     }
 
-    // --- Login Audit Logging ---
-    match /login_history/{documentId} {
-      allow create: if request.auth != null;
-      allow read: if isAdmin();
+    function isUserSelf(employeeId) {
+      let path = /databases/$(database)/documents/system_users/$(request.auth.uid);
+      return exists(path) && string(get(path).data.employeeId) == string(employeeId);
     }
 
-    // --- User Control Center Collections ---
+    // ═══════════════════════════════════════════════════════════════
+    //  OWNER GLOBAL OVERRIDE  (write anywhere)
+    // ═══════════════════════════════════════════════════════════════
+    match /{document=**} {
+      allow write: if isOwner();
+      allow read:  if isSignedIn();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  AUTHENTICATION & REGISTRATION FLOW
+    //  Supports both signInWithRedirect (Google) and Employee ID flows
+    // ═══════════════════════════════════════════════════════════════
+
+    // New Google users can create their own system_users doc on first login
+    // Existing users can read their own doc; admins can read all
+    match /system_users/{userId} {
+      // Allow unauthenticated LIST only for login employeeId lookup (pre-auth Firestore-first check)
+      allow list:   if true;
+      allow get:    if isSignedIn() && (request.auth.uid == userId || isAdminOrController());
+      allow create: if isSignedIn() && (request.auth.uid == userId || isAdminOrController() || isOwner());
+      allow update: if isAdminOrController() || (
+        isSignedIn() &&
+        request.auth.uid == userId &&
+        request.resource.data.status  == resource.data.status &&
+        (!('role' in resource.data) || request.resource.data.role == resource.data.role)
+      );
+      allow delete: if isAdminOrController() && userId != 'EByfpLYSWsM2nxTKB1urzXgHjV02';
+    }
+
+    // Login requests: unauthenticated users can create (Google redirect pending users)
+    match /login_requests/{requestId} {
+      allow get:            if true;
+      allow list:           if isAdminOrController();
+      allow create:         if true;          // unauthenticated new users after redirect
+      allow update, delete: if isAdminOrController();
+    }
+
+    // Legacy login requests collection
+    match /loginRequests/{requestId} {
+      allow read:           if isAdminOrController();
+      allow create:         if true;          // unauthenticated new users
+      allow update, delete: if isAdminOrController();
+    }
+
+    // Registration requests (older flow)
+    match /registrationRequests/{requestId} {
+      allow read:   if isOwner() || (isSignedIn() && resource.data.email == request.auth.token.email);
+      allow create: if true;
+      allow update, delete: if isOwner() || getUserRole() == 'ADMIN';
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  AUDIT & HISTORY LOGGING
+    // ═══════════════════════════════════════════════════════════════
+
+    match /login_history/{documentId} {
+      allow read:           if isAdmin();
+      allow create:         if isSignedIn();    // must be auth'd to write
+      allow update, delete: if false;
+    }
+
+    match /loginHistory/{logId} {
+      allow read:           if isAdmin();
+      allow create:         if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    match /auditLogs/{logId} {
+      allow read:           if isAdmin();
+      allow create:         if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  USER & PERMISSION MANAGEMENT
+    // ═══════════════════════════════════════════════════════════════
+
     match /users/{employeeId} {
-      allow read: if request.auth != null;
-      allow create: if isAdmin();
-      allow update: if isAdmin() && (
+      allow read:   if isSignedIn();
+      allow create: if isAdmin() || (isSignedIn() && (
+        request.auth.token.email == string(employeeId) + '@pyidcc.bmrcl.com' ||
+        isUserSelf(employeeId)
+      ));
+      allow update: if (isAdmin() || (isSignedIn() && (
+          request.auth.token.email == string(employeeId) + '@pyidcc.bmrcl.com' ||
+          isUserSelf(employeeId)
+        ) && (
+          request.resource.data.role   == resource.data.role &&
+          request.resource.data.active == resource.data.active &&
+          request.resource.data.status == resource.data.status
+        )
+      )) && (
         employeeId != '20726' || (
-          request.resource.data.role == 'SUPER_ADMIN' &&
+          request.resource.data.role   == 'SUPER_ADMIN' &&
           request.resource.data.active == true &&
           request.resource.data.status == 'ACTIVE'
         )
@@ -79,116 +159,184 @@ service cloud.firestore {
     }
 
     match /userPermissions/{employeeId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin() && employeeId != '20726';
+      allow read:   if isSignedIn();
+      allow create: if isAdmin() || (isSignedIn() && request.auth.token.email == string(employeeId) + '@pyidcc.bmrcl.com');
+      allow update: if isAdmin() && employeeId != '20726';
       allow delete: if isAdmin() && employeeId != '20726';
     }
 
     match /userAccessControl/{employeeId} {
-      allow read: if request.auth != null;
-      allow create: if isAdmin();
-      allow update: if isAdmin() && (
-        employeeId != '20726' || (
-          request.resource.data.canLogin == true &&
-          request.resource.data.canAccessWebApp == true &&
-          request.resource.data.canAccessMobileApp == true &&
-          request.resource.data.forceLogout == false &&
-          request.resource.data.deviceStatus == 'ACTIVE'
-        )
+      allow read:   if isSignedIn();
+      allow create: if isAdmin() || (isSignedIn() && (
+        request.auth.token.email == string(employeeId) + '@pyidcc.bmrcl.com' ||
+        isUserSelf(employeeId)
+      ));
+      allow update: if isAdmin() || (
+        isSignedIn() && (
+          request.auth.token.email == string(employeeId) + '@pyidcc.bmrcl.com' ||
+          isUserSelf(employeeId)
+        ) &&
+        request.resource.data.canLogin         == resource.data.canLogin &&
+        request.resource.data.canAccessWebApp  == resource.data.canAccessWebApp &&
+        request.resource.data.canAccessMobileApp == resource.data.canAccessMobileApp &&
+        request.resource.data.deviceStatus     == resource.data.deviceStatus
       );
       allow delete: if isAdmin() && employeeId != '20726';
     }
 
-    match /auditLogs/{logId} {
-      allow read: if isAdmin();
-      allow create: if request.auth != null;
-      allow update, delete: if false;
-    }
-
-    match /loginHistory/{logId} {
-      allow read: if isAdmin();
-      allow create: if request.auth != null;
-      allow update, delete: if false;
+    match /role_permissions/{roleId} {
+      allow read:  if isSignedIn();
+      allow write: if isAdmin();
     }
 
     match /roles/{roleId} {
-      allow read: if request.auth != null;
+      allow read:  if isSignedIn();
       allow write: if isOwner();
     }
 
-    // --- Registration Approval ---
-    match /registrationRequests/{requestId} {
-      allow read: if isOwner();
-      allow write: if isOwner() || getUserRole() == 'ADMIN';
-    }
+    // ═══════════════════════════════════════════════════════════════
+    //  CORE OPERATIONAL MODULES
+    // ═══════════════════════════════════════════════════════════════
 
-    // --- Core Modules ---
-    match /manual_overrides/{documentId} {
-      allow read: if isBmrclStaff();
-      allow create, update, delete: if isAdminOrController();
-    }
-
-    match /employees/{documentId} {
-      allow read: if request.auth != null;
-      allow create, update, delete: if isAdminOrController();
-    }
-
-    match /system_users/{userId} {
-      allow read, create: if request.auth != null && request.auth.uid == userId;
-      allow update, delete: if isAdminOrController() || request.auth.uid == userId;
-    }
-
-    // --- WTT & Deployment ---
     match /wtt_final_matrix/{documentId} {
-      allow read: if request.auth != null;
+      allow read:  if isSignedIn();
       allow write: if isAdminOrController();
     }
 
     match /daily_crew_tracks/{documentId} {
-      allow read: if isBmrclStaff();
-      allow write, update: if isSupervisor();
+      allow read:          if isBmrclStaff();
+      allow write, update: if isAdminOrController();
     }
-    
+
     match /working_time_table/{tripId} {
-      allow read: if isBmrclStaff();
-      allow write: if isSupervisor();
-    }
-
-    // --- Miscellaneous Modules ---
-    match /shift_exchanges/{documentId} {
-      allow read: if request.auth != null;
-      allow create, update: if request.auth != null;
-      allow delete: if isAdminOrController();
-    }
-
-    match /competency_records/{documentId} {
-      allow read: if request.auth != null;
+      allow read:  if isBmrclStaff();
       allow write: if isAdminOrController();
     }
 
+    match /manual_overrides/{documentId} {
+      allow read:                  if isBmrclStaff();
+      allow create, update, delete: if isAdminOrController();
+    }
+
+    match /employees/{documentId} {
+      allow read:                  if isSignedIn();
+      allow create, update, delete: if isAdminOrController();
+    }
+
     match /crew_final_links/{documentId} {
-      allow read: if request.auth != null;
+      allow read:  if isSignedIn();
       allow write: if isAdminOrController();
     }
 
     match /crew_daily_deployment/{documentId} {
-      allow read: if request.auth != null;
+      allow read:  if isSignedIn();
       allow write: if isAdminOrController();
     }
 
     match /crew_live_attendance/{documentId} {
-      allow read: if request.auth != null;
+      allow read:  if isSignedIn();
       allow write: if isAdminOrController();
     }
 
     match /wtt_live_incidents/{documentId} {
-      allow read: if request.auth != null;
+      allow read:  if isSignedIn();
       allow write: if isAdminOrController();
     }
-    
-    // Default catch-all (Restricts read to authenticated users)
-    match /{document=**} {
-      allow read: if request.auth != null;
+
+    match /automated_dispatch_gate/{documentId} {
+      allow read:  if isSignedIn();
+      allow write: if isAdminOrController();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  EQUIPMENT & FLEET
+    // ═══════════════════════════════════════════════════════════════
+
+    match /rake_registry/{documentId} {
+      allow read:  if isSignedIn();
+      allow write: if isAdminOrController();
+    }
+
+    match /rolling_stock_faults/{documentId} {
+      allow read:  if isSignedIn();
+      allow write: if isAdminOrController();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  SAFETY & TRAINING
+    // ═══════════════════════════════════════════════════════════════
+
+    match /safety_incidents/{documentId} {
+      allow read:  if isSignedIn();
+      allow write: if isAdminOrController();
+    }
+
+    match /staff_training/{documentId} {
+      allow read:  if isSignedIn();
+      allow write: if isAdminOrController();
+    }
+
+    match /training_sessions/{documentId} {
+      allow read:  if isSignedIn();
+      allow write: if isAdminOrController();
+    }
+
+    match /daily_safety_checklists/{documentId} {
+      allow read:  if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    match /competency_records/{documentId} {
+      allow read:  if isSignedIn();
+      allow write: if isAdminOrController();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  LEAVE, SHIFTS & CREW MODULES
+    // ═══════════════════════════════════════════════════════════════
+
+    match /leave_requests/{documentId} {
+      allow read:           if isSignedIn();
+      allow create:         if isSignedIn();
+      allow update, delete: if isAdminOrController();
+    }
+
+    match /shift_exchanges/{documentId} {
+      allow read:           if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete:         if isAdminOrController();
+    }
+
+    match /shift_handover_notes/{documentId} {
+      allow read:  if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    match /asset_transactions/{documentId} {
+      allow read:  if isSignedIn();
+      allow write: if isAdminOrController();
+    }
+
+    match /crewRegistry/{documentId} {
+      allow get:    if true;
+      allow list:   if isSignedIn();
+      allow create: if isAdminOrController();
+      allow update: if isAdminOrController() || (
+        isSignedIn() && isUserSelf(documentId) &&
+        (!('employeeId'      in resource.data) || request.resource.data.employeeId      == resource.data.employeeId)      &&
+        (!('employeeName'    in resource.data) || request.resource.data.employeeName    == resource.data.employeeName)    &&
+        (!('designation'     in resource.data) || request.resource.data.designation     == resource.data.designation)     &&
+        (!('role'            in resource.data) || request.resource.data.role            == resource.data.role)            &&
+        (!('depot'           in resource.data) || request.resource.data.depot           == resource.data.depot)           &&
+        (!('department'      in resource.data) || request.resource.data.department      == resource.data.department)      &&
+        (!('doj'             in resource.data) || request.resource.data.doj             == resource.data.doj)             &&
+        (!('retirementDate'  in resource.data) || request.resource.data.retirementDate  == resource.data.retirementDate)  &&
+        (!('bloodGroup'      in resource.data) || request.resource.data.bloodGroup      == resource.data.bloodGroup)      &&
+        (!('operationalCrew' in resource.data) || request.resource.data.operationalCrew == resource.data.operationalCrew) &&
+        (!('active'          in resource.data) || request.resource.data.active          == resource.data.active)          &&
+        (!('deleted'         in resource.data) || request.resource.data.deleted         == resource.data.deleted)
+      );
+      allow delete: if isAdminOrController();
     }
   }
 }

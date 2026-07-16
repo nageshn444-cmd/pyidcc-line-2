@@ -1,21 +1,56 @@
 // KPI Calculation and Roster Aggregation Engine for Train Operator Performance
 
-// Station Order along Line-2 (Green Line)
-export const STATION_ORDER = ["BIET", "NGSA", "PYID", "YPM", "RJNR", "SPGD", "KGWA", "NLC", "RVR", "PUTH", "APTS"];
+// Station Order along Line-2 (Green Line) - all passenger stations and buffers in order of chainage
+export const STATION_ORDER = [
+  "BIET_BE", "BIET", "JIDL", "MNJN", "NGSA_PT", "NGSA_BE", "NGSA", "DSH", "JLHL", "PYID", "PEYA", "YPI", "YPM",
+  "SSFY", "MHLI", "MHLI_PT", "RJNR", "KVPR", "SPRU", "SPGD", "KGWA", "CKPE", "KRMT", "NLC", "NLC_PT",
+  "LBGH", "SECE", "JYN", "RVR", "BSNK", "JPN", "PUTH", "PUTH_BE", "APRC", "KLPK", "VJRH",
+  "TGTP", "APTS", "APTS_BE"
+];
 
 // Station Chainage Master values (Distance in KM from YPM)
 export const STATION_CHAINAGE = {
+  "BIET_BE": -9.560,
   "BIET": -9.227,
+  "JIDL": -7.504,
+  "JDHL": -7.504, // Alias to support both references
+  "MNJN": -6.753,
+  "NGSA_PT": -6.528,
+  "NGSA_BE": -6.500,
   "NGSA": -6.088,
+  "DSH": -4.662,
+  "JLHL": -3.721,
   "PYID": -3.020,
-  "YPM": 0,
+  "PEYA": -2.074,
+  "YPI": -1.125,
+  "YPM": 0.000,
+  "SSFY": 1.091,
+  "MHLI": 2.018,
+  "MHLI_PT": 2.100,
   "RJNR": 2.989,
+  "KVPR": 3.974,
+  "SPRU": 4.706,
   "SPGD": 5.865,
   "KGWA": 7.569,
+  "CKPE": 8.588,
+  "KRMT": 9.238,
   "NLC": 10.403,
+  "NLC_PT": 10.482,
+  "LBGH": 11.436,
+  "SECE": 12.323,
+  "JYN": 13.280,
   "RVR": 14.180,
+  "BSNK": 15.507,
+  "JPN": 16.404,
   "PUTH": 17.780,
-  "APTS": 23.833
+  "PUTH_BE": 18.250,
+  "APRC": 18.902,
+  "KLPK": 20.099,
+  "VJRH": 21.395,
+  "TGTP": 22.395,
+  "APTS": 23.833,
+  "APTS_BE": 24.170,
+  "DEPOT": -1.720
 };
 
 // Helper to update chainage values dynamically (e.g. on file upload or DB fetch)
@@ -43,8 +78,42 @@ export function minutesToTime(mins) {
 // Helper: Calculate distance between two stations
 export function calculateStationDistance(fromSt, toSt) {
   if (!fromSt || !toSt || fromSt === '--' || toSt === '--') return 0;
-  const fromVal = STATION_CHAINAGE[fromSt.toUpperCase().trim()];
-  const toVal = STATION_CHAINAGE[toSt.toUpperCase().trim()];
+
+  const normalize = (code) => {
+    let c = String(code || '').trim().toUpperCase().replace(/[\s_]/g, '');
+    
+    if (
+      c.includes('DEPOT') || 
+      c.includes('DEPO') || 
+      c.includes('DPO') || 
+      c.includes('DHO') || 
+      c === 'BDHO' || 
+      c === 'PDHO'
+    ) {
+      return 'DEPOT';
+    }
+    
+    if (c === 'BIETBE' || c === 'BIETBUFFEREND') return 'BIET_BE';
+    if (c === 'NGSABE' || c === 'NGSABUFFEREND') return 'NGSA_BE';
+    if (c === 'NGSAPT' || c === 'NGSAPKT' || c === 'NPKT' || c.includes('NPKT') || c === 'NGSAPOCKET') return 'NGSA_PT';
+    if (c === 'NLCPT' || c === 'NLCPKT' || c === 'NLCPOCKET') return 'NLC_PT';
+    if (c === 'MHLIPT' || c === 'MHLIPKT' || c === 'MHLIPOCKET') return 'MHLI_PT';
+    if (c === 'PUTHBE' || c === 'PUTHBUFFEREND') return 'PUTH_BE';
+    if (c === 'APTSBE' || c === 'APTSBUFFEREND') return 'APTS_BE';
+    
+    if (c === 'RD3' || c === 'RD-3' || c === 'RD3INDUCT' || c === 'RD3STBY') {
+      return 'PYID';
+    }
+    
+    if (c === 'JIDL') return 'JDHL';
+    
+    return String(code || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+  };
+
+  const fromNorm = normalize(fromSt);
+  const toNorm = normalize(toSt);
+  const fromVal = STATION_CHAINAGE[fromNorm];
+  const toVal = STATION_CHAINAGE[toNorm];
   if (fromVal === undefined || toVal === undefined) return 0;
   return Math.abs(toVal - fromVal);
 }
@@ -268,7 +337,8 @@ export function generateMonthlyCalendarAndMetrics(
 
     // Shift Exchange Integration: Check if duty was exchanged to this operator
     const matchedExchange = shiftExchanges.find(e => {
-      if (e.status !== 'APPROVED') return false;
+      const statusUpper = String(e.status || '').toUpperCase();
+      if (statusUpper !== 'APPROVED' && statusUpper !== 'OPERATIONAL') return false;
       if (!e.timestamp) return false;
       const dObj = e.timestamp.toDate ? e.timestamp.toDate() : new Date(e.timestamp);
       const isDateMatch = dObj.getFullYear() === selectedYear && dObj.getMonth() === selectedMonth && dObj.getDate() === dayNum;

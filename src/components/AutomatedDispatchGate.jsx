@@ -2,10 +2,174 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
 import { collection, query, orderBy, onSnapshot, updateDoc, setDoc, doc, deleteDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { CheckCircle, Clock, AlertTriangle, Train, UserCheck, Search, History, Settings, Check, X, ArrowRight, ShieldAlert, Cpu, Plus, Trash2, UploadCloud, Loader2, FileSpreadsheet, FileText, Image as ImageIcon } from 'lucide-react';
+import { CheckCircle, Clock, AlertTriangle, Train, UserCheck, Search, History, Settings, Check, X, ArrowRight, ShieldAlert, Cpu, Plus, Trash2, UploadCloud, Loader2, FileSpreadsheet, FileText, Image as ImageIcon, Repeat } from 'lucide-react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as XLSX from 'xlsx';
-import AiDataExtractorEngine from './AiDataExtractorEngine';
+import { BMRCL_CREW_REGISTRY } from '../data/bmrclCrewRegistry';
+
+// ── Duty ID Utilities (shared with Dashboard) ──
+// Normalize: pad single-digit "1".."9" to "01".."09"
+const normalizeDutyId = (id) => {
+  const s = String(id || '').trim();
+  if (/^[1-9]$/.test(s)) return '0' + s;
+  return s;
+};
+
+// Validate: only allow numeric 1-99 or known special prefixes (CC, SB, RR, PRO, EX, ST)
+const isValidDutyId = (id) => {
+  const s = String(id || '').trim();
+  if (!s || s === '--' || s === 'UNASSIGNED') return false;
+  if (/^\d{1,2}$/.test(s)) return true;
+  if (/^(CC|SB|RR|PRO|EX|ST)\d+$/i.test(s)) return true;
+  return false;
+};
+
+// Deduplicate an array of deployment objects by normalized duty ID.
+// Keeps the entry with an operator assigned; falls back to the padded-form document.
+const deduplicateDeployments = (items) => {
+  const seen = new Map();
+  for (const item of items) {
+    const raw = String(item.dutyId || '').trim();
+    // Reject invalid duty IDs entirely (e.g. "6Z", "1A", empty)
+    if (!isValidDutyId(raw)) continue;
+    const norm = normalizeDutyId(raw);
+    if (!seen.has(norm)) {
+      seen.set(norm, { ...item, dutyId: norm });
+    } else {
+      const existing = seen.get(norm);
+      const existingHasOp = existing.empName && existing.empName !== '--';
+      const currentHasOp = item.empName && item.empName !== '--';
+      if (!existingHasOp && currentHasOp) {
+        seen.set(norm, { ...item, dutyId: norm });
+      } else if (existingHasOp && !currentHasOp) {
+        // keep existing, just ensure ID is padded
+        seen.set(norm, { ...existing, dutyId: norm });
+      }
+      // both have op or both don't → existing wins
+    }
+  }
+  return Array.from(seen.values());
+};
+
+const levenshteinDistance = (a, b) => {
+  const matrix = [];
+  for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  return matrix[b.length][a.length];
+};
+
+const findClosestRegistryEmployeeByName = (extractedName) => {
+  if (!extractedName || extractedName === '--') return null;
+  const cleanExtracted = extractedName.toLowerCase().replace(/[^a-z]/g, '');
+  if (cleanExtracted.length < 3) return null;
+  let bestMatch = null;
+  let bestScore = 999;
+  for (const emp of BMRCL_CREW_REGISTRY) {
+    const cleanReg = emp.name.toLowerCase().replace(/[^a-z]/g, '');
+    if (cleanReg === cleanExtracted) return emp;
+    if (cleanReg.length >= 4 && cleanExtracted.length >= 4) {
+      if (cleanReg.includes(cleanExtracted) || cleanExtracted.includes(cleanReg)) {
+        return emp;
+      }
+    }
+    const dist = levenshteinDistance(cleanReg, cleanExtracted);
+    const maxAllowedDist = Math.max(2, Math.floor(cleanReg.length / 4));
+    if (dist <= maxAllowedDist && dist < bestScore) {
+      bestScore = dist;
+      bestMatch = emp;
+    }
+  }
+  return bestMatch;
+};
+
+const alignRecordWithRegistry = (record) => {
+  let empNo = String(record.employeeId || record.empNo || '').trim();
+  let name = String(record.name || '').trim();
+
+  if (record._manuallyCorrected) {
+    return { ...record, empNo, employeeId: empNo, name };
+  }
+
+  // 1. Swap check
+  const empNoIsDigits = /^\d+$/.test(empNo);
+  const nameIsDigits = /^\d+$/.test(name);
+  if (!empNoIsDigits && nameIsDigits) {
+    const temp = empNo;
+    empNo = name;
+    name = temp;
+  }
+
+  // 2. empNo has letters, name is empty or digits
+  if (!/^\d+$/.test(empNo) && empNo !== '' && empNo !== '--') {
+    const matchedByNameInEmpNo = findClosestRegistryEmployeeByName(empNo);
+    if (matchedByNameInEmpNo) {
+      if (/^\d+$/.test(name)) {
+        empNo = name;
+        name = matchedByNameInEmpNo.name;
+      } else {
+        empNo = matchedByNameInEmpNo.id;
+        name = matchedByNameInEmpNo.name;
+      }
+    }
+  }
+
+  // 3. empNo is digits but name is empty, auto-fill name
+  if (/^\d+$/.test(empNo) && (!name || name === '--' || name === '')) {
+    const matchById = BMRCL_CREW_REGISTRY.find((c) => String(c.id) === empNo);
+    if (matchById) {
+      return { ...record, empNo, employeeId: empNo, name: matchById.name };
+    }
+  }
+
+  // 4. empNo is empty but name has letters, auto-fill ID
+  if ((!empNo || empNo === '--' || empNo === '') && name && name !== '--') {
+    const matchedByName = findClosestRegistryEmployeeByName(name);
+    if (matchedByName) {
+      return { ...record, empNo: matchedByName.id, employeeId: matchedByName.id, name: matchedByName.name };
+    }
+  }
+
+  // General registry alignment
+  if (empNo && /^\d+$/.test(empNo)) {
+    const matchById = BMRCL_CREW_REGISTRY.find((c) => String(c.id) === empNo);
+    if (matchById) {
+      const cleanRegistryName = matchById.name.toLowerCase().replace(/[^a-z]/g, '');
+      const cleanExtractedName = name.toLowerCase().replace(/[^a-z]/g, '');
+      const firstWordExtracted = name.split(/[\s.]+/)[0].toLowerCase();
+      const firstWordRegistry = matchById.name.split(/[\s.]+/)[0].toLowerCase();
+
+      const isMatch = cleanRegistryName.includes(cleanExtractedName) ||
+        cleanExtractedName.includes(cleanRegistryName) ||
+        firstWordExtracted === firstWordRegistry ||
+        levenshteinDistance(cleanRegistryName, cleanExtractedName) <= 3;
+
+      if (isMatch) {
+        return { ...record, empNo, employeeId: empNo, name: matchById.name };
+      } else {
+        const matchedByFuzzyName = findClosestRegistryEmployeeByName(name);
+        if (matchedByFuzzyName) {
+          return { ...record, empNo: matchedByFuzzyName.id, employeeId: matchedByFuzzyName.id, name: matchedByFuzzyName.name };
+        }
+      }
+    }
+  }
+
+  return { ...record, empNo, employeeId: empNo, name };
+};
+
 
 
 // Convert file to Base64 part for Gemini
@@ -71,11 +235,54 @@ export default function AutomatedDispatchGate({
   deployments: providedDeployments,
   loading: providedLoading = false,
   activeDay = 'WEEKDAY',
+  setActiveDay,
   onAuthorize,
   onImportComplete
 }) {
   const [fallbackDeployments, setFallbackDeployments] = useState([]);
   const [fallbackLoading, setFallbackLoading] = useState(!providedDeployments);
+
+  const [localDayType, setLocalDayType] = useState(activeDay);
+  
+  useEffect(() => {
+    setLocalDayType(activeDay);
+  }, [activeDay]);
+
+  const currentDayType = setActiveDay ? activeDay : localDayType;
+
+  const handleDayTypeChange = (day) => {
+    if (setActiveDay) {
+      setActiveDay(day);
+    } else {
+      setLocalDayType(day);
+    }
+  };
+
+  const handleEditEmpIdChange = (val) => {
+    setEditEmpId(val);
+    const match = BMRCL_CREW_REGISTRY.find(c => String(c.id) === String(val).trim());
+    if (match) {
+      setEditName(match.name);
+    }
+  };
+
+  const handleExtraOpEmpIdChange = (val) => {
+    const match = BMRCL_CREW_REGISTRY.find(c => String(c.id) === String(val).trim());
+    setNewExtraOp(prev => ({
+      ...prev,
+      empId: val,
+      empName: match ? match.name : prev.empName
+    }));
+  };
+
+  const handleStepbackEmpIdChange = (val) => {
+    const match = BMRCL_CREW_REGISTRY.find(c => String(c.id) === String(val).trim());
+    setNewStepback(prev => ({
+      ...prev,
+      empId: val,
+      empName: match ? match.name : prev.empName
+    }));
+  };
   
   // Advanced Feature States
   const [activeTab, setActiveTab] = useState('LIVE'); // LIVE or HISTORY
@@ -121,7 +328,7 @@ export default function AutomatedDispatchGate({
 
   const [stepbacks, setStepbacks] = useState([]);
 
-  // Fetch Deployments Fallback
+  // Fetch Deployments Fallback (used when AutomatedDispatchGate is standalone)
   useEffect(() => {
     if (providedDeployments) {
       setFallbackLoading(false);
@@ -129,7 +336,9 @@ export default function AutomatedDispatchGate({
     }
     const q = query(collection(db, 'crew_daily_deployment'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setFallbackDeployments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const raw = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Deduplicate and strip invalid duty IDs at the source
+      setFallbackDeployments(deduplicateDeployments(raw));
       setFallbackLoading(false);
     });
     return () => unsubscribe();
@@ -153,8 +362,12 @@ export default function AutomatedDispatchGate({
 
   const [selectedIds, setSelectedIds] = useState([]);
 
+  // ── Deduplicate + validate deployments from any source ──
+  // Applies isValidDutyId + normalization so "6Z", "1"/"01" twins etc. are cleaned up.
+  const deduplicatedDeployments = deduplicateDeployments(deployments);
+
   // Filtering Logic
-  const filteredDeployments = deployments
+  const filteredDeployments = deduplicatedDeployments
     .filter(d => {
       if (filterStatus === 'ALL') return true;
       if (filterStatus === 'SIGNED_ON') return d.isSignedOn || d.status === 'DISPATCHED';
@@ -170,7 +383,15 @@ export default function AutomatedDispatchGate({
         String(d.trainId).toLowerCase().includes(q)
       );
     })
-    .sort((a,b) => Number(a.dutyId) - Number(b.dutyId));
+    .sort((a, b) => {
+      // Sort numerically by duty ID; non-numeric duty IDs go to the end
+      const aNum = parseInt(String(a.dutyId).replace(/\D/g, ''), 10);
+      const bNum = parseInt(String(b.dutyId).replace(/\D/g, ''), 10);
+      if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+      if (!isNaN(aNum)) return -1;
+      if (!isNaN(bNum)) return 1;
+      return String(a.dutyId).localeCompare(String(b.dutyId));
+    });
 
   const eligibleDeployments = useMemo(() => {
     return filteredDeployments.filter(d => d.status !== 'DISPATCHED' && d.status !== 'RELIEF_DISPATCHED');
@@ -183,8 +404,8 @@ export default function AutomatedDispatchGate({
     }
     try {
       const docId = deployment.dutyId && deployment.dutyId !== 'UNASSIGNED'
-        ? `gcc_deploy_${activeDay.toLowerCase()}_duty_${deployment.dutyId}`
-        : `gcc_deploy_${activeDay.toLowerCase()}_extra_${deployment.empId}`;
+        ? `gcc_deploy_${currentDayType.toLowerCase()}_duty_${deployment.dutyId}`
+        : `gcc_deploy_${currentDayType.toLowerCase()}_extra_${deployment.empId}`;
       await setDoc(doc(db, 'crew_daily_deployment', docId), {
         status: 'DISPATCHED',
         dispatchTime: serverTimestamp(),
@@ -281,8 +502,8 @@ export default function AutomatedDispatchGate({
       // 2. Update the candidate to show they are providing relief
       // (Assuming candidate is in crew_daily_deployment)
       const candDocId = recommendedCandidate.dutyId && recommendedCandidate.dutyId !== 'UNASSIGNED'
-        ? `gcc_deploy_${activeDay.toLowerCase()}_duty_${recommendedCandidate.dutyId}`
-        : `gcc_deploy_${activeDay.toLowerCase()}_extra_${recommendedCandidate.empId}`;
+        ? `gcc_deploy_${currentDayType.toLowerCase()}_duty_${recommendedCandidate.dutyId}`
+        : `gcc_deploy_${currentDayType.toLowerCase()}_extra_${recommendedCandidate.empId}`;
       const candRef = doc(db, 'crew_daily_deployment', candDocId);
       await setDoc(candRef, {
         status: 'RELIEF_DISPATCHED',
@@ -291,6 +512,7 @@ export default function AutomatedDispatchGate({
 
       alert(`Relief Dispatched: ${recommendedCandidate.empName} taking over duty ${activeAbnormalEvent.deployment.dutyId}.`);
       setActiveAbnormalEvent(null);
+      if (onImportComplete) onImportComplete();
     } catch (err) {
       console.error(err);
       alert("Failed to execute relief. Ensure permissions are set.");
@@ -323,17 +545,26 @@ export default function AutomatedDispatchGate({
 
     if (!finalDutyId) finalDutyId = 'UNASSIGNED';
 
+    const aligned = alignRecordWithRegistry({
+      employeeId: editEmpId.trim(),
+      name: editName.trim(),
+      _manuallyCorrected: true
+    });
+
+    let finalName = aligned.name.toUpperCase();
+    let finalEmpId = aligned.employeeId;
+
     const targetDocId = finalDutyId === 'UNASSIGNED'
-      ? `gcc_deploy_${activeDay.toLowerCase()}_extra_${editEmpId.trim()}`
-      : `gcc_deploy_${activeDay.toLowerCase()}_duty_${finalDutyId}`;
+      ? `gcc_deploy_${currentDayType.toLowerCase()}_extra_${finalEmpId}`
+      : `gcc_deploy_${currentDayType.toLowerCase()}_duty_${finalDutyId}`;
 
     setSavingEdit(true);
     try {
       await setDoc(doc(db, 'crew_daily_deployment', targetDocId), {
-        scheduleType: activeDay,
+        scheduleType: currentDayType,
         dutyId: finalDutyId,
-        empName: editName.trim(),
-        empId: editEmpId.trim(),
+        empName: finalName,
+        empId: finalEmpId,
         trainId: finalTrainId,
         "rawLegs.l1Train": finalTrainId,
         "rawLegs.l4Train": finalTrainId,
@@ -344,12 +575,12 @@ export default function AutomatedDispatchGate({
       // Clean up the old document if the Duty ID or Employee ID changed
       if (original) {
         if (original.dutyId && original.dutyId !== 'UNASSIGNED' && String(original.dutyId) !== finalDutyId) {
-          const oldDocId = `gcc_deploy_${activeDay.toLowerCase()}_duty_${original.dutyId}`;
+          const oldDocId = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${original.dutyId}`;
           if (oldDocId !== targetDocId) {
             await deleteDoc(doc(db, 'crew_daily_deployment', oldDocId));
           }
-        } else if ((!original.dutyId || original.dutyId === 'UNASSIGNED') && original.empId && original.empId !== editEmpId.trim()) {
-          const oldDocId = `gcc_deploy_${activeDay.toLowerCase()}_extra_${original.empId}`;
+        } else if ((!original.dutyId || original.dutyId === 'UNASSIGNED') && original.empId && original.empId !== finalEmpId) {
+          const oldDocId = `gcc_deploy_${currentDayType.toLowerCase()}_extra_${original.empId}`;
           if (oldDocId !== targetDocId) {
             await deleteDoc(doc(db, 'crew_daily_deployment', oldDocId));
           }
@@ -357,6 +588,7 @@ export default function AutomatedDispatchGate({
       }
 
       setEditingDeploymentId(null);
+      if (onImportComplete) onImportComplete();
     } catch (err) {
       console.error("Failed to update operator assignment:", err);
       alert("Failed to save operator details.");
@@ -376,26 +608,49 @@ export default function AutomatedDispatchGate({
 
   const handleAddExtraOperator = async (e) => {
     e.preventDefault();
-    if (!newExtraOp.empId || !newExtraOp.empName) {
-      alert("Please fill in Employee ID and Operator Name.");
+    if (!newExtraOp.empId && !newExtraOp.empName) {
+      alert("Please fill in Employee ID or Operator Name.");
       return;
     }
     
     let finalTrainId = String(newExtraOp.trainId || 'UNASSIGNED').trim();
-    let finalDutyId = String(newExtraOp.dutyId || 'UNASSIGNED').trim();
+    let rawDutyId = String(newExtraOp.dutyId || '').trim();
 
-    if (!finalDutyId) finalDutyId = 'UNASSIGNED';
+    // Validate and normalize duty ID: reject "6Z" style invalid IDs
+    let finalDutyId;
+    if (!rawDutyId || rawDutyId === 'UNASSIGNED') {
+      finalDutyId = 'UNASSIGNED';
+    } else if (!isValidDutyId(rawDutyId)) {
+      alert(`❌ Invalid Duty ID "${rawDutyId}". Use numeric IDs (01-99) or known prefixes (CC, SB, RR, PRO).`);
+      return;
+    } else {
+      finalDutyId = normalizeDutyId(rawDutyId);
+    }
+
+    const aligned = alignRecordWithRegistry({
+      employeeId: String(newExtraOp.empId || '').trim(),
+      name: String(newExtraOp.empName || '').trim(),
+      _manuallyCorrected: true
+    });
+
+    let finalEmpId = aligned.employeeId;
+    let finalName = aligned.name.toUpperCase();
+
+    if (!finalEmpId || !finalName) {
+      alert("Invalid Operator Details. Could not resolve employee mapping.");
+      return;
+    }
 
     try {
       const docId = finalDutyId === 'UNASSIGNED' 
-        ? `gcc_deploy_${activeDay.toLowerCase()}_extra_${newExtraOp.empId}`
-        : `gcc_deploy_${activeDay.toLowerCase()}_duty_${finalDutyId}`;
+        ? `gcc_deploy_${currentDayType.toLowerCase()}_extra_${finalEmpId}`
+        : `gcc_deploy_${currentDayType.toLowerCase()}_duty_${finalDutyId}`;
 
       await setDoc(doc(db, "crew_daily_deployment", docId), {
-        scheduleType: activeDay,
+        scheduleType: currentDayType,
         dutyId: finalDutyId,
-        empId: String(newExtraOp.empId),
-        empName: newExtraOp.empName.toUpperCase(),
+        empId: finalEmpId,
+        empName: finalName,
         trainId: finalTrainId,
         signOnTime: newExtraOp.signOnTime,
         remarks: "Extra Operator Assigned",
@@ -417,7 +672,7 @@ export default function AutomatedDispatchGate({
           l4End: newExtraOp.signOffTime
         }
       });
-      alert(`✅ Extra operator ${newExtraOp.empName} assigned successfully!`);
+      alert(`✅ Extra operator ${finalName} assigned successfully!`);
       setNewExtraOp({
         empId: '',
         empName: '',
@@ -426,6 +681,7 @@ export default function AutomatedDispatchGate({
         signOnTime: '06:00:00',
         signOffTime: '14:00:00'
       });
+      if (onImportComplete) onImportComplete();
     } catch (err) {
       console.error(err);
       alert("Failed to add extra operator: " + err.message);
@@ -434,19 +690,34 @@ export default function AutomatedDispatchGate({
 
   const handleAddStepback = async (e) => {
     e.preventDefault();
-    if (!newStepback.empId || !newStepback.empName || !newStepback.dutyId) {
-      alert("Please fill in all step-back fields.");
+    if ((!newStepback.empId && !newStepback.empName) || !newStepback.dutyId) {
+      alert("Please fill in Duty ID and either Employee ID or Operator Name.");
       return;
     }
     if (newStepback.station !== 'PUTH' && newStepback.station !== 'NGSA') {
       alert("Step-back station must be PUTH or NGSA.");
       return;
     }
+
+    const aligned = alignRecordWithRegistry({
+      employeeId: String(newStepback.empId || '').trim(),
+      name: String(newStepback.empName || '').trim(),
+      _manuallyCorrected: true
+    });
+
+    let finalEmpId = aligned.employeeId;
+    let finalName = aligned.name.toUpperCase();
+
+    if (!finalEmpId || !finalName) {
+      alert("Invalid Operator Details. Could not resolve employee mapping.");
+      return;
+    }
+
     try {
       const docId = `stepback_${newStepback.station}_${newStepback.dutyId}_${Date.now()}`;
       await setDoc(doc(db, 'stepback_duties', docId), {
-        empId: String(newStepback.empId),
-        empName: newStepback.empName.toUpperCase(),
+        empId: finalEmpId,
+        empName: finalName,
         station: newStepback.station,
         dutyId: String(newStepback.dutyId),
         startTime: newStepback.startTime || '08:00',
@@ -505,8 +776,8 @@ export default function AutomatedDispatchGate({
           const batch = writeBatch(db);
           selectedDeps.forEach(deployment => {
             const docId = deployment.dutyId && deployment.dutyId !== 'UNASSIGNED'
-              ? `gcc_deploy_${activeDay.toLowerCase()}_duty_${deployment.dutyId}`
-              : `gcc_deploy_${activeDay.toLowerCase()}_extra_${deployment.empId}`;
+              ? `gcc_deploy_${currentDayType.toLowerCase()}_duty_${deployment.dutyId}`
+              : `gcc_deploy_${currentDayType.toLowerCase()}_extra_${deployment.empId}`;
             batch.set(doc(db, 'crew_daily_deployment', docId), {
               status: 'DISPATCHED',
               dispatchTime: serverTimestamp(),
@@ -515,6 +786,7 @@ export default function AutomatedDispatchGate({
           });
           await batch.commit();
           alert(`${selectedDeps.length} Operators Authorized successfully!`);
+          if (onImportComplete) onImportComplete();
         } catch (error) {
           console.error("Error authorizing dispatch batch:", error);
           alert("Failed to authorize dispatch batch.");
@@ -568,8 +840,33 @@ export default function AutomatedDispatchGate({
 
       {activeTab === 'LIVE' && (
         <div className="space-y-6">
-          {/* AI Multimodal Roster Ingestion Panel */}
-          <AiDataExtractorEngine activeDay={activeDay} onImportComplete={onImportComplete} />
+          {/* Day Types Selection Ribbon */}
+          <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-lg flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Select Roster Day Type:</span>
+              <div className="flex gap-2 bg-slate-950 p-1 rounded-lg border border-slate-850">
+                {['WEEKDAY', 'MONDAY', 'SATURDAY', 'SUNDAY'].map((day) => (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => handleDayTypeChange(day)}
+                    className={`px-3 py-1.5 rounded text-xs font-bold font-mono transition-all ${
+                      currentDayType === day
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.15)] font-black'
+                        : 'text-slate-400 hover:text-slate-200 bg-slate-900/40 hover:bg-slate-900 border border-transparent'
+                    }`}
+                  >
+                    {day === 'SATURDAY' ? 'SAT & GH' : day}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="text-xs font-black font-mono text-slate-400 uppercase tracking-wider">
+              Target Day Roster: <span className="text-emerald-400">{currentDayType}</span>
+            </div>
+          </div>
+
+
 
           {/* Active Abnormal Event Relief Engine View */}
           {activeAbnormalEvent && (
@@ -775,7 +1072,7 @@ export default function AutomatedDispatchGate({
                               Sign On: {d.signOnTime || '--:--'} | Train: <span className="text-cyan-400">{d.trainId || '--'}</span>
                             </div>
                           </td>
-                          <td className="p-4 font-bold text-slate-300">
+                          <td className={`p-4 font-bold text-slate-300 relative group ${d.isExchanged ? 'bg-yellow-500/10 border-l border-r border-yellow-500/20' : ''}`}>
                             {editingDeploymentId === d.id ? (
                               <div className="flex flex-col gap-2 bg-slate-950 p-2.5 rounded border border-slate-700 min-w-[220px]">
                                 <div>
@@ -792,8 +1089,9 @@ export default function AutomatedDispatchGate({
                                   <label className="block text-[8px] text-slate-500 uppercase tracking-widest mb-0.5">Employee ID</label>
                                   <input
                                     type="text"
+                                    list="crew-employees"
                                     value={editEmpId}
-                                    onChange={(e) => setEditEmpId(e.target.value)}
+                                    onChange={(e) => handleEditEmpIdChange(e.target.value)}
                                     placeholder="Employee ID"
                                     className="bg-slate-900 border border-slate-700 rounded p-1 text-xs text-white w-full focus:outline-none focus:border-emerald-500 font-mono"
                                   />
@@ -841,7 +1139,7 @@ export default function AutomatedDispatchGate({
                                 </div>
                               </div>
                             ) : (
-                              <div className="flex items-center gap-2 group">
+                              <div className="flex items-center gap-2">
                                 <div className="flex-1">
                                   <span className={d.empName ? 'text-slate-200' : 'text-slate-500 italic'}>
                                     {d.empName || 'UNASSIGNED'}
@@ -850,6 +1148,33 @@ export default function AutomatedDispatchGate({
                                     <span className="block text-[9px] text-slate-500 font-normal">
                                       ID: {d.empId}
                                     </span>
+                                  )}
+                                  {d.isExchanged && (
+                                    <>
+                                      <span className="mt-1 flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-yellow-450 border border-yellow-500/30 bg-yellow-500/10 px-1.5 py-0.5 rounded w-fit">
+                                        <Repeat className="h-2.5 w-2.5 animate-spin-slow" />
+                                        🔄 EXCHANGED
+                                      </span>
+                                      
+                                      <div className="absolute left-1/2 bottom-full mb-1 -translate-x-1/2 bg-slate-950 border border-yellow-500/30 p-2.5 rounded-lg shadow-2xl hidden group-hover:block z-50 text-[10px] space-y-1 w-64 text-left font-mono normal-case">
+                                        <div className="font-bold text-yellow-500 border-b border-slate-900 pb-1 flex items-center gap-1 uppercase tracking-wider">
+                                          <Repeat className="h-3 w-3" /> Duty Exchanged
+                                        </div>
+                                        <div>
+                                          <span className="text-slate-500">Original Operator:</span>
+                                          <div className="text-slate-300 font-bold uppercase">{d.originalEmpName || '--'} <span className="text-slate-500 normal-case">(Duty {d.originalDutyId || d.dutyId})</span></div>
+                                        </div>
+                                        <div>
+                                          <span className="text-slate-500">Current Operator:</span>
+                                          <div className="text-emerald-400 font-bold uppercase">{d.empName || '--'} <span className="text-slate-500 normal-case">(Duty {d.dutyId})</span></div>
+                                        </div>
+                                        <div className="border-t border-slate-850 pt-1 text-[8.5px] text-slate-500 space-y-0.5">
+                                          <div>Approved By: {d.approvedBy || "Crew Controller"}</div>
+                                          <div>Approval Date: {d.approvedDateTime ? new Date(d.approvedDateTime).toLocaleString() : "--"}</div>
+                                          <div className="text-slate-650 truncate mt-0.5">ID: {d.exchangeId}</div>
+                                        </div>
+                                      </div>
+                                    </>
                                   )}
                                 </div>
                                 <button
@@ -952,9 +1277,10 @@ export default function AutomatedDispatchGate({
                     <label className="text-[10px] text-slate-500 tracking-wider">Employee ID</label>
                     <input
                       type="text"
+                      list="crew-employees"
                       placeholder="e.g. 22464"
                       value={newExtraOp.empId}
-                      onChange={(e) => setNewExtraOp({ ...newExtraOp, empId: e.target.value })}
+                      onChange={(e) => handleExtraOpEmpIdChange(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-emerald-500 font-mono font-bold"
                     />
                   </div>
@@ -1042,9 +1368,10 @@ export default function AutomatedDispatchGate({
                     <label className="text-[10px] text-slate-500 tracking-wider">Employee ID</label>
                     <input
                       type="text"
+                      list="crew-employees"
                       placeholder="e.g. 21460"
                       value={newStepback.empId}
-                      onChange={(e) => setNewStepback({ ...newStepback, empId: e.target.value })}
+                      onChange={(e) => handleStepbackEmpIdChange(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-cyan-500 font-mono font-bold"
                     />
                   </div>
@@ -1214,6 +1541,11 @@ export default function AutomatedDispatchGate({
           )}
         </div>
       )}
+      <datalist id="crew-employees">
+        {BMRCL_CREW_REGISTRY.map(c => (
+          <option key={c.id} value={c.id}>{c.id} - {c.name}</option>
+        ))}
+      </datalist>
     </div>
   );
 }

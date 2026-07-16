@@ -8,7 +8,140 @@ import {
   UploadCloud, FileSpreadsheet, FileText, Image as ImageIcon,
   AlertCircle, CheckCircle2, Loader2, Play, Trash2, Calendar, ShieldAlert, Settings, HelpCircle, Cpu
 } from 'lucide-react';
+import { BMRCL_CREW_REGISTRY } from '../data/bmrclCrewRegistry';
 
+// ── Utility: normalize duty ID ("1" → "01", "9" → "09") ──
+const normalizeDutyId = (id) => {
+  const s = String(id || '').trim();
+  if (/^[1-9]$/.test(s)) return '0' + s;
+  return s;
+};
+
+const levenshteinDistance = (a, b) => {
+  const matrix = [];
+  for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  return matrix[b.length][a.length];
+};
+
+const findClosestRegistryEmployeeByName = (extractedName) => {
+  if (!extractedName || extractedName === '--') return null;
+  const cleanExtracted = extractedName.toLowerCase().replace(/[^a-z]/g, '');
+  if (cleanExtracted.length < 3) return null;
+
+  let bestMatch = null;
+  let bestScore = 999;
+
+  for (const emp of BMRCL_CREW_REGISTRY) {
+    const cleanReg = emp.name.toLowerCase().replace(/[^a-z]/g, '');
+    if (cleanReg === cleanExtracted) return emp;
+    if (cleanReg.length >= 4 && cleanExtracted.length >= 4) {
+      if (cleanReg.includes(cleanExtracted) || cleanExtracted.includes(cleanReg)) {
+        return emp;
+      }
+    }
+    const dist = levenshteinDistance(cleanReg, cleanExtracted);
+    const maxAllowedDist = Math.max(2, Math.floor(cleanReg.length / 4));
+    if (dist <= maxAllowedDist && dist < bestScore) {
+      bestScore = dist;
+      bestMatch = emp;
+    }
+  }
+  return bestMatch;
+};
+
+const alignRecordWithRegistry = (record) => {
+  let empNo = String(record.employeeId || record.empNo || '').trim();
+  let name = String(record.name || '').trim();
+  // Normalize duty number: "1" → "01", "9" → "09"; reject invalid like "6Z"
+  let dutyNo = String(record.dutyNo || record.dutyId || '').trim();
+  if (dutyNo) {
+    const normalized = normalizeDutyId(dutyNo);
+    // Only keep if it passes the valid-duty-ID check (pure numeric 1-99 or CC/SB/RR/PRO prefix)
+    const isNumeric = /^\d{1,2}$/.test(normalized);
+    const isSpecial = /^(CC|SB|RR|PRO|EX|ST)\d+$/i.test(normalized);
+    dutyNo = (isNumeric || isSpecial) ? normalized : '';
+  }
+
+  // Safeguard 1: Swap check
+  const empNoIsDigits = /^\d+$/.test(empNo);
+  const nameIsDigits = /^\d+$/.test(name);
+  if (!empNoIsDigits && nameIsDigits) {
+    const temp = empNo;
+    empNo = name;
+    name = temp;
+  }
+
+  // Safeguard 2: empNo has letters, name is empty or digits
+  if (!/^\d+$/.test(empNo) && empNo !== '' && empNo !== '--') {
+    const matchedByNameInEmpNo = findClosestRegistryEmployeeByName(empNo);
+    if (matchedByNameInEmpNo) {
+      if (/^\d+$/.test(name)) {
+        empNo = name;
+        name = matchedByNameInEmpNo.name;
+      } else {
+        empNo = matchedByNameInEmpNo.id;
+        name = matchedByNameInEmpNo.name;
+      }
+    }
+  }
+
+  // Safeguard 3: empNo is digits (ID) but name is empty, auto-fill name
+  if (/^\d+$/.test(empNo) && (!name || name === '--' || name === '')) {
+    const matchById = BMRCL_CREW_REGISTRY.find((c) => String(c.id) === empNo);
+    if (matchById) {
+      return { ...record, dutyNo, employeeId: empNo, empNo, name: matchById.name };
+    }
+  }
+
+  // Safeguard 4: empNo is empty but name has letters, auto-fill ID
+  if ((!empNo || empNo === '--' || empNo === '') && name && name !== '--') {
+    const matchedByName = findClosestRegistryEmployeeByName(name);
+    if (matchedByName) {
+      return { ...record, dutyNo, employeeId: matchedByName.id, empNo: matchedByName.id, name: matchedByName.name };
+    }
+  }
+
+  // General registry alignment
+  if (empNo && /^\d+$/.test(empNo)) {
+    const matchById = BMRCL_CREW_REGISTRY.find((c) => String(c.id) === empNo);
+    if (matchById) {
+      const cleanRegistryName = matchById.name.toLowerCase().replace(/[^a-z]/g, '');
+      const cleanExtractedName = name.toLowerCase().replace(/[^a-z]/g, '');
+      const firstWordExtracted = name.split(/[\s.]+/)[0].toLowerCase();
+      const firstWordRegistry = matchById.name.split(/[\s.]+/)[0].toLowerCase();
+
+      const isMatch = cleanRegistryName.includes(cleanExtractedName) ||
+        cleanExtractedName.includes(cleanRegistryName) ||
+        firstWordExtracted === firstWordRegistry ||
+        levenshteinDistance(cleanRegistryName, cleanExtractedName) <= 3;
+
+      if (isMatch) {
+        return { ...record, dutyNo, employeeId: empNo, empNo, name: matchById.name };
+      } else {
+        const matchedByFuzzyName = findClosestRegistryEmployeeByName(name);
+        if (matchedByFuzzyName) {
+          return { ...record, dutyNo, employeeId: matchedByFuzzyName.id, empNo: matchedByFuzzyName.id, name: matchedByFuzzyName.name };
+        }
+      }
+    }
+  }
+
+  return { ...record, dutyNo, employeeId: empNo, empNo, name };
+};
 
 export default function GccRosterUploader() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -22,7 +155,7 @@ export default function GccRosterUploader() {
   const [customApiKey, setCustomApiKey] = useState(
     localStorage.getItem('custom_gemini_api_key') ||
     import.meta.env.VITE_GEMINI_API_KEY ||
-    ''
+    'AQ.Ab8RN6I94EJTGn6eI_No5KseFGBxVdh2vkzGZ0erFxkyhJzbVw'
   );
   const [showConfig, setShowConfig] = useState(false);
   const [activeInputTab, setActiveInputTab] = useState('FILE'); // FILE or JSON_PASTE
@@ -106,29 +239,47 @@ export default function GccRosterUploader() {
 
             let headerRowIdx = -1;
             let dutyColIdx = 0;
-            let nameColIdx = 3; // 4th column by default
-            let empColIdx = 4;  // 5th column by default
+            let nameColIdx = 4; // 5th column by default
+            let empColIdx = 5;  // 6th column by default
             let patternColIdx = -1;
             let trainColIdx = -1;
 
-            // 1. Scan the first 10 rows to find the header row
-            for (let i = 0; i < Math.min(rows.length, 10); i++) {
+            // 1. Scan the first 25 rows to find the header row
+            for (let i = 0; i < Math.min(rows.length, 25); i++) {
               const row = rows[i];
               if (!Array.isArray(row)) continue;
-              
-              const hasDuty = row.some(cell => cell && String(cell).toLowerCase().includes('duty'));
-              const hasSignOn = row.some(cell => cell && String(cell).toLowerCase().includes('sign') || String(cell).toLowerCase().includes('s on'));
-              
-              if (hasDuty || hasSignOn) {
+
+              const rowStr = row.map(cell => cell ? String(cell).toLowerCase() : '');
+              const hasDuty = rowStr.some(cellStr => cellStr.includes('duty'));
+              const hasSignOn = rowStr.some(cellStr => cellStr.includes('sign') || cellStr.includes('s on') || cellStr.includes('on time') || cellStr.includes('ontime'));
+              const hasName = rowStr.some(cellStr => cellStr.includes('name') || cellStr.includes('operator') || cellStr === 'to' || cellStr === 't.o' || cellStr === 't.o.');
+              const hasEmp = rowStr.some(cellStr => 
+                (cellStr.includes('emp') || cellStr.includes('employee') || cellStr.includes('id')) &&
+                !cellStr.includes('duty') &&
+                !cellStr.includes('train') &&
+                !cellStr.includes('rake')
+              );
+
+              if ((hasDuty && hasSignOn) || (hasDuty && hasName) || (hasSignOn && hasName) || (hasDuty && hasEmp)) {
                 headerRowIdx = i;
                 row.forEach((cell, colIdx) => {
                   if (!cell) return;
                   const cellStr = String(cell).toLowerCase();
                   if (cellStr.includes('duty')) dutyColIdx = colIdx;
-                  else if (cellStr.includes('name') || cellStr.includes('operator') || cellStr === 'to') nameColIdx = colIdx;
-                  else if (cellStr.includes('emp') || cellStr.includes('employ') || cellStr.includes('id')) empColIdx = colIdx;
+                  else if (cellStr.includes('train') || cellStr.includes('rake')) trainColIdx = colIdx;
+                  else if (
+                    cellStr.includes('name') || 
+                    cellStr.includes('operator') || 
+                    cellStr === 'to' || cellStr === 't.o' || cellStr === 't.o.' ||
+                    cellStr.includes('t.o ') || cellStr.includes(' to ') || cellStr.includes('t.o. ')
+                  ) nameColIdx = colIdx;
+                  else if (
+                    (cellStr.includes('emp') || cellStr.includes('employ') || cellStr.includes('id')) &&
+                    !cellStr.includes('duty') &&
+                    !cellStr.includes('train') &&
+                    !cellStr.includes('rake')
+                  ) empColIdx = colIdx;
                   else if (cellStr.includes('pattern') || cellStr.includes('trip')) patternColIdx = colIdx;
-                  else if (cellStr.includes('train')) trainColIdx = colIdx;
                 });
                 break;
               }
@@ -147,13 +298,18 @@ export default function GccRosterUploader() {
 
               const rawTrainId = trainColIdx !== -1 && row[trainColIdx] !== undefined ? parseInt(row[trainColIdx]) : NaN;
 
-              parsed.push({
+              let employeeId = row[empColIdx] !== undefined && row[empColIdx] !== null ? String(row[empColIdx]).trim() : '';
+              let name = row[nameColIdx] !== undefined && row[nameColIdx] !== null ? String(row[nameColIdx]).trim() : '';
+
+              const aligned = alignRecordWithRegistry({
                 trainId: isNaN(rawTrainId) ? null : rawTrainId,
                 dutyNo: String(dutyNoVal).trim(),
-                employeeId: row[empColIdx] !== undefined && row[empColIdx] !== null ? String(row[empColIdx]).trim() : '',
-                name: row[nameColIdx] !== undefined && row[nameColIdx] !== null ? String(row[nameColIdx]).trim() : '',
+                employeeId,
+                name,
                 isShortLoop: patternColIdx !== -1 && row[patternColIdx] !== undefined ? String(row[patternColIdx]).toUpperCase().includes('SHORT') : false
               });
+
+              parsed.push(aligned);
             }
 
             if (parsed.length === 0) {
@@ -175,11 +331,11 @@ export default function GccRosterUploader() {
         setStatus('Analyzing document layout...');
         let filePart = null;
         const promptText = `Analyze this roster document. Extract all the rows of the crew roster assignment table. 
-Note: In this roster layout, the 4th column contains the Train Operator Name and the 5th column contains the Employee Number (Emp No).
+Note: In this roster layout, the 5th column contains the Train Operator Name and the 6th column contains the Employee Number (Emp No).
 For each row, extract the following columns:
 1. "Duty No" (the duty number, e.g. 1, 2, 3...)
-2. "NAME" (the operator's name, extracted from the 4th column of the table, e.g. Mahesh Kumar, Jeeva S...)
-3. "Emp No" (the operator's employee number, extracted from the 5th column of the table, e.g. 21553, 21969...)
+2. "NAME" (the operator's name, extracted from the 5th column of the table, e.g. Mahesh Kumar, Jeeva S...)
+3. "Emp No" (the operator's employee number, extracted from the 6th column of the table, e.g. 21553, 21969...)
 4. "Trip Pattern" (determine if it contains 'SHORT' loop or 'LONG' loop based on the duty type/route if possible, default to 'LONG' if unknown)
 
 Also attempt to extract the document's date (e.g. "21 February 2026") and day of week from the header.
@@ -211,7 +367,7 @@ Format the response strictly as a single JSON object.`;
         let responseText = '';
         const apiKeyToUse = customApiKey.trim() ||
           import.meta.env.VITE_GEMINI_API_KEY ||
-          "";
+          "AQ.Ab8RN6I94EJTGn6eI_No5KseFGBxVdh2vkzGZ0erFxkyhJzbVw";
         if (apiKeyToUse) {
           const genAI = new GoogleGenerativeAI(apiKeyToUse);
           const model = genAI.getGenerativeModel({
@@ -234,8 +390,8 @@ Format the response strictly as a single JSON object.`;
             responseText = result.response.text();
           } catch (firebaseErr) {
             console.error("Firebase AI failed, attempting fallback API key:", firebaseErr);
-            // 3. Fallback to direct client-side SDK with env key
-            const defaultKey = import.meta.env.VITE_GEMINI_API_KEY || "";
+            // 3. Fallback to direct client-side SDK with default key
+            const defaultKey = "AQ.Ab8RN6I94EJTGn6eI_No5KseFGBxVdh2vkzGZ0erFxkyhJzbVw";
             const genAI = new GoogleGenerativeAI(defaultKey);
             const model = genAI.getGenerativeModel({
               model: "gemini-2.5-flash",
@@ -260,13 +416,18 @@ Format the response strictly as a single JSON object.`;
           }
         }
 
-        const formattedDuties = (responseJson.duties || []).map(d => ({
-          trainId: null,
-          dutyNo: String(d["Duty No"] || d["DutyNo"] || ""),
-          employeeId: String(d["Emp No"] || d["EmpNo"] || d["Employee ID"] || ""),
-          name: String(d["NAME"] || d["Name"] || ""),
-          isShortLoop: String(d["Trip Pattern"] || "").toUpperCase().includes("SHORT")
-        })).filter(d => d.dutyNo || d.employeeId);
+        const formattedDuties = (responseJson.duties || []).map(d => {
+          let employeeId = String(d["Emp No"] || d["EmpNo"] || d["Employee ID"] || d.employeeId || d.empId || "");
+          let name = String(d["NAME"] || d["Name"] || d.name || d.empName || "");
+
+          return alignRecordWithRegistry({
+            trainId: null,
+            dutyNo: String(d["Duty No"] || d["DutyNo"] || d.dutyNo || d.dutyId || ""),
+            employeeId,
+            name,
+            isShortLoop: String(d["Trip Pattern"] || d.tripPattern || "").toUpperCase().includes("SHORT")
+          });
+        }).filter(d => d.dutyNo || d.employeeId);
 
         if (formattedDuties.length === 0) {
           throw new Error('Gemini OCR returned an empty list. Could not identify columns like "Duty No", "NAME", or "Emp No".');
@@ -327,7 +488,8 @@ Format the response strictly as a single JSON object.`;
       const linksMap = {};
       linksSnapshot.docs.forEach(docSnap => {
         const data = docSnap.data();
-        const dId = String(data.dutyId).trim();
+        // Store under normalized (padded) duty ID so "1" → "01"
+        const dId = normalizeDutyId(String(data.dutyId).trim());
         linksMap[dId] = [
           data.trainId,
           data.leg2TrainNo,
@@ -345,11 +507,12 @@ Format the response strictly as a single JSON object.`;
       extractedData.forEach((row) => {
         // 2a. Update crew_daily_deployment for the automated dispatch gate
         if (row.dutyNo) {
-          const deployDocId = `gcc_deploy_${scheduleType.toLowerCase()}_duty_${row.dutyNo}`;
+          const normalizedDutyNo = normalizeDutyId(row.dutyNo);
+          const deployDocId = `gcc_deploy_${scheduleType.toLowerCase()}_duty_${normalizedDutyNo}`;
           const deployDocRef = doc(db, 'crew_daily_deployment', deployDocId);
           batch.set(deployDocRef, {
             scheduleType: scheduleType,
-            dutyId: String(row.dutyNo),
+            dutyId: normalizedDutyNo,
             empId: String(row.employeeId),
             empName: String(row.name),
             remarks: "GCC Multimodal Ingest",
@@ -363,7 +526,7 @@ Format the response strictly as a single JSON object.`;
         if (row.trainId && row.trainId >= 201 && row.trainId <= 223) {
           targetTrains = [row.trainId];
         } else if (row.dutyNo) {
-          const matchedDuty = String(row.dutyNo).trim();
+          const matchedDuty = normalizeDutyId(String(row.dutyNo).trim());
           targetTrains = linksMap[matchedDuty] || [];
         }
 
@@ -437,20 +600,23 @@ Format the response strictly as a single JSON object.`;
       // Map rows to target structure
       const formatted = rowsToImport.map(row => {
         const dutyKey = Object.keys(row).find(k => k.toLowerCase().replace(/[^a-z]/g, '') === 'dutyno');
-        const nameKey = Object.keys(row).find(k => k.toLowerCase() === 'name' || k.toLowerCase().includes('operator') || k.toLowerCase() === 'to');
+        const nameKey = Object.keys(row).find(k => k.toLowerCase() === 'name' || k.toLowerCase().includes('operator') || k.toLowerCase() === 'to' || k.toLowerCase() === 't.o' || k.toLowerCase() === 't.o.');
         const empKey = Object.keys(row).find(k => k.toLowerCase().replace(/[^a-z]/g, '') === 'empno' || k.toLowerCase().includes('employee') || k.toLowerCase() === 'id');
         const patternKey = Object.keys(row).find(k => k.toLowerCase().includes('pattern') || k.toLowerCase().includes('type'));
         const trainKey = Object.keys(row).find(k => k.toLowerCase().includes('train'));
 
         const rawTrainId = trainKey && row[trainKey] !== undefined && row[trainKey] !== null ? parseInt(row[trainKey]) : NaN;
 
-        return {
+        let employeeId = empKey && row[empKey] !== undefined && row[empKey] !== null ? String(row[empKey]).trim() : '';
+        let name = nameKey && row[nameKey] !== undefined && row[nameKey] !== null ? String(row[nameKey]).trim() : '';
+
+        return alignRecordWithRegistry({
           trainId: isNaN(rawTrainId) ? null : rawTrainId,
           dutyNo: dutyKey && row[dutyKey] !== undefined && row[dutyKey] !== null ? String(row[dutyKey]).trim() : '',
-          employeeId: empKey && row[empKey] !== undefined && row[empKey] !== null ? String(row[empKey]).trim() : '',
-          name: nameKey && row[nameKey] !== undefined && row[nameKey] !== null ? String(row[nameKey]).trim() : '',
+          employeeId,
+          name,
           isShortLoop: patternKey && row[patternKey] !== undefined && row[patternKey] !== null ? String(row[patternKey]).toUpperCase().includes('SHORT') : false
-        };
+        });
       }).filter(r => r.dutyNo || r.employeeId || r.name);
 
       if (formatted.length === 0) {
@@ -477,8 +643,8 @@ Format the response strictly as a single JSON object.`;
           <button
             onClick={() => setShowConfig(!showConfig)}
             className={`p-1.5 rounded-lg border transition-colors ${showConfig
-                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+              ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+              : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
               }`}
             title="Gemini API settings"
           >
@@ -572,8 +738,8 @@ Format the response strictly as a single JSON object.`;
                 type="button"
                 onClick={() => setActiveInputTab('FILE')}
                 className={`flex-1 py-1.5 rounded transition-all font-bold uppercase ${activeInputTab === 'FILE'
-                    ? 'bg-emerald-600 text-slate-950 font-black shadow-md'
-                    : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-emerald-600 text-slate-950 font-black shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
                   }`}
               >
                 File Ingest (AI OCR)
@@ -582,8 +748,8 @@ Format the response strictly as a single JSON object.`;
                 type="button"
                 onClick={() => setActiveInputTab('JSON_PASTE')}
                 className={`flex-1 py-1.5 rounded transition-all font-bold uppercase ${activeInputTab === 'JSON_PASTE'
-                    ? 'bg-emerald-600 text-slate-950 font-black shadow-md'
-                    : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-emerald-600 text-slate-950 font-black shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
                   }`}
               >
                 Paste JSON
@@ -597,8 +763,8 @@ Format the response strictly as a single JSON object.`;
                 onDragOver={handleDrag}
                 onDrop={handleDrop}
                 className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-300 relative group ${dragActive
-                    ? 'border-emerald-500 bg-emerald-950/10 shadow-[0_0_20px_rgba(16,185,129,0.05)]'
-                    : 'border-slate-800 bg-slate-950/20 hover:border-slate-700 hover:bg-slate-950/40'
+                  ? 'border-emerald-500 bg-emerald-950/10 shadow-[0_0_20px_rgba(16,185,129,0.05)]'
+                  : 'border-slate-800 bg-slate-950/20 hover:border-slate-700 hover:bg-slate-950/40'
                   }`}
               >
                 <input
@@ -746,8 +912,8 @@ Format the response strictly as a single JSON object.`;
                         <td className="p-3 font-semibold text-slate-400">{row.employeeId || '--'}</td>
                         <td className="p-3">
                           <span className={`px-1.5 py-0.5 rounded text-[8px] font-black tracking-wide ${row.isShortLoop
-                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                              : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
                             }`}>
                             {row.isShortLoop ? 'SHORT' : 'LONG'}
                           </span>

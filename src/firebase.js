@@ -1,8 +1,8 @@
 import { initializeApp } from "firebase/app";
-import { initializeFirestore, persistentLocalCache, collection, getDocs, setDoc, doc, serverTimestamp } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, getDocs, setDoc, doc, serverTimestamp } from "firebase/firestore";
 import { getAuth } from "firebase/auth"; 
 
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyDucdRrkYezPjjzZ250pqZUovb3B8MO5lg",
   authDomain: "pyidline2crew-41022.firebaseapp.com",
   projectId: "pyidline2crew-41022",
@@ -15,7 +15,9 @@ const firebaseConfig = {
 export const app = initializeApp(firebaseConfig);
 
 export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache()
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
 });
 export const auth = getAuth(app);
 

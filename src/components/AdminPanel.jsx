@@ -6,12 +6,14 @@ import UserControlCenter from './UserControlCenter';
 import UserManagement from './UserManagement';
 import RoleManagement from './RoleManagement';
 import AuditLogs from './AuditLogs';
+import ThemeSettings from './ThemeSettings';
 
 export default function AdminPanel() {
   const { hasPermission, userProfile } = useAuth();
   
   const subTabs = [
     { id: 'UCC', label: 'User Control Center', icon: Fingerprint, show: userProfile?.role === 'SUPER_ADMIN' || userProfile?.role === 'ADMIN_Station_Superintendent' || userProfile?.role === 'ADMIN_SS' },
+    { id: 'THEME', label: 'Theme & Comfort', icon: Settings, show: true },
     { id: 'USER_MGMT', label: 'User Management', icon: Users, show: hasPermission('User Management', 'Full') },
     { id: 'ROLE_MGMT', label: 'Role Management', icon: Shield, show: hasPermission('Role Management', 'Full') },
     { id: 'AUDIT_LOGS', label: 'Audit Logs', icon: Terminal, show: userProfile?.role === 'SUPER_ADMIN' }
@@ -66,6 +68,7 @@ export default function AdminPanel() {
 
 
         {activeSubTab === 'UCC' && <UserControlCenter />}
+        {activeSubTab === 'THEME' && <ThemeSettings />}
         {activeSubTab === 'USER_MGMT' && <UserManagement />}
         {activeSubTab === 'ROLE_MGMT' && <RoleManagement />}
         {activeSubTab === 'AUDIT_LOGS' && <AuditLogs />}

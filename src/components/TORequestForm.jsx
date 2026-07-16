@@ -53,6 +53,14 @@ export default function TORequestForm() {
     if (new Date(leaveData.endDate) < new Date(leaveData.startDate)) {
         return alert("End date cannot be before start date.");
     }
+
+    const allowedStart = windowConfig?.startDate;
+    const allowedEnd = windowConfig?.endDate;
+    if (allowedStart && allowedEnd) {
+      if (leaveData.startDate < allowedStart || leaveData.endDate > allowedEnd) {
+        return alert(`⚠️ INVALID LEAVE DATES:\nLeave request dates must be strictly within the dates opened by GCC:\nStart Date: ${allowedStart}\nEnd Date: ${allowedEnd}`);
+      }
+    }
     
     setSubmitting(true);
     try {
@@ -149,24 +157,30 @@ export default function TORequestForm() {
               onChange={(e) => {
                 const type = e.target.value;
                 let sub = '';
-                if (type === 'EMERGENCY') sub = 'Medical Emergency';
-                else if (type === 'MEDICAL') sub = 'Sick Leave';
-                else if (type === 'FAMILY') sub = 'Family Emergency';
-                else if (type === 'PERSONAL') sub = 'Personal Work';
+                if (type === 'ML') sub = 'Sick Leave';
+                else if (type === 'CCL') sub = 'Child Examination';
+                else if (type === 'OL') sub = 'Optional Holiday';
+                else if (type === 'SCL') sub = 'Official Government Duty';
+                else if (type === 'CO') sub = 'Compensatory Off Relief';
                 setLeaveData({...leaveData, leaveType: type, subCategory: sub});
               }}
               className="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
             >
-              <option value="EMERGENCY">Priority 1 - Emergency Leave</option>
-              <option value="MEDICAL">Priority 2 - Medical Leave (ML)</option>
-              <option value="FAMILY">Priority 3 - Child Care / Family Welfare</option>
-              <option value="EL">Priority 4 - Earned Leave (EL)</option>
-              <option value="CL">Priority 5 - Casual Leave (CL)</option>
-              <option value="PERSONAL">Priority 6 - Optional Leave / Personal Request</option>
+              <option value="CL">Casual Leave (CL)</option>
+              <option value="EL">Earned Leave (EL)</option>
+              <option value="ML">Medical Leave (ML)</option>
+              <option value="PL">Paternity Leave (PL)</option>
+              <option value="MATERNITY">Maternity Leave (MatL)</option>
+              <option value="CCL">Child Care Leave (CCL)</option>
+              <option value="OL">Optional Leave / Restricted Holiday (OL)</option>
+              <option value="SCL">Special Casual Leave (SCL)</option>
+              <option value="CO">Compensatory Off (CO)</option>
+              <option value="EOL">Extraordinary Leave (EOL)</option>
+              <option value="STUDY">Study Leave (StL)</option>
             </select>
           </div>
 
-          {['EMERGENCY', 'MEDICAL', 'FAMILY', 'PERSONAL'].includes(leaveData.leaveType) && (
+          {['ML', 'CCL', 'OL', 'SCL', 'CO'].includes(leaveData.leaveType) && (
             <div className="col-span-2">
               <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider">Sub Category</label>
               <select
@@ -174,42 +188,47 @@ export default function TORequestForm() {
                 onChange={(e) => setLeaveData({...leaveData, subCategory: e.target.value})}
                 className="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
               >
-                {leaveData.leaveType === 'EMERGENCY' && (
-                  <>
-                    <option value="Medical Emergency">Medical Emergency</option>
-                    <option value="Hospitalization">Hospitalization</option>
-                    <option value="Death in Family">Death in Family</option>
-                    <option value="Accident">Accident</option>
-                    <option value="Court Summons">Court Summons</option>
-                    <option value="Official Government Duty">Official Government Duty</option>
-                  </>
-                )}
-                {leaveData.leaveType === 'MEDICAL' && (
+                {leaveData.leaveType === 'ML' && (
                   <>
                     <option value="Sick Leave">Sick Leave</option>
                     <option value="Doctor Recommended Rest">Doctor Recommended Rest</option>
                     <option value="Medical Treatment">Medical Treatment</option>
+                    <option value="Hospitalization">Hospitalization</option>
                   </>
                 )}
-                {leaveData.leaveType === 'FAMILY' && (
+                {leaveData.leaveType === 'CCL' && (
                   <>
-                    <option value="Family Emergency">Family Emergency</option>
                     <option value="Child Examination">Child Examination</option>
-                    <option value="Parent Medical Appointment">Parent Medical Appointment</option>
+                    <option value="Child Medical Care">Child Medical Care</option>
+                    <option value="Family Welfare Support">Family Welfare Support</option>
                   </>
                 )}
-                {leaveData.leaveType === 'PERSONAL' && (
+                {leaveData.leaveType === 'OL' && (
                   <>
-                    <option value="Personal Work">Personal Work</option>
-                    <option value="Function">Function</option>
-                    <option value="Social Events">Social Events</option>
+                    <option value="Optional Holiday">Optional Holiday</option>
+                    <option value="Restricted Holiday">Restricted Holiday</option>
+                    <option value="Personal Religious Occasion">Personal Religious Occasion</option>
+                  </>
+                )}
+                {leaveData.leaveType === 'SCL' && (
+                  <>
+                    <option value="Official Government Duty">Official Government Duty</option>
+                    <option value="Court Summons">Court Summons</option>
+                    <option value="Accident Relief">Accident Relief</option>
+                    <option value="Sports/Union Event Representing BMRCL">Sports/Union Event Representing BMRCL</option>
+                  </>
+                )}
+                {leaveData.leaveType === 'CO' && (
+                  <>
+                    <option value="Compensatory Off Relief">Compensatory Off Relief</option>
+                    <option value="National Holiday Compensatory Off">National Holiday Compensatory Off</option>
                   </>
                 )}
               </select>
             </div>
           )}
 
-          {leaveData.leaveType === 'MEDICAL' && (
+          {leaveData.leaveType === 'ML' && (
             <div className="col-span-2">
               <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider flex items-center gap-1">
                 <UploadCloud size={14} /> Upload Medical Certificate (Simulated)
@@ -273,6 +292,8 @@ export default function TORequestForm() {
             <input 
               type="date" 
               required
+              min={windowConfig?.startDate || ''}
+              max={windowConfig?.endDate || ''}
               value={leaveData.startDate}
               onChange={(e) => setLeaveData({...leaveData, startDate: e.target.value})}
               className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500" 
@@ -283,7 +304,8 @@ export default function TORequestForm() {
             <input 
               type="date" 
               required
-              min={leaveData.startDate}
+              min={leaveData.startDate || windowConfig?.startDate || ''}
+              max={windowConfig?.endDate || ''}
               value={leaveData.endDate}
               onChange={(e) => setLeaveData({...leaveData, endDate: e.target.value})}
               className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500" 
