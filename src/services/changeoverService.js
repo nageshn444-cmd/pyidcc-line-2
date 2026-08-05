@@ -295,6 +295,10 @@ function buildActiveRunDuty(coRow, existingCurrentDuty) {
   };
 }
 
+export function getChangeoverMappings() {
+  return CHANGEOVER_TABLE;
+}
+
 // ─── Main export ─────────────────────────────────────────────────
 export const triggerChangeover = async (currentDay, nextDay) => {
   const tableKey = getTableKey(currentDay, nextDay);

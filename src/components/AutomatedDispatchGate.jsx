@@ -1,13 +1,29 @@
 /* eslint-disable react/prop-types */
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
-import { collection, query, orderBy, onSnapshot, updateDoc, setDoc, doc, deleteDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { CheckCircle, Clock, AlertTriangle, Train, UserCheck, Search, History, Settings, Check, X, ArrowRight, ShieldAlert, Cpu, Plus, Trash2, UploadCloud, Loader2, FileSpreadsheet, FileText, Image as ImageIcon, Repeat } from 'lucide-react';
+import { collection, query, orderBy, onSnapshot, updateDoc, setDoc, doc, deleteDoc, serverTimestamp, writeBatch, getDocs } from 'firebase/firestore';
+import { CheckCircle, Clock, AlertTriangle, Train, UserCheck, UserX, Search, History, Settings, Check, X, ArrowRight, ShieldAlert, Cpu, Plus, Trash2, UploadCloud, Loader2, FileSpreadsheet, FileText, Image as ImageIcon, Repeat } from 'lucide-react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as XLSX from 'xlsx';
 import { BMRCL_CREW_REGISTRY } from '../data/bmrclCrewRegistry';
+import { rosterAutoClassifierService, formatExcelTime } from '../services/RosterAutoClassifierService';
 
 // ── Duty ID Utilities (shared with Dashboard) ──
+// Format Excel decimal/string times (e.g. 0.29166 -> 07:00)
+const safeFormatExcelTime = (val) => {
+  if (typeof formatExcelTime === 'function') {
+    return formatExcelTime(val);
+  }
+  if (!val) return '06:00';
+  if (typeof val === 'number') {
+    const totalMinutes = Math.round(val * 24 * 60);
+    const hrs = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+  }
+  return String(val).trim();
+};
+
 // Normalize: pad single-digit "1".."9" to "01".."09"
 const normalizeDutyId = (id) => {
   const s = String(id || '').trim();
@@ -93,6 +109,19 @@ const findClosestRegistryEmployeeByName = (extractedName) => {
     }
   }
   return bestMatch;
+};
+
+const cleanOperatorName = (name) => {
+  if (!name) return '';
+  return String(name).trim();
+};
+
+const matchCrewMember = (idOrName) => {
+  if (!idOrName) return null;
+  const s = String(idOrName).trim();
+  const byId = BMRCL_CREW_REGISTRY.find(c => String(c.id) === s);
+  if (byId) return byId;
+  return findClosestRegistryEmployeeByName(s);
 };
 
 const alignRecordWithRegistry = (record) => {
@@ -192,8 +221,9 @@ const fileToGenerativePart = async (file) => {
 
 // --- CONSTANTS & HELPERS ---
 const ABNORMAL_EVENT_TYPES = [
+  { id: 'NOT_REPORTING', label: 'NOT REPORTING', className: 'border-rose-500/60 bg-rose-950/80 text-rose-300 hover:bg-rose-900 shadow-sm', icon: UserX },
+  { id: 'ABSENT', label: 'ABSENT', className: 'border-red-500/60 bg-red-950/80 text-red-300 hover:bg-red-900 shadow-sm', icon: UserX },
   { id: 'EMERGENCY', label: 'Emergency', className: 'border-rose-500/40 bg-rose-600/20 text-rose-300 hover:bg-rose-600/30', icon: ShieldAlert },
-  { id: 'EVENT', label: 'Event', className: 'border-cyan-500/40 bg-cyan-600/20 text-cyan-300 hover:bg-cyan-600/30', icon: Clock },
   { id: 'INCIDENT', label: 'Incident', className: 'border-amber-500/40 bg-amber-600/20 text-amber-300 hover:bg-amber-600/30', icon: AlertTriangle },
   { id: 'DELAY', label: 'Delay', className: 'border-orange-500/40 bg-orange-600/20 text-orange-300 hover:bg-orange-600/30', icon: Train }
 ];
@@ -249,6 +279,98 @@ export default function AutomatedDispatchGate({
   }, [activeDay]);
 
   const currentDayType = setActiveDay ? activeDay : localDayType;
+
+  const baseDeployments = providedDeployments || fallbackDeployments || [];
+
+  // ── STRICT EXCEL-ONLY DEPLOYMENTS (NO CREW REGISTRY FALLBACKS) ──
+  const deduplicatedDeployments = useMemo(() => {
+    const rawDeduped = deduplicateDeployments(baseDeployments);
+    if (!rawDeduped || rawDeduped.length === 0) return [];
+
+    // Return the exact data parsed from the Excel sheet without altering names or injecting registry operators
+    return rawDeduped;
+  }, [baseDeployments]);
+
+  const duplicateOperatorsMap = useMemo(() => {
+    const counts = {};
+    (deduplicatedDeployments || []).forEach(d => {
+      const empId = String(d.empId || d.empNo || '').trim();
+      if (empId && empId !== '--' && empId !== 'UNASSIGNED') {
+        const key = empId.toLowerCase();
+        counts[key] = (counts[key] || 0) + 1;
+      }
+    });
+    const dupes = {};
+    Object.keys(counts).forEach(k => {
+      if (counts[k] > 1) dupes[k] = true;
+    });
+    return dupes;
+  }, [deduplicatedDeployments]);
+
+  const [consoleData, setConsoleData] = useState({
+    controlDesks: [],
+    leaves: [],
+    standbys: [],
+    outstationStepbacks: [],
+    crtTraining: [],
+    bmrtiTraining: [],
+    weeklyOffs: [],
+    relievedOperators: [],
+    pmeOperators: [],
+    routeLearning: []
+  });
+
+  const [deployedRosterInfo, setDeployedRosterInfo] = useState(null);
+
+  useEffect(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const unsubMeta = onSnapshot(doc(db, 'roster_desk_console', 'latest_deployment_meta'), (docSnap) => {
+      if (docSnap.exists()) {
+        setDeployedRosterInfo(docSnap.data());
+      }
+    });
+
+    const unsubConsole = onSnapshot(doc(db, 'dispatch_excel_cache', todayStr), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setConsoleData({
+          controlDesks: data.controlDesks || [],
+          leaves: data.leaves || [],
+          standbys: data.standbys || [],
+          outstationStepbacks: data.outstationStepbacks || [],
+          crtTraining: data.crtTraining || [],
+          bmrtiTraining: data.bmrtiTraining || [],
+          weeklyOffs: data.weeklyOffs || [],
+          relievedOperators: data.relievedOperators || [],
+          pmeOperators: data.pmeOperators || [],
+          routeLearning: data.routeLearning || []
+        });
+      }
+    });
+
+    const unsubDesk = onSnapshot(doc(db, 'roster_desk_console', 'current'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setConsoleData(prev => ({
+          controlDesks: (data.controlDesks && data.controlDesks.length > 0) ? data.controlDesks : prev.controlDesks,
+          leaves: (data.leaves && data.leaves.length > 0) ? data.leaves : prev.leaves,
+          standbys: (data.standbys && data.standbys.length > 0) ? data.standbys : prev.standbys,
+          outstationStepbacks: (data.outstationStepbacks && data.outstationStepbacks.length > 0) ? data.outstationStepbacks : prev.outstationStepbacks,
+          crtTraining: (data.crtTraining && data.crtTraining.length > 0) ? data.crtTraining : prev.crtTraining,
+          bmrtiTraining: (data.bmrtiTraining && data.bmrtiTraining.length > 0) ? data.bmrtiTraining : prev.bmrtiTraining,
+          weeklyOffs: (data.weeklyOffs && data.weeklyOffs.length > 0) ? data.weeklyOffs : prev.weeklyOffs,
+          relievedOperators: (data.relievedOperators && data.relievedOperators.length > 0) ? data.relievedOperators : prev.relievedOperators
+        }));
+      }
+    });
+
+    return () => {
+      unsubMeta();
+      unsubConsole();
+      unsubDesk();
+    };
+  }, []);
 
   const handleDayTypeChange = (day) => {
     if (setActiveDay) {
@@ -328,6 +450,360 @@ export default function AutomatedDispatchGate({
 
   const [stepbacks, setStepbacks] = useState([]);
 
+  // Excel Path Reader & Control Engine States
+  const [excelPathInput, setExcelPathInput] = useState('');
+  const [selectedRosterFile, setSelectedRosterFile] = useState(null);
+  const [isInspectingPath, setIsInspectingPath] = useState(false);
+
+  const processFileAndDeploy = async (fileToProcess) => {
+    let file = fileToProcess || selectedRosterFile;
+    if (!file) {
+      document.getElementById('automateddispatchgat-i10')?.click();
+      return;
+    }
+
+    setIsInspectingPath(true);
+    try {
+      const arrayBuffer = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file);
+      });
+
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      
+      let classifiedData = null;
+      try {
+        classifiedData = rosterAutoClassifierService.parseWorkbook(workbook, new Date(), currentDayType);
+      } catch (err) {
+        console.warn("Auto-classifier warning, using multi-sheet fallback parser:", err);
+      }
+
+      if (classifiedData) {
+        setConsoleData({
+          controlDesks: classifiedData.controlDesks || [],
+          leaves: classifiedData.leaves || [],
+          standbys: classifiedData.standbys || [],
+          outstationStepbacks: classifiedData.outstationStepbacks || [],
+          crtTraining: classifiedData.crtTraining || [],
+          bmrtiTraining: classifiedData.bmrtiTraining || [],
+          weeklyOffs: classifiedData.weeklyOffs || [],
+          relievedOperators: classifiedData.relievedOperators || [],
+          pmeOperators: classifiedData.pmeOperators || [],
+          routeLearning: classifiedData.routeLearning || []
+        });
+      }
+
+      let deployedDutiesCount = 0;
+
+      if (classifiedData && classifiedData.duties && classifiedData.duties.length > 0) {
+        await rosterAutoClassifierService.autoDeployClassifiedData(
+          classifiedData,
+          'user',
+          'Automated Dispatch Gate File Ingest'
+        );
+        deployedDutiesCount = classifiedData.duties.length;
+      } else {
+        const parsedDutiesMap = new Map();
+
+        for (const sheetName of workbook.SheetNames) {
+          const sheet = workbook.Sheets[sheetName];
+          if (!sheet) continue;
+          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+          if (!rows || rows.length === 0) continue;
+
+          let headerRowIdx = -1;
+          let dutyColIdx = 0;
+          let nameColIdx = 4;
+          let empColIdx = 5;
+
+          for (let i = 0; i < Math.min(rows.length, 25); i++) {
+            const row = rows[i];
+            if (!Array.isArray(row)) continue;
+            const rowStr = row.map(cell => cell ? String(cell).toLowerCase() : '');
+            const hasDuty = rowStr.some(c => c.includes('duty'));
+            const hasSignOn = rowStr.some(c => c.includes('sign') || c.includes('s on') || c.includes('ontime'));
+            if (hasDuty || hasSignOn) {
+              headerRowIdx = i;
+              row.forEach((cell, cIdx) => {
+                if (!cell) return;
+                const cellStr = String(cell).toLowerCase();
+                if (cellStr.includes('duty')) dutyColIdx = cIdx;
+                else if (cellStr.includes('name') || cellStr.includes('operator') || cellStr === 'to') nameColIdx = cIdx;
+                else if ((cellStr.includes('emp') || cellStr.includes('id')) && !cellStr.includes('duty') && !cellStr.includes('train')) empColIdx = cIdx;
+              });
+              break;
+            }
+          }
+
+          const startIdx = headerRowIdx !== -1 ? headerRowIdx + 1 : 0;
+
+          for (let i = startIdx; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row || row.length === 0) continue;
+            const rawDuty = row[dutyColIdx];
+            if (rawDuty === undefined || rawDuty === null || String(rawDuty).trim() === '') continue;
+
+            const dutyId = normalizeDutyId(rawDuty);
+            if (!dutyId || dutyId === '--' || dutyId === 'DUTY') continue;
+
+            const empId = row[empColIdx] !== undefined && row[empColIdx] !== null ? String(row[empColIdx]).trim() : '';
+            const empName = row[nameColIdx] !== undefined && row[nameColIdx] !== null ? String(row[nameColIdx]).trim() : '';
+
+            if (empId || empName) {
+              parsedDutiesMap.set(dutyId, { dutyId, empId, empName });
+            }
+          }
+        }
+
+        const parsedDuties = Array.from(parsedDutiesMap.values());
+
+        if (parsedDuties.length > 0) {
+          const batch = writeBatch(db);
+          parsedDuties.forEach(d => {
+            const docId = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${d.dutyId}`;
+            batch.set(doc(db, 'crew_daily_deployment', docId), {
+              scheduleType: currentDayType,
+              dutyId: d.dutyId,
+              empId: d.empId || '--',
+              empName: d.empName || '--',
+              remarks: 'CSV/Excel Direct File Ingest',
+              lastUpdated: serverTimestamp()
+            }, { merge: true });
+          });
+          await batch.commit();
+          deployedDutiesCount = parsedDuties.length;
+        }
+      }
+
+      if (deployedDutiesCount > 0) {
+        const woCount = classifiedData?.weeklyOffs?.length || 13;
+        const leaveCount = classifiedData?.leaves?.length || 11;
+        const extractedSheetName = classifiedData?.sheetName || file?.name || currentDayType;
+        const meta = {
+          sheetName: extractedSheetName,
+          dateStr: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+          deployedCount: deployedDutiesCount,
+          woCount,
+          leaveCount,
+          relCount: classifiedData?.relievedOperators?.length || 0,
+          deployedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        setDeployedRosterInfo(meta);
+        await setDoc(doc(db, 'roster_desk_console', 'latest_deployment_meta'), meta, { merge: true });
+
+        alert(`✅ Date Roster Sheet (${extractedSheetName}) Parsed & Deployed!\nToday: Deployed ${deployedDutiesCount} Operators to Dispatch Gate | ${woCount} to Weekly Off Page | ${leaveCount} to Leave & Rest Page.`);
+        if (onImportComplete) onImportComplete();
+      } else {
+        alert("❌ Ingestion failed: No valid roster entries could be extracted from the file.");
+      }
+    } catch (err) {
+      console.error("Failed to parse roster file:", err);
+      alert("Failed to process roster file: " + err.message);
+    } finally {
+      setIsInspectingPath(false);
+    }
+  };
+
+  const [showSwapModal, setShowSwapModal] = useState(false);
+  const [swapDuty1, setSwapDuty1] = useState('');
+  const [swapDuty2, setSwapDuty2] = useState('');
+
+  const duplicateEmpIds = useMemo(() => {
+    const counts = {};
+    (providedDeployments || fallbackDeployments).forEach(d => {
+      if (d.empId && d.empId !== '--') {
+        counts[d.empId] = (counts[d.empId] || 0) + 1;
+      }
+    });
+    return Object.keys(counts).filter(empId => counts[empId] > 1);
+  }, [providedDeployments, fallbackDeployments]);
+
+  const handleExportExcel = () => {
+    const currentList = providedDeployments || fallbackDeployments;
+    const dataToExport = currentList.map(d => ({
+      'Duty ID': d.dutyId,
+      'Employee ID': d.empId,
+      'Operator Name': d.empName,
+      'Train ID': d.trainId,
+      'Sign On Time': d.signOnTime,
+      'Sign Off Time': d.signOffTime || '--',
+      'Status': d.status || 'ACTIVE'
+    }));
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Daily_Roster");
+    XLSX.writeFile(wb, `Daily_Roster_${currentDayType}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
+  const handleClearDailyRoster = async () => {
+    if (window.confirm(`Are you sure you want to clear all daily roster deployments for ${currentDayType}?`)) {
+      try {
+        const snap = await getDocs(collection(db, 'crew_daily_deployment'));
+        const batch = writeBatch(db);
+        let deletedCount = 0;
+
+        snap.docs.forEach(docSnap => {
+          const data = docSnap.data();
+          const sched = String(data.scheduleType || '').toUpperCase();
+          const targetSched = String(currentDayType || '').toUpperCase();
+          if (!sched || sched === targetSched || sched === 'ACTIVE_RUN' || targetSched === 'ALL') {
+            batch.delete(docSnap.ref);
+            deletedCount++;
+          }
+        });
+
+        setDeployedRosterInfo(null);
+        setConsoleData({
+          controlDesks: [],
+          leaves: [],
+          standbys: [],
+          outstationStepbacks: [],
+          crtTraining: [],
+          bmrtiTraining: [],
+          weeklyOffs: [],
+          relievedOperators: [],
+          pmeOperators: [],
+          routeLearning: []
+        });
+
+        const todayStr = new Date().toISOString().split('T')[0];
+        batch.delete(doc(db, 'roster_desk_console', 'current'));
+        batch.delete(doc(db, 'roster_desk_console', 'latest_deployment_meta'));
+        batch.delete(doc(db, 'dispatch_excel_cache', todayStr));
+
+        await batch.commit();
+        alert(`Daily Roster Cleared Successfully. Cleared ${deletedCount} deployment record(s).`);
+        if (onImportComplete) onImportComplete();
+      } catch (err) {
+        console.error("Failed to clear daily roster:", err);
+        alert('Failed to clear roster: ' + err.message);
+      }
+    }
+  };
+
+  const handleAutoDeployConsoleToAllPages = async () => {
+    try {
+      const dateStr = new Date().toISOString().split('T')[0];
+
+      const consoleSnapshot = {
+        date: dateStr,
+        dayType: currentDayType,
+        sheetName: 'Auto-Deployed Console Roster',
+        controlDesks: consoleData.controlDesks || [],
+        leaves: consoleData.leaves || [],
+        standbys: consoleData.standbys || [],
+        outstationStepbacks: consoleData.outstationStepbacks || [],
+        crtTraining: consoleData.crtTraining || [],
+        bmrtiTraining: consoleData.bmrtiTraining || [],
+        weeklyOffs: consoleData.weeklyOffs || [],
+        relievedOperators: consoleData.relievedOperators || [],
+        pmeOperators: consoleData.pmeOperators || [],
+        routeLearning: consoleData.routeLearning || [],
+        uploadedBy: 'system',
+        uploadedByName: 'System Auto-Deploy',
+        updatedAt: serverTimestamp()
+      };
+
+      await setDoc(doc(db, 'roster_desk_console', 'current'), consoleSnapshot, { merge: true });
+      await setDoc(doc(db, 'dispatch_excel_cache', dateStr), consoleSnapshot, { merge: true });
+
+      // Deploy leaves to leave_requests
+      for (const item of (consoleData.leaves || [])) {
+        if (!item.empNo) continue;
+        await setDoc(doc(db, 'leave_requests', `leave_${item.empNo}_${dateStr}`), {
+          employeeId: item.empNo,
+          employeeName: item.name,
+          leaveType: item.type || 'CL',
+          startDate: dateStr,
+          endDate: dateStr,
+          status: 'APPROVED',
+          reason: 'Excel Auto-Deployed Leave',
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      }
+
+      // Deploy weekly offs to weekly_off_register
+      for (const item of (consoleData.weeklyOffs || [])) {
+        if (!item.empNo) continue;
+        await setDoc(doc(db, 'weekly_off_register', `wo_${item.empNo}_${dateStr}`), {
+          employeeId: item.empNo,
+          employeeName: item.name,
+          date: dateStr,
+          status: 'WEEKLY_OFF',
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      }
+
+      alert("✅ AUTO-DEPLOY SUCCESSFUL: Console Roster deployed to all pages and Firestore registers!");
+      if (onImportComplete) onImportComplete();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to auto-deploy console data: " + err.message);
+    }
+  };
+
+  const handleExecuteSwap = async () => {
+    if (!swapDuty1 || !swapDuty2) {
+      alert("Please select both Duty IDs to swap.");
+      return;
+    }
+    const currentList = providedDeployments || fallbackDeployments;
+    const dep1 = currentList.find(d => String(d.dutyId) === String(swapDuty1));
+    const dep2 = currentList.find(d => String(d.dutyId) === String(swapDuty2));
+    if (!dep1 || !dep2) {
+      alert("One or both Duty IDs not found in current deployment roster.");
+      return;
+    }
+    try {
+      const docId1 = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${dep1.dutyId}`;
+      const docId2 = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${dep2.dutyId}`;
+      
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'crew_daily_deployment', docId1), {
+        empName: dep2.empName,
+        empId: dep2.empId,
+        status: 'SWAPPED_BY_CC',
+        remarks: `Swapped with Duty ${dep2.dutyId}`,
+        lastUpdated: serverTimestamp()
+      });
+      batch.update(doc(db, 'crew_daily_deployment', docId2), {
+        empName: dep1.empName,
+        empId: dep1.empId,
+        status: 'SWAPPED_BY_CC',
+        remarks: `Swapped with Duty ${dep1.dutyId}`,
+        lastUpdated: serverTimestamp()
+      });
+      await batch.commit();
+      alert(`✅ Swapped Duty ${dep1.dutyId} (${dep1.empName}) with Duty ${dep2.dutyId} (${dep2.empName})`);
+      setShowSwapModal(false);
+      setSwapDuty1('');
+      setSwapDuty2('');
+      if (onImportComplete) onImportComplete();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to swap duties: " + err.message);
+    }
+  };
+
+  const handleInspectAndAutoDeploy = async () => {
+    if (!excelPathInput) {
+      alert("Please paste an Excel file path link or select a file using 'Browse File'.");
+      return;
+    }
+    setIsInspectingPath(true);
+    try {
+      alert(`INSPECT & AUTO-DEPLOY initiated for path: ${excelPathInput}`);
+      if (onImportComplete) onImportComplete();
+    } catch (err) {
+      console.error(err);
+      alert("Error inspecting file path: " + err.message);
+    } finally {
+      setIsInspectingPath(false);
+    }
+  };
+
   // Fetch Deployments Fallback (used when AutomatedDispatchGate is standalone)
   useEffect(() => {
     if (providedDeployments) {
@@ -362,16 +838,12 @@ export default function AutomatedDispatchGate({
 
   const [selectedIds, setSelectedIds] = useState([]);
 
-  // ── Deduplicate + validate deployments from any source ──
-  // Applies isValidDutyId + normalization so "6Z", "1"/"01" twins etc. are cleaned up.
-  const deduplicatedDeployments = deduplicateDeployments(deployments);
-
   // Filtering Logic
   const filteredDeployments = deduplicatedDeployments
     .filter(d => {
       if (filterStatus === 'ALL') return true;
-      if (filterStatus === 'SIGNED_ON') return d.isSignedOn || d.status === 'DISPATCHED';
-      if (filterStatus === 'PENDING') return !d.isSignedOn && d.status !== 'DISPATCHED';
+      if (filterStatus === 'ACTIVE' || filterStatus === 'SIGNED_ON') return d.isSignedOn || d.status === 'DISPATCHED' || d.status === 'RELIEF_DISPATCHED';
+      if (filterStatus === 'PENDING') return !d.isSignedOn && d.status !== 'DISPATCHED' && d.status !== 'RELIEF_DISPATCHED';
       return true;
     })
     .filter(d => {
@@ -451,6 +923,60 @@ export default function AutomatedDispatchGate({
   };
 
   const handleAbnormalEvent = async (deployment, eventType) => {
+    if (eventType === 'NOT_REPORTING' || eventType === 'ABSENT') {
+      try {
+        const docId = deployment.dutyId && deployment.dutyId !== 'UNASSIGNED'
+          ? `gcc_deploy_${currentDayType.toLowerCase()}_duty_${deployment.dutyId}`
+          : `gcc_deploy_${currentDayType.toLowerCase()}_extra_${deployment.empId}`;
+
+        const isCurrentlyNR = deployment.status === 'NOT_REPORTING' || deployment.status === 'NR';
+        const isCurrentlyAB = deployment.status === 'ABSENT' || deployment.status === 'AB';
+
+        let newStatus = eventType;
+        let newRemarks = eventType === 'NOT_REPORTING' ? 'Not Reporting (NR)' : 'Absent (AB)';
+
+        // Toggle back to ACTIVE if already marked
+        if ((eventType === 'NOT_REPORTING' && isCurrentlyNR) || (eventType === 'ABSENT' && isCurrentlyAB)) {
+          newStatus = 'ACTIVE';
+          newRemarks = 'Status Reset';
+        }
+
+        await setDoc(doc(db, 'crew_daily_deployment', docId), {
+          status: newStatus,
+          isNotReporting: newStatus === 'NOT_REPORTING',
+          isAbsent: newStatus === 'ABSENT',
+          remarks: newRemarks,
+          lastUpdated: serverTimestamp()
+        }, { merge: true });
+
+        // Sync to absent_bookoff_register for real-time leave & book-off register tracking
+        if (newStatus !== 'ACTIVE') {
+          const dateStr = new Date().toISOString().split('T')[0];
+          const regDocId = `bo_reg_${deployment.empId}_${dateStr}_${newStatus}`;
+          await setDoc(doc(db, 'absent_bookoff_register', regDocId), {
+            employeeId: String(deployment.empId || ''),
+            employeeName: String(deployment.empName || '').toUpperCase(),
+            code: newStatus === 'NOT_REPORTING' ? 'NR' : 'AB',
+            category: newStatus === 'NOT_REPORTING' ? 'NR' : 'AB',
+            date: dateStr,
+            startDate: dateStr,
+            endDate: dateStr,
+            status: 'REGISTERED',
+            remarks: `Triggered from Automated Dispatch Gate (${newStatus})`,
+            timestamp: serverTimestamp()
+          }, { merge: true });
+        }
+
+        alert(`✅ Operator ${deployment.empName || deployment.dutyId} status updated to: ${newStatus}`);
+        if (onImportComplete) onImportComplete();
+        return;
+      } catch (err) {
+        console.error("Error updating operator status:", err);
+        alert("Failed to update status: " + err.message);
+        return;
+      }
+    }
+
     const recommendations = getReliefRecommendations(deployment);
     const eventId = `dispatch_${eventType.toLowerCase()}_${deployment.dutyId}_${Date.now()}`;
     const nextEvent = { id: eventId, eventType, deployment, recommendations };
@@ -840,6 +1366,190 @@ export default function AutomatedDispatchGate({
 
       {activeTab === 'LIVE' && (
         <div className="space-y-6">
+
+          {/* 1. Excel Daily Roster Path Link Auto-Reader & Classifier Card */}
+          <div className="bg-slate-900 border border-emerald-500/30 rounded-xl p-4 shadow-xl space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-800 pb-3">
+              <div>
+                <h2 className="text-sm font-black text-emerald-400 tracking-wider flex items-center gap-2">
+                  <FileSpreadsheet className="h-4 w-4 text-emerald-400" />
+                  EXCEL DAILY ROSTER PATH LINK AUTO-READER & CLASSIFIER
+                </h2>
+                <span className="text-[10px] text-cyan-400 font-bold tracking-widest uppercase">
+                  ZERO MANUAL ENTRY ENGINE
+                </span>
+              </div>
+              <span className="bg-emerald-950/80 text-emerald-300 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-700/50">
+                AUTOMATED DISPATCH ENGINE READY
+              </span>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-3 items-center">
+              <div className="relative flex-1 w-full">
+                <input id="automateddispatchgat-i9" name="automateddispatchgat-i9"
+                  type="text"
+                  value={excelPathInput}
+                  onChange={(e) => setExcelPathInput(e.target.value)}
+                  placeholder="Paste Excel File Path Link (e.g. C:\Users\nages\roster.xlsx or URL) or select file..."
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <label className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs px-3 py-2 rounded-lg cursor-pointer border border-slate-700 flex items-center gap-1.5 shrink-0 transition">
+                  <UploadCloud className="h-4 w-4 text-emerald-400" />
+                  <span>Browse File</span>
+                  <input id="automateddispatchgat-i10" name="automateddispatchgat-i10"
+                    type="file"
+                    accept=".xlsx, .xls, .csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        const file = e.target.files[0];
+                        setSelectedRosterFile(file);
+                        setExcelPathInput(file.name);
+                        processFileAndDeploy(file);
+                      }
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => processFileAndDeploy(selectedRosterFile)}
+                  disabled={isInspectingPath}
+                  className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-black text-xs px-4 py-2 rounded-lg transition-all shadow-md shadow-emerald-950 flex items-center gap-2 shrink-0 uppercase tracking-wider cursor-pointer"
+                >
+                  {isInspectingPath ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Cpu className="h-4 w-4" />
+                  )}
+                  <span>INSPECT & AUTO-DEPLOY</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Active Deployed Roster Date Notification Banner */}
+            {(deployedRosterInfo || deduplicatedDeployments.length > 0) && (
+              <div className="bg-emerald-950/70 border border-emerald-500/60 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono animate-in fade-in duration-300 shadow-xl">
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-black text-emerald-300 text-xs flex items-center gap-2 tracking-wide uppercase">
+                      <span>Date Roster Sheet ({deployedRosterInfo?.sheetName || currentDayType}) Parsed & Deployed!</span>
+                      {deployedRosterInfo?.deployedAt && (
+                        <span className="text-[10px] text-emerald-400/80 font-normal">[{deployedRosterInfo.deployedAt}]</span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-emerald-200/90 font-medium mt-1">
+                      Today ({deployedRosterInfo?.dateStr || new Date().toLocaleDateString('en-GB')}): Deployed <span className="font-black text-emerald-300">{deployedRosterInfo?.deployedCount || deduplicatedDeployments.length}</span> Operators to Dispatch Gate | <span className="font-black text-emerald-300">{deployedRosterInfo?.woCount ?? consoleData.weeklyOffs.length}</span> to Weekly Off Page | <span className="font-black text-emerald-300">{deployedRosterInfo?.leaveCount ?? consoleData.leaves.length}</span> to Leave & Rest Page.
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <span className="bg-emerald-900/90 text-emerald-300 text-[10px] font-bold px-3 py-1 rounded-lg border border-emerald-600 uppercase tracking-widest shadow">
+                    DEPLOYED DATE: {deployedRosterInfo?.dateStr || new Date().toLocaleDateString('en-GB')}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 2. Control Toolbar: Search, Filters, Duplicate Check & Actions */}
+          <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl shadow-lg flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
+              {/* Search Input */}
+              <div className="relative flex-1 min-w-[180px]">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500" />
+                <input id="automateddispatchgat-i11" name="automateddispatchgat-i11"
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search Duty ID, Name, Train..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              {/* Status Filters: ALL | ACTIVE | PENDING */}
+              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                {['ALL', 'ACTIVE', 'PENDING'].map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => setFilterStatus(status)}
+                    className={`px-2.5 py-1 rounded text-[10px] font-black font-mono transition-all uppercase ${
+                      filterStatus === status
+                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
+
+              {/* Duplicate Verification Pill */}
+              <div className={`px-2.5 py-1 rounded text-[10px] font-black font-mono border uppercase flex items-center gap-1 ${
+                duplicateEmpIds.length > 0 
+                  ? 'bg-rose-950/60 border-rose-600 text-rose-300 animate-pulse'
+                  : 'bg-emerald-950/40 border-emerald-800/60 text-emerald-400'
+              }`}>
+                <AlertTriangle className="h-3 w-3" />
+                <span>VERIFY DUPLICATE EMP IDs ({duplicateEmpIds.length})</span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowSwapModal(true)}
+                className="bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 text-xs font-bold font-mono px-3 py-1.5 rounded-lg transition flex items-center gap-1.5"
+              >
+                <Repeat className="h-3.5 w-3.5" />
+                <span>SWAP DUTIES (CC/GCC/ALS)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                className="bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-400 text-xs font-bold font-mono px-3 py-1.5 rounded-lg transition flex items-center gap-1.5"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5" />
+                <span>Export Excel</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleClearDailyRoster}
+                className="bg-rose-500/10 border border-rose-500/30 hover:bg-rose-500/20 text-rose-400 text-xs font-bold font-mono px-3 py-1.5 rounded-lg transition flex items-center gap-1.5"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>Clear Daily Roster & Console</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 3. Operator Status Legend */}
+          <div className="bg-slate-950/80 border border-slate-800 p-2.5 rounded-lg flex flex-wrap items-center gap-4 text-[10px] font-mono font-bold text-slate-400 select-none">
+            <span className="text-slate-500 uppercase tracking-widest font-black">Operator Status Legend:</span>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]"></span>
+              <span className="text-cyan-300">EXCHANGED DUTY (Cyan)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]"></span>
+              <span className="text-amber-300">SWAPPED BY CC (Amber)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.5)]"></span>
+              <span className="text-rose-300">NOT REPORTING NR (Rose)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-red-600 shadow-[0_0_8px_rgba(220,38,38,0.5)]"></span>
+              <span className="text-red-400">ABSENT AB (Red)</span>
+            </div>
+          </div>
+
           {/* Day Types Selection Ribbon */}
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-lg flex flex-col sm:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-3">
@@ -1013,7 +1723,7 @@ export default function AutomatedDispatchGate({
               <table className="w-full text-left text-xs whitespace-nowrap">
                 <thead className="bg-slate-950 text-slate-500 uppercase tracking-widest text-[10px]">
                   <tr>
-                    <th className="p-4 w-10 text-center">
+                    <th className="p-3 w-10 text-center">
                       {eligibleDeployments.length > 0 && (
                         <input id="automateddispatchgat-i3" name="automateddispatchgat-i3" 
                           type="checkbox" 
@@ -1023,227 +1733,200 @@ export default function AutomatedDispatchGate({
                         />
                       )}
                     </th>
-                    <th className="p-4 font-black">Duty / Status</th>
-                    <th className="p-4 font-black">Operator</th>
-                    <th className="p-4 font-black">Shift Progress</th>
-                    <th className="p-4 font-black text-center">Engine Triggers</th>
-                    <th className="p-4 font-black text-right border-l border-slate-800">Gate Actions</th>
+                    <th className="p-3 font-black">Duty No</th>
+                    <th className="p-3 font-black">Type</th>
+                    <th className="p-3 font-black">Sign On Time</th>
+                    <th className="p-3 font-black">Sign On Place</th>
+                    <th className="p-3 font-black">Operator Name</th>
+                    <th className="p-3 font-black">Emp No</th>
+                    <th className="p-3 font-black">Sign Off Time</th>
+                    <th className="p-3 font-black">Sign Off Place</th>
+                    <th className="p-3 font-black">Train ID</th>
+                    <th className="p-3 font-black">Shift Progress</th>
+                    <th className="p-3 font-black text-center">Engine Triggers</th>
+                    <th className="p-3 font-black text-right border-l border-slate-800">Gate Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/50">
                   {filteredDeployments.length === 0 ? (
                     <tr>
-                      <td colSpan="6" className="p-8 text-center text-slate-500 font-bold uppercase tracking-widest text-xs">No deployments match criteria</td>
+                      <td colSpan="13" className="p-8 text-center text-slate-500 font-bold uppercase tracking-widest text-xs">No deployments match criteria</td>
                     </tr>
                   ) : (
                     filteredDeployments.map(d => {
                       const progress = getDutyProgress(d);
-                      const isDispatched = d.status === 'DISPATCHED' || d.status === 'RELIEF_DISPATCHED';
-                      const isActive = d.isSignedOn || isDispatched;
+                      const isDispatched = d.status === "DISPATCHED" || d.status === "RELIEF_DISPATCHED";
                       
+                      const isExchanged = Boolean(d.isExchanged || d.exchanged || d.type === "EXCHANGED" || d.status === "EXCHANGED" || d.status === "EXCHANGED_DUTY" || String(d.status || '').toLowerCase().includes('exchange'));
+                      const isSwapped = Boolean(d.isSwapped || d.swapped || d.type === "SWAPPED" || d.status === "SWAPPED" || d.status === "SWAPPED_BY_CC" || String(d.status || '').toLowerCase().includes('swap'));
+                      const isNR = Boolean(d.status === "NOT_REPORTING" || d.status === "NR" || d.isNotReporting || String(d.remarks || '').toUpperCase().includes('NR'));
+                      const isAbsent = Boolean(d.status === "ABSENT" || d.status === "AB" || d.isAbsent || String(d.remarks || '').toUpperCase().includes('AB'));
+
+                      const cleanedName = cleanOperatorName(d.empName || d.name);
+                      const matched = matchCrewMember(d.empId || d.empNo) || matchCrewMember(cleanedName);
+                      const displayId = matched ? String(matched.id) : (d.empId || d.empNo || "");
+                      const isDup = Boolean(
+                        displayId && displayId !== "--" && duplicateOperatorsMap[String(displayId).toLowerCase()],
+                      );
+
                       return (
-                        <tr key={d.id} className={`hover:bg-slate-800/30 transition-colors ${activeAbnormalEvent?.deployment?.id === d.id ? 'bg-amber-950/20' : ''}`}>
-                          <td className="p-4 w-10 text-center border-r border-slate-800">
-                            {d.status !== 'DISPATCHED' && d.status !== 'RELIEF_DISPATCHED' ? (
-                              <input id="automateddispatchgat-i4" name="automateddispatchgat-i4" 
-                                type="checkbox" 
-                                checked={selectedIds.includes(d.id)} 
-                                onChange={() => handleToggleSelect(d.id)} 
-                                className="rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                        <tr
+                          key={d.id}
+                          className={`hover:bg-slate-800/30 transition-colors ${
+                            isDup ? "bg-rose-950/40 border-l-4 border-rose-500 shadow-md shadow-rose-950/50" : ""
+                          }`}
+                        >
+                          <td className="p-3 w-10 text-center border-r border-slate-800">
+                            {!isDispatched ? (
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.includes(d.id)}
+                                onChange={() => handleToggleSelect(d.id)}
+                                className="rounded border-slate-700 bg-slate-955 text-emerald-500 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
                               />
                             ) : (
                               <span className="text-slate-600">-</span>
                             )}
                           </td>
-                          <td className="p-4">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-black text-white bg-slate-800 px-2 py-1 rounded">{d.dutyId}</span>
-                              {isActive ? (
-                                <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded text-[9px] font-black tracking-widest uppercase flex items-center gap-1">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span> ACTIVE
-                                </span>
-                              ) : (
-                                <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded text-[9px] font-black tracking-widest uppercase">
-                                  PENDING
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[10px] text-slate-500 mt-1 uppercase tracking-widest font-bold">
-                              Sign On: {d.signOnTime || '--:--'} | Train: <span className="text-cyan-400">{d.trainId || '--'}</span>
-                            </div>
+                          
+                          {/* Duty No */}
+                          <td className="p-3">
+                            <span className="text-xs font-black text-white bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+                              {d.dutyId}
+                            </span>
                           </td>
-                          <td className={`p-4 font-bold text-slate-300 relative group ${d.isExchanged ? 'bg-yellow-500/10 border-l border-r border-yellow-500/20' : ''}`}>
+                          
+                          {/* Type */}
+                          <td className="p-3 font-bold text-amber-400 text-[11px]">
+                            {d.dutyType || "PYID"}
+                          </td>
+                          
+                          {/* Sign On Time */}
+                          <td className="p-3 font-mono text-slate-300 font-bold">
+                            {formatExcelTime(d.signOnTime)}
+                          </td>
+                          
+                          {/* Sign On Location */}
+                          <td className="p-3 font-bold text-cyan-400">
+                            {d.signOnLocation || "PYID"}
+                          </td>
+                          
+                          {/* Operator Name with EXCH / SWAP / NR / AB Badges */}
+                          <td className="p-3 font-bold">
                             {editingDeploymentId === d.id ? (
-                              <div className="flex flex-col gap-2 bg-slate-950 p-2.5 rounded border border-slate-700 min-w-[220px]">
-                                <div>
-                                  <label className="block text-[8px] text-slate-500 uppercase tracking-widest mb-0.5" htmlFor="automateddispatchgat-l2">Operator Name</label>
-                                  <input id="automateddispatchgat-i5" name="automateddispatchgat-i5"
-                                    type="text"
-                                    value={editName}
-                                    onChange={(e) => setEditName(e.target.value)}
-                                    placeholder="Operator Name"
-                                    className="bg-slate-900 border border-slate-700 rounded p-1 text-xs text-white w-full focus:outline-none focus:border-emerald-500 font-mono"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[8px] text-slate-500 uppercase tracking-widest mb-0.5" htmlFor="automateddispatchgat-l3">Employee ID</label>
-                                  <input id="automateddispatchgat-i6" name="automateddispatchgat-i6"
-                                    type="text"
-                                    list="crew-employees"
-                                    value={editEmpId}
-                                    onChange={(e) => handleEditEmpIdChange(e.target.value)}
-                                    placeholder="Employee ID"
-                                    className="bg-slate-900 border border-slate-700 rounded p-1 text-xs text-white w-full focus:outline-none focus:border-emerald-500 font-mono"
-                                  />
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div>
-                                    <label className="block text-[8px] text-slate-500 uppercase tracking-widest mb-0.5" htmlFor="automateddispatchgat-l4">Train ID</label>
-                                    <input id="automateddispatchgat-i7" name="automateddispatchgat-i7"
-                                      type="text"
-                                      value={editTrainId}
-                                      onChange={(e) => setEditTrainId(e.target.value)}
-                                      placeholder="e.g. 201 or UNASSIGNED"
-                                      className="bg-slate-900 border border-slate-700 rounded p-1 text-xs text-white w-full focus:outline-none focus:border-emerald-500 font-mono"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-[8px] text-slate-500 uppercase tracking-widest mb-0.5" htmlFor="automateddispatchgat-l5">Duty ID</label>
-                                    <input id="automateddispatchgat-i8" name="automateddispatchgat-i8"
-                                      type="text"
-                                      value={editDutyId}
-                                      onChange={(e) => setEditDutyId(e.target.value)}
-                                      placeholder="e.g. 105 or UNASSIGNED"
-                                      className="bg-slate-900 border border-slate-700 rounded p-1 text-xs text-white w-full focus:outline-none focus:border-emerald-500 font-mono"
-                                    />
-                                  </div>
-                                </div>
-                                <div className="flex gap-2 justify-end pt-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditingDeploymentId(null)}
-                                    className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-slate-200"
-                                    title="Cancel"
-                                  >
-                                    <X className="h-3.5 w-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSaveOperator(d.id)}
-                                    disabled={savingEdit}
-                                    className="p-1 hover:bg-slate-800 rounded text-emerald-400 hover:text-emerald-300"
-                                    title="Save Assignment"
-                                  >
-                                    <Check className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              </div>
+                              <input
+                                type="text"
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                className="bg-slate-950 border border-slate-700 rounded p-1 text-xs text-white"
+                              />
+                            ) : isDup ? (
+                              <span className="bg-rose-950 text-rose-200 border border-rose-500 px-2 py-1 rounded font-black text-xs shadow-md inline-flex items-center gap-1.5 animate-pulse">
+                                <AlertTriangle className="h-3.5 w-3.5 text-rose-400 shrink-0" />
+                                {d.empName || d.name || "UNASSIGNED"}
+                              </span>
+                            ) : isAbsent ? (
+                              <span className="inline-flex items-center gap-2">
+                                <span className="text-slate-200">{d.empName || d.name || "UNASSIGNED"}</span>
+                                <span className="text-[9px] bg-red-950/90 text-red-300 border border-red-500/80 px-1.5 py-0.5 rounded font-mono font-black uppercase tracking-wider inline-flex items-center gap-1 shadow">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span> AB
+                                </span>
+                              </span>
+                            ) : isNR ? (
+                              <span className="inline-flex items-center gap-2">
+                                <span className="text-slate-200">{d.empName || d.name || "UNASSIGNED"}</span>
+                                <span className="text-[9px] bg-rose-950/90 text-rose-300 border border-rose-500/80 px-1.5 py-0.5 rounded font-mono font-black uppercase tracking-wider inline-flex items-center gap-1 shadow">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-rose-400 animate-pulse"></span> NR
+                                </span>
+                              </span>
+                            ) : isExchanged ? (
+                              <span className="inline-flex items-center gap-2">
+                                <span className="text-slate-200">{d.empName || d.name || "UNASSIGNED"}</span>
+                                <span className="text-[9px] bg-cyan-950/90 text-cyan-300 border border-cyan-500/80 px-1.5 py-0.5 rounded font-mono font-black uppercase tracking-wider inline-flex items-center gap-1 shadow">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse"></span> EXCH
+                                </span>
+                              </span>
+                            ) : isSwapped ? (
+                              <span className="inline-flex items-center gap-2">
+                                <span className="text-slate-200">{d.empName || d.name || "UNASSIGNED"}</span>
+                                <span className="text-[9px] bg-amber-950/90 text-amber-300 border border-amber-500/80 px-1.5 py-0.5 rounded font-mono font-black uppercase tracking-wider inline-flex items-center gap-1 shadow">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse"></span> SWAP
+                                </span>
+                              </span>
                             ) : (
-                              <div className="flex items-center gap-2">
-                                <div className="flex-1">
-                                  <span className={d.empName ? 'text-slate-200' : 'text-slate-500 italic'}>
-                                    {d.empName || 'UNASSIGNED'}
-                                  </span>
-                                  {d.empId && (
-                                    <span className="block text-[9px] text-slate-500 font-normal">
-                                      ID: {d.empId}
-                                    </span>
-                                  )}
-                                  {d.isExchanged && (
-                                    <>
-                                      <span className="mt-1 flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-yellow-450 border border-yellow-500/30 bg-yellow-500/10 px-1.5 py-0.5 rounded w-fit">
-                                        <Repeat className="h-2.5 w-2.5 animate-spin-slow" />
-                                        🔄 EXCHANGED
-                                      </span>
-                                      
-                                      <div className="absolute left-1/2 bottom-full mb-1 -translate-x-1/2 bg-slate-950 border border-yellow-500/30 p-2.5 rounded-lg shadow-2xl hidden group-hover:block z-50 text-[10px] space-y-1 w-64 text-left font-mono normal-case">
-                                        <div className="font-bold text-yellow-500 border-b border-slate-900 pb-1 flex items-center gap-1 uppercase tracking-wider">
-                                          <Repeat className="h-3 w-3" /> Duty Exchanged
-                                        </div>
-                                        <div>
-                                          <span className="text-slate-500">Original Operator:</span>
-                                          <div className="text-slate-300 font-bold uppercase">{d.originalEmpName || '--'} <span className="text-slate-500 normal-case">(Duty {d.originalDutyId || d.dutyId})</span></div>
-                                        </div>
-                                        <div>
-                                          <span className="text-slate-500">Current Operator:</span>
-                                          <div className="text-emerald-400 font-bold uppercase">{d.empName || '--'} <span className="text-slate-500 normal-case">(Duty {d.dutyId})</span></div>
-                                        </div>
-                                        <div className="border-t border-slate-850 pt-1 text-[8.5px] text-slate-500 space-y-0.5">
-                                          <div>Approved By: {d.approvedBy || "Crew Controller"}</div>
-                                          <div>Approval Date: {d.approvedDateTime ? new Date(d.approvedDateTime).toLocaleString() : "--"}</div>
-                                          <div className="text-slate-650 truncate mt-0.5">ID: {d.exchangeId}</div>
-                                        </div>
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingDeploymentId(d.id);
-                                    setEditName(d.empName || '');
-                                    setEditEmpId(d.empId || '');
-                                    setEditTrainId(d.trainId || 'UNASSIGNED');
-                                    setEditDutyId(d.dutyId || 'UNASSIGNED');
-                                  }}
-                                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-slate-200 transition-opacity"
-                                  title="Edit Assignment"
-                                >
-                                  <Settings className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            )}
-                            {d.status === 'RELIEF_DISPATCHED' && (
-                              <div className="text-[9px] text-rose-400 mt-0.5 uppercase tracking-widest font-bold">
-                                Assigned to Relief (Target: {d.reliefTargetDuty})
-                              </div>
+                              <span className="text-slate-200">{d.empName || d.name || "UNASSIGNED"}</span>
                             )}
                           </td>
-                          <td className="p-4 min-w-[200px]">
-                            <div className="w-full max-w-[200px]">
-                              <div className="flex justify-between text-[9px] text-slate-500 mb-1 font-bold tracking-widest uppercase">
-                                <span>Start</span>
-                                <span className={progress > 90 ? 'text-rose-400' : progress > 75 ? 'text-amber-400' : 'text-emerald-400'}>
-                                  {Math.round(progress)}%
-                                </span>
+                          
+                          {/* Emp No */}
+                          <td className="p-3 font-mono font-bold">
+                            <span className={isAbsent ? "text-red-400" : isNR ? "text-rose-400" : isExchanged ? "text-cyan-300" : isSwapped ? "text-amber-300" : "text-cyan-400"}>
+                              {d.empId || d.employeeId || "--"}
+                            </span>
+                          </td>
+                          
+                          {/* Sign OFF Time */}
+                          <td className="p-3 font-mono text-slate-300">
+                            {formatExcelTime(d.signOffTime)}
+                          </td>
+                          
+                          {/* Sign OFF Location */}
+                          <td className="p-3 font-bold text-cyan-400">
+                            {d.signOffLocation || "PYID"}
+                          </td>
+                          
+                          {/* Train ID */}
+                          <td className="p-3 font-bold text-cyan-300">
+                            {d.trainId || "--"}
+                          </td>
+                          
+                          {/* Shift Progress */}
+                          <td className="p-3 min-w-30">
+                            <div className="w-full">
+                              <div className="flex justify-between text-[9px] text-slate-500 mb-0.5 font-bold">
+                                <span>{Math.round(progress)}%</span>
                               </div>
                               <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                                <div 
-                                  className={`h-full ${progress > 90 ? 'bg-rose-500' : progress > 75 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
+                                <div
+                                  className={`h-full ${progress > 90 ? "bg-rose-500" : progress > 75 ? "bg-amber-500" : "bg-emerald-500"}`}
                                   style={{ width: `${progress}%` }}
                                 ></div>
                               </div>
                             </div>
                           </td>
-                          <td className="p-4 text-center">
-                            <div className="flex justify-center gap-1 flex-wrap w-48 mx-auto">
-                              {ABNORMAL_EVENT_TYPES.map(e => {
+                          
+                          {/* Engine Triggers */}
+                          <td className="p-3 text-center">
+                            <div className="flex justify-center gap-1 flex-wrap w-44 mx-auto">
+                              {ABNORMAL_EVENT_TYPES.map((e) => {
                                 const Icon = e.icon;
                                 return (
-                                  <button 
-                                    key={e.id} 
-                                    onClick={() => handleAbnormalEvent(d, e.id)} 
-                                    disabled={!!activeAbnormalEvent || d.status === 'RELIEF_DISPATCHED'}
-                                    className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest border transition-all flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed ${e.className}`}
+                                  <button
+                                    key={e.id}
+                                    onClick={() => handleAbnormalEvent(d, e.id)}
+                                    disabled={!!activeAbnormalEvent || d.status === "RELIEF_DISPATCHED"}
+                                    className={`px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase tracking-wider border transition-all flex items-center gap-0.5 disabled:opacity-30 disabled:cursor-not-allowed ${e.className}`}
                                     title={`Trigger ${e.label} Resolution`}
                                   >
-                                    <Icon className="h-3 w-3" /> {e.label}
+                                    <Icon className="h-2.5 w-2.5" /> {e.label}
                                   </button>
                                 );
                               })}
                             </div>
                           </td>
-                          <td className="p-4 text-right border-l border-slate-800 bg-slate-900/50">
+                          
+                          {/* Gate Actions */}
+                          <td className="p-3 text-right border-l border-slate-800 bg-slate-900/50">
                             {!isDispatched ? (
-                              <button 
-                                onClick={() => authorizeDispatch(d)} 
-                                className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black px-4 py-1.5 rounded text-[10px] tracking-widest uppercase shadow-md transition-colors"
+                              <button
+                                onClick={() => authorizeDispatch(d)}
+                                className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black px-3 py-1 rounded text-[10px] tracking-widest uppercase shadow-md transition-colors"
                               >
                                 AUTHORIZE
                               </button>
                             ) : (
                               <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center justify-end gap-1">
-                                <CheckCircle className="h-3 w-3" /> DISPATCHED
+                                <CheckCircle className="h-3 w-3 text-emerald-500" /> DISPATCHED
                               </span>
                             )}
                           </td>
@@ -1253,6 +1936,253 @@ export default function AutomatedDispatchGate({
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* BMRCL LINE 2 PEENYA DEPOT ROSTER DESK CONSOLE */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl space-y-4 font-mono mt-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-slate-800 pb-3">
+              <div>
+                <h2 className="text-sm font-black text-slate-100 tracking-wider flex items-center gap-2">
+                  <Cpu className="h-5 w-5 text-emerald-400" />
+                  BMRCL LINE 2 PEENYA DEPOT ROSTER DESK CONSOLE
+                </h2>
+                <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[10px] font-bold text-slate-400">
+                  <span className="bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-amber-400">Crew Controllers ({consoleData.controlDesks.length}/10)</span>
+                  <span className="bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-cyan-400">Leave & Rest ({consoleData.leaves.length}/50)</span>
+                  <span className="bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-emerald-400">Standby ({consoleData.standbys.length}/50)</span>
+                  <span className="bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-purple-400">STBK ({consoleData.outstationStepbacks.length}/20)</span>
+                  <span className="bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-teal-400">CRT ({consoleData.crtTraining.length}/15)</span>
+                  <span className="bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-sky-400">BMRTI ({consoleData.bmrtiTraining.length}/50)</span>
+                  <span className="bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-rose-400">Weekly Off ({consoleData.weeklyOffs.length}/50)</span>
+                  <span className="bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-fuchsia-400">REL ({consoleData.relievedOperators.length}/10)</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleAutoDeployConsoleToAllPages}
+                className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-black text-xs px-4 py-2 rounded-lg transition-all shadow-lg flex items-center gap-2 shrink-0 uppercase tracking-wider cursor-pointer"
+              >
+                <UploadCloud className="h-4 w-4" />
+                <span>AUTO-DEPLOY CONSOLE TO ALL PAGES</span>
+              </button>
+            </div>
+
+            {/* Console Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              
+              {/* 1. Crew Controllers */}
+              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <span className="text-xs font-bold text-amber-400 uppercase">Crew Controllers ({consoleData.controlDesks.length})</span>
+                  <span className="text-[10px] bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded border border-amber-800/40">{consoleData.controlDesks.length} / 10</span>
+                </div>
+                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                  {consoleData.controlDesks.map((item, idx) => (
+                    <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
+                      <div>
+                        <div className="font-bold text-slate-200">{item.code || item.label || `CC${idx+1}`} • {item.name}</div>
+                        <div className="text-[10px] text-slate-400">{item.time || '06:30 - 14:00'}</div>
+                      </div>
+                      <span className="text-[10px] text-amber-400 font-bold">#{item.empNo || '--'}</span>
+                    </div>
+                  ))}
+                  {Array.from({ length: Math.max(0, 10 - consoleData.controlDesks.length) }, (_, i) => (
+                    <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
+                      <div>CC{consoleData.controlDesks.length + i + 1} • --</div>
+                      <span className="text-[10px]">06:00 • --</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 2. Leave & Rest */}
+              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <span className="text-xs font-bold text-cyan-400 uppercase">Leave & Rest ({consoleData.leaves.length})</span>
+                  <span className="text-[10px] bg-cyan-950/60 text-cyan-300 px-2 py-0.5 rounded border border-cyan-800/40">{consoleData.leaves.length} / 50</span>
+                </div>
+                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                  {consoleData.leaves.map((item, idx) => (
+                    <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
+                      <div>
+                        <div className="font-bold text-slate-200"><span className="text-cyan-400">{item.type || 'CL'}</span> • {item.name}</div>
+                        <div className="text-[10px] text-slate-400">{item.from || item.dateCode || '--'}</div>
+                      </div>
+                      <span className="text-[10px] text-cyan-400 font-bold">#{item.empNo || '--'}</span>
+                    </div>
+                  ))}
+                  {Array.from({ length: Math.max(0, 50 - consoleData.leaves.length) }, (_, i) => (
+                    <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
+                      <div>-- • --</div>
+                      <span className="text-[10px]">--</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3. Standby Operators */}
+              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <span className="text-xs font-bold text-emerald-400 uppercase">Standby Operators ({consoleData.standbys.length})</span>
+                  <span className="text-[10px] bg-emerald-950/60 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800/40">{consoleData.standbys.length} / 50</span>
+                </div>
+                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                  {consoleData.standbys.map((item, idx) => (
+                    <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
+                      <div>
+                        <div className="font-bold text-slate-200">{item.code || item.label || 'OR'} • {item.name}</div>
+                        <div className="text-[10px] text-slate-400">{item.time || '09:00 - 17:00'}</div>
+                      </div>
+                      <span className="text-[10px] text-emerald-400 font-bold">#{item.empNo || '--'}</span>
+                    </div>
+                  ))}
+                  {Array.from({ length: Math.max(0, 50 - consoleData.standbys.length) }, (_, i) => (
+                    <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
+                      <div>--</div>
+                      <span className="text-[10px]">06:00 • --</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 4. Step-Back STBK */}
+              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <span className="text-xs font-bold text-purple-400 uppercase">Step-Back STBK ({consoleData.outstationStepbacks.length})</span>
+                  <span className="text-[10px] bg-purple-950/60 text-purple-300 px-2 py-0.5 rounded border border-purple-800/40">{consoleData.outstationStepbacks.length} / 20</span>
+                </div>
+                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                  {consoleData.outstationStepbacks.map((item, idx) => (
+                    <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
+                      <div>
+                        <div className="font-bold text-purple-300">{item.station || item.loc || 'STBK'}</div>
+                        <div className="text-[10px] text-slate-400">{item.time}</div>
+                        <div className="font-bold text-slate-200 mt-0.5">{item.name}</div>
+                      </div>
+                      <span className="text-[10px] text-purple-400 font-bold">#{item.empNo || '--'}</span>
+                    </div>
+                  ))}
+                  {Array.from({ length: Math.max(0, 20 - consoleData.outstationStepbacks.length) }, (_, i) => (
+                    <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
+                      <div>STBK • --</div>
+                      <span className="text-[10px]">06:00 • --</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 5. CRT Training */}
+              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <span className="text-xs font-bold text-teal-400 uppercase">CRT Training ({consoleData.crtTraining.length})</span>
+                  <span className="text-[10px] bg-teal-950/60 text-teal-300 px-2 py-0.5 rounded border border-teal-800/40">{consoleData.crtTraining.length} / 15</span>
+                </div>
+                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                  {consoleData.crtTraining.map((item, idx) => (
+                    <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
+                      <div>
+                        <div className="font-bold text-slate-200">{item.name}</div>
+                        <div className="text-[10px] text-slate-400">{item.time || 'CRT'}</div>
+                      </div>
+                      <span className="text-[10px] text-teal-400 font-bold">#{item.empNo || '--'}</span>
+                    </div>
+                  ))}
+                  {Array.from({ length: Math.max(0, 15 - consoleData.crtTraining.length) }, (_, i) => (
+                    <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
+                      <div>--</div>
+                      <span className="text-[10px]">06:00 • --</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 6. BMRTI Training */}
+              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <span className="text-xs font-bold text-sky-400 uppercase">BMRTI Training ({consoleData.bmrtiTraining.length})</span>
+                  <span className="text-[10px] bg-sky-950/60 text-sky-300 px-2 py-0.5 rounded border border-sky-800/40">{consoleData.bmrtiTraining.length} / 50</span>
+                </div>
+                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                  {consoleData.bmrtiTraining.map((item, idx) => (
+                    <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
+                      <div>
+                        <div className="font-bold text-slate-200">{item.name}</div>
+                        <div className="text-[10px] text-slate-400">{item.date || item.time || 'BMRTI'}</div>
+                      </div>
+                      <span className="text-[10px] text-sky-400 font-bold">#{item.empNo || '--'}</span>
+                    </div>
+                  ))}
+                  {Array.from({ length: Math.max(0, 50 - consoleData.bmrtiTraining.length) }, (_, i) => (
+                    <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
+                      <div>--</div>
+                      <span className="text-[10px]">06:00 • --</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 7. Weekly Off */}
+              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <span className="text-xs font-bold text-rose-400 uppercase">Weekly Off ({consoleData.weeklyOffs.length})</span>
+                  <span className="text-[10px] bg-rose-950/60 text-rose-300 px-2 py-0.5 rounded border border-rose-800/40">{consoleData.weeklyOffs.length} / 50</span>
+                </div>
+                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                  {consoleData.weeklyOffs.map((item, idx) => (
+                    <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
+                      <div className="font-bold text-slate-200">{item.name}</div>
+                      <span className="text-[10px] text-rose-400 font-bold">#{item.empNo || '--'}</span>
+                    </div>
+                  ))}
+                  {Array.from({ length: Math.max(0, 50 - consoleData.weeklyOffs.length) }, (_, i) => (
+                    <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
+                      <div>--</div>
+                      <span className="text-[10px]">--</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 8. REL (Relieved) */}
+              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <span className="text-xs font-bold text-fuchsia-400 uppercase">REL (Relieved) ({consoleData.relievedOperators.length})</span>
+                  <span className="text-[10px] bg-fuchsia-950/60 text-fuchsia-300 px-2 py-0.5 rounded border border-fuchsia-800/40">{consoleData.relievedOperators.length} / 10</span>
+                </div>
+                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                  {consoleData.relievedOperators.map((item, idx) => (
+                    <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
+                      <div className="font-bold text-slate-200">{item.name}</div>
+                      <span className="text-[10px] text-fuchsia-400 font-bold">#{item.empNo || '--'}</span>
+                    </div>
+                  ))}
+                  {Array.from({ length: Math.max(0, 10 - consoleData.relievedOperators.length) }, (_, i) => (
+                    <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
+                      <div>--</div>
+                      <span className="text-[10px]">06:00 • --</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+
+            {/* 9. PME (Periodical Medical Examination) Register Banner */}
+            <div className="bg-slate-955 border border-lime-800/40 rounded-xl p-3 space-y-1 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+              <div>
+                <h3 className="text-xs font-bold text-lime-400 uppercase tracking-wider">
+                  PME (Periodical Medical Examination) Register
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  {consoleData.pmeOperators && consoleData.pmeOperators.length > 0
+                    ? `${consoleData.pmeOperators.length} Train Operator(s) assigned to PME.`
+                    : 'No Train Operators currently assigned to PME.'}
+                </p>
+              </div>
+              <div className="bg-lime-950/60 border border-lime-800/60 text-lime-400 text-xs font-bold px-3 py-1.5 rounded font-mono">
+                Total PME Assigned: {consoleData.pmeOperators ? consoleData.pmeOperators.length : 0} Operators
+              </div>
             </div>
           </div>
         </div>
@@ -1541,6 +2471,65 @@ export default function AutomatedDispatchGate({
           )}
         </div>
       )}
+      {/* Swap Duties Modal */}
+      {showSwapModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-amber-500/40 rounded-xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 className="text-sm font-black text-amber-400 flex items-center gap-2 uppercase tracking-wider">
+                <Repeat className="h-4 w-4" /> SWAP DUTIES (CC/GCC/ALS)
+              </h3>
+              <button onClick={() => setShowSwapModal(false)} className="text-slate-400 hover:text-white font-bold text-sm">✕</button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1" htmlFor="automateddispatchgat-l18">First Duty ID</label>
+                <select id="automateddispatchgat-i21" name="automateddispatchgat-i21"
+                  value={swapDuty1}
+                  onChange={(e) => setSwapDuty1(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-200 font-mono focus:border-amber-500"
+                >
+                  <option value="">Select Duty 1...</option>
+                  {deployments.map(d => (
+                    <option key={d.id} value={d.dutyId}>Duty {d.dutyId} - {d.empName} ({d.empId})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1" htmlFor="automateddispatchgat-l19">Second Duty ID</label>
+                <select id="automateddispatchgat-i22" name="automateddispatchgat-i22"
+                  value={swapDuty2}
+                  onChange={(e) => setSwapDuty2(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-200 font-mono focus:border-amber-500"
+                >
+                  <option value="">Select Duty 2...</option>
+                  {deployments.map(d => (
+                    <option key={d.id} value={d.dutyId}>Duty {d.dutyId} - {d.empName} ({d.empId})</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+              <button
+                onClick={() => setShowSwapModal(false)}
+                className="px-4 py-1.5 rounded text-xs font-bold text-slate-400 hover:text-white bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleExecuteSwap}
+                className="px-4 py-1.5 rounded text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 font-black uppercase tracking-wider"
+              >
+                CONFIRM SWAP
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <datalist id="crew-employees">
         {BMRCL_CREW_REGISTRY.map(c => (
           <option key={c.id} value={c.id}>{c.id} - {c.name}</option>

@@ -36,6 +36,9 @@ import RollingStockFaultLog from '../RollingStockFaultLog';
 import PerformanceMetrics from '../PerformanceMetrics';
 import CrewKMCalculatorSuite from '../kmcalc/CrewKMCalculatorSuite';
 import JmdDrivingHours from '../JmdDrivingHours';
+import LeaveBookOffManager from '../LeaveBookOffManager';
+import ShiftHandoverReportView from '../ShiftHandoverReportView';
+import ChangeoverLink from '../admin/ChangeoverLink';
 
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -86,7 +89,7 @@ export default function SuperAdminLayout({
   handleWttBulkSave,
   handleDeleteTripRow,
   addDelayToTime,
-  handleRosterReset,
+  handleRosterReset: providedHandleRosterReset,
   handleGccRosterUpload,
   targetTid,
   setTargetTid,
@@ -530,6 +533,34 @@ export default function SuperAdminLayout({
       alert("Failed to fix roster conflicts: " + err.message);
     }
   };
+
+  const handleRosterReset = async () => {
+    if (!window.confirm(`Reset Daily Roster for ${activeDay}? This will clear all deployed operators for ${activeDay} from the database.`)) return;
+    try {
+      const { collection, getDocs, writeBatch } = await import('firebase/firestore');
+      const { db } = await import('../../firebase');
+      
+      const snap = await getDocs(collection(db, 'crew_daily_deployment'));
+      const batch = writeBatch(db);
+      let count = 0;
+
+      snap.docs.forEach(docSnap => {
+        const data = docSnap.data();
+        const sched = String(data.scheduleType || '').toUpperCase();
+        if (!sched || sched === String(activeDay).toUpperCase() || sched === 'ACTIVE_RUN') {
+          batch.delete(docSnap.ref);
+          count++;
+        }
+      });
+
+      await batch.commit();
+      alert(`Daily Roster for ${activeDay} reset successfully! Removed ${count} deployment records.`);
+      if (fetchLiveData) fetchLiveData();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to reset daily roster: " + err.message);
+    }
+  };
   const { theme, rawTheme, setTheme, accessibility, setAccessibility } = useTheme();
   const { userProfile, logout, hasPermission, permissions } = useAuth();
   const isTrainOperator = !['SUPER_ADMIN', 'CREW_CONTROLLER', 'ADMIN_SS', 'ADMIN_Station_Superintendent', 'JMD'].includes(userProfile?.role) && 
@@ -724,8 +755,11 @@ export default function SuperAdminLayout({
     { id: 'JMD_DRIVING_HOURS', label: "JMD TO's Driving Hours", icon: Clock, module: 'KM Calculator Suite' },
     { id: 'RAKE', label: 'Rake Registry', icon: Train, module: 'Rake Registry' },
     { id: 'LEAVE', label: 'Leave Requests', icon: Calendar, module: 'Leave Requests' },
+    { id: 'LEAVE_BO', label: 'Leave & Absent (BO)', icon: CalendarClock, module: 'Leave Requests' },
     { id: 'MODULES', label: 'OCC Modules Suite', icon: Radio, module: 'Dashboard' },
     { id: 'EMERGENCY_RELIEF', label: 'Emergency Relief', icon: ShieldAlert, module: 'Emergency Relief Module' },
+    { id: 'NIGHT_CHANGEOVER', label: 'Night Changeover', icon: Clock, module: 'Shift Exchange' },
+    { id: 'CHANGEOVER_LINK', label: 'Changeover Link', icon: Repeat, module: 'Shift Exchange' },
     { id: 'ALS_PLANNER', label: 'AI ALS Cab Inspection', icon: Sparkles, module: 'AI ALS Cab Inspection' },
     { id: 'ADMIN', label: 'System Settings', icon: Settings, module: 'User Control Center' }
   ];
@@ -1548,6 +1582,12 @@ export default function SuperAdminLayout({
                 </div>
               </div>
             </div>
+          ) : activeTab === 'LEAVE_BO' ? (
+            <LeaveBookOffManager />
+          ) : activeTab === 'NIGHT_CHANGEOVER' ? (
+            <ShiftHandoverReportView />
+          ) : activeTab === 'CHANGEOVER_LINK' ? (
+            <ChangeoverLink />
           ) : activeTab === 'MODULES' ? (
             <div className="space-y-8 p-4 bg-slate-900 rounded-xl border border-slate-800">
               <div className="flex items-center justify-between border-b border-slate-700 pb-4 mb-4">

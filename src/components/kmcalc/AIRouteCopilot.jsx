@@ -231,8 +231,9 @@ export default function AIRouteCopilot({ stations, onApplySequence }) {
               </button>
             </div>
 
-            <textarea id="airoutecopilot-i1" name="airoutecopilot-i1"
+            <textarea
               id="ai-prompt-input"
+              name="airoutecopilot-i1"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder="e.g. Took train over at BIET BE buffer, drove Southbound to NGSA PKT, layover, then hand over at APTS BE buffer."

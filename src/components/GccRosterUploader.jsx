@@ -767,9 +767,10 @@ Format the response strictly as a single JSON object.`;
                   : 'border-slate-800 bg-slate-950/20 hover:border-slate-700 hover:bg-slate-950/40'
                   }`}
               >
-                <input id="gccrosteruploader-i4" name="gccrosteruploader-i4"
-                  type="file"
+                <input
                   id="file-upload-input"
+                  name="gccrosteruploader-i4"
+                  type="file"
                   multiple={false}
                   onChange={handleFileUpload}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"

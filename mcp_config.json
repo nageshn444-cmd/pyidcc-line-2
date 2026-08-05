@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "local-autocomplete": {
+      "command": "node",
+      "args": [
+        "c:/Users/nages/pyidcc/local-autocomplete-mcp-server.cjs"
+      ]
+    },
+    "openrouter-free": {
+      "command": "node",
+      "args": [
+        "c:/Users/nages/pyidcc/openrouter-mcp-server.cjs"
+      ]
+    }
+  }
+}

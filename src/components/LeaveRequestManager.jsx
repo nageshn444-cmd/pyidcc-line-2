@@ -957,9 +957,8 @@ export default function LeaveRequestManager({ userRole }) {
         {/* Global override switch */}
         {!isTrainOperator && (
           <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs">
-            <input id="leaverequestmanager-i1" name="leaverequestmanager-i1" 
+            <input id="override-authorized" name="leaverequestmanager-i1" 
               type="checkbox" 
-              id="override-authorized"
               checked={overridePermission}
               onChange={(e) => setOverridePermission(e.target.checked)}
               className="rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500 h-3.5 w-3.5 cursor-pointer"

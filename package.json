@@ -8,7 +8,10 @@
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives",
     "preview": "vite preview",
-    "seed-db": "node functions/migrateMasterData.js"
+    "seed-db": "node functions/migrateMasterData.js",
+    "start:local-agent": "node local-autocomplete-agent.cjs",
+    "start:local-mcp": "node local-autocomplete-mcp-server.cjs",
+    "autocomplete:status": "powershell -Command \"Invoke-RestMethod -Uri http://localhost:5050/status\""
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
