@@ -138,8 +138,10 @@ export function calculateLegKmsFromWTT(trainId, takeoverLocation, handoverLocati
   const depSecs = timeStringToSeconds(depTimeStr);
   const arrSecs = timeStringToSeconds(arrTimeStr);
   let durationMins = 0;
-  if (depSecs > 0 && arrSecs > depSecs) {
-    durationMins = (arrSecs - depSecs) / 60;
+  if (depSecs > 0 && arrSecs > 0) {
+    let diffSecs = arrSecs - depSecs;
+    if (diffSecs < 0) diffSecs += 86400; // 24-hour midnight rollover
+    durationMins = diffSecs / 60;
   }
 
   const takeClean = String(takeoverLocation || '').trim().toUpperCase();
@@ -414,7 +416,17 @@ export function parseCSVToDuties(csvText) {
 
     if (!dutyNo) continue;
     dutyNo = String(dutyNo).trim().replace(/^(duty\s*(no\.?|#|@)?)[\s:]*/i, '');
-    if (!dutyNo || dutyNo.toLowerCase().includes('total') || dutyNo.toLowerCase().includes('prepared') || dutyNo.startsWith('~')) continue;
+    if (
+      !dutyNo || 
+      dutyNo.toLowerCase().includes('total') || 
+      dutyNo.toLowerCase().includes('prepared') || 
+      dutyNo.toLowerCase().includes('metric') || 
+      dutyNo.toLowerCase().includes('average') || 
+      dutyNo.toLowerCase().includes('hrs') || 
+      dutyNo.startsWith('~')
+    ) {
+      continue;
+    }
 
     const sOnTimeCell = sOnTimeIdx !== -1 ? row[sOnTimeIdx] : '';
     const signOnLocCell = signOnLocIdx !== -1 ? row[signOnLocIdx] : '';
