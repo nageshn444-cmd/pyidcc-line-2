@@ -967,10 +967,6 @@ export default function AutomatedDispatchGate({
 
   const [selectedIds, setSelectedIds] = useState([]);
 
-  // ── Deduplicate + validate deployments from any source ──
-  // Applies isValidDutyId + normalization so "6Z", "1"/"01" twins etc. are cleaned up.
-  const deduplicatedDeployments = deduplicateDeployments(deployments);
-
   // Filtering Logic
   const filteredDeployments = deduplicatedDeployments
     .filter(d => {
