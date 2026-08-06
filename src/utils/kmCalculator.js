@@ -147,93 +147,7 @@ export function calculateLegKmsFromWTT(trainId, takeoverLocation, handoverLocati
   const takeClean = String(takeoverLocation || '').trim().toUpperCase();
   const handClean = String(handoverLocation || '').trim().toUpperCase();
 
-  // Pattern A: Depot / No PDC / Dpo - Rd3 / Rd3 Induct (Leg 1 Induction) = 42 KM
-  if (
-    takeClean.includes('NO PDC') || takeClean.includes('INDUCT') || takeClean.includes('DPO') || takeClean.includes('DEPO') || takeClean.includes('RD3')
-  ) {
-    if (durationMins >= 80 && durationMins <= 175) {
-      return {
-        calculatedKms: 42,
-        segments: [
-          { fromStationCode: takeoverLocation || "DEPOT", toStationCode: "BIET_BE", calculatedKms: 6.54 },
-          { fromStationCode: "BIET_BE", toStationCode: "PUTH_BE", calculatedKms: 27.81 },
-          { fromStationCode: "PUTH_BE", toStationCode: handoverLocation || "PYID", calculatedKms: 7.65 }
-        ]
-      };
-    }
-  }
-
-  // Pattern B: KGWA Dn / KGWA Up (Leg 1 Takeover)
-  if (takeClean.includes('KGWA')) {
-    if (takeClean.includes('DN')) {
-      const kmVal = searchTid === '206' || searchTid === '207' ? 43 : 43;
-      return {
-        calculatedKms: kmVal,
-        segments: [{ fromStationCode: takeoverLocation, toStationCode: handoverLocation || "PYID", calculatedKms: kmVal }]
-      };
-    }
-    if (takeClean.includes('UP')) {
-      const kmVal = searchTid === '204' ? 23 : 26;
-      return {
-        calculatedKms: kmVal,
-        segments: [{ fromStationCode: takeoverLocation, toStationCode: handoverLocation || "PYID", calculatedKms: kmVal }]
-      };
-    }
-  }
-
-  // Pattern C: PYID Dn (Leg 1 Takeover) = 54 KM
-  if (takeClean.includes('PYID') && (takeClean.includes('DN') || takeClean.includes('DOWN'))) {
-    if (durationMins >= 80 && durationMins <= 140) {
-      return {
-        calculatedKms: 54,
-        segments: [
-          { fromStationCode: takeoverLocation || "PYID DN", toStationCode: "BIET_BE", calculatedKms: 6.54 },
-          { fromStationCode: "BIET_BE", toStationCode: "PUTH_BE", calculatedKms: 27.81 },
-          { fromStationCode: "PUTH_BE", toStationCode: handoverLocation || "PYID", calculatedKms: 19.65 }
-        ]
-      };
-    }
-  }
-
-  // Pattern D: N PKT (Leg 1 Takeover) = 6 KM
-  if (takeClean.includes('N PKT') || takeClean.includes('NPKT')) {
-    return {
-      calculatedKms: 6,
-      segments: [{ fromStationCode: takeoverLocation, toStationCode: handoverLocation || "PYID", calculatedKms: 6 }]
-    };
-  }
-
-  // Pattern E: Short Reversing Loop (PYID UP -> BIET BE -> PYID DN) = 13 KM
-  if (
-    (takeClean.includes('PYID') && handClean.includes('PYID') && durationMins >= 15 && durationMins <= 55) ||
-    (takeClean.includes('RD3') && handClean.includes('PYID') && durationMins >= 15 && durationMins <= 55)
-  ) {
-    return {
-      calculatedKms: 13,
-      segments: [
-        { fromStationCode: takeoverLocation || "PYID UP", toStationCode: "BIET_BE", calculatedKms: 6.54 },
-        { fromStationCode: "BIET_BE", toStationCode: handoverLocation || "PYID DN", calculatedKms: 6.54 }
-      ]
-    };
-  }
-
-  // Pattern F: Full Clockwise Round Trip Loop (PYID UP -> BIET_BE -> PUTH_BE -> PYID UP) = 57 KM / 66 KM
-  if (
-    (takeClean.includes('PYID') || takeClean.includes('RD3')) &&
-    (handClean.includes('PYID') || handClean.includes('DEPOT')) &&
-    durationMins >= 105 && durationMins <= 175
-  ) {
-    return {
-      calculatedKms: 57,
-      segments: [
-        { fromStationCode: takeoverLocation || "PYID", toStationCode: "BIET_BE", calculatedKms: 6.54 },
-        { fromStationCode: "BIET_BE", toStationCode: "PUTH_BE", calculatedKms: 27.81 },
-        { fromStationCode: "PUTH_BE", toStationCode: handoverLocation || "PYID", calculatedKms: 22.65 }
-      ]
-    };
-  }
-
-  // 1. Search WTT matrix with strict scheduleType matching (falling back to WEEKDAY if unmatched)
+  // 1. PRIMARY ENGINE: Search day-specific WTT timetable matrix (SATURDAY, SUNDAY, MONDAY, WEEKDAY)
   let matchingWttRows = (WTT_MASTER_REGISTRY || []).filter(row => {
     const rowSched = String(row.scheduleType || 'WEEKDAY').toUpperCase();
     const rowTid = String(row.trainId || row.upTid || row.dnTid || '').replace(/\D/g, '').trim();
@@ -259,7 +173,11 @@ export function calculateLegKmsFromWTT(trainId, takeoverLocation, handoverLocati
               const stSecs = timeStringToSeconds(timeVal);
               if (stSecs > 0) {
                 if (depSecs > 0 && arrSecs > 0) {
-                  if (stSecs >= (depSecs - 300) && stSecs <= (arrSecs + 300)) {
+                  // Operational window buffer around leg departure and arrival
+                  let adjustedArrSecs = arrSecs;
+                  if (adjustedArrSecs < depSecs) adjustedArrSecs += 86400; // Midnight rollover
+                  
+                  if (stSecs >= (depSecs - 300) && stSecs <= (adjustedArrSecs + 300)) {
                     stops.push({ station: stCode.split('_')[0], secs: stSecs });
                   }
                 } else {
@@ -285,6 +203,78 @@ export function calculateLegKmsFromWTT(trainId, takeoverLocation, handoverLocati
         };
       }
     }
+  }
+
+  // 2. FALLBACK PATTERNS: Used only if WTT timetable has no entries for this specific run
+  if (
+    takeClean.includes('NO PDC') || takeClean.includes('INDUCT') || takeClean.includes('DPO') || takeClean.includes('DEPO') || takeClean.includes('RD3')
+  ) {
+    if (durationMins >= 80 && durationMins <= 175) {
+      return {
+        calculatedKms: 42,
+        segments: [
+          { fromStationCode: takeoverLocation || "DEPOT", toStationCode: "BIET_BE", calculatedKms: 6.54 },
+          { fromStationCode: "BIET_BE", toStationCode: "PUTH_BE", calculatedKms: 27.81 },
+          { fromStationCode: "PUTH_BE", toStationCode: handoverLocation || "PYID", calculatedKms: 7.65 }
+        ]
+      };
+    }
+  }
+
+  if (takeClean.includes('KGWA')) {
+    const kmVal = takeClean.includes('DN') ? 43 : (searchTid === '204' ? 23 : 26);
+    return {
+      calculatedKms: kmVal,
+      segments: [{ fromStationCode: takeoverLocation, toStationCode: handoverLocation || "PYID", calculatedKms: kmVal }]
+    };
+  }
+
+  if (takeClean.includes('PYID') && (takeClean.includes('DN') || takeClean.includes('DOWN'))) {
+    if (durationMins >= 80 && durationMins <= 140) {
+      return {
+        calculatedKms: 54,
+        segments: [
+          { fromStationCode: takeoverLocation || "PYID DN", toStationCode: "BIET_BE", calculatedKms: 6.54 },
+          { fromStationCode: "BIET_BE", toStationCode: "PUTH_BE", calculatedKms: 27.81 },
+          { fromStationCode: "PUTH_BE", toStationCode: handoverLocation || "PYID", calculatedKms: 19.65 }
+        ]
+      };
+    }
+  }
+
+  if (takeClean.includes('N PKT') || takeClean.includes('NPKT')) {
+    return {
+      calculatedKms: 6,
+      segments: [{ fromStationCode: takeoverLocation, toStationCode: handoverLocation || "PYID", calculatedKms: 6 }]
+    };
+  }
+
+  if (
+    (takeClean.includes('PYID') && handClean.includes('PYID') && durationMins >= 15 && durationMins <= 55) ||
+    (takeClean.includes('RD3') && handClean.includes('PYID') && durationMins >= 15 && durationMins <= 55)
+  ) {
+    return {
+      calculatedKms: 13,
+      segments: [
+        { fromStationCode: takeoverLocation || "PYID UP", toStationCode: "BIET_BE", calculatedKms: 6.54 },
+        { fromStationCode: "BIET_BE", toStationCode: handoverLocation || "PYID DN", calculatedKms: 6.54 }
+      ]
+    };
+  }
+
+  if (
+    (takeClean.includes('PYID') || takeClean.includes('RD3')) &&
+    (handClean.includes('PYID') || handClean.includes('DEPOT')) &&
+    durationMins >= 105 && durationMins <= 175
+  ) {
+    return {
+      calculatedKms: 57,
+      segments: [
+        { fromStationCode: takeoverLocation || "PYID", toStationCode: "BIET_BE", calculatedKms: 6.54 },
+        { fromStationCode: "BIET_BE", toStationCode: "PUTH_BE", calculatedKms: 27.81 },
+        { fromStationCode: "PUTH_BE", toStationCode: handoverLocation || "PYID", calculatedKms: 22.65 }
+      ]
+    };
   }
 
   // Fallback: Direct chainage distance between takeover and handover locations
