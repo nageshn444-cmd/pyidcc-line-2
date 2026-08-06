@@ -307,68 +307,147 @@ export default function AutomatedDispatchGate({
     return dupes;
   }, [deduplicatedDeployments]);
 
-  const [consoleData, setConsoleData] = useState({
-    controlDesks: [],
-    leaves: [],
-    standbys: [],
-    outstationStepbacks: [],
-    crtTraining: [],
-    bmrtiTraining: [],
-    weeklyOffs: [],
-    relievedOperators: [],
-    pmeOperators: [],
-    routeLearning: []
+  const [consoleData, setConsoleData] = useState(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const cached = window.localStorage.getItem('pyidcc_roster_desk_console_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && typeof parsed === 'object') {
+            return {
+              controlDesks: parsed.controlDesks || [],
+              leaves: parsed.leaves || [],
+              standbys: parsed.standbys || [],
+              outstationStepbacks: parsed.outstationStepbacks || [],
+              crtTraining: parsed.crtTraining || [],
+              bmrtiTraining: parsed.bmrtiTraining || [],
+              weeklyOffs: parsed.weeklyOffs || [],
+              relievedOperators: parsed.relievedOperators || [],
+              pmeOperators: parsed.pmeOperators || [],
+              routeLearning: parsed.routeLearning || []
+            };
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load consoleData from cache:", e);
+    }
+    return {
+      controlDesks: [],
+      leaves: [],
+      standbys: [],
+      outstationStepbacks: [],
+      crtTraining: [],
+      bmrtiTraining: [],
+      weeklyOffs: [],
+      relievedOperators: [],
+      pmeOperators: [],
+      routeLearning: []
+    };
   });
 
-  const [deployedRosterInfo, setDeployedRosterInfo] = useState(null);
+  const [deployedRosterInfo, setDeployedRosterInfo] = useState(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const cached = window.localStorage.getItem('pyidcc_roster_desk_meta');
+        if (cached) return JSON.parse(cached);
+      }
+    } catch (e) {}
+    return null;
+  });
 
   useEffect(() => {
     const todayStr = new Date().toISOString().split('T')[0];
+    const localTodayStr = new Date().toLocaleDateString('sv-SE');
+
+    const mergeConsoleData = (data) => {
+      if (!data) return;
+      if (data.isExplicitlyCleared) {
+        const emptyState = {
+          controlDesks: [],
+          leaves: [],
+          standbys: [],
+          outstationStepbacks: [],
+          crtTraining: [],
+          bmrtiTraining: [],
+          weeklyOffs: [],
+          relievedOperators: [],
+          pmeOperators: [],
+          routeLearning: []
+        };
+        setConsoleData(emptyState);
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.removeItem('pyidcc_roster_desk_console_cache');
+          }
+        } catch (e) {}
+        return;
+      }
+
+      setConsoleData(prev => {
+        const has = (arr) => Array.isArray(arr) && arr.length > 0;
+        const next = {
+          controlDesks: has(data.controlDesks) ? data.controlDesks : prev.controlDesks,
+          leaves: has(data.leaves) ? data.leaves : prev.leaves,
+          standbys: has(data.standbys) ? data.standbys : prev.standbys,
+          outstationStepbacks: has(data.outstationStepbacks) ? data.outstationStepbacks : prev.outstationStepbacks,
+          crtTraining: has(data.crtTraining) ? data.crtTraining : prev.crtTraining,
+          bmrtiTraining: has(data.bmrtiTraining) ? data.bmrtiTraining : prev.bmrtiTraining,
+          weeklyOffs: has(data.weeklyOffs) ? data.weeklyOffs : prev.weeklyOffs,
+          relievedOperators: has(data.relievedOperators) ? data.relievedOperators : prev.relievedOperators,
+          pmeOperators: has(data.pmeOperators) ? data.pmeOperators : prev.pmeOperators,
+          routeLearning: has(data.routeLearning) ? data.routeLearning : prev.routeLearning
+        };
+
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem('pyidcc_roster_desk_console_cache', JSON.stringify(next));
+          }
+        } catch (e) {}
+
+        return next;
+      });
+    };
 
     const unsubMeta = onSnapshot(doc(db, 'roster_desk_console', 'latest_deployment_meta'), (docSnap) => {
       if (docSnap.exists()) {
-        setDeployedRosterInfo(docSnap.data());
+        const data = docSnap.data();
+        setDeployedRosterInfo(data);
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem('pyidcc_roster_desk_meta', JSON.stringify(data));
+          }
+        } catch (e) {}
       }
     });
 
-    const unsubConsole = onSnapshot(doc(db, 'dispatch_excel_cache', todayStr), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setConsoleData({
-          controlDesks: data.controlDesks || [],
-          leaves: data.leaves || [],
-          standbys: data.standbys || [],
-          outstationStepbacks: data.outstationStepbacks || [],
-          crtTraining: data.crtTraining || [],
-          bmrtiTraining: data.bmrtiTraining || [],
-          weeklyOffs: data.weeklyOffs || [],
-          relievedOperators: data.relievedOperators || [],
-          pmeOperators: data.pmeOperators || [],
-          routeLearning: data.routeLearning || []
-        });
-      }
+    const unsubConsoleToday = onSnapshot(doc(db, 'dispatch_excel_cache', todayStr), (docSnap) => {
+      if (docSnap.exists()) mergeConsoleData(docSnap.data());
     });
 
-    const unsubDesk = onSnapshot(doc(db, 'roster_desk_console', 'current'), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setConsoleData(prev => ({
-          controlDesks: (data.controlDesks && data.controlDesks.length > 0) ? data.controlDesks : prev.controlDesks,
-          leaves: (data.leaves && data.leaves.length > 0) ? data.leaves : prev.leaves,
-          standbys: (data.standbys && data.standbys.length > 0) ? data.standbys : prev.standbys,
-          outstationStepbacks: (data.outstationStepbacks && data.outstationStepbacks.length > 0) ? data.outstationStepbacks : prev.outstationStepbacks,
-          crtTraining: (data.crtTraining && data.crtTraining.length > 0) ? data.crtTraining : prev.crtTraining,
-          bmrtiTraining: (data.bmrtiTraining && data.bmrtiTraining.length > 0) ? data.bmrtiTraining : prev.bmrtiTraining,
-          weeklyOffs: (data.weeklyOffs && data.weeklyOffs.length > 0) ? data.weeklyOffs : prev.weeklyOffs,
-          relievedOperators: (data.relievedOperators && data.relievedOperators.length > 0) ? data.relievedOperators : prev.relievedOperators
-        }));
-      }
+    const unsubConsoleLocal = onSnapshot(doc(db, 'dispatch_excel_cache', localTodayStr), (docSnap) => {
+      if (docSnap.exists()) mergeConsoleData(docSnap.data());
+    });
+
+    const unsubConsoleCurrent = onSnapshot(doc(db, 'dispatch_excel_cache', 'current'), (docSnap) => {
+      if (docSnap.exists()) mergeConsoleData(docSnap.data());
+    });
+
+    const unsubDeskCurrent = onSnapshot(doc(db, 'roster_desk_console', 'current'), (docSnap) => {
+      if (docSnap.exists()) mergeConsoleData(docSnap.data());
+    });
+
+    const unsubDeskLatest = onSnapshot(doc(db, 'roster_desk_console', 'latest'), (docSnap) => {
+      if (docSnap.exists()) mergeConsoleData(docSnap.data());
     });
 
     return () => {
       unsubMeta();
-      unsubConsole();
-      unsubDesk();
+      unsubConsoleToday();
+      unsubConsoleLocal();
+      unsubConsoleCurrent();
+      unsubDeskCurrent();
+      unsubDeskLatest();
     };
   }, []);
 
@@ -481,7 +560,7 @@ export default function AutomatedDispatchGate({
       }
 
       if (classifiedData) {
-        setConsoleData({
+        const consoleObj = {
           controlDesks: classifiedData.controlDesks || [],
           leaves: classifiedData.leaves || [],
           standbys: classifiedData.standbys || [],
@@ -492,7 +571,29 @@ export default function AutomatedDispatchGate({
           relievedOperators: classifiedData.relievedOperators || [],
           pmeOperators: classifiedData.pmeOperators || [],
           routeLearning: classifiedData.routeLearning || []
-        });
+        };
+
+        setConsoleData(consoleObj);
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem('pyidcc_roster_desk_console_cache', JSON.stringify(consoleObj));
+          }
+        } catch (e) {}
+
+        const dateStr = classifiedData.dateStr || new Date().toISOString().split('T')[0];
+        const consoleSnapshot = {
+          date: dateStr,
+          dayType: currentDayType,
+          sheetName: classifiedData.sheetName || file?.name || 'Roster Sheet',
+          ...consoleObj,
+          isExplicitlyCleared: false,
+          updatedAt: serverTimestamp()
+        };
+
+        await setDoc(doc(db, 'roster_desk_console', 'current'), consoleSnapshot, { merge: true });
+        await setDoc(doc(db, 'roster_desk_console', 'latest'), consoleSnapshot, { merge: true });
+        await setDoc(doc(db, 'dispatch_excel_cache', dateStr), consoleSnapshot, { merge: true });
+        await setDoc(doc(db, 'dispatch_excel_cache', 'current'), consoleSnapshot, { merge: true });
       }
 
       let deployedDutiesCount = 0;
@@ -654,6 +755,40 @@ export default function AutomatedDispatchGate({
           }
         });
 
+        const emptyConsoleDoc = {
+          controlDesks: [],
+          leaves: [],
+          standbys: [],
+          outstationStepbacks: [],
+          crtTraining: [],
+          bmrtiTraining: [],
+          weeklyOffs: [],
+          relievedOperators: [],
+          pmeOperators: [],
+          routeLearning: [],
+          isExplicitlyCleared: true,
+          updatedAt: serverTimestamp()
+        };
+
+        const todayStr = new Date().toISOString().split('T')[0];
+        const localTodayStr = new Date().toLocaleDateString('sv-SE');
+
+        batch.set(doc(db, 'roster_desk_console', 'current'), emptyConsoleDoc);
+        batch.set(doc(db, 'roster_desk_console', 'latest'), emptyConsoleDoc);
+        batch.delete(doc(db, 'roster_desk_console', 'latest_deployment_meta'));
+        batch.set(doc(db, 'dispatch_excel_cache', todayStr), emptyConsoleDoc);
+        batch.set(doc(db, 'dispatch_excel_cache', localTodayStr), emptyConsoleDoc);
+        batch.set(doc(db, 'dispatch_excel_cache', 'current'), emptyConsoleDoc);
+
+        await batch.commit();
+
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.removeItem('pyidcc_roster_desk_console_cache');
+            window.localStorage.removeItem('pyidcc_roster_desk_meta');
+          }
+        } catch (e) {}
+
         setDeployedRosterInfo(null);
         setConsoleData({
           controlDesks: [],
@@ -668,12 +803,6 @@ export default function AutomatedDispatchGate({
           routeLearning: []
         });
 
-        const todayStr = new Date().toISOString().split('T')[0];
-        batch.delete(doc(db, 'roster_desk_console', 'current'));
-        batch.delete(doc(db, 'roster_desk_console', 'latest_deployment_meta'));
-        batch.delete(doc(db, 'dispatch_excel_cache', todayStr));
-
-        await batch.commit();
         alert(`Daily Roster Cleared Successfully. Cleared ${deletedCount} deployment record(s).`);
         if (onImportComplete) onImportComplete();
       } catch (err) {

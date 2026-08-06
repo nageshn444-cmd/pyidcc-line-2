@@ -39,6 +39,7 @@ import JmdDrivingHours from '../JmdDrivingHours';
 import LeaveBookOffManager from '../LeaveBookOffManager';
 import ShiftHandoverReportView from '../ShiftHandoverReportView';
 import ChangeoverLink from '../admin/ChangeoverLink';
+import ChangeoverDashboard from '../admin/ChangeoverDashboard';
 
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -1585,7 +1586,7 @@ export default function SuperAdminLayout({
           ) : activeTab === 'LEAVE_BO' ? (
             <LeaveBookOffManager />
           ) : activeTab === 'NIGHT_CHANGEOVER' ? (
-            <ShiftHandoverReportView />
+            <ChangeoverDashboard onRefresh={fetchLiveData} />
           ) : activeTab === 'CHANGEOVER_LINK' ? (
             <ChangeoverLink />
           ) : activeTab === 'MODULES' ? (

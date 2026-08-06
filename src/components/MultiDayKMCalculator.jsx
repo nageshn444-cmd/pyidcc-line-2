@@ -1,30 +1,24 @@
 /**
  * MultiDayKMCalculator.jsx
  * ─────────────────────────────────────────────────────────────────────
- * Proper multi-day Driving Hours & KM calculation for JMD use.
+ * High-precision Multi-Day Driving Hours & KM Calculator for BMRCL Line 2 JMD.
  *
  * Data sources (in priority order):
  *  1. CHANGEOVER_TABLE (from changeoverService.js) – authoritative for
  *     night→morning changeover duties: nightKms, mornKms, totalKms,
- *     drivingHrs, dutyHrs from the official Night Changeover.xlsx.
- *  2. crew_final_links (via dutiesByDayType already computed) – for
- *     day duties: reads leg times from the link roster.
+ *     drivingHrs, dutyHrs from official BMRCL changeover matrix.
+ *  2. crew_final_links (via dutiesByDayType) – for day duties: reads
+ *     leg times and stations directly from link roster.
  *  3. Station chainage fallback for any legs missing stored KM.
- *
- * Schedule type resolution:
- *  Monday    → MONDAY
- *  Tue–Fri   → WEEKDAY
- *  Saturday  → SATURDAY
- *  Sunday    → SUNDAY
- *  GH dates  → SATURDAY (user-marked overrides)
  * ─────────────────────────────────────────────────────────────────────
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { CHANGEOVER_TABLE } from '../services/changeoverService';
 import {
   Calendar, Play, Download, Plus, X, Moon, Sun, Clock,
-  MapPin, TrendingUp, AlertTriangle, CheckCircle, RefreshCw
+  MapPin, TrendingUp, AlertTriangle, CheckCircle, RefreshCw,
+  CheckSquare, Square, Layers, ShieldCheck, Filter
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { calculateDistance } from '../utils/kmCalculator';
@@ -38,25 +32,25 @@ const parseSecs = (tStr) => {
 };
 
 const secsToHHMM = (secs) => {
-  if (secs < 0) return '--:--';
+  if (secs < 0 || isNaN(secs)) return '--:--';
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
 
-const legDurationHrs = (from, to) => {
-  const s = parseSecs(from), e = parseSecs(to);
-  if (s < 0 || e < 0) return 0;
-  let diff = e - s;
-  if (diff < 0) diff += 86400; // overnight
-  return diff / 3600;
+const secsToHHMMSS = (secs) => {
+  if (secs < 0 || isNaN(secs)) return '00:00:00';
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = Math.floor(secs % 60);
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 };
 
 const legDurationSecs = (from, to) => {
   const s = parseSecs(from), e = parseSecs(to);
   if (s < 0 || e < 0) return 0;
   let diff = e - s;
-  if (diff < 0) diff += 86400;
+  if (diff < 0) diff += 86400; // overnight
   return diff;
 };
 
@@ -70,9 +64,10 @@ const tryKmFromStations = (fromLoc, toLoc) => {
   }
 };
 
-/* Schedule type from a date string "YYYY-MM-DD" */
-const resolveScheduleType = (dateStr, ghDates = []) => {
-  if (ghDates.includes(dateStr)) return 'SATURDAY';
+/* Resolve default schedule type from a date string "YYYY-MM-DD" */
+const resolveDefaultScheduleType = (dateStr, ghDates = []) => {
+  const ghMatch = ghDates.find(g => g.date === dateStr);
+  if (ghMatch) return ghMatch.overrideSchedule || 'SATURDAY';
   const d = new Date(dateStr + 'T00:00:00');
   const day = d.getDay();
   if (day === 0) return 'SUNDAY';
@@ -89,7 +84,7 @@ const nextDate = (dateStr) => {
 };
 
 /* All dates in range inclusive */
-const dateRange = (from, to) => {
+const generateDateRange = (from, to) => {
   const dates = [];
   let cur = from;
   let limit = 0;
@@ -101,37 +96,38 @@ const dateRange = (from, to) => {
   return dates;
 };
 
-/* Day name short */
-const dayName = (dateStr) =>
+/* Short Day Name */
+const getDayName = (dateStr) =>
   new Date(dateStr + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short' }).toUpperCase();
 
-/* ─── Get changeover table key ───────────────────────────────────────── */
+/* Changeover Table Key Generator */
 const getChangeoverKey = (currentType, nextType) => `${currentType}__${nextType}`;
 
-/* ─── Calculate KM + hours for one day ──────────────────────────────── */
-function computeDayRecord(dateStr, dutyNo, ghDates, dutiesByDayType) {
+/* Compute calculation record for one day and one duty */
+function computeDayDutyRecord(dateStr, dutyNo, dayConfigs, ghDates, dutiesByDayType) {
   const padded = String(dutyNo).trim().padStart(2, '0');
-  const schedType = resolveScheduleType(dateStr, ghDates);
+  const customConfig = dayConfigs[dateStr] || {};
+  const schedType = customConfig.scheduleType || resolveDefaultScheduleType(dateStr, ghDates);
   const nextDateStr = nextDate(dateStr);
-  const nextSchedType = resolveScheduleType(nextDateStr, ghDates);
+  const nextCustomConfig = dayConfigs[nextDateStr] || {};
+  const nextSchedType = nextCustomConfig.scheduleType || resolveDefaultScheduleType(nextDateStr, ghDates);
 
-  // Get the duty from the current day roster
+  // Get the duty from the active roster day type
   const dayDuties = dutiesByDayType[schedType] || [];
   const dutyObj = dayDuties.find(d => String(d.dutyId) === padded || String(d.dutyId) === String(dutyNo));
   const rawLink = dutyObj?.rawLink || null;
 
-  // Determine if night duty by sign-on >= 19:00
+  // Sign-on time check
   const signOnSecs = parseSecs(rawLink?.signOnTime || rawLink?.signOn);
-  const isNight = signOnSecs >= 0 && signOnSecs >= 19 * 3600;
+  const isNightDuty = (signOnSecs >= 0 && signOnSecs >= 19 * 3600) || customConfig.isChangeover === true;
 
-  // ── CHANGEOVER NIGHT: use CHANGEOVER_TABLE ────────────────────────
-  if (isNight) {
+  // ── 1. CHANGEOVER NIGHT: Use Authoritative CHANGEOVER_TABLE ──
+  if (isNightDuty || customConfig.isChangeover) {
     const tableKey = getChangeoverKey(schedType, nextSchedType);
     const table = CHANGEOVER_TABLE[tableKey];
     const changeoverRow = table?.[padded] || table?.[String(dutyNo)];
 
     if (changeoverRow) {
-      // Authoritative data from changeover table
       const nightKm = Number(changeoverRow.nightKms) || 0;
       const mornKm = Number(changeoverRow.mornKms) || 0;
       const totalKm = Number(changeoverRow.totalKms) || (nightKm + mornKm);
@@ -140,7 +136,7 @@ function computeDayRecord(dateStr, dutyNo, ghDates, dutiesByDayType) {
 
       return {
         dateStr,
-        dayName: dayName(dateStr),
+        dayName: getDayName(dateStr),
         schedType,
         nextSchedType,
         dutyNo: padded,
@@ -150,40 +146,35 @@ function computeDayRecord(dateStr, dutyNo, ghDates, dutiesByDayType) {
         signOff: changeoverRow.signOffTime || '--',
         signOnLoc: changeoverRow.signOnLocation || '--',
         signOffLoc: changeoverRow.signOffLocation || '--',
-        // Night leg
         nightTrain: changeoverRow.nightTrainNo || '--',
         nightDep: changeoverRow.nightDepTime || '--',
         nightArr: changeoverRow.nightArrTime || '--',
         nightHandover: changeoverRow.nightHandoverLoc || '--',
         nightKm,
-        // Morning leg
         mornTakeover: changeoverRow.takeoverLocation || '--',
         mornTrain: changeoverRow.mornTrainNo || '--',
         mornDep: changeoverRow.mornDepTime || '--',
         mornArr: changeoverRow.mornArrTime || '--',
         mornSignOff: changeoverRow.signOffTime || '--',
         mornKm,
-        // Totals
         totalKm,
-        drivingSecs: drivingSecs >= 0 ? drivingSecs : (nightKm + mornKm) * 60, // rough fallback
+        drivingSecs: drivingSecs >= 0 ? drivingSecs : (nightKm + mornKm) * 60,
         dutySecs: dutySecs >= 0 ? dutySecs : 0,
         breakSecs: parseSecs(changeoverRow.breakTime) >= 0 ? parseSecs(changeoverRow.breakTime) : 0,
         source: 'CHANGEOVER_TABLE',
-        // Leg breakdown
         legs: [
           { legNum: 1, train: changeoverRow.nightTrainNo, dep: changeoverRow.nightDepTime, arr: changeoverRow.nightArrTime, from: changeoverRow.signOnLocation, to: changeoverRow.nightHandoverLoc, km: nightKm, type: 'NIGHT' },
           { legNum: 2, train: changeoverRow.mornTrainNo, dep: changeoverRow.mornDepTime, arr: changeoverRow.mornArrTime, from: changeoverRow.takeoverLocation, to: changeoverRow.signOffLocation, km: mornKm, type: 'MORN' },
         ]
       };
     }
-    // No changeover table entry — night duty but treated as regular
   }
 
-  // ── REGULAR DAY DUTY: compute from link roster legs ───────────────
+  // ── 2. REGULAR DAY DUTY: Compute from Link Roster legs ──
   if (!rawLink) {
     return {
       dateStr,
-      dayName: dayName(dateStr),
+      dayName: getDayName(dateStr),
       schedType,
       nextSchedType,
       dutyNo: padded,
@@ -200,7 +191,6 @@ function computeDayRecord(dateStr, dutyNo, ghDates, dutiesByDayType) {
     };
   }
 
-  // Extract up to 4 legs from raw link
   const legs = [];
   const legDefs = [
     { n: 1, train: rawLink.trainId, dep: rawLink.leg1TimeFrom, arr: rawLink.leg1TimeTo, from: rawLink.signOnLocation, to: rawLink.leg1HandoverLoc },
@@ -216,9 +206,8 @@ function computeDayRecord(dateStr, dutyNo, ghDates, dutiesByDayType) {
     const trainId = String(leg.train || '').trim();
     if (!trainId || trainId === '--' || trainId === '-') return;
     const durSecs = legDurationSecs(leg.dep, leg.arr);
-    // KM: try chainage calc from stations
     let km = tryKmFromStations(leg.from, leg.to);
-    if (km === 0 && durSecs > 0) km = Math.round((durSecs / 3600) * 24); // ~24 km/h speed fallback
+    if (km === 0 && durSecs > 0) km = Math.round((durSecs / 3600) * 24);
     totalKm += km;
     totalDrivingSecs += durSecs;
     if (durSecs > 0 || km > 0) {
@@ -236,11 +225,11 @@ function computeDayRecord(dateStr, dutyNo, ghDates, dutiesByDayType) {
 
   return {
     dateStr,
-    dayName: dayName(dateStr),
+    dayName: getDayName(dateStr),
     schedType,
     nextSchedType,
     dutyNo: padded,
-    isNight: isNight,
+    isNight: isNightDuty,
     isChangeover: false,
     signOn: rawLink.signOnTime || rawLink.signOn || '--',
     signOff: rawLink.signOffTime || '--',
@@ -253,9 +242,9 @@ function computeDayRecord(dateStr, dutyNo, ghDates, dutiesByDayType) {
   };
 }
 
-/* ─── Badge component ────────────────────────────────────────────────── */
+/* Badge Component */
 const Badge = ({ children, color = 'slate' }) => {
-  const map = {
+  const colorMap = {
     blue: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
     amber: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
     emerald: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
@@ -265,50 +254,175 @@ const Badge = ({ children, color = 'slate' }) => {
     slate: 'bg-slate-700/50 text-slate-300 border-slate-600/30',
   };
   return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono font-bold border ${map[color] || map.slate}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${colorMap[color] || colorMap.slate}`}>
       {children}
     </span>
   );
 };
 
-/* ─── MAIN COMPONENT ─────────────────────────────────────────────────── */
-export default function MultiDayKMCalculator({ linkRoster, dutiesByDayType, secondsToHHMMSS }) {
+export default function MultiDayKMCalculator({ linkRoster, dutiesByDayType }) {
   const today = new Date().toISOString().split('T')[0];
 
+  // ── 1. States ──
   const [fromDate, setFromDate] = useState(today);
   const [toDate, setToDate] = useState(today);
-  const [dutyNo, setDutyNo] = useState('');
-  const [ghDateInput, setGhDateInput] = useState('');
-  const [ghDates, setGhDates] = useState([]);
-  const [results, setResults] = useState(null);
-  const [expandedDay, setExpandedDay] = useState(null);
 
-  /* Add a GH date */
-  const addGhDate = () => {
-    const d = ghDateInput.trim();
-    if (!d) return;
-    if (!ghDates.includes(d)) setGhDates(prev => [...prev, d].sort());
-    setGhDateInput('');
+  // Gazetted Holiday Overrides
+  const [ghDateInput, setGhDateInput] = useState(today);
+  const [ghOverrideSchedule, setGhOverrideSchedule] = useState('SATURDAY');
+  const [ghDates, setGhDates] = useState([
+    { date: '2026-08-15', overrideSchedule: 'SATURDAY' },
+    { date: '2026-10-02', overrideSchedule: 'SATURDAY' }
+  ]);
+
+  // Selected Duty Numbers Grid
+  const availableDutiesList = useMemo(() => {
+    const set = new Set();
+    // Default standard BMRCL Line 2 duties 01 to 79
+    for (let i = 1; i <= 79; i++) {
+      set.add(String(i).padStart(2, '0'));
+    }
+    // Also include duties found in link roster
+    if (Array.isArray(linkRoster)) {
+      linkRoster.forEach(l => {
+        if (l.dutyId) set.add(String(l.dutyId).padStart(2, '0'));
+      });
+    }
+    return Array.from(set).sort((a, b) => Number(a) - Number(b));
+  }, [linkRoster]);
+
+  const [selectedDuties, setSelectedDuties] = useState([]);
+
+  // Per-date Configuration in Range
+  const datesInRange = useMemo(() => {
+    if (fromDate > toDate) return [];
+    return generateDateRange(fromDate, toDate);
+  }, [fromDate, toDate]);
+
+  const [dayConfigs, setDayConfigs] = useState({});
+
+  // Initialize dayConfigs when datesInRange changes
+  useEffect(() => {
+    const newConfigs = { ...dayConfigs };
+    datesInRange.forEach(d => {
+      if (!newConfigs[d]) {
+        const defaultSched = resolveDefaultScheduleType(d, ghDates);
+        newConfigs[d] = {
+          scheduleType: defaultSched,
+          isChangeover: false
+        };
+      }
+    });
+    setDayConfigs(newConfigs);
+  }, [datesInRange, ghDates]);
+
+  // Calculated Results
+  const [results, setResults] = useState(null);
+  const [expandedRowKey, setExpandedRowKey] = useState(null);
+
+  // ── 2. Duty Selection Actions ──
+  const toggleDutySelect = (dNo) => {
+    if (selectedDuties.includes(dNo)) {
+      setSelectedDuties(prev => prev.filter(x => x !== dNo));
+    } else {
+      setSelectedDuties(prev => [...prev, dNo]);
+    }
   };
 
-  /* Remove GH date */
-  const removeGhDate = (d) => setGhDates(prev => prev.filter(x => x !== d));
+  const handleSelectAllDuties = () => {
+    setSelectedDuties([...availableDutiesList]);
+  };
 
-  /* Run calculation */
-  const runCalc = useCallback(() => {
-    if (!dutyNo.trim()) return alert('Please enter a Duty Number.');
-    if (fromDate > toDate) return alert('From date must be <= To date.');
-    const dates = dateRange(fromDate, toDate);
-    if (dates.length > 180) return alert('Maximum 180 days per calculation.');
+  const handleClearAllDuties = () => {
+    setSelectedDuties([]);
+  };
 
-    const rows = dates.map(d => computeDayRecord(d, dutyNo.trim(), ghDates, dutiesByDayType));
-    setResults(rows);
-    setExpandedDay(null);
-  }, [dutyNo, fromDate, toDate, ghDates, dutiesByDayType]);
+  // ── 3. Gazetted Holiday Actions ──
+  const handleAddGhDate = () => {
+    if (!ghDateInput) return;
+    if (ghDates.some(g => g.date === ghDateInput)) {
+      return alert("This date is already marked as a Gazetted Holiday.");
+    }
+    setGhDates(prev => [...prev, { date: ghDateInput, overrideSchedule: ghOverrideSchedule }].sort((a, b) => a.date.localeCompare(b.date)));
+  };
 
-  /* Totals */
-  const totals = useMemo(() => {
-    if (!results) return null;
+  const handleRemoveGhDate = (dateToRemove) => {
+    setGhDates(prev => prev.filter(g => g.date !== dateToRemove));
+  };
+
+  // ── 4. Day Config Actions ──
+  const handleDayScheduleChange = (dateStr, newSched) => {
+    setDayConfigs(prev => ({
+      ...prev,
+      [dateStr]: {
+        ...(prev[dateStr] || {}),
+        scheduleType: newSched
+      }
+    }));
+  };
+
+  const handleDayChangeoverToggle = (dateStr) => {
+    setDayConfigs(prev => ({
+      ...prev,
+      [dateStr]: {
+        ...(prev[dateStr] || {}),
+        isChangeover: !prev[dateStr]?.isChangeover
+      }
+    }));
+  };
+
+  const handleAutoSelectChangeovers = () => {
+    const updated = { ...dayConfigs };
+    datesInRange.forEach(dStr => {
+      // Auto enable changeover if it's Friday night -> Sat morning or marked night
+      const dayNameShort = getDayName(dStr);
+      if (dayNameShort === 'FRI' || dayNameShort === 'SAT' || dayNameShort === 'SUN') {
+        updated[dStr] = { ...(updated[dStr] || {}), isChangeover: true };
+      }
+    });
+    setDayConfigs(updated);
+  };
+
+  const handleEnableAllChangeovers = () => {
+    const updated = { ...dayConfigs };
+    datesInRange.forEach(dStr => {
+      updated[dStr] = { ...(updated[dStr] || {}), isChangeover: true };
+    });
+    setDayConfigs(updated);
+  };
+
+  const handleClearAllChangeovers = () => {
+    const updated = { ...dayConfigs };
+    datesInRange.forEach(dStr => {
+      updated[dStr] = { ...(updated[dStr] || {}), isChangeover: false };
+    });
+    setDayConfigs(updated);
+  };
+
+  // ── 5. Main Calculation Execution ──
+  const handleCalculateRange = useCallback(() => {
+    if (selectedDuties.length === 0) {
+      return alert("Please select at least one Duty Number from the grid.");
+    }
+    if (fromDate > toDate) {
+      return alert("From Date must be less than or equal to To Date.");
+    }
+
+    const calculatedRecords = [];
+    datesInRange.forEach(dateStr => {
+      selectedDuties.forEach(dutyNo => {
+        const rec = computeDayDutyRecord(dateStr, dutyNo, dayConfigs, ghDates, dutiesByDayType);
+        calculatedRecords.push(rec);
+      });
+    });
+
+    setResults(calculatedRecords);
+    setExpandedRowKey(null);
+  }, [selectedDuties, fromDate, toDate, datesInRange, dayConfigs, ghDates, dutiesByDayType]);
+
+  // ── 6. Totals Summary ──
+  const totalsSummary = useMemo(() => {
+    if (!results || results.length === 0) return null;
     return results.reduce((acc, r) => ({
       totalKm: acc.totalKm + r.totalKm,
       nightKm: acc.nightKm + (r.nightKm || 0),
@@ -316,360 +430,464 @@ export default function MultiDayKMCalculator({ linkRoster, dutiesByDayType, seco
       drivingSecs: acc.drivingSecs + r.drivingSecs,
       dutySecs: acc.dutySecs + r.dutySecs,
       changeovers: acc.changeovers + (r.isChangeover ? 1 : 0),
-      daysWithData: acc.daysWithData + (r.source !== 'NO_DATA' ? 1 : 0),
-    }), { totalKm: 0, nightKm: 0, mornKm: 0, drivingSecs: 0, dutySecs: 0, changeovers: 0, daysWithData: 0 });
+      validDays: acc.validDays + (r.source !== 'NO_DATA' ? 1 : 0)
+    }), { totalKm: 0, nightKm: 0, mornKm: 0, drivingSecs: 0, dutySecs: 0, changeovers: 0, validDays: 0 });
   }, [results]);
 
-  /* Excel export */
-  const exportExcel = () => {
-    if (!results) return;
-    const sheetData = results.map(r => ({
-      'Date': r.dateStr,
-      'Day': r.dayName,
-      'Schedule': r.schedType,
-      'Duty No': r.dutyNo,
-      'Type': r.isChangeover ? 'CHANGEOVER NIGHT' : r.isNight ? 'NIGHT' : 'DAY',
-      'Sign On': r.signOn,
-      'Sign On Loc': r.signOnLoc,
-      'Sign Off': r.signOff,
-      'Sign Off Loc': r.signOffLoc,
-      'Night Train': r.isChangeover ? r.nightTrain : '--',
-      'Night Dep': r.isChangeover ? r.nightDep : '--',
-      'Night Arr': r.isChangeover ? r.nightArr : '--',
-      'Night Handover': r.isChangeover ? r.nightHandover : '--',
-      'Night KM': r.isChangeover ? r.nightKm : '--',
-      'Morn Takeover Loc': r.isChangeover ? r.mornTakeover : '--',
-      'Morn Train': r.isChangeover ? r.mornTrain : '--',
-      'Morn Dep': r.isChangeover ? r.mornDep : '--',
-      'Morn Arr': r.isChangeover ? r.mornArr : '--',
-      'Morn KM': r.isChangeover ? r.mornKm : '--',
-      'Total KM': r.totalKm,
-      'Driving Hrs': secsToHHMM(r.drivingSecs),
-      'Duty Hrs': secsToHHMM(r.dutySecs),
-      'Source': r.source,
+  // ── 7. Export Handlers ──
+  const exportToExcel = () => {
+    if (!results || results.length === 0) return;
+    const exportRows = results.map(r => ({
+      "Date": r.dateStr,
+      "Day": r.dayName,
+      "Schedule": r.schedType,
+      "Duty No": r.dutyNo,
+      "Duty Type": r.isChangeover ? "CHANGEOVER NIGHT" : r.isNight ? "NIGHT" : "DAY",
+      "Sign On Time": r.signOn,
+      "Sign On Location": r.signOnLoc,
+      "Sign Off Time": r.signOff,
+      "Sign Off Location": r.signOffLoc,
+      "Night Train": r.isChangeover ? r.nightTrain : "--",
+      "Night KM": r.isChangeover ? r.nightKm : "--",
+      "Morn Train": r.isChangeover ? r.mornTrain : "--",
+      "Morn KM": r.isChangeover ? r.mornKm : "--",
+      "Total KM": r.totalKm,
+      "Driving Hours": secsToHHMMSS(r.drivingSecs),
+      "Duty Hours": secsToHHMMSS(r.dutySecs),
+      "Data Source": r.source
     }));
 
-    // Summary row
-    sheetData.push({});
-    sheetData.push({
-      'Date': 'TOTAL',
-      'Day': `${results.length} days`,
-      'Total KM': totals.totalKm,
-      'Night KM (changeovers)': totals.nightKm,
-      'Morn KM (changeovers)': totals.mornKm,
-      'Driving Hrs': secsToHHMM(totals.drivingSecs),
-      'Duty Hrs': secsToHHMM(totals.dutySecs),
-      'Changeover Nights': totals.changeovers,
-    });
-
-    const ws = XLSX.utils.json_to_sheet(sheetData);
+    const ws = XLSX.utils.json_to_sheet(exportRows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, `Duty${dutyNo}_KM_Calc`);
-    XLSX.writeFile(wb, `JMD_KM_Duty${dutyNo}_${fromDate}_to_${toDate}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, "JMD_MultiDay_Report");
+    XLSX.writeFile(wb, `BMRCL_JMD_MultiDay_Calculation_${fromDate}_to_${toDate}.xlsx`);
   };
 
-  /* Schedule type color */
-  const schedColor = (s) => ({
-    WEEKDAY: 'cyan',
-    MONDAY: 'violet',
-    SATURDAY: 'amber',
-    SUNDAY: 'emerald',
-  }[s] || 'slate');
-
-  /* Source pill */
-  const sourceInfo = (src) => {
-    if (src === 'CHANGEOVER_TABLE') return { label: 'Changeover Table ✓', color: 'emerald' };
-    if (src === 'LINK_ROSTER') return { label: 'Link Roster', color: 'cyan' };
-    return { label: 'No Data', color: 'rose' };
+  const exportToCSV = () => {
+    if (!results || results.length === 0) return;
+    const headers = ["Date", "Day", "Schedule", "Duty No", "Duty Type", "Sign On", "Sign Off", "Night KM", "Morn KM", "Total KM", "Driving Hours", "Duty Hours", "Source"];
+    const csvRows = [headers.join(',')];
+    results.forEach(r => {
+      csvRows.push([
+        `"${r.dateStr}"`,
+        `"${r.dayName}"`,
+        `"${r.schedType}"`,
+        `"${r.dutyNo}"`,
+        `"${r.isChangeover ? 'CHANGEOVER' : r.isNight ? 'NIGHT' : 'DAY'}"`,
+        `"${r.signOn}"`,
+        `"${r.signOff}"`,
+        r.nightKm || 0,
+        r.mornKm || 0,
+        r.totalKm || 0,
+        `"${secsToHHMMSS(r.drivingSecs)}"`,
+        `"${secsToHHMMSS(r.dutySecs)}"`,
+        `"${r.source}"`
+      ].join(','));
+    });
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `BMRCL_JMD_MultiDay_Report_${fromDate}_to_${toDate}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6 font-mono text-slate-200">
 
-      {/* ─── Header ─── */}
-      <div className="flex items-center gap-3 pb-2 border-b border-slate-800">
-        <div className="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20">
-          <TrendingUp className="h-4 w-4" />
-        </div>
-        <div>
-          <h3 className="text-slate-200 font-black text-sm uppercase tracking-wide">Multi-Day KM & Driving Hours Calculator</h3>
-          <p className="text-[10px] text-slate-500 font-mono">Uses Changeover Table (authoritative) + Link Roster data — all roster types & night duties</p>
-        </div>
-      </div>
-
-      {/* ─── Controls ─── */}
-      <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 space-y-4">
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-
-          {/* Duty Number */}
+      {/* ── CARD 1: BMRCL MANUAL GAZETTED HOLIDAY OVERRIDES ── */}
+      <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+          <Calendar className="h-5 w-5 text-amber-400" />
           <div>
-            <label className="block text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-1.5" htmlFor="multidaykmcalculator-field-1">
-              Duty Number
-            </label>
-            <input id="multidaykmcalculator-i1" name="multidaykmcalculator-i1"
-              type="text"
-              value={dutyNo}
-              onChange={e = id="multidaykmcalculator-field-1" name="multidaykmcalculator-field-1"> setDutyNo(e.target.value)}
-              placeholder="e.g. 74"
-              className="w-full bg-slate-950/80 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 font-mono"
-            />
-          </div>
-
-          {/* From Date */}
-          <div>
-            <label className="flex items-center gap-1.5 text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-1.5" htmlFor="multidaykmcalculator-field-2">
-              <Calendar className="h-3 w-3" /> From Date
-            </label>
-            <input id="multidaykmcalculator-i2" name="multidaykmcalculator-i2"
-              type="date"
-              value={fromDate}
-              onChange={e = id="multidaykmcalculator-field-2" name="multidaykmcalculator-field-2"> setFromDate(e.target.value)}
-              className="w-full bg-slate-950/80 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 font-mono"
-            />
-          </div>
-
-          {/* To Date */}
-          <div>
-            <label className="flex items-center gap-1.5 text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-1.5" htmlFor="multidaykmcalculator-field-3">
-              <Calendar className="h-3 w-3" /> To Date
-            </label>
-            <input id="multidaykmcalculator-i3" name="multidaykmcalculator-i3"
-              type="date"
-              value={toDate}
-              onChange={e = id="multidaykmcalculator-field-3" name="multidaykmcalculator-field-3"> setToDate(e.target.value)}
-              className="w-full bg-slate-950/80 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 font-mono"
-            />
-          </div>
-
-          {/* Calculate */}
-          <div className="flex flex-col justify-end">
-            <button
-              onClick={runCalc}
-              className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-slate-950 px-5 py-2 rounded-lg font-black uppercase text-xs tracking-wider transition-all shadow-[0_0_12px_rgba(16,185,129,0.2)] hover:shadow-[0_0_20px_rgba(16,185,129,0.35)]"
-            >
-              <Play className="h-3.5 w-3.5 fill-current" /> Calculate
-            </button>
+            <h3 className="text-amber-400 font-bold text-sm tracking-wider uppercase">
+              BMRCL 2026 Manual Gazetted Holiday Overrides
+            </h3>
+            <p className="text-[10px] text-slate-500 mt-0.5">
+              Marking a date as a Gazetted Holiday automatically maps it to the selected day-type timetable schedule.
+            </p>
           </div>
         </div>
 
-        {/* GH Date Manager */}
-        <div className="border-t border-slate-800/60 pt-3 space-y-2">
-          <label className="block text-[9px] text-amber-400 font-bold uppercase tracking-wider" htmlFor="multidaykmcalculator-field-4">
-            Gazetted Holiday (GH) Dates — treated as Saturday schedule
-          </label>
-          <div className="flex gap-2">
-            <input id="multidaykmcalculator-i4" name="multidaykmcalculator-i4"
+        <div className="flex flex-wrap items-end gap-4 bg-slate-950/60 p-3.5 rounded-lg border border-slate-800">
+          <div>
+            <label className="block text-[9.5px] text-slate-400 font-bold uppercase tracking-wider mb-1">
+              Add GH Date
+            </label>
+            <input
               type="date"
               value={ghDateInput}
-              onChange={e = id="multidaykmcalculator-field-4" name="multidaykmcalculator-field-4"> setGhDateInput(e.target.value)}
-              className="flex-1 max-w-xs bg-slate-950/80 text-slate-200 border border-amber-700/50 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-amber-500 font-mono"
+              onChange={(e) => setGhDateInput(e.target.value)}
+              className="bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
             />
-            <button
-              onClick={addGhDate}
-              className="flex items-center gap-1 px-3 py-1.5 bg-amber-600/20 text-amber-400 border border-amber-600/40 rounded-lg text-xs hover:bg-amber-600/30 transition font-bold"
-            >
-              <Plus className="h-3 w-3" /> Add GH
-            </button>
           </div>
-          {ghDates.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-1">
-              {ghDates.map(d => (
-                <div key={d} className="flex items-center gap-1 px-2 py-0.5 bg-amber-950/40 text-amber-300 border border-amber-700/40 rounded text-[10px] font-mono">
-                  {d}
-                  <button onClick={() => removeGhDate(d)} className="text-amber-500 hover:text-amber-200 ml-0.5">
-                    <X className="h-2.5 w-2.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+
+          <div>
+            <label className="block text-[9.5px] text-slate-400 font-bold uppercase tracking-wider mb-1">
+              On Schedule Day-Type Override
+            </label>
+            <select
+              value={ghOverrideSchedule}
+              onChange={(e) => setGhOverrideSchedule(e.target.value)}
+              className="bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-xs text-slate-200 font-bold focus:outline-none focus:border-amber-500"
+            >
+              <option value="SATURDAY">Saturday Schedule (Default)</option>
+              <option value="SUNDAY">Sunday Schedule</option>
+              <option value="WEEKDAY">Weekday Schedule</option>
+            </select>
+          </div>
+
+          <button
+            onClick={handleAddGhDate}
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-amber-600/30 text-amber-300 border border-amber-500/50 rounded font-bold text-xs hover:bg-amber-600/50 transition"
+          >
+            <Plus className="h-4 w-4" /> Add Gazetted Holiday
+          </button>
         </div>
-      </div>
 
-      {/* ─── Results ─── */}
-      {results && totals && (
-        <div className="space-y-3">
-
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-            {[
-              { label: 'Total KM', value: totals.totalKm, color: 'text-emerald-400', sub: `${totals.daysWithData}/${results.length} days data` },
-              { label: 'Night KM', value: totals.nightKm, color: 'text-blue-400', sub: 'Changeover nights' },
-              { label: 'Morn KM', value: totals.mornKm, color: 'text-amber-400', sub: 'Changeover mornings' },
-              { label: 'Driving Hrs', value: secsToHHMM(totals.drivingSecs), color: 'text-cyan-400', sub: 'Total steering' },
-              { label: 'Duty Hrs', value: secsToHHMM(totals.dutySecs), color: 'text-violet-400', sub: 'Sign on to off' },
-              { label: 'Changeovers', value: totals.changeovers, color: 'text-rose-400', sub: 'Night→morning duties' },
-            ].map(card => (
-              <div key={card.label} className="bg-slate-900/60 border border-slate-800 rounded-xl p-3 space-y-0.5">
-                <div className="text-[8.5px] text-slate-500 uppercase font-bold tracking-wider">{card.label}</div>
-                <div className={`text-lg font-black font-mono ${card.color}`}>{card.value}</div>
-                <div className="text-[8.5px] text-slate-600">{card.sub}</div>
+        {/* Active GH Dates Badges */}
+        {ghDates.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <span className="text-[10px] text-slate-400 font-bold uppercase">Active GH Overrides:</span>
+            {ghDates.map(g => (
+              <div key={g.date} className="flex items-center gap-1.5 bg-amber-950/40 text-amber-300 border border-amber-700/50 px-2.5 py-1 rounded text-xs">
+                <span>{g.date}</span>
+                <span className="text-[9px] bg-amber-900/60 px-1 rounded text-amber-200 font-bold">({g.overrideSchedule})</span>
+                <button onClick={() => handleRemoveGhDate(g.date)} className="text-amber-400 hover:text-amber-100 ml-1">
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
             ))}
           </div>
+        )}
+      </div>
 
-          {/* Export */}
-          <div className="flex justify-end">
-            <button
-              onClick={exportExcel}
-              className="flex items-center gap-2 px-4 py-1.5 bg-emerald-900/30 text-emerald-400 border border-emerald-700/50 rounded-lg text-[10px] font-bold hover:bg-emerald-900/50 transition"
-            >
-              <Download className="h-3.5 w-3.5" /> Export Excel
-            </button>
+      {/* ── CARD 2: MULTI-DAY KM & DRIVING HOURS CALCULATOR ── */}
+      <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 shadow-xl space-y-5">
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+          <TrendingUp className="h-5 w-5 text-emerald-400" />
+          <div>
+            <h3 className="text-emerald-400 font-bold text-sm tracking-wider uppercase">
+              Multi-Day KM & Driving Hours Calculator
+            </h3>
+            <p className="text-[10px] text-slate-500 mt-0.5">
+              Uses Changeover Table (authoritative) + Link Roster data - all roster types & night duties
+            </p>
           </div>
+        </div>
 
-          {/* Detail Table */}
-          <div className="bg-slate-900/40 border border-slate-800 rounded-xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-[10px] font-mono border-collapse">
-                <thead>
-                  <tr className="bg-slate-950/80 border-b border-slate-800">
-                    <th className="px-2 py-2 text-left text-[8.5px] text-slate-500 font-bold uppercase">Date</th>
-                    <th className="px-2 py-2 text-left text-[8.5px] text-slate-500 font-bold uppercase">Day</th>
-                    <th className="px-2 py-2 text-left text-[8.5px] text-slate-500 font-bold uppercase">Schedule</th>
-                    <th className="px-2 py-2 text-left text-[8.5px] text-slate-500 font-bold uppercase">Type</th>
-                    <th className="px-2 py-2 text-left text-[8.5px] text-slate-500 font-bold uppercase">Sign On</th>
-                    <th className="px-2 py-2 text-left text-[8.5px] text-slate-500 font-bold uppercase">Sign Off</th>
-                    <th className="px-2 py-2 text-center text-[8.5px] text-blue-400 font-bold uppercase bg-blue-950/10">Night KM</th>
-                    <th className="px-2 py-2 text-center text-[8.5px] text-amber-400 font-bold uppercase bg-amber-950/10">Morn KM</th>
-                    <th className="px-2 py-2 text-center text-[8.5px] text-emerald-400 font-bold uppercase bg-emerald-950/10">Total KM</th>
-                    <th className="px-2 py-2 text-center text-[8.5px] text-cyan-400 font-bold uppercase">Drive Hrs</th>
-                    <th className="px-2 py-2 text-center text-[8.5px] text-violet-400 font-bold uppercase">Duty Hrs</th>
-                    <th className="px-2 py-2 text-left text-[8.5px] text-slate-500 font-bold uppercase">Source</th>
-                    <th className="px-2 py-2 text-left text-[8.5px] text-slate-500 font-bold uppercase">Legs</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {results.map((r, idx) => {
-                    const isExpanded = expandedDay === r.dateStr;
-                    const isEven = idx % 2 === 0;
-                    const src = sourceInfo(r.source);
-                    return (
-                      <React.Fragment key={r.dateStr}>
-                        <tr
-                          className={`border-b border-slate-800/40 hover:bg-slate-800/30 transition-colors cursor-pointer ${isEven ? 'bg-slate-900/20' : 'bg-slate-950/20'} ${r.isChangeover ? 'border-l-2 border-l-emerald-600/50' : ''}`}
-                          onClick={() => setExpandedDay(isExpanded ? null : r.dateStr)}
-                        >
-                          <td className="px-2 py-1.5 font-bold text-slate-200">{r.dateStr}</td>
-                          <td className="px-2 py-1.5 text-slate-400">{r.dayName}</td>
-                          <td className="px-2 py-1.5">
-                            <Badge color={schedColor(r.schedType)}>{r.schedType}</Badge>
-                          </td>
-                          <td className="px-2 py-1.5">
-                            {r.isChangeover
-                              ? <Badge color="emerald"><Moon className="h-2.5 w-2.5 inline mr-0.5" />Changeover</Badge>
-                              : r.isNight
-                              ? <Badge color="blue"><Moon className="h-2.5 w-2.5 inline mr-0.5" />Night</Badge>
-                              : <Badge color="amber"><Sun className="h-2.5 w-2.5 inline mr-0.5" />Day</Badge>
-                            }
-                          </td>
-                          <td className="px-2 py-1.5 text-slate-300">{r.signOn?.slice(0,5) || '--'}</td>
-                          <td className="px-2 py-1.5 text-slate-300">{r.signOff?.slice(0,5) || '--'}</td>
-                          <td className="px-2 py-1.5 text-center bg-blue-950/10 font-bold text-blue-300">
-                            {r.isChangeover ? r.nightKm : <span className="text-slate-600">--</span>}
-                          </td>
-                          <td className="px-2 py-1.5 text-center bg-amber-950/10 font-bold text-amber-300">
-                            {r.isChangeover ? r.mornKm : <span className="text-slate-600">--</span>}
-                          </td>
-                          <td className="px-2 py-1.5 text-center bg-emerald-950/10 font-bold text-emerald-300">
-                            {r.totalKm > 0 ? r.totalKm : <span className="text-slate-600">0</span>}
-                          </td>
-                          <td className="px-2 py-1.5 text-center text-cyan-300 font-bold">
-                            {r.drivingSecs > 0 ? secsToHHMM(r.drivingSecs) : '--'}
-                          </td>
-                          <td className="px-2 py-1.5 text-center text-violet-300 font-bold">
-                            {r.dutySecs > 0 ? secsToHHMM(r.dutySecs) : '--'}
-                          </td>
-                          <td className="px-2 py-1.5">
-                            <Badge color={src.color}>{src.label}</Badge>
-                          </td>
-                          <td className="px-2 py-1.5 text-slate-500 text-[9px]">
-                            {r.legs.length > 0 ? `${r.legs.length} leg${r.legs.length > 1 ? 's' : ''} ▾` : '—'}
-                          </td>
-                        </tr>
-
-                        {/* Expanded leg breakdown */}
-                        {isExpanded && r.legs.length > 0 && (
-                          <tr key={`${r.dateStr}-legs`} className="bg-slate-950/60">
-                            <td colSpan={13} className="px-4 py-3">
-                              <div className="space-y-1.5">
-                                <div className="text-[9px] font-bold text-slate-400 uppercase mb-2 flex items-center gap-2">
-                                  <MapPin className="h-3 w-3" /> Leg-by-Leg Breakdown — Duty {r.dutyNo} on {r.dateStr}
-                                </div>
-                                <div className="grid gap-1.5">
-                                  {r.legs.map(leg => (
-                                    <div key={leg.legNum} className={`flex items-center gap-3 px-3 py-2 rounded-lg border text-[10px] font-mono ${leg.type === 'NIGHT' ? 'bg-blue-950/20 border-blue-800/30' : leg.type === 'MORN' ? 'bg-amber-950/20 border-amber-800/30' : 'bg-slate-900/40 border-slate-700/30'}`}>
-                                      <span className={`font-black text-[9px] uppercase px-1.5 py-0.5 rounded ${leg.type === 'NIGHT' ? 'bg-blue-500/20 text-blue-300' : leg.type === 'MORN' ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-700/40 text-slate-300'}`}>
-                                        LEG {leg.legNum}
-                                      </span>
-                                      <span className="text-slate-400">Train</span>
-                                      <span className="font-bold text-slate-200">{leg.train || '--'}</span>
-                                      <span className="text-slate-600">|</span>
-                                      <span className="text-slate-400">{leg.from || '--'}</span>
-                                      <span className="text-slate-600">→</span>
-                                      <span className="text-slate-400">{leg.to || '--'}</span>
-                                      <span className="text-slate-600">|</span>
-                                      <span className="text-slate-400">{leg.dep?.slice(0,5) || '--'}</span>
-                                      <span className="text-slate-600">–</span>
-                                      <span className="text-slate-400">{leg.arr?.slice(0,5) || '--'}</span>
-                                      <span className="text-slate-600">|</span>
-                                      <span className={`font-black ${leg.type === 'NIGHT' ? 'text-blue-300' : leg.type === 'MORN' ? 'text-amber-300' : 'text-emerald-300'}`}>
-                                        {leg.km} km
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                                {/* Day total */}
-                                <div className="flex items-center justify-end gap-4 pt-1.5 border-t border-slate-800/40 text-[10px]">
-                                  <span className="text-slate-500">Day Total:</span>
-                                  <span className="font-black text-emerald-400">{r.totalKm} km</span>
-                                  <span className="text-slate-500">Driving:</span>
-                                  <span className="font-black text-cyan-400">{secsToHHMM(r.drivingSecs)}</span>
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-
-                {/* Footer totals */}
-                <tfoot>
-                  <tr className="bg-slate-950/80 border-t-2 border-slate-700">
-                    <td colSpan={6} className="px-2 py-2.5 text-[9px] font-black text-slate-400 uppercase">
-                      TOTAL — Duty {dutyNo} · {results.length} days ({fromDate} → {toDate})
-                    </td>
-                    <td className="px-2 py-2.5 text-center bg-blue-950/20 font-black text-blue-300">{totals.nightKm}</td>
-                    <td className="px-2 py-2.5 text-center bg-amber-950/20 font-black text-amber-300">{totals.mornKm}</td>
-                    <td className="px-2 py-2.5 text-center bg-emerald-950/20 font-black text-emerald-300 text-sm">{totals.totalKm}</td>
-                    <td className="px-2 py-2.5 text-center font-black text-cyan-300">{secsToHHMM(totals.drivingSecs)}</td>
-                    <td className="px-2 py-2.5 text-center font-black text-violet-300">{secsToHHMM(totals.dutySecs)}</td>
-                    <td colSpan={2} className="px-2 py-2.5 text-[9px] text-slate-500">{totals.changeovers} changeover night(s)</td>
-                  </tr>
-                </tfoot>
-              </table>
+        {/* Duty Selection Grid */}
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-300 font-bold uppercase tracking-wider flex items-center gap-2">
+              Select Duties ({selectedDuties.length} Selected)
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={handleSelectAllDuties}
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded text-[10px] font-bold border border-slate-700"
+              >
+                SELECT ALL
+              </button>
+              <button
+                onClick={handleClearAllDuties}
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded text-[10px] font-bold border border-slate-700"
+              >
+                CLEAR ALL
+              </button>
             </div>
           </div>
 
-          {/* Legend */}
-          <div className="flex flex-wrap gap-3 text-[9px] font-mono text-slate-500 pt-1 border-t border-slate-800/40">
-            <span>🟢 Changeover Table = authoritative data from Night Changeover.xlsx</span>
-            <span>🔵 Link Roster = computed from crew_final_links station data</span>
-            <span>🔴 No Data = duty not found in loaded roster (check Firestore sync)</span>
-            <span>Click any row to expand leg-by-leg breakdown</span>
+          <div className="grid grid-cols-6 sm:grid-cols-10 md:grid-cols-12 lg:grid-cols-16 gap-1.5 bg-slate-950/80 p-3 rounded-lg border border-slate-850 max-h-48 overflow-y-auto custom-scrollbar">
+            {availableDutiesList.map(dNo => {
+              const isSelected = selectedDuties.includes(dNo);
+              return (
+                <button
+                  key={dNo}
+                  onClick={() => toggleDutySelect(dNo)}
+                  className={`py-1.5 text-xs font-bold rounded transition border ${
+                    isSelected
+                      ? 'bg-emerald-600/30 text-emerald-300 border-emerald-500 shadow-sm'
+                      : 'bg-slate-900 hover:bg-slate-850 text-slate-400 border-slate-800'
+                  }`}
+                >
+                  {dNo}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Date Range & Main Action Button */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end bg-slate-950/60 p-4 rounded-lg border border-slate-800">
+          <div>
+            <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
+              From Date
+            </label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
+              To Date
+            </label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+            />
+          </div>
+
+          <div>
+            <button
+              onClick={handleCalculateRange}
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-slate-950 py-2 rounded-lg font-black text-xs uppercase tracking-wider shadow-lg transition"
+            >
+              <Play className="h-4 w-4 fill-current" /> Calculate Range
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── CARD 3: CONFIGURE DAYS IN RANGE (MARK TIMETABLE HOLIDAYS OR FORCE CHANGEOVERS) ── */}
+      {datesInRange.length > 0 && (
+        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-800 pb-3">
+            <div>
+              <h3 className="text-cyan-400 font-bold text-xs tracking-wider uppercase">
+                Configure Days In Range (Mark Timetable Holidays or Force Changeovers)
+              </h3>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleAutoSelectChangeovers}
+                className="px-2.5 py-1 bg-cyan-950 text-cyan-300 border border-cyan-800 hover:bg-cyan-900 rounded text-[9.5px] font-bold uppercase"
+              >
+                Auto-Select Changeover Legs
+              </button>
+              <button
+                onClick={handleEnableAllChangeovers}
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded text-[9.5px] font-bold uppercase border border-slate-700"
+              >
+                Enable All
+              </button>
+              <button
+                onClick={handleClearAllChangeovers}
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded text-[9.5px] font-bold uppercase border border-slate-700"
+              >
+                Clear All
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+            {datesInRange.map(dStr => {
+              const cfg = dayConfigs[dStr] || { scheduleType: 'WEEKDAY', isChangeover: false };
+              const dName = getDayName(dStr);
+              return (
+                <div key={dStr} className="bg-slate-950 border border-slate-850 p-3 rounded-lg space-y-2">
+                  <div className="flex justify-between items-center text-xs font-bold text-slate-200">
+                    <span>{dStr}</span>
+                    <span className="text-[10px] text-cyan-400 font-mono">({dName})</span>
+                  </div>
+
+                  <div>
+                    <select
+                      value={cfg.scheduleType}
+                      onChange={(e) => handleDayScheduleChange(dStr, e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-200 font-bold focus:outline-none"
+                    >
+                      <option value="WEEKDAY">Weekday</option>
+                      <option value="SATURDAY">Saturday Schedule</option>
+                      <option value="SUNDAY">Sunday Schedule</option>
+                      <option value="MONDAY">Monday Schedule</option>
+                    </select>
+                  </div>
+
+                  <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer pt-1">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(cfg.isChangeover)}
+                      onChange={() => handleDayChangeoverToggle(dStr)}
+                      className="rounded accent-emerald-500 h-3.5 w-3.5"
+                    />
+                    <span className="text-[10px] font-bold">Changeover</span>
+                  </label>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* Empty state */}
-      {!results && (
-        <div className="flex flex-col items-center justify-center py-16 text-slate-600 space-y-3">
-          <TrendingUp className="h-10 w-10 opacity-30" />
-          <p className="text-sm font-bold uppercase tracking-wide">Enter a duty number and date range, then click Calculate</p>
-          <p className="text-[10px] text-slate-700 font-mono">Supports Weekday / Monday / Saturday / Sunday / GH duties + changeover night duties</p>
+      {/* ── CARD 4: MULTI-DAY CALCULATION RESULTS & SUMMARY ── */}
+      {results && totalsSummary && (
+        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 shadow-xl space-y-5">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-800 pb-3">
+            <h3 className="text-slate-100 font-bold text-xs tracking-wider uppercase">
+              Multi-Day Calculation Results & Summary ({results.length} Duty-Day Records)
+            </h3>
+            <div className="flex gap-2">
+              <button
+                onClick={exportToExcel}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-950 text-emerald-400 border border-emerald-800 hover:bg-emerald-900 rounded text-xs font-bold"
+              >
+                <Download className="h-3.5 w-3.5" /> Export Excel
+              </button>
+              <button
+                onClick={exportToCSV}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-750 rounded text-xs font-bold"
+              >
+                <Download className="h-3.5 w-3.5" /> Export CSV
+              </button>
+            </div>
+          </div>
+
+          {/* Metric Summary Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="bg-slate-950 border border-slate-850 p-3.5 rounded-lg space-y-1">
+              <span className="text-[9px] text-slate-500 font-bold uppercase">Total KM</span>
+              <div className="text-lg font-bold text-emerald-400">{totalsSummary.totalKm} KM</div>
+            </div>
+            <div className="bg-slate-950 border border-slate-850 p-3.5 rounded-lg space-y-1">
+              <span className="text-[9px] text-slate-500 font-bold uppercase">Night KM</span>
+              <div className="text-lg font-bold text-blue-400">{totalsSummary.nightKm} KM</div>
+            </div>
+            <div className="bg-slate-950 border border-slate-850 p-3.5 rounded-lg space-y-1">
+              <span className="text-[9px] text-slate-500 font-bold uppercase">Morn KM</span>
+              <div className="text-lg font-bold text-amber-400">{totalsSummary.mornKm} KM</div>
+            </div>
+            <div className="bg-slate-950 border border-slate-850 p-3.5 rounded-lg space-y-1">
+              <span className="text-[9px] text-slate-500 font-bold uppercase">Driving Hrs</span>
+              <div className="text-lg font-bold text-cyan-400">{secsToHHMMSS(totalsSummary.drivingSecs)}</div>
+            </div>
+            <div className="bg-slate-950 border border-slate-850 p-3.5 rounded-lg space-y-1">
+              <span className="text-[9px] text-slate-500 font-bold uppercase">Duty Hrs</span>
+              <div className="text-lg font-bold text-violet-400">{secsToHHMMSS(totalsSummary.dutySecs)}</div>
+            </div>
+            <div className="bg-slate-950 border border-slate-850 p-3.5 rounded-lg space-y-1">
+              <span className="text-[9px] text-slate-500 font-bold uppercase">Changeovers</span>
+              <div className="text-lg font-bold text-rose-400">{totalsSummary.changeovers}</div>
+            </div>
+          </div>
+
+          {/* Results Table */}
+          <div className="overflow-x-auto border border-slate-850 rounded-lg custom-scrollbar">
+            <table className="w-full text-left text-[11px] font-mono border-collapse">
+              <thead className="bg-slate-950 text-slate-400 uppercase text-[9.5px]">
+                <tr>
+                  <th className="px-3 py-2.5 border-b border-slate-800">Date</th>
+                  <th className="px-3 py-2.5 border-b border-slate-800">Day</th>
+                  <th className="px-3 py-2.5 border-b border-slate-800">Schedule</th>
+                  <th className="px-3 py-2.5 border-b border-slate-800 font-bold text-slate-200">Duty No</th>
+                  <th className="px-3 py-2.5 border-b border-slate-800">Duty Type</th>
+                  <th className="px-3 py-2.5 border-b border-slate-800">Sign On</th>
+                  <th className="px-3 py-2.5 border-b border-slate-800">Sign Off</th>
+                  <th className="px-3 py-2.5 border-b border-slate-800 text-right text-blue-400">Night KM</th>
+                  <th className="px-3 py-2.5 border-b border-slate-800 text-right text-amber-400">Morn KM</th>
+                  <th className="px-3 py-2.5 border-b border-slate-800 text-right text-emerald-400 font-bold">Total KM</th>
+                  <th className="px-3 py-2.5 border-b border-slate-800 text-right text-cyan-400">Drive Hrs</th>
+                  <th className="px-3 py-2.5 border-b border-slate-800 text-right text-violet-400">Duty Hrs</th>
+                  <th className="px-3 py-2.5 border-b border-slate-800">Source</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-850">
+                {results.map((r, idx) => {
+                  const rowKey = `${r.dateStr}_${r.dutyNo}`;
+                  const isExpanded = expandedRowKey === rowKey;
+                  return (
+                    <React.Fragment key={rowKey}>
+                      <tr
+                        onClick={() => setExpandedRowKey(isExpanded ? null : rowKey)}
+                        className={`hover:bg-slate-850/60 transition cursor-pointer ${
+                          r.isChangeover ? 'bg-emerald-950/15' : ''
+                        }`}
+                      >
+                        <td className="px-3 py-2 text-slate-300 font-bold">{r.dateStr}</td>
+                        <td className="px-3 py-2 text-slate-400">{r.dayName}</td>
+                        <td className="px-3 py-2">
+                          <Badge color={r.schedType === 'SATURDAY' ? 'amber' : r.schedType === 'SUNDAY' ? 'emerald' : 'cyan'}>
+                            {r.schedType}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-2 font-bold text-slate-100 text-xs">Duty #{r.dutyNo}</td>
+                        <td className="px-3 py-2">
+                          {r.isChangeover ? (
+                            <Badge color="emerald"><Moon className="h-2.5 w-2.5 inline mr-1" />Changeover</Badge>
+                          ) : r.isNight ? (
+                            <Badge color="blue"><Moon className="h-2.5 w-2.5 inline mr-1" />Night</Badge>
+                          ) : (
+                            <Badge color="amber"><Sun className="h-2.5 w-2.5 inline mr-1" />Day</Badge>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-slate-300">
+                          <span className="text-emerald-400 font-bold">{r.signOnLoc}</span> @ {r.signOn}
+                        </td>
+                        <td className="px-3 py-2 text-slate-300">
+                          <span className="text-amber-400 font-bold">{r.signOffLoc}</span> @ {r.signOff}
+                        </td>
+                        <td className="px-3 py-2 text-right font-bold text-blue-400">
+                          {r.isChangeover ? `${r.nightKm} KM` : '--'}
+                        </td>
+                        <td className="px-3 py-2 text-right font-bold text-amber-400">
+                          {r.isChangeover ? `${r.mornKm} KM` : '--'}
+                        </td>
+                        <td className="px-3 py-2 text-right font-extrabold text-emerald-400 text-xs">
+                          {r.totalKm} KM
+                        </td>
+                        <td className="px-3 py-2 text-right font-bold text-cyan-400">
+                          {secsToHHMM(r.drivingSecs)}
+                        </td>
+                        <td className="px-3 py-2 text-right font-bold text-violet-400">
+                          {secsToHHMM(r.dutySecs)}
+                        </td>
+                        <td className="px-3 py-2">
+                          <Badge color={r.source === 'CHANGEOVER_TABLE' ? 'emerald' : r.source === 'LINK_ROSTER' ? 'cyan' : 'rose'}>
+                            {r.source === 'CHANGEOVER_TABLE' ? 'Changeover Table ✓' : r.source === 'LINK_ROSTER' ? 'Link Roster' : 'No Data'}
+                          </Badge>
+                        </td>
+                      </tr>
+
+                      {/* Expanded Legs Breakdown */}
+                      {isExpanded && r.legs && r.legs.length > 0 && (
+                        <tr className="bg-slate-950/90 border-b border-slate-800">
+                          <td colSpan={13} className="px-4 py-3">
+                            <div className="space-y-2 text-xs font-mono">
+                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                                <MapPin className="h-3.5 w-3.5 text-emerald-400" />
+                                Leg Breakdown for Duty #{r.dutyNo} on {r.dateStr}:
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {r.legs.map((leg, lIdx) => (
+                                  <div key={lIdx} className="bg-slate-900 border border-slate-800 rounded p-2.5 space-y-1">
+                                    <div className="flex justify-between items-center text-xs font-bold text-slate-200">
+                                      <span>Leg {leg.legNum}: Train {leg.train}</span>
+                                      <span className="text-emerald-400">{leg.km} KM</span>
+                                    </div>
+                                    <div className="text-[10px] text-slate-400">
+                                      {leg.dep} → {leg.arr} ({leg.from} → {leg.to})
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

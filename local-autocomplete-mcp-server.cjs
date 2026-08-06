@@ -82,13 +82,48 @@ async function queryLocalAgentEndpoint(prompt, messages = null) {
         body: JSON.stringify({ contents })
       });
 
-      if (gRes.ok) {
-        const gData = await gRes.json();
+      const gData = await gRes.json().catch(() => ({}));
+      if (gRes.ok && gData.candidates && gData.candidates[0]?.content) {
         const text = gData.candidates[0].content.parts.map(p => p.text).join('');
         return { success: true, text, metadata: { provider: 'gemini-2.0-flash', tier: 1 } };
       }
+      log("Direct Gemini fallback failed or token exhausted:", gData.error?.message || gRes.status);
     } catch (e) {
       log("Direct Gemini fallback failed:", e.message);
+    }
+  }
+
+  // Direct Tier 2: OpenRouter Free Models Auto-Switch
+  const openrouterKey = process.env.OPENROUTER_API_KEY;
+  if (openrouterKey) {
+    const payloadMessages = messages ? messages : [{ role: 'user', content: prompt }];
+    const modelsToTry = ["openrouter/free", "google/gemma-4-31b-it:free", "poolside/laguna-s-2.1:free", "cohere/north-mini-code:free"];
+
+    for (const model of modelsToTry) {
+      try {
+        log(`Direct OpenRouter fallback trying model: ${model}`);
+        const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${openrouterKey}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://github.com/google/antigravity",
+            "X-Title": "Antigravity Local Autocomplete Agent"
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: payloadMessages
+          })
+        });
+
+        const orData = await orRes.json().catch(() => ({}));
+        if (orRes.ok && orData.choices && orData.choices[0]?.message?.content) {
+          const text = orData.choices[0].message.content;
+          return { success: true, text, metadata: { provider: `openrouter/${orData.model || model}`, tier: 2 } };
+        }
+      } catch (e) {
+        log(`Direct OpenRouter model ${model} failed:`, e.message);
+      }
     }
   }
 

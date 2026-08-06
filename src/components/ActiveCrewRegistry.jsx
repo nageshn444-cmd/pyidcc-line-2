@@ -2273,7 +2273,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                     />
                   </div>
                   <div className="flex items-center gap-2 pt-6">
-                    <input id="activecrewregistry-i40" name="activecrewregistry-i40"
+                    <input name="activecrewregistry-i40"
                       type="checkbox"
                       id="form-operational"
                       disabled={isFieldDisabled('operationalCrew')}
@@ -2320,7 +2320,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                     />
                   </div>
                   <div className="flex items-center gap-2 pt-4">
-                    <input id="activecrewregistry-i43" name="activecrewregistry-i43"
+                    <input name="activecrewregistry-i43"
                       type="checkbox"
                       id="form-active-user"
                       disabled={isFieldDisabled('activeUser')}
@@ -2333,7 +2333,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                     </label>
                   </div>
                   <div className="flex items-center gap-2 pt-4">
-                    <input id="activecrewregistry-i44" name="activecrewregistry-i44"
+                    <input name="activecrewregistry-i44"
                       type="checkbox"
                       id="form-system-user"
                       disabled={isFieldDisabled('systemUser')}

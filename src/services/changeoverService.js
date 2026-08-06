@@ -381,3 +381,33 @@ export const triggerChangeover = async (currentDay, nextDay) => {
 
   return `ACTIVE_RUN (${currentDay} ➔ ${nextDay}) — ${Object.keys(coTable).length} night duties merged`;
 };
+
+export const revertToNormalRoster = async () => {
+  // Delete all ACTIVE_RUN duties
+  const activeSnap = await getDocs(
+    query(collection(db, 'crew_final_links'), where('scheduleType', '==', 'ACTIVE_RUN'))
+  );
+  const deleteBatch = writeBatch(db);
+  activeSnap.docs.forEach(d => deleteBatch.delete(d.ref));
+  await deleteBatch.commit();
+
+  // Reset active_roster_config
+  await setDoc(
+    doc(db, 'system_settings', 'active_roster_config'),
+    {
+      activeDayType:  'WEEKDAY',
+      currentDay:     'WEEKDAY',
+      nextDay:        'SATURDAY',
+      lastRevert:     serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  await addDoc(collection(db, 'auditLogs'), {
+    action:      'REVERT_CHANGEOVER',
+    timestamp:   serverTimestamp(),
+    performedBy: 'System Admin',
+  });
+
+  return "Roster successfully reverted back to standard timetable schedule.";
+};

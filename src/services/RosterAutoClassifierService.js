@@ -225,13 +225,36 @@ export const rosterAutoClassifierService = {
     const dateStr = classifiedData.dateStr || new Date().toISOString().split('T')[0];
     const dayType = classifiedData.dayType || 'WEEKDAY';
 
-    await setDoc(doc(db, 'dispatch_excel_cache', dateStr), {
+    const consoleSnapshot = {
       date: dateStr,
       dayType,
       sheetName: classifiedData.sheetName || 'Roster Sheet',
-      ...classifiedData,
+      controlDesks: classifiedData.controlDesks || [],
+      leaves: classifiedData.leaves || [],
+      standbys: classifiedData.standbys || [],
+      outstationStepbacks: classifiedData.outstationStepbacks || [],
+      crtTraining: classifiedData.crtTraining || [],
+      bmrtiTraining: classifiedData.bmrtiTraining || [],
+      weeklyOffs: classifiedData.weeklyOffs || [],
+      relievedOperators: classifiedData.relievedOperators || [],
+      pmeOperators: classifiedData.pmeOperators || [],
+      routeLearning: classifiedData.routeLearning || [],
+      isExplicitlyCleared: false,
       updatedAt: serverTimestamp()
-    }, { merge: true });
+    };
+
+    await setDoc(doc(db, 'dispatch_excel_cache', dateStr), consoleSnapshot, { merge: true });
+    await setDoc(doc(db, 'dispatch_excel_cache', 'current'), consoleSnapshot, { merge: true });
+    await setDoc(doc(db, 'roster_desk_console', 'current'), consoleSnapshot, { merge: true });
+    await setDoc(doc(db, 'roster_desk_console', 'latest'), consoleSnapshot, { merge: true });
+
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('pyidcc_roster_desk_console_cache', JSON.stringify(consoleSnapshot));
+      }
+    } catch (e) {
+      console.warn("LocalStorage cache error:", e);
+    }
 
     for (const d of (classifiedData.duties || [])) {
       if (!d.dutyId) continue;

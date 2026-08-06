@@ -137,9 +137,13 @@ export const PRELOADED_DUTIES = [
         timeFrm: "13:05:00",
         timeTo: "13:39:00",
         tripTime: "00:34:00",
-        takeoverLocation: "PYID",
-        handoverLocation: "PYID",
-        breakTime: ""
+        takeoverLocation: "PYID UP",
+        handoverLocation: "PYID DN",
+        breakTime: "",
+        segments: [
+          { fromStationCode: "PYID UP", toStationCode: "BIET_BE", calculatedKms: 6.54 },
+          { fromStationCode: "BIET_BE", toStationCode: "PYID DN", calculatedKms: 6.54 }
+        ]
       }
     ]
   },

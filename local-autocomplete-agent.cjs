@@ -76,7 +76,7 @@ async function callGeminiAPI(messages, promptText) {
 
   const geminiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
-  log("TIER1_GEMINI", "Attempting request via Gemini API...");
+  log("TIER1_GEMINI", "Attempting request via Gemini API (gemini-2.0-flash)...");
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 12000);
@@ -91,17 +91,19 @@ async function callGeminiAPI(messages, promptText) {
 
     clearTimeout(timeoutId);
 
-    if (res.status === 429 || res.status === 403) {
-      const errBody = await res.text();
-      throw new Error(`Gemini Token/Quota Exhausted (HTTP ${res.status}): ${errBody.slice(0, 150)}`);
+    const data = await res.json().catch(() => ({}));
+
+    if (res.status === 429 || res.status === 403 || data.error?.code === 429 || data.error?.status === 'RESOURCE_EXHAUSTED') {
+      const errMsg = data.error?.message || 'Quota/Token limit exceeded';
+      log("TIER1_EXHAUSTED", `Gemini API Token Quota Exhausted: ${errMsg.slice(0, 100)}`);
+      throw new Error(`Gemini Token/Quota Exhausted: ${errMsg.slice(0, 100)}`);
     }
 
-    if (!res.ok) {
-      const errBody = await res.text();
-      throw new Error(`Gemini HTTP Error ${res.status}: ${errBody.slice(0, 150)}`);
+    if (!res.ok || data.error) {
+      const errMsg = data.error?.message || res.statusText || 'HTTP Error';
+      throw new Error(`Gemini HTTP Error ${res.status}: ${errMsg.slice(0, 100)}`);
     }
 
-    const data = await res.json();
     if (data.candidates && data.candidates[0] && data.candidates[0].content) {
       let text = data.candidates[0].content.parts.map(p => p.text).join('');
       stats.tier1GeminiSuccesses++;
@@ -113,7 +115,7 @@ async function callGeminiAPI(messages, promptText) {
     }
   } catch (err) {
     clearTimeout(timeoutId);
-    log("TIER1_FAIL", "Gemini API failed:", err.message);
+    log("TIER1_FAIL", "Gemini API failed/exhausted:", err.message);
     stats.lastFallbackReason = err.message;
     throw err;
   }
@@ -121,22 +123,27 @@ async function callGeminiAPI(messages, promptText) {
 
 // --- Tier 2: OpenRouter Free Models Auto-Switch ---
 async function fetchOpenRouterFreeModels() {
+  const fallbackList = [
+    "openrouter/free",
+    "google/gemma-4-31b-it:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "cohere/north-mini-code:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "inclusionai/ling-3.0-flash:free",
+    "poolside/laguna-s-2.1:free"
+  ];
   try {
     const res = await fetch('https://openrouter.ai/api/v1/models');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    const freeModels = data.data
-      .filter(m => parseFloat(m.pricing?.prompt || 0) === 0 && parseFloat(m.pricing?.completion || 0) === 0)
+    const fetchedFree = data.data
+      .filter(m => m.id.includes(':free') || (parseFloat(m.pricing?.prompt || '1') === 0 && parseFloat(m.pricing?.completion || '1') === 0))
       .map(m => m.id);
-    return freeModels.length > 0 ? freeModels : ["google/gemma-4-31b-it:free", "openrouter/free"];
+
+    const combined = ["openrouter/free", ...fetchedFree, ...fallbackList];
+    return Array.from(new Set(combined));
   } catch (e) {
-    return [
-      "google/gemma-4-31b-it:free",
-      "google/gemma-4-26b-a4b-it:free",
-      "cohere/north-mini-code:free",
-      "nvidia/nemotron-3-super-120b-a12b:free",
-      "openrouter/free"
-    ];
+    return fallbackList;
   }
 }
 
@@ -152,7 +159,7 @@ async function callOpenRouterAPI(messages, promptText) {
 
   const payloadMessages = messages ? messages : [{ role: 'user', content: promptText }];
 
-  for (let i = 0; i < Math.min(freeModels.length, 6); i++) {
+  for (let i = 0; i < Math.min(freeModels.length, 8); i++) {
     const model = freeModels[i];
     log("TIER2_AUTO_SWITCH", `[${i + 1}/${freeModels.length}] Trying OpenRouter Model: ${model}`);
 
@@ -177,24 +184,26 @@ async function callOpenRouterAPI(messages, promptText) {
 
       clearTimeout(timeoutId);
 
+      const data = await res.json().catch(() => ({}));
+
       if (res.status === 429) {
         log("TIER2_RATE_LIMIT", `Model ${model} rate limited (429). Auto-switching to next free model...`);
         continue;
       }
 
-      if (!res.ok) {
-        const errTxt = await res.text();
-        log("TIER2_ERR", `Model ${model} returned HTTP ${res.status}: ${errTxt.slice(0, 80)}. Auto-switching...`);
+      if (!res.ok || data.error) {
+        const errMsg = data.error?.message || res.statusText || 'Unknown error';
+        log("TIER2_ERR", `Model ${model} returned HTTP ${res.status}: ${errMsg.slice(0, 100)}. Auto-switching...`);
         continue;
       }
 
-      const data = await res.json();
       if (data.choices && data.choices[0] && data.choices[0].message) {
         const text = data.choices[0].message.content;
+        const actualModel = data.model || model;
         stats.tier2OpenRouterSuccesses++;
-        stats.activeTier = `Tier 2 (OpenRouter Free: ${model})`;
-        log("TIER2_SUCCESS", `Completed via OpenRouter Free Model: ${model}`);
-        return { text, provider: `openrouter/${model}`, tier: 2 };
+        stats.activeTier = `Tier 2 (OpenRouter Free: ${actualModel})`;
+        log("TIER2_SUCCESS", `Completed via OpenRouter Free Model: ${actualModel}`);
+        return { text, provider: `openrouter/${actualModel}`, tier: 2 };
       }
     } catch (err) {
       clearTimeout(timeoutId);
@@ -458,3 +467,5 @@ server.listen(PORT, () => {
   log("SERVER_INFO", "Auto-Switch Cascade: Tier 1 (Gemini 2.0) -> Tier 2 (OpenRouter Free Models) -> Tier 3 (Local Ollama Multi-Models)");
   log("SERVER_INFO", "Zero Cost Policy: 100% Free Tier Guaranteed ($0.00)");
 });
+
+module.exports = { executeWithCascade, server, stats };

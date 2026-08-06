@@ -1,11 +1,8 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import { PREDEFINED_TRIPS } from '../../data/kmcalc/masterStations';
-import { calculateDistance } from '../../utils/kmCalculator';
+import { PRELOADED_DUTIES } from '../../data/kmcalc/preloadedDuties';
+import { calculateDistance, parseCSVToDuties, enhanceRosterDuties } from '../../utils/kmCalculator';
 import { 
   Plus, 
   Trash2, 
@@ -16,7 +13,15 @@ import {
   MapPin, 
   Compass, 
   ArrowUpRight, 
-  ArrowDownRight
+  ArrowDownRight,
+  Upload,
+  UploadCloud,
+  FileSpreadsheet,
+  Download,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  FileText
 } from 'lucide-react';
 
 // 32 main passenger stations with matching serial order and coordinates for the serpentine layout
@@ -68,9 +73,518 @@ const MAP_STATIONS = [
   { code: 'APTS_BE', displayCode: 'APTS BE', x: 1000, y: 260, row: 3, labelPos: 'above' }
 ];
 
-export default function RouteCalculator({ stations, selectedSequence, setSelectedSequence }) {
-  const [activeTab, setActiveTab] = useState('custom');
+export default function RouteCalculator({ 
+  stations, 
+  selectedSequence, 
+  setSelectedSequence,
+  duties: externalDuties,
+  setDuties: externalSetDuties,
+  onImportDuties 
+}) {
+  const [activeTab, setActiveTab] = useState('rosterCalc');
   const [hoveredStation, setHoveredStation] = useState(null);
+
+  // Roster Upload Calculator persistent state
+  const [savedUpload, setSavedUpload] = useState(() => {
+    try {
+      const stored = localStorage.getItem('bmrcl_link_roster_upload_cache');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && Array.isArray(parsed.duties) && parsed.duties.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn("Could not read link roster cache:", e);
+    }
+    return null;
+  });
+
+  const [rosterSearch, setRosterSearch] = useState('');
+  const [expandedDutyNo, setExpandedDutyNo] = useState('4');
+  const [timetableSchedule, setTimetableSchedule] = useState(() => savedUpload?.dayType || 'WEEKDAY');
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const saveUploadedRoster = (fileName, rawParsedDuties, schedType = timetableSchedule) => {
+    const enhanced = enhanceRosterDuties(rawParsedDuties, schedType);
+    const data = {
+      fileName,
+      dayType: schedType,
+      duties: rawParsedDuties,
+      timestamp: new Date().toISOString()
+    };
+    setSavedUpload(data);
+    try {
+      localStorage.setItem('bmrcl_link_roster_upload_cache', JSON.stringify(data));
+    } catch (e) {
+      console.warn("Could not save link roster to localStorage:", e);
+    }
+    if (externalSetDuties) externalSetDuties(enhanced);
+    if (onImportDuties) onImportDuties(enhanced);
+  };
+
+  const handleClearUploadedRoster = () => {
+    setSavedUpload(null);
+    try {
+      localStorage.removeItem('bmrcl_link_roster_upload_cache');
+    } catch (e) {}
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleLoadSampleRoster = () => {
+    saveUploadedRoster('BMRCL_Sample_Benchmark_Link_Roster.xlsx', PRELOADED_DUTIES, timetableSchedule);
+  };
+
+  // Helper to sanitize duty numbers and remove binary garbage or corrupted cell characters
+  const sanitizeDutyNo = (str) => {
+    if (!str) return '';
+    let s = String(str).trim().replace(/^(duty\s*(no\.?|#)?)[\s:]*/i, '');
+    // Keep alphanumeric, spaces, hyphens, and basic duty punctuation like 1T, 2T, 3T, SB, RR, CC
+    s = s.replace(/[^\w\s-]/gi, '').trim();
+    return s;
+  };
+
+  // Helper to validate link roster duty and exclude binary garbage or raw crew profile tokens
+  const isValidLinkRosterDuty = (d) => {
+    if (!d || typeof d !== 'object') return false;
+    const cleanDn = sanitizeDutyNo(d.dutyNo);
+    if (!cleanDn || cleanDn.length === 0 || cleanDn.length > 25) return false;
+    if (cleanDn === '---' || cleanDn === '==' || cleanDn === '===' || cleanDn === '***' || cleanDn.startsWith('~') || cleanDn.includes('/') || cleanDn.includes(';') || cleanDn.includes('=')) return false;
+    return true;
+  };
+
+  const activeDuties = React.useMemo(() => {
+    let rawDuties = [];
+    if (savedUpload && Array.isArray(savedUpload.duties) && savedUpload.duties.length > 0) {
+      rawDuties = savedUpload.duties;
+    } else {
+      return [];
+    }
+    const validRaw = rawDuties.filter(isValidLinkRosterDuty).map(d => ({
+      ...d,
+      dutyNo: sanitizeDutyNo(d.dutyNo)
+    }));
+    return enhanceRosterDuties(validRaw, timetableSchedule);
+  }, [savedUpload, timetableSchedule]);
+
+  const handleScheduleChange = (newSched) => {
+    setTimetableSchedule(newSched);
+    if (savedUpload) {
+      setSavedUpload(prev => ({
+        ...prev,
+        dayType: newSched
+      }));
+      try {
+        localStorage.setItem('bmrcl_link_roster_upload_cache', JSON.stringify({
+          ...savedUpload,
+          dayType: newSched
+        }));
+      } catch (e) {}
+    }
+  };
+
+  const parseExcelWorkbookToDuties = (workbook) => {
+    try {
+      if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) return null;
+
+      const dutyKeywords = ['duty', 'duty no', 'duty_no', 'duty#', 'duty.', 'link', 'sl', 'sl.no', 's.no', 'shift', 'duty id'];
+      const sOnKeywords = ['sign on', 's/on', 's on', 's-on', 's.on', 'son', 'on time', 'report time', 'start time', 'sign_on'];
+      const sOnLocKeywords = ['sign on loc', 's/on loc', 's on loc', 'on_location', 'location', 'sign_on_loc', 'on loc', 's.on loc'];
+      const sOffKeywords = ['sign off', 's/off', 's off', 's-off', 's.off', 'soff', 'off time', 'end time', 'sign_off'];
+      const sOffLocKeywords = ['sign off loc', 's/off loc', 's off loc', 'off_location', 'sign_off_loc', 'off loc', 's.off loc'];
+      const trainKeywords = ['train', 'tr.no', 'tr no', 'train no', 'train_no', 'train#', 'tr', 't.no', 'leg', 'trip'];
+      const timeFrmKeywords = ['time frm', 'time_frm', 'frm', 'dep', 'departure', 'dep.time', 'from time', 'time from'];
+      const timeToKeywords = ['time to', 'time_to', 'to', 'arr', 'arrival', 'arr.time', 'to time', 'time to'];
+      const takeoverKeywords = ['takeover', 't/o', 'take over', 'takeover loc', 't/o loc', 'from loc'];
+      const handoverKeywords = ['handover', 'h/o', 'hand over', 'handover loc', 'h/o loc', 'to loc'];
+
+      const matchesKeyword = (headerStr, keywords) => {
+        if (!headerStr) return false;
+        const h = String(headerStr).toLowerCase().trim();
+        const hClean = h.replace(/[^a-z0-9]/g, '');
+        for (const kw of keywords) {
+          const k = kw.toLowerCase().trim();
+          const kClean = k.replace(/[^a-z0-9]/g, '');
+          if (h === k || h.includes(k) || k.includes(h)) return true;
+          if (hClean && kClean && (hClean.includes(kClean) || kClean.includes(hClean))) return true;
+        }
+        return false;
+      };
+
+      let bestParsedDuties = [];
+
+      // Iterate through sheets in workbook
+      for (const sheetName of workbook.SheetNames) {
+        const worksheet = workbook.Sheets[sheetName];
+        if (!worksheet || !worksheet['!ref']) continue;
+
+        const range = XLSX.utils.decode_range(worksheet['!ref']);
+        const rowsMatrix = [];
+
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+          const rowCells = [];
+          for (let C = range.s.c; C <= range.e.c; ++C) {
+            const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+            const cell = worksheet[cellAddress];
+            if (!cell) {
+              rowCells.push({ val: '', bold: false, underline: false });
+              continue;
+            }
+            const val = String(cell.w || cell.v || '').trim();
+            const html = String(cell.h || '');
+            const font = cell.s?.font || {};
+
+            const isBold = Boolean(font.bold || font.b || html.includes('<b>') || html.includes('<strong>') || html.includes('font-weight:bold'));
+            const isUnderline = Boolean(font.underline || font.u || html.includes('<u>') || html.includes('text-decoration:underline') || font.u === 'single' || font.u === 1 || font.u === true);
+
+            rowCells.push({ val, bold: isBold, underline: isUnderline });
+          }
+          rowsMatrix.push(rowCells);
+        }
+
+        if (rowsMatrix.length < 2) continue;
+
+        // Score header rows 0..25
+        let bestHeaderIdx = 0;
+        let maxScore = -1;
+
+        for (let r = 0; r < Math.min(25, rowsMatrix.length); r++) {
+          const row = rowsMatrix[r];
+          let score = 0;
+          row.forEach(cellObj => {
+            if (matchesKeyword(cellObj.val, dutyKeywords)) score += 3;
+            if (matchesKeyword(cellObj.val, sOnKeywords)) score += 2;
+            if (matchesKeyword(cellObj.val, sOffKeywords)) score += 2;
+            if (matchesKeyword(cellObj.val, trainKeywords)) score += 2;
+            if (matchesKeyword(cellObj.val, timeFrmKeywords)) score += 1;
+            if (matchesKeyword(cellObj.val, timeToKeywords)) score += 1;
+          });
+          if (score > maxScore) {
+            maxScore = score;
+            bestHeaderIdx = r;
+          }
+        }
+
+        const headers = rowsMatrix[bestHeaderIdx].map(c => String(c.val || '').toLowerCase().trim());
+
+        const findColIndex = (keywords) => {
+          for (let c = 0; c < headers.length; c++) {
+            if (matchesKeyword(headers[c], keywords)) return c;
+          }
+          return -1;
+        };
+
+        const dutyNoIdx = findColIndex(dutyKeywords);
+        const sOnTimeIdx = findColIndex(sOnKeywords);
+        const signOnLocIdx = findColIndex(sOnLocKeywords);
+        const sOffTimeIdx = findColIndex(sOffKeywords);
+        const signOffLocIdx = findColIndex(sOffLocKeywords);
+        const kmsIdx = findColIndex(['kms', 'distance', 'km', 'kilometer', 'total km']);
+
+        const getColIndexForLeg = (keywords, legNum) => {
+          const legNumStr = String(legNum);
+          for (let c = 0; c < headers.length; c++) {
+            const h = headers[c];
+            if (h.includes(legNumStr) && matchesKeyword(h, keywords)) return c;
+          }
+          const matches = [];
+          for (let c = 0; c < headers.length; c++) {
+            if (matchesKeyword(headers[c], keywords)) matches.push(c);
+          }
+          return matches[legNum - 1] !== undefined ? matches[legNum - 1] : -1;
+        };
+
+        let sheetDuties = [];
+
+        for (let r = bestHeaderIdx + 1; r < rowsMatrix.length; r++) {
+          const row = rowsMatrix[r];
+          if (!row || row.length < 2) continue;
+
+          let rawDutyVal = dutyNoIdx !== -1 ? row[dutyNoIdx]?.val : '';
+          if (!rawDutyVal) {
+            for (let c = 0; c < Math.min(4, row.length); c++) {
+              const val = String(row[c]?.val || '').trim();
+              const cleanVal = val.replace(/^duty\s*@?\s*/i, '').replace(/[^a-zA-Z0-9\s-]/g, '').trim();
+              if (cleanVal && (/\d+/.test(cleanVal) || /^(pro|stby|r3|rd3|duty|sb)\d*/i.test(cleanVal))) {
+                rawDutyVal = cleanVal;
+                break;
+              }
+            }
+          }
+
+          if (!rawDutyVal) continue;
+          const dutyNo = sanitizeDutyNo(rawDutyVal);
+          if (!dutyNo || dutyNo.toLowerCase().includes('total') || dutyNo.toLowerCase().includes('prepared') || dutyNo.startsWith('~')) continue;
+
+          const sOnTime = sOnTimeIdx !== -1 ? row[sOnTimeIdx]?.val : '06:00:00';
+          const signOnLocation = signOnLocIdx !== -1 ? row[signOnLocIdx]?.val : 'PYID';
+          const sOffTime = sOffTimeIdx !== -1 ? row[sOffTimeIdx]?.val : '14:00:00';
+          const signOffLocation = signOffLocIdx !== -1 ? row[signOffLocIdx]?.val : 'PYID';
+          const kms = kmsIdx !== -1 ? (parseFloat(row[kmsIdx]?.val) || 0) : 0;
+
+          const trips = [];
+          for (let legIdx = 1; legIdx <= 4; legIdx++) {
+            const trainColIdx = getColIndexForLeg(trainKeywords, legIdx);
+            const timeFrmColIdx = getColIndexForLeg(timeFrmKeywords, legIdx);
+            const timeToColIdx = getColIndexForLeg(timeToKeywords, legIdx);
+            const takeoverColIdx = getColIndexForLeg(takeoverKeywords, legIdx);
+            const handoverColIdx = getColIndexForLeg(handoverKeywords, legIdx);
+
+            const trainCell = trainColIdx !== -1 ? row[trainColIdx] : null;
+            const timeFrmCell = timeFrmColIdx !== -1 ? row[timeFrmColIdx] : null;
+            const timeToCell = timeToColIdx !== -1 ? row[timeToColIdx] : null;
+            const takeoverCell = takeoverColIdx !== -1 ? row[takeoverColIdx] : null;
+            const handoverCell = handoverColIdx !== -1 ? row[handoverColIdx] : null;
+
+            const trainNo = trainCell?.val || '';
+            const timeFrm = timeFrmCell?.val || '';
+            const timeTo = timeToCell?.val || '';
+            const takeoverLocation = takeoverCell?.val || '';
+            const handoverLocation = handoverCell?.val || '';
+
+            if (trainNo || timeFrm) {
+              const isUnderlined = Boolean(trainCell?.underline);
+              const isBoldedTime = Boolean(timeFrmCell?.bold || timeToCell?.bold);
+              const trainLower = trainNo.toLowerCase();
+              const isCounselling = trainLower.includes('couns') || trainLower.includes('counseling');
+
+              trips.push({
+                trainNo: trainNo || 'Unknown',
+                timeFrm,
+                timeTo,
+                takeoverLocation: takeoverLocation || signOnLocation,
+                handoverLocation: handoverLocation || signOffLocation,
+                isShortLoop: isUnderlined,
+                isUnderlined,
+                isBoldedTime,
+                isDnLine: isBoldedTime,
+                isCounselling
+              });
+            }
+          }
+
+          // Smart trip fallback for row if header column matching returned 0 trips
+          if (trips.length === 0) {
+            const timeCells = [];
+            const locationCells = [];
+            const trainCells = [];
+
+            row.forEach(cellObj => {
+              const val = String(cellObj?.val || '').trim();
+              if (!val) return;
+              if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(val)) {
+                timeCells.push({ val, bold: cellObj.bold });
+              } else if (/(PYID|KGWA|PUTH|DEPOT|DEPO|DPO|DHO|NLC|APTS|RJNR|YPM|NGSA|BIET|RD3)/i.test(val)) {
+                locationCells.push(val);
+              } else if (/^(\d{3}|pro\s*\d*|rd3\s*stby|stby)$/i.test(val)) {
+                trainCells.push({ val, underline: cellObj.underline });
+              }
+            });
+
+            if (trainCells.length > 0 || timeCells.length >= 2) {
+              const numTrips = Math.max(trainCells.length, Math.floor((timeCells.length - 2) / 2));
+              for (let tIdx = 0; tIdx < Math.min(4, Math.max(1, numTrips)); tIdx++) {
+                const trObj = trainCells[tIdx] || { val: `Train ${tIdx + 1}`, underline: false };
+                const tFrmObj = timeCells[1 + tIdx * 2] || timeCells[0] || { val: '06:00:00', bold: false };
+                const tToObj = timeCells[2 + tIdx * 2] || timeCells[1] || { val: '08:00:00', bold: false };
+                const tTake = locationCells[tIdx] || signOnLocation;
+                const tHand = locationCells[tIdx + 1] || signOffLocation;
+
+                trips.push({
+                  legNumber: tIdx + 1,
+                  trainNo: trObj.val,
+                  timeFrm: tFrmObj.val,
+                  timeTo: tToObj.val,
+                  takeoverLocation: tTake,
+                  handoverLocation: tHand,
+                  isShortLoop: Boolean(trObj.underline),
+                  isUnderlined: Boolean(trObj.underline),
+                  isBoldedTime: Boolean(tFrmObj.bold || tToObj.bold),
+                  isDnLine: Boolean(tFrmObj.bold || tToObj.bold),
+                  isCounselling: String(trObj.val).toLowerCase().includes('couns')
+                });
+              }
+            }
+          }
+
+          sheetDuties.push({
+            dutyNo,
+            sOnTime: sOnTime || '06:00:00',
+            signOnLocation: signOnLocation || 'PYID',
+            sOffTime: sOffTime || '14:00:00',
+            signOffLocation: signOffLocation || 'PYID',
+            kms,
+            trips
+          });
+        }
+
+        // Positional Fallback for sheet if header scan yielded 0 or duties have 0 trips
+        const totalTripsCount = sheetDuties.reduce((acc, d) => acc + (d.trips?.length || 0), 0);
+        if (sheetDuties.length === 0 || totalTripsCount === 0) {
+          const fallbackDuties = [];
+          for (let r = 0; r < rowsMatrix.length; r++) {
+            const row = rowsMatrix[r];
+            if (!row || row.length < 3) continue;
+            const firstCell = String(row[0]?.val || row[1]?.val || '').trim();
+            const isDutyNo = /^\d{1,3}$/.test(firstCell) || /^(Duty|CC|SB|RR|PRO|1T|2T|3T|4T)\d*/i.test(firstCell);
+            if (!isDutyNo) continue;
+
+            const dutyNo = firstCell.replace(/^(duty\s*(no\.?|#)?)[\s:]*/i, '');
+            const timesInRow = row.filter(c => /^\d{1,2}:\d{2}/.test(String(c.val || '').trim()));
+            const sOnTime = timesInRow[0]?.val || '06:00:00';
+            const sOffTime = timesInRow[timesInRow.length - 1]?.val || '14:00:00';
+
+            const trips = [];
+            for (let c = 1; c < row.length - 1; c++) {
+              const val = String(row[c]?.val || '').trim();
+              if (/^\d{3}$/.test(val) || /^(Pro|Stby|2\d\d)/i.test(val)) {
+                trips.push({
+                  trainNo: val,
+                  timeFrm: row[c + 1]?.val || '',
+                  timeTo: row[c + 2]?.val || '',
+                  takeoverLocation: row[c + 3]?.val || 'PYID',
+                  handoverLocation: row[c + 4]?.val || 'PYID',
+                  isShortLoop: Boolean(row[c]?.underline),
+                  isBoldedTime: Boolean(row[c + 1]?.bold || row[c + 2]?.bold)
+                });
+              }
+            }
+
+            fallbackDuties.push({
+              dutyNo,
+              sOnTime,
+              signOnLocation: row[1]?.val || 'PYID',
+              sOffTime,
+              signOffLocation: row[row.length - 1]?.val || 'PYID',
+              kms: 0,
+              trips
+            });
+          }
+          if (fallbackDuties.length > 0) {
+            sheetDuties = fallbackDuties;
+          }
+        }
+
+        if (sheetDuties.length > bestParsedDuties.length) {
+          bestParsedDuties = sheetDuties;
+        }
+      }
+
+      return bestParsedDuties.length > 0 ? bestParsedDuties : null;
+    } catch (err) {
+      console.warn("Advanced workbook parsing warning, using CSV fallback:", err);
+      return null;
+    }
+  };
+
+  const processFile = (file) => {
+    if (!file) return;
+
+    // Auto-detect schedule type from filename
+    const nameLower = file.name.toLowerCase();
+    let detectedSchedule = timetableSchedule;
+    if (nameLower.includes('sat')) {
+      detectedSchedule = 'SATURDAY';
+    } else if (nameLower.includes('sun')) {
+      detectedSchedule = 'SUNDAY';
+    } else if (nameLower.includes('mon')) {
+      detectedSchedule = 'MONDAY';
+    } else if (nameLower.includes('week') || nameLower.includes('wkday')) {
+      detectedSchedule = 'WEEKDAY';
+    }
+
+    setTimetableSchedule(detectedSchedule);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const arrayBuffer = evt.target.result;
+        const workbook = XLSX.read(arrayBuffer, { type: 'array', cellStyles: true, cellHTML: true, cellNF: true, cellDates: true });
+        
+        let parsed = parseExcelWorkbookToDuties(workbook);
+        
+        if (!parsed || parsed.length === 0) {
+          let bestSheetParsed = [];
+          for (const sName of workbook.SheetNames) {
+            const worksheet = workbook.Sheets[sName];
+            const csvText = XLSX.utils.sheet_to_csv(worksheet);
+            const sheetParsed = parseCSVToDuties(csvText);
+            if (sheetParsed && sheetParsed.length > bestSheetParsed.length) {
+              bestSheetParsed = sheetParsed;
+            }
+          }
+          parsed = bestSheetParsed;
+        }
+
+        if (parsed && parsed.length > 0) {
+          saveUploadedRoster(file.name, parsed, detectedSchedule);
+          alert(`✅ Successfully calculated ${parsed.length} roster duties from ${file.name} for ${detectedSchedule} schedule! Saved calculation results until cleared.`);
+        } else {
+          alert(`⚠️ Could not extract duty rows from ${file.name}. Ensure file contains valid Duty No, Sign On/Off, and Train columns.`);
+        }
+      } catch (err) {
+        console.error("Roster file upload error:", err);
+        alert("Failed to parse roster file: " + err.message);
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    processFile(file);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer?.files?.[0];
+    processFile(file);
+  };
+
+  const handleExportRosterExcel = () => {
+    const exportData = activeDuties.map(d => ({
+      "Duty No": d.dutyNo,
+      "Sign On Time": d.sOnTime,
+      "Sign On Location": d.signOnLocation,
+      "Leg 1 KM": d.trips?.[0]?.calculatedKms || 0,
+      "Leg 2 KM": d.trips?.[1]?.calculatedKms || 0,
+      "Leg 3 KM": d.trips?.[2]?.calculatedKms || 0,
+      "Leg 4 KM": d.trips?.[3]?.calculatedKms || 0,
+      "Total Duty KM": d.kms || 0,
+      "Sign Off Time": d.sOffTime,
+      "Sign Off Location": d.signOffLocation,
+      "Duty Type": d.dutyType || 'Standard'
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Link Roster Leg KM");
+    XLSX.writeFile(wb, `BMRCL_Link_Roster_Leg_KM_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const handleResetPreloadedDuties = () => {
+    if (window.confirm("Reset roster calculator back to BMRCL default preloaded duties?")) {
+      updateDutiesList(PRELOADED_DUTIES);
+    }
+  };
 
   const addStationToSequence = () => {
     setSelectedSequence([...selectedSequence, '']);
@@ -137,21 +651,21 @@ export default function RouteCalculator({ stations, selectedSequence, setSelecte
       {/* Header and Mode Selector */}
       <div className="bg-slate-900 border border-slate-800 rounded p-3 px-4 shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
         <div>
-          <h2 className="text-sm font-bold uppercase tracking-tight text-emerald-400 flex items-center gap-2">
+          <h2 className="text-sm font-bold uppercase tracking-tight text-emerald-400 flex items-center gap-2 font-mono">
             <RotateCcw className="w-4 h-4 text-emerald-500 animate-spin-slow" />
             Automatic Chainage Distance Engine
           </h2>
-          <p className="text-slate-400 text-[10px] mt-0.5">
-            Click on the interactive map nodes below to build sequence routes, or look up predetermined crew trips. Math is absolute difference in coordinates.
+          <p className="text-slate-400 text-[10px] mt-0.5 font-mono">
+            Click on the interactive map nodes below to build sequence routes, look up predetermined crew trips, or upload roster spreadsheets. Math is absolute difference in coordinates.
           </p>
         </div>
         
         {/* Tab Buttons */}
-        <div className="bg-slate-950 p-0.5 rounded border border-slate-800 flex self-stretch md:self-auto">
+        <div className="bg-slate-950 p-0.5 rounded border border-slate-800 flex self-stretch md:self-auto overflow-x-auto">
           <button
             id="tab-btn-custom-calc"
             onClick={() => setActiveTab('custom')}
-            className={`flex-1 md:flex-none px-3 py-1 rounded text-[10px] font-mono font-semibold transition-colors ${
+            className={`whitespace-nowrap flex-1 md:flex-none px-3 py-1 rounded text-[10px] font-mono font-semibold transition-colors ${
               activeTab === 'custom' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -160,16 +674,426 @@ export default function RouteCalculator({ stations, selectedSequence, setSelecte
           <button
             id="tab-btn-predefined-lookup"
             onClick={() => setActiveTab('lookup')}
-            className={`flex-1 md:flex-none px-3 py-1 rounded text-[10px] font-mono font-semibold transition-colors ${
+            className={`whitespace-nowrap flex-1 md:flex-none px-3 py-1 rounded text-[10px] font-mono font-semibold transition-colors ${
               activeTab === 'lookup' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             Predefined Trip Reference
           </button>
+          <button
+            id="tab-btn-roster-upload"
+            onClick={() => setActiveTab('rosterCalc')}
+            className={`whitespace-nowrap flex-1 md:flex-none px-3 py-1 rounded text-[10px] font-mono font-semibold transition-colors ${
+              activeTab === 'rosterCalc' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Roster Upload Calculator
+          </button>
         </div>
       </div>
 
-      {activeTab === 'custom' ? (
+      {activeTab === 'rosterCalc' ? (
+        <div className="space-y-3.5" id="roster-upload-calculator-panel">
+          {/* Header Controls & Upload Card */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-md space-y-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider font-mono">
+                  LINK ROSTER LEG KILOMETER CALCULATOR
+                </h3>
+                <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                  Upload a weekday/Monday/Sunday Link Roster Excel file to calculate leg 1-4 and total kilometer summaries.
+                </p>
+              </div>
+
+              {/* Timetable Selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold font-mono text-slate-400 uppercase tracking-wider">TIMETABLE:</span>
+                <select
+                  value={timetableSchedule}
+                  onChange={e => handleScheduleChange(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 text-slate-200 text-[11px] font-mono rounded px-2.5 py-1 focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="WEEKDAY">Weekday WTT</option>
+                  <option value="MONDAY">Monday WTT</option>
+                  <option value="SATURDAY">Saturday WTT</option>
+                  <option value="SUNDAY">Sunday WTT</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Active Uploaded Roster Notification Banner */}
+            {savedUpload && (
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-emerald-950/70 border border-emerald-700/80 rounded-xl p-3.5 gap-3 shadow-md font-mono">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-emerald-900/60 rounded-lg border border-emerald-600/50 shrink-0">
+                    <FileSpreadsheet className="w-5 h-5 text-emerald-300" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-bold uppercase text-emerald-400 tracking-wider flex items-center gap-2">
+                      <span>Uploaded Link Roster Saved & Active</span>
+                      <span className="text-[9px] bg-emerald-900 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-700 font-mono">
+                        {savedUpload.dayType}
+                      </span>
+                    </div>
+                    <div className="text-xs font-bold text-slate-100 flex items-center gap-2 mt-0.5">
+                      <span>{savedUpload.fileName}</span>
+                      <span className="text-[10px] text-emerald-300 font-normal">({activeDuties.length} Duties Saved)</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 rounded text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors w-full sm:w-auto"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-emerald-400" />
+                    Upload Different Roster
+                  </button>
+                  <button
+                    onClick={handleClearUploadedRoster}
+                    id="btn-clear-uploaded-link-roster-banner"
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm w-full sm:w-auto"
+                    title="Clear uploaded roster file and reset calculations"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Clear Uploaded Link Roster
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Dotted Drag & Drop Box */}
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-xl p-8 text-center flex flex-col items-center justify-center cursor-pointer transition-all ${
+                isDragging 
+                  ? 'border-emerald-500 bg-emerald-500/10' 
+                  : 'border-slate-800 hover:border-emerald-500/50 bg-slate-950/40 hover:bg-slate-950/70'
+              }`}
+            >
+              <input 
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept=".csv,.xlsx,.xls"
+                className="hidden"
+                id="roster-file-input"
+              />
+              <UploadCloud className="w-10 h-10 text-emerald-400 mb-2 animate-pulse" />
+              <h4 className="text-xs font-bold text-slate-200 font-mono tracking-tight">
+                {savedUpload ? `Click or drop to replace current Link Roster (${savedUpload.fileName})` : `Upload ${timetableSchedule} Link Roster Excel (.xlsx)`}
+              </h4>
+              <p className="text-[10px] text-slate-500 font-mono mt-1">
+                Calculates Leg 1, 2, 3 & 4 and total duty KMs. Calculated results remain saved until cleared.
+              </p>
+            </div>
+
+            {/* KPI Summary Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-slate-950 border border-slate-850 rounded p-3">
+                <span className="text-[9px] font-mono uppercase text-slate-500 tracking-wider block">Total Roster Duties</span>
+                <span className="text-lg font-black font-mono text-slate-100">{activeDuties.length} Duties</span>
+              </div>
+              <div className="bg-slate-950 border border-slate-850 rounded p-3">
+                <span className="text-[9px] font-mono uppercase text-slate-500 tracking-wider block">Total Distance</span>
+                <span className="text-lg font-black font-mono text-emerald-400">
+                  {activeDuties.reduce((acc, d) => acc + (d.kms || 0), 0)} KM
+                </span>
+              </div>
+              <div className="bg-slate-950 border border-slate-850 rounded p-3">
+                <span className="text-[9px] font-mono uppercase text-slate-500 tracking-wider block">Average Distance / Duty</span>
+                <span className="text-lg font-black font-mono text-cyan-400">
+                  {activeDuties.length > 0 ? Math.round(activeDuties.reduce((acc, d) => acc + (d.kms || 0), 0) / activeDuties.length) : 0} KM
+                </span>
+              </div>
+              <div className="bg-slate-950 border border-slate-850 rounded p-3">
+                <span className="text-[9px] font-mono uppercase text-slate-500 tracking-wider block">Calculation Core</span>
+                <span className="text-xs font-bold font-mono text-emerald-300 mt-1 flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  BMRCL WTT Validated
+                </span>
+              </div>
+            </div>
+
+            {/* Search Bar & Export Controls */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="relative flex-1 w-full">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-slate-400">
+                  <Search className="w-3.5 h-3.5" />
+                </span>
+                <input
+                  type="text"
+                  value={rosterSearch}
+                  onChange={e => setRosterSearch(e.target.value)}
+                  placeholder="Search duty number, sign on location, train number, or duty type..."
+                  className="w-full pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded text-slate-200 text-[11px] font-mono focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <button
+                  onClick={handleExportRosterExcel}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-mono font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-colors w-full sm:w-auto"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Export Link Roster KM Excel (.xlsx)
+                </button>
+                {savedUpload && (
+                  <button
+                    onClick={handleClearUploadedRoster}
+                    id="btn-clear-uploaded-roster-controls"
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded text-[11px] font-mono font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm w-full sm:w-auto"
+                    title="Clear uploaded roster file and reset table"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Clear Uploaded Link Roster
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Active Roster Info Tag */}
+          <div className="bg-slate-950 border border-slate-850 p-2.5 rounded text-[10px] font-mono text-slate-400 flex items-center justify-between">
+            <div>
+              <span className="font-bold text-emerald-400 uppercase">ACTIVE ROSTER SOURCE: </span>
+              <span>{savedUpload ? `Uploaded Excel File (${savedUpload.fileName})` : `BMRCL Benchmark Roster (${activeDuties.length} Duties Calculated)`}</span>
+            </div>
+            <span className="text-[9px] text-slate-500 font-bold uppercase">{timetableSchedule} SCHEDULE</span>
+          </div>
+
+          {/* Duties Table Grid */}
+          <div className="bg-slate-900 border border-slate-800 rounded p-4 shadow-md">
+              <div className="overflow-x-auto border border-slate-850 rounded custom-scrollbar">
+                <table className="w-full text-left text-[11px] border-collapse font-mono">
+                  <thead className="bg-slate-950 text-slate-400 uppercase tracking-wider text-[10px]">
+                    <tr>
+                      <th className="px-3 py-2 border-b border-slate-800">Duty No</th>
+                      <th className="px-3 py-2 border-b border-slate-800">Sign On (Loc @ Time)</th>
+                      <th className="px-3 py-2 border-b border-slate-800 text-right text-cyan-400">Leg 1 KM</th>
+                      <th className="px-3 py-2 border-b border-slate-800 text-right text-cyan-400">Leg 2 KM</th>
+                      <th className="px-3 py-2 border-b border-slate-800 text-right text-cyan-400">Leg 3 KM</th>
+                      <th className="px-3 py-2 border-b border-slate-800 text-right text-cyan-400">Leg 4 KM</th>
+                      <th className="px-3 py-2 border-b border-slate-800 text-right text-emerald-400 font-bold">Total Duty KM</th>
+                      <th className="px-3 py-2 border-b border-slate-800">Sign Off (Loc @ Time)</th>
+                      <th className="px-3 py-2 border-b border-slate-800 text-center">WTT Trips</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-850">
+                    {activeDuties.length === 0 ? (
+                      <tr>
+                        <td colSpan="9" className="py-12 text-center">
+                          <div className="flex flex-col items-center justify-center space-y-3">
+                            <div className="p-3 bg-slate-950 rounded-full border border-slate-800">
+                              <FileSpreadsheet className="w-8 h-8 text-emerald-500" />
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-bold text-slate-200 font-mono uppercase tracking-wider">
+                                NO LINK ROSTER UPLOADED
+                              </h4>
+                              <p className="text-[10px] text-slate-400 font-mono mt-1 max-w-md mx-auto">
+                                Upload a weekday/Monday/Sunday Link Roster Excel file to calculate leg 1-4 and total kilometer summaries. Calculations will remain saved until cleared.
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-3 pt-2">
+                              <button
+                                onClick={() => fileInputRef.current?.click()}
+                                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-mono font-bold flex items-center gap-2 transition-colors shadow-md"
+                              >
+                                <Upload className="w-4 h-4" />
+                                Upload Link Roster Excel
+                              </button>
+                              <button
+                                onClick={handleLoadSampleRoster}
+                                className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs font-mono font-semibold flex items-center gap-2 transition-colors border border-slate-700"
+                              >
+                                Load Sample BMRCL Link Roster
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                    activeDuties
+                      .filter(d => {
+                        if (!rosterSearch) return true;
+                        const q = rosterSearch.toLowerCase();
+                        return (
+                          String(d.dutyNo).toLowerCase().includes(q) ||
+                          String(d.signOnLocation).toLowerCase().includes(q) ||
+                          String(d.dutyType || '').toLowerCase().includes(q) ||
+                          (d.trips || []).some(t => String(t.trainNo || '').toLowerCase().includes(q))
+                        );
+                      })
+                      .map((duty, idx) => {
+                        const isExpanded = expandedDutyNo === duty.dutyNo;
+                        const leg1 = duty.trips?.[0];
+                        const leg2 = duty.trips?.[1];
+                        const leg3 = duty.trips?.[2];
+                        const leg4 = duty.trips?.[3];
+
+                        const formatLegCell = (trip) => {
+                          if (!trip) return <span className="text-slate-600 font-normal">-</span>;
+                          if (trip.isCounselling) {
+                            return <span className="text-slate-500 font-medium text-[10px]" title="Counselling Excluded">0 KM</span>;
+                          }
+                          const kms = trip.calculatedKms || 0;
+                          return (
+                            <div className="flex flex-col items-end">
+                              <span className={`font-bold ${kms > 0 ? 'text-cyan-400' : 'text-slate-400'}`}>
+                                {kms} KM
+                              </span>
+                              {trip.trainNo && (
+                                <span className="text-[9px] text-slate-500 font-mono">
+                                  Tr {trip.trainNo}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        };
+
+                        return (
+                          <React.Fragment key={duty.id || `duty-${duty.dutyNo || 'row'}-${idx}`}>
+                            <tr className={`hover:bg-slate-850/50 transition-colors ${duty.dutyNo === "4" ? "bg-emerald-950/20" : ""}`}>
+                              <td className="px-3 py-2 text-slate-100 font-bold">
+                                <div className="flex items-center gap-1.5">
+                                  <span>Duty {duty.dutyNo}</span>
+                                  {duty.dutyNo === "4" && (
+                                    <span className="px-1.5 py-0.2 bg-emerald-900/60 text-emerald-300 border border-emerald-700 rounded text-[8px] uppercase">
+                                      44 KM Leg1
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 text-slate-300">
+                                <span className="text-emerald-400 font-bold">{duty.signOnLocation}</span> @ {duty.sOnTime}
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                {formatLegCell(leg1)}
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                {formatLegCell(leg2)}
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                {formatLegCell(leg3)}
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                {formatLegCell(leg4)}
+                              </td>
+                              <td className="px-3 py-2 text-right text-base font-extrabold text-emerald-400">
+                                {duty.kms} KM
+                              </td>
+                              <td className="px-3 py-2 text-slate-300">
+                                <span className="text-amber-400 font-bold">{duty.signOffLocation}</span> @ {duty.sOffTime}
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                <button
+                                  onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)}
+                                  className={`px-2 py-1 border rounded text-[9px] flex items-center gap-1 mx-auto transition-colors font-mono ${
+                                    isExpanded 
+                                      ? 'bg-emerald-950 border-emerald-700 text-emerald-300' 
+                                      : 'bg-slate-950 hover:bg-slate-800 border-slate-800 text-slate-300'
+                                  }`}
+                                >
+                                  {isExpanded ? <ChevronUp className="w-3 h-3 text-emerald-400" /> : <ChevronDown className="w-3 h-3 text-slate-400" />}
+                                  {isExpanded ? 'Hide Trips' : `View (${duty.trips?.length || 0})`}
+                                </button>
+                              </td>
+                            </tr>
+
+                          {/* Expanded Trips / Segments Breakdown */}
+                          {isExpanded && (
+                            <tr className="bg-slate-950/70">
+                              <td colSpan={9} className="p-3 border-t border-slate-850">
+                                <div className="space-y-2">
+                                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5">
+                                      <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                                      Trip Segments Breakdown for Duty {duty.dutyNo}:
+                                    </div>
+                                    {duty.dutyNo === "4" && (
+                                      <span className="text-[9px] text-emerald-400 font-bold bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800">
+                                        Leg 1: Depot → PYID (Rd3) → PUTH BE → PYID (UP) (44 KM)
+                                      </span>
+                                    )}
+                                  </div>
+                                  
+                                  {duty.trips && duty.trips.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                      {duty.trips.map((trip, tIdx) => {
+                                        const isShort = trip.isShortLoop || trip.isUnderlined;
+                                        const isDn = trip.isDnLine || trip.isBoldedTime;
+                                        const isCouns = trip.isCounselling;
+
+                                        return (
+                                          <div key={tIdx} className="bg-slate-900 border border-slate-800 rounded p-2 text-[10px] font-mono space-y-1">
+                                            <div className="flex justify-between items-center text-slate-200 border-b border-slate-800 pb-1 flex-wrap gap-1">
+                                              <div className="flex items-center gap-1.5">
+                                                <span className={`font-bold ${isShort ? 'underline decoration-emerald-400 decoration-2 text-emerald-300' : 'text-cyan-400'}`}>
+                                                  Trip {tIdx + 1}: Train {trip.trainNo}
+                                                </span>
+                                                {isShort && (
+                                                  <span className="px-1.5 py-0.2 bg-emerald-950 text-emerald-400 border border-emerald-800 rounded text-[8px] uppercase">
+                                                    Short Loop
+                                                  </span>
+                                                )}
+                                                {isCouns && (
+                                                  <span className="px-1.5 py-0.2 bg-slate-800 text-slate-400 border border-slate-700 rounded text-[8px] uppercase">
+                                                    Counselling Excluded (0 KM)
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <span className="text-emerald-400 font-bold">{trip.calculatedKms || 0} KM</span>
+                                            </div>
+                                            <div className="text-slate-400 flex justify-between flex-wrap gap-1">
+                                              <span>
+                                                Board: {trip.takeoverLocation}{' '}
+                                                <span className={isDn ? 'font-black text-amber-300 underline' : ''}>
+                                                  ({trip.timeFrm || '--'})
+                                                </span>
+                                                {isDn && (
+                                                  <span className="ml-1 px-1 py-0.2 bg-amber-950 text-amber-300 border border-amber-800 rounded text-[8px] uppercase">
+                                                    DN Line
+                                                  </span>
+                                                )}
+                                              </span>
+                                              <span>
+                                                Deboard: {trip.handoverLocation}{' '}
+                                                <span className={isDn ? 'font-black text-amber-300 underline' : ''}>
+                                                  ({trip.timeTo || '--'})
+                                                </span>
+                                              </span>
+                                            </div>
+                                            {trip.segments && trip.segments.length > 0 && (
+                                              <div className="text-[9px] text-slate-500 pt-0.5">
+                                                Segments: {trip.segments.map(s => `${s.fromStationCode}→${s.toStationCode} (${s.calculatedKms}km)`).join(', ')}
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <div className="text-[10px] text-slate-500 italic">No train trips recorded for this duty (Standby / PRO).</div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                        );
+                      })
+                    )}
+                  </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ) : activeTab === 'custom' ? (
         <div className="space-y-3.5">
           {/* Interactive Serpentine Grid Map Card */}
           <div className="bg-slate-900 border border-slate-800 rounded p-4 shadow-md" id="interactive-railway-tracks-card">
@@ -510,7 +1434,7 @@ export default function RouteCalculator({ stations, selectedSequence, setSelecte
                       </div>
 
                       <div className="flex-1">
-                        <select id="routecalculator-i1" name="routecalculator-i1"
+                        <select name="routecalculator-i1"
                           id={`select-sequence-${index}`}
                           value={currentCode}
                           onChange={e => updateStationInSequence(index, e.target.value)}

@@ -90,8 +90,8 @@ export default function MasterStationsView({ stations, onUpdateStations }) {
           </h3>
           <form onSubmit={editingStation ? handleEditSave : handleAdd} className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
-              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1" htmlFor="masterstationsview-l1">Station Code (e.g. PYID)</label>
-              <input id="masterstationsview-i1" name="masterstationsview-i1"
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1" htmlFor="input-station-code">Station Code (e.g. PYID)</label>
+              <input name="masterstationsview-i1"
                 id="input-station-code"
                 type="text"
                 required
@@ -106,8 +106,8 @@ export default function MasterStationsView({ stations, onUpdateStations }) {
               />
             </div>
             <div>
-              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1" htmlFor="masterstationsview-l2">Station Name</label>
-              <input id="masterstationsview-i2" name="masterstationsview-i2"
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1" htmlFor="input-station-name">Station Name</label>
+              <input name="masterstationsview-i2"
                 id="input-station-name"
                 type="text"
                 required
@@ -122,8 +122,8 @@ export default function MasterStationsView({ stations, onUpdateStations }) {
               />
             </div>
             <div>
-              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1" htmlFor="masterstationsview-l3">Chainage in KM (e.g. -3.02)</label>
-              <input id="masterstationsview-i3" name="masterstationsview-i3"
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1" htmlFor="input-station-chainage">Chainage in KM (e.g. -3.02)</label>
+              <input name="masterstationsview-i3"
                 id="input-station-chainage"
                 type="number"
                 step="0.001"
@@ -139,8 +139,8 @@ export default function MasterStationsView({ stations, onUpdateStations }) {
               />
             </div>
             <div className="flex flex-col justify-end">
-              <label className="flex items-center gap-2 cursor-pointer py-1 text-[11px] text-slate-300 font-mono" htmlFor="masterstationsview-l4">
-                <input id="masterstationsview-i4" name="masterstationsview-i4"
+              <label className="flex items-center gap-2 cursor-pointer py-1 text-[11px] text-slate-300 font-mono" htmlFor="checkbox-is-buffer">
+                <input name="masterstationsview-i4"
                   id="checkbox-is-buffer"
                   type="checkbox"
                   checked={editingStation ? !!editingStation.isBufferOrSpecial : isBuffer}
@@ -241,7 +241,7 @@ export default function MasterStationsView({ stations, onUpdateStations }) {
               <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-slate-400">
                 <Search className="w-3.5 h-3.5" />
               </span>
-              <input id="masterstationsview-i5" name="masterstationsview-i5"
+              <input name="masterstationsview-i5"
                 id="search-stations"
                 type="text"
                 placeholder="Search station name or code..."

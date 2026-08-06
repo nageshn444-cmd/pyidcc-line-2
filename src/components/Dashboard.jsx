@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as XLSX from 'xlsx';
+import { WTT_MASTER_REGISTRY } from '../data/wttMasterRegistry';
 
 
 
@@ -251,25 +252,27 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
     return hasPermission("User Management", "Full") || userProfile?.role === 'CREW_CONTROLLER';
   };
 
-  const allTabs = [
-    { id: 'DISPATCH', label: 'DISPATCH GATE', module: 'Dashboard', permission: 'View' },
-    { id: 'WTT', label: 'WTT', module: 'Dashboard', permission: 'View' },
-    { id: 'ROSTER', label: 'ROSTER', module: 'Duty Roster', permission: 'Own' },
-    { id: 'CREW', label: 'CREW', module: 'Crew Registry', permission: 'View' },
-    { id: 'REPORTS', label: 'REPORTS', module: 'Reports', permission: 'View' },
-    { id: 'ADMIN', label: 'ADMIN', module: 'Settings', permission: 'Full' },
-    { id: 'EXCHANGE', label: 'SHIFT EXCHANGE', module: 'Shift Exchange', permission: 'Request' },
-    { id: 'RAKE', label: 'RAKE', module: 'Dashboard', permission: 'View' },
-    { id: 'LEAVE', label: 'LEAVE REQUEST', module: 'Dashboard', permission: 'View' },
-    { id: 'MODULES', label: 'MODULES', module: 'Dashboard', permission: 'View' },
-    { id: 'EMERGENCY_RELIEF', label: 'EMERGENCY RELIEF', module: 'Emergency Relief Module', permission: 'View' },
-    { id: 'KM_CALC_SUITE', label: 'KM CALCULATOR SUITE', module: 'Dashboard', permission: 'View' }
-  ];
+  const allowedTabs = React.useMemo(() => {
+    const allTabs = [
+      { id: 'DISPATCH', label: 'DISPATCH GATE', module: 'Dashboard', permission: 'View' },
+      { id: 'WTT', label: 'WTT', module: 'Dashboard', permission: 'View' },
+      { id: 'ROSTER', label: 'ROSTER', module: 'Duty Roster', permission: 'Own' },
+      { id: 'CREW', label: 'CREW', module: 'Crew Registry', permission: 'View' },
+      { id: 'REPORTS', label: 'REPORTS', module: 'Reports', permission: 'View' },
+      { id: 'ADMIN', label: 'ADMIN', module: 'Settings', permission: 'Full' },
+      { id: 'EXCHANGE', label: 'SHIFT EXCHANGE', module: 'Shift Exchange', permission: 'Request' },
+      { id: 'RAKE', label: 'RAKE', module: 'Dashboard', permission: 'View' },
+      { id: 'LEAVE', label: 'LEAVE REQUEST', module: 'Dashboard', permission: 'View' },
+      { id: 'MODULES', label: 'MODULES', module: 'Dashboard', permission: 'View' },
+      { id: 'EMERGENCY_RELIEF', label: 'EMERGENCY RELIEF', module: 'Emergency Relief Module', permission: 'View' },
+      { id: 'KM_CALC_SUITE', label: 'KM CALCULATOR SUITE', module: 'Dashboard', permission: 'View' }
+    ];
 
-  const allowedTabs = allTabs.filter(tab => {
-    if (tab.roleRequired && userProfile?.role !== tab.roleRequired) return false;
-    return hasPermission(tab.module, tab.permission);
-  });
+    return allTabs.filter(tab => {
+      if (tab.roleRequired && userProfile?.role !== tab.roleRequired) return false;
+      return hasPermission(tab.module, tab.permission);
+    });
+  }, [userProfile?.role, hasPermission]);
 
   const [activeTab, setActiveTab] = useState(initialTab);
 
@@ -507,7 +510,23 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
 
   const processAndSyncData = (wttData, linksData, deployData, attData, incData) => {
     try {
-      const dayTrips = wttData.filter(t => String(t.scheduleType || '').toUpperCase() === activeDay);
+      // Build 100% complete working timetable dataset by combining WTT_MASTER_REGISTRY with live Firestore edits
+      const firestoreMap = new Map();
+      (wttData || []).forEach(d => { if (d && d.id) firestoreMap.set(String(d.id), d); });
+
+      const fullDataset = WTT_MASTER_REGISTRY.map(masterRow => {
+        const liveDoc = firestoreMap.get(String(masterRow.id));
+        return liveDoc ? { ...masterRow, ...liveDoc } : masterRow;
+      });
+
+      // Include custom rows added via Firestore
+      (wttData || []).forEach(d => {
+        if (d && d.id && !fullDataset.some(m => String(m.id) === String(d.id))) {
+          fullDataset.push(d);
+        }
+      });
+
+      const dayTrips = fullDataset.filter(t => String(t.scheduleType || '').toUpperCase() === activeDay);
 
       const getTripDirection = (trip) => {
         if (trip.stations) {
@@ -532,61 +551,17 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
         return 'DN';
       };
 
-      // Group all trips by Train ID to assemble strictly sequential routes
-      const tripsByTrain = {};
-      dayTrips.forEach(trip => {
-        const tid = String(trip.trainId).trim();
-        if (!tripsByTrain[tid]) tripsByTrain[tid] = [];
-        const dir = getTripDirection(trip);
-        tripsByTrain[tid].push({
-          trip,
-          direction: dir,
-          time: getEarliestTimeSeconds(dir === 'DN' ? { downTrip: trip } : { upTrip: trip })
-        });
-      });
-
-      let synchronizedPairs = [];
-      Object.keys(tripsByTrain).forEach(tid => {
-        const trips = tripsByTrain[tid].sort((a, b) => a.time - b.time);
-        let currentRow = { id: null, trainId: tid, downTrip: null, upTrip: null };
-
-        trips.forEach(t => {
-          if (t.direction === 'DN') {
-            if (currentRow.downTrip) {
-              synchronizedPairs.push({ ...currentRow });
-              currentRow = { id: t.trip.id, trainId: tid, downTrip: t.trip, upTrip: null };
-            } else {
-              currentRow.id = currentRow.id || t.trip.id;
-              currentRow.downTrip = t.trip;
-            }
-          } else {
-            if (currentRow.upTrip) {
-              synchronizedPairs.push({ ...currentRow });
-              currentRow = { id: t.trip.id, trainId: tid, downTrip: null, upTrip: t.trip };
-            } else if (currentRow.downTrip) {
-              const dnTime = getEarliestTimeSeconds({ downTrip: currentRow.downTrip });
-              if (t.time - dnTime > 4 * 3600) {
-                synchronizedPairs.push({ ...currentRow });
-                currentRow = { id: t.trip.id, trainId: tid, downTrip: null, upTrip: t.trip };
-              } else {
-                currentRow.upTrip = t.trip;
-                synchronizedPairs.push({ ...currentRow });
-                currentRow = { id: null, trainId: tid, downTrip: null, upTrip: null };
-              }
-            } else {
-              currentRow.id = currentRow.id || t.trip.id;
-              currentRow.upTrip = t.trip;
-              synchronizedPairs.push({ ...currentRow });
-              currentRow = { id: null, trainId: tid, downTrip: null, upTrip: null };
-            }
-          }
-        });
-
-        if (currentRow.downTrip || currentRow.upTrip) {
-          synchronizedPairs.push(currentRow);
+      // Deduplicate WTT rows directly by ID to assemble clean, unique chronological matrix rows
+      const rowMap = new Map();
+      dayTrips.forEach(row => {
+        if (!row) return;
+        const rowId = row.id || `${row.trainId}_${row.excelRow || Math.random()}`;
+        if (!rowMap.has(rowId)) {
+          rowMap.set(rowId, row);
         }
       });
 
+      const synchronizedPairs = Array.from(rowMap.values());
       synchronizedPairs.sort((a, b) => getEarliestTimeSeconds(a) - getEarliestTimeSeconds(b));
       setUnifiedRows(synchronizedPairs);
 
@@ -793,8 +768,8 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
     let incData = [];
 
     const runProcessing = () => {
-      if (wttData.length === 0 || linksData.length === 0) return;
-      processAndSyncData(wttData, linksData, deployData, attData, incData);
+      const activeWtt = (wttData && wttData.length > 0) ? wttData : WTT_MASTER_REGISTRY;
+      processAndSyncData(activeWtt, linksData, deployData, attData, incData);
     };
 
     const fetchBase = async () => {
@@ -1167,10 +1142,19 @@ Format the response strictly as a single JSON object.`;
   const handleWttCellSave = async (row, direction, stationName, isTidField) => {
     try {
       const targetTrip = direction === 'DN' ? row.downTrip : row.upTrip; if (!targetTrip) return;
-      if (isTidField) await updateDoc(doc(db, "wtt_final_matrix", targetTrip.id), { trainId: editValue });
-      else await updateDoc(doc(db, "wtt_final_matrix", targetTrip.id), { [`stations.${stationName}`]: editValue });
+      const targetId = targetTrip.id || `wtt_${activeDay.toLowerCase()}_${row.trainId}_${direction.toLowerCase()}`;
+      if (isTidField) {
+        await setDoc(doc(db, "wtt_final_matrix", targetId), { trainId: editValue, scheduleType: activeDay }, { merge: true });
+      } else {
+        await setDoc(doc(db, "wtt_final_matrix", targetId), {
+          trainId: row.trainId || '',
+          scheduleType: activeDay,
+          terminalLoopRoute: direction,
+          stations: { ...(targetTrip.stations || {}), [stationName]: editValue }
+        }, { merge: true });
+      }
       setEditingCell({ rowId: null, direction: null, station: null, isTid: false, isDeployment: false }); fetchLiveData();
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error("Error saving WTT cell:", err); }
   };
 
   const handleWttBulkSave = async (editedRows) => {
@@ -1178,42 +1162,22 @@ Format the response strictly as a single JSON object.`;
       const batch = writeBatch(db);
       for (const row of editedRows) {
         if (row.downTrip) {
-          if (row.downTrip.id && !row.downTrip.isNew) {
-            batch.update(doc(db, "wtt_final_matrix", row.downTrip.id), {
-              trainId: row.trainId,
-              stations: row.downTrip.stations || {}
-            });
-          } else if (row.downTrip.isNew || !row.downTrip.id) {
-            const hasData = Object.values(row.downTrip.stations || {}).some(v => v && v.trim() !== '' && v !== '--');
-            if (hasData || (row.trainId && Object.keys(row.downTrip.stations || {}).length > 0)) {
-              const newDocRef = doc(collection(db, "wtt_final_matrix"));
-              batch.set(newDocRef, {
-                trainId: row.trainId || '',
-                scheduleType: activeDay,
-                terminalLoopRoute: "DN",
-                stations: row.downTrip.stations || {}
-              });
-            }
-          }
+          const docId = row.downTrip.id || `wtt_${activeDay.toLowerCase()}_row_${row.trainId}_dn`;
+          batch.set(doc(db, "wtt_final_matrix", docId), {
+            trainId: row.trainId || '',
+            scheduleType: activeDay,
+            terminalLoopRoute: "DN",
+            stations: row.downTrip.stations || {}
+          }, { merge: true });
         }
         if (row.upTrip) {
-          if (row.upTrip.id && !row.upTrip.isNew) {
-            batch.update(doc(db, "wtt_final_matrix", row.upTrip.id), {
-              trainId: row.trainId,
-              stations: row.upTrip.stations || {}
-            });
-          } else if (row.upTrip.isNew || !row.upTrip.id) {
-            const hasData = Object.values(row.upTrip.stations || {}).some(v => v && v.trim() !== '' && v !== '--');
-            if (hasData || (row.trainId && Object.keys(row.upTrip.stations || {}).length > 0)) {
-              const newDocRef = doc(collection(db, "wtt_final_matrix"));
-              batch.set(newDocRef, {
-                trainId: row.trainId || '',
-                scheduleType: activeDay,
-                terminalLoopRoute: "UP",
-                stations: row.upTrip.stations || {}
-              });
-            }
-          }
+          const docId = row.upTrip.id || `wtt_${activeDay.toLowerCase()}_row_${row.trainId}_up`;
+          batch.set(doc(db, "wtt_final_matrix", docId), {
+            trainId: row.trainId || '',
+            scheduleType: activeDay,
+            terminalLoopRoute: "UP",
+            stations: row.upTrip.stations || {}
+          }, { merge: true });
         }
       }
       await batch.commit();
@@ -1221,7 +1185,7 @@ Format the response strictly as a single JSON object.`;
       fetchLiveData();
     } catch (err) {
       console.error(err);
-      alert("Failed to save WTT Matrix changes.");
+      alert("Failed to save WTT Matrix changes: " + err.message);
     }
   };
 

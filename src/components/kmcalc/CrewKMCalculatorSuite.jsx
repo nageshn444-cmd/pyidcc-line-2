@@ -166,6 +166,9 @@ export default function CrewKMCalculatorSuite() {
                 stations={stations} 
                 selectedSequence={selectedSequence} 
                 setSelectedSequence={setSelectedSequence} 
+                duties={duties}
+                setDuties={setDuties}
+                onImportDuties={handleImportDuties}
               />
             </div>
           )}

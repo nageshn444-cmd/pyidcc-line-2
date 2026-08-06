@@ -62,7 +62,15 @@ export default function ChronologicalMatrix({
   const [localRows, setLocalRows] = useState([]);
 
   const sortedRows = useMemo(() => {
-    return [...filteredUnifiedRows].sort((a, b) => {
+    const rowMap = new Map();
+    (filteredUnifiedRows || []).forEach(row => {
+      if (!row) return;
+      const key = row.id || `${row.trainId}_${row.excelRow || ''}`;
+      if (!rowMap.has(key)) {
+        rowMap.set(key, row);
+      }
+    });
+    return Array.from(rowMap.values()).sort((a, b) => {
       const getEarliestTime = (row) => {
         let minSecs = 999999;
         const timeToSeconds = (timeStr) => {
@@ -319,7 +327,12 @@ export default function ChronologicalMatrix({
                     if (isTidField) return row.trainId || '';
                     if (!targetTrip?.stations) return '--';
                     const keys = Object.keys(targetTrip.stations);
-                    const foundKey = keys.find(k => k.trim().toLowerCase() === stationName?.trim().toLowerCase());
+                    const stBase = stationName?.trim().toLowerCase().split('_')[0];
+                    const foundKey = keys.find(k => {
+                      const kClean = k.trim().toLowerCase();
+                      const kBase = kClean.split('_')[0];
+                      return kClean === stationName?.trim().toLowerCase() || kBase === stBase;
+                    });
                     return foundKey ? targetTrip.stations[foundKey] : '--';
                   };
 
@@ -354,19 +367,26 @@ export default function ChronologicalMatrix({
                     );
                   }
 
+                  if (isTidField) {
+                    return (
+                      <td key={`cell-${row.id || rowIdx}-tid`} className={`py-2 px-1.5 font-bold ${stickyTidBgClass} sticky left-0 border-r-2 border-slate-800 z-10 text-slate-100 text-center`}>
+                        {row.trainId}
+                      </td>
+                    );
+                  }
+
                   let textColor = direction === 'DN' ? 'text-amber-200' : 'text-cyan-200';
                   if (baseValue === '--') textColor = 'text-slate-700';
-                  if (isTidField) textColor = 'text-slate-100 font-black';
                   if (delayVal > 0 && baseValue !== '--') textColor = 'text-orange-400 font-black';
 
                   return (
-                    <td key={`cell-${row.id || rowIdx}-${direction}-${stationName || 'tid'}`}
+                    <td key={`cell-${row.id || rowIdx}-${direction}-${stationName}`}
                       onDoubleClick={() => {
                         if (isTrainOperator) return;
                         setEditingCell({ rowId: row.id, direction, station: stationName, isTid: isTidField }); 
                         setEditValue(baseValue); 
                       }}
-                      className={`py-2 px-1 border-r border-slate-800/30 ${isTrainOperator ? '' : 'cursor-pointer'} ${textColor} ${stationName === 'PYID' ? 'bg-emerald-800/30 font-bold shadow-inner' : ''} ${isTidField ? `${stickyTidBgClass} sticky left-0 border-r-2 border-slate-800 z-10` : ''}`}>
+                      className={`py-2 px-1 border-r border-slate-800/30 ${isTrainOperator ? '' : 'cursor-pointer'} ${textColor} ${stationName === 'PYID' ? 'bg-emerald-800/30 font-bold shadow-inner' : ''}`}>
                       {cellValue}
                     </td>
                   );

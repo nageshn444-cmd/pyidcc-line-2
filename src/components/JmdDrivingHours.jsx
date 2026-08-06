@@ -17,6 +17,8 @@ import {
 } from 'recharts';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
+import MultiDayKMCalculator from './MultiDayKMCalculator';
+import ChangeoverLink from './admin/ChangeoverLink';
 
 export default function JmdDrivingHours() {
   const { userProfile } = useAuth();
@@ -67,7 +69,7 @@ export default function JmdDrivingHours() {
   const [compGroupB, setCompGroupB] = useState('');
 
   // ── 6. UI Navigation State ──
-  const [activeTab, setActiveTab] = useState('DASHBOARD'); // DASHBOARD, MANAGEMENT, COMPARISON, GRAPHS, AI_ADVISOR
+  const [activeTab, setActiveTab] = useState('MULTI_DAY'); // MULTI_DAY, CHANGEOVER_OVERRIDES, DASHBOARD, MANAGEMENT, COMPARISON, GRAPHS, AI_ADVISOR
   const [expandedDuty, setExpandedDuty] = useState(null);
 
   // Centralized calculations handled via import helpers above.
@@ -736,18 +738,20 @@ export default function JmdDrivingHours() {
       </div>
 
       {/* ── NAVIGATION TABS ── */}
-      <div className="flex border-b border-slate-855 pb-3 gap-2">
+      <div className="flex border-b border-slate-855 pb-3 gap-2 overflow-x-auto custom-scrollbar">
         {[
-          { id: 'DASHBOARD', label: '1. Shift Registry & Table' },
-          { id: 'MANAGEMENT', label: '2. Saved Duty Groups' },
-          { id: 'COMPARISON', label: '3. Comparison Desk' },
-          { id: 'GRAPHS', label: '4. Analytics & Graphs' },
-          { id: 'AI_ADVISOR', label: '5. AI Fatigue Advisor' }
+          { id: 'MULTI_DAY', label: '1. Multi-Day JMD Calculator' },
+          { id: 'CHANGEOVER_OVERRIDES', label: '2. Changeover Overrides' },
+          { id: 'DASHBOARD', label: '3. Shift Registry & Table' },
+          { id: 'MANAGEMENT', label: '4. Saved Duty Groups' },
+          { id: 'COMPARISON', label: '5. Comparison Desk' },
+          { id: 'GRAPHS', label: '6. Analytics & Graphs' },
+          { id: 'AI_ADVISOR', label: '7. AI Fatigue Advisor' }
         ].map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-[10px] font-bold rounded-lg transition border ${activeTab === tab.id
+            className={`px-4 py-2 text-[10px] font-bold rounded-lg transition border whitespace-nowrap ${activeTab === tab.id
               ? 'bg-cyan-950/40 text-cyan-400 border-cyan-855/60 shadow-md'
               : 'bg-slate-900/60 border-transparent text-slate-400 hover:bg-slate-800'
               }`}
@@ -757,7 +761,17 @@ export default function JmdDrivingHours() {
         ))}
       </div>
 
-      {/* ── TAB 1: SHIFT REGISTRY & TABLE ── */}
+      {/* ── TAB 1: MULTI-DAY JMD CALCULATOR ── */}
+      {activeTab === 'MULTI_DAY' && (
+        <MultiDayKMCalculator linkRoster={linkRoster} dutiesByDayType={dutiesByDayType} />
+      )}
+
+      {/* ── TAB 2: CHANGEOVER OVERRIDES ── */}
+      {activeTab === 'CHANGEOVER_OVERRIDES' && (
+        <ChangeoverLink />
+      )}
+
+      {/* ── TAB 3: SHIFT REGISTRY & TABLE ── */}
       {activeTab === 'DASHBOARD' && (
         <div className="space-y-4">
           {/* Controls Panel */}
