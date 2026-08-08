@@ -269,6 +269,91 @@ export default function UserManagement() {
     }
   };
 
+  const handlePermanentDeleteUser = async (userItem) => {
+    const empId = String(userItem.employeeId || userItem.id || '').trim();
+    const empName = userItem.employeeName || userItem.name || 'Unknown User';
+    const userEmail = String(userItem.email || '').trim().toLowerCase();
+
+    if (empId === '20726' || userItem.role === 'SUPER_ADMIN') {
+      alert("SUPER_ADMIN (NAGESHA N) permanent owner account cannot be deleted under any circumstances.");
+      return;
+    }
+
+    if (!window.confirm(`⛔ PERMANENT DELETE CONFIRMATION:\n\nAre you sure you want to PERMANENTLY DELETE user "${empName}" (ID: ${empId}) from the entire system database?\n\nThis action will completely delete their account profile, access controls, permissions, and registration requests from Firestore. THIS ACTION IS IRREVERSIBLE!`)) return;
+
+    try {
+      const sEmpId = String(empId).trim();
+      const nEmpId = Number(empId);
+      const targetNameStr = String(empName || '').trim().toLowerCase();
+
+      const collectionsToScan = [
+        'users',
+        'system_users',
+        'crewRegistry',
+        'userAccessControl',
+        'userPermissions',
+        'login_requests',
+        'loginRequests',
+        'registrationRequests',
+        'crew_extra_operators',
+        'missed_trips'
+      ];
+
+      let totalDeletedCount = 0;
+      const errorLog = [];
+
+      for (const colName of collectionsToScan) {
+        try {
+          const snap = await getDocs(collection(db, colName));
+          const docsToDelete = snap.docs.filter(d => {
+            const data = d.data();
+            const dId = String(d.id || '').trim();
+            const dEmpId = String(data.employeeId || data.empId || data.id || '').trim();
+            const dName = String(data.employeeName || data.name || '').trim().toLowerCase();
+            const dEmail = String(data.email || '').trim().toLowerCase();
+
+            const isIdMatch = dId === sEmpId || dId === `user_${sEmpId}` || dId === `extra_op_${sEmpId}`;
+            const isEmpIdMatch = dEmpId === sEmpId || (!isNaN(nEmpId) && Number(dEmpId) === nEmpId);
+            const isNameMatch = targetNameStr.length > 2 && (dName === targetNameStr || dName.includes(targetNameStr));
+            const isEmailMatch = userEmail.length > 3 && (dEmail === userEmail);
+
+            return isIdMatch || isEmpIdMatch || isNameMatch || isEmailMatch;
+          });
+
+          for (const docSnap of docsToDelete) {
+            try {
+              await deleteDoc(doc(db, colName, docSnap.id));
+              totalDeletedCount++;
+            } catch (err) {
+              console.error(`Failed deleting ${colName}/${docSnap.id}:`, err);
+              errorLog.push(`${colName}/${docSnap.id}: ${err.message}`);
+            }
+          }
+        } catch (err) {
+          console.error(`Failed scanning collection ${colName}:`, err);
+          errorLog.push(`Scan ${colName}: ${err.message}`);
+        }
+      }
+
+      // Direct delete if document ID passed
+      if (userItem.id) {
+        try { await deleteDoc(doc(db, 'system_users', userItem.id)); } catch (e) {}
+        try { await deleteDoc(doc(db, 'users', userItem.id)); } catch (e) {}
+        try { await deleteDoc(doc(db, 'crewRegistry', userItem.id)); } catch (e) {}
+      }
+
+      await logAudit("PERMANENT_DELETE_USER", userProfile.employeeId, userProfile.employeeName, `Permanently deleted user ${empName} (${empId}) from database.`);
+      
+      if (errorLog.length > 0) {
+        alert(`⚠️ Permanent deletion completed with warnings (${totalDeletedCount} documents deleted).\nLog:\n${errorLog.join("\n")}`);
+      } else {
+        alert(`✅ User ${empName} (${empId}) has been PERMANENTLY deleted (${totalDeletedCount} document records removed across all collections).`);
+      }
+    } catch (err) {
+      alert("Failed to permanently delete user: " + err.message);
+    }
+  };
+
   const handleForceResetPassword = async (user) => {
     try {
       await provisioningService.resetPasswordForce(user.employeeId, userProfile.employeeName);
@@ -819,6 +904,14 @@ export default function UserManagement() {
                       title="Force credential reset on next login"
                     >
                       Reset Pwd
+                    </button>
+
+                    <button 
+                      onClick={() => handlePermanentDeleteUser(u)}
+                      className="bg-rose-955/60 hover:bg-rose-900/60 border border-rose-900/50 text-rose-455 font-extrabold p-1 rounded text-[10px] uppercase"
+                      title="Permanently Delete User Account from Database"
+                    >
+                      Delete
                     </button>
 
                     <div className="inline-block relative group/more">

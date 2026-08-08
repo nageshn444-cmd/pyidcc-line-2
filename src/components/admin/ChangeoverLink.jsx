@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { getChangeoverMappings } from '../../services/changeoverService';
-import { Sliders, Shield, Save, Undo, Moon, Sun, Lock, Info, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Sliders, Shield, Save, Undo, Moon, Sun, Lock, Info, CheckCircle2, AlertCircle, Zap, Sparkles } from 'lucide-react';
 
 const DAY_OPTIONS = [
   { value: 'WEEKDAY__SATURDAY',  label: 'Regular Weekday Night ➔ Saturday Morning' },
@@ -13,13 +13,39 @@ const DAY_OPTIONS = [
   { value: 'SATURDAY__WEEKDAY',  label: 'Saturday Night ➔ Regular Weekday Morning' },
 ];
 
+/* Helper to compute auto-selected key based on today's day of week */
+const getAutoSelectedKey = () => {
+  const day = new Date().getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  if (day === 0) return 'SUNDAY__MONDAY';
+  if (day === 6) return 'SATURDAY__SUNDAY';
+  return 'WEEKDAY__SATURDAY';
+};
+
 export default function ChangeoverLink() {
-  const [selectedKey, setSelectedKey] = useState('WEEKDAY__SATURDAY');
+  const [isAutoSelected, setIsAutoSelected] = useState(true);
+  const [selectedKey, setSelectedKey] = useState(getAutoSelectedKey);
   const [allMappings, setAllMappings] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editedTable, setEditedTable] = useState({});
   const [statusMsg, setStatusMsg] = useState(null);
+
+  // Handle manual dropdown selection
+  const handleKeyChange = (val) => {
+    setSelectedKey(val);
+    setIsAutoSelected(false);
+  };
+
+  // Reset to auto selection mode
+  const handleResetToAuto = () => {
+    const autoKey = getAutoSelectedKey();
+    setSelectedKey(autoKey);
+    setIsAutoSelected(true);
+    setStatusMsg({
+      type: 'info',
+      text: `Auto-selected changeover link for today's day transition: ${DAY_OPTIONS.find(o => o.value === autoKey)?.label}.`
+    });
+  };
 
   // Load all mappings from Firestore / fallback
   const loadMappings = async () => {
@@ -139,16 +165,38 @@ export default function ChangeoverLink() {
 
         {/* Controls */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          {/* Dropdown selection */}
+          {/* Dropdown selection with Auto vs Manual indicator */}
           <div className="flex flex-col gap-2 max-w-xl flex-1">
-            <label className="text-[9px] text-slate-400 font-bold uppercase tracking-wider" htmlFor="changeover-link-combo-select">
-              Select Roster Night Changeover Combo
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-[9px] text-slate-400 font-bold uppercase tracking-wider" htmlFor="changeover-link-combo-select">
+                Select Roster Night Changeover Combo
+              </label>
+              <div className="flex items-center gap-2">
+                {isAutoSelected ? (
+                  <span className="inline-flex items-center gap-1 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded text-[9.5px] font-mono font-bold">
+                    <Zap className="h-3 w-3 text-emerald-400 animate-pulse" /> Auto-Selected (Today)
+                  </span>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1 bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded text-[9.5px] font-mono font-bold">
+                      ✏️ Manual Override
+                    </span>
+                    <button
+                      onClick={handleResetToAuto}
+                      className="inline-flex items-center gap-1 bg-emerald-955 hover:bg-emerald-900 text-emerald-300 border border-emerald-700 px-2 py-0.5 rounded text-[9.5px] font-mono font-bold transition cursor-pointer"
+                      title="Reset to Auto Selection based on today's day transition"
+                    >
+                      <Sparkles className="h-3 w-3 text-emerald-400" /> Reset to Auto
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
             <select
               id="changeover-link-combo-select"
               value={selectedKey}
-              onChange={e => setSelectedKey(e.target.value)}
-              className="w-full bg-slate-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-mono font-semibold"
+              onChange={e => handleKeyChange(e.target.value)}
+              className="w-full bg-slate-955 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-mono font-semibold cursor-pointer shadow-inner"
             >
               {DAY_OPTIONS.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>

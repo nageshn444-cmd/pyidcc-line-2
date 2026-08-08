@@ -311,26 +311,58 @@ async function callOllamaAPI(messages, promptText) {
   throw new Error("All local Ollama models failed or timed out.");
 }
 
+let activeTierOverride = 3; // Tier 3 (Local Ollama: gemma4:e4b / qwen2.5-coder) activated
+
 // --- Main Cascade Executor ---
 async function executeWithCascade(messages, promptText) {
   loadEnv();
   stats.totalRequests++;
 
-  // Step 1: Try Gemini (Tier 1)
+  const forcedTier = parseInt(process.env.FORCE_TIER || String(activeTierOverride || 0), 10);
+
+  if (forcedTier === 3) {
+    log("CASCADE", "Tier 3 (Local Ollama Models) explicitly activated. Executing Tier 3...");
+    try {
+      return await callOllamaAPI(messages, promptText);
+    } catch (err3) {
+      log("CASCADE", `Local Ollama failed (${err3.message}). Falling back to Tier 2 (OpenRouter Free)...`);
+      try {
+        return await callOpenRouterAPI(messages, promptText);
+      } catch (err2) {
+        log("CASCADE", "Falling back to Tier 1 (Gemini)...");
+        return await callGeminiAPI(messages, promptText);
+      }
+    }
+  }
+
+  if (forcedTier === 2) {
+    log("CASCADE", "Tier 2 (OpenRouter Free Models) explicitly activated. Executing Tier 2...");
+    try {
+      return await callOpenRouterAPI(messages, promptText);
+    } catch (err2) {
+      log("CASCADE", `OpenRouter Free Tier failed (${err2.message}). Falling back to Tier 3 (Local Ollama)...`);
+      try {
+        return await callOllamaAPI(messages, promptText);
+      } catch (err3) {
+        log("CASCADE", "Falling back to Tier 1 (Gemini)...");
+        return await callGeminiAPI(messages, promptText);
+      }
+    }
+  }
+
+  // Default Cascade: Tier 1 -> Tier 2 -> Tier 3
   try {
     return await callGeminiAPI(messages, promptText);
   } catch (err1) {
     log("CASCADE", "Gemini exhausted/failed. Auto-switching to Tier 2 (OpenRouter Free)...");
   }
 
-  // Step 2: Try OpenRouter Free Models (Tier 2)
   try {
     return await callOpenRouterAPI(messages, promptText);
   } catch (err2) {
     log("CASCADE", `OpenRouter Free skipped/failed (${err2.message}). Auto-switching to Tier 3 (Local Ollama)...`);
   }
 
-  // Step 3: Try Local Ollama (Tier 3)
   try {
     return await callOllamaAPI(messages, promptText);
   } catch (err3) {

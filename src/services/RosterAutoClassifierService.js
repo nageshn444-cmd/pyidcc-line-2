@@ -1,7 +1,7 @@
 // src/services/RosterAutoClassifierService.js
 import * as XLSX from 'xlsx';
 import { db } from '../firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, getDocs, collection, serverTimestamp } from 'firebase/firestore';
 
 export const isTimeValue = (val) => {
   if (!val) return false;
@@ -72,11 +72,62 @@ export const rosterAutoClassifierService = {
     const relievedOperators = [];
     const pmeOperators = [];
     const routeLearning = [];
+    const notReporting = [];
+    const absents = [];
+    const onDuty = [];
+    const customRegisters = {};
 
+    // Header Recognition & Dynamic Column Detection Engine
+    let headerRowIdx = -1;
+    const extraColumnMap = new Map();
+    const dynamicExtraHeadersSet = new Set();
+
+    // Standard column keyword checks
+    const isStandardHeader = (hdrStr) => {
+      const s = String(hdrStr || '').toLowerCase();
+      return (
+        s.includes('duty') ||
+        s.includes('type') ||
+        s.includes('depot') ||
+        s.includes('sign') ||
+        s.includes('s on') ||
+        s.includes('s off') ||
+        s.includes('name') ||
+        s.includes('operator') ||
+        s.includes('emp') ||
+        s.includes('id') ||
+        s.includes('train') ||
+        s.includes('rake')
+      );
+    };
+
+    // Scan first 5 rows to locate header row and dynamic extra columns
+    for (let i = 0; i < Math.min(rows.length, 5); i++) {
+      const row = rows[i];
+      if (!Array.isArray(row)) continue;
+      const rowStr = row.map(cell => cell ? String(cell).toLowerCase() : '');
+      const hasDuty = rowStr.some(c => c.includes('duty'));
+      const hasSign = rowStr.some(c => c.includes('sign') || c.includes('s on') || c.includes('ontime'));
+      if (hasDuty || hasSign) {
+        headerRowIdx = i;
+        row.forEach((cell, cIdx) => {
+          if (!cell) return;
+          const cellStr = String(cell).trim();
+          // Columns A to I (Indices 0 to 8) are main duty columns
+          if (cIdx < 9 && !isStandardHeader(cellStr)) {
+            extraColumnMap.set(cIdx, cellStr);
+            dynamicExtraHeadersSet.add(cellStr);
+          }
+        });
+        break;
+      }
+    }
+
+    const startDataRowIdx = headerRowIdx !== -1 ? headerRowIdx + 1 : 2;
     let activeSectionTag = 'GENERAL';
 
     rows.forEach((row, idx) => {
-      if (idx < 2) return; // Skip title / header rows
+      if (idx < startDataRowIdx) return; // Skip title & header rows
 
       // ── A. MAIN DUTY EXTRACTION (Columns A to I -> Indices 0 to 8) ──
       const dutyNo = row[0];
@@ -93,6 +144,25 @@ export const rosterAutoClassifierService = {
         const empName = rawName !== undefined && rawName !== null && String(rawName).trim() !== '' ? String(rawName).trim() : 'UNASSIGNED';
         const empId = rawEmpId !== undefined && rawEmpId !== null && String(rawEmpId).trim() !== '' ? String(rawEmpId).trim() : '--';
 
+        // Extract values for dynamic extra columns
+        const extraColumns = {};
+        extraColumnMap.forEach((headerName, colIdx) => {
+          if (row[colIdx] !== undefined && row[colIdx] !== null && String(row[colIdx]).trim() !== '') {
+            extraColumns[headerName] = String(row[colIdx]).trim();
+          }
+        });
+
+        // Determine if status is NOT REPORTING or ABSENT from raw fields
+        let initialStatus = 'PENDING';
+        const combinedRowStr = (String(empName) + ' ' + String(empId) + ' ' + String(trainId)).toUpperCase();
+        if (combinedRowStr.includes('NOT REPORTING') || combinedRowStr.includes(' NR ') || combinedRowStr.endsWith(' NR')) {
+          initialStatus = 'NOT_REPORTING';
+          if (empId && empId !== '--') notReporting.push({ name: empName, empNo: empId, dutyId: String(dutyNo) });
+        } else if (combinedRowStr.includes('ABSENT') || combinedRowStr.includes(' AB ') || combinedRowStr.endsWith(' AB')) {
+          initialStatus = 'ABSENT';
+          if (empId && empId !== '--') absents.push({ name: empName, empNo: empId, dutyId: String(dutyNo) });
+        }
+
         duties.push({
           dutyId: String(dutyNo).trim().padStart(2, '0'),
           dutyType: String(dutyType).trim(),
@@ -104,12 +174,13 @@ export const rosterAutoClassifierService = {
           signOffLocation: signOffPlace,
           trainId: String(trainId).trim(),
           scheduleType: dayType,
-          status: 'PENDING'
+          status: initialStatus,
+          extraColumns
         });
       }
 
       // ── B. RIGHT-SIDE AUXILIARY REGISTERS (Strict Vertical Block Scan from Column J / Index 9) ──
-      const colJ = row[9];  // Category / Marker (CC1, CRT, OR, WEEKLY OFF, CL, EL, GHEL, PUTH STBK, BMRTI, LRD, PME, REL)
+      const colJ = row[9];  // Category / Marker (CC1, CRT, OR, WEEKLY OFF, CL, EL, GHEL, PUTH STBK, BMRTI, LRD, PME, REL, NR, AB)
       const colK = row[10]; // From Time / Date
       const colL = row[11]; // Operator Name
       const colM = row[12]; // Emp Id
@@ -141,8 +212,16 @@ export const rosterAutoClassifierService = {
           station: combinedContext.includes('STBK') ? activeSectionTag : ''
         };
 
-        // ── STRICT ROUTING PRIORITY (Check REL first before general leave checks) ──
-        if (combinedContext.includes('REL') || activeSectionTag.toUpperCase() === 'REL') {
+        // ── STRICT ROUTING PRIORITY (Check REL & NR/AB first before general leave checks) ──
+        if (combinedContext.includes('NR') || combinedContext.includes('NOT REPORTING')) {
+          if (!notReporting.some(e => e.empNo === empNo)) {
+            notReporting.push({ name, empNo, type: 'NOT_REPORTING' });
+          }
+        } else if (combinedContext.includes('AB') || combinedContext.includes('ABSENT')) {
+          if (!absents.some(e => e.empNo === empNo)) {
+            absents.push({ name, empNo, type: 'ABSENT' });
+          }
+        } else if (combinedContext.includes('REL') || activeSectionTag.toUpperCase() === 'REL') {
           if (!relievedOperators.some(e => e.empNo === empNo)) {
             relievedOperators.push({ ...entry, time: colK || timeFrom });
           }
@@ -166,9 +245,13 @@ export const rosterAutoClassifierService = {
           if (!standbys.some(e => e.empNo === empNo)) {
             standbys.push({ ...entry, code: subTag || 'OR' });
           }
-        } else if (combinedContext.includes('WEEKLY OFF') || combinedContext.includes('WO') || combinedContext.includes('OD')) {
+        } else if (combinedContext.includes('WEEKLY OFF') || combinedContext.includes('WO')) {
           if (!weeklyOffs.some(e => e.empNo === empNo)) {
             weeklyOffs.push({ name, empNo });
+          }
+        } else if (combinedContext.includes('OD') || activeSectionTag.toUpperCase() === 'OD') {
+          if (!onDuty.some(e => e.empNo === empNo)) {
+            onDuty.push({ name, empNo, info: colK || 'OD', remark: subTag || 'On Duty' });
           }
         } else if (combinedContext.includes('CL') || combinedContext.includes('EL') || combinedContext.includes('GHEL') || combinedContext.includes('HPL') || combinedContext.includes('ML') || combinedContext.includes('PL') || combinedContext.includes('LEAVE')) {
           const leaveType = combinedContext.includes('EL') ? 'EL' : combinedContext.includes('GHEL') ? 'GHEL' : combinedContext.includes('HPL') ? 'HPL' : combinedContext.includes('ML') ? 'ML' : combinedContext.includes('PL') ? 'PL' : 'CL';
@@ -183,6 +266,13 @@ export const rosterAutoClassifierService = {
           if (!bmrtiTraining.some(e => e.empNo === empNo)) {
             bmrtiTraining.push({ ...entry, date: colK || '' });
           }
+        } else if (activeSectionTag && activeSectionTag !== 'GENERAL') {
+          if (!customRegisters[activeSectionTag]) {
+            customRegisters[activeSectionTag] = [];
+          }
+          if (!customRegisters[activeSectionTag].some(e => e.empNo === empNo)) {
+            customRegisters[activeSectionTag].push({ name, empNo, tag: activeSectionTag, info: colK || subTag || '' });
+          }
         }
       }
     });
@@ -190,6 +280,7 @@ export const rosterAutoClassifierService = {
     const parsedDate = targetDate instanceof Date ? targetDate : new Date(targetDate || Date.now());
     const validDate = isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
     const dateStr = validDate.toISOString().split('T')[0];
+    const dynamicExtraHeaders = Array.from(dynamicExtraHeadersSet);
 
     return {
       sheetName: selectedSheetName,
@@ -206,6 +297,11 @@ export const rosterAutoClassifierService = {
       relievedOperators,
       pmeOperators,
       routeLearning,
+      notReporting,
+      absents,
+      onDuty,
+      customRegisters,
+      dynamicExtraHeaders,
       dynamicColumns: {
         'CREW CONTROLLERS': controlDesks,
         'LEAVES & REST': leaves,
@@ -216,7 +312,10 @@ export const rosterAutoClassifierService = {
         'WEEKLY OFF': weeklyOffs,
         'REL': relievedOperators,
         'PME': pmeOperators,
-        'LRD': routeLearning
+        'LRD': routeLearning,
+        'NOT REPORTING (NR)': notReporting,
+        'ABSENT (AB)': absents,
+        'ON DUTY (OD)': onDuty
       }
     };
   },
@@ -239,6 +338,11 @@ export const rosterAutoClassifierService = {
       relievedOperators: classifiedData.relievedOperators || [],
       pmeOperators: classifiedData.pmeOperators || [],
       routeLearning: classifiedData.routeLearning || [],
+      notReporting: classifiedData.notReporting || [],
+      absents: classifiedData.absents || [],
+      onDuty: classifiedData.onDuty || [],
+      customRegisters: classifiedData.customRegisters || {},
+      dynamicExtraHeaders: classifiedData.dynamicExtraHeaders || [],
       isExplicitlyCleared: false,
       updatedAt: serverTimestamp()
     };
@@ -268,6 +372,12 @@ export const rosterAutoClassifierService = {
       }, { merge: true });
     }
 
+    try {
+      await rosterAutoClassifierService.saveToMonthlyArchive(classifiedData);
+    } catch (archiveErr) {
+      console.warn("Monthly archive write warning:", archiveErr);
+    }
+
     return {
       dutiesCount: (classifiedData.duties || []).length,
       weeklyOffsCount: (classifiedData.weeklyOffs || []).length,
@@ -275,6 +385,84 @@ export const rosterAutoClassifierService = {
       standbysCount: (classifiedData.standbys || []).length,
       trainingCount: (classifiedData.bmrtiTraining || []).length
     };
+  },
+
+  saveToMonthlyArchive: async (classifiedData, user = 'GCC Controller', notes = '') => {
+    try {
+      const dateStr = classifiedData.dateStr || new Date().toISOString().split('T')[0];
+      const monthKey = dateStr.substring(0, 7);
+      const dayType = classifiedData.dayType || 'WEEKDAY';
+
+      const archiveRecord = {
+        date: dateStr,
+        monthKey,
+        dayType,
+        sheetName: classifiedData.sheetName || 'Roster Sheet',
+        confirmedBy: user,
+        confirmedNotes: notes,
+        confirmedAt: serverTimestamp(),
+        dutiesCount: (classifiedData.duties || []).length,
+        duties: classifiedData.duties || [],
+        consoleData: {
+          controlDesks: classifiedData.controlDesks || [],
+          leaves: classifiedData.leaves || [],
+          standbys: classifiedData.standbys || [],
+          outstationStepbacks: classifiedData.outstationStepbacks || [],
+          crtTraining: classifiedData.crtTraining || [],
+          bmrtiTraining: classifiedData.bmrtiTraining || [],
+          weeklyOffs: classifiedData.weeklyOffs || [],
+          relievedOperators: classifiedData.relievedOperators || [],
+          pmeOperators: classifiedData.pmeOperators || [],
+          routeLearning: classifiedData.routeLearning || [],
+          notReporting: classifiedData.notReporting || [],
+          absents: classifiedData.absents || [],
+          onDuty: classifiedData.onDuty || [],
+          customRegisters: classifiedData.customRegisters || {}
+        }
+      };
+
+      await setDoc(doc(db, 'monthly_roster_archives', monthKey, 'daily_records', dateStr), archiveRecord, { merge: true });
+
+      await setDoc(doc(db, 'monthly_roster_archives', monthKey), {
+        monthKey,
+        lastUpdatedDate: dateStr,
+        lastUpdatedBy: user,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      return archiveRecord;
+    } catch (err) {
+      console.error("Monthly Archive Save Error:", err);
+      throw err;
+    }
+  },
+
+  fetchMonthlyArchiveData: async (monthKey) => {
+    try {
+      const recordsSnap = await getDocs(collection(db, 'monthly_roster_archives', monthKey, 'daily_records'));
+      const list = [];
+      recordsSnap.forEach(d => {
+        list.push({ id: d.id, ...d.data() });
+      });
+      list.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      return list;
+    } catch (err) {
+      console.error("Fetch Monthly Archive Error:", err);
+      return [];
+    }
+  },
+
+  fetchDailyArchiveSnapshot: async (monthKey, dateStr) => {
+    try {
+      const snap = await getDoc(doc(db, 'monthly_roster_archives', monthKey, 'daily_records', dateStr));
+      if (snap.exists()) {
+        return snap.data();
+      }
+      return null;
+    } catch (err) {
+      console.error("Fetch Daily Archive Error:", err);
+      return null;
+    }
   },
 
   prefetchNextDayRoster: (workbook, currentDate = new Date(), dayType = 'WEEKDAY') => {

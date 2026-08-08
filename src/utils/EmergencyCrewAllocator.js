@@ -168,7 +168,7 @@ export const evaluateReliefCandidates = ({
     }
   });
   
-  // Pool 2 & 3: PRO/RD3 Duties and Regular Active Operators
+  // Pool 2 & 3: STBK, PRO, RD3, TGTP Standby Duties and Regular Active Operators
   deployments.forEach(dep => {
     const empId = String(dep.empId);
     if (!empId || empId === '--' || empId === '-') return;
@@ -179,9 +179,13 @@ export const evaluateReliefCandidates = ({
     // Skip the operator currently on the train needing relief
     if (currentOperator && String(currentOperator.employeeId) === empId) return;
     
-    const isPro = String(dep.dutyId).toUpperCase().includes("PRO");
-    const isRd3 = String(dep.dutyId).toUpperCase().includes("RD3");
+    const dutyUpper = String(dep.dutyId).toUpperCase();
+    const isStbk = dutyUpper.includes("STBK") || dutyUpper.includes("STANDBY");
+    const isPro = dutyUpper.includes("PRO");
+    const isRd3 = dutyUpper.includes("RD3");
+    const isTgtp = dutyUpper.includes("TGTP");
     
+    const poolType = isStbk ? "STBK" : isPro ? "PRO" : isRd3 ? "RD3" : isTgtp ? "TGTP" : "ACTIVE";
     const calculatedLoc = determineOperatorLocation(dep, currentTimeSecs);
     
     candidatesMap.set(empId, {
@@ -191,9 +195,9 @@ export const evaluateReliefCandidates = ({
       currentDuty: dep.dutyId,
       signOnTime: dep.signOnTime || "06:00:00",
       signOffTime: dep.rawLegs?.l4End || dep.rawLegs?.l3End || "14:00:00",
-      pool: isPro ? "PRO" : isRd3 ? "RD3" : "ACTIVE",
+      pool: poolType,
       tripCount: 2, // Default average trips
-      remarks: isPro ? "PRO Standby Duty" : isRd3 ? "RD3 Standby Duty" : "Active Roster TO"
+      remarks: isStbk ? "Standby / STBK Peenya Operator" : isPro ? "PRO Standby Duty" : isRd3 ? "RD3 Standby Duty" : isTgtp ? "TGTP Standby Operator" : "Active Roster TO"
     });
   });
   
@@ -280,6 +284,12 @@ export const evaluateReliefCandidates = ({
       score += 100;
       scoreBreakdown.push({ label: "Extra Operator Available", points: 100 });
     }
+
+    // Priority 1B: STBK (Step-back / Standby Peenya) (+95)
+    if (candidate.pool === "STBK") {
+      score += 95;
+      scoreBreakdown.push({ label: "STBK / Standby Peenya Operator", points: 95 });
+    }
     
     // Missed Trip Recovery (+90)
     if (missedTripCount > 0) {
@@ -287,21 +297,25 @@ export const evaluateReliefCandidates = ({
       scoreBreakdown.push({ label: "Missed Trip Recovery", points: 90 });
     }
     
-    // Priority 2: PRO Duty (+80)
+    // Priority 2: PRO Duty (+85)
     if (candidate.pool === "PRO") {
+      score += 85;
+      scoreBreakdown.push({ label: "PRO Standby Duty", points: 85 });
+    }
+
+    // Priority 2B: TGTP Standby Duty (+80)
+    if (candidate.pool === "TGTP") {
       score += 80;
-      scoreBreakdown.push({ label: "PRO Standby Duty", points: 80 });
+      scoreBreakdown.push({ label: "TGTP Standby Duty", points: 80 });
     }
     
-    // Priority 2: RD3 Duty (+70)
+    // Priority 2C: RD3 Duty (+75)
     if (candidate.pool === "RD3") {
-      score += 70;
-      scoreBreakdown.push({ label: "RD3 Standby Duty", points: 70 });
+      score += 75;
+      scoreBreakdown.push({ label: "RD3 Standby Duty", points: 75 });
     }
     
     // FIFO Eligible (+60)
-    // Operators continuously working longest (since sign on) are prioritized
-    // We check if this candidate has worked longer than average
     const candidateDurationHours = (currentTimeSecs - signOnSecs) / 3600;
     if (candidateDurationHours > 4) { // Worked longer than half a shift
       score += 60;
@@ -309,20 +323,16 @@ export const evaluateReliefCandidates = ({
     }
     
     // 15-Minute Break Completed (+50)
-    // If they had a relief in the past and break time is completed (> 15 mins) OR if they are an Extra operator
-    if (candidate.pool === "EXTRA" || (operatorReliefs.length > 0 && timeSinceLastRelief >= 15 * 60)) {
+    if (candidate.pool === "EXTRA" || candidate.pool === "STBK" || candidate.pool === "PRO" || (operatorReliefs.length > 0 && timeSinceLastRelief >= 15 * 60)) {
       score += 50;
       scoreBreakdown.push({ label: "15-Minute Break Completed", points: 50 });
     }
     
     // Short Loop Possible (+40)
-    // If incident is at PYID, running UP, and current operator of the train has completed their break
     let isShortLoop = false;
     if (incidentLocation === "PYID" && currentOperator) {
-      // Find current operator's relief history
       const currOpReliefs = reliefReports.filter(r => String(r.originalOperator?.employeeId || r.originalOperatorId) === currentOperator.employeeId);
       if (currOpReliefs.length > 0) {
-        // If current operator was relieved and has had their 15-minute break
         const lastReliefTime = timeToSeconds(currOpReliefs[0].incidentTime);
         if (currentTimeSecs - lastReliefTime >= 15 * 60) {
           isShortLoop = true;
@@ -336,7 +346,6 @@ export const evaluateReliefCandidates = ({
     }
     
     // Duty Balance Improvement (+30)
-    // If their work hours today are below the average, assigning them helps balance utility
     if (candidateDurationHours < avgDutyHours) {
       score += 30;
       scoreBreakdown.push({ label: "Duty Balance Improvement", points: 30 });
@@ -344,7 +353,6 @@ export const evaluateReliefCandidates = ({
     
     // Travel time penalty (nearest suitable operator)
     const travelTime = calculateTravelTimeMinutes(candidate.currentLocation, incidentLocation);
-    // Deduct 2 points per minute of travel distance to recommend the nearest operator
     const distancePenalty = Math.min(20, travelTime * 2);
     score -= distancePenalty;
     if (distancePenalty > 0) {
@@ -384,7 +392,8 @@ export const evaluateReliefCandidates = ({
     
     let priorityText = "Priority 3 (Roster TO)";
     if (op.pool === "EXTRA") priorityText = "Priority 1 (Extra TO)";
-    if (op.pool === "PRO" || op.pool === "RD3") priorityText = "Priority 2 (Standby TO)";
+    if (op.pool === "STBK") priorityText = "Priority 1 (Standby STBK Peenya)";
+    if (op.pool === "PRO" || op.pool === "RD3" || op.pool === "TGTP") priorityText = "Priority 2 (Standby TO)";
     
     const travelText = op.travelTimeMinutes === 2 
       ? "already at station" 
@@ -407,5 +416,140 @@ export const evaluateReliefCandidates = ({
     allEligible: eligibleCandidates,
     allRejected: rejectedCandidates,
     shortLoopPossible: incidentLocation === "PYID" && currentOperator && (evaluatedCandidates.some(c => c.scoreBreakdown?.some(b => b.label.includes("Short Loop"))))
+  };
+};
+
+/**
+ * Cascading Delay & Multi-Train Relief Allocation Engine
+ * When a primary train gets delayed by a technical issue, downstream trains on the same track
+ * suffer secondary delay propagation. This function calculates projected delay for following trains
+ * and assigns unique relievers from STBK, PRO, RD3 STBY, TGTP STBY, and EXTRA pools until train service normalizes.
+ */
+export const evaluateCascadingDelayRelief = ({
+  currentTimeStr,
+  primaryTrainId,
+  delayMinutes = 15,
+  incidentLocation = "PYID",
+  extraOperators = [],
+  deployments = [],
+  missedTrips = [],
+  reliefReports = []
+}) => {
+  const primaryDelay = Math.max(5, parseInt(delayMinutes, 10) || 15);
+  const currentTimeSecs = timeToSeconds(currentTimeStr);
+
+  // 1. Gather all active trains from deployments sorted chronologically
+  const activeTrainMap = new Map();
+  deployments.forEach(d => {
+    const tid = d.trainId || d.rawLegs?.l1Train || d.rawLegs?.l2Train || d.rawLegs?.l3Train || d.rawLegs?.l4Train;
+    if (tid && tid !== '--' && tid !== '-' && d.empId && d.empId !== '--') {
+      if (!activeTrainMap.has(tid)) {
+        activeTrainMap.set(tid, {
+          trainId: tid,
+          employeeId: d.empId,
+          employeeName: d.empName,
+          dutyId: d.dutyId,
+          signOnTime: d.signOnTime || "06:00:00",
+          signOffTime: d.rawLegs?.l4End || d.rawLegs?.l3End || "14:00:00",
+          rawLegs: d.rawLegs
+        });
+      }
+    }
+  });
+
+  const sortedTrains = Array.from(activeTrainMap.values()).sort((a, b) => 
+    a.trainId.localeCompare(b.trainId, undefined, { numeric: true })
+  );
+
+  const primaryIdx = sortedTrains.findIndex(t => t.trainId === primaryTrainId);
+  const targetChain = primaryIdx >= 0 ? sortedTrains.slice(primaryIdx) : sortedTrains.slice(0, 5);
+
+  const assignedRelieverIds = new Set();
+  const trainCascadePlans = [];
+
+  let currentProjectedDelay = primaryDelay;
+
+  targetChain.forEach((trainItem, index) => {
+    if (currentProjectedDelay <= 0) return; // Service normalized!
+
+    const isPrimary = index === 0;
+    const trainDelay = isPrimary 
+      ? primaryDelay 
+      : Math.max(0, currentProjectedDelay - Math.floor(index * 3)); // Delay dampening per following train
+
+    if (trainDelay <= 0) return;
+
+    // Calculate projected takeover time
+    const scheduledSecs = currentTimeSecs + index * 600; // 10 min headway intervals
+    const projectedSecs = scheduledSecs + trainDelay * 60;
+    const projectedTimeStr = secondsToTime(projectedSecs);
+
+    // Evaluate candidates excluding already assigned relievers in this cascade
+    const candidateEval = evaluateReliefCandidates({
+      currentTimeStr: projectedTimeStr,
+      incidentType: isPrimary ? "Train Technical Failure" : "Cascading Headway Delay",
+      incidentLocation: isPrimary ? incidentLocation : (trainItem.rawLegs?.l1End || incidentLocation),
+      targetTrainId: trainItem.trainId,
+      currentOperator: { employeeId: trainItem.employeeId, employeeName: trainItem.employeeName },
+      extraOperators: extraOperators.filter(op => !assignedRelieverIds.has(String(op.employeeId))),
+      deployments: deployments.filter(dep => !assignedRelieverIds.has(String(dep.empId))),
+      missedTrips,
+      reliefReports
+    });
+
+    const chosenReliever = candidateEval.bestPlan?.available ? candidateEval.bestPlan.operator : null;
+
+    if (chosenReliever) {
+      assignedRelieverIds.add(chosenReliever.employeeId);
+    }
+
+    trainCascadePlans.push({
+      sequence: index + 1,
+      trainId: trainItem.trainId,
+      currentOperatorId: trainItem.employeeId,
+      currentOperatorName: trainItem.employeeName,
+      dutyId: trainItem.dutyId,
+      isPrimary,
+      delayMinutes: trainDelay,
+      scheduledTime: secondsToTime(scheduledSecs),
+      projectedTakeoverTime: projectedTimeStr,
+      location: isPrimary ? incidentLocation : (trainItem.rawLegs?.l1End || incidentLocation),
+      suggestedReliever: chosenReliever ? {
+        employeeId: chosenReliever.employeeId,
+        employeeName: chosenReliever.employeeName,
+        pool: chosenReliever.pool,
+        dutyId: chosenReliever.currentDuty,
+        location: chosenReliever.currentLocation,
+        travelTimeMinutes: chosenReliever.travelTimeMinutes,
+        score: chosenReliever.recommendationScore,
+        status: "RECOMMENDED"
+      } : {
+        employeeId: "--",
+        employeeName: "NO RELIEVER AVAILABLE",
+        pool: "NONE",
+        dutyId: "--",
+        location: "--",
+        travelTimeMinutes: 0,
+        score: 0,
+        status: "UNASSIGNED"
+      }
+    });
+
+    // Reduce projected delay for subsequent trains as relievers are deployed
+    currentProjectedDelay = Math.max(0, trainDelay - 4);
+  });
+
+  const totalImpactedTrains = trainCascadePlans.length;
+  const totalRelieversAssigned = trainCascadePlans.filter(p => p.suggestedReliever.employeeId !== "--").length;
+  const estimatedNormalizationMinutes = primaryDelay + totalImpactedTrains * 3;
+
+  return {
+    primaryTrainId,
+    primaryDelayMinutes: primaryDelay,
+    totalImpactedTrains,
+    totalRelieversAssigned,
+    estimatedNormalizationMinutes,
+    normalizationTimeStr: secondsToTime(currentTimeSecs + estimatedNormalizationMinutes * 60),
+    cascadePlans: trainCascadePlans
   };
 };

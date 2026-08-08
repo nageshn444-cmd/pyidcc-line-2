@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
 import { collection, query, orderBy, onSnapshot, updateDoc, setDoc, doc, deleteDoc, serverTimestamp, writeBatch, getDocs } from 'firebase/firestore';
-import { CheckCircle, Clock, AlertTriangle, Train, UserCheck, UserX, Search, History, Settings, Check, X, ArrowRight, ShieldAlert, Cpu, Plus, Trash2, UploadCloud, Loader2, FileSpreadsheet, FileText, Image as ImageIcon, Repeat } from 'lucide-react';
+import { CheckCircle, Clock, AlertTriangle, Train, UserCheck, UserX, Search, History, Settings, Check, X, ArrowRight, ShieldAlert, Cpu, Plus, Trash2, UploadCloud, Loader2, FileSpreadsheet, FileText, Image as ImageIcon, Repeat, Sparkles } from 'lucide-react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as XLSX from 'xlsx';
 import { BMRCL_CREW_REGISTRY } from '../data/bmrclCrewRegistry';
@@ -22,6 +22,29 @@ const safeFormatExcelTime = (val) => {
     return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
   }
   return String(val).trim();
+};
+
+// Highlight matching query text helper
+const highlightMatch = (text, query) => {
+  if (!query || !text) return text;
+  const str = String(text);
+  const q = String(query).trim();
+  if (!q) return str;
+  const regex = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  const parts = str.split(regex);
+  return (
+    <span>
+      {parts.map((part, idx) =>
+        part.toLowerCase() === q.toLowerCase() ? (
+          <mark key={idx} className="bg-amber-400 text-slate-955 font-black px-1 rounded shadow-sm">
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      )}
+    </span>
+  );
 };
 
 // Normalize: pad single-digit "1".."9" to "01".."09"
@@ -255,7 +278,7 @@ const getDutyProgress = (deployment) => {
   if (signOnSeconds === null) return 0;
   const now = new Date();
   const nowSeconds = (now.getHours() * 3600) + (now.getMinutes() * 60) + now.getSeconds();
-  const elapsedSeconds = Math.max(0, nowSeconds - signOnSeconds);
+const elapsedSeconds = Math.max(0, nowSeconds - signOnSeconds);
   const progress = (elapsedSeconds / (8 * 3600)) * 100;
   return Math.min(100, Math.max(0, progress));
 };
@@ -324,7 +347,11 @@ export default function AutomatedDispatchGate({
               weeklyOffs: parsed.weeklyOffs || [],
               relievedOperators: parsed.relievedOperators || [],
               pmeOperators: parsed.pmeOperators || [],
-              routeLearning: parsed.routeLearning || []
+              routeLearning: parsed.routeLearning || [],
+              notReporting: parsed.notReporting || [],
+              absents: parsed.absents || [],
+              onDuty: parsed.onDuty || [],
+              customRegisters: parsed.customRegisters || {}
             };
           }
         }
@@ -342,7 +369,11 @@ export default function AutomatedDispatchGate({
       weeklyOffs: [],
       relievedOperators: [],
       pmeOperators: [],
-      routeLearning: []
+      routeLearning: [],
+      notReporting: [],
+      absents: [],
+      onDuty: [],
+      customRegisters: {}
     };
   });
 
@@ -396,7 +427,11 @@ export default function AutomatedDispatchGate({
           weeklyOffs: has(data.weeklyOffs) ? data.weeklyOffs : prev.weeklyOffs,
           relievedOperators: has(data.relievedOperators) ? data.relievedOperators : prev.relievedOperators,
           pmeOperators: has(data.pmeOperators) ? data.pmeOperators : prev.pmeOperators,
-          routeLearning: has(data.routeLearning) ? data.routeLearning : prev.routeLearning
+          routeLearning: has(data.routeLearning) ? data.routeLearning : prev.routeLearning,
+          notReporting: has(data.notReporting) ? data.notReporting : prev.notReporting,
+          absents: has(data.absents) ? data.absents : prev.absents,
+          onDuty: has(data.onDuty) ? data.onDuty : prev.onDuty,
+          customRegisters: data.customRegisters && typeof data.customRegisters === 'object' ? data.customRegisters : prev.customRegisters
         };
 
         try {
@@ -534,6 +569,86 @@ export default function AutomatedDispatchGate({
   const [selectedRosterFile, setSelectedRosterFile] = useState(null);
   const [isInspectingPath, setIsInspectingPath] = useState(false);
 
+  // Staging & Confirmation Engine States
+  const [stagedRoster, setStagedRoster] = useState(null);
+  const [isSavingToFirebase, setIsSavingToFirebase] = useState(false);
+  const [isRosterConfirmed, setIsRosterConfirmed] = useState(false);
+
+  // Monthly Archive Retrieval States
+  const [historicalMonth, setHistoricalMonth] = useState(() => new Date().toISOString().substring(0, 7));
+  const [historicalRecords, setHistoricalRecords] = useState([]);
+  const [isLoadingArchives, setIsLoadingArchives] = useState(false);
+  const [selectedArchiveSnapshot, setSelectedArchiveSnapshot] = useState(null);
+
+  const handleLoadMonthlyArchiveData = async (mKey) => {
+    setIsLoadingArchives(true);
+    try {
+      const records = await rosterAutoClassifierService.fetchMonthlyArchiveData(mKey || historicalMonth);
+      setHistoricalRecords(records);
+    } catch (err) {
+      console.error("Load Monthly Archive Error:", err);
+    } finally {
+      setIsLoadingArchives(false);
+    }
+  };
+
+  const handleConfirmAndSaveToFirebase = async () => {
+    if (!stagedRoster) return;
+    setIsSavingToFirebase(true);
+    try {
+      const consoleObj = {
+        controlDesks: stagedRoster.controlDesks || [],
+        leaves: stagedRoster.leaves || [],
+        standbys: stagedRoster.standbys || [],
+        outstationStepbacks: stagedRoster.outstationStepbacks || [],
+        crtTraining: stagedRoster.crtTraining || [],
+        bmrtiTraining: stagedRoster.bmrtiTraining || [],
+        weeklyOffs: stagedRoster.weeklyOffs || [],
+        relievedOperators: stagedRoster.relievedOperators || [],
+        pmeOperators: stagedRoster.pmeOperators || [],
+        routeLearning: stagedRoster.routeLearning || [],
+        notReporting: stagedRoster.notReporting || [],
+        absents: stagedRoster.absents || [],
+        onDuty: stagedRoster.onDuty || [],
+        customRegisters: stagedRoster.customRegisters || {}
+      };
+
+      const dateStr = stagedRoster.dateStr || new Date().toISOString().split('T')[0];
+      const consoleSnapshot = {
+        date: dateStr,
+        dayType: currentDayType,
+        sheetName: stagedRoster.sheetName || stagedRoster.fileName || 'Roster Sheet',
+        ...consoleObj,
+        isExplicitlyCleared: false,
+        updatedAt: serverTimestamp()
+      };
+
+      await setDoc(doc(db, 'roster_desk_console', 'current'), consoleSnapshot, { merge: true });
+      await setDoc(doc(db, 'roster_desk_console', 'latest'), consoleSnapshot, { merge: true });
+      await setDoc(doc(db, 'dispatch_excel_cache', dateStr), consoleSnapshot, { merge: true });
+      await setDoc(doc(db, 'dispatch_excel_cache', 'current'), consoleSnapshot, { merge: true });
+
+      await rosterAutoClassifierService.autoDeployClassifiedData(
+        stagedRoster,
+        'GCC Controller',
+        'Confirmed from Automated Dispatch Gate Staging Buffer'
+      );
+
+      setIsRosterConfirmed(true);
+      alert(`✅ Official Day Roster for ${dateStr} successfully confirmed and saved to Firebase & Monthly Archives!`);
+    } catch (err) {
+      console.error("Save to Firebase error:", err);
+      alert("Failed to save roster to Firebase: " + err.message);
+    } finally {
+      setIsSavingToFirebase(false);
+    }
+  };
+
+  const handleDiscardStagingDraft = () => {
+    setStagedRoster(null);
+    setIsRosterConfirmed(false);
+  };
+
   const processFileAndDeploy = async (fileToProcess) => {
     let file = fileToProcess || selectedRosterFile;
     if (!file) {
@@ -570,41 +685,23 @@ export default function AutomatedDispatchGate({
           weeklyOffs: classifiedData.weeklyOffs || [],
           relievedOperators: classifiedData.relievedOperators || [],
           pmeOperators: classifiedData.pmeOperators || [],
-          routeLearning: classifiedData.routeLearning || []
+          routeLearning: classifiedData.routeLearning || [],
+          notReporting: classifiedData.notReporting || [],
+          absents: classifiedData.absents || [],
+          onDuty: classifiedData.onDuty || [],
+          customRegisters: classifiedData.customRegisters || {}
         };
 
         setConsoleData(consoleObj);
-        try {
-          if (typeof window !== 'undefined' && window.localStorage) {
-            window.localStorage.setItem('pyidcc_roster_desk_console_cache', JSON.stringify(consoleObj));
-          }
-        } catch (e) {}
+        if (classifiedData.duties && classifiedData.duties.length > 0) {
+          setDeployments(classifiedData.duties);
+        }
 
-        const dateStr = classifiedData.dateStr || new Date().toISOString().split('T')[0];
-        const consoleSnapshot = {
-          date: dateStr,
-          dayType: currentDayType,
-          sheetName: classifiedData.sheetName || file?.name || 'Roster Sheet',
-          ...consoleObj,
-          isExplicitlyCleared: false,
-          updatedAt: serverTimestamp()
-        };
-
-        await setDoc(doc(db, 'roster_desk_console', 'current'), consoleSnapshot, { merge: true });
-        await setDoc(doc(db, 'roster_desk_console', 'latest'), consoleSnapshot, { merge: true });
-        await setDoc(doc(db, 'dispatch_excel_cache', dateStr), consoleSnapshot, { merge: true });
-        await setDoc(doc(db, 'dispatch_excel_cache', 'current'), consoleSnapshot, { merge: true });
-      }
-
-      let deployedDutiesCount = 0;
-
-      if (classifiedData && classifiedData.duties && classifiedData.duties.length > 0) {
-        await rosterAutoClassifierService.autoDeployClassifiedData(
-          classifiedData,
-          'user',
-          'Automated Dispatch Gate File Ingest'
-        );
-        deployedDutiesCount = classifiedData.duties.length;
+        setStagedRoster({
+          ...classifiedData,
+          fileName: file?.name || 'Roster Sheet'
+        });
+        setIsRosterConfirmed(false);
       } else {
         const parsedDutiesMap = new Map();
 
@@ -1490,11 +1587,76 @@ export default function AutomatedDispatchGate({
           >
             <History className="h-3 w-3" /> AUDIT LOG
           </button>
+          <button 
+            onClick={() => {
+              setActiveTab('ARCHIVE');
+              handleLoadMonthlyArchiveData(historicalMonth);
+            }} 
+            className={`px-4 py-1.5 text-xs font-bold rounded tracking-wider transition-colors flex items-center gap-1 ${activeTab === 'ARCHIVE' ? 'bg-amber-500 text-slate-955 font-black' : 'text-slate-400 hover:text-amber-400'}`}
+          >
+            <History className="h-3 w-3" /> MONTHLY ARCHIVES
+          </button>
         </div>
       </div>
 
       {activeTab === 'LIVE' && (
         <div className="space-y-6">
+
+          {/* Staging Confirmation Banner */}
+          {stagedRoster && !isRosterConfirmed && (
+            <div className="bg-gradient-to-r from-amber-955/90 via-slate-900 to-amber-955/90 border-2 border-amber-500 rounded-xl p-4 shadow-2xl space-y-3 font-mono">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="bg-amber-400 text-slate-955 px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1 shadow">
+                      <AlertTriangle className="h-3.5 w-3.5" /> STAGING PREVIEW MODE (UNCONFIRMED DRAFT)
+                    </span>
+                    <span className="text-[10px] text-amber-300 font-mono font-bold">
+                      {stagedRoster.dateStr || 'Today'} • {stagedRoster.duties?.length || 0} Duties Staged
+                    </span>
+                  </div>
+                  <h3 className="text-slate-100 font-black text-sm mt-1">
+                    Roster File: {stagedRoster.sheetName || stagedRoster.fileName || 'Uploaded Sheet'}
+                  </h3>
+                  <p className="text-[11px] text-amber-200/90 leading-relaxed mt-0.5">
+                    Data is currently in preview mode. Click <strong>CONFIRM & SAVE DAY ROSTER TO FIREBASE</strong> to publish official data to live operational suite & monthly archives.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleDiscardStagingDraft}
+                    className="bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white font-bold text-xs px-3.5 py-2 rounded-lg border border-slate-700 transition"
+                  >
+                    DISCARD DRAFT ✕
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmAndSaveToFirebase}
+                    disabled={isSavingToFirebase}
+                    className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-955 font-black text-xs px-5 py-2.5 rounded-lg shadow-xl transition-all uppercase tracking-wider flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSavingToFirebase ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckCircle className="h-4 w-4" />
+                    )}
+                    <span>CONFIRM & SAVE DAY ROSTER TO FIREBASE</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {stagedRoster && isRosterConfirmed && (
+            <div className="bg-emerald-955/80 border border-emerald-500/60 rounded-xl p-3.5 shadow-xl flex justify-between items-center text-xs font-mono">
+              <div className="flex items-center gap-2 text-emerald-300 font-bold">
+                <CheckCircle className="h-4 w-4 text-emerald-400" />
+                <span>OFFICIAL ROSTER CONFIRMED & SAVED TO FIREBASE ({stagedRoster.dateStr || 'Today'})</span>
+              </div>
+              <span className="text-[10px] text-emerald-400/80">Snapshot Archived to Monthly Database</span>
+            </div>
+          )}
 
           {/* 1. Excel Daily Roster Path Link Auto-Reader & Classifier Card */}
           <div className="bg-slate-900 border border-emerald-500/30 rounded-xl p-4 shadow-xl space-y-4">
@@ -1620,7 +1782,7 @@ export default function AutomatedDispatchGate({
               <div className={`px-2.5 py-1 rounded text-[10px] font-black font-mono border uppercase flex items-center gap-1 ${
                 duplicateEmpIds.length > 0 
                   ? 'bg-rose-950/60 border-rose-600 text-rose-300 animate-pulse'
-                  : 'bg-emerald-950/40 border-emerald-800/60 text-emerald-400'
+                  : 'bg-emerald-955/40 border-emerald-800/60 text-emerald-400'
               }`}>
                 <AlertTriangle className="h-3 w-3" />
                 <span>VERIFY DUPLICATE EMP IDs ({duplicateEmpIds.length})</span>
@@ -1822,7 +1984,6 @@ export default function AutomatedDispatchGate({
                 />
               </div>
             </div>
-            
             <div className="flex gap-2 w-full sm:w-auto text-xs font-bold tracking-widest">
               <button onClick={() => setFilterStatus('ALL')} className={`px-3 py-1.5 rounded border ${filterStatus === 'ALL' ? 'bg-slate-700 border-slate-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-500 hover:border-slate-600'}`}>ALL</button>
               <button onClick={() => setFilterStatus('SIGNED_ON')} className={`px-3 py-1.5 rounded border ${filterStatus === 'SIGNED_ON' ? 'bg-emerald-900/50 border-emerald-500/50 text-emerald-400' : 'bg-slate-950 border-slate-800 text-slate-500 hover:border-emerald-900/50'}`}>ACTIVE</button>
@@ -1843,6 +2004,68 @@ export default function AutomatedDispatchGate({
               >
                 AUTHORIZE SELECTED ({selectedIds.length})
               </button>
+            </div>
+          )}
+
+          {/* Instant Duty Search Identification Summary Banner */}
+          {searchQuery.trim() !== '' && (
+            <div className="bg-amber-955/90 border-2 border-amber-500/80 rounded-xl p-4 shadow-2xl space-y-3 animate-in fade-in zoom-in duration-200">
+              <div className="flex items-center justify-between border-b border-amber-800/80 pb-2">
+                <div className="flex items-center gap-2">
+                  <Search className="h-5 w-5 text-amber-400 animate-pulse" />
+                  <h3 className="text-amber-300 font-black text-xs uppercase tracking-wider">
+                    Search Duty Identifier & Match Results ({filteredDeployments.length} Operator{filteredDeployments.length !== 1 ? 's' : ''} Found)
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="text-amber-300 hover:text-white text-xs font-bold px-2.5 py-0.5 rounded bg-amber-900/60 hover:bg-amber-900 border border-amber-600 transition"
+                >
+                  Clear Search ✕
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {filteredDeployments.slice(0, 6).map((matchItem) => (
+                  <div
+                    key={matchItem.id}
+                    className="bg-slate-950 border-2 border-amber-500/80 rounded-lg p-3 space-y-1.5 shadow-xl relative overflow-hidden ring-1 ring-amber-500/30"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-amber-400 font-black uppercase tracking-wider">
+                        Matched Operator
+                      </span>
+                      <span className="bg-amber-400 text-slate-955 px-2 py-0.5 rounded text-[11px] font-black uppercase tracking-widest shadow-md animate-pulse">
+                        ASSIGNED DUTY #{matchItem.dutyId}
+                      </span>
+                    </div>
+
+                    <div className="text-xs font-black text-slate-100 flex items-center gap-2">
+                      <span>{highlightMatch(matchItem.empName || matchItem.name, searchQuery)}</span>
+                      <span className="text-[10px] text-cyan-400 font-mono">
+                        (ID: {highlightMatch(matchItem.empId || matchItem.empNo, searchQuery)})
+                      </span>
+                    </div>
+
+                    <div className="text-[10px] text-slate-300 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-slate-800/80 pt-1.5">
+                      <div>
+                        <span className="text-slate-500 font-bold">Train:</span>{' '}
+                        <span className="text-cyan-300 font-bold">{matchItem.trainId || '--'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 font-bold">Sign On:</span>{' '}
+                        <span className="text-emerald-400 font-bold">{formatExcelTime(matchItem.signOnTime)}</span>{' '}
+                        <span className="text-slate-400">@ {matchItem.signOnLocation || 'PYID'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 font-bold">Status:</span>{' '}
+                        <span className="text-amber-300 font-bold uppercase">{matchItem.status || 'PENDING'}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -1897,12 +2120,24 @@ export default function AutomatedDispatchGate({
                       const isDup = Boolean(
                         displayId && displayId !== "--" && duplicateOperatorsMap[String(displayId).toLowerCase()],
                       );
+                      const isSearchMatch = Boolean(
+                        searchQuery.trim() &&
+                        (String(d.dutyId || '').toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
+                         String(d.empName || d.name || '').toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
+                         String(d.empId || d.empNo || '').toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
+                         String(d.trainId || '').toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
+                         (d.extraColumns && Object.values(d.extraColumns).some(v => String(v).toLowerCase().includes(searchQuery.toLowerCase().trim()))))
+                      );
 
                       return (
                         <tr
                           key={d.id}
                           className={`hover:bg-slate-800/30 transition-colors ${
-                            isDup ? "bg-rose-950/40 border-l-4 border-rose-500 shadow-md shadow-rose-950/50" : ""
+                            isSearchMatch
+                              ? "bg-amber-955/80 border-l-4 border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)] ring-1 ring-amber-500/40"
+                              : isDup
+                                ? "bg-rose-950/40 border-l-4 border-rose-500 shadow-md shadow-rose-950/50"
+                                : ""
                           }`}
                         >
                           <td className="p-3 w-10 text-center border-r border-slate-800">
@@ -1920,8 +2155,12 @@ export default function AutomatedDispatchGate({
                           
                           {/* Duty No */}
                           <td className="p-3">
-                            <span className="text-xs font-black text-white bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
-                              {d.dutyId}
+                            <span className={`px-2 py-0.5 rounded ${
+                              isSearchMatch
+                                ? "text-sm font-black text-slate-955 bg-amber-400 border border-amber-300 shadow-md animate-pulse"
+                                : "text-xs font-black text-white bg-slate-800 border border-slate-700"
+                            }`}>
+                              Duty #{d.dutyId}
                             </span>
                           </td>
                           
@@ -1940,7 +2179,7 @@ export default function AutomatedDispatchGate({
                             {d.signOnLocation || "PYID"}
                           </td>
                           
-                          {/* Operator Name with EXCH / SWAP / NR / AB Badges */}
+                          {/* Operator Name with EXCH / SWAP / NR / AB Badges & Text Highlighting */}
                           <td className="p-3 font-bold">
                             {editingDeploymentId === d.id ? (
                               <input
@@ -1952,45 +2191,45 @@ export default function AutomatedDispatchGate({
                             ) : isDup ? (
                               <span className="bg-rose-950 text-rose-200 border border-rose-500 px-2 py-1 rounded font-black text-xs shadow-md inline-flex items-center gap-1.5 animate-pulse">
                                 <AlertTriangle className="h-3.5 w-3.5 text-rose-400 shrink-0" />
-                                {d.empName || d.name || "UNASSIGNED"}
+                                {highlightMatch(d.empName || d.name || "UNASSIGNED", searchQuery)}
                               </span>
                             ) : isAbsent ? (
                               <span className="inline-flex items-center gap-2">
-                                <span className="text-slate-200">{d.empName || d.name || "UNASSIGNED"}</span>
+                                <span className="text-slate-200">{highlightMatch(d.empName || d.name || "UNASSIGNED", searchQuery)}</span>
                                 <span className="text-[9px] bg-red-950/90 text-red-300 border border-red-500/80 px-1.5 py-0.5 rounded font-mono font-black uppercase tracking-wider inline-flex items-center gap-1 shadow">
                                   <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span> AB
                                 </span>
                               </span>
                             ) : isNR ? (
                               <span className="inline-flex items-center gap-2">
-                                <span className="text-slate-200">{d.empName || d.name || "UNASSIGNED"}</span>
+                                <span className="text-slate-200">{highlightMatch(d.empName || d.name || "UNASSIGNED", searchQuery)}</span>
                                 <span className="text-[9px] bg-rose-950/90 text-rose-300 border border-rose-500/80 px-1.5 py-0.5 rounded font-mono font-black uppercase tracking-wider inline-flex items-center gap-1 shadow">
                                   <span className="h-1.5 w-1.5 rounded-full bg-rose-400 animate-pulse"></span> NR
                                 </span>
                               </span>
                             ) : isExchanged ? (
                               <span className="inline-flex items-center gap-2">
-                                <span className="text-slate-200">{d.empName || d.name || "UNASSIGNED"}</span>
+                                <span className="text-slate-200">{highlightMatch(d.empName || d.name || "UNASSIGNED", searchQuery)}</span>
                                 <span className="text-[9px] bg-cyan-950/90 text-cyan-300 border border-cyan-500/80 px-1.5 py-0.5 rounded font-mono font-black uppercase tracking-wider inline-flex items-center gap-1 shadow">
                                   <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse"></span> EXCH
                                 </span>
                               </span>
                             ) : isSwapped ? (
                               <span className="inline-flex items-center gap-2">
-                                <span className="text-slate-200">{d.empName || d.name || "UNASSIGNED"}</span>
+                                <span className="text-slate-200">{highlightMatch(d.empName || d.name || "UNASSIGNED", searchQuery)}</span>
                                 <span className="text-[9px] bg-amber-950/90 text-amber-300 border border-amber-500/80 px-1.5 py-0.5 rounded font-mono font-black uppercase tracking-wider inline-flex items-center gap-1 shadow">
                                   <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse"></span> SWAP
                                 </span>
                               </span>
                             ) : (
-                              <span className="text-slate-200">{d.empName || d.name || "UNASSIGNED"}</span>
+                              <span className="text-slate-200">{highlightMatch(d.empName || d.name || "UNASSIGNED", searchQuery)}</span>
                             )}
                           </td>
                           
-                          {/* Emp No */}
+                          {/* Emp No with Text Highlighting */}
                           <td className="p-3 font-mono font-bold">
                             <span className={isAbsent ? "text-red-400" : isNR ? "text-rose-400" : isExchanged ? "text-cyan-300" : isSwapped ? "text-amber-300" : "text-cyan-400"}>
-                              {d.empId || d.employeeId || "--"}
+                              {highlightMatch(d.empId || d.employeeId || "--", searchQuery)}
                             </span>
                           </td>
                           
@@ -2077,37 +2316,47 @@ export default function AutomatedDispatchGate({
                   BMRCL LINE 2 PEENYA DEPOT ROSTER DESK CONSOLE
                 </h2>
                 <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[10px] font-bold text-slate-400">
-                  <span className="bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-amber-400">Crew Controllers ({consoleData.controlDesks.length}/10)</span>
-                  <span className="bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-cyan-400">Leave & Rest ({consoleData.leaves.length}/50)</span>
-                  <span className="bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-emerald-400">Standby ({consoleData.standbys.length}/50)</span>
-                  <span className="bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-purple-400">STBK ({consoleData.outstationStepbacks.length}/20)</span>
-                  <span className="bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-teal-400">CRT ({consoleData.crtTraining.length}/15)</span>
-                  <span className="bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-sky-400">BMRTI ({consoleData.bmrtiTraining.length}/50)</span>
-                  <span className="bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-rose-400">Weekly Off ({consoleData.weeklyOffs.length}/50)</span>
-                  <span className="bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-fuchsia-400">REL ({consoleData.relievedOperators.length}/10)</span>
+                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-amber-400">Crew Controllers ({consoleData.controlDesks?.length || 0}/10)</span>
+                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-cyan-400">Leave & Rest ({consoleData.leaves?.length || 0}/50)</span>
+                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-emerald-400">Standby ({consoleData.standbys?.length || 0}/50)</span>
+                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-purple-400">STBK ({consoleData.outstationStepbacks?.length || 0}/20)</span>
+                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-teal-400">CRT ({consoleData.crtTraining?.length || 0}/15)</span>
+                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-sky-400">BMRTI ({consoleData.bmrtiTraining?.length || 0}/50)</span>
+                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-rose-400">Weekly Off ({consoleData.weeklyOffs?.length || 0}/50)</span>
+                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-fuchsia-400">REL ({consoleData.relievedOperators?.length || 0}/10)</span>
+                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-lime-400">PME ({consoleData.pmeOperators?.length || 0}/20)</span>
+                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-indigo-400">LRD ({consoleData.routeLearning?.length || 0}/20)</span>
+                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-amber-300">OD ({consoleData.onDuty?.length || 0}/20)</span>
+                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-rose-300">NR ({consoleData.notReporting?.length || 0}/20)</span>
+                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-red-400">AB ({consoleData.absents?.length || 0}/20)</span>
+                  {Object.keys(consoleData.customRegisters || {}).map(tagName => (
+                    <span key={tagName} className="bg-slate-955 px-2 py-0.5 rounded border border-cyan-800 text-cyan-300">
+                      {tagName} ({consoleData.customRegisters[tagName]?.length || 0})
+                    </span>
+                  ))}
                 </div>
               </div>
               <button
                 type="button"
                 onClick={handleAutoDeployConsoleToAllPages}
-                className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-black text-xs px-4 py-2 rounded-lg transition-all shadow-lg flex items-center gap-2 shrink-0 uppercase tracking-wider cursor-pointer"
+                className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-955 font-black text-xs px-4 py-2 rounded-lg transition-all shadow-lg flex items-center gap-2 shrink-0 uppercase tracking-wider cursor-pointer"
               >
                 <UploadCloud className="h-4 w-4" />
                 <span>AUTO-DEPLOY CONSOLE TO ALL PAGES</span>
               </button>
             </div>
 
-            {/* Console Cards Grid */}
+            {/* Console Cards Grid (12 Desk Registers) */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               
               {/* 1. Crew Controllers */}
               <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
                 <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-amber-400 uppercase">Crew Controllers ({consoleData.controlDesks.length})</span>
-                  <span className="text-[10px] bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded border border-amber-800/40">{consoleData.controlDesks.length} / 10</span>
+                  <span className="text-xs font-bold text-amber-400 uppercase">Crew Controllers ({consoleData.controlDesks?.length || 0})</span>
+                  <span className="text-[10px] bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded border border-amber-800/40">{consoleData.controlDesks?.length || 0} / 10</span>
                 </div>
                 <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {consoleData.controlDesks.map((item, idx) => (
+                  {(consoleData.controlDesks || []).map((item, idx) => (
                     <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
                       <div>
                         <div className="font-bold text-slate-200">{item.code || item.label || `CC${idx+1}`} • {item.name}</div>
@@ -2116,9 +2365,9 @@ export default function AutomatedDispatchGate({
                       <span className="text-[10px] text-amber-400 font-bold">#{item.empNo || '--'}</span>
                     </div>
                   ))}
-                  {Array.from({ length: Math.max(0, 10 - consoleData.controlDesks.length) }, (_, i) => (
+                  {Array.from({ length: Math.max(0, 10 - (consoleData.controlDesks?.length || 0)) }, (_, i) => (
                     <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
-                      <div>CC{consoleData.controlDesks.length + i + 1} • --</div>
+                      <div>CC{(consoleData.controlDesks?.length || 0) + i + 1} • --</div>
                       <span className="text-[10px]">06:00 • --</span>
                     </div>
                   ))}
@@ -2128,11 +2377,11 @@ export default function AutomatedDispatchGate({
               {/* 2. Leave & Rest */}
               <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
                 <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-cyan-400 uppercase">Leave & Rest ({consoleData.leaves.length})</span>
-                  <span className="text-[10px] bg-cyan-950/60 text-cyan-300 px-2 py-0.5 rounded border border-cyan-800/40">{consoleData.leaves.length} / 50</span>
+                  <span className="text-xs font-bold text-cyan-400 uppercase">Leave & Rest ({consoleData.leaves?.length || 0})</span>
+                  <span className="text-[10px] bg-cyan-950/60 text-cyan-300 px-2 py-0.5 rounded border border-cyan-800/40">{consoleData.leaves?.length || 0} / 50</span>
                 </div>
                 <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {consoleData.leaves.map((item, idx) => (
+                  {(consoleData.leaves || []).map((item, idx) => (
                     <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
                       <div>
                         <div className="font-bold text-slate-200"><span className="text-cyan-400">{item.type || 'CL'}</span> • {item.name}</div>
@@ -2141,7 +2390,7 @@ export default function AutomatedDispatchGate({
                       <span className="text-[10px] text-cyan-400 font-bold">#{item.empNo || '--'}</span>
                     </div>
                   ))}
-                  {Array.from({ length: Math.max(0, 50 - consoleData.leaves.length) }, (_, i) => (
+                  {Array.from({ length: Math.max(0, 50 - (consoleData.leaves?.length || 0)) }, (_, i) => (
                     <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
                       <div>-- • --</div>
                       <span className="text-[10px]">--</span>
@@ -2153,11 +2402,11 @@ export default function AutomatedDispatchGate({
               {/* 3. Standby Operators */}
               <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
                 <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-emerald-400 uppercase">Standby Operators ({consoleData.standbys.length})</span>
-                  <span className="text-[10px] bg-emerald-950/60 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800/40">{consoleData.standbys.length} / 50</span>
+                  <span className="text-xs font-bold text-emerald-400 uppercase">Standby ({consoleData.standbys?.length || 0})</span>
+                  <span className="text-[10px] bg-emerald-950/60 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800/40">{consoleData.standbys?.length || 0} / 50</span>
                 </div>
                 <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {consoleData.standbys.map((item, idx) => (
+                  {(consoleData.standbys || []).map((item, idx) => (
                     <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
                       <div>
                         <div className="font-bold text-slate-200">{item.code || item.label || 'OR'} • {item.name}</div>
@@ -2166,7 +2415,7 @@ export default function AutomatedDispatchGate({
                       <span className="text-[10px] text-emerald-400 font-bold">#{item.empNo || '--'}</span>
                     </div>
                   ))}
-                  {Array.from({ length: Math.max(0, 50 - consoleData.standbys.length) }, (_, i) => (
+                  {Array.from({ length: Math.max(0, 50 - (consoleData.standbys?.length || 0)) }, (_, i) => (
                     <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
                       <div>--</div>
                       <span className="text-[10px]">06:00 • --</span>
@@ -2178,11 +2427,11 @@ export default function AutomatedDispatchGate({
               {/* 4. Step-Back STBK */}
               <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
                 <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-purple-400 uppercase">Step-Back STBK ({consoleData.outstationStepbacks.length})</span>
-                  <span className="text-[10px] bg-purple-950/60 text-purple-300 px-2 py-0.5 rounded border border-purple-800/40">{consoleData.outstationStepbacks.length} / 20</span>
+                  <span className="text-xs font-bold text-purple-400 uppercase">STBK ({consoleData.outstationStepbacks?.length || 0})</span>
+                  <span className="text-[10px] bg-purple-950/60 text-purple-300 px-2 py-0.5 rounded border border-purple-800/40">{consoleData.outstationStepbacks?.length || 0} / 20</span>
                 </div>
                 <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {consoleData.outstationStepbacks.map((item, idx) => (
+                  {(consoleData.outstationStepbacks || []).map((item, idx) => (
                     <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
                       <div>
                         <div className="font-bold text-purple-300">{item.station || item.loc || 'STBK'}</div>
@@ -2192,7 +2441,7 @@ export default function AutomatedDispatchGate({
                       <span className="text-[10px] text-purple-400 font-bold">#{item.empNo || '--'}</span>
                     </div>
                   ))}
-                  {Array.from({ length: Math.max(0, 20 - consoleData.outstationStepbacks.length) }, (_, i) => (
+                  {Array.from({ length: Math.max(0, 20 - (consoleData.outstationStepbacks?.length || 0)) }, (_, i) => (
                     <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
                       <div>STBK • --</div>
                       <span className="text-[10px]">06:00 • --</span>
@@ -2204,11 +2453,11 @@ export default function AutomatedDispatchGate({
               {/* 5. CRT Training */}
               <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
                 <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-teal-400 uppercase">CRT Training ({consoleData.crtTraining.length})</span>
-                  <span className="text-[10px] bg-teal-950/60 text-teal-300 px-2 py-0.5 rounded border border-teal-800/40">{consoleData.crtTraining.length} / 15</span>
+                  <span className="text-xs font-bold text-teal-400 uppercase">CRT ({consoleData.crtTraining?.length || 0})</span>
+                  <span className="text-[10px] bg-teal-950/60 text-teal-300 px-2 py-0.5 rounded border border-teal-800/40">{consoleData.crtTraining?.length || 0} / 15</span>
                 </div>
                 <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {consoleData.crtTraining.map((item, idx) => (
+                  {(consoleData.crtTraining || []).map((item, idx) => (
                     <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
                       <div>
                         <div className="font-bold text-slate-200">{item.name}</div>
@@ -2217,7 +2466,7 @@ export default function AutomatedDispatchGate({
                       <span className="text-[10px] text-teal-400 font-bold">#{item.empNo || '--'}</span>
                     </div>
                   ))}
-                  {Array.from({ length: Math.max(0, 15 - consoleData.crtTraining.length) }, (_, i) => (
+                  {Array.from({ length: Math.max(0, 15 - (consoleData.crtTraining?.length || 0)) }, (_, i) => (
                     <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
                       <div>--</div>
                       <span className="text-[10px]">06:00 • --</span>
@@ -2229,11 +2478,11 @@ export default function AutomatedDispatchGate({
               {/* 6. BMRTI Training */}
               <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
                 <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-sky-400 uppercase">BMRTI Training ({consoleData.bmrtiTraining.length})</span>
-                  <span className="text-[10px] bg-sky-950/60 text-sky-300 px-2 py-0.5 rounded border border-sky-800/40">{consoleData.bmrtiTraining.length} / 50</span>
+                  <span className="text-xs font-bold text-sky-400 uppercase">BMRTI ({consoleData.bmrtiTraining?.length || 0})</span>
+                  <span className="text-[10px] bg-sky-950/60 text-sky-300 px-2 py-0.5 rounded border border-sky-800/40">{consoleData.bmrtiTraining?.length || 0} / 50</span>
                 </div>
                 <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {consoleData.bmrtiTraining.map((item, idx) => (
+                  {(consoleData.bmrtiTraining || []).map((item, idx) => (
                     <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
                       <div>
                         <div className="font-bold text-slate-200">{item.name}</div>
@@ -2242,7 +2491,7 @@ export default function AutomatedDispatchGate({
                       <span className="text-[10px] text-sky-400 font-bold">#{item.empNo || '--'}</span>
                     </div>
                   ))}
-                  {Array.from({ length: Math.max(0, 50 - consoleData.bmrtiTraining.length) }, (_, i) => (
+                  {Array.from({ length: Math.max(0, 50 - (consoleData.bmrtiTraining?.length || 0)) }, (_, i) => (
                     <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
                       <div>--</div>
                       <span className="text-[10px]">06:00 • --</span>
@@ -2254,17 +2503,17 @@ export default function AutomatedDispatchGate({
               {/* 7. Weekly Off */}
               <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
                 <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-rose-400 uppercase">Weekly Off ({consoleData.weeklyOffs.length})</span>
-                  <span className="text-[10px] bg-rose-950/60 text-rose-300 px-2 py-0.5 rounded border border-rose-800/40">{consoleData.weeklyOffs.length} / 50</span>
+                  <span className="text-xs font-bold text-rose-400 uppercase">Weekly Off ({consoleData.weeklyOffs?.length || 0})</span>
+                  <span className="text-[10px] bg-rose-950/60 text-rose-300 px-2 py-0.5 rounded border border-rose-800/40">{consoleData.weeklyOffs?.length || 0} / 50</span>
                 </div>
                 <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {consoleData.weeklyOffs.map((item, idx) => (
+                  {(consoleData.weeklyOffs || []).map((item, idx) => (
                     <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
                       <div className="font-bold text-slate-200">{item.name}</div>
                       <span className="text-[10px] text-rose-400 font-bold">#{item.empNo || '--'}</span>
                     </div>
                   ))}
-                  {Array.from({ length: Math.max(0, 50 - consoleData.weeklyOffs.length) }, (_, i) => (
+                  {Array.from({ length: Math.max(0, 50 - (consoleData.weeklyOffs?.length || 0)) }, (_, i) => (
                     <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
                       <div>--</div>
                       <span className="text-[10px]">--</span>
@@ -2276,17 +2525,17 @@ export default function AutomatedDispatchGate({
               {/* 8. REL (Relieved) */}
               <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
                 <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-fuchsia-400 uppercase">REL (Relieved) ({consoleData.relievedOperators.length})</span>
-                  <span className="text-[10px] bg-fuchsia-950/60 text-fuchsia-300 px-2 py-0.5 rounded border border-fuchsia-800/40">{consoleData.relievedOperators.length} / 10</span>
+                  <span className="text-xs font-bold text-fuchsia-400 uppercase">REL ({consoleData.relievedOperators?.length || 0})</span>
+                  <span className="text-[10px] bg-fuchsia-950/60 text-fuchsia-300 px-2 py-0.5 rounded border border-fuchsia-800/40">{consoleData.relievedOperators?.length || 0} / 10</span>
                 </div>
                 <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {consoleData.relievedOperators.map((item, idx) => (
+                  {(consoleData.relievedOperators || []).map((item, idx) => (
                     <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
                       <div className="font-bold text-slate-200">{item.name}</div>
                       <span className="text-[10px] text-fuchsia-400 font-bold">#{item.empNo || '--'}</span>
                     </div>
                   ))}
-                  {Array.from({ length: Math.max(0, 10 - consoleData.relievedOperators.length) }, (_, i) => (
+                  {Array.from({ length: Math.max(0, 10 - (consoleData.relievedOperators?.length || 0)) }, (_, i) => (
                     <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
                       <div>--</div>
                       <span className="text-[10px]">06:00 • --</span>
@@ -2295,23 +2544,149 @@ export default function AutomatedDispatchGate({
                 </div>
               </div>
 
-            </div>
+              {/* 9. PME Register */}
+              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <span className="text-xs font-bold text-lime-400 uppercase">PME ({consoleData.pmeOperators?.length || 0})</span>
+                  <span className="text-[10px] bg-lime-950/60 text-lime-300 px-2 py-0.5 rounded border border-lime-800/40">{consoleData.pmeOperators?.length || 0} / 20</span>
+                </div>
+                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                  {(consoleData.pmeOperators || []).map((item, idx) => (
+                    <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
+                      <div className="font-bold text-slate-200">{item.name}</div>
+                      <span className="text-[10px] text-lime-400 font-bold">#{item.empNo || '--'}</span>
+                    </div>
+                  ))}
+                  {Array.from({ length: Math.max(0, 20 - (consoleData.pmeOperators?.length || 0)) }, (_, i) => (
+                    <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
+                      <div>--</div>
+                      <span className="text-[10px]">PME</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-            {/* 9. PME (Periodical Medical Examination) Register Banner */}
-            <div className="bg-slate-955 border border-lime-800/40 rounded-xl p-3 space-y-1 flex flex-col sm:flex-row justify-between items-start sm:items-center">
-              <div>
-                <h3 className="text-xs font-bold text-lime-400 uppercase tracking-wider">
-                  PME (Periodical Medical Examination) Register
-                </h3>
-                <p className="text-[11px] text-slate-400">
-                  {consoleData.pmeOperators && consoleData.pmeOperators.length > 0
-                    ? `${consoleData.pmeOperators.length} Train Operator(s) assigned to PME.`
-                    : 'No Train Operators currently assigned to PME.'}
-                </p>
+              {/* 10. Route Learning (LRD) */}
+              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <span className="text-xs font-bold text-indigo-400 uppercase">LRD ({consoleData.routeLearning?.length || 0})</span>
+                  <span className="text-[10px] bg-indigo-950/60 text-indigo-300 px-2 py-0.5 rounded border border-indigo-800/40">{consoleData.routeLearning?.length || 0} / 20</span>
+                </div>
+                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                  {(consoleData.routeLearning || []).map((item, idx) => (
+                    <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
+                      <div className="font-bold text-slate-200">{item.name}</div>
+                      <span className="text-[10px] text-indigo-400 font-bold">#{item.empNo || '--'}</span>
+                    </div>
+                  ))}
+                  {Array.from({ length: Math.max(0, 20 - (consoleData.routeLearning?.length || 0)) }, (_, i) => (
+                    <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
+                      <div>--</div>
+                      <span className="text-[10px]">LRD</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="bg-lime-950/60 border border-lime-800/60 text-lime-400 text-xs font-bold px-3 py-1.5 rounded font-mono">
-                Total PME Assigned: {consoleData.pmeOperators ? consoleData.pmeOperators.length : 0} Operators
+
+              {/* 11. NOT REPORTING (NR) */}
+              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <span className="text-xs font-bold text-rose-300 uppercase">NOT REPORTING ({consoleData.notReporting?.length || 0})</span>
+                  <span className="text-[10px] bg-rose-950/60 text-rose-300 px-2 py-0.5 rounded border border-rose-800/40">{consoleData.notReporting?.length || 0} / 20</span>
+                </div>
+                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                  {(consoleData.notReporting || []).map((item, idx) => (
+                    <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
+                      <div className="font-bold text-slate-200">{item.name}</div>
+                      <span className="text-[10px] text-rose-400 font-bold">#{item.empNo || '--'}</span>
+                    </div>
+                  ))}
+                  {Array.from({ length: Math.max(0, 20 - (consoleData.notReporting?.length || 0)) }, (_, i) => (
+                    <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
+                      <div>--</div>
+                      <span className="text-[10px]">NR</span>
+                    </div>
+                  ))}
+                </div>
               </div>
+
+              {/* 12. ABSENT (AB) */}
+              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <span className="text-xs font-bold text-red-400 uppercase">ABSENT ({consoleData.absents?.length || 0})</span>
+                  <span className="text-[10px] bg-red-950/60 text-red-300 px-2 py-0.5 rounded border border-red-800/40">{consoleData.absents?.length || 0} / 20</span>
+                </div>
+                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                  {(consoleData.absents || []).map((item, idx) => (
+                    <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
+                      <div className="font-bold text-slate-200">{item.name}</div>
+                      <span className="text-[10px] text-red-400 font-bold">#{item.empNo || '--'}</span>
+                    </div>
+                  ))}
+                  {Array.from({ length: Math.max(0, 20 - (consoleData.absents?.length || 0)) }, (_, i) => (
+                    <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
+                      <div>--</div>
+                      <span className="text-[10px]">AB</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 13. OD (On Duty / Outstation Duty) */}
+              <div className="bg-slate-955 border border-amber-900/40 rounded-xl p-3 space-y-2">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <span className="text-xs font-bold text-amber-400 uppercase">OD (On Duty) ({consoleData.onDuty?.length || 0})</span>
+                  <span className="text-[10px] bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded border border-amber-800/40">{consoleData.onDuty?.length || 0} / 20</span>
+                </div>
+                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                  {(consoleData.onDuty || []).map((item, idx) => (
+                    <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
+                      <div>
+                        <div className="font-bold text-slate-200">{item.name}</div>
+                        <div className="text-[10px] text-amber-300 font-mono">{item.info || item.remark || 'OD'}</div>
+                      </div>
+                      <span className="text-[10px] text-amber-400 font-bold">#{item.empNo || '--'}</span>
+                    </div>
+                  ))}
+                  {Array.from({ length: Math.max(0, 20 - (consoleData.onDuty?.length || 0)) }, (_, i) => (
+                    <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
+                      <div>--</div>
+                      <span className="text-[10px]">OD</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 14+. Dynamic Custom Section Cards */}
+              {Object.keys(consoleData.customRegisters || {}).map(tagName => {
+                const list = consoleData.customRegisters[tagName] || [];
+                return (
+                  <div key={tagName} className="bg-slate-955 border border-cyan-900/40 rounded-xl p-3 space-y-2">
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <span className="text-xs font-bold text-cyan-300 uppercase">{tagName} ({list.length})</span>
+                      <span className="text-[10px] bg-cyan-950/60 text-cyan-300 px-2 py-0.5 rounded border border-cyan-800/40">{list.length} / 20</span>
+                    </div>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                      {list.map((item, idx) => (
+                        <div key={idx} className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
+                          <div>
+                            <div className="font-bold text-slate-200">{item.name}</div>
+                            <div className="text-[10px] text-cyan-400 font-mono">{item.info || item.tag || ''}</div>
+                          </div>
+                          <span className="text-[10px] text-cyan-300 font-bold">#{item.empNo || '--'}</span>
+                        </div>
+                      ))}
+                      {Array.from({ length: Math.max(0, 20 - list.length) }, (_, i) => (
+                        <div key={i} className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500">
+                          <div>--</div>
+                          <span className="text-[10px]">{tagName}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+
             </div>
           </div>
         </div>

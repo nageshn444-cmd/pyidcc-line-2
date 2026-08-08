@@ -21,7 +21,11 @@ import {
   Search,
   ChevronDown,
   ChevronUp,
-  FileText
+  FileText,
+  Maximize2,
+  Smartphone,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
 
 // 32 main passenger stations with matching serial order and coordinates for the serpentine layout
@@ -106,7 +110,19 @@ export default function RouteCalculator({
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
 
+  const [isCleared, setIsCleared] = useState(false);
+
+  // Track Map Responsive View Engine States (Mobile / Laptop)
+  const [trackViewMode, setTrackViewMode] = useState('FIT'); // 'FIT' | 'SCROLL'
+  const [zoomLevel, setZoomLevel] = useState(100);
+
   const saveUploadedRoster = (fileName, rawParsedDuties, schedType = timetableSchedule) => {
+    setIsCleared(false);
+    setManualOverrides({});
+    setEditingDutyNo(null);
+    try {
+      localStorage.removeItem('bmrcl_link_roster_manual_overrides');
+    } catch (e) {}
     const enhanced = enhanceRosterDuties(rawParsedDuties, schedType);
     const data = {
       fileName,
@@ -125,13 +141,18 @@ export default function RouteCalculator({
   };
 
   const handleClearUploadedRoster = () => {
+    setIsCleared(true);
     setSavedUpload(null);
+    setManualOverrides({});
+    setEditingDutyNo(null);
     try {
       localStorage.removeItem('bmrcl_link_roster_upload_cache');
+      localStorage.removeItem('bmrcl_link_roster_manual_overrides');
     } catch (e) {}
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+    if (externalSetDuties) externalSetDuties([]);
   };
 
   const handleLoadSampleRoster = () => {
@@ -153,22 +174,122 @@ export default function RouteCalculator({
     const cleanDn = sanitizeDutyNo(d.dutyNo);
     if (!cleanDn || cleanDn.length === 0 || cleanDn.length > 25) return false;
     if (cleanDn === '---' || cleanDn === '==' || cleanDn === '===' || cleanDn === '***' || cleanDn.startsWith('~') || cleanDn.includes('/') || cleanDn.includes(';') || cleanDn.includes('=')) return false;
+    // Exclude unformatted time numbers like 615, 620, 1235 when signOn/signOff times are missing
+    if (/^\d{3,4}$/.test(cleanDn) && !d.sOnTime && !d.sOffTime && (!d.trips || d.trips.length === 0)) return false;
     return true;
   };
 
+  const [editingDutyNo, setEditingDutyNo] = useState(null);
+  const [editFormData, setEditFormData] = useState({});
+  const [manualOverrides, setManualOverrides] = useState(() => {
+    try {
+      const stored = localStorage.getItem('bmrcl_link_roster_manual_overrides');
+      if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return {};
+  });
+
+  const handleStartEditDuty = (duty) => {
+    setEditingDutyNo(duty.dutyNo);
+    const existing = manualOverrides[duty.dutyNo] || {};
+    const leg1 = duty.trips?.[0];
+    const leg2 = duty.trips?.[1];
+    const leg3 = duty.trips?.[2];
+    const leg4 = duty.trips?.[3];
+
+    const getPathStr = (t) => t?.customPathStr || (t?.intermediateStations?.length > 0 ? t.intermediateStations.join(' → ') : (t?.boardingStation && t?.alightingStation ? `${t.boardingStation} → ${t.alightingStation}` : ''));
+
+    setEditFormData({
+      dutyNo: duty.dutyNo,
+      leg1Path: existing.leg1Path !== undefined ? existing.leg1Path : getPathStr(leg1),
+      leg1Km: existing.leg1Km !== undefined ? existing.leg1Km : (leg1?.calculatedKms || 0),
+      leg2Path: existing.leg2Path !== undefined ? existing.leg2Path : getPathStr(leg2),
+      leg2Km: existing.leg2Km !== undefined ? existing.leg2Km : (leg2?.calculatedKms || 0),
+      leg3Path: existing.leg3Path !== undefined ? existing.leg3Path : getPathStr(leg3),
+      leg3Km: existing.leg3Km !== undefined ? existing.leg3Km : (leg3?.calculatedKms || 0),
+      leg4Path: existing.leg4Path !== undefined ? existing.leg4Path : getPathStr(leg4),
+      leg4Km: existing.leg4Km !== undefined ? existing.leg4Km : (leg4?.calculatedKms || 0),
+      totalKm: existing.totalKm !== undefined ? existing.totalKm : (duty.kms || 0),
+    });
+  };
+
+  const handleSaveEditDuty = (dutyNo) => {
+    const updated = {
+      ...manualOverrides,
+      [dutyNo]: {
+        ...editFormData,
+        leg1Km: Number(editFormData.leg1Km) || 0,
+        leg2Km: Number(editFormData.leg2Km) || 0,
+        leg3Km: Number(editFormData.leg3Km) || 0,
+        leg4Km: Number(editFormData.leg4Km) || 0,
+        totalKm: Number(editFormData.totalKm) !== undefined ? Number(editFormData.totalKm) : (Number(editFormData.leg1Km || 0) + Number(editFormData.leg2Km || 0) + Number(editFormData.leg3Km || 0) + Number(editFormData.leg4Km || 0))
+      }
+    };
+    setManualOverrides(updated);
+    try {
+      localStorage.setItem('bmrcl_link_roster_manual_overrides', JSON.stringify(updated));
+    } catch (e) {}
+    setEditingDutyNo(null);
+  };
+
+  const handleResetDutyOverride = (dutyNo) => {
+    const updated = { ...manualOverrides };
+    delete updated[dutyNo];
+    setManualOverrides(updated);
+    try {
+      localStorage.setItem('bmrcl_link_roster_manual_overrides', JSON.stringify(updated));
+    } catch (e) {}
+    if (editingDutyNo === dutyNo) setEditingDutyNo(null);
+  };
+
   const activeDuties = React.useMemo(() => {
+    if (isCleared) return [];
     let rawDuties = [];
     if (savedUpload && Array.isArray(savedUpload.duties) && savedUpload.duties.length > 0) {
       rawDuties = savedUpload.duties;
     } else {
-      return [];
+      rawDuties = PRELOADED_DUTIES;
     }
     const validRaw = rawDuties.filter(isValidLinkRosterDuty).map(d => ({
       ...d,
       dutyNo: sanitizeDutyNo(d.dutyNo)
-    }));
-    return enhanceRosterDuties(validRaw, timetableSchedule);
-  }, [savedUpload, timetableSchedule]);
+    })).filter(d => d.dutyNo !== '615' && d.dutyNo !== '620');
+
+    const enhanced = enhanceRosterDuties(validRaw, timetableSchedule);
+
+    return enhanced.map(duty => {
+      const ov = manualOverrides[duty.dutyNo];
+      if (!ov) return duty;
+
+      const trips = [...(duty.trips || [])];
+      for (let i = 0; i < 4; i++) {
+        const legKey = `leg${i + 1}`;
+        const kmKey = `${legKey}Km`;
+        const pathKey = `${legKey}Path`;
+        if (ov[kmKey] !== undefined || ov[pathKey] !== undefined) {
+          if (!trips[i]) {
+            trips[i] = { legNumber: i + 1, calculatedKms: 0 };
+          }
+          trips[i] = {
+            ...trips[i],
+            calculatedKms: ov[kmKey] !== undefined ? Number(ov[kmKey]) : trips[i].calculatedKms,
+            customPathStr: ov[pathKey] !== undefined ? ov[pathKey] : trips[i].customPathStr
+          };
+        }
+      }
+
+      const totalKm = ov.totalKm !== undefined ? Number(ov.totalKm) : (
+        trips.reduce((sum, t) => sum + (t?.calculatedKms || 0), 0)
+      );
+
+      return {
+        ...duty,
+        trips,
+        kms: totalKm,
+        isManuallyEdited: true
+      };
+    });
+  }, [savedUpload, timetableSchedule, manualOverrides]);
 
   const handleScheduleChange = (newSched) => {
     setTimetableSchedule(newSched);
@@ -195,11 +316,11 @@ export default function RouteCalculator({
       const sOnLocKeywords = ['sign on loc', 's/on loc', 's on loc', 'on_location', 'location', 'sign_on_loc', 'on loc', 's.on loc'];
       const sOffKeywords = ['sign off', 's/off', 's off', 's-off', 's.off', 'soff', 'off time', 'end time', 'sign_off'];
       const sOffLocKeywords = ['sign off loc', 's/off loc', 's off loc', 'off_location', 'sign_off_loc', 'off loc', 's.off loc'];
-      const trainKeywords = ['train', 'tr.no', 'tr no', 'train no', 'train_no', 'train#', 'tr', 't.no', 'leg', 'trip'];
+      const trainKeywords = ['train', 'tr.no', 'tr no', 'train no', 'train_no', 'train#', 'tr', 't.no'];
       const timeFrmKeywords = ['time frm', 'time_frm', 'frm', 'dep', 'departure', 'dep.time', 'from time', 'time from'];
       const timeToKeywords = ['time to', 'time_to', 'to', 'arr', 'arrival', 'arr.time', 'to time', 'time to'];
-      const takeoverKeywords = ['takeover', 't/o', 'take over', 'takeover loc', 't/o loc', 'from loc'];
-      const handoverKeywords = ['handover', 'h/o', 'hand over', 'handover loc', 'h/o loc', 'to loc'];
+      const takeoverKeywords = ['takeover', 't/o', 'take over', 'takeover loc', 't/o loc'];
+      const handoverKeywords = ['handover', 'h/o', 'hand over', 'handover loc', 'h/o loc'];
 
       const matchesKeyword = (headerStr, keywords) => {
         if (!headerStr) return false;
@@ -284,20 +405,36 @@ export default function RouteCalculator({
         const signOffLocIdx = findColIndex(sOffLocKeywords);
         const kmsIdx = findColIndex(['kms', 'distance', 'km', 'kilometer', 'total km']);
 
-        const getColIndexForLeg = (keywords, legNum) => {
-          const legNumStr = String(legNum);
-          for (let c = 0; c < headers.length; c++) {
+        const trainColIndices = [];
+        headers.forEach((h, c) => {
+          if ((h.includes('train') || h === 'tr' || h.includes('tr.no') || h === 't.no') && !h.includes('trip')) {
+            trainColIndices.push(c);
+          }
+        });
+
+        const legCols = trainColIndices.map(tCol => {
+          let timeFrmCol = -1, timeToCol = -1, takeoverCol = -1, handoverCol = -1;
+
+          for (let c = Math.max(0, tCol - 2); c <= Math.min(headers.length - 1, tCol + 4); c++) {
             const h = headers[c];
-            if (h.includes(legNumStr) && matchesKeyword(h, keywords)) return c;
+            if (c < tCol && (h.includes('takeover') || h.includes('t/o') || h.includes('from loc'))) {
+              takeoverCol = c;
+            } else if (c >= tCol && (h.includes('frm') || h.includes('dep') || h.includes('from')) && timeFrmCol === -1) {
+              timeFrmCol = c;
+            } else if (c > tCol && (h.includes('to') || h.includes('arr')) && !h.includes('takeover') && !h.includes('handover') && timeToCol === -1) {
+              timeToCol = c;
+            } else if (c > tCol && (h.includes('handover') || h.includes('h/o') || h.includes('to loc'))) {
+              handoverCol = c;
+            }
           }
-          const matches = [];
-          for (let c = 0; c < headers.length; c++) {
-            if (matchesKeyword(headers[c], keywords)) matches.push(c);
-          }
-          return matches[legNum - 1] !== undefined ? matches[legNum - 1] : -1;
-        };
+          if (timeFrmCol === -1) timeFrmCol = tCol + 1;
+          if (timeToCol === -1) timeToCol = tCol + 2;
+
+          return { trainCol: tCol, timeFrmCol, timeToCol, takeoverCol, handoverCol };
+        });
 
         let sheetDuties = [];
+        let currentDutyObj = null;
 
         for (let r = bestHeaderIdx + 1; r < rowsMatrix.length; r++) {
           const row = rowsMatrix[r];
@@ -315,110 +452,149 @@ export default function RouteCalculator({
             }
           }
 
-          if (!rawDutyVal) continue;
-          const dutyNo = sanitizeDutyNo(rawDutyVal);
-          if (!dutyNo || dutyNo.toLowerCase().includes('total') || dutyNo.toLowerCase().includes('prepared') || dutyNo.startsWith('~')) continue;
+          const isSubRow = !rawDutyVal && currentDutyObj;
+          if (!rawDutyVal && !isSubRow) continue;
 
-          const sOnTime = sOnTimeIdx !== -1 ? row[sOnTimeIdx]?.val : '06:00:00';
-          const signOnLocation = signOnLocIdx !== -1 ? row[signOnLocIdx]?.val : 'PYID';
-          const sOffTime = sOffTimeIdx !== -1 ? row[sOffTimeIdx]?.val : '14:00:00';
-          const signOffLocation = signOffLocIdx !== -1 ? row[signOffLocIdx]?.val : 'PYID';
-          const kms = kmsIdx !== -1 ? (parseFloat(row[kmsIdx]?.val) || 0) : 0;
+          if (!isSubRow) {
+            const dutyNo = sanitizeDutyNo(rawDutyVal);
+            if (!dutyNo || dutyNo.toLowerCase().includes('total') || dutyNo.toLowerCase().includes('prepared') || dutyNo.startsWith('~')) continue;
 
-          const trips = [];
-          for (let legIdx = 1; legIdx <= 4; legIdx++) {
-            const trainColIdx = getColIndexForLeg(trainKeywords, legIdx);
-            const timeFrmColIdx = getColIndexForLeg(timeFrmKeywords, legIdx);
-            const timeToColIdx = getColIndexForLeg(timeToKeywords, legIdx);
-            const takeoverColIdx = getColIndexForLeg(takeoverKeywords, legIdx);
-            const handoverColIdx = getColIndexForLeg(handoverKeywords, legIdx);
+            const sOnTime = sOnTimeIdx !== -1 ? row[sOnTimeIdx]?.val : '06:00:00';
+            const signOnLocation = signOnLocIdx !== -1 ? row[signOnLocIdx]?.val : 'PYID';
+            const sOffTime = sOffTimeIdx !== -1 ? row[sOffTimeIdx]?.val : '14:00:00';
+            const signOffLocation = signOffLocIdx !== -1 ? row[signOffLocIdx]?.val : 'PYID';
+            const kms = kmsIdx !== -1 ? (parseFloat(row[kmsIdx]?.val) || 0) : 0;
 
-            const trainCell = trainColIdx !== -1 ? row[trainColIdx] : null;
-            const timeFrmCell = timeFrmColIdx !== -1 ? row[timeFrmColIdx] : null;
-            const timeToCell = timeToColIdx !== -1 ? row[timeToColIdx] : null;
-            const takeoverCell = takeoverColIdx !== -1 ? row[takeoverColIdx] : null;
-            const handoverCell = handoverColIdx !== -1 ? row[handoverColIdx] : null;
+            const trips = [];
 
-            const trainNo = trainCell?.val || '';
-            const timeFrm = timeFrmCell?.val || '';
-            const timeTo = timeToCell?.val || '';
-            const takeoverLocation = takeoverCell?.val || '';
-            const handoverLocation = handoverCell?.val || '';
+            legCols.forEach(lCol => {
+              const trainCell = lCol.trainCol !== -1 ? row[lCol.trainCol] : null;
+              const timeFrmCell = lCol.timeFrmCol !== -1 ? row[lCol.timeFrmCol] : null;
+              const timeToCell = lCol.timeToCol !== -1 ? row[lCol.timeToCol] : null;
+              const takeoverCell = lCol.takeoverCol !== -1 ? row[lCol.takeoverCol] : null;
+              const handoverCell = lCol.handoverCol !== -1 ? row[lCol.handoverCol] : null;
 
-            if (trainNo || timeFrm) {
-              const isUnderlined = Boolean(trainCell?.underline);
-              const isBoldedTime = Boolean(timeFrmCell?.bold || timeToCell?.bold);
-              const trainLower = trainNo.toLowerCase();
-              const isCounselling = trainLower.includes('couns') || trainLower.includes('counseling');
+              const trainNo = trainCell?.val || '';
+              const timeFrm = timeFrmCell?.val || '';
+              const timeTo = timeToCell?.val || '';
+              const takeoverLocation = takeoverCell?.val || '';
+              const handoverLocation = handoverCell?.val || '';
 
-              trips.push({
-                trainNo: trainNo || 'Unknown',
-                timeFrm,
-                timeTo,
-                takeoverLocation: takeoverLocation || signOnLocation,
-                handoverLocation: handoverLocation || signOffLocation,
-                isShortLoop: isUnderlined,
-                isUnderlined,
-                isBoldedTime,
-                isDnLine: isBoldedTime,
-                isCounselling
-              });
-            }
-          }
+              if ((trainNo || timeFrm) && !/^\d{1,2}:\d{2}(:\d{2})?$/.test(String(trainNo).trim())) {
+                const isUnderlined = Boolean(trainCell?.underline);
+                const isFrmTimeBold = Boolean(timeFrmCell?.bold);
+                const isToTimeBold = Boolean(timeToCell?.bold);
+                const isBoldedTime = isFrmTimeBold || isToTimeBold;
+                const trainLower = trainNo.toLowerCase();
+                const isCounselling = trainLower.includes('couns') || trainLower.includes('counseling');
 
-          // Smart trip fallback for row if header column matching returned 0 trips
-          if (trips.length === 0) {
-            const timeCells = [];
-            const locationCells = [];
-            const trainCells = [];
-
-            row.forEach(cellObj => {
-              const val = String(cellObj?.val || '').trim();
-              if (!val) return;
-              if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(val)) {
-                timeCells.push({ val, bold: cellObj.bold });
-              } else if (/(PYID|KGWA|PUTH|DEPOT|DEPO|DPO|DHO|NLC|APTS|RJNR|YPM|NGSA|BIET|RD3)/i.test(val)) {
-                locationCells.push(val);
-              } else if (/^(\d{3}|pro\s*\d*|rd3\s*stby|stby)$/i.test(val)) {
-                trainCells.push({ val, underline: cellObj.underline });
+                trips.push({
+                  legNumber: trips.length + 1,
+                  trainNo: trainNo || 'Unknown',
+                  timeFrm,
+                  timeTo,
+                  takeoverLocation: takeoverLocation || signOnLocation,
+                  handoverLocation: handoverLocation || signOffLocation,
+                  isShortLoop: isUnderlined,
+                  isUnderlined,
+                  isFrmTimeBold,
+                  isToTimeBold,
+                  isStartDnLine: isFrmTimeBold,
+                  isEndDnLine: isToTimeBold,
+                  isBoldedTime,
+                  isDnLine: isBoldedTime,
+                  isCounselling
+                });
               }
             });
 
-            if (trainCells.length > 0 || timeCells.length >= 2) {
-              const numTrips = Math.max(trainCells.length, Math.floor((timeCells.length - 2) / 2));
-              for (let tIdx = 0; tIdx < Math.min(4, Math.max(1, numTrips)); tIdx++) {
-                const trObj = trainCells[tIdx] || { val: `Train ${tIdx + 1}`, underline: false };
-                const tFrmObj = timeCells[1 + tIdx * 2] || timeCells[0] || { val: '06:00:00', bold: false };
-                const tToObj = timeCells[2 + tIdx * 2] || timeCells[1] || { val: '08:00:00', bold: false };
-                const tTake = locationCells[tIdx] || signOnLocation;
-                const tHand = locationCells[tIdx + 1] || signOffLocation;
+            // Smart trip fallback for row if header column matching returned 0 trips
+            if (trips.length === 0) {
+              const timeCells = [];
+              const locationCells = [];
+              const trainCells = [];
 
-                trips.push({
-                  legNumber: tIdx + 1,
-                  trainNo: trObj.val,
-                  timeFrm: tFrmObj.val,
-                  timeTo: tToObj.val,
-                  takeoverLocation: tTake,
-                  handoverLocation: tHand,
-                  isShortLoop: Boolean(trObj.underline),
-                  isUnderlined: Boolean(trObj.underline),
-                  isBoldedTime: Boolean(tFrmObj.bold || tToObj.bold),
-                  isDnLine: Boolean(tFrmObj.bold || tToObj.bold),
-                  isCounselling: String(trObj.val).toLowerCase().includes('couns')
-                });
+              row.forEach(cellObj => {
+                const val = String(cellObj?.val || '').trim();
+                if (!val) return;
+                if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(val)) {
+                  timeCells.push({ val, bold: cellObj.bold });
+                } else if (/(PYID|KGWA|PUTH|DEPOT|DEPO|DPO|DHO|NLC|APTS|RJNR|YPM|NGSA|BIET|RD3)/i.test(val)) {
+                  locationCells.push(val);
+                } else if (/^(\d{3}|pro\s*\d*|rd3\s*stby|stby)$/i.test(val)) {
+                  trainCells.push({ val, underline: cellObj.underline });
+                }
+              });
+
+              if (trainCells.length > 0 || timeCells.length >= 2) {
+                const numTrips = Math.max(trainCells.length, Math.floor((timeCells.length - 2) / 2));
+                for (let tIdx = 0; tIdx < Math.min(4, Math.max(1, numTrips)); tIdx++) {
+                  const trObj = trainCells[tIdx] || { val: `Train ${tIdx + 1}`, underline: false };
+                  const tFrmObj = timeCells[1 + tIdx * 2] || timeCells[0] || { val: '06:00:00', bold: false };
+                  const tToObj = timeCells[2 + tIdx * 2] || timeCells[1] || { val: '08:00:00', bold: false };
+                  const tTake = locationCells[tIdx] || signOnLocation;
+                  const tHand = locationCells[tIdx + 1] || signOffLocation;
+
+                  trips.push({
+                    legNumber: tIdx + 1,
+                    trainNo: trObj.val,
+                    timeFrm: tFrmObj.val,
+                    timeTo: tToObj.val,
+                    takeoverLocation: tTake,
+                    handoverLocation: tHand,
+                    isShortLoop: Boolean(trObj.underline),
+                    isUnderlined: Boolean(trObj.underline),
+                    isBoldedTime: Boolean(tFrmObj.bold || tToObj.bold),
+                    isDnLine: Boolean(tFrmObj.bold || tToObj.bold),
+                    isCounselling: String(trObj.val).toLowerCase().includes('couns')
+                  });
+                }
+              }
+            }
+
+            currentDutyObj = {
+              dutyNo,
+              sOnTime: sOnTime || '06:00:00',
+              signOnLocation: signOnLocation || 'PYID',
+              sOffTime: sOffTime || '14:00:00',
+              signOffLocation: signOffLocation || 'PYID',
+              kms,
+              trips
+            };
+            sheetDuties.push(currentDutyObj);
+          } else {
+            // Sub-row: extract leg entries for currentDutyObj
+            for (let c = 0; c < row.length; c++) {
+              const val = String(row[c]?.val || '').trim();
+              if (/^\d{3}$/.test(val) || /^(pro|stby|2\d\d)/i.test(val)) {
+                const trainNo = val;
+                const timeFrm = row[c + 1]?.val || row[c + 2]?.val || '';
+                const timeTo = row[c + 2]?.val || row[c + 3]?.val || '';
+                const takeoverLocation = row[c - 1]?.val || currentDutyObj.signOnLocation;
+                const handoverLocation = row[c + 4]?.val || currentDutyObj.signOffLocation;
+
+                const isAlreadyAdded = currentDutyObj.trips.some(t => t.trainNo === trainNo && t.timeFrm === timeFrm);
+                if (!isAlreadyAdded) {
+                  const trainLower = trainNo.toLowerCase();
+                  const isCounselling = trainLower.includes('couns') || trainLower.includes('counseling');
+
+                  currentDutyObj.trips.push({
+                    legNumber: currentDutyObj.trips.length + 1,
+                    trainNo,
+                    timeFrm,
+                    timeTo,
+                    takeoverLocation: takeoverLocation || currentDutyObj.signOnLocation,
+                    handoverLocation: handoverLocation || currentDutyObj.signOffLocation,
+                    isShortLoop: Boolean(row[c]?.underline),
+                    isUnderlined: Boolean(row[c]?.underline),
+                    isBoldedTime: Boolean(row[c + 1]?.bold || row[c + 2]?.bold),
+                    isDnLine: Boolean(row[c + 1]?.bold || row[c + 2]?.bold),
+                    isCounselling
+                  });
+                }
               }
             }
           }
-
-          sheetDuties.push({
-            dutyNo,
-            sOnTime: sOnTime || '06:00:00',
-            signOnLocation: signOnLocation || 'PYID',
-            sOffTime: sOffTime || '14:00:00',
-            signOffLocation: signOffLocation || 'PYID',
-            kms,
-            trips
-          });
         }
 
         // Positional Fallback for sheet if header scan yielded 0 or duties have 0 trips
@@ -694,31 +870,45 @@ export default function RouteCalculator({
 
       {activeTab === 'rosterCalc' ? (
         <div className="space-y-3.5" id="roster-upload-calculator-panel">
-          {/* Header Controls & Upload Card */}
+          {/* Header Controls & Upload Card matching pyidline2crew-41022.web.app */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-md space-y-4">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-slate-800 pb-3">
-              <div>
-                <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider font-mono">
-                  LINK ROSTER LEG KILOMETER CALCULATOR
-                </h3>
-                <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                  Upload a weekday/Monday/Sunday Link Roster Excel file to calculate leg 1-4 and total kilometer summaries.
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-950 border border-emerald-700/80 rounded-lg text-emerald-400 font-extrabold font-mono text-sm tracking-wider shadow-sm">
+                  KM
+                </div>
+                <div>
+                  <h3 className="text-xs font-extrabold text-slate-100 uppercase tracking-wider font-mono">
+                    LINK ROSTER LEG KILOMETER CALCULATOR
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                    Upload a Weekday/Monday/Sunday Link Roster Excel file to calculate Leg 1-4 and Total Kilometer summaries.
+                  </p>
+                </div>
               </div>
 
-              {/* Timetable Selector */}
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold font-mono text-slate-400 uppercase tracking-wider">TIMETABLE:</span>
-                <select
-                  value={timetableSchedule}
-                  onChange={e => handleScheduleChange(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 text-slate-200 text-[11px] font-mono rounded px-2.5 py-1 focus:outline-none focus:border-emerald-500"
+              {/* Timetable Selector & Export Control */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded px-2.5 py-1">
+                  <span className="text-[9px] font-bold font-mono text-slate-400 uppercase tracking-wider">TIMETABLE:</span>
+                  <select
+                    value={timetableSchedule}
+                    onChange={e => handleScheduleChange(e.target.value)}
+                    className="bg-transparent text-emerald-400 font-bold text-[10px] font-mono focus:outline-none cursor-pointer"
+                  >
+                    <option value="WEEKDAY" className="bg-slate-900 text-slate-200">Weekday WTT</option>
+                    <option value="MONDAY" className="bg-slate-900 text-slate-200">Monday WTT</option>
+                    <option value="SATURDAY" className="bg-slate-900 text-slate-200">Saturday WTT</option>
+                    <option value="SUNDAY" className="bg-slate-900 text-slate-200">Sunday WTT</option>
+                  </select>
+                </div>
+                <button
+                  onClick={handleExportRosterExcel}
+                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-mono font-bold flex items-center gap-1.5 shadow-sm transition-colors uppercase tracking-wider"
                 >
-                  <option value="WEEKDAY">Weekday WTT</option>
-                  <option value="MONDAY">Monday WTT</option>
-                  <option value="SATURDAY">Saturday WTT</option>
-                  <option value="SUNDAY">Sunday WTT</option>
-                </select>
+                  <Download className="w-3.5 h-3.5" />
+                  DOWNLOAD EXCEL REPORT
+                </button>
               </div>
             </div>
 
@@ -764,7 +954,7 @@ export default function RouteCalculator({
               </div>
             )}
 
-            {/* Dotted Drag & Drop Box */}
+            {/* Dotted Drag & Drop Box matching pyidline2crew-41022.web.app */}
             <div 
               onClick={() => fileInputRef.current?.click()}
               onDragOver={handleDragOver}
@@ -786,107 +976,70 @@ export default function RouteCalculator({
               />
               <UploadCloud className="w-10 h-10 text-emerald-400 mb-2 animate-pulse" />
               <h4 className="text-xs font-bold text-slate-200 font-mono tracking-tight">
-                {savedUpload ? `Click or drop to replace current Link Roster (${savedUpload.fileName})` : `Upload ${timetableSchedule} Link Roster Excel (.xlsx)`}
+                {savedUpload ? `Click or drop to replace current Link Roster (${savedUpload.fileName})` : `Drag & Drop your Link Roster excel sheet, or click to browse`}
               </h4>
               <p className="text-[10px] text-slate-500 font-mono mt-1">
-                Calculates Leg 1, 2, 3 & 4 and total duty KMs. Calculated results remain saved until cleared.
+                Supports standard WEEKDAY, Monday/Wednesday/Sunday Link Roster layout (.xlsx)
               </p>
             </div>
-
-            {/* KPI Summary Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-slate-950 border border-slate-850 rounded p-3">
-                <span className="text-[9px] font-mono uppercase text-slate-500 tracking-wider block">Total Roster Duties</span>
-                <span className="text-lg font-black font-mono text-slate-100">{activeDuties.length} Duties</span>
-              </div>
-              <div className="bg-slate-950 border border-slate-850 rounded p-3">
-                <span className="text-[9px] font-mono uppercase text-slate-500 tracking-wider block">Total Distance</span>
-                <span className="text-lg font-black font-mono text-emerald-400">
-                  {activeDuties.reduce((acc, d) => acc + (d.kms || 0), 0)} KM
-                </span>
-              </div>
-              <div className="bg-slate-950 border border-slate-850 rounded p-3">
-                <span className="text-[9px] font-mono uppercase text-slate-500 tracking-wider block">Average Distance / Duty</span>
-                <span className="text-lg font-black font-mono text-cyan-400">
-                  {activeDuties.length > 0 ? Math.round(activeDuties.reduce((acc, d) => acc + (d.kms || 0), 0) / activeDuties.length) : 0} KM
-                </span>
-              </div>
-              <div className="bg-slate-950 border border-slate-850 rounded p-3">
-                <span className="text-[9px] font-mono uppercase text-slate-500 tracking-wider block">Calculation Core</span>
-                <span className="text-xs font-bold font-mono text-emerald-300 mt-1 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  BMRCL WTT Validated
-                </span>
-              </div>
-            </div>
-
-            {/* Search Bar & Export Controls */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="relative flex-1 w-full">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-slate-400">
-                  <Search className="w-3.5 h-3.5" />
-                </span>
-                <input
-                  type="text"
-                  value={rosterSearch}
-                  onChange={e => setRosterSearch(e.target.value)}
-                  placeholder="Search duty number, sign on location, train number, or duty type..."
-                  className="w-full pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded text-slate-200 text-[11px] font-mono focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                <button
-                  onClick={handleExportRosterExcel}
-                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-mono font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-colors w-full sm:w-auto"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Export Link Roster KM Excel (.xlsx)
-                </button>
-                {savedUpload && (
-                  <button
-                    onClick={handleClearUploadedRoster}
-                    id="btn-clear-uploaded-roster-controls"
-                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded text-[11px] font-mono font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm w-full sm:w-auto"
-                    title="Clear uploaded roster file and reset table"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Clear Uploaded Link Roster
-                  </button>
-                )}
-              </div>
-            </div>
           </div>
 
-          {/* Active Roster Info Tag */}
-          <div className="bg-slate-950 border border-slate-850 p-2.5 rounded text-[10px] font-mono text-slate-400 flex items-center justify-between">
-            <div>
-              <span className="font-bold text-emerald-400 uppercase">ACTIVE ROSTER SOURCE: </span>
-              <span>{savedUpload ? `Uploaded Excel File (${savedUpload.fileName})` : `BMRCL Benchmark Roster (${activeDuties.length} Duties Calculated)`}</span>
-            </div>
-            <span className="text-[9px] text-slate-500 font-bold uppercase">{timetableSchedule} SCHEDULE</span>
-          </div>
+          {/* Table Container Header matching pyidline2crew-41022.web.app */}
+          <div className="bg-slate-900 border border-slate-800 rounded p-4 shadow-md space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-extrabold text-slate-200 uppercase tracking-wider font-mono">
+                    CALCULATED LINK DUTIES
+                  </h3>
+                  <span className="text-[9px] font-bold font-mono px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800 rounded uppercase">
+                    {activeDuties.length} DUTIES
+                  </span>
+                </div>
 
-          {/* Duties Table Grid */}
-          <div className="bg-slate-900 border border-slate-800 rounded p-4 shadow-md">
+                <div className="flex items-center gap-2">
+                  <div className="relative w-64">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-slate-400">
+                      <Search className="w-3 h-3" />
+                    </span>
+                    <input
+                      type="text"
+                      value={rosterSearch}
+                      onChange={e => setRosterSearch(e.target.value)}
+                      placeholder="Search duty number..."
+                      className="w-full pl-7 pr-2 py-1 bg-slate-950 border border-slate-800 rounded text-slate-200 text-[10px] font-mono focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  {activeDuties.length > 0 && (
+                    <button
+                      onClick={handleClearUploadedRoster}
+                      className="px-2.5 py-1 bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 hover:text-rose-200 rounded text-[10px] font-bold font-mono transition-colors flex items-center gap-1 shrink-0 uppercase"
+                      title="Clear all calculated data and start fresh for next uploaded roster"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Clear Data
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Table Grid matching pyidline2crew-41022.web.app columns */}
               <div className="overflow-x-auto border border-slate-850 rounded custom-scrollbar">
-                <table className="w-full text-left text-[11px] border-collapse font-mono">
-                  <thead className="bg-slate-950 text-slate-400 uppercase tracking-wider text-[10px]">
+                <table className="w-full text-left text-[10px] border-collapse font-mono">
+                  <thead className="bg-slate-950 text-slate-400 uppercase tracking-wider text-[9px]">
                     <tr>
-                      <th className="px-3 py-2 border-b border-slate-800">Duty No</th>
-                      <th className="px-3 py-2 border-b border-slate-800">Sign On (Loc @ Time)</th>
-                      <th className="px-3 py-2 border-b border-slate-800 text-right text-cyan-400">Leg 1 KM</th>
-                      <th className="px-3 py-2 border-b border-slate-800 text-right text-cyan-400">Leg 2 KM</th>
-                      <th className="px-3 py-2 border-b border-slate-800 text-right text-cyan-400">Leg 3 KM</th>
-                      <th className="px-3 py-2 border-b border-slate-800 text-right text-cyan-400">Leg 4 KM</th>
-                      <th className="px-3 py-2 border-b border-slate-800 text-right text-emerald-400 font-bold">Total Duty KM</th>
-                      <th className="px-3 py-2 border-b border-slate-800">Sign Off (Loc @ Time)</th>
-                      <th className="px-3 py-2 border-b border-slate-800 text-center">WTT Trips</th>
+                      <th className="px-3 py-2 border-b border-slate-800 w-16 text-center">DUTY #</th>
+                      <th className="px-3 py-2 border-b border-slate-800">LEG 1 ROUTE (KM)</th>
+                      <th className="px-3 py-2 border-b border-slate-800">LEG 2 ROUTE (KM)</th>
+                      <th className="px-3 py-2 border-b border-slate-800">LEG 3 ROUTE (KM)</th>
+                      <th className="px-3 py-2 border-b border-slate-800">LEG 4 ROUTE (KM)</th>
+                      <th className="px-3 py-2 border-b border-slate-800 text-right text-emerald-400 font-bold w-24">TOTAL KM</th>
+                      <th className="px-3 py-2 border-b border-slate-800 text-center w-24">ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-850">
                     {activeDuties.length === 0 ? (
                       <tr>
-                        <td colSpan="9" className="py-12 text-center">
+                        <td colSpan="7" className="py-12 text-center">
                           <div className="flex flex-col items-center justify-center space-y-3">
                             <div className="p-3 bg-slate-950 rounded-full border border-slate-800">
                               <FileSpreadsheet className="w-8 h-8 text-emerald-500" />
@@ -896,13 +1049,13 @@ export default function RouteCalculator({
                                 NO LINK ROSTER UPLOADED
                               </h4>
                               <p className="text-[10px] text-slate-400 font-mono mt-1 max-w-md mx-auto">
-                                Upload a weekday/Monday/Sunday Link Roster Excel file to calculate leg 1-4 and total kilometer summaries. Calculations will remain saved until cleared.
+                                Upload a Weekday/Monday/Sunday Link Roster Excel file to calculate Leg 1-4 and Total Kilometer summaries.
                               </p>
                             </div>
                             <div className="flex items-center gap-3 pt-2">
                               <button
                                 onClick={() => fileInputRef.current?.click()}
-                                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-mono font-bold flex items-center gap-2 transition-colors shadow-md"
+                                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-mono font-bold flex items-center gap-2 transition-colors shadow-md uppercase tracking-wider"
                               >
                                 <Upload className="w-4 h-4" />
                                 Upload Link Roster Excel
@@ -911,7 +1064,7 @@ export default function RouteCalculator({
                                 onClick={handleLoadSampleRoster}
                                 className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs font-mono font-semibold flex items-center gap-2 transition-colors border border-slate-700"
                               >
-                                Load Sample BMRCL Link Roster
+                                Load Benchmark Link Roster
                               </button>
                             </div>
                           </div>
@@ -931,84 +1084,231 @@ export default function RouteCalculator({
                       })
                       .map((duty, idx) => {
                         const isExpanded = expandedDutyNo === duty.dutyNo;
+                        const isEditing = editingDutyNo === duty.dutyNo;
                         const leg1 = duty.trips?.[0];
                         const leg2 = duty.trips?.[1];
                         const leg3 = duty.trips?.[2];
                         const leg4 = duty.trips?.[3];
 
-                        const formatLegCell = (trip) => {
-                          if (!trip) return <span className="text-slate-600 font-normal">-</span>;
-                          if (trip.isCounselling) {
-                            return <span className="text-slate-500 font-medium text-[10px]" title="Counselling Excluded">0 KM</span>;
+                        const formatRouteKmCell = (trip, legNum) => {
+                          if (!trip || trip.isCounselling || (trip.calculatedKms === 0 && !trip.boardingStation && !trip.customPathStr)) {
+                            return <span className="text-slate-500 font-mono">-- (0 KM)</span>;
                           }
                           const kms = trip.calculatedKms || 0;
+                          let pathStr = trip.customPathStr || "";
+                          if (!pathStr) {
+                            if (trip.intermediateStations && trip.intermediateStations.length > 0) {
+                              pathStr = trip.intermediateStations.join(" → ");
+                            } else if (trip.boardingStation && trip.alightingStation) {
+                              pathStr = `${trip.boardingStation} → ${trip.alightingStation}`;
+                            } else {
+                              pathStr = `${trip.takeoverLocation || 'PYID'} → ${trip.handoverLocation || 'PYID'}`;
+                            }
+                          }
+
                           return (
-                            <div className="flex flex-col items-end">
-                              <span className={`font-bold ${kms > 0 ? 'text-cyan-400' : 'text-slate-400'}`}>
-                                {kms} KM
-                              </span>
-                              {trip.trainNo && (
-                                <span className="text-[9px] text-slate-500 font-mono">
-                                  Tr {trip.trainNo}
-                                </span>
-                              )}
+                            <div className="text-[10px] font-mono leading-relaxed truncate max-w-xs" title={`${pathStr} (${kms} KM)`}>
+                              <span className="text-slate-300">{pathStr}</span>{' '}
+                              <span className="text-cyan-400 font-bold">({kms} KM)</span>
                             </div>
                           );
                         };
 
+                        if (isEditing) {
+                          return (
+                            <tr key={duty.id || `edit-duty-${duty.dutyNo}`} className="bg-emerald-950/40 border-l-4 border-emerald-500">
+                              <td className="px-2 py-2 text-center text-slate-100 font-bold border-r border-slate-850">
+                                {duty.dutyNo}
+                              </td>
+                              {/* Leg 1 Edit Inputs */}
+                              <td className="px-2 py-1.5 border-r border-slate-850">
+                                <div className="space-y-1 font-mono">
+                                  <input
+                                    type="text"
+                                    value={editFormData.leg1Path || ''}
+                                    onChange={e => setEditFormData({ ...editFormData, leg1Path: e.target.value })}
+                                    placeholder="e.g. KGWA → PYID"
+                                    className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200"
+                                  />
+                                  <div className="flex items-center justify-between text-[9px]">
+                                    <span className="text-slate-400">Leg 1 KM:</span>
+                                    <input
+                                      type="number"
+                                      value={editFormData.leg1Km}
+                                      onChange={e => setEditFormData({ ...editFormData, leg1Km: e.target.value })}
+                                      className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right"
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+                              {/* Leg 2 Edit Inputs */}
+                              <td className="px-2 py-1.5 border-r border-slate-850">
+                                <div className="space-y-1 font-mono">
+                                  <input
+                                    type="text"
+                                    value={editFormData.leg2Path || ''}
+                                    onChange={e => setEditFormData({ ...editFormData, leg2Path: e.target.value })}
+                                    placeholder="e.g. PYID → BIET"
+                                    className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200"
+                                  />
+                                  <div className="flex items-center justify-between text-[9px]">
+                                    <span className="text-slate-400">Leg 2 KM:</span>
+                                    <input
+                                      type="number"
+                                      value={editFormData.leg2Km}
+                                      onChange={e => setEditFormData({ ...editFormData, leg2Km: e.target.value })}
+                                      className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right"
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+                              {/* Leg 3 Edit Inputs */}
+                              <td className="px-2 py-1.5 border-r border-slate-850">
+                                <div className="space-y-1 font-mono">
+                                  <input
+                                    type="text"
+                                    value={editFormData.leg3Path || ''}
+                                    onChange={e => setEditFormData({ ...editFormData, leg3Path: e.target.value })}
+                                    placeholder="e.g. BIET → APTS"
+                                    className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200"
+                                  />
+                                  <div className="flex items-center justify-between text-[9px]">
+                                    <span className="text-slate-400">Leg 3 KM:</span>
+                                    <input
+                                      type="number"
+                                      value={editFormData.leg3Km}
+                                      onChange={e => setEditFormData({ ...editFormData, leg3Km: e.target.value })}
+                                      className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right"
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+                              {/* Leg 4 Edit Inputs */}
+                              <td className="px-2 py-1.5 border-r border-slate-850">
+                                <div className="space-y-1 font-mono">
+                                  <input
+                                    type="text"
+                                    value={editFormData.leg4Path || ''}
+                                    onChange={e => setEditFormData({ ...editFormData, leg4Path: e.target.value })}
+                                    placeholder="e.g. --"
+                                    className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200"
+                                  />
+                                  <div className="flex items-center justify-between text-[9px]">
+                                    <span className="text-slate-400">Leg 4 KM:</span>
+                                    <input
+                                      type="number"
+                                      value={editFormData.leg4Km}
+                                      onChange={e => setEditFormData({ ...editFormData, leg4Km: e.target.value })}
+                                      className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right"
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+                              {/* Total KM Edit Input */}
+                              <td className="px-2 py-1.5 border-r border-slate-850 text-right">
+                                <div className="space-y-1 font-mono text-right">
+                                  <span className="text-[9px] text-slate-400 block">Total KM:</span>
+                                  <input
+                                    type="number"
+                                    value={editFormData.totalKm}
+                                    onChange={e => setEditFormData({ ...editFormData, totalKm: e.target.value })}
+                                    className="w-20 bg-slate-950 border border-emerald-600 rounded px-1.5 py-1 text-xs text-emerald-400 font-extrabold text-right"
+                                  />
+                                </div>
+                              </td>
+                              {/* Edit Action Buttons */}
+                              <td className="px-2 py-2 text-center">
+                                <div className="flex flex-col gap-1">
+                                  <button
+                                    onClick={() => handleSaveEditDuty(duty.dutyNo)}
+                                    className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[9px] font-bold uppercase transition-colors"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingDutyNo(null)}
+                                    className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[9px] font-medium transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        }
+
                         return (
                           <React.Fragment key={duty.id || `duty-${duty.dutyNo || 'row'}-${idx}`}>
-                            <tr className={`hover:bg-slate-850/50 transition-colors ${duty.dutyNo === "4" ? "bg-emerald-950/20" : ""}`}>
-                              <td className="px-3 py-2 text-slate-100 font-bold">
-                                <div className="flex items-center gap-1.5">
-                                  <span>Duty {duty.dutyNo}</span>
-                                  {duty.dutyNo === "4" && (
-                                    <span className="px-1.5 py-0.2 bg-emerald-900/60 text-emerald-300 border border-emerald-700 rounded text-[8px] uppercase">
-                                      44 KM Leg1
-                                    </span>
+                            <tr 
+                              className={`hover:bg-slate-850/60 transition-colors ${isExpanded ? 'bg-slate-950/80' : ''} ${duty.isManuallyEdited ? 'border-l-2 border-amber-400' : ''}`}
+                            >
+                              <td 
+                                onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)}
+                                className="px-3 py-2 text-slate-100 font-bold text-center border-r border-slate-850 cursor-pointer"
+                              >
+                                <div className="flex items-center justify-center gap-1">
+                                  <span>{duty.dutyNo}</span>
+                                  {duty.isManuallyEdited && (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Manually edited duty" />
                                   )}
                                 </div>
                               </td>
-                              <td className="px-3 py-2 text-slate-300">
-                                <span className="text-emerald-400 font-bold">{duty.signOnLocation}</span> @ {duty.sOnTime}
+                              <td 
+                                onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)}
+                                className="px-3 py-2 text-slate-300 border-r border-slate-850 cursor-pointer"
+                              >
+                                {formatRouteKmCell(leg1, 1)}
                               </td>
-                              <td className="px-3 py-2 text-right">
-                                {formatLegCell(leg1)}
+                              <td 
+                                onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)}
+                                className="px-3 py-2 text-slate-300 border-r border-slate-850 cursor-pointer"
+                              >
+                                {formatRouteKmCell(leg2, 2)}
                               </td>
-                              <td className="px-3 py-2 text-right">
-                                {formatLegCell(leg2)}
+                              <td 
+                                onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)}
+                                className="px-3 py-2 text-slate-300 border-r border-slate-850 cursor-pointer"
+                              >
+                                {formatRouteKmCell(leg3, 3)}
                               </td>
-                              <td className="px-3 py-2 text-right">
-                                {formatLegCell(leg3)}
+                              <td 
+                                onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)}
+                                className="px-3 py-2 text-slate-300 border-r border-slate-850 cursor-pointer"
+                              >
+                                {formatRouteKmCell(leg4, 4)}
                               </td>
-                              <td className="px-3 py-2 text-right">
-                                {formatLegCell(leg4)}
-                              </td>
-                              <td className="px-3 py-2 text-right text-base font-extrabold text-emerald-400">
+                              <td 
+                                onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)}
+                                className="px-3 py-2 text-right text-xs font-black text-emerald-400 cursor-pointer"
+                              >
                                 {duty.kms} KM
                               </td>
-                              <td className="px-3 py-2 text-slate-300">
-                                <span className="text-amber-400 font-bold">{duty.signOffLocation}</span> @ {duty.sOffTime}
-                              </td>
-                              <td className="px-3 py-2 text-center">
-                                <button
-                                  onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)}
-                                  className={`px-2 py-1 border rounded text-[9px] flex items-center gap-1 mx-auto transition-colors font-mono ${
-                                    isExpanded 
-                                      ? 'bg-emerald-950 border-emerald-700 text-emerald-300' 
-                                      : 'bg-slate-950 hover:bg-slate-800 border-slate-800 text-slate-300'
-                                  }`}
-                                >
-                                  {isExpanded ? <ChevronUp className="w-3 h-3 text-emerald-400" /> : <ChevronDown className="w-3 h-3 text-slate-400" />}
-                                  {isExpanded ? 'Hide Trips' : `View (${duty.trips?.length || 0})`}
-                                </button>
+                              <td className="px-2 py-2 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => handleStartEditDuty(duty)}
+                                    className="px-2 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-700 text-slate-300 hover:text-emerald-300 rounded text-[9px] font-bold transition-colors uppercase"
+                                    title="Manually edit leg routes and kilometers"
+                                  >
+                                    Edit
+                                  </button>
+                                  {duty.isManuallyEdited && (
+                                    <button
+                                      onClick={() => handleResetDutyOverride(duty.dutyNo)}
+                                      className="px-1.5 py-1 bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 rounded text-[9px] transition-colors"
+                                      title="Reset to WTT calculated values"
+                                    >
+                                      Reset
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                             </tr>
 
                           {/* Expanded Trips / Segments Breakdown */}
                           {isExpanded && (
                             <tr className="bg-slate-950/70">
-                              <td colSpan={9} className="p-3 border-t border-slate-850">
+                              <td colSpan={6} className="p-3 border-t border-slate-850">
                                 <div className="space-y-2">
                                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono flex items-center justify-between">
                                     <div className="flex items-center gap-1.5">
@@ -1074,7 +1374,7 @@ export default function RouteCalculator({
                                               </div>
                                             )}
                                           </div>
-                                        );
+                                        )
                                       })}
                                     </div>
                                   ) : (
@@ -1085,8 +1385,8 @@ export default function RouteCalculator({
                             </tr>
                           )}
                         </React.Fragment>
-                        );
-                      })
+                      )
+                    })
                     )}
                   </tbody>
               </table>
@@ -1097,41 +1397,98 @@ export default function RouteCalculator({
         <div className="space-y-3.5">
           {/* Interactive Serpentine Grid Map Card */}
           <div className="bg-slate-900 border border-slate-800 rounded p-4 shadow-md" id="interactive-railway-tracks-card">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-3.5 pb-2.5 border-b border-slate-800/80">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-3.5 pb-2.5 border-b border-slate-800/80">
               <div>
                 <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5 font-mono">
                   <Compass className="w-4 h-4 text-emerald-400 animate-pulse" />
                   BMRCL Green Line Dual Parallel Tracks
                 </h3>
-                <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                  Top track is UP Line (Northbound to BIET). Bottom track is DOWN Line (Southbound to APTS).
+                <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                  Top track is <span className="text-emerald-400 font-bold">UP Line (Northbound to BIET)</span>. Bottom track is <span className="text-cyan-400 font-bold">DOWN Line (Southbound to APTS)</span>.
                 </p>
               </div>
 
-              {/* Status Indicator */}
-              <div className="flex flex-wrap gap-2 text-[9px] font-mono">
-                <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  UP TRACK
-                </span>
-                <span className="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></span>
-                  DOWN TRACK
-                </span>
+              {/* View Control Toolbar for Mobile & Laptop */}
+              <div className="flex flex-wrap items-center gap-2 text-[9px] font-mono">
+                <div className="flex items-center bg-slate-955 border border-slate-800 rounded-lg p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTrackViewMode('FIT');
+                      setZoomLevel(100);
+                    }}
+                    className={`px-2 py-1 rounded font-bold transition flex items-center gap-1 cursor-pointer ${
+                      trackViewMode === 'FIT' 
+                        ? 'bg-emerald-600 text-slate-955 shadow' 
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Auto-fit view for Mobile / Laptop screen width"
+                  >
+                    <Maximize2 className="w-3 h-3" />
+                    <span>Auto-Fit Screen</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTrackViewMode('SCROLL')}
+                    className={`px-2 py-1 rounded font-bold transition flex items-center gap-1 cursor-pointer ${
+                      trackViewMode === 'SCROLL' 
+                        ? 'bg-emerald-600 text-slate-955 shadow' 
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Full detail horizontal scroll view"
+                  >
+                    <Smartphone className="w-3 h-3" />
+                    <span>Scroll Detail</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center bg-slate-955 border border-slate-800 rounded-lg px-1.5 py-0.5 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setZoomLevel(prev => Math.max(60, prev - 15))}
+                    className="p-1 text-slate-400 hover:text-emerald-400 font-bold text-xs cursor-pointer"
+                    title="Zoom Out"
+                  >
+                    -
+                  </button>
+                  <span className="text-slate-300 font-bold px-1 text-[10px]">{zoomLevel}%</span>
+                  <button
+                    type="button"
+                    onClick={() => setZoomLevel(prev => Math.min(180, prev + 15))}
+                    className="p-1 text-slate-400 hover:text-emerald-400 font-bold text-xs cursor-pointer"
+                    title="Zoom In"
+                  >
+                    +
+                  </button>
+                </div>
+
                 <button
                   id="btn-reset-selection"
                   onClick={clearSequence}
-                  className="px-2 py-0.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 rounded transition-colors"
+                  className="px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white font-bold font-mono text-[10px] rounded transition-all shadow-md shadow-red-950 flex items-center gap-1 uppercase tracking-wider cursor-pointer"
                 >
+                  <Trash2 className="w-3 h-3 text-white" />
                   CLEAR SELECTION
                 </button>
               </div>
             </div>
 
-            {/* Scrollable SVG Wrapper for Responsiveness */}
-            <div className="w-full overflow-x-auto custom-scrollbar">
-              <div className="min-w-[1020px] select-none py-1">
-                <svg viewBox="0 0 1020 320" className="w-full h-auto bg-slate-950/40 rounded border border-slate-950 p-2">
+            {/* Responsive Adaptive SVG Track Map Container */}
+            <div className="w-full overflow-x-auto custom-scrollbar transition-all duration-300">
+              <div 
+                className={`${
+                  trackViewMode === 'FIT' ? 'w-full min-w-0' : 'min-w-[1020px]'
+                } select-none py-1 transition-all duration-300`}
+                style={{
+                  transform: zoomLevel !== 100 ? `scale(${zoomLevel / 100})` : 'none',
+                  transformOrigin: 'top left'
+                }}
+              >
+                <svg 
+                  viewBox="0 0 1020 320" 
+                  preserveAspectRatio="xMidYMid meet"
+                  className="w-full h-auto bg-slate-955/60 rounded-xl border border-slate-800 p-2 shadow-inner"
+                >
                   <defs>
                     <filter id="glow-up-line" x="-10%" y="-10%" width="120%" height="120%">
                       <feGaussianBlur stdDeviation="3" result="blur" />
@@ -1420,9 +1777,10 @@ export default function RouteCalculator({
                   <button
                     id="btn-clear-calculator"
                     onClick={clearSequence}
-                    className="text-[10px] font-mono text-slate-400 hover:text-red-400 transition-colors"
+                    className="bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-500/50 px-2.5 py-1 rounded text-[10px] font-mono font-bold transition-all flex items-center gap-1 cursor-pointer"
                   >
-                    Clear All
+                    <Trash2 className="w-3 h-3 text-red-400" />
+                    <span>Clear All</span>
                   </button>
                 </div>
 
@@ -1492,9 +1850,31 @@ export default function RouteCalculator({
             {/* Results Sheet Column */}
             <div className="lg:col-span-6 bg-slate-900 border border-slate-800 rounded p-4 shadow-md flex flex-col justify-between">
               <div className="space-y-3.5">
-                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono">
-                  Distance Calculation Sheet
-                </h3>
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono">
+                    Distance Calculation Sheet
+                  </h3>
+                  <span className="text-[10px] font-mono text-slate-400 bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                    Segments: {segments.length}
+                  </span>
+                </div>
+
+                {/* Grand Totals at Top */}
+                <div className="bg-slate-955 border border-slate-800 rounded-xl p-3.5 space-y-2.5 shadow-inner">
+                  <div className="flex justify-between items-baseline border-b border-slate-850 pb-2">
+                    <span className="text-slate-400 font-mono text-[11px] uppercase font-bold">Precise Actual Kms:</span>
+                    <span className="font-mono text-base font-bold text-slate-100">{totalDistance.toFixed(3)} KM</span>
+                  </div>
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-slate-400 font-mono text-[11px] uppercase font-bold">Round Off Kms:</span>
+                    <span className="font-mono text-2xl font-black text-emerald-400">{Math.round(totalDistance)} KM</span>
+                  </div>
+
+                  <div className="bg-emerald-950/20 border border-emerald-500/20 rounded p-2 text-[10px] font-mono text-emerald-300 flex items-center gap-1.5 mt-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>BMRCL OCC distance parameters applied.</span>
+                  </div>
+                </div>
 
                 {/* Segments list */}
                 <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
@@ -1503,7 +1883,7 @@ export default function RouteCalculator({
                     const toStn = stations.find(s => s.code === seg.to);
 
                     return (
-                      <div key={idx} className="bg-slate-950 rounded p-2.5 border border-slate-850 flex justify-between items-center text-[11px] font-mono">
+                      <div key={idx} className="bg-slate-955 rounded p-2.5 border border-slate-850 flex justify-between items-center text-[11px] font-mono">
                         <div className="space-y-1">
                           <div className="flex items-center gap-1.5 text-slate-300 font-bold">
                             <span>{seg.from}</span>
@@ -1543,23 +1923,6 @@ export default function RouteCalculator({
                       Select at least two stations on the map to evaluate segments and directions.
                     </p>
                   )}
-                </div>
-              </div>
-
-              {/* Grand Totals */}
-              <div className="mt-4 border-t border-slate-850 pt-4 space-y-3">
-                <div className="flex justify-between items-baseline">
-                  <span className="text-slate-400 font-mono text-[10px] uppercase">Precise Actual Kms:</span>
-                  <span className="font-mono text-base font-bold text-slate-200">{totalDistance.toFixed(3)} KM</span>
-                </div>
-                <div className="flex justify-between items-baseline">
-                  <span className="text-slate-400 font-mono text-[10px] uppercase">Round Off Kms:</span>
-                  <span className="font-mono text-2xl font-extrabold text-emerald-400">{Math.round(totalDistance)} KM</span>
-                </div>
-
-                <div className="bg-emerald-950/20 border border-emerald-500/20 rounded p-2 text-[10px] font-mono text-emerald-300 flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                  <span>BMRCL OCC distance parameters applied.</span>
                 </div>
               </div>
             </div>

@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  pyidcc-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pyidcc_crew_control_app
+    ports:
+      - "8080:80"
+    restart: always
+    environment:
+      - NODE_ENV=production
+
+  local-autocomplete-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    container_name: pyidcc_local_autocomplete_agent
+    ports:
+      - "5050:5050"
+    restart: always

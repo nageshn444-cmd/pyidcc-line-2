@@ -7,13 +7,14 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { 
   evaluateReliefCandidates, 
+  evaluateCascadingDelayRelief,
   STATION_INDEX,
   secondsToTime 
 } from '../utils/EmergencyCrewAllocator';
 import { 
   AlertTriangle, Plus, Trash2, Check, Download, FileSpreadsheet, 
   FileText, Printer, ShieldAlert, Award, User, Clock, MapPin, 
-  RefreshCw, Send, ArrowRight, Activity, Calendar, Sparkles
+  RefreshCw, Send, ArrowRight, Activity, Calendar, Sparkles, Cpu
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -124,6 +125,8 @@ export default function EmergencyReliefEngine() {
   
   // Decision Results State
   const [evaluationResults, setEvaluationResults] = useState(null);
+  const [cascadingDelayResults, setCascadingDelayResults] = useState(null);
+  const [delayMinutesInput, setDelayMinutesInput] = useState('15');
   const [originalOperator, setOriginalOperator] = useState(null);
   const [activeIncidentText, setActiveIncidentText] = useState('');
 
@@ -187,6 +190,7 @@ export default function EmergencyReliefEngine() {
     if (!selectedTrainId) {
       setOriginalOperator(null);
       setEvaluationResults(null);
+      setCascadingDelayResults(null);
       return;
     }
     const matched = activeTrains.find(t => t.trainId === selectedTrainId);
@@ -226,8 +230,20 @@ export default function EmergencyReliefEngine() {
       missedTrips,
       reliefReports: reports
     });
+
+    const cascadeResults = evaluateCascadingDelayRelief({
+      currentTimeStr,
+      primaryTrainId: selectedTrainId,
+      delayMinutes: parseInt(delayMinutesInput, 10) || 15,
+      incidentLocation: selectedLocation,
+      extraOperators: extraOps,
+      deployments,
+      missedTrips,
+      reliefReports: reports
+    });
     
     setEvaluationResults(results);
+    setCascadingDelayResults(cascadeResults);
     setActiveIncidentText(`${selectedIncidentType} on Train ${selectedTrainId} at ${selectedLocation}`);
   };
 
@@ -388,9 +404,51 @@ export default function EmergencyReliefEngine() {
       alert(`✅ Relief plan executed successfully! Dispatch system updated.`);
       setSelectedTrainId('');
       setEvaluationResults(null);
+      setCascadingDelayResults(null);
     } catch (err) {
       console.error(err);
       alert("Error executing relief plan: " + err.message);
+    }
+  };
+
+  const handleExecuteCascadeRelief = async (cascadeItem) => {
+    if (isTrainOperator) return;
+    if (!cascadeItem || !cascadeItem.suggestedReliever || cascadeItem.suggestedReliever.employeeId === '--') {
+      alert("No relief operator assigned to this train.");
+      return;
+    }
+    try {
+      const now = new Date();
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+      const reliefOp = cascadeItem.suggestedReliever;
+
+      await addDoc(collection(db, 'emergency_relief_reports'), {
+        incidentTime: timeStr,
+        incidentType: cascadeItem.isPrimary ? selectedIncidentType : `Cascading Delay (Train ${cascadeItem.trainId})`,
+        originalOperator: {
+          employeeId: cascadeItem.currentOperatorId,
+          employeeName: cascadeItem.currentOperatorName,
+          dutyId: cascadeItem.dutyId,
+          signOnTime: '--'
+        },
+        reliefOperator: {
+          employeeId: reliefOp.employeeId,
+          employeeName: reliefOp.employeeName,
+          currentDuty: reliefOp.dutyId,
+          currentLocation: reliefOp.location
+        },
+        reliefReason: `Cascading delay relief for Train ${cascadeItem.trainId} (+${cascadeItem.delayMinutes} mins delay)`,
+        dutyHours: '0h 0m',
+        breakTime: 'Completed',
+        recommendationScore: reliefOp.score,
+        recoveryTime: `${reliefOp.travelTimeMinutes + 3} mins`,
+        timestamp: serverTimestamp()
+      });
+
+      alert(`✅ Reliever ${reliefOp.employeeName} (${reliefOp.employeeId}) dispatched for Train ${cascadeItem.trainId}!`);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to execute cascade relief dispatch: " + err.message);
     }
   };
 
@@ -564,6 +622,20 @@ export default function EmergencyReliefEngine() {
                 </select>
               </div>
 
+              <div className="space-y-2">
+                <label className="text-[10px] text-slate-500 tracking-wider">Technical Delay Duration (Minutes)</label>
+                <input
+                  type="number"
+                  min="5"
+                  max="120"
+                  value={delayMinutesInput}
+                  onChange={(e) => setDelayMinutesInput(e.target.value)}
+                  disabled={isTrainOperator}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-amber-400 font-bold focus:outline-none disabled:opacity-50"
+                  placeholder="e.g. 15"
+                />
+              </div>
+
               {originalOperator ? (
                 <div className="p-3 bg-slate-950/60 border border-slate-850 rounded-lg space-y-1.5 text-[11px] font-medium lowercase">
                   <div className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">Active Operator Info</div>
@@ -594,6 +666,114 @@ export default function EmergencyReliefEngine() {
             
             {evaluationResults ? (
               <>
+                {/* CASCADING DELAY RELIEVER OPTIMIZATION MATRIX CARD */}
+                {cascadingDelayResults && cascadingDelayResults.cascadePlans?.length > 0 && (
+                  <div className="bg-slate-900 border border-amber-500/50 rounded-xl p-5 shadow-2xl space-y-4 font-mono">
+                    <div className="flex flex-wrap items-center justify-between border-b border-slate-800 pb-3 gap-2">
+                      <div className="flex items-center gap-2">
+                        <Cpu className="h-5 w-5 text-amber-400" />
+                        <div>
+                          <h3 className="text-amber-400 font-bold text-sm tracking-wider uppercase">
+                            Cascading Delay & Multi-Train Relief Optimization
+                          </h3>
+                          <p className="text-[10px] text-slate-400">
+                            Primary Delay: Train {cascadingDelayResults.primaryTrainId} ({cascadingDelayResults.primaryDelayMinutes} mins delay) → {cascadingDelayResults.totalImpactedTrains} Downstream Trains Impacted
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="bg-emerald-955 text-emerald-300 border border-emerald-800 text-[10px] px-2.5 py-1 rounded font-bold">
+                          Estimated Service Normalization: {cascadingDelayResults.normalizationTimeStr} ({cascadingDelayResults.estimatedNormalizationMinutes} mins)
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* AI Advice Callout */}
+                    <div className="bg-amber-955/30 border border-amber-800/60 p-3 rounded-lg flex items-start gap-2.5">
+                      <Sparkles className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                      <div className="text-xs text-amber-200">
+                        <strong>AI Optimization Advice:</strong> System evaluated standby pools (<strong className="text-cyan-300">STBK Peenya</strong>, <strong className="text-purple-300">PRO</strong>, <strong className="text-amber-300">RD3 STBY</strong>, <strong className="text-emerald-300">TGTP STBY</strong>, <strong className="text-indigo-300">EXTRA</strong>). Relievers have been allocated for Train {cascadingDelayResults.primaryTrainId} and all following delayed trains until service normalizes.
+                      </div>
+                    </div>
+
+                    {/* Cascade Plans Table */}
+                    <div className="overflow-x-auto custom-scrollbar border border-slate-800 rounded-lg">
+                      <table className="w-full text-left text-xs whitespace-nowrap">
+                        <thead className="bg-slate-955 text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                          <tr>
+                            <th className="p-3">Seq / Train ID</th>
+                            <th className="p-3">Current Operator</th>
+                            <th className="p-3 text-rose-400">Delay</th>
+                            <th className="p-3">Scheduled ➔ Takeover</th>
+                            <th className="p-3 text-cyan-400">Suggested Reliever</th>
+                            <th className="p-3">Relief Pool</th>
+                            <th className="p-3">Location & Travel</th>
+                            <th className="p-3 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-850 bg-slate-900/60">
+                          {cascadingDelayResults.cascadePlans.map((plan, idx) => (
+                            <tr key={idx} className="hover:bg-slate-850/50 transition">
+                              <td className="p-3 font-bold text-white">
+                                <span className="text-slate-500 text-[10px] mr-1 font-mono">#{plan.sequence}</span>
+                                Train {plan.trainId}
+                                {plan.isPrimary && (
+                                  <span className="ml-2 bg-rose-955 text-rose-300 border border-rose-800 text-[9px] px-1.5 py-0.5 rounded font-black">
+                                    PRIMARY DELAY
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 text-slate-300">
+                                {plan.currentOperatorName} <span className="text-[10px] text-slate-500">({plan.currentOperatorId})</span>
+                              </td>
+                              <td className="p-3 font-bold text-rose-400">
+                                +{plan.delayMinutes} mins
+                              </td>
+                              <td className="p-3 text-slate-400 font-mono text-[11px]">
+                                {plan.scheduledTime} ➔ <strong className="text-amber-300">{plan.projectedTakeoverTime}</strong>
+                              </td>
+                              <td className="p-3 font-bold text-cyan-300">
+                                {plan.suggestedReliever.employeeName}
+                                {plan.suggestedReliever.employeeId !== '--' && (
+                                  <span className="text-[10px] text-slate-400 block font-normal">#{plan.suggestedReliever.employeeId}</span>
+                                )}
+                              </td>
+                              <td className="p-3">
+                                <span className={`text-[9px] px-2 py-0.5 rounded font-black uppercase ${
+                                  plan.suggestedReliever.pool === 'STBK' ? 'bg-cyan-955 text-cyan-300 border border-cyan-700' :
+                                  plan.suggestedReliever.pool === 'PRO' ? 'bg-purple-955 text-purple-300 border border-purple-800' :
+                                  plan.suggestedReliever.pool === 'RD3' ? 'bg-amber-955 text-amber-300 border border-amber-800' :
+                                  plan.suggestedReliever.pool === 'TGTP' ? 'bg-emerald-955 text-emerald-300 border border-emerald-800' :
+                                  plan.suggestedReliever.pool === 'EXTRA' ? 'bg-indigo-955 text-indigo-300 border border-indigo-800' :
+                                  'bg-slate-800 text-slate-400 border border-slate-700'
+                                }`}>
+                                  {plan.suggestedReliever.pool === 'STBK' ? 'STBK / STANDBY PEENYA' :
+                                   plan.suggestedReliever.pool === 'PRO' ? 'PRO STANDBY' :
+                                   plan.suggestedReliever.pool === 'RD3' ? 'RD3 STANDBY' :
+                                   plan.suggestedReliever.pool === 'TGTP' ? 'TGTP STANDBY' :
+                                   plan.suggestedReliever.pool === 'EXTRA' ? 'EXTRA POOL' : 'UNASSIGNED'}
+                                </span>
+                              </td>
+                              <td className="p-3 text-slate-400 text-[11px]">
+                                {plan.location} ({plan.suggestedReliever.travelTimeMinutes} min travel)
+                              </td>
+                              <td className="p-3 text-right">
+                                <button
+                                  onClick={() => handleExecuteCascadeRelief(plan)}
+                                  disabled={isTrainOperator || plan.suggestedReliever.employeeId === '--'}
+                                  className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed text-slate-955 px-2.5 py-1 rounded text-[10px] font-black uppercase transition shadow inline-flex items-center gap-1"
+                                >
+                                  <Send size={11} /> Dispatch
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
                 {/* 1. Recommended relief Operator Panel */}
                 <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl relative overflow-hidden">
                   <div className="absolute top-0 right-0 bg-emerald-500/15 border-b border-l border-emerald-500/30 text-[9px] font-bold text-emerald-400 px-4 py-1.5 rounded-bl-lg uppercase tracking-wider flex items-center gap-1">

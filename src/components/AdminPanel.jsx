@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Users, Shield, Terminal, Fingerprint } from 'lucide-react';
+import { Settings, Users, Shield, Terminal, Fingerprint, Cpu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 import UserControlCenter from './UserControlCenter';
+import CategoryRules from './CategoryRules';
 import UserManagement from './UserManagement';
 import RoleManagement from './RoleManagement';
 import AuditLogs from './AuditLogs';
@@ -13,6 +14,7 @@ export default function AdminPanel() {
   
   const subTabs = [
     { id: 'UCC', label: 'User Control Center', icon: Fingerprint, show: userProfile?.role === 'SUPER_ADMIN' || userProfile?.role === 'ADMIN_Station_Superintendent' || userProfile?.role === 'ADMIN_SS' },
+    { id: 'CATEGORY_RULES', label: 'Category Rules', icon: Cpu, show: userProfile?.role === 'SUPER_ADMIN' || userProfile?.role === 'ADMIN_Station_Superintendent' || userProfile?.role === 'ADMIN_SS' },
     { id: 'THEME', label: 'Theme & Comfort', icon: Settings, show: true },
     { id: 'USER_MGMT', label: 'User Management', icon: Users, show: hasPermission('User Management', 'Full') },
     { id: 'ROLE_MGMT', label: 'Role Management', icon: Shield, show: hasPermission('Role Management', 'Full') },
@@ -28,13 +30,11 @@ export default function AdminPanel() {
     }
   }, [allowedSubTabs, activeSubTab]);
 
-
-
   return (
     <div className='bg-slate-900 border border-slate-800 rounded-xl shadow-xl overflow-hidden min-h-[600px] flex flex-col font-mono text-slate-200'>
       
       {/* Sub-tab Navigation */}
-      <div className='bg-slate-950 px-6 py-4 border-b border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4'>
+      <div className='bg-slate-955 px-6 py-4 border-b border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4'>
         <div className='flex items-center gap-2'>
           <Settings className="text-emerald-400" />
           <h2 className='text-slate-100 font-bold tracking-wider uppercase text-sm'>
@@ -65,9 +65,8 @@ export default function AdminPanel() {
 
       {/* Panel Content Area */}
       <div className='p-6 flex-1 bg-slate-900/50'>
-
-
         {activeSubTab === 'UCC' && <UserControlCenter />}
+        {activeSubTab === 'CATEGORY_RULES' && <CategoryRules />}
         {activeSubTab === 'THEME' && <ThemeSettings />}
         {activeSubTab === 'USER_MGMT' && <UserManagement />}
         {activeSubTab === 'ROLE_MGMT' && <RoleManagement />}

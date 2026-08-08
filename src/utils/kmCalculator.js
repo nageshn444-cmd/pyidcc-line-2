@@ -1,67 +1,126 @@
-import { MASTER_STATIONS } from '../data/kmcalc/masterStations';
-import { WTT_MASTER_REGISTRY } from '../data/wttMasterRegistry';
+/**
+ * kmCalculator.js
+ * ─────────────────────────────────────────────────────────────────────
+ * Master High-Precision Distance & Kilometer Engine for BMRCL Line 2 JMD.
+ *
+ * Provides exact chainage-based kilometer calculations, sequence distances,
+ * WTT timetable matching, and CSV link roster parsing.
+ * ─────────────────────────────────────────────────────────────────────
+ */
+
+import { MASTER_STATIONS, PREDEFINED_TRIPS } from "../data/kmcalc/masterStations.js";
+import { WTT_MASTER_REGISTRY } from "../data/wttMasterRegistry.js";
+import { CHANGEOVER_TABLE } from "../services/changeoverService.js";
+
+/**
+ * Normalizes any station code, name, sub-location or alias to canonical MASTER_STATIONS code.
+ */
+export function normalizeStationCode(rawCode) {
+  if (!rawCode) return "";
+
+  let c = String(rawCode)
+    .trim()
+    .toUpperCase()
+    .replace(/[\s_]/g, "");
+
+  // Depot and Induction sub-locations
+  if (
+    c.includes("DEPOT") ||
+    c.includes("DEPO") ||
+    c.includes("DPO") ||
+    c.includes("DHO") ||
+    c === "BDHO" ||
+    c === "PDHO"
+  ) {
+    return "DEPOT";
+  }
+
+  // Pocket tracks & Buffer Ends
+  if (c === "BIETBE" || c === "BIETBUFFEREND" || c.includes("BIETBE")) return "BIET_BE";
+  if (c === "NGSABE" || c === "NGSABUFFEREND" || c.includes("NGSABE")) return "NGSA_BE";
+  if (c === "NGSAPT" || c === "NGSAPKT" || c === "NPKT" || c.includes("NGSAPT") || c.includes("NGSAPOCKET")) return "NGSA_PT";
+  if (c === "NLCPT" || c === "NLCPKT" || c.includes("NLCPOCKET")) return "NLC_PT";
+  if (c === "MHLIPT" || c === "MHLIPKT" || c.includes("MHLIPOCKET")) return "MHLI_PT";
+  if (c === "PUTHBE" || c === "PUTHBUFFEREND" || c.includes("PUTHBE")) return "PUTH_BE";
+  if (c === "APTSBE" || c === "APTSBUFFEREND" || c.includes("APTSBE")) return "APTS_BE";
+
+  // Road 3 (Rd-3/Rd3) at Peenya Industry -> 'PYID'
+  if (c === "RD3" || c === "RD-3" || c === "RD3INDUCT" || c === "RD3STBY" || c.includes("RD3")) {
+    return "PYID";
+  }
+
+  // Common station name aliases
+  if (c.includes("MADAVARA") || c.includes("MADHAVARA") || c.includes("BIEC")) return "BIET";
+  if (c.includes("JINDAL") || c.includes("JIDL")) return "JDHL";
+  if (c.includes("MANJUNATHA")) return "MNJN";
+  if (c.includes("NAGASANDRA") || c === "NGSA") return "NGSA";
+  if (c.includes("DASARAHALLI") || c === "DSH") return "DSH";
+  if (c.includes("JALAHALLI") || c === "JLHL") return "JLHL";
+  if (c.includes("PEENYA") && !c.includes("INDUSTRY") && c !== "PYID") return "PEYA";
+  if (c.includes("PEENYA") || c.includes("PYID")) return "PYID";
+  if (c.includes("GORAGUNTE") || c === "YPI") return "YPI";
+  if (c.includes("YESHWANT") || c.includes("YPM")) return "YPM";
+  if (c.includes("SANDAL") || c === "SSFY") return "SSFY";
+  if (c.includes("MAHALAKSHMI") || c === "MHLI") return "MHLI";
+  if (c.includes("RAJAJINAGAR") || c === "RJNR") return "RJNR";
+  if (c.includes("KUVEMPU") || c === "KVPR") return "KVPR";
+  if (c.includes("SRIRAMPURA") || c === "SPRU") return "SPRU";
+  if (c.includes("SAMPIGE") || c.includes("SPGD") || c.includes("MANTRI")) return "SPGD";
+  if (c.includes("KEMPEGOWDA") || c.includes("KGWA") || c.includes("MAJESTIC") || c === "MJST") return "KGWA";
+  if (c.includes("CHIKKAPETE") || c === "CKPE") return "CKPE";
+  if (c.includes("MARKET") || c === "KRMT") return "KRMT";
+  if (c.includes("NATIONAL") || c.includes("NLC")) return "NLC";
+  if (c.includes("LALBAGH") || c === "LBGH") return "LBGH";
+  if (c.includes("SOUTHEND") || c === "SECE") return "SECE";
+  if (c.includes("JAYANAGAR") || c === "JYN") return "JYN";
+  if (c.includes("RVROAD") || c.includes("RVR") || c.includes("R.V.ROAD")) return "RVR";
+  if (c.includes("BANASHANKARI") || c === "BSNK") return "BSNK";
+  if (c.includes("JPNAGAR") || c === "JPN") return "JPN";
+  if (c.includes("YELACHENAHALLI") || c.includes("PUTH") || c.includes("PUTHANTENAHALLI")) return "PUTH";
+  if (c.includes("KONANAKUNTE") || c === "APRC") return "APRC";
+  if (c.includes("DODDAKALSANDRA") || c === "KLPK") return "KLPK";
+  if (c.includes("VAJARAHALLI") || c === "VJRH") return "VJRH";
+  if (c.includes("TALAGHATTAPURA") || c === "TGTP") return "TGTP";
+  if (c.includes("ANJANAPURA") || c.includes("APTS") || c.includes("SILK")) return "APTS";
+
+  return String(rawCode || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9_-]/g, "");
+}
 
 /**
  * Calculates absolute distance between two stations based on chainage values.
- * Returns exact distance in KM.
+ * Returns exact distance in KM (float, rounded to 2 decimal places).
  */
 export function calculateDistance(fromStationCode, toStationCode) {
-  const normRawFrom = String(fromStationCode || '').trim().toUpperCase();
-  const normRawTo = String(toStationCode || '').trim().toUpperCase();
+  const rawFromStr = String(fromStationCode || "").trim().toUpperCase();
+  const rawToStr = String(toStationCode || "").trim().toUpperCase();
 
-  // PYID UP to PYID DN (reversing via BIET BE) operational route = 13.08 KM (13 KM)
+  // PYID UP to PYID DN (reversing via BIET BE) operational terminal loop = 13.08 KM
   if (
-    (normRawFrom.includes('PYID') && normRawFrom.includes('UP') && normRawTo.includes('PYID') && normRawTo.includes('DN')) ||
-    (normRawFrom.includes('PYID') && normRawFrom.includes('DN') && normRawTo.includes('PYID') && normRawTo.includes('UP'))
+    (rawFromStr.includes("PYID") && rawFromStr.includes("UP") && rawToStr.includes("PYID") && rawToStr.includes("DN")) ||
+    (rawFromStr.includes("PYID") && rawFromStr.includes("DN") && rawToStr.includes("PYID") && rawToStr.includes("UP"))
   ) {
     return 13.08;
   }
 
-  const normalize = (code) => {
-    let c = String(code || '').trim().toUpperCase().replace(/[\s_]/g, '');
-    
-    // Normalize Depot Handover (DHO) and Depot terms to 'DEPOT'
-    if (
-      c.includes('DEPOT') || 
-      c.includes('DEPO') || 
-      c.includes('DPO') || 
-      c.includes('DHO') || 
-      c === 'BDHO' || 
-      c === 'PDHO'
-    ) {
-      return 'DEPOT';
-    }
-    
-    // Normalize pocket tracks and buffer ends
-    if (c === 'BIETBE' || c === 'BIETBUFFEREND') return 'BIET_BE';
-    if (c === 'NGSABE' || c === 'NGSABUFFEREND') return 'NGSA_BE';
-    if (c === 'NGSAPT' || c === 'NGSAPKT' || c === 'NPKT' || c.includes('NPKT') || c === 'NGSAPOCKET') return 'NGSA_PT';
-    if (c === 'NLCPT' || c === 'NLCPKT' || c === 'NLCPOCKET') return 'NLC_PT';
-    if (c === 'MHLIPT' || c === 'MHLIPKT' || c === 'MHLIPOCKET') return 'MHLI_PT';
-    if (c === 'PUTHBE' || c === 'PUTHBUFFEREND') return 'PUTH_BE';
-    if (c === 'APTSBE' || c === 'APTSBUFFEREND') return 'APTS_BE';
-    
-    // Normalize Road 3 (Rd-3/Rd3) at Peenya Industry to 'PYID'
-    if (c === 'RD3' || c === 'RD-3' || c === 'RD3INDUCT' || c === 'RD3STBY') {
-      return 'PYID';
-    }
-    
-    if (c === 'JIDL') return 'JDHL';
-    
-    return String(code || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
-  };
+  const normFrom = normalizeStationCode(fromStationCode);
+  const normTo = normalizeStationCode(toStationCode);
 
-  const normFrom = normalize(fromStationCode);
-  const normTo = normalize(toStationCode);
+  if (!normFrom || !normTo || normFrom === normTo) {
+    return 0;
+  }
 
-  const fromStn = MASTER_STATIONS.find(s => s.code.toUpperCase() === normFrom);
-  const toStn = MASTER_STATIONS.find(s => s.code.toUpperCase() === normTo);
+  const fromStn = MASTER_STATIONS.find((s) => s.code.toUpperCase() === normFrom);
+  const toStn = MASTER_STATIONS.find((s) => s.code.toUpperCase() === normTo);
 
   if (!fromStn || !toStn) {
     return 0;
   }
 
-  return Math.abs(toStn.chainage - fromStn.chainage);
+  const diff = Math.abs(toStn.chainage - fromStn.chainage);
+  return parseFloat(diff.toFixed(2));
 }
 
 /**
@@ -69,6 +128,10 @@ export function calculateDistance(fromStationCode, toStationCode) {
  * e.g. ["PYID", "BIET_BE", "APTS_BE", "PYID"]
  */
 export function calculateSequenceDistance(stationCodes) {
+  if (!Array.isArray(stationCodes) || stationCodes.length < 2) {
+    return { segments: [], totalExact: 0, totalRounded: 0 };
+  }
+
   const segments = [];
   let totalExact = 0;
 
@@ -76,12 +139,12 @@ export function calculateSequenceDistance(stationCodes) {
     const fromCode = stationCodes[i];
     const toCode = stationCodes[i + 1];
     const dist = calculateDistance(fromCode, toCode);
-    
+
     if (dist > 0) {
       segments.push({
         fromStationCode: fromCode,
         toStationCode: toCode,
-        calculatedKms: parseFloat(dist.toFixed(3))
+        calculatedKms: parseFloat(dist.toFixed(3)),
       });
       totalExact += dist;
     }
@@ -90,204 +153,328 @@ export function calculateSequenceDistance(stationCodes) {
   return {
     segments,
     totalExact: parseFloat(totalExact.toFixed(3)),
-    totalRounded: Math.round(totalExact)
+    totalRounded: Math.round(totalExact),
   };
 }
 
 /**
- * Parses time-string "HH:MM:SS" or "HH:MM" to seconds.
+ * Parses time-string "HH:MM:SS" or "HH:MM" (or AM/PM) to total seconds.
  */
 export function timeStringToSeconds(timeStr) {
   if (!timeStr) return 0;
-  const parts = String(timeStr).trim().split(':').map(Number);
-  if (parts.length === 3) {
-    return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  } else if (parts.length === 2) {
-    return parts[0] * 3600 + parts[1] * 60;
-  }
-  return 0;
+  let str = String(timeStr).trim().toUpperCase();
+
+  // Handle 12-hour AM/PM format
+  const isPm = str.includes("PM");
+  const isAm = str.includes("AM");
+  str = str.replace(/(AM|PM|\s)/g, "");
+
+  const parts = str.split(":").map(Number);
+  if (parts.some(isNaN)) return 0;
+
+  let hrs = parts[0] || 0;
+  const mins = parts[1] || 0;
+  const secs = parts[2] || 0;
+
+  if (isPm && hrs < 12) hrs += 12;
+  if (isAm && hrs === 12) hrs = 0;
+
+  return hrs * 3600 + mins * 60 + secs;
 }
 
 /**
  * Converts seconds back to "HH:MM:SS" format.
  */
 export function secondsToTimeString(totalSeconds) {
+  if (totalSeconds < 0 || isNaN(totalSeconds)) return "00:00:00";
   const hrs = Math.floor(totalSeconds / 3600);
   const mins = Math.floor((totalSeconds % 3600) / 60);
-  const secs = totalSeconds % 60;
+  const secs = Math.floor(totalSeconds % 60);
 
-  const pad = (n) => String(n).padStart(2, '0');
+  const pad = (n) => String(n).padStart(2, "0");
   return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+}
+
+const LINE2_STATION_ORDER = [
+  "BIET_BE",
+  "BIET",
+  "JDHL",
+  "MNJN",
+  "NGSA_BE",
+  "NGSA_PT",
+  "NGSA",
+  "DSH",
+  "JLHL",
+  "PYID",
+  "PEYA",
+  "DEPOT",
+  "YPI",
+  "YPM",
+  "SSFY",
+  "MHLI",
+  "MHLI_PT",
+  "RJNR",
+  "KVPR",
+  "SPRU",
+  "SPGD",
+  "KGWA",
+  "CKPE",
+  "KRMT",
+  "NLC",
+  "NLC_PT",
+  "LBGH",
+  "SECE",
+  "JYN",
+  "RVR",
+  "BSNK",
+  "JPN",
+  "PUTH",
+  "PUTH_BE",
+  "APRC",
+  "KLPK",
+  "VJRH",
+  "TGTP",
+  "APTS",
+  "APTS_BE",
+];
+
+export function expandStationPath(stnList) {
+  if (!stnList || stnList.length < 2) return stnList || [];
+
+  const expanded = [stnList[0]];
+
+  for (let i = 0; i < stnList.length - 1; i++) {
+    const s1 = normalizeStationCode(stnList[i]);
+    const s2 = normalizeStationCode(stnList[i + 1]);
+
+    if (!s1 || !s2 || s1 === s2) continue;
+
+    const idx1 = LINE2_STATION_ORDER.indexOf(s1);
+    const idx2 = LINE2_STATION_ORDER.indexOf(s2);
+
+    if (idx1 !== -1 && idx2 !== -1 && Math.abs(idx1 - idx2) > 1) {
+      const step = idx2 > idx1 ? 1 : -1;
+      for (let k = idx1 + step; k !== idx2; k += step) {
+        expanded.push(LINE2_STATION_ORDER[k]);
+      }
+    }
+    expanded.push(s2);
+  }
+  return expanded;
 }
 
 /**
  * Calculates kilometers for a single leg by matching trainId, day type (scheduleType),
- * and board/deboard time windows against the master WTT registry (WTT_MASTER_REGISTRY).
+ * and board/deboard time windows against master WTT registry or station chainages.
  */
-export function calculateLegKmsFromWTT(trainId, takeoverLocation, handoverLocation, depTimeStr, arrTimeStr, scheduleType = 'WEEKDAY') {
-  const rawTrain = String(trainId || '').trim();
-  if (!rawTrain || rawTrain === '--' || rawTrain === '-' || rawTrain.toLowerCase().includes('stby') || rawTrain.toLowerCase().includes('pro') || rawTrain.toLowerCase().includes('break')) {
-    return { calculatedKms: 0, segments: [] };
+export function calculateLegKmsFromWTT(
+  trainId,
+  takeoverLocation,
+  handoverLocation,
+  depTimeStr,
+  arrTimeStr,
+  scheduleType = "WEEKDAY",
+  isShortLoop = false,
+  isStartDnLine = false,
+  isEndDnLine = false,
+) {
+  const rawTrain = String(trainId || "").trim();
+  const trainLower = rawTrain.toLowerCase();
+  const takeLower = String(takeoverLocation || "").toLowerCase();
+  const handLower = String(handoverLocation || "").toLowerCase();
+
+  const hasStartDn = isStartDnLine || takeLower.includes(" dn") || takeLower.endsWith("dn");
+  const hasEndDn = isEndDnLine || handLower.includes(" dn") || handLower.endsWith("dn");
+
+  const cleanTrainNo = rawTrain
+    .replace(/^(Tr|Train|No|T)\.?\s*/i, "")
+    .replace(/\s*(UP|DN)$/i, "")
+    .trim();
+  const searchTid = cleanTrainNo.replace(/\D/g, "").trim();
+
+  // 1. Non-running activity check
+  const isStandby =
+    trainLower.includes("stby") ||
+    trainLower.includes("standby") ||
+    trainLower.includes("pro") ||
+    takeLower.includes("rd3 stby") ||
+    takeLower.includes("rd3-stby") ||
+    takeLower.includes("rd-3 stby");
+
+  const nonRunningKeywords = [
+    "couns", "counseling", "tgtp", "break", "rest", "lunch", "training",
+    "medical", "class", "spare", "reserve", "resv", "sign on", "sign off",
+    "pilot", "unknown", "wo", "cl", "el", "nr", "ab", "stbk", "crt", "bo",
+    "pme", "or", "rel", "hpl", "pl", "ml", "ms", "--", "-"
+  ];
+
+  const isNonRunning =
+    !searchTid ||
+    isStandby ||
+    nonRunningKeywords.some((kw) => trainLower === kw || takeLower === kw || trainLower.includes(kw));
+
+  if (!rawTrain || isNonRunning) {
+    return {
+      calculatedKms: 0,
+      status: "NON RUNNING",
+      trainNo: rawTrain || "N/A",
+      direction: "N/A",
+      boardingStation: "N/A",
+      boardingTime: depTimeStr || "N/A",
+      alightingStation: "N/A",
+      alightingTime: arrTimeStr || "N/A",
+      intermediateStations: [],
+      segments: [],
+    };
   }
 
-  // Extract clean numerical or canonical train ID (e.g. "Tr 206" -> "206", "Tr 209 UP" -> "209")
-  const cleanTrainNo = rawTrain.replace(/^(Tr|Train|No|T)\.?\s*/i, '').replace(/\s*(UP|DN)$/i, '').trim();
-  const searchTid = cleanTrainNo.replace(/\D/g, '').trim();
+  // 2. Direct Station Chainage Fallback if locations are provided
+  const normFromStn = normalizeStationCode(takeoverLocation);
+  const normToStn = normalizeStationCode(handoverLocation);
 
-  const normSchedule = String(scheduleType || 'WEEKDAY').toUpperCase();
+  let directKm = 0;
+  if (normFromStn && normToStn && normFromStn !== normToStn) {
+    directKm = calculateDistance(normFromStn, normToStn);
+  }
+
+  // 3. Search WTT for Train ID + Schedule Type
+  const normSchedule = String(scheduleType || "WEEKDAY").toUpperCase();
   const depSecs = timeStringToSeconds(depTimeStr);
   const arrSecs = timeStringToSeconds(arrTimeStr);
-  let durationMins = 0;
-  if (depSecs > 0 && arrSecs > 0) {
-    let diffSecs = arrSecs - depSecs;
-    if (diffSecs < 0) diffSecs += 86400; // 24-hour midnight rollover
-    durationMins = diffSecs / 60;
-  }
 
-  const takeClean = String(takeoverLocation || '').trim().toUpperCase();
-  const handClean = String(handoverLocation || '').trim().toUpperCase();
-
-  // 1. PRIMARY ENGINE: Search day-specific WTT timetable matrix (SATURDAY, SUNDAY, MONDAY, WEEKDAY)
-  let matchingWttRows = (WTT_MASTER_REGISTRY || []).filter(row => {
-    const rowSched = String(row.scheduleType || 'WEEKDAY').toUpperCase();
-    const rowTid = String(row.trainId || row.upTid || row.dnTid || '').replace(/\D/g, '').trim();
+  let wttRows = (WTT_MASTER_REGISTRY || []).filter((row) => {
+    const rowSched = String(row.scheduleType || "WEEKDAY").toUpperCase();
+    const rowTid = String(row.trainId || row.upTid || row.dnTid || "")
+      .replace(/\D/g, "")
+      .trim();
     return rowSched === normSchedule && (rowTid === searchTid || rowTid.endsWith(searchTid));
   });
 
-  if (matchingWttRows.length === 0) {
-    matchingWttRows = (WTT_MASTER_REGISTRY || []).filter(row => {
-      const rowSched = String(row.scheduleType || 'WEEKDAY').toUpperCase();
-      const rowTid = String(row.trainId || row.upTid || row.dnTid || '').replace(/\D/g, '').trim();
-      return rowSched === 'WEEKDAY' && (rowTid === searchTid || rowTid.endsWith(searchTid));
+  if (wttRows.length === 0) {
+    wttRows = (WTT_MASTER_REGISTRY || []).filter((row) => {
+      const rowTid = String(row.trainId || row.upTid || row.dnTid || "")
+        .replace(/\D/g, "")
+        .trim();
+      return rowTid === searchTid || rowTid.endsWith(searchTid);
     });
   }
 
-  if (matchingWttRows.length > 0) {
-    const stops = [];
-    matchingWttRows.forEach(row => {
-      ['upTrip', 'downTrip'].forEach(tripKey => {
-        const trip = row[tripKey];
-        if (trip && trip.stations) {
-          Object.entries(trip.stations).forEach(([stCode, timeVal]) => {
-            if (timeVal && timeVal !== '--' && timeVal !== '-' && !String(timeVal).toLowerCase().includes('rev')) {
-              const stSecs = timeStringToSeconds(timeVal);
-              if (stSecs > 0) {
-                if (depSecs > 0 && arrSecs > 0) {
-                  // Operational window buffer around leg departure and arrival
-                  let adjustedArrSecs = arrSecs;
-                  if (adjustedArrSecs < depSecs) adjustedArrSecs += 86400; // Midnight rollover
-                  
-                  if (stSecs >= (depSecs - 300) && stSecs <= (adjustedArrSecs + 300)) {
-                    stops.push({ station: stCode.split('_')[0], secs: stSecs });
-                  }
-                } else {
-                  stops.push({ station: stCode.split('_')[0], secs: stSecs });
-                }
-              }
-            }
-          });
+  // 4. Assemble WTT Timeline
+  const trainTimeline = [];
+  wttRows.forEach((row) => {
+    ["downTrip", "upTrip"].forEach((tripKey) => {
+      const trip = row[tripKey];
+      if (!trip || !trip.stations) return;
+
+      Object.entries(trip.stations).forEach(([stCode, timeVal]) => {
+        if (
+          timeVal &&
+          timeVal !== "--" &&
+          timeVal !== "-" &&
+          !String(timeVal).toLowerCase().includes("rev")
+        ) {
+          const secs = timeStringToSeconds(timeVal);
+          if (secs > 0) {
+            trainTimeline.push({
+              station: normalizeStationCode(stCode),
+              timeStr: String(timeVal).trim(),
+              secs: secs,
+              tripId: trip.id,
+              dir: tripKey === "upTrip" ? "UP" : "DOWN",
+            });
+          }
         }
       });
     });
+  });
 
-    stops.sort((a, b) => a.secs - b.secs);
+  trainTimeline.sort((a, b) => a.secs - b.secs);
 
-    if (stops.length >= 2) {
-      const uniqueStops = stops.filter((s, index, self) => index === 0 || s.station !== self[index - 1].station);
-      const stationCodes = uniqueStops.map(s => s.station);
-      const result = calculateSequenceDistance(stationCodes);
-      if (result.totalRounded > 0) {
-        return {
-          calculatedKms: result.totalRounded,
-          segments: result.segments
-        };
+  if (trainTimeline.length >= 2) {
+    let startIdx = 0;
+    let minDepDiff = Infinity;
+    trainTimeline.forEach((stop, idx) => {
+      const diff = Math.abs(stop.secs - depSecs);
+      if (diff < minDepDiff) {
+        minDepDiff = diff;
+        startIdx = idx;
       }
-    }
-  }
+    });
 
-  // 2. FALLBACK PATTERNS: Used only if WTT timetable has no entries for this specific run
-  if (
-    takeClean.includes('NO PDC') || takeClean.includes('INDUCT') || takeClean.includes('DPO') || takeClean.includes('DEPO') || takeClean.includes('RD3')
-  ) {
-    if (durationMins >= 80 && durationMins <= 175) {
+    let endIdx = trainTimeline.length - 1;
+    let minArrDiff = Infinity;
+    trainTimeline.forEach((stop, idx) => {
+      if (idx >= startIdx) {
+        const diff = Math.abs(stop.secs - arrSecs);
+        if (diff < minArrDiff) {
+          minArrDiff = diff;
+          endIdx = idx;
+        }
+      }
+    });
+
+    if (endIdx <= startIdx) {
+      endIdx = Math.min(startIdx + 1, trainTimeline.length - 1);
+    }
+
+    const bStop = trainTimeline[startIdx];
+    const aStop = trainTimeline[endIdx];
+
+    let pathStops = trainTimeline.slice(startIdx, endIdx + 1).map((s) => s.station);
+    pathStops = expandStationPath(pathStops);
+    const seqResult = calculateSequenceDistance(pathStops);
+
+    if (seqResult.totalRounded > 0) {
       return {
-        calculatedKms: 42,
-        segments: [
-          { fromStationCode: takeoverLocation || "DEPOT", toStationCode: "BIET_BE", calculatedKms: 6.54 },
-          { fromStationCode: "BIET_BE", toStationCode: "PUTH_BE", calculatedKms: 27.81 },
-          { fromStationCode: "PUTH_BE", toStationCode: handoverLocation || "PYID", calculatedKms: 7.65 }
-        ]
+        calculatedKms: seqResult.totalRounded,
+        status: "MATCHED",
+        trainNo: searchTid,
+        direction: bStop.dir,
+        boardingStation: `${bStop.station} ${hasStartDn ? "Dn" : "Up"}`,
+        boardingTime: bStop.timeStr,
+        alightingStation: `${aStop.station} ${hasEndDn ? "Dn" : "Up"}`,
+        alightingTime: aStop.timeStr,
+        intermediateStations: pathStops,
+        segments: seqResult.segments,
       };
     }
   }
 
-  if (takeClean.includes('KGWA')) {
-    const kmVal = takeClean.includes('DN') ? 43 : (searchTid === '204' ? 23 : 26);
+  // 5. High-Precision Direct Chainage Fallback for Valid Running Train
+  if (directKm > 0) {
+    const finalKm = Math.round(directKm);
     return {
-      calculatedKms: kmVal,
-      segments: [{ fromStationCode: takeoverLocation, toStationCode: handoverLocation || "PYID", calculatedKms: kmVal }]
-    };
-  }
-
-  if (takeClean.includes('PYID') && (takeClean.includes('DN') || takeClean.includes('DOWN'))) {
-    if (durationMins >= 80 && durationMins <= 140) {
-      return {
-        calculatedKms: 54,
-        segments: [
-          { fromStationCode: takeoverLocation || "PYID DN", toStationCode: "BIET_BE", calculatedKms: 6.54 },
-          { fromStationCode: "BIET_BE", toStationCode: "PUTH_BE", calculatedKms: 27.81 },
-          { fromStationCode: "PUTH_BE", toStationCode: handoverLocation || "PYID", calculatedKms: 19.65 }
-        ]
-      };
-    }
-  }
-
-  if (takeClean.includes('N PKT') || takeClean.includes('NPKT')) {
-    return {
-      calculatedKms: 6,
-      segments: [{ fromStationCode: takeoverLocation, toStationCode: handoverLocation || "PYID", calculatedKms: 6 }]
-    };
-  }
-
-  if (
-    (takeClean.includes('PYID') && handClean.includes('PYID') && durationMins >= 15 && durationMins <= 55) ||
-    (takeClean.includes('RD3') && handClean.includes('PYID') && durationMins >= 15 && durationMins <= 55)
-  ) {
-    return {
-      calculatedKms: 13,
+      calculatedKms: finalKm,
+      status: "MATCHED",
+      trainNo: searchTid,
+      direction: hasStartDn || hasEndDn ? "DOWN" : "UP",
+      boardingStation: takeoverLocation || normFromStn,
+      boardingTime: depTimeStr || "N/A",
+      alightingStation: handoverLocation || normToStn,
+      alightingTime: arrTimeStr || "N/A",
+      intermediateStations: [normFromStn, normToStn],
       segments: [
-        { fromStationCode: takeoverLocation || "PYID UP", toStationCode: "BIET_BE", calculatedKms: 6.54 },
-        { fromStationCode: "BIET_BE", toStationCode: handoverLocation || "PYID DN", calculatedKms: 6.54 }
-      ]
+        {
+          fromStationCode: normFromStn,
+          toStationCode: normToStn,
+          calculatedKms: finalKm,
+        },
+      ],
     };
   }
 
-  if (
-    (takeClean.includes('PYID') || takeClean.includes('RD3')) &&
-    (handClean.includes('PYID') || handClean.includes('DEPOT')) &&
-    durationMins >= 105 && durationMins <= 175
-  ) {
-    return {
-      calculatedKms: 57,
-      segments: [
-        { fromStationCode: takeoverLocation || "PYID", toStationCode: "BIET_BE", calculatedKms: 6.54 },
-        { fromStationCode: "BIET_BE", toStationCode: "PUTH_BE", calculatedKms: 27.81 },
-        { fromStationCode: "PUTH_BE", toStationCode: handoverLocation || "PYID", calculatedKms: 22.65 }
-      ]
-    };
-  }
-
-  // Fallback: Direct chainage distance between takeover and handover locations
-  if (takeoverLocation && handoverLocation) {
-    const dist = calculateDistance(takeoverLocation, handoverLocation);
-    const fallbackKm = Math.round(dist) || 42;
-    return {
-      calculatedKms: fallbackKm,
-      segments: [{ fromStationCode: takeoverLocation, toStationCode: handoverLocation, calculatedKms: parseFloat(dist.toFixed(3)) }]
-    };
-  }
-
-  return { calculatedKms: 42, segments: [] };
+  return {
+    calculatedKms: 0,
+    status: "UNMATCHED WTT",
+    trainNo: searchTid,
+    direction: "UNKNOWN",
+    boardingStation: "UNMATCHED",
+    boardingTime: depTimeStr,
+    alightingStation: "UNMATCHED",
+    alightingTime: arrTimeStr,
+    intermediateStations: [],
+    segments: [],
+  };
 }
 
 /**
@@ -296,42 +483,42 @@ export function calculateLegKmsFromWTT(trainId, takeoverLocation, handoverLocati
 export function parseCSVToDuties(csvText) {
   if (!csvText) return [];
 
-  const lines = csvText.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const lines = csvText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
   if (lines.length === 0) return [];
 
-  const matrix = lines.map(line => {
-    let delimiter = ',';
-    if (line.includes('\t')) delimiter = '\t';
-    else if (!line.includes(',') && line.includes(';')) delimiter = ';';
-    
-    return line.split(delimiter).map(v => {
-      let cleaned = String(v || '').trim().replace(/^["']|["']$/g, '');
-      // Strip unprintable non-ASCII symbols or hidden icons
-      cleaned = cleaned.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
+  const matrix = lines.map((line) => {
+    let delimiter = ",";
+    if (line.includes("\t")) delimiter = "\t";
+    else if (!line.includes(",") && line.includes(";")) delimiter = ";";
+
+    return line.split(delimiter).map((v) => {
+      let cleaned = String(v || "")
+        .trim()
+        .replace(/^["']|["']$/g, "");
+      cleaned = cleaned.replace(/[\u0000-\u001F\u007F-\u009F]/g, "").trim();
       return cleaned;
     });
   });
 
   const parsedDuties = [];
 
-  const dutyKeywords = ['duty', 'duty no', 'duty_no', 'duty#', 'duty.', 'link', 'sl', 'sl.no', 's.no', 'shift', 'duty id'];
-  const sOnKeywords = ['sign on', 's/on', 's on', 's-on', 's.on', 'son', 'on time', 'report time', 'start time', 'sign_on'];
-  const sOnLocKeywords = ['sign on loc', 's/on loc', 's on loc', 'on_location', 'location', 'sign_on_loc', 'on loc', 's.on loc'];
-  const sOffKeywords = ['sign off', 's/off', 's off', 's-off', 's.off', 'soff', 'off time', 'end time', 'sign_off'];
-  const sOffLocKeywords = ['sign off loc', 's/off loc', 's off loc', 'off_location', 'sign_off_loc', 'off loc', 's.off loc'];
-  const trainKeywords = ['train', 'tr.no', 'tr no', 'train no', 'train_no', 'train#', 'tr', 't.no', 'leg', 'trip'];
-  const timeFrmKeywords = ['time frm', 'time_frm', 'frm', 'dep', 'departure', 'dep.time', 'from time', 'time from'];
-  const timeToKeywords = ['time to', 'time_to', 'to', 'arr', 'arrival', 'arr.time', 'to time', 'time to'];
-  const takeoverKeywords = ['takeover', 't/o', 'take over', 'takeover loc', 't/o loc', 'from loc'];
-  const handoverKeywords = ['handover', 'h/o', 'hand over', 'handover loc', 'h/o loc', 'to loc'];
+  const dutyKeywords = ["duty", "duty no", "duty_no", "duty#", "duty.", "link", "sl", "sl.no", "s.no", "shift", "duty id"];
+  const sOnKeywords = ["sign on", "s/on", "s on", "s-on", "s.on", "son", "on time", "report time", "start time", "sign_on"];
+  const sOnLocKeywords = ["sign on loc", "s/on loc", "s on loc", "on_location", "location", "sign_on_loc", "on loc", "s.on loc"];
+  const sOffKeywords = ["sign off", "s/off", "s off", "s-off", "s.off", "soff", "off time", "end time", "sign_off"];
+  const sOffLocKeywords = ["sign off loc", "s/off loc", "s off loc", "off_location", "sign_off_loc", "off loc", "s.off loc"];
+  const trainKeywords = ["train", "tr.no", "tr no", "train no", "train_no", "train#", "tr", "t.no"];
 
   const matchesKeyword = (headerStr, keywords) => {
     if (!headerStr) return false;
     const h = String(headerStr).toLowerCase().trim();
-    const hClean = h.replace(/[^a-z0-9]/g, '');
+    const hClean = h.replace(/[^a-z0-9]/g, "");
     for (const kw of keywords) {
       const k = kw.toLowerCase().trim();
-      const kClean = k.replace(/[^a-z0-9]/g, '');
+      const kClean = k.replace(/[^a-z0-9]/g, "");
       if (h === k || h.includes(k) || k.includes(h)) return true;
       if (hClean && kClean && (hClean.includes(kClean) || kClean.includes(hClean))) return true;
     }
@@ -344,13 +531,11 @@ export function parseCSVToDuties(csvText) {
   for (let r = 0; r < Math.min(20, matrix.length); r++) {
     const row = matrix[r];
     let score = 0;
-    row.forEach(cellVal => {
+    row.forEach((cellVal) => {
       if (matchesKeyword(cellVal, dutyKeywords)) score += 3;
       if (matchesKeyword(cellVal, sOnKeywords)) score += 2;
       if (matchesKeyword(cellVal, sOffKeywords)) score += 2;
       if (matchesKeyword(cellVal, trainKeywords)) score += 2;
-      if (matchesKeyword(cellVal, timeFrmKeywords)) score += 1;
-      if (matchesKeyword(cellVal, timeToKeywords)) score += 1;
     });
     if (score > maxScore) {
       maxScore = score;
@@ -358,8 +543,10 @@ export function parseCSVToDuties(csvText) {
     }
   }
 
-  const startRow = (bestHeaderIdx !== -1 && maxScore > 0) ? bestHeaderIdx + 1 : 0;
-  const headers = (bestHeaderIdx !== -1 && maxScore > 0) ? matrix[bestHeaderIdx].map(h => String(h || '').toLowerCase().trim()) : [];
+  const startRow = bestHeaderIdx !== -1 && maxScore > 0 ? bestHeaderIdx + 1 : 0;
+  const headers = bestHeaderIdx !== -1 && maxScore > 0
+    ? matrix[bestHeaderIdx].map((h) => String(h || "").toLowerCase().trim())
+    : [];
 
   const findColIndex = (keywords) => {
     for (let c = 0; c < headers.length; c++) {
@@ -373,30 +560,19 @@ export function parseCSVToDuties(csvText) {
   const signOnLocIdx = findColIndex(sOnLocKeywords);
   const sOffTimeIdx = findColIndex(sOffKeywords);
   const signOffLocIdx = findColIndex(sOffLocKeywords);
-  const kmsIdx = findColIndex(['kms', 'distance', 'km', 'kilometer', 'total km']);
+  const kmsIdx = findColIndex(["kms", "distance", "km", "kilometer", "total km"]);
 
-  const getColIndexForLeg = (keywords, legNum) => {
-    const legNumStr = String(legNum);
-    for (let c = 0; c < headers.length; c++) {
-      const h = headers[c];
-      if (h.includes(legNumStr) && matchesKeyword(h, keywords)) return c;
-    }
-    const matches = [];
-    for (let c = 0; c < headers.length; c++) {
-      if (matchesKeyword(headers[c], keywords)) matches.push(c);
-    }
-    return matches[legNum - 1] !== undefined ? matches[legNum - 1] : -1;
-  };
+  let currentDutyObj = null;
 
   for (let r = startRow; r < matrix.length; r++) {
     const row = matrix[r];
     if (!row || row.length === 0) continue;
 
-    let dutyNo = dutyNoIdx !== -1 ? row[dutyNoIdx] : '';
+    let dutyNo = dutyNoIdx !== -1 ? row[dutyNoIdx] : "";
     if (!dutyNo) {
       for (let c = 0; c < Math.min(4, row.length); c++) {
-        const val = String(row[c] || '').trim();
-        const cleanVal = val.replace(/^duty\s*@?\s*/i, '').replace(/[^a-zA-Z0-9\s-]/g, '').trim();
+        const val = String(row[c] || "").trim();
+        const cleanVal = val.replace(/^duty\s*@?\s*/i, "").replace(/[^a-zA-Z0-9\s-]/g, "").trim();
         if (cleanVal && (/\d+/.test(cleanVal) || /^(pro|stby|r3|rd3|duty|sb)\d*/i.test(cleanVal))) {
           dutyNo = cleanVal;
           break;
@@ -404,303 +580,284 @@ export function parseCSVToDuties(csvText) {
       }
     }
 
-    if (!dutyNo) continue;
-    dutyNo = String(dutyNo).trim().replace(/^(duty\s*(no\.?|#|@)?)[\s:]*/i, '');
-    if (
-      !dutyNo || 
-      dutyNo.toLowerCase().includes('total') || 
-      dutyNo.toLowerCase().includes('prepared') || 
-      dutyNo.toLowerCase().includes('metric') || 
-      dutyNo.toLowerCase().includes('average') || 
-      dutyNo.toLowerCase().includes('hrs') || 
-      dutyNo.startsWith('~')
-    ) {
-      continue;
-    }
+    const isSubRow = !dutyNo && currentDutyObj;
+    if (!dutyNo && !isSubRow) continue;
 
-    const sOnTimeCell = sOnTimeIdx !== -1 ? row[sOnTimeIdx] : '';
-    const signOnLocCell = signOnLocIdx !== -1 ? row[signOnLocIdx] : '';
-    const sOffTimeCell = sOffTimeIdx !== -1 ? row[sOffTimeIdx] : '';
-    const signOffLocCell = signOffLocIdx !== -1 ? row[signOffLocIdx] : '';
-    const kms = kmsIdx !== -1 ? (parseFloat(row[kmsIdx]) || 0) : 0;
-
-    // Collect all time cells & location cells in the row for smart fallback
-    const timeCells = [];
-    const locationCells = [];
-    const trainCells = [];
-
-    row.forEach(cell => {
-      const val = String(cell || '').trim();
-      if (!val) return;
-      if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(val)) {
-        timeCells.push(val);
-      } else if (/(PYID|KGWA|PUTH|DEPOT|DEPO|DPO|DHO|NLC|APTS|RJNR|YPM|NGSA|BIET|RD3)/i.test(val)) {
-        locationCells.push(val);
-      } else if (/^(\d{3}|pro\s*\d*|rd3\s*stby|stby)$/i.test(val)) {
-        trainCells.push(val);
+    if (!isSubRow) {
+      dutyNo = String(dutyNo).trim().replace(/^(duty\s*(no\.?|#|@)?)[\s:]*/i, "");
+      if (
+        !dutyNo ||
+        dutyNo.toLowerCase().includes("total") ||
+        dutyNo.toLowerCase().includes("prepared") ||
+        dutyNo.toLowerCase().includes("metric") ||
+        dutyNo.toLowerCase().includes("average") ||
+        dutyNo.toLowerCase().includes("hrs") ||
+        dutyNo.startsWith("~")
+      ) {
+        continue;
       }
-    });
 
-    const sOnTime = sOnTimeCell || timeCells[0] || '06:00:00';
-    const signOnLocation = signOnLocCell || locationCells[0] || 'PYID';
-    const sOffTime = sOffTimeCell || (timeCells.length > 1 ? timeCells[timeCells.length - 1] : '14:00:00');
-    const signOffLocation = signOffLocCell || (locationCells.length > 1 ? locationCells[locationCells.length - 1] : 'PYID');
+      const sOnTimeCell = sOnTimeIdx !== -1 ? row[sOnTimeIdx] : "";
+      const signOnLocCell = signOnLocIdx !== -1 ? row[signOnLocIdx] : "";
+      const sOffTimeCell = sOffTimeIdx !== -1 ? row[sOffTimeIdx] : "";
+      const signOffLocCell = signOffLocIdx !== -1 ? row[signOffLocIdx] : "";
+      const kms = kmsIdx !== -1 ? parseFloat(row[kmsIdx]) || 0 : 0;
 
-    const trips = [];
-    // Iterate through Legs 1 to 4 explicitly as requested
-    for (let legIdx = 1; legIdx <= 4; legIdx++) {
-      const trainCol = getColIndexForLeg(trainKeywords, legIdx);
-      const timeFrmCol = getColIndexForLeg(timeFrmKeywords, legIdx);
-      const timeToCol = getColIndexForLeg(timeToKeywords, legIdx);
-      const takeoverCol = getColIndexForLeg(takeoverKeywords, legIdx);
-      const handoverCol = getColIndexForLeg(handoverKeywords, legIdx);
+      const timeCells = [];
+      const locationCells = [];
+      const trainCells = [];
 
-      const trainNo = trainCol !== -1 ? row[trainCol] : '';
-      const timeFrm = timeFrmCol !== -1 ? row[timeFrmCol] : '';
-      const timeTo = timeToCol !== -1 ? row[timeToCol] : '';
-      const takeoverLocation = takeoverCol !== -1 ? row[takeoverCol] : '';
-      const handoverLocation = handoverCol !== -1 ? row[handoverCol] : '';
+      row.forEach((cell) => {
+        const val = String(cell || "").trim();
+        if (!val) return;
+        if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(val)) {
+          timeCells.push(val);
+        } else if (/(PYID|KGWA|PUTH|DEPOT|DEPO|DPO|DHO|NLC|APTS|RJNR|YPM|NGSA|BIET|RD3)/i.test(val)) {
+          locationCells.push(val);
+        } else if (/^(\d{3}|pro\s*\d*|rd3\s*stby|stby)$/i.test(val)) {
+          trainCells.push(val);
+        }
+      });
 
-      if (trainNo || timeFrm) {
-        const trainLower = String(trainNo).toLowerCase();
-        const isCounselling = trainLower.includes('couns') || trainLower.includes('counseling');
+      const sOnTime = sOnTimeCell || timeCells[0] || "06:00:00";
+      const signOnLocation = signOnLocCell || locationCells[0] || "PYID";
+      const sOffTime = sOffTimeCell || (timeCells.length > 1 ? timeCells[timeCells.length - 1] : "14:00:00");
+      const signOffLocation = signOffLocCell || (locationCells.length > 1 ? locationCells[locationCells.length - 1] : "PYID");
 
-        trips.push({
-          legNumber: legIdx,
-          trainNo: trainNo || 'Unknown',
-          timeFrm,
-          timeTo,
-          takeoverLocation: takeoverLocation || signOnLocation,
-          handoverLocation: handoverLocation || signOffLocation,
-          isCounselling
-        });
+      const trips = [];
+      if (trainCells.length > 0 || timeCells.length >= 2) {
+        const numTrips = Math.max(trainCells.length, Math.floor((timeCells.length - 2) / 2));
+        for (let tIdx = 0; tIdx < Math.min(4, Math.max(1, numTrips)); tIdx++) {
+          const trNo = trainCells[tIdx] || `Train ${tIdx + 1}`;
+          const tFrm = timeCells[1 + tIdx * 2] || timeCells[0] || "06:00:00";
+          const tTo = timeCells[2 + tIdx * 2] || timeCells[1] || "08:00:00";
+          const tTake = locationCells[tIdx] || signOnLocation;
+          const tHand = locationCells[tIdx + 1] || signOffLocation;
+
+          trips.push({
+            legNumber: tIdx + 1,
+            trainNo: trNo,
+            timeFrm: tFrm,
+            timeTo: tTo,
+            takeoverLocation: tTake,
+            handoverLocation: tHand,
+            isCounselling: false,
+          });
+        }
       }
+
+      currentDutyObj = {
+        dutyNo,
+        sOnTime,
+        signOnLocation,
+        sOffTime,
+        signOffLocation,
+        kms,
+        trips,
+      };
+      parsedDuties.push(currentDutyObj);
     }
-
-    // Smart trip fallback if header columns didn't match leg indices
-    if (trips.length === 0 && (trainCells.length > 0 || timeCells.length >= 2)) {
-      const numTrips = Math.max(trainCells.length, Math.floor((timeCells.length - 2) / 2));
-      for (let tIdx = 0; tIdx < Math.min(4, Math.max(1, numTrips)); tIdx++) {
-        const trNo = trainCells[tIdx] || `Train ${tIdx + 1}`;
-        const tFrm = timeCells[1 + tIdx * 2] || timeCells[0] || '06:00:00';
-        const tTo = timeCells[2 + tIdx * 2] || timeCells[1] || '08:00:00';
-        const tTake = locationCells[tIdx] || signOnLocation;
-        const tHand = locationCells[tIdx + 1] || signOffLocation;
-
-        trips.push({
-          legNumber: tIdx + 1,
-          trainNo: trNo,
-          timeFrm: tFrm,
-          timeTo: tTo,
-          takeoverLocation: tTake,
-          handoverLocation: tHand,
-          isCounselling: false
-        });
-      }
-    }
-
-    parsedDuties.push({
-      dutyNo,
-      sOnTime,
-      signOnLocation,
-      sOffTime,
-      signOffLocation,
-      kms,
-      trips
-    });
   }
 
   return parsedDuties;
 }
 
-// Predefined WTT standard station loop sequences for Link Roster duty patterns
-export const DUTY_TRIP_PATTERNS = {
-  "3": [
-    ["KGWA", "PUTH_BE", "PYID"],
-    ["PYID", "BIET_BE", "APTS_BE", "PYID"],
-    ["PYID", "BIET_BE", "APTS_BE", "PYID"]
-  ],
-  "4": [
-    ["DEPOT", "PYID", "PUTH_BE", "PYID"],
-    ["PYID", "BIET_BE", "PUTH_BE", "DEPOT"],
-    ["PYID", "BIET_BE", "PYID"]
-  ],
-  "5": [
-    ["PYID", "BIET_BE", "PYID"],
-    ["PYID", "BIET_BE", "PUTH_BE", "PYID"],
-    ["PYID", "BIET_BE", "APTS_BE", "PYID"]
-  ],
-  "6": [
-    ["PYID", "BIET_BE", "PYID"],
-    ["PYID", "BIET_BE", "PUTH_BE", "PYID"],
-    ["PYID", "BIET_BE", "PYID"],
-    ["PYID", "NGSA_BE", "PYID"]
-  ],
-  "7": [
-    ["DEPOT", "BIET_BE", "APTS_BE", "PYID"],
-    ["PYID", "BIET_BE", "PUTH_BE", "PYID"],
-    ["PYID", "BIET_BE", "PUTH_BE", "PYID"]
-  ],
-  "8": [
-    ["KGWA", "PUTH_BE", "PYID"],
-    ["PYID", "BIET_BE", "APTS_BE", "PYID"],
-    ["PYID", "NGSA_BE", "DEPOT"]
-  ],
-  "9": [
-    ["PYID", "BIET_BE", "APTS_BE", "PYID"],
-    ["PYID", "BIET_BE", "APTS_BE", "PYID"],
-    ["PYID", "BIET_BE", "APTS_BE", "PYID"]
-  ],
-  "10": [
-    ["DEPOT", "BIET_BE", "PUTH_BE", "PYID"],
-    ["PYID", "BIET_BE", "PUTH_BE", "PYID"],
-    ["PYID", "BIET_BE", "PUTH_BE", "PYID"]
-  ],
-  "11": [
-    ["KGWA", "BIET_BE", "APTS_BE", "PYID"],
-    ["PYID", "BIET_BE", "PUTH_BE", "PYID"],
-    ["PYID", "NGSA_BE", "PYID"]
-  ],
-  "12": [
-    ["DEPOT", "BIET_BE", "PUTH_BE", "PYID"],
-    ["PYID", "BIET_BE", "PUTH_BE", "DEPOT"],
-    ["PYID", "NGSA_BE", "PYID"]
-  ],
-  "13": [
-    ["PYID", "BIET_BE", "PUTH_BE", "PYID"],
-    ["PYID", "BIET_BE", "PUTH_BE", "PYID"],
-    ["PYID", "NGSA_BE", "PYID"],
-    ["PYID", "NGSA_BE", "PYID"]
-  ],
-  "14": [
-    ["PYID", "BIET_BE", "APTS_BE", "PYID"],
-    ["PYID", "BIET_BE", "APTS_BE", "PYID"],
-    ["PYID", "BIET_BE", "APTS_BE", "PYID"]
-  ],
-  "18": [
-    ["DEPOT", "BIET_BE", "PUTH_BE", "PYID"],
-    ["PYID", "BIET_BE", "PUTH_BE", "DEPOT"],
-    []
-  ],
-  "33": [
-    ["PYID", "NGSA_BE", "PYID"],
-    ["PYID", "BIET_BE", "PUTH_BE", "PYID"],
-    ["PYID", "BIET_BE", "PUTH_BE", "PYID"],
-    ["PYID", "BIET_BE", "DEPOT"]
-  ],
-  "35": [
-    [],
-    ["PYID", "BIET_BE", "PUTH_BE", "PYID"],
-    ["PYID", "BIET_BE", "PUTH_BE", "PYID"]
-  ],
-  "47": [
-    ["PYID", "BIET_BE", "APTS_BE", "PYID"],
-    ["PYID", "BIET_BE", "APTS_BE", "PYID"],
-    ["PYID", "BIET_BE", "KGWA"]
-  ],
-  "64": [
-    ["PUTH", "APTS_BE", "APTS"],
-    ["APTS", "KGWA"]
-  ],
-  "65": [
-    ["PYID", "NLC"],
-    ["NLC", "PUTH"]
-  ],
-  "66": [
-    ["KGWA", "PUTH"],
-    ["PUTH", "PYID"]
-  ],
-  "67": [
-    ["PUTH", "APTS_BE"],
-    ["APTS_BE", "KGWA"]
-  ],
-  "77": [
-    ["KGWA", "DEPOT"],
-    []
-  ]
-};
-
 /**
  * Enhances roster duties by matching uploaded Link Roster day type and WTT trip schedules,
- * calculating leg-by-leg (1 through 4) distance, and compiling final cumulative kilometer summaries.
+ * calculating leg-by-leg distance, and compiling final cumulative kilometer summaries.
  */
-export function enhanceRosterDuties(duties, scheduleType = 'WEEKDAY') {
-  if (!duties) return [];
-  
-  const normScheduleType = String(scheduleType || 'WEEKDAY').toUpperCase();
+export function expandChangeoverPath(fromRaw, toRaw, targetKm) {
+  const s1 = normalizeStationCode(fromRaw) || "PYID";
+  const s2 = normalizeStationCode(toRaw) || "PYID";
 
-  return duties.map(duty => {
+  let keyStations = [s1, s2];
+  if (targetKm >= 60) {
+    if (s1 === s2) {
+      keyStations = [s1, "APTS", s1];
+    } else {
+      keyStations = [s1, "BIET", "APTS", s2];
+    }
+  } else if (s1 === s2 && targetKm > 0) {
+    keyStations = [s1, "KGWA", s1];
+  }
+
+  const pathList = expandStationPath(keyStations);
+  return pathList.length > 0 ? pathList.join(" → ") : `${s1} → ${s2}`;
+}
+
+export function enhanceRosterDuties(duties, scheduleType = "WEEKDAY") {
+  if (!duties || !Array.isArray(duties)) return [];
+
+  const normScheduleType = String(scheduleType || "WEEKDAY").toUpperCase();
+
+  return duties.map((duty) => {
     let totalDutyKms = 0;
-    
+    const dutyNoClean = String(duty.dutyNo || "").replace(/[^0-9]/g, "");
+
     const isSpecialType = (type) => {
-      const t = String(type || '').toLowerCase();
-      return t.includes('sby') || t.includes('standby') || t.includes('pro');
+      const t = String(type || "").toLowerCase();
+      return t.includes("sby") || t.includes("standby") || t.includes("pro");
     };
-    
-    if (isSpecialType(duty.dutyType) && (!duty.trips || duty.trips.length === 0 || duty.trips.every(t => String(t.trainNo || '').toLowerCase().includes('stby') || String(t.trainNo || '').toLowerCase().includes('pro')))) {
+
+    if (
+      isSpecialType(duty.dutyType) &&
+      (!duty.trips ||
+        duty.trips.length === 0 ||
+        duty.trips.every((t) => String(t.trainNo || "").toLowerCase().includes("stby") || String(t.trainNo || "").toLowerCase().includes("pro")))
+    ) {
       return {
         ...duty,
-        kms: 0
+        kms: 0,
+      };
+    }
+
+    // Check Changeover Table for Night Duties (e.g. 48-62 on Sunday, 64-77 on Weekday/Saturday)
+    const tableKey = normScheduleType === "SUNDAY" ? "SUNDAY__MONDAY" : normScheduleType === "SATURDAY" ? "SATURDAY__SUNDAY" : "WEEKDAY__SATURDAY";
+    const changeoverMatch = CHANGEOVER_TABLE[tableKey]?.[dutyNoClean] || CHANGEOVER_TABLE["SUNDAY__MONDAY"]?.[dutyNoClean];
+
+    const isNightDutyNo = (normScheduleType === "SUNDAY" && Number(dutyNoClean) >= 48 && Number(dutyNoClean) <= 62) || (Number(dutyNoClean) >= 64 && Number(dutyNoClean) <= 77);
+
+    if (changeoverMatch && isNightDutyNo) {
+      const co = changeoverMatch;
+      const coTrips = [];
+
+      // Night Leg 1
+      if (co.nightKms > 0 || co.nightTrainNo) {
+        coTrips.push({
+          legNumber: 1,
+          trainNo: co.nightTrainNo || "Night Run",
+          timeFrm: co.nightDepTime || "21:30:00",
+          timeTo: co.nightArrTime || "00:00:00",
+          takeoverLocation: co.signOnLocation || "PYID",
+          handoverLocation: co.nightHandoverLoc || "PYID",
+          calculatedKms: co.nightKms || 0,
+          customPathStr: expandChangeoverPath(co.signOnLocation, co.nightHandoverLoc, co.nightKms),
+          status: "VALIDATED",
+        });
+      }
+
+      // Pilot Leg 2 if pilot movement exists
+      if (co.pilotKms > 0) {
+        coTrips.push({
+          legNumber: coTrips.length + 1,
+          trainNo: "PILOT",
+          timeFrm: "--",
+          timeTo: "--",
+          takeoverLocation: co.takeoverLocation || co.nightHandoverLoc || "PILOT",
+          handoverLocation: co.takeoverLocation || co.nightHandoverLoc || "PILOT",
+          calculatedKms: co.pilotKms,
+          customPathStr: expandChangeoverPath(co.takeoverLocation || co.nightHandoverLoc, "PYID", co.pilotKms),
+          status: "VALIDATED",
+        });
+      }
+
+      // Morning Leg 3
+      if (co.mornKms > 0 || (co.mornTrainNo && co.mornTrainNo !== "--")) {
+        coTrips.push({
+          legNumber: coTrips.length + 1,
+          trainNo: co.mornTrainNo || "Morn Run",
+          timeFrm: co.mornDepTime || "06:00:00",
+          timeTo: co.mornArrTime || "07:30:00",
+          takeoverLocation: co.takeoverLocation || "PYID",
+          handoverLocation: co.mornHandoverLoc || "PYID",
+          calculatedKms: co.mornKms || 0,
+          customPathStr: expandChangeoverPath(co.takeoverLocation, co.mornHandoverLoc, co.mornKms),
+          status: "VALIDATED",
+        });
+      }
+
+      const finalTotalKms = co.totalKms || (co.nightKms + (co.pilotKms || 0) + (co.mornKms || 0));
+
+      return {
+        ...duty,
+        kms: finalTotalKms,
+        trips: coTrips,
+        sOnTime: co.signOnTime || duty.sOnTime,
+        signOnLocation: co.signOnLocation || duty.signOnLocation,
+        sOffTime: co.signOffTime || duty.sOffTime,
+        signOffLocation: co.signOffLocation || duty.signOffLocation,
+        drivingHrs: co.drivingHrs || duty.drivingHrs,
+        isNight: true,
+        validationResult: "VALIDATED",
       };
     }
 
     const updatedTrips = (duty.trips || []).map((trip, idx) => {
-      const trainNoClean = String(trip.trainNo || '').toLowerCase();
-      
-      // Exclude counselling trips (0 km)
-      const isCounselling = 
-        trainNoClean.includes('couns') || 
-        trainNoClean.includes('counseling') ||
+      const trainNoClean = String(trip.trainNo || "").toLowerCase();
+
+      const isCounselling =
+        trainNoClean.includes("couns") ||
+        trainNoClean.includes("counseling") ||
         trip.counsellingTime ||
         trip.isCounselling;
-        
+
       if (isCounselling) {
         return {
           ...trip,
-          legNumber: trip.legNumber || (idx + 1),
+          legNumber: trip.legNumber || idx + 1,
           calculatedKms: 0,
           segments: [],
-          isCounselling: true
+          isCounselling: true,
         };
       }
-      
-      const takeNorm = String(trip.takeoverLocation || '').toUpperCase();
-      const handNorm = String(trip.handoverLocation || '').toUpperCase();
-      if (takeNorm === 'DEPOT' && handNorm === 'DEPOT') {
+
+      const takeNorm = normalizeStationCode(trip.takeoverLocation);
+      const handNorm = normalizeStationCode(trip.handoverLocation);
+      if (takeNorm === "DEPOT" && handNorm === "DEPOT") {
         return {
           ...trip,
-          legNumber: trip.legNumber || (idx + 1),
+          legNumber: trip.legNumber || idx + 1,
           calculatedKms: 0,
-          segments: []
+          segments: [],
         };
       }
-      
-      // Exact Day-Type WTT time-matching calculation for Leg 1-4 trips
+
       const wttResult = calculateLegKmsFromWTT(
         trip.trainNo,
         trip.takeoverLocation,
         trip.handoverLocation,
         trip.timeFrm,
         trip.timeTo,
-        normScheduleType
+        normScheduleType,
+        Boolean(trip.isShortLoop || trip.isUnderlined),
+        Boolean(trip.isStartDnLine || trip.isFrmTimeBold),
+        Boolean(trip.isEndDnLine || trip.isToTimeBold),
       );
 
-      const legKms = wttResult.calculatedKms || trip.calculatedKms || 0;
+      const legKms = wttResult.calculatedKms || 0;
       totalDutyKms += legKms;
+
       return {
         ...trip,
-        legNumber: trip.legNumber || (idx + 1),
+        legNumber: trip.legNumber || idx + 1,
         calculatedKms: legKms,
-        segments: wttResult.segments && wttResult.segments.length > 0 ? wttResult.segments : (trip.segments || []),
+        status: wttResult.status || "UNMATCHED WTT",
+        direction: wttResult.direction || "N/A",
+        boardingStation: wttResult.boardingStation || trip.takeoverLocation || "N/A",
+        boardingTime: wttResult.boardingTime || trip.timeFrm || "N/A",
+        alightingStation: wttResult.alightingStation || trip.handoverLocation || "N/A",
+        alightingTime: wttResult.alightingTime || trip.timeTo || "N/A",
+        intermediateStations: wttResult.intermediateStations || [],
+        segments: wttResult.segments || [],
+        wttTripId: wttResult.wttTripId || null,
         isShortLoop: trip.isShortLoop || false,
-        isDnLine: trip.isDnLine || false
+        isDnLine: trip.isDnLine || false,
       };
     });
-    
+
+    const hasUnmatched = updatedTrips.some((t) => t.status === "UNMATCHED WTT");
+    const hasMatched = updatedTrips.some((t) => t.status === "MATCHED");
+    const validationResult = hasUnmatched
+      ? "MANUAL REVIEW"
+      : hasMatched
+      ? "VALIDATED"
+      : "NON RUNNING";
+
     return {
       ...duty,
-      kms: totalDutyKms, // Final cumulative kilometer summary for the duty
-      trips: updatedTrips
+      kms: totalDutyKms,
+      trips: updatedTrips,
+      validationResult,
     };
   });
 }

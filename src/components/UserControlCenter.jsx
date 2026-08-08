@@ -19,7 +19,7 @@ import { getRoleDefaultPermissions } from '../utils/dbSeeder';
 import { 
   Search, Shield, ShieldAlert, ShieldCheck, User, Users, Lock, Unlock, 
   RefreshCw, Power, Smartphone, Laptop, Globe, Ban, CheckCircle, 
-  AlertTriangle, Filter, List, Activity, Settings, UserMinus
+  AlertTriangle, Filter, List, Activity, Settings, UserMinus, Trash2
 } from 'lucide-react';
 
 const MODULE_PERMISSIONS_MAP = {
@@ -68,7 +68,7 @@ export default function UserControlCenter() {
   useEffect(() => {
     const q = collection(db, 'users');
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const empList = snapshot.docs.map(doc => doc.data());
+      const empList = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
       setEmployees(empList);
       
       // Auto-select first employee if none selected
@@ -564,7 +564,7 @@ export default function UserControlCenter() {
     }
   };
 
-  // Delete User from System Accounts
+  // Delete User from System Accounts (Soft Deactivation)
   const handleDeleteUser = async () => {
     if (isSelectedOwner) {
       alert("SUPER_ADMIN (NAGESHA N) cannot be deleted under any circumstances.");
@@ -572,7 +572,7 @@ export default function UserControlCenter() {
     }
     if (!selectedUser) return;
 
-    if (!window.confirm(`⛔ CRITICAL ACTION: Are you sure you want to delete ${selectedUser.employeeName} (${selectedUser.employeeId}) from system accounts? This removes their login profile, resetting them to inactive status. This action will be logged in the audit logs.`)) return;
+    if (!window.confirm(`⛔ DEACTIVATE CONFIRMATION: Are you sure you want to deactivate ${selectedUser.employeeName} (${selectedUser.employeeId})? This resets them to inactive status.`)) return;
 
     try {
       // Deactivate them in the master users collection
@@ -609,7 +609,102 @@ export default function UserControlCenter() {
       await writeUccAuditLog("DELETE_USER", "Account Management", selectedUser.role, "VIEWER (DEACTIVATED)");
       alert(`User profile for ${selectedUser.employeeName} has been locked and reset to deactivated VIEWER status.`);
     } catch (err) {
-      alert("Failed to delete user: " + err.message);
+      alert("Failed to deactivate user: " + err.message);
+    }
+  };
+
+  // Permanent Delete User Account from Database
+  const handlePermanentDeleteUser = async () => {
+    if (isSelectedOwner) {
+      alert("SUPER_ADMIN (NAGESHA N) permanent owner account cannot be deleted under any circumstances.");
+      return;
+    }
+    if (!selectedUser) return;
+
+    const empId = selectedUser.employeeId || selectedUser.id;
+    const empName = selectedUser.employeeName || selectedUser.name || '';
+
+    if (!window.confirm(`⛔ PERMANENT DELETE CONFIRMATION:\n\nAre you sure you want to PERMANENTLY DELETE user "${empName}" (ID: ${empId}) from the entire system database?\n\nThis will completely remove their user profile, permissions, and access controls from Firestore. THIS ACTION IS IRREVERSIBLE!`)) return;
+
+    try {
+      const sEmpId = String(empId).trim();
+      const nEmpId = Number(empId);
+      const userEmail = String(selectedUser.email || '').trim().toLowerCase();
+      const targetNameStr = String(empName || '').trim().toLowerCase();
+
+      const collectionsToScan = [
+        'users',
+        'system_users',
+        'crewRegistry',
+        'userAccessControl',
+        'userPermissions',
+        'login_requests',
+        'loginRequests',
+        'registrationRequests',
+        'crew_extra_operators',
+        'missed_trips'
+      ];
+
+      let totalDeletedCount = 0;
+      const errorLog = [];
+
+      for (const colName of collectionsToScan) {
+        try {
+          const snap = await getDocs(collection(db, colName));
+          const docsToDelete = snap.docs.filter(d => {
+            const data = d.data();
+            const dId = String(d.id || '').trim();
+            const dEmpId = String(data.employeeId || data.empId || data.id || '').trim();
+            const dName = String(data.employeeName || data.name || '').trim().toLowerCase();
+            const dEmail = String(data.email || '').trim().toLowerCase();
+
+            const isIdMatch = dId === sEmpId || dId === `user_${sEmpId}` || dId === `extra_op_${sEmpId}`;
+            const isEmpIdMatch = dEmpId === sEmpId || (!isNaN(nEmpId) && Number(dEmpId) === nEmpId);
+            const isNameMatch = targetNameStr.length > 2 && (dName === targetNameStr || dName.includes(targetNameStr));
+            const isEmailMatch = userEmail.length > 3 && (dEmail === userEmail);
+
+            return isIdMatch || isEmpIdMatch || isNameMatch || isEmailMatch;
+          });
+
+          for (const docSnap of docsToDelete) {
+            try {
+              await deleteDoc(doc(db, colName, docSnap.id));
+              totalDeletedCount++;
+            } catch (err) {
+              console.error(`Failed deleting ${colName}/${docSnap.id}:`, err);
+              errorLog.push(`${colName}/${docSnap.id}: ${err.message}`);
+            }
+          }
+        } catch (err) {
+          console.error(`Failed scanning collection ${colName}:`, err);
+          errorLog.push(`Scan ${colName}: ${err.message}`);
+        }
+      }
+
+      // Also directly attempt deleting selectedUser.docId if present
+      if (selectedUser.docId) {
+        try { await deleteDoc(doc(db, 'users', selectedUser.docId)); } catch (e) {}
+      }
+
+      // Instant UI purge
+      setEmployees(prev => prev.filter(e => 
+        String(e.employeeId) !== sEmpId && 
+        String(e.id) !== sEmpId && 
+        (!targetNameStr || !String(e.employeeName || e.name || '').toLowerCase().includes(targetNameStr))
+      ));
+      setSelectedEmpId(null);
+      setSelectedEmpIds([]);
+      setSelectedUser(null);
+
+      await writeUccAuditLog("PERMANENT_DELETE_USER", "Account Management", selectedUser.role, "DELETED_PERMANENTLY");
+
+      if (errorLog.length > 0) {
+        alert(`⚠️ Permanent deletion completed with warnings (${totalDeletedCount} documents deleted).\nLog:\n${errorLog.join("\n")}`);
+      } else {
+        alert(`✅ User ${empName} (${empId}) has been PERMANENTLY deleted (${totalDeletedCount} document records removed across all collections).`);
+      }
+    } catch (err) {
+      alert("Failed to permanently delete user: " + err.message);
     }
   };
 
@@ -979,14 +1074,24 @@ export default function UserControlCenter() {
                     </select>
                   </div>
 
-                  {/* Delete User Account Button */}
+                  {/* Deactivate Account Button */}
                   <button 
                     onClick={handleDeleteUser}
                     disabled={isSelectedOwner}
-                    className="bg-rose-950/40 border border-rose-900/50 hover:bg-rose-900/30 text-rose-400 p-2.5 rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-30 disabled:hover:bg-transparent"
-                    title="Lock/Remove Account Profile"
+                    className="bg-amber-955/40 border border-amber-900/50 hover:bg-amber-900/30 text-amber-400 p-2.5 rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-30 disabled:hover:bg-transparent font-bold"
+                    title="Lock/Deactivate Account Profile"
                   >
                     <UserMinus size={14} /> Deactivate Account
+                  </button>
+
+                  {/* Permanent Delete User Account Button */}
+                  <button 
+                    onClick={handlePermanentDeleteUser}
+                    disabled={isSelectedOwner}
+                    className="bg-rose-900/80 hover:bg-rose-700 text-white font-black p-2.5 rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-30 disabled:hover:bg-transparent shadow-lg shadow-rose-900/30"
+                    title="Permanently remove user from system database"
+                  >
+                    <Trash2 size={14} /> Delete Permanently
                   </button>
                 </div>
               </div>
