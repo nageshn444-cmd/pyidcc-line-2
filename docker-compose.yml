@@ -9,6 +9,10 @@ services:
     restart: always
     environment:
       - NODE_ENV=production
+    volumes:
+      # Persistent storage for app static web assets & server logs
+      - pyidcc_web_data:/usr/share/nginx/html
+      - pyidcc_nginx_logs:/var/log/nginx
 
   local-autocomplete-agent:
     build:
@@ -18,3 +22,14 @@ services:
     ports:
       - "5050:5050"
     restart: always
+    volumes:
+      # Persistent storage for local agent state & logs
+      - pyidcc_agent_data:/app/logs
+
+volumes:
+  pyidcc_web_data:
+    driver: local
+  pyidcc_nginx_logs:
+    driver: local
+  pyidcc_agent_data:
+    driver: local
