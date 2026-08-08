@@ -15,6 +15,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
+import { useOperationalEngine } from '../context/OperationalEngine';
 import { getRoleDefaultPermissions } from '../utils/dbSeeder';
 import { 
   Search, Shield, ShieldAlert, ShieldCheck, User, Users, Lock, Unlock, 
@@ -43,6 +44,7 @@ const DEPLOYMENT_DEPOTS = ['Peenya Industry Depot', 'Baiyappanahalli Depot', 'Ke
 
 export default function UserControlCenter() {
   const { userProfile, logAudit } = useAuth();
+  const opEngine = useOperationalEngine();
   
   // Selection & Search States
   const [employees, setEmployees] = useState([]);
@@ -1009,8 +1011,22 @@ export default function UserControlCenter() {
                         {selectedUser.status || 'ACTIVE'}
                       </span>
                     </h2>
-                    <p className="text-xs text-slate-400 mt-1">
-                      ID: <span className="text-emerald-400 font-bold">{selectedUser.employeeId}</span> | {selectedUser.designation} | {selectedUser.depot}
+                    <p className="text-xs text-slate-400 mt-1 flex items-center flex-wrap gap-1.5">
+                      <span>ID: <span className="text-emerald-400 font-bold">{selectedUser.employeeId}</span> | {selectedUser.designation} | {selectedUser.depot}</span>
+                      <button
+                        onClick={() => {
+                          if (opEngine?.setSelectedEmployee) {
+                            opEngine.setSelectedEmployee({ employeeId: selectedUser.employeeId, employeeName: selectedUser.employeeName });
+                          }
+                          if (opEngine?.setActiveTab) {
+                            opEngine.setActiveTab('DRIVING_HOURS');
+                          }
+                        }}
+                        className="bg-cyan-950/80 border border-cyan-800/80 hover:bg-cyan-900/60 text-cyan-300 px-2 py-0.5 rounded text-[10px] font-bold transition-all flex items-center gap-1 shadow-sm"
+                        title="View 31-Day JMD Driving Hours & KM Table for this operator"
+                      >
+                        <Activity size={11} /> View JMD Driving Hours
+                      </button>
                     </p>
                   </div>
                 </div>

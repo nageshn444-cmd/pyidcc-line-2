@@ -1,5 +1,5 @@
-/* eslint-disable react/prop-types */
 import React, { useState, useEffect, useMemo } from 'react';
+import { useOperationalEngine } from '../context/OperationalEngine';
 import { db } from '../firebase';
 import { collection, query, orderBy, onSnapshot, updateDoc, setDoc, doc, deleteDoc, serverTimestamp, writeBatch, getDocs } from 'firebase/firestore';
 import { CheckCircle, Clock, AlertTriangle, Train, UserCheck, UserX, Search, History, Settings, Check, X, ArrowRight, ShieldAlert, Cpu, Plus, Trash2, UploadCloud, Loader2, FileSpreadsheet, FileText, Image as ImageIcon, Repeat, Sparkles } from 'lucide-react';
@@ -292,6 +292,7 @@ export default function AutomatedDispatchGate({
   onAuthorize,
   onImportComplete
 }) {
+  const opEngine = useOperationalEngine();
   const [fallbackDeployments, setFallbackDeployments] = useState([]);
   const [fallbackLoading, setFallbackLoading] = useState(!providedDeployments);
 

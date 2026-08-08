@@ -93,19 +93,39 @@ export function OperationalEngineProvider({ children }) {
     };
   }, [currentUser]);
 
+  // Global Shared Cross-Navigation Context States
+  const [selectedEmployee, setSelectedEmployee] = useState(null); // { employeeId, employeeName }
+  const [selectedDuty, setSelectedDuty] = useState(null);         // { dutyNo, scheduleType }
+  const [selectedTrain, setSelectedTrain] = useState(null);       // { trainId, location }
+  const [activeTab, setActiveTab] = useState('ROSTER');            // Active module ID in Layout
+
+  const contextValue = React.useMemo(() => ({
+    users,
+    crewRegistry,
+    linkRoster,
+    deployments,
+    leaveRequests,
+    shiftExchanges,
+    wttMatrix,
+    liveIncidents,
+    dispatches,
+    loading,
+    selectedEmployee,
+    setSelectedEmployee,
+    selectedDuty,
+    setSelectedDuty,
+    selectedTrain,
+    setSelectedTrain,
+    activeTab,
+    setActiveTab
+  }), [
+    users, crewRegistry, linkRoster, deployments, leaveRequests, 
+    shiftExchanges, wttMatrix, liveIncidents, dispatches, loading,
+    selectedEmployee, selectedDuty, selectedTrain, activeTab
+  ]);
+
   return (
-    <OperationalEngineContext.Provider value={{
-      users,
-      crewRegistry,
-      linkRoster,
-      deployments,
-      leaveRequests,
-      shiftExchanges,
-      wttMatrix,
-      liveIncidents,
-      dispatches,
-      loading
-    }}>
+    <OperationalEngineContext.Provider value={contextValue}>
       {children}
     </OperationalEngineContext.Provider>
   );

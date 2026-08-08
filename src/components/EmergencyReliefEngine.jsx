@@ -5,6 +5,7 @@ import {
   serverTimestamp, updateDoc 
 } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
+import { useOperationalEngine } from '../context/OperationalEngine';
 import { 
   evaluateReliefCandidates, 
   evaluateCascadingDelayRelief,
@@ -81,6 +82,7 @@ const getStationLabel = (code) => {
 
 export default function EmergencyReliefEngine() {
   const { userProfile } = useAuth();
+  const opEngine = useOperationalEngine();
   const isTrainOperator = userProfile?.role === 'TRAIN_OPERATOR' || 
                           userProfile?.role === 'STATION_CONTROLLER' || 
                           userProfile?.role === 'VIEWER' ||

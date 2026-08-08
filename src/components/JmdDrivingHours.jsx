@@ -23,6 +23,7 @@ import {
 } from "recharts";
 import * as XLSX from "xlsx";
 import { useAuth } from "../context/AuthContext";
+import { useOperationalEngine } from "../context/OperationalEngine";
 import { PRELOADED_DUTIES } from "../data/kmcalc/preloadedDuties";
 import { db } from "../firebase";
 import { CHANGEOVER_TABLE } from "../services/changeoverService";
@@ -656,6 +657,7 @@ export function calculateOperatorMonthlyDuties({
 // ── MAIN JMD DRIVING HOURS COMPONENT ──
 export default function JmdDrivingHours() {
   const { userProfile } = useAuth();
+  const opEngine = useOperationalEngine();
 
   // Default to CURRENT calendar month and year
   const now = new Date();
@@ -666,6 +668,13 @@ export default function JmdDrivingHours() {
   const [selectedOperatorId, setSelectedOperatorId] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Sync selected employee from global cross-navigation context
+  useEffect(() => {
+    if (opEngine?.selectedEmployee?.employeeId) {
+      setSelectedOperatorId(String(opEngine.selectedEmployee.employeeId));
+    }
+  }, [opEngine?.selectedEmployee]);
 
   // Manual duty & day type overrides states
   const [dutyOverrides, setDutyOverrides] = useState({});
