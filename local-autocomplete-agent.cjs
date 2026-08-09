@@ -58,7 +58,8 @@ const stats = {
   tier3OllamaSuccesses: 0,
   failures: 0,
   activeTier: 'Tier 1 (Gemini API)',
-  lastFallbackReason: null
+  lastFallbackReason: null,
+  forcedTier: null  // null = auto-cascade, 2 = force Tier 2, 3 = force Tier 3
 };
 
 // --- Tier 1: Gemini Free Tier API ---
@@ -401,6 +402,33 @@ const server = http.createServer(async (req, res) => {
       },
       ollamaHost: getOllamaHost()
     }, null, 2));
+    return;
+  }
+
+  // Force Tier Manually: POST /force-tier with { "tier": 2 } or { "tier": null }
+  if (req.method === 'POST' && pathname === '/force-tier') {
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString(); });
+    req.on('end', () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const tier = payload.tier === null ? null : parseInt(payload.tier, 10);
+        if (tier !== null && tier !== 2 && tier !== 3) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid tier. Use 2, 3, or null (auto).' }));
+          return;
+        }
+        stats.forcedTier = tier;
+        const tierLabel = tier === null ? 'Auto-Cascade (Tier 1 → 2 → 3)' : `Tier ${tier} (${tier === 2 ? 'OpenRouter Free' : 'Local Ollama'})`;
+        stats.activeTier = tierLabel;
+        log('FORCE_TIER', `Manually switched to: ${tierLabel}`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, activeTier: tierLabel, forcedTier: stats.forcedTier }));
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid JSON body' }));
+      }
+    });
     return;
   }
 
