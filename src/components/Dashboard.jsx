@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { db } from '../firebase';
 import { collection, getDocs, updateDoc, deleteDoc, setDoc, writeBatch, serverTimestamp, query, where, doc, onSnapshot } from 'firebase/firestore';
 import {
@@ -11,38 +11,49 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as XLSX from 'xlsx';
 import { WTT_MASTER_REGISTRY } from '../data/wttMasterRegistry';
 
+// ── Lazy-loaded chunks: each component is split into its own JS chunk ──
+// Role-based Layouts (heaviest — split first)
+const SuperAdminLayout      = lazy(() => import('./layout/SuperAdminLayout'));
+const AdminSSLayout         = lazy(() => import('./layout/AdminSSLayout'));
+const OccControllerLayout   = lazy(() => import('./layout/OccControllerLayout'));
+const CrewControllerLayout  = lazy(() => import('./layout/CrewControllerLayout'));
+const StationControllerLayout = lazy(() => import('./layout/StationControllerLayout'));
+const TrainOperatorPwa      = lazy(() => import('./layout/TrainOperatorPwa'));
+const ViewerLayout          = lazy(() => import('./layout/ViewerLayout'));
 
+// Feature modules (large — lazy load on tab switch)
+const AutomatedDispatchGate   = lazy(() => import('./AutomatedDispatchGate'));
+const EmergencyReliefEngine   = lazy(() => import('./EmergencyReliefEngine'));
+const LeaveRequestManager     = lazy(() => import('./LeaveRequestManager'));
+const TrainOperatorPerformance = lazy(() => import('./TrainOperatorPerformance'));
+const ReportsCenter           = lazy(() => import('./ReportsCenter'));
+const ShiftExchange           = lazy(() => import('./ShiftExchange'));
+const GccRosterUploader       = lazy(() => import('./GccRosterUploader'));
+const ManualOverrideForm      = lazy(() => import('./ManualOverrideForm'));
+const TrainRakeRegistry       = lazy(() => import('./TrainRakeRegistry'));
+const TORequestForm           = lazy(() => import('./TORequestForm'));
+const WTTPage                 = lazy(() => import('../pages/WTTPage'));
 
-// Core Components
-import WTTPage from '../pages/WTTPage';
+// Light components (keep eager — very small, no impact)
 import AdminPanel from './AdminPanel';
-import ReportsCenter from './ReportsCenter';
-import TrainOperatorPerformance from './TrainOperatorPerformance';
-import AutomatedDispatchGate from './AutomatedDispatchGate';
 import CrewDirectory from './CrewDirectory';
-import TrainRakeRegistry from './TrainRakeRegistry';
-import ShiftExchange from './ShiftExchange';
-import GCCControl from './GCCControl';
-import TORequestForm from './TORequestForm';
-import LeaveRequestManager from './LeaveRequestManager';
 import LiveOperationalStream from './LiveOperationalStream';
 import PerformanceMetrics from './PerformanceMetrics';
 import RollingStockFaultLog from './RollingStockFaultLog';
 import Safety from './Safety';
 import StationSafetyChecklist from './StationSafetyChecklist';
-import ManualOverrideForm from './ManualOverrideForm';
-import GccRosterUploader from './GccRosterUploader';
-import EmergencyReliefEngine from './EmergencyReliefEngine';
-import SuperAdminLayout from './layout/SuperAdminLayout';
-import AdminSSLayout from './layout/AdminSSLayout';
-import OccControllerLayout from './layout/OccControllerLayout';
-import CrewControllerLayout from './layout/CrewControllerLayout';
-import StationControllerLayout from './layout/StationControllerLayout';
-import TrainOperatorPwa from './layout/TrainOperatorPwa';
-import ViewerLayout from './layout/ViewerLayout';
+import GCCControl from './GCCControl';
 
 // Data
 import { BMRCL_CREW_REGISTRY, BMRCL_CREW_MASTER_BACKUP } from '../data/bmrclCrewRegistry';
+
+// ── Global Suspense fallback shown while lazy chunks download ──
+const ModuleLoader = () => (
+  <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+    <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent" />
+    <p className="text-sm text-gray-400 animate-pulse tracking-widest uppercase">Loading Module...</p>
+  </div>
+);
 
 // Convert file to Base64 part for Gemini
 const fileToGenerativePart = async (file) => {
@@ -1227,26 +1238,28 @@ Format the response strictly as a single JSON object.`;
     );
   });
 
-  return (() => {
-    const userRole = userProfile?.role || 'VIEWER';
+  return (
+    <Suspense fallback={<ModuleLoader />}>
+      {(() => {
+        const userRole = userProfile?.role || 'VIEWER';
 
-    if (
-      userRole === 'SUPER_ADMIN' || 
-      userRole === 'JMD' || 
-      userRole === 'ADMIN_Station_Superintendent' || 
-      userRole === 'ADMIN_SS' || 
-      userRole === 'CREW_CONTROLLER' ||
-      userRole === 'ADMIN' ||
-      userRole === 'VIEWER'
-    ) {
-      return (
-        <SuperAdminLayout
-          liveTrainTrackingMap={liveTrainTrackingMap}
-          unifiedRows={unifiedRows}
-          liveIncidents={liveIncidents}
-          deployments={dailyDeployment}
-          attendanceLogs={attendanceLogs}
-          loading={loading}
+        if (
+          userRole === 'SUPER_ADMIN' || 
+          userRole === 'JMD' || 
+          userRole === 'ADMIN_Station_Superintendent' || 
+          userRole === 'ADMIN_SS' || 
+          userRole === 'CREW_CONTROLLER' ||
+          userRole === 'ADMIN' ||
+          userRole === 'VIEWER'
+        ) {
+          return (
+            <SuperAdminLayout
+              liveTrainTrackingMap={liveTrainTrackingMap}
+              unifiedRows={unifiedRows}
+              liveIncidents={liveIncidents}
+              deployments={dailyDeployment}
+              attendanceLogs={attendanceLogs}
+              loading={loading}
           fetchLiveData={fetchLiveData}
           activeDay={activeDay}
           setActiveDay={setActiveDay}
@@ -1344,5 +1357,7 @@ Format the response strictly as a single JSON object.`;
         activeDay={activeDay}
       />
     );
-  })();
+      })()} 
+    </Suspense>
+  );
 }

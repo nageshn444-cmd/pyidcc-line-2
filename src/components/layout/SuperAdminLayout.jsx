@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useMemo, useEffect, Suspense, lazy } from 'react';
 import { db } from '../../firebase';
 import { writeBatch, doc, serverTimestamp, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { provisioningService } from '../../services/ProvisioningService';
@@ -10,40 +10,45 @@ import {
   MessageSquare, BookOpen, Calculator, Sliders, Repeat, Clock, Copy, Plus
 } from 'lucide-react';
 
-import LiveTrainPositionTracker from '../LiveTrainPositionTracker';
-import AutomatedDispatchGate from '../AutomatedDispatchGate';
-import CrewDirectory from '../CrewDirectory';
-import TrainOperatorPerformance from '../TrainOperatorPerformance';
-import ReportsCenter from '../ReportsCenter';
-import AdminPanel from '../AdminPanel';
-import ThemeSettings from '../ThemeSettings';
-import AiAssistantSidebar from '../AiAssistantSidebar';
-import AIALSCabInspectionPlanner from '../ai/AIALSCabInspectionPlanner';
-
-// Missing Imports
-import WTTPage from '../../pages/WTTPage';
-import ShiftExchange from '../ShiftExchange';
-import TrainRakeRegistry from '../TrainRakeRegistry';
-import LeaveRequestManager from '../LeaveRequestManager';
-import GCCControl from '../GCCControl';
-import TORequestForm from '../TORequestForm';
-import EmergencyReliefEngine from '../EmergencyReliefEngine';
-import ManualOverrideForm from '../ManualOverrideForm';
-import GccRosterUploader from '../GccRosterUploader';
-
-// New Integrated Components
-import RollingStockFaultLog from '../RollingStockFaultLog';
-import PerformanceMetrics from '../PerformanceMetrics';
-import CrewKMCalculatorSuite from '../kmcalc/CrewKMCalculatorSuite';
-import JmdDrivingHours from '../JmdDrivingHours';
-import LeaveBookOffManager from '../LeaveBookOffManager';
-import ShiftHandoverReportView from '../ShiftHandoverReportView';
-import ChangeoverLink from '../admin/ChangeoverLink';
-import ChangeoverDashboard from '../admin/ChangeoverDashboard';
+// ── Lazy-loaded chunks: split each heavy panel into its own async bundle ──
+const LiveTrainPositionTracker   = lazy(() => import('../LiveTrainPositionTracker'));
+const AutomatedDispatchGate      = lazy(() => import('../AutomatedDispatchGate'));
+const CrewDirectory              = lazy(() => import('../CrewDirectory'));
+const TrainOperatorPerformance   = lazy(() => import('../TrainOperatorPerformance'));
+const ReportsCenter              = lazy(() => import('../ReportsCenter'));
+const AdminPanel                 = lazy(() => import('../AdminPanel'));
+const ThemeSettings              = lazy(() => import('../ThemeSettings'));
+const AiAssistantSidebar         = lazy(() => import('../AiAssistantSidebar'));
+const AIALSCabInspectionPlanner  = lazy(() => import('../ai/AIALSCabInspectionPlanner'));
+const WTTPage                    = lazy(() => import('../../pages/WTTPage'));
+const ShiftExchange              = lazy(() => import('../ShiftExchange'));
+const TrainRakeRegistry          = lazy(() => import('../TrainRakeRegistry'));
+const LeaveRequestManager        = lazy(() => import('../LeaveRequestManager'));
+const GCCControl                 = lazy(() => import('../GCCControl'));
+const TORequestForm              = lazy(() => import('../TORequestForm'));
+const EmergencyReliefEngine      = lazy(() => import('../EmergencyReliefEngine'));
+const ManualOverrideForm         = lazy(() => import('../ManualOverrideForm'));
+const GccRosterUploader          = lazy(() => import('../GccRosterUploader'));
+const RollingStockFaultLog       = lazy(() => import('../RollingStockFaultLog'));
+const PerformanceMetrics         = lazy(() => import('../PerformanceMetrics'));
+const CrewKMCalculatorSuite      = lazy(() => import('../kmcalc/CrewKMCalculatorSuite'));
+const JmdDrivingHours            = lazy(() => import('../JmdDrivingHours'));
+const LeaveBookOffManager        = lazy(() => import('../LeaveBookOffManager'));
+const ShiftHandoverReportView    = lazy(() => import('../ShiftHandoverReportView'));
+const ChangeoverLink             = lazy(() => import('../admin/ChangeoverLink'));
+const ChangeoverDashboard        = lazy(() => import('../admin/ChangeoverDashboard'));
 
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { BMRCL_CREW_REGISTRY } from '../../data/bmrclCrewRegistry';
+
+// ── Tab-level Suspense fallback ──
+const TabLoader = () => (
+  <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
+    <div className="animate-spin rounded-full h-10 w-10 border-4 border-indigo-500 border-t-transparent" />
+    <p className="text-xs text-gray-500 animate-pulse tracking-widest uppercase">Loading Panel...</p>
+  </div>
+);
 
 // Normalize duty ID: "1" → "01", "9" → "09" (pure single digits only)
 const normalizeDutyId = (id) => {
@@ -945,6 +950,7 @@ export default function SuperAdminLayout({
 
         {/* Content Body */}
         <main className="flex-1 p-3 lg:p-6 overflow-y-auto min-w-0">
+          <Suspense fallback={<TabLoader />}>
           {activeTab === 'DASHBOARD' ? (
             <div className="space-y-6">
               
