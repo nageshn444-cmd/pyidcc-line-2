@@ -1,6 +1,9 @@
 import { initializeApp } from "firebase/app";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, getDocs, setDoc, doc, serverTimestamp } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache, setLogLevel, collection, getDocs, setDoc, doc, serverTimestamp } from "firebase/firestore";
 import { getAuth } from "firebase/auth"; 
+
+// Suppress internal non-fatal multi-tab lease warnings (e.g. Backfill Indexes / Apply remote event)
+setLogLevel('error');
 
 export const firebaseConfig = {
   apiKey: "AIzaSyDucdRrkYezPjjzZ250pqZUovb3B8MO5lg",
@@ -14,11 +17,21 @@ export const firebaseConfig = {
 
 export const app = initializeApp(firebaseConfig);
 
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
-  })
-});
+let firestoreDb;
+try {
+  firestoreDb = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager()
+    })
+  });
+} catch (e) {
+  // Fallback to memory local cache if multi-tab IndexedDB persistence is contended or already initialized
+  firestoreDb = initializeFirestore(app, {
+    localCache: memoryLocalCache()
+  });
+}
+
+export const db = firestoreDb;
 export const auth = getAuth(app);
 
 // Single declaration of the relief engine

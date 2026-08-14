@@ -124,27 +124,49 @@ async function callGeminiAPI(messages, promptText) {
 
 // --- Tier 2: OpenRouter Free Models Auto-Switch ---
 async function fetchOpenRouterFreeModels() {
-  const fallbackList = [
-    "openrouter/free",
+  const blacklisted = new Set([
     "google/gemma-4-31b-it:free",
     "google/gemma-4-26b-a4b-it:free",
-    "cohere/north-mini-code:free",
+    "google/gemma-2b-it:free"
+  ]);
+  const fallbackList = [
+    "openrouter/free",
+    "nvidia/nemotron-3.5-lightning:free",
     "nvidia/nemotron-3-super-120b-a12b:free",
-    "inclusionai/ling-3.0-flash:free",
-    "poolside/laguna-s-2.1:free"
+    "nvidia/nemotron-3-nano-30b-a3b:free",
+    "liquid/lfm-2.5-2.6b:free",
+    "cohere/north-mini-code:free",
+    "inclusionai/ling-3.0-tiny:free",
+    "poolside/laguna-s-2.1:free",
+    "poolside/laguna-xs-2.1:free",
+    "nvidia/nemotron-3.5-content-safety:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "nvidia/nemotron-nano-12b-v2-vl:free",
+    "nvidia/nemotron-nano-9b-v2:free",
+    "openai/gpt-oss-20b:free",
+    "meta-llama/llama-3.1-8b-instruct:free",
+    "mistralai/mistral-7b-instruct:free",
+    "qwen/qwen2.5-7b-instruct:free",
+    "google/gemma-2b-it:free",
+    "anthropic/claude-3-5-haiku:free",
+    "command/b-aido-2:free",
+    "nvidia/llama-3.1-nemotron-70b-instruct:free",
+    "tomsoderlund/qwen2.5-coder-32b-instruct:free",
+    "sarvamai/fine-tuna-llama-3-8b-swa:free"
   ];
   try {
     const res = await fetch('https://openrouter.ai/api/v1/models');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const fetchedFree = data.data
-      .filter(m => m.id.includes(':free') || (parseFloat(m.pricing?.prompt || '1') === 0 && parseFloat(m.pricing?.completion || '1') === 0))
+      .filter(m => (m.id.includes(':free') || (parseFloat(m.pricing?.prompt || '1') === 0 && parseFloat(m.pricing?.completion || '1') === 0)) && !blacklisted.has(m.id))
       .map(m => m.id);
 
-    const combined = ["openrouter/free", ...fetchedFree, ...fallbackList];
+    const combined = ["openrouter/free", ...fetchedFree, ...fallbackList.filter(m => !blacklisted.has(m))];
     return Array.from(new Set(combined));
   } catch (e) {
-    return fallbackList;
+    return fallbackList.filter(m => !blacklisted.has(m));
   }
 }
 
@@ -160,7 +182,7 @@ async function callOpenRouterAPI(messages, promptText) {
 
   const payloadMessages = messages ? messages : [{ role: 'user', content: promptText }];
 
-  for (let i = 0; i < Math.min(freeModels.length, 8); i++) {
+  for (let i = 0; i < freeModels.length; i++) {
     const model = freeModels[i];
     log("TIER2_AUTO_SWITCH", `[${i + 1}/${freeModels.length}] Trying OpenRouter Model: ${model}`);
 
@@ -236,6 +258,8 @@ async function callOllamaAPI(messages, promptText) {
 
   // Priority order for local models
   const preferredOrder = [
+    'nemotron-mini',
+    'nemotron',
     'qwen2.5-coder:7b',
     'qwen2.5-coder:14b',
     'deepseek-coder:6.7b',
@@ -312,7 +336,7 @@ async function callOllamaAPI(messages, promptText) {
   throw new Error("All local Ollama models failed or timed out.");
 }
 
-let activeTierOverride = 3; // Tier 3 (Local Ollama: gemma4:e4b / qwen2.5-coder) activated
+let activeTierOverride = 2; // Tier 2 (OpenRouter Free Models) activated
 
 // --- Main Cascade Executor ---
 async function executeWithCascade(messages, promptText) {

@@ -1,18 +1,20 @@
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, doc, onSnapshot } from "firebase/firestore";
 import {
   Calendar,
+  CheckCircle2,
   Clock,
   Cpu,
   Download,
   Eye,
   Plus,
   Radio,
+  Save,
   Search,
   ShieldCheck,
   Tag,
   Zap,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -27,11 +29,11 @@ import { useOperationalEngine } from "../context/OperationalEngine";
 import { PRELOADED_DUTIES } from "../data/kmcalc/preloadedDuties";
 import { db } from "../firebase";
 import { CHANGEOVER_TABLE } from "../services/changeoverService";
-import { calculateDistance, normalizeStationCode } from "../utils/kmCalculator";
+import { calculateDistance, calculateLegKmsFromWTT, computeDutyLegKms, normalizeStationCode } from "../utils/kmCalculator";
+import { WTT_MASTER_REGISTRY } from "../data/wttMasterRegistry";
 import { secondsToHHMMSS, timeToSeconds } from "../utils/timeHelpers";
 import MultiDayKMCalculator from "./MultiDayKMCalculator";
 import ChangeoverLink from "./admin/ChangeoverLink";
-import AutomatedDispatchGate from "./AutomatedDispatchGate";
 
 /* ── Standard Operational & Roster Status Codes ───────────────────── */
 export const ROSTER_STATUS_CODES = {
@@ -55,6 +57,54 @@ export const ROSTER_STATUS_CODES = {
   MS: { code: "MS", label: "MEDICAL SICK", color: "red" },
 };
 
+/* ── Schedule-Specific Roster Total KM Master Registry ───────────── */
+export const SCHEDULE_ROSTER_KM_REGISTRY = {
+  SUNDAY: {
+    "1": 0, "01": 0, "2": 0, "02": 0,
+    "3": 174, "03": 174,
+    "4": 175, "04": 175,
+    "5": 133, "05": 133,
+    "6": 186, "06": 186,
+    "7": 186, "07": 186,
+    "8": 163, "08": 163,
+    "9": 142, "09": 142,
+    "10": 176, "11": 158, "12": 168, "13": 174, "14": 131, "15": 176, "015": 176,
+  },
+  SATURDAY: {
+    "1": 0, "01": 0, "2": 0, "02": 0,
+    "3": 157, "03": 157,
+    "4": 92, "04": 92,
+    "5": 174, "05": 174,
+    "6": 180, "06": 180,
+    "7": 168, "07": 168,
+    "8": 175, "08": 175,
+    "9": 174, "09": 174,
+    "10": 180, "11": 121, "12": 168, "13": 174, "14": 131, "15": 104,
+  },
+  MONDAY: {
+    "1": 0, "01": 0, "2": 0, "02": 0,
+    "3": 180, "03": 180,
+    "4": 110, "04": 110,
+    "5": 161, "05": 161,
+    "6": 131, "06": 131,
+    "7": 163, "07": 163,
+    "8": 114, "08": 114,
+    "9": 191, "09": 191,
+    "10": 180, "11": 160, "12": 110, "13": 180, "14": 131, "15": 181,
+  },
+  WEEKDAY: {
+    "1": 0, "01": 0, "2": 0, "02": 0,
+    "3": 180, "03": 180,
+    "4": 156, "04": 156,
+    "5": 161, "05": 161,
+    "6": 156, "06": 156,
+    "7": 163, "07": 163,
+    "8": 156, "08": 156,
+    "9": 156, "09": 156,
+    "10": 156, "11": 160, "12": 156, "13": 156, "14": 131, "15": 181,
+  }
+};
+
 // ── LOCAL DATE FORMATTER HELPER (Prevents UTC Timezone Shift Bugs) ──
 export function formatLocalDateStr(dateInput) {
   if (!dateInput) return "";
@@ -69,10 +119,18 @@ export function formatLocalDateStr(dateInput) {
 export function nextDateStrHelper(dateStr) {
   if (!dateStr) return "";
   const parts = dateStr.split("-").map(Number);
-  if (parts.length !== 3) return dateStr;
-  const [y, m, d] = parts;
-  const dateObj = new Date(y, m - 1, d + 1, 12, 0, 0);
-  return formatLocalDateStr(dateObj);
+  if (parts.length !== 3) return "";
+  const d = new Date(parts[0], parts[1] - 1, parts[2] + 1, 12, 0, 0);
+  return formatLocalDateStr(d);
+}
+
+export function getLegDurationSecs(depStr, arrStr) {
+  const dSecs = timeToSeconds(depStr);
+  const aSecs = timeToSeconds(arrStr);
+  if (dSecs <= 0 || aSecs <= 0) return 0;
+  let diff = aSecs - dSecs;
+  if (diff < 0) diff += 86400; // Account for midnight crossing (24h = 86400s)
+  return diff;
 }
 
 export function sanitizeSchedTypeForChangeover(st) {
@@ -113,7 +171,47 @@ export function normalizeDutyId(dutyId) {
   return s;
 }
 
-// ── 10. EXACT STATION / TIME MATCHING WTT HELPER ──
+// ── SCHEDULE TYPE NORMALIZER: SATURDAY & GH → SATURDAY (treated identically) ──
+export function normalizeScheduleType(rawSched) {
+  if (!rawSched) return "WEEKDAY";
+  const s = String(rawSched).toUpperCase().trim();
+  // Treat all Saturday/GH variants as canonical "SATURDAY"
+  if (s.includes("SATURDAY") || s.includes("SAT") || s.includes("GH")) return "SATURDAY";
+  if (s.includes("SUNDAY") || s === "SUN") return "SUNDAY";
+  if (s.includes("MONDAY") || s === "MON") return "MONDAY";
+  return "WEEKDAY";
+}
+
+// ── 5B. DAY-SPECIFIC DUTY LIST HELPER ──
+export function getAvailableDutiesForDayType(dayType) {
+  const dt = normalizeScheduleType(dayType);
+  if (dt === "SUNDAY") return Array.from({ length: 62 }, (_, i) => String(i + 1));
+  if (dt === "SATURDAY") return Array.from({ length: 72 }, (_, i) => String(i + 1));
+  if (dt === "MONDAY") return Array.from({ length: 79 }, (_, i) => String(i + 1));
+  return Array.from({ length: 80 }, (_, i) => String(i + 1)); // WEEKDAY
+}
+
+export function parseDutyTokens(rawVal) {
+  if (Array.isArray(rawVal)) {
+    return rawVal.map((s) => String(s).trim()).filter(Boolean);
+  }
+  if (typeof rawVal === "string" && rawVal.trim()) {
+    return rawVal
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s && s !== "--");
+  }
+  return [];
+}
+
+// ── UPGRADED EXACT WTT LEG MATCHER — MERGED WITH SATURDAY & GH FIX ──
+// • Counselling / non-train legs detected & short-circuited (0 KM, no error)
+// • Always searches Firestore wttMatrix PLUS static WTT_MASTER_REGISTRY
+//   so SATURDAY entries are found even if Firestore collection is empty
+// • normalizeScheduleType() collapses "SATURDAY & GH" → "SATURDAY"
+// • Pass 1: exact schedule match; Pass 2: WEEKDAY fallback only when needed
+// • Flexible station matching: exact code → time-window → first/last stop
+// • Direct-distance fallback when WTT has no row for the train at all
 export function findExactWttLeg({
   trainId,
   stationFrom,
@@ -123,104 +221,593 @@ export function findExactWttLeg({
   wttMatrix,
   scheduleType,
 }) {
-  const cleanTid = String(trainId || "").trim();
-  const normSched = String(scheduleType || "WEEKDAY").toUpperCase();
+  const cleanTid = String(trainId || '').trim();
+  // Normalize: SATURDAY & GH → SATURDAY (they share the same WTT timetable)
+  const normSched = normalizeScheduleType(scheduleType);
   const normFrom = normalizeStationCode(stationFrom);
-  const normTo = normalizeStationCode(stationTo);
+  const normTo   = normalizeStationCode(stationTo);
   const targetDepSecs = timeToSeconds(depTime);
   const targetArrSecs = timeToSeconds(arrTime);
 
-  // Filter WTT entries matching schedule and trainId
-  const matchingRows = (wttMatrix || []).filter((row) => {
-    const rowSched = String(row.scheduleType || "WEEKDAY").toUpperCase();
-    if (rowSched !== normSched && rowSched !== "WEEKDAY") return false;
-    const rowTid = String(row.trainId || row.upTid || row.dnTid || "").trim();
+  // ── 0. Short-circuit: counselling / non-train operational legs ──
+  const isCounselling =
+    cleanTid.toLowerCase().includes('couns') ||
+    String(stationFrom).toLowerCase().includes('couns') ||
+    String(stationTo).toLowerCase().includes('couns');
+
+  if (isCounselling) {
+    return {
+      matched: true,
+      isCounselling: true,
+      priority: 0,
+      fromStation: normFrom || 'PYID',
+      toStation: normTo || 'PYID',
+      depSecs: targetDepSecs,
+      arrSecs: targetArrSecs,
+      depTimeStr: depTime || '--',
+      arrTimeStr: arrTime || '--',
+      calculatedKms: 0,
+    };
+  }
+
+  // ── 1. Merge Firestore wttMatrix + static WTT_MASTER_REGISTRY ──
+  // Firestore may not have SATURDAY rows uploaded; static registry is authoritative
+  const firestoreRows = Array.isArray(wttMatrix) ? wttMatrix : [];
+  const staticRows    = Array.isArray(WTT_MASTER_REGISTRY) ? WTT_MASTER_REGISTRY : [];
+  const firestoreIds  = new Set(firestoreRows.map(r => r.id).filter(Boolean));
+  const mergedMatrix  = [
+    ...firestoreRows,
+    ...staticRows.filter(r => !firestoreIds.has(r.id)),
+  ];
+
+  // ── 2. Pass 1: Exact schedule match (SATURDAY → SATURDAY, etc.) ──
+  let matchingRows = mergedMatrix.filter(row => {
+    const rowSched = normalizeScheduleType(row.scheduleType);
+    if (rowSched !== normSched) return false;
+    const rowTid = String(row.trainId || row.upTid || row.dnTid || '').trim();
     return rowTid === cleanTid;
   });
 
-  if (matchingRows.length === 0) {
-    return { matched: false, reason: "WTT LEG NOT FOUND" };
+  // ── 3. Pass 2: Explicit WEEKDAY fallback (only when Pass 1 returns nothing) ──
+  if (matchingRows.length === 0 && normSched !== 'WEEKDAY') {
+    matchingRows = mergedMatrix.filter(row => {
+      const rowSched = normalizeScheduleType(row.scheduleType);
+      if (rowSched !== 'WEEKDAY') return false;
+      const rowTid = String(row.trainId || row.upTid || row.dnTid || '').trim();
+      return rowTid === cleanTid;
+    });
   }
 
-  let bestMatch = null;
-  let minScore = Infinity;
+  // ── 4. No WTT rows at all → direct-distance fallback on valid station codes ──
+  if (matchingRows.length === 0) {
+    if (stationFrom && stationTo && stationFrom !== '--' && stationTo !== '--') {
+      try {
+        const fallbackDist = calculateDistance(normFrom || stationFrom, normTo || stationTo);
+        if (fallbackDist > 0) {
+          return {
+            matched: true,
+            priority: 4,
+            fromStation: normFrom || stationFrom,
+            toStation: normTo || stationTo,
+            depSecs: targetDepSecs,
+            arrSecs: targetArrSecs || (targetDepSecs + 3600),
+            depTimeStr: depTime  || '--',
+            arrTimeStr: arrTime  || '--',
+            calculatedKms: Math.round(fallbackDist),
+          };
+        }
+      } catch (_) {}
+    }
+    return { matched: false, reason: 'WTT LEG NOT FOUND' };
+  }
 
-  matchingRows.forEach((row) => {
-    ["upTrip", "downTrip"].forEach((tripKey) => {
+  // ── 5. Scan matching rows for best station-pair + time match ──
+  let bestMatch = null;
+  let minScore  = Infinity;
+
+  matchingRows.forEach(row => {
+    ['upTrip', 'downTrip'].forEach(tripKey => {
       const trip = row[tripKey];
-      if (trip && trip.stations) {
-        const stops = [];
-        Object.entries(trip.stations).forEach(([stCode, timeStr]) => {
-          if (
-            timeStr &&
-            timeStr !== "--" &&
-            timeStr !== "-" &&
-            !String(timeStr).toLowerCase().includes("rev")
-          ) {
-            const cleanSt = normalizeStationCode(stCode.split("_")[0]);
-            const secVal = timeToSeconds(timeStr);
-            if (secVal > 0) {
-              stops.push({ station: cleanSt, secVal, rawTime: timeStr });
-            }
+      if (!trip || !trip.stations) return;
+
+      const stops = [];
+      Object.entries(trip.stations).forEach(([stCode, timeStr]) => {
+        if (
+          timeStr &&
+          timeStr !== '--' &&
+          timeStr !== '-' &&
+          !String(timeStr).toLowerCase().includes('rev') &&
+          !String(timeStr).toLowerCase().includes('pilot')
+        ) {
+          const cleanSt = normalizeStationCode(stCode.split('_')[0]);
+          const secVal  = timeToSeconds(timeStr);
+          if (secVal > 0) stops.push({ station: cleanSt, secVal, rawTime: timeStr });
+        }
+      });
+
+      if (stops.length < 2) return;
+
+      // Strategy A: exact station-code lookup in the stop list
+      let fromIndex = normFrom && normFrom !== 'DEPOT'
+        ? stops.findIndex(s => s.station === normFrom)
+        : -1;
+      let toIndex = normTo && normTo !== 'DEPOT'
+        ? stops.findIndex(s => s.station === normTo && s.secVal > (fromIndex >= 0 ? stops[fromIndex].secVal : 0))
+        : -1;
+
+      // Strategy B: fall back to time-window matching when codes are ambiguous
+      if ((fromIndex === -1 || toIndex === -1) && targetDepSecs > 0 && targetArrSecs > 0) {
+        let bestDep = Infinity, bestArr = Infinity;
+        stops.forEach((s, idx) => {
+          const dDiff = Math.abs(s.secVal - targetDepSecs);
+          const aDiff = Math.abs(s.secVal - targetArrSecs);
+          if (dDiff < bestDep) { bestDep = dDiff; fromIndex = idx; }
+          if (aDiff < bestArr && s.secVal > (stops[fromIndex]?.secVal ?? 0)) {
+            bestArr = aDiff; toIndex = idx;
           }
         });
+      }
 
-        // Find indices for from and to stations
-        const fromIndex = stops.findIndex((s) => s.station === normFrom);
-        const toIndex = stops.findIndex(
-          (s) =>
-            s.station === normTo &&
-            s.secVal > (fromIndex >= 0 ? stops[fromIndex].secVal : 0),
-        );
+      // Strategy C: first/last stops as ultimate fallback (covers depot-to-depot legs)
+      if (fromIndex === -1) fromIndex = 0;
+      if (toIndex  === -1 || toIndex <= fromIndex) toIndex = stops.length - 1;
 
-        if (fromIndex !== -1 && toIndex !== -1 && toIndex > fromIndex) {
-          const matchedFromStop = stops[fromIndex];
-          const matchedToStop = stops[toIndex];
+      if (toIndex > fromIndex) {
+        const matchedFrom = stops[fromIndex];
+        const matchedTo   = stops[toIndex];
 
-          const depDiff = Math.abs(matchedFromStop.secVal - targetDepSecs);
-          const arrDiff = Math.abs(matchedToStop.secVal - targetArrSecs);
-          const totalDiff = depDiff + arrDiff;
+        const depDiff  = targetDepSecs > 0 ? Math.abs(matchedFrom.secVal - targetDepSecs) : 0;
+        const arrDiff  = targetArrSecs > 0 ? Math.abs(matchedTo.secVal   - targetArrSecs) : 0;
+        const total    = depDiff + arrDiff;
 
-          // Priority 1: Exact or very close time match (+/- 300 seconds buffer)
-          if (depDiff <= 300 && arrDiff <= 300 && totalDiff < minScore) {
-            minScore = totalDiff;
-            bestMatch = {
-              matched: true,
-              priority: 1,
-              fromStation: matchedFromStop.station,
-              toStation: matchedToStop.station,
-              depSecs: matchedFromStop.secVal,
-              arrSecs: matchedToStop.secVal,
-              depTimeStr: matchedFromStop.rawTime,
-              arrTimeStr: matchedToStop.rawTime,
-            };
-          } else if (minScore === Infinity && totalDiff < minScore) {
-            // Priority 2: Closest available time pair if exact window misses
-            minScore = totalDiff;
-            bestMatch = {
-              matched: true,
-              priority: 2,
-              fromStation: matchedFromStop.station,
-              toStation: matchedToStop.station,
-              depSecs: matchedFromStop.secVal,
-              arrSecs: matchedToStop.secVal,
-              depTimeStr: matchedFromStop.rawTime,
-              arrTimeStr: matchedToStop.rawTime,
-            };
-          }
+        if (total < minScore) {
+          minScore  = total;
+          // Assign priority tier for debug display
+          const priority = depDiff <= 300 && arrDiff <= 300 ? 1
+                         : depDiff <= 900 && arrDiff <= 900 ? 2
+                         : 3;
+          bestMatch = {
+            matched: true,
+            priority,
+            fromStation: matchedFrom.station,
+            toStation:   matchedTo.station,
+            depSecs:     matchedFrom.secVal,
+            arrSecs:     matchedTo.secVal,
+            depTimeStr:  matchedFrom.rawTime,
+            arrTimeStr:  matchedTo.rawTime,
+          };
         }
       }
     });
   });
 
-  if (bestMatch && bestMatch.matched) {
-    return bestMatch;
-  }
-
-  return { matched: false, reason: "WTT LEG NOT FOUND" };
+  return bestMatch && bestMatch.matched
+    ? bestMatch
+    : { matched: false, reason: 'WTT LEG NOT FOUND' };
 }
 
+
 // ── 15. MONTHLY OPERATOR CALCULATION ENGINE WITH CHANGEOVER LINK & GH OVERRIDE INTEGRATION ──
+export function getAutoChangeoverTableKey(dayType, nextDayType) {
+  const currentUpper = String(dayType || "").toUpperCase().trim();
+  const nextUpper = String(nextDayType || "").toUpperCase().trim();
+
+  if (currentUpper.includes("MONDAY_GH") || (currentUpper.includes("MONDAY") && currentUpper.includes("GH"))) {
+    return "MONDAY_GH__WEEKDAY";
+  }
+  if (currentUpper.includes("SUNDAY") && (nextUpper.includes("MONDAY_GH") || nextUpper.includes("GH"))) {
+    return "SUNDAY__MONDAY_GH";
+  }
+
+  if (currentUpper.includes("SATURDAY") || currentUpper.includes("SAT") || currentUpper.includes("GH")) {
+    if (nextUpper.includes("SUNDAY") || nextUpper.includes("SUN")) {
+      return "SATURDAY__SUNDAY";
+    }
+    return "SATURDAY__WEEKDAY";
+  }
+
+  if (currentUpper.includes("SUNDAY") || currentUpper.includes("SUN")) {
+    return "SUNDAY__MONDAY";
+  }
+
+  if (currentUpper.includes("MONDAY") || currentUpper.includes("MON")) {
+    return "MONDAY__WEEKDAY";
+  }
+
+  return "WEEKDAY__SATURDAY";
+}
+
+// ── SINGLE DUTY CALCULATION HELPER ──
+export function calculateSingleDutyRecord({
+  rawDutyNo,
+  dayType,
+  nextDayType,
+  linksByDayTypeAndDuty,
+  linkRoster,
+  changeoverMappings,
+}) {
+  const cleanCode = String(rawDutyNo || "").trim().toUpperCase();
+
+  // Check status code override (e.g. WO, CL, EL, NR, AB, STBK, CRT, etc.)
+  if (ROSTER_STATUS_CODES[cleanCode]) {
+    const stObj = ROSTER_STATUS_CODES[cleanCode];
+    return {
+      dutyId: stObj.code,
+      signOn: "--",
+      signOff: "--",
+      totalDutySeconds: 0,
+      drivingSeconds: 0,
+      kilometers: 0,
+      status: `STATUS CODE (${stObj.code})`,
+      warnings: [stObj.label],
+      legsDetails: [],
+    };
+  }
+
+  const normDId = normalizeDutyId(rawDutyNo);
+  const paddedDId = normDId.padStart(2, "0");
+
+  if (!normDId || normDId === "--" || normDId === "UNASSIGNED") {
+    return {
+      dutyId: "--",
+      signOn: "--",
+      signOff: "--",
+      totalDutySeconds: 0,
+      drivingSeconds: 0,
+      kilometers: 0,
+      status: "NO DUTY ASSIGNED",
+      warnings: ["No duty assigned for date"],
+      legsDetails: [],
+    };
+  }
+
+  // Check Night Changeover Link Integration
+  const autoTableKey = getAutoChangeoverTableKey(dayType, nextDayType);
+  const staticCoTable = CHANGEOVER_TABLE?.[autoTableKey] || CHANGEOVER_TABLE?.["SUNDAY__MONDAY"] || CHANGEOVER_TABLE?.["SATURDAY__SUNDAY"] || {};
+  const firestoreCoTable = changeoverMappings?.[autoTableKey] || {};
+  const coTable = {
+    ...staticCoTable,
+    ...firestoreCoTable,
+  };
+
+  const changeoverRow =
+    coTable[paddedDId] ||
+    coTable[normDId] ||
+    coTable[String(Number(normDId))];
+
+  const staticRow =
+    staticCoTable[paddedDId] ||
+    staticCoTable[normDId] ||
+    staticCoTable[String(Number(normDId))];
+
+  // Standard Day / Night Duty Link Roster Lookup
+  const normalizedDayTypeKey = normalizeScheduleType(dayType);
+  const rawDayTypeUpper = String(dayType || "").toUpperCase().trim();
+  const dayTypeLinks = {
+    ...(linksByDayTypeAndDuty[rawDayTypeUpper] || {}),
+    ...(linksByDayTypeAndDuty[normalizedDayTypeKey] || {}),
+    ...(linksByDayTypeAndDuty[dayType] || {}),
+  };
+  let linkDuty =
+    dayTypeLinks[normDId] ||
+    dayTypeLinks[paddedDId] ||
+    dayTypeLinks[String(Number(normDId))];
+
+  if (!linkDuty && Array.isArray(linkRoster)) {
+    const targetSched = normalizeScheduleType(dayType);
+    linkDuty = linkRoster.find((l) => {
+      const lDId = normalizeDutyId(l.dutyId);
+      const lSched = normalizeScheduleType(l.scheduleType);
+      return (lDId === normDId || lDId === paddedDId) && (lSched === targetSched || String(l.scheduleType).toUpperCase().includes(targetSched));
+    });
+  }
+
+  const preloadedDuty = PRELOADED_DUTIES.find(
+    (p) => p.dutyNo === paddedDId || p.dutyNo === normDId,
+  );
+
+  const checkSignOnStr =
+    changeoverRow?.signOnTime ||
+    linkDuty?.signOnTime ||
+    linkDuty?.signOn ||
+    linkDuty?.sOnTime ||
+    preloadedDuty?.sOnTime ||
+    "";
+  const checkSignOnSecs = timeToSeconds(checkSignOnStr);
+  const isSignOnNightShift = checkSignOnSecs >= 20 * 3600; // >= 20:00:00 hrs
+
+  const numDuty = Number(normDId);
+  const sType = sanitizeSchedTypeForChangeover(dayType);
+  const isNightDuty =
+    isSignOnNightShift ||
+    (sType === "SUNDAY" && numDuty >= 48 && numDuty <= 62) ||
+    (sType === "SATURDAY" && numDuty >= 59 && numDuty <= 72) ||
+    (sType === "WEEKDAY" && numDuty >= 64 && numDuty <= 79) ||
+    (sType === "MONDAY" && numDuty >= 64 && numDuty <= 79) ||
+    (sType === "GH" && numDuty >= 48 && numDuty <= 62) ||
+    Boolean(changeoverRow && (changeoverRow.nightKms !== undefined || changeoverRow.mornKms !== undefined));
+
+  if (isNightDuty) {
+    const nightKms =
+      Number(changeoverRow?.nightKms) ||
+      Number(staticRow?.nightKms) ||
+      Number(linkDuty?.nightKms) ||
+      Number(linkDuty?.leg1Km) ||
+      0;
+    const pilotKms =
+      Number(changeoverRow?.pilotKms) ||
+      Number(staticRow?.pilotKms) ||
+      0;
+    let mornKms =
+      Number(changeoverRow?.mornKms) ||
+      Number(staticRow?.mornKms) ||
+      Number(linkDuty?.mornKms) ||
+      Number(linkDuty?.leg2Km) ||
+      0;
+
+    const coTotalKms = Math.max(
+      Number(changeoverRow?.totalKms) || 0,
+      Number(staticRow?.totalKms) || 0,
+      nightKms + pilotKms + mornKms,
+      nightKms + mornKms
+    );
+
+    let totalKms =
+      coTotalKms > 0
+        ? coTotalKms
+        : Number(linkDuty?.totalKm || linkDuty?.kms) ||
+          preloadedDuty?.kms ||
+          0;
+
+    if (coTotalKms > 0 && coTotalKms > nightKms + mornKms) {
+      mornKms = coTotalKms - nightKms;
+    }
+
+    const signOnStr =
+      changeoverRow?.signOnTime ||
+      linkDuty?.signOnTime ||
+      linkDuty?.signOn ||
+      preloadedDuty?.sOnTime ||
+      "21:00:00";
+    const signOffStr =
+      changeoverRow?.signOffTime ||
+      linkDuty?.signOffTime ||
+      linkDuty?.signOff ||
+      preloadedDuty?.sOffTime ||
+      "07:00:00";
+
+    const sSecs = timeToSeconds(signOnStr);
+    let eSecs = timeToSeconds(signOffStr);
+    if (eSecs < sSecs) eSecs += 24 * 3600;
+    const dutySecs = Math.max(0, eSecs - sSecs);
+
+    const nightDriveSecs = getLegDurationSecs(
+      changeoverRow?.nightDepTime || linkDuty?.leg1DepTime,
+      changeoverRow?.nightArrTime || linkDuty?.leg1ArrTime,
+    );
+    const mornDriveSecs = getLegDurationSecs(
+      changeoverRow?.mornDepTime || linkDuty?.leg2DepTime,
+      changeoverRow?.mornArrTime || linkDuty?.leg2ArrTime,
+    );
+    const totalDriveSecs =
+      nightDriveSecs + mornDriveSecs > 0
+        ? nightDriveSecs + mornDriveSecs
+        : timeToSeconds(changeoverRow?.drivingHrs) ||
+          timeToSeconds(linkDuty?.drivingHrs) ||
+          timeToSeconds(preloadedDuty?.drivingHrs) ||
+          Math.round(dutySecs * 0.55);
+
+    const transitionLabel = autoTableKey.replace("__", " ➔ ");
+
+    return {
+      dutyId: paddedDId,
+      signOn: signOnStr,
+      signOff: signOffStr,
+      totalDutySeconds: dutySecs,
+      drivingSeconds: Math.min(totalDriveSecs, dutySecs),
+      kilometers: totalKms,
+      status: `CALCULATED (CHANGEOVER LINK)`,
+      warnings: [`Night Changeover Link (${transitionLabel})`],
+      legsDetails: [
+        {
+          legNumber: 1,
+          shiftType: `🌙 NIGHT SHIFT (LEG 1) — Duty ${paddedDId}`,
+          trainId: changeoverRow?.nightTrainNo || linkDuty?.train1 || linkDuty?.leg1TrainNo || "--",
+          from: changeoverRow?.signOnLocation || linkDuty?.signOnLocation || "Depot",
+          to: changeoverRow?.nightHandoverLoc || linkDuty?.leg1StationTo || "Handover Loc",
+          depTime: changeoverRow?.nightDepTime || linkDuty?.leg1DepTime || "--",
+          arrTime: changeoverRow?.nightArrTime || linkDuty?.leg1ArrTime || "--",
+          drivingSeconds: nightDriveSecs,
+          kilometers: nightKms,
+          status: "NIGHT SHIFT (LEG 1)",
+        },
+        {
+          legNumber: 2,
+          shiftType: `☀️ MORNING SHIFT (LEG 2) — Duty ${paddedDId}`,
+          trainId: changeoverRow?.mornTrainNo || linkDuty?.train2 || linkDuty?.leg2TrainNo || "--",
+          from: changeoverRow?.takeoverLocation || linkDuty?.leg2StationFrom || "Takeover Loc",
+          to: changeoverRow?.signOffLocation || linkDuty?.signOffLocation || "Depot",
+          depTime: changeoverRow?.mornDepTime || linkDuty?.leg2DepTime || "--",
+          arrTime: changeoverRow?.mornArrTime || linkDuty?.leg2ArrTime || "--",
+          drivingSeconds: mornDriveSecs,
+          kilometers: mornKms,
+          status: "MORNING SHIFT (LEG 2)",
+        },
+      ],
+    };
+  }
+
+  // Standard Day Duty Link Roster Lookup
+  const parseValKm = (v) => {
+    if (typeof v === "number" && v > 0) return v;
+    if (typeof v === "string" && v.trim() !== "" && v.trim() !== "--") {
+      const n = parseFloat(v.replace(/[^0-9.]/g, ""));
+      if (!isNaN(n) && n > 0) return n;
+    }
+    return 0;
+  };
+
+  const staticSchedKm =
+    SCHEDULE_ROSTER_KM_REGISTRY[normalizedDayTypeKey]?.[normDId] ||
+    SCHEDULE_ROSTER_KM_REGISTRY[normalizedDayTypeKey]?.[paddedDId] ||
+    SCHEDULE_ROSTER_KM_REGISTRY[rawDayTypeUpper]?.[normDId] ||
+    0;
+
+  const signOnStr =
+    linkDuty?.signOnTime ||
+    linkDuty?.signOn ||
+    preloadedDuty?.sOnTime ||
+    "06:00:00";
+  const signOffStr =
+    linkDuty?.signOffTime ||
+    linkDuty?.signOff ||
+    preloadedDuty?.sOffTime ||
+    "";
+
+  const signOnSecs = timeToSeconds(signOnStr);
+  let signOffSecs = timeToSeconds(signOffStr);
+  if (signOffSecs < signOnSecs) {
+    signOffSecs += 24 * 3600; // Midnight crossing
+  }
+  const totalDutySeconds = Math.max(0, signOffSecs - signOnSecs);
+
+  const explicitRosterKm = linkDuty
+    ? parseValKm(
+        linkDuty.kms ||
+          linkDuty.totalKm ||
+          linkDuty.totalKms ||
+          linkDuty.totalDistance ||
+          linkDuty.km ||
+          linkDuty.kilometers ||
+          linkDuty.totalKM ||
+          linkDuty.kmTotal ||
+          linkDuty.totalKilometers ||
+          linkDuty.totKm ||
+          linkDuty.shiftKm ||
+          linkDuty.shiftKms ||
+          linkDuty.total_km ||
+          linkDuty.total_kms ||
+          linkDuty.kmsTotal ||
+          linkDuty.dutyKm ||
+          linkDuty.dutyKms,
+      )
+    : 0;
+
+  let linkLegsKmSum = 0;
+  if (linkDuty) {
+    if (Array.isArray(linkDuty.trips) && linkDuty.trips.length > 0) {
+      linkLegsKmSum = linkDuty.trips.reduce(
+        (sum, t) => sum + parseValKm(t.kms || t.legKm || t.calculatedKms),
+        0,
+      );
+    }
+    if (linkLegsKmSum === 0) {
+      for (let i = 1; i <= 6; i++) {
+        linkLegsKmSum += parseValKm(
+          linkDuty[`leg${i}Km`] || linkDuty[`leg${i}Kms`],
+        );
+      }
+    }
+  }
+
+  const rosterTotalKm = explicitRosterKm > 0 ? explicitRosterKm : linkLegsKmSum;
+
+  let preloadedLegsSum = 0;
+  if (preloadedDuty && Array.isArray(preloadedDuty.trips)) {
+    preloadedLegsSum = preloadedDuty.trips.reduce(
+      (sum, t) => sum + (parseValKm(t.kms || t.legKm || t.calculatedKms) || 0),
+      0,
+    );
+  }
+
+  const preloadedTotalKm = preloadedDuty
+    ? parseValKm(
+        preloadedDuty.kms ||
+          preloadedDuty.totalKm ||
+          preloadedDuty.totalKms ||
+          preloadedDuty.totalDistance ||
+          preloadedDuty.km,
+      ) || preloadedLegsSum
+    : 0;
+
+  const finalDutyKm =
+    rosterTotalKm > 0
+      ? rosterTotalKm
+      : staticSchedKm > 0
+        ? staticSchedKm
+        : preloadedTotalKm > 0
+          ? preloadedTotalKm
+          : 0;
+
+  const explicitDrivingSecs = timeToSeconds(
+    linkDuty?.drivingHrs || linkDuty?.steeringHrs || preloadedDuty?.drivingHrs,
+  );
+  let totalDrivingSeconds = explicitDrivingSecs > 0 ? explicitDrivingSecs : 0;
+
+  const legsDetails = [];
+  const warnings = [];
+  let calculatedTripDrivingSecs = 0;
+
+  const rawTrips =
+    linkDuty?.trips && linkDuty.trips.length > 0
+      ? linkDuty.trips
+      : preloadedDuty?.trips && preloadedDuty.trips.length > 0
+        ? preloadedDuty.trips
+        : [];
+
+  if (rawTrips.length > 0) {
+    rawTrips.forEach((t, idx) => {
+      const legNum = t.legNumber || idx + 1;
+      const storedLegKm = parseValKm(
+        linkDuty?.[`leg${legNum}Km`] ||
+          linkDuty?.[`leg${legNum}Kms`] ||
+          t.calculatedKms ||
+          t.legKm ||
+          t.kms,
+      );
+      const legKm =
+        storedLegKm > 0 ? storedLegKm : parseValKm(t.legKm || t.kms) || 0;
+      const legDrivingSecs = Math.max(
+        0,
+        timeToSeconds(t.timeTo) - timeToSeconds(t.timeFrm),
+      );
+      calculatedTripDrivingSecs += legDrivingSecs;
+
+      legsDetails.push({
+        legNumber: legNum,
+        shiftType: `DAY SHIFT (LEG ${legNum}) — Duty ${paddedDId}`,
+        trainId: t.trainNo || t.trainId || linkDuty?.trainNo || "--",
+        from: t.stationFrm || t.stationFrom || "--",
+        to: t.stationTo || "--",
+        depTime: t.timeFrm || t.depTime || "--",
+        arrTime: t.timeTo || t.arrTime || "--",
+        drivingSeconds: legDrivingSecs,
+        kilometers: legKm,
+        status: "LINK ROSTER TRIP",
+      });
+    });
+  }
+
+  if (totalDrivingSeconds === 0 && calculatedTripDrivingSecs > 0) {
+    totalDrivingSeconds = calculatedTripDrivingSecs;
+  }
+  if (totalDrivingSeconds === 0) {
+    totalDrivingSeconds = Math.round(totalDutySeconds * 0.55);
+  }
+
+  return {
+    dutyId: paddedDId,
+    signOn: signOnStr,
+    signOff: signOffStr,
+    totalDutySeconds,
+    drivingSeconds: Math.min(totalDrivingSeconds, totalDutySeconds),
+    kilometers: finalDutyKm,
+    status: linkDuty ? "CALCULATED (LINK ROSTER)" : "CALCULATED",
+    warnings,
+    legsDetails,
+  };
+}
+
 export function calculateOperatorMonthlyDuties({
   employeeId,
   month,
@@ -232,19 +819,39 @@ export function calculateOperatorMonthlyDuties({
   dayTypeOverrides = {},
   ghDates = [],
   holidays = [],
+  changeoverMappings = {},
 }) {
   const yearNum = parseInt(year, 10);
   const monthNum = parseInt(month, 10) - 1; // 0-indexed (e.g. 7 = August, 8 = September)
   // Dynamic number of days strictly as per month (28, 29, 30, or 31 days)
   const totalDays = new Date(yearNum, monthNum + 1, 0).getDate();
 
-  // Lookup maps without React hooks
+  // Index link rosters by normalized schedule type AND raw schedule type and normalized duty ID
+  // Index link rosters strictly by schedule type without cross-contaminating different schedules
   const linksByDayTypeAndDuty = {};
   (linkRoster || []).forEach((link) => {
-    const sched = String(link.scheduleType || "WEEKDAY").toUpperCase();
+    const rawSched = String(link.scheduleType || "WEEKDAY").toUpperCase().trim();
+    const normSched = normalizeScheduleType(link.scheduleType);
     const dId = normalizeDutyId(link.dutyId);
-    if (!linksByDayTypeAndDuty[sched]) linksByDayTypeAndDuty[sched] = {};
-    linksByDayTypeAndDuty[sched][dId] = link;
+
+    const sKeys = new Set([rawSched, normSched]);
+    if (rawSched.includes("SATURDAY") || rawSched.includes("GH")) {
+      sKeys.add("SATURDAY");
+      sKeys.add("SATURDAY & GH");
+    }
+    if (rawSched.includes("WEEKDAY")) {
+      sKeys.add("WEEKDAY");
+      sKeys.add("WEEKDAY SCHEDULE");
+    }
+
+    sKeys.forEach((sKey) => {
+      if (sKey) {
+        if (!linksByDayTypeAndDuty[sKey]) linksByDayTypeAndDuty[sKey] = {};
+        linksByDayTypeAndDuty[sKey][dId] = link;
+        linksByDayTypeAndDuty[sKey][dId.padStart(2, "0")] = link;
+        linksByDayTypeAndDuty[sKey][String(Number(dId))] = link;
+      }
+    });
   });
 
   const deploymentsByDateAndEmployee = {};
@@ -303,36 +910,9 @@ export function calculateOperatorMonthlyDuties({
         ? overriddenDuty
         : depRecord?.dutyId || depRecord?.dutyNo || "";
 
-    const cleanCode = String(rawDutyNo || "")
-      .trim()
-      .toUpperCase();
+    const dutyTokens = parseDutyTokens(rawDutyNo);
 
-    // Check status code override (e.g. WO, CL, EL, NR, AB)
-    if (ROSTER_STATUS_CODES[cleanCode]) {
-      const stObj = ROSTER_STATUS_CODES[cleanCode];
-      dailyRecords.push({
-        date: dateStr,
-        dayName,
-        dayType,
-        employeeId: String(employeeId),
-        employeeName: empName,
-        dutyId: stObj.code,
-        signOn: "--",
-        signOff: "--",
-        totalDutySeconds: 0,
-        drivingSeconds: 0,
-        kilometers: 0,
-        status: `STATUS CODE (${stObj.code})`,
-        warnings: [stObj.label],
-        legsDetails: [],
-      });
-      continue;
-    }
-
-    const normDId = normalizeDutyId(rawDutyNo);
-    const paddedDId = normDId.padStart(2, "0");
-
-    if (!normDId || normDId === "--" || normDId === "UNASSIGNED") {
+    if (dutyTokens.length === 0) {
       dailyRecords.push({
         date: dateStr,
         dayName,
@@ -348,290 +928,52 @@ export function calculateOperatorMonthlyDuties({
         status: "NO DUTY ASSIGNED",
         warnings: ["No duty assigned for date"],
         legsDetails: [],
+        rawDutyNo: "--",
+        dutyTokens: [],
       });
       continue;
     }
 
-    // 2. Check Night Changeover Link Integration
-    const sType = sanitizeSchedTypeForChangeover(dayType);
-    const nType = sanitizeSchedTypeForChangeover(nextDayType);
-    const tableKey = `${sType}__${nType}`;
-
-    const coTable =
-      CHANGEOVER_TABLE?.[tableKey] ||
-      CHANGEOVER_TABLE?.["WEEKDAY__SATURDAY"] ||
-      {};
-    const changeoverRow =
-      coTable[paddedDId] ||
-      coTable[normDId] ||
-      coTable[String(Number(normDId))];
-    const preloadedDuty = PRELOADED_DUTIES.find(
-      (p) => p.dutyNo === paddedDId || p.dutyNo === normDId,
+    const calculatedResults = dutyTokens.map((token) =>
+      calculateSingleDutyRecord({
+        rawDutyNo: token,
+        dayType,
+        nextDayType,
+        linksByDayTypeAndDuty,
+        linkRoster,
+        changeoverMappings,
+      })
     );
 
-    const numDuty = Number(normDId);
-    const isNightDuty =
-      (!isNaN(numDuty) && numDuty >= 48 && numDuty <= 77) ||
-      Boolean(changeoverRow);
+    let combinedDutySecs = 0;
+    let combinedDrivingSecs = 0;
+    let combinedKms = 0;
+    const combinedLegs = [];
+    const combinedWarnings = [];
+    let firstSignOn = "--";
+    let lastSignOff = "--";
+    const combinedDutyIds = [];
 
-    if (isNightDuty && changeoverRow) {
-      const nightKms = Number(changeoverRow.nightKms) || 0;
-      const mornKms = Number(changeoverRow.mornKms) || 0;
-      const totalKms =
-        Number(changeoverRow.totalKms) ||
-        nightKms + mornKms ||
-        preloadedDuty?.kms ||
-        0;
+    calculatedResults.forEach((res, idx) => {
+      combinedDutySecs += res.totalDutySeconds;
+      combinedDrivingSecs += res.drivingSeconds;
+      combinedKms += res.kilometers;
+      if (res.legsDetails) combinedLegs.push(...res.legsDetails);
+      if (res.warnings) combinedWarnings.push(...res.warnings);
 
-      const signOnStr =
-        changeoverRow.signOnTime || preloadedDuty?.sOnTime || "21:00:00";
-      const signOffStr =
-        changeoverRow.signOffTime || preloadedDuty?.sOffTime || "07:00:00";
+      if (idx === 0) firstSignOn = res.signOn;
+      lastSignOff = res.signOff;
 
-      const sSecs = timeToSeconds(signOnStr);
-      let eSecs = timeToSeconds(signOffStr);
-      if (eSecs < sSecs) eSecs += 24 * 3600;
-      const dutySecs = Math.max(0, eSecs - sSecs);
-
-      const nightDriveSecs = Math.max(
-        0,
-        timeToSeconds(changeoverRow.nightArrTime) -
-          timeToSeconds(changeoverRow.nightDepTime),
-      );
-      const mornDriveSecs = Math.max(
-        0,
-        timeToSeconds(changeoverRow.mornArrTime) -
-          timeToSeconds(changeoverRow.mornDepTime),
-      );
-      const totalDriveSecs =
-        nightDriveSecs + mornDriveSecs > 0
-          ? nightDriveSecs + mornDriveSecs
-          : timeToSeconds(preloadedDuty?.drivingHrs) ||
-            Math.round(dutySecs * 0.55);
-
-      dailyRecords.push({
-        date: dateStr,
-        dayName,
-        dayType,
-        employeeId: String(employeeId),
-        employeeName: empName,
-        dutyId: paddedDId,
-        signOn: signOnStr,
-        signOff: signOffStr,
-        totalDutySeconds: dutySecs,
-        drivingSeconds: Math.min(totalDriveSecs, dutySecs),
-        kilometers: totalKms,
-        status: `CALCULATED (CHANGEOVER LINK)`,
-        warnings: [`Changeover Link (${sType} ➔ ${nType})`],
-        legsDetails: [
-          {
-            legNumber: 1,
-            trainId: changeoverRow.nightTrainNo || "--",
-            from: changeoverRow.signOnLocation || "Depot",
-            to: changeoverRow.nightHandoverLoc || "Station",
-            depTime: changeoverRow.nightDepTime || "--",
-            arrTime: changeoverRow.nightArrTime || "--",
-            drivingSeconds: nightDriveSecs,
-            kilometers: nightKms,
-            status: "NIGHT LEG",
-          },
-          {
-            legNumber: 2,
-            trainId: changeoverRow.mornTrainNo || "--",
-            from: changeoverRow.takeoverLocation || "Station",
-            to: changeoverRow.signOffLocation || "Depot",
-            depTime: changeoverRow.mornDepTime || "--",
-            arrTime: changeoverRow.mornArrTime || "--",
-            drivingSeconds: mornDriveSecs,
-            kilometers: mornKms,
-            status: "MORNING LEG",
-          },
-        ],
-      });
-      continue;
-    }
-
-    // 3. Standard Day Duty Link Roster Lookup
-    const dayTypeLinks = linksByDayTypeAndDuty[dayType] || {};
-    const linkDuty =
-      dayTypeLinks[normDId] ||
-      dayTypeLinks[paddedDId] ||
-      dayTypeLinks[String(Number(normDId))];
-
-    if (!linkDuty && !preloadedDuty) {
-      dailyRecords.push({
-        date: dateStr,
-        dayName,
-        dayType,
-        employeeId: String(employeeId),
-        employeeName: empName,
-        dutyId: normDId,
-        signOn: "--",
-        signOff: "--",
-        totalDutySeconds: 0,
-        drivingSeconds: 0,
-        kilometers: 0,
-        status: "INVALID LINK ROSTER",
-        warnings: [`Duty ${normDId} not found in ${dayType} Link Roster`],
-        legsDetails: [],
-      });
-      continue;
-    }
-
-    const signOnStr =
-      linkDuty?.signOnTime ||
-      linkDuty?.signOn ||
-      preloadedDuty?.sOnTime ||
-      "06:00:00";
-    const signOffStr =
-      linkDuty?.signOffTime ||
-      linkDuty?.signOff ||
-      preloadedDuty?.sOffTime ||
-      "";
-
-    const signOnSecs = timeToSeconds(signOnStr);
-    let signOffSecs = timeToSeconds(signOffStr);
-    if (signOffSecs < signOnSecs) {
-      signOffSecs += 24 * 3600; // Midnight crossing
-    }
-    const totalDutySeconds = Math.max(0, signOffSecs - signOnSecs);
-
-    // 4. Leg Processing & WTT Matching
-    let totalDrivingSeconds = 0;
-    let totalKm = 0;
-    const legsDetails = [];
-    const warnings = [];
-
-    if (linkDuty) {
-      for (let i = 1; i <= 4; i++) {
-        const trainId =
-          linkDuty[`leg${i}TrainNo`] ||
-          linkDuty[`train${i}`] ||
-          linkDuty[`leg${i}Train`];
-        const stationFrom =
-          linkDuty[`leg${i}StationFrom`] ||
-          linkDuty[`leg${i}DepLoc`] ||
-          linkDuty[`from${i}`];
-        const stationTo =
-          linkDuty[`leg${i}StationTo`] ||
-          linkDuty[`leg${i}ArrLoc`] ||
-          linkDuty[`to${i}`];
-        const depTime =
-          linkDuty[`leg${i}DepTime`] ||
-          linkDuty[`leg${i}TimeFrom`] ||
-          linkDuty[`dep${i}`];
-        const arrTime =
-          linkDuty[`leg${i}ArrTime`] ||
-          linkDuty[`leg${i}TimeTo`] ||
-          linkDuty[`arr${i}`];
-
-        if (
-          trainId &&
-          trainId !== "--" &&
-          trainId !== "-" &&
-          stationFrom &&
-          stationTo
-        ) {
-          const wttMatch = findExactWttLeg({
-            trainId,
-            stationFrom,
-            stationTo,
-            depTime,
-            arrTime,
-            wttMatrix,
-            scheduleType: dayType,
-          });
-
-          if (wttMatch.matched) {
-            const legDrivingSecs = Math.max(
-              0,
-              wttMatch.arrSecs - wttMatch.depSecs,
-            );
-            totalDrivingSeconds += legDrivingSecs;
-
-            let legKm = 0;
-            try {
-              legKm = Math.round(
-                calculateDistance(wttMatch.fromStation, wttMatch.toStation),
-              );
-            } catch (e) {
-              legKm = 0;
-            }
-            totalKm += legKm;
-
-            legsDetails.push({
-              legNumber: i,
-              trainId,
-              from: wttMatch.fromStation,
-              to: wttMatch.toStation,
-              depTime: wttMatch.depTimeStr,
-              arrTime: wttMatch.arrTimeStr,
-              drivingSeconds: legDrivingSecs,
-              kilometers: legKm,
-              status: "MATCHED",
-            });
-          } else {
-            const dSecs = Math.max(
-              0,
-              timeToSeconds(arrTime) - timeToSeconds(depTime),
-            );
-            totalDrivingSeconds += dSecs;
-            let legKm = 0;
-            try {
-              legKm = Math.round(calculateDistance(stationFrom, stationTo));
-            } catch (e) {
-              legKm = 0;
-            }
-            totalKm += legKm;
-
-            warnings.push(`Leg ${i} (Train ${trainId}): ${wttMatch.reason}`);
-            legsDetails.push({
-              legNumber: i,
-              trainId,
-              from: stationFrom,
-              to: stationTo,
-              depTime: depTime || "--",
-              arrTime: arrTime || "--",
-              drivingSeconds: dSecs,
-              kilometers: legKm,
-              status: wttMatch.reason,
-            });
-          }
-        }
+      if (res.dutyId && res.dutyId !== "--") {
+        combinedDutyIds.push(ROSTER_STATUS_CODES[res.dutyId] ? res.dutyId : `Duty ${res.dutyId}`);
       }
-    } else if (preloadedDuty) {
-      totalKm = preloadedDuty.kms || 0;
-      totalDrivingSeconds = timeToSeconds(preloadedDuty.drivingHrs) || 0;
-      (preloadedDuty.trips || []).forEach((t, idx) => {
-        const dSecs = Math.max(
-          0,
-          timeToSeconds(t.timeTo) - timeToSeconds(t.timeFrm),
-        );
-        legsDetails.push({
-          legNumber: idx + 1,
-          trainId: t.trainNo,
-          from: t.takeoverLocation,
-          to: t.handoverLocation,
-          depTime: t.timeFrm,
-          arrTime: t.timeTo,
-          drivingSeconds: dSecs,
-          kilometers: Math.round(
-            totalKm / Math.max(1, preloadedDuty.trips.length),
-          ),
-          status: "PRELOADED DATA",
-        });
-      });
-    }
+    });
 
-    // Fallback to preloaded dataset if calculated distance or driving time is missing
-    if (totalKm === 0 && preloadedDuty?.kms) {
-      totalKm = preloadedDuty.kms;
-    }
-    if (totalDrivingSeconds === 0 && preloadedDuty?.drivingHrs) {
-      totalDrivingSeconds = timeToSeconds(preloadedDuty.drivingHrs);
-    }
-
-    const calcStatus = warnings.length > 0 ? "PARTIAL WTT MATCH" : "CALCULATED";
+    const displayDutyId = combinedDutyIds.join(", ") || "--";
+    const statusText =
+      dutyTokens.length > 1
+        ? `CALCULATED (${dutyTokens.length} DUTIES: ${dutyTokens.join(", ")})`
+        : calculatedResults[0]?.status || "CALCULATED";
 
     dailyRecords.push({
       date: dateStr,
@@ -639,15 +981,17 @@ export function calculateOperatorMonthlyDuties({
       dayType,
       employeeId: String(employeeId),
       employeeName: empName,
-      dutyId: normDId,
-      signOn: signOnStr,
-      signOff: signOffStr,
-      totalDutySeconds,
-      drivingSeconds: Math.min(totalDrivingSeconds, totalDutySeconds),
-      kilometers: totalKm,
-      status: calcStatus,
-      warnings,
-      legsDetails,
+      dutyId: displayDutyId,
+      rawDutyNo,
+      dutyTokens,
+      signOn: firstSignOn,
+      signOff: lastSignOff,
+      totalDutySeconds: combinedDutySecs,
+      drivingSeconds: Math.min(combinedDrivingSecs, combinedDutySecs > 0 ? combinedDutySecs : combinedDrivingSecs),
+      kilometers: combinedKms,
+      status: statusText,
+      warnings: combinedWarnings,
+      legsDetails: combinedLegs,
     });
   }
 
@@ -715,10 +1059,14 @@ export default function JmdDrivingHours() {
   const [linkRoster, setLinkRoster] = useState([]);
   const [wttMatrix, setWttMatrix] = useState([]);
   const [deployments, setDeployments] = useState([]);
+  const [changeoverMappings, setChangeoverMappings] = useState({});
 
   // ── UI Navigation State ──
-  const [activeTab, setActiveTab] = useState("MONTHLY_CALCULATOR"); // MONTHLY_CALCULATOR, MULTI_DAY, CHANGEOVER_OVERRIDES, GRAPHS, DISPATCH_GATE
+  const [activeTab, setActiveTab] = useState("MONTHLY_CALCULATOR"); // MONTHLY_CALCULATOR, MULTI_DAY, CHANGEOVER_OVERRIDES, GRAPHS
   const [inspectingDuty, setInspectingDuty] = useState(null); // Debug details modal state
+  const [dutyPickerModal, setDutyPickerModal] = useState(null); // { dateStr, dayType, dayName, currentDuties }
+  const [pickerSearch, setPickerSearch] = useState("");
+  const [selectedPickerDuties, setSelectedPickerDuties] = useState([]);
 
   // ── Real-Time Firestore Synchronization ──
   useEffect(() => {
@@ -737,11 +1085,20 @@ export default function JmdDrivingHours() {
         setDeployments(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
       },
     );
+    const unsubChangeovers = onSnapshot(
+      doc(db, "system_settings", "changeover_mappings"),
+      (snap) => {
+        if (snap.exists()) {
+          setChangeoverMappings(snap.data());
+        }
+      },
+    );
 
     return () => {
       unsubLinks();
       unsubWtt();
       unsubDeploy();
+      unsubChangeovers();
     };
   }, []);
 
@@ -824,6 +1181,7 @@ export default function JmdDrivingHours() {
       dayTypeOverrides,
       ghDates,
       holidays,
+      changeoverMappings,
     });
 
     return opRecords;
@@ -838,6 +1196,7 @@ export default function JmdDrivingHours() {
     dayTypeOverrides,
     ghDates,
     holidays,
+    changeoverMappings,
   ]);
 
   // Filtered rows based on search & status filter
@@ -1001,38 +1360,6 @@ export default function JmdDrivingHours() {
         </div>
       </div>
 
-      {/* ── GCC AUTOMATED DISPATCH GATE LIVE SYNC STATUS BANNER ── */}
-      <div className="bg-slate-900/90 border border-cyan-700/60 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Cpu className="h-5 w-5 text-cyan-400" />
-            <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-            </span>
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-black text-cyan-300 uppercase tracking-wider">
-                GCC Automated Dispatch Gate: LIVE SYNC ACTIVE
-              </span>
-              <span className="bg-emerald-955 text-emerald-400 border border-emerald-800 text-[9px] px-2 py-0.5 rounded font-black uppercase">
-                Firestore Realtime
-              </span>
-            </div>
-            <p className="text-[10px] text-slate-400 mt-0.5">
-              Auto-synchronizing daily deployments from <code className="text-cyan-400 font-bold">crew_daily_deployment</code> ({deployments.length} Active Records)
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={() => setActiveTab("DISPATCH_GATE")}
-          className="bg-cyan-955 hover:bg-cyan-900 text-cyan-300 border border-cyan-700 px-3 py-1.5 rounded text-xs font-bold uppercase transition flex items-center gap-1.5 shadow"
-        >
-          <Zap className="h-3.5 w-3.5 text-cyan-400" /> Open Dispatch Gate Control
-        </button>
-      </div>
-
       {/* ── MONTHLY SUMMARY METRIC CARDS ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-xl space-y-1.5">
@@ -1099,7 +1426,6 @@ export default function JmdDrivingHours() {
           { id: "MULTI_DAY", label: "2. Multi-Day Calculator" },
           { id: "CHANGEOVER_OVERRIDES", label: "3. Changeover Overrides" },
           { id: "GRAPHS", label: "4. Analytics & Graphs" },
-          { id: "DISPATCH_GATE", label: "5. ⚡ GCC Automated Dispatch Gate Live" },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -1253,7 +1579,6 @@ export default function JmdDrivingHours() {
                     <th className="p-3 text-emerald-300">
                       Duty No (Auto / Manual Select)
                     </th>
-                    <th className="p-3">Sign On / Off</th>
                     <th className="p-3">Total Duty Hours</th>
                     <th className="p-3 text-cyan-400">Driving Hours</th>
                     <th className="p-3 text-emerald-400">Kilometers</th>
@@ -1267,7 +1592,7 @@ export default function JmdDrivingHours() {
                   {filteredMonthlyRows.length === 0 ? (
                     <tr>
                       <td
-                        colSpan="10"
+                        colSpan="9"
                         className="p-8 text-center text-slate-500 italic"
                       >
                         No monthly duty records found for the selected
@@ -1335,35 +1660,70 @@ export default function JmdDrivingHours() {
                           #{r.employeeId} - {r.employeeName}
                         </td>
                         <td className="p-3 font-bold">
-                          <select
-                            value={r.dutyId}
-                            onChange={(e) =>
-                              handleAssignDutyForDate(r.date, e.target.value)
-                            }
-                            className="bg-slate-900 border border-slate-700 text-emerald-300 font-extrabold rounded px-2.5 py-1 text-xs focus:outline-none focus:border-emerald-400 cursor-pointer shadow-inner"
-                          >
-                            <option value="--">-- Select / No Duty --</option>
-                            <optgroup label="Operational Duties">
-                              {availableDutiesList.map((dNo) => (
-                                <option key={`op-dty-${dNo}`} value={dNo}>
-                                  Duty {dNo}
-                                </option>
-                              ))}
-                            </optgroup>
-                            <optgroup label="Leave & Roster Status Codes">
-                              {Object.values(ROSTER_STATUS_CODES).map((st) => (
-                                <option
-                                  key={`st-dty-${st.code}`}
-                                  value={st.code}
-                                >
-                                  {st.code} - {st.label}
-                                </option>
-                              ))}
-                            </optgroup>
-                          </select>
-                        </td>
-                        <td className="p-3 font-mono text-slate-400 text-[11px]">
-                          {r.signOn} - {r.signOff}
+                          <div className="flex items-center gap-1.5">
+                            <select
+                              value={
+                                (r.dutyTokens || []).length > 1
+                                  ? "MULTI"
+                                  : ROSTER_STATUS_CODES[r.dutyId]
+                                    ? r.dutyId
+                                    : (r.dutyTokens && r.dutyTokens[0]) || r.dutyId.replace("Duty ", "").trim()
+                              }
+                              onChange={(e) => {
+                                if (e.target.value === "MULTI") {
+                                  setDutyPickerModal({
+                                    dateStr: r.date,
+                                    dayType: r.dayType,
+                                    dayName: r.dayName,
+                                    currentDuties: r.dutyTokens || [],
+                                  });
+                                  setSelectedPickerDuties(r.dutyTokens || []);
+                                  setPickerSearch("");
+                                } else {
+                                  handleAssignDutyForDate(r.date, e.target.value);
+                                }
+                              }}
+                              className="bg-slate-900 border border-slate-700 text-emerald-300 font-extrabold rounded px-2 py-1 text-xs focus:outline-none focus:border-emerald-400 cursor-pointer shadow-inner max-w-[150px] truncate"
+                            >
+                              {(r.dutyTokens || []).length > 1 && (
+                                <option value="MULTI">⚡ {r.dutyId}</option>
+                              )}
+                              <option value="--">-- Select / No Duty --</option>
+                              <optgroup label={`Operational Duties (${r.dayType})`}>
+                                {getAvailableDutiesForDayType(r.dayType).map((dNo) => (
+                                  <option key={`op-dty-${dNo}`} value={dNo}>
+                                    Duty {dNo}
+                                  </option>
+                                ))}
+                              </optgroup>
+                              <optgroup label="Leave & Roster Status Codes">
+                                {Object.values(ROSTER_STATUS_CODES).map((st) => (
+                                  <option
+                                    key={`st-dty-${st.code}`}
+                                    value={st.code}
+                                  >
+                                    {st.code} - {st.label}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            </select>
+                            <button
+                              onClick={() => {
+                                setDutyPickerModal({
+                                  dateStr: r.date,
+                                  dayType: r.dayType,
+                                  dayName: r.dayName,
+                                  currentDuties: r.dutyTokens || [],
+                                });
+                                setSelectedPickerDuties(r.dutyTokens || []);
+                                setPickerSearch("");
+                              }}
+                              title="Multi-Duty & Leave Selector"
+                              className="bg-cyan-955 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/70 px-2 py-1 rounded text-[10px] font-black uppercase transition flex items-center gap-1 shrink-0 shadow-sm"
+                            >
+                              <Plus className="h-3 w-3" /> Multi
+                            </button>
+                          </div>
                         </td>
                         <td className="p-3 font-mono text-slate-300">
                           {secondsToHHMMSS(r.totalDutySeconds)}
@@ -1442,9 +1802,6 @@ export default function JmdDrivingHours() {
           </div>
         </div>
       )}
-      {activeTab === "DISPATCH_GATE" && (
-        <AutomatedDispatchGate />
-      )}
 
       {/* ── DEBUG / INSPECTION MODAL ── */}
       {inspectingDuty && (
@@ -1509,73 +1866,126 @@ export default function JmdDrivingHours() {
 
               {inspectingDuty.warnings &&
                 inspectingDuty.warnings.length > 0 && (
-                  <div className="bg-rose-955/50 border border-rose-800 p-3 rounded-lg space-y-1">
-                    <span className="text-[10px] text-rose-400 font-black uppercase">
-                      Warnings / Changeover Info:
+                  <div className="bg-amber-955/40 border border-amber-500/30 p-3 rounded-lg space-y-1">
+                    <span className="text-[10px] text-amber-400 font-black uppercase tracking-wider flex items-center gap-1.5">
+                      <Zap className="h-3.5 w-3.5 text-amber-400" /> Operational & Changeover Info:
                     </span>
                     {inspectingDuty.warnings.map((w, idx) => (
-                      <p key={idx} className="text-xs text-rose-300">
+                      <p key={idx} className="text-xs text-amber-200 font-semibold">
                         • {w}
                       </p>
                     ))}
                   </div>
                 )}
 
-              <div className="space-y-2">
-                <span className="text-xs font-black text-slate-300 uppercase block border-b border-slate-800 pb-1">
-                  Train Leg Breakdown & WTT Station Matching (
-                  {inspectingDuty.legsDetails?.length || 0} Legs)
-                </span>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                  <span className="text-xs font-black text-slate-200 uppercase tracking-wider">
+                    Train Leg Breakdown & Shift Data ({inspectingDuty.legsDetails?.length || 0} Legs)
+                  </span>
+                  {inspectingDuty.status?.includes("CHANGEOVER LINK") && (
+                    <span className="bg-blue-500/20 text-blue-300 border border-blue-500/40 text-[9.5px] px-2 py-0.5 rounded font-bold uppercase">
+                      🌙 Night Changeover Transition
+                    </span>
+                  )}
+                </div>
 
                 {inspectingDuty.legsDetails?.length === 0 ? (
                   <p className="text-xs text-slate-500 italic p-3 bg-slate-955 rounded">
                     No train legs processed for this duty.
                   </p>
                 ) : (
-                  inspectingDuty.legsDetails.map((leg, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-slate-955 border border-slate-800 p-3 rounded-lg text-xs space-y-1"
-                    >
-                      <div className="flex justify-between items-center text-slate-300 font-bold border-b border-slate-855 pb-1">
-                        <span>
-                          Leg #{leg.legNumber} — Train ID:{" "}
-                          <span className="text-cyan-400">{leg.trainId}</span>
-                        </span>
-                        <span
-                          className={`text-[9px] px-2 py-0.5 rounded font-black uppercase ${leg.status.includes("MATCHED") || leg.status.includes("LEG") ? "bg-emerald-955 text-emerald-400" : "bg-rose-955 text-rose-400"}`}
+                  inspectingDuty.legsDetails.map((leg, idx) => {
+                    const isNightLeg = leg.legNumber === 1 && inspectingDuty.status?.includes("CHANGEOVER LINK");
+                    const isMornLeg = leg.legNumber === 2 && inspectingDuty.status?.includes("CHANGEOVER LINK");
+
+                    // Compute inter-leg rest break between leg 1 arr and leg 2 dep
+                    let interLegBreakStr = null;
+                    if (idx === 0 && inspectingDuty.legsDetails.length >= 2) {
+                      const nextLeg = inspectingDuty.legsDetails[1];
+                      if (leg.arrTime && nextLeg.depTime && leg.arrTime !== '--' && nextLeg.depTime !== '--') {
+                        const breakSecs = getLegDurationSecs(leg.arrTime, nextLeg.depTime);
+                        if (breakSecs > 0) {
+                          interLegBreakStr = secondsToHHMMSS(breakSecs);
+                        }
+                      }
+                    }
+
+                    return (
+                      <React.Fragment key={idx}>
+                        <div
+                          className={`border p-3.5 rounded-xl text-xs space-y-2 transition-all ${
+                            isNightLeg
+                              ? 'bg-blue-955/20 border-blue-800/60'
+                              : isMornLeg
+                              ? 'bg-amber-955/20 border-amber-800/50'
+                              : 'bg-slate-955 border-slate-800'
+                          }`}
                         >
-                          {leg.status}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
-                        <div>
-                          <span className="text-slate-500">Route:</span>{" "}
-                          <strong className="text-slate-200">
-                            {leg.from} → {leg.to}
-                          </strong>
+                          <div className="flex justify-between items-center text-slate-200 font-bold border-b border-slate-800/80 pb-1.5">
+                            <span className="flex items-center gap-1.5">
+                              <span className={`text-[10px] px-2 py-0.5 rounded font-black uppercase ${
+                                isNightLeg ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                                isMornLeg ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                                'bg-slate-800 text-slate-300'
+                              }`}>
+                                {leg.shiftType || `LEG #${leg.legNumber}`}
+                              </span>
+                              <span>— Train ID: <strong className="text-cyan-400 font-mono text-xs">{leg.trainId}</strong></span>
+                            </span>
+                            <span
+                              className={`text-[9.5px] px-2 py-0.5 rounded font-black uppercase ${
+                                leg.status?.includes("NIGHT")
+                                  ? "bg-blue-955 text-blue-300 border border-blue-700/50"
+                                  : leg.status?.includes("MORNING")
+                                  ? "bg-amber-955 text-amber-300 border border-amber-700/50"
+                                  : leg.status?.includes("MATCHED")
+                                  ? "bg-emerald-955 text-emerald-400"
+                                  : "bg-slate-800 text-slate-300"
+                              }`}
+                            >
+                              {leg.status}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px] pt-1">
+                            <div className="bg-slate-900/60 p-2 rounded border border-slate-800">
+                              <span className="text-slate-500 text-[9.5px] block uppercase font-bold">Route / Stations</span>
+                              <strong className="text-slate-200 font-mono">
+                                {leg.from} ➔ {leg.to}
+                              </strong>
+                            </div>
+                            <div className="bg-slate-900/60 p-2 rounded border border-slate-800">
+                              <span className="text-slate-500 text-[9.5px] block uppercase font-bold">Timestamps</span>
+                              <strong className="text-slate-200 font-mono">
+                                {leg.depTime} ➔ {leg.arrTime}
+                              </strong>
+                            </div>
+                            <div className="bg-slate-900/60 p-2 rounded border border-slate-800">
+                              <span className="text-slate-500 text-[9.5px] block uppercase font-bold">Driving Hours</span>
+                              <strong className="text-cyan-300 font-mono">
+                                {secondsToHHMMSS(leg.drivingSeconds)}
+                              </strong>
+                            </div>
+                            <div className="bg-slate-900/60 p-2 rounded border border-slate-800">
+                              <span className="text-slate-500 text-[9.5px] block uppercase font-bold">Leg Kilometers</span>
+                              <strong className="text-emerald-400 font-mono">
+                                {leg.kilometers} KM
+                              </strong>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-slate-500">Timestamps:</span>{" "}
-                          <strong className="text-slate-200">
-                            {leg.depTime} → {leg.arrTime}
-                          </strong>
-                        </div>
-                        <div>
-                          <span className="text-slate-500">Driving Time:</span>{" "}
-                          <strong className="text-cyan-400">
-                            {secondsToHHMMSS(leg.drivingSeconds)}
-                          </strong>
-                        </div>
-                        <div>
-                          <span className="text-slate-500">Station KM:</span>{" "}
-                          <strong className="text-emerald-400">
-                            {leg.kilometers} KM
-                          </strong>
-                        </div>
-                      </div>
-                    </div>
-                  ))
+
+                        {/* Inter-Leg Rest Break Indicator */}
+                        {interLegBreakStr && (
+                          <div className="flex items-center justify-center gap-2 py-1.5 px-3 bg-slate-955 border border-dashed border-slate-700 rounded-lg text-[10px] text-slate-400 font-mono">
+                            <span>☕ Inter-Leg Rest Break at <strong className="text-slate-200">{leg.to}</strong> ({leg.arrTime} ➔ {inspectingDuty.legsDetails[1].depTime}):</span>
+                            <span className="text-amber-400 font-bold bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">{interLegBreakStr}</span>
+                          </div>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -1587,6 +1997,155 @@ export default function JmdDrivingHours() {
               >
                 Close Inspector
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Multi-Duty & Leave Status Selector Modal */}
+      {dutyPickerModal && (
+        <div className="fixed inset-0 bg-slate-955/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-cyan-500/60 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 font-mono text-slate-100 max-h-[85vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-sm font-black text-cyan-400 uppercase tracking-wider flex items-center gap-2">
+                  <Zap className="h-4 w-4" /> Multi-Duty & Roster Status Selector
+                </h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Date: <strong className="text-white">{dutyPickerModal.dateStr} ({dutyPickerModal.dayName})</strong> | Schedule: <strong className="text-emerald-400">{dutyPickerModal.dayType}</strong>
+                </p>
+              </div>
+              <button
+                onClick={() => setDutyPickerModal(null)}
+                className="text-slate-400 hover:text-white font-black text-lg p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-500" />
+              <input
+                type="text"
+                placeholder="Filter duty number or leave code..."
+                value={pickerSearch}
+                onChange={(e) => setPickerSearch(e.target.value)}
+                className="w-full bg-slate-955 border border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-400"
+              />
+            </div>
+
+            {/* Selected Duties Pills Preview */}
+            <div className="bg-slate-955 p-2.5 rounded-lg border border-slate-800 flex flex-wrap items-center gap-1.5 min-h-[40px]">
+              <span className="text-[10px] text-slate-400 font-bold uppercase mr-1">
+                Selected ({selectedPickerDuties.length}):
+              </span>
+              {selectedPickerDuties.length === 0 ? (
+                <span className="text-[10px] text-slate-500 italic">No duties selected (No Duty Assigned)</span>
+              ) : (
+                selectedPickerDuties.map((dToken) => (
+                  <span
+                    key={`pill-${dToken}`}
+                    className="bg-emerald-955 text-emerald-300 border border-emerald-700/80 px-2 py-0.5 rounded text-[10px] font-black flex items-center gap-1"
+                  >
+                    {ROSTER_STATUS_CODES[dToken.toUpperCase()] ? dToken : `Duty ${dToken}`}
+                    <button
+                      onClick={() => setSelectedPickerDuties(prev => prev.filter(x => x !== dToken))}
+                      className="text-emerald-400 hover:text-white font-bold ml-1"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))
+              )}
+            </div>
+
+            {/* Section 1: Operational Duties matching Day Type */}
+            <div className="space-y-2">
+              <h4 className="text-[11px] font-bold text-cyan-300 uppercase tracking-wider flex items-center justify-between">
+                <span>Operational Duties for {dutyPickerModal.dayType} ({getAvailableDutiesForDayType(dutyPickerModal.dayType).length} Max Duties)</span>
+              </h4>
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 max-h-48 overflow-y-auto custom-scrollbar bg-slate-955 p-2 rounded-lg border border-slate-800">
+                {getAvailableDutiesForDayType(dutyPickerModal.dayType)
+                  .filter((dNo) => !pickerSearch || `duty ${dNo}`.toLowerCase().includes(pickerSearch.toLowerCase()) || dNo.includes(pickerSearch))
+                  .map((dNo) => {
+                    const isChecked = selectedPickerDuties.includes(dNo);
+                    return (
+                      <button
+                        key={`pick-duty-${dNo}`}
+                        onClick={() => {
+                          setSelectedPickerDuties(prev =>
+                            prev.includes(dNo) ? prev.filter(x => x !== dNo) : [...prev.filter(x => !ROSTER_STATUS_CODES[x.toUpperCase()]), dNo]
+                          );
+                        }}
+                        className={`px-2 py-1 rounded text-[11px] font-black border transition flex items-center justify-between ${
+                          isChecked
+                            ? "bg-emerald-600 text-white border-emerald-400 shadow-md shadow-emerald-900/50 scale-[1.02]"
+                            : "bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800"
+                        }`}
+                      >
+                        <span>Duty {dNo}</span>
+                        {isChecked && <CheckCircle2 className="h-3 w-3 shrink-0 ml-0.5" />}
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+
+            {/* Section 2: Leave & Roster Status Codes */}
+            <div className="space-y-2">
+              <h4 className="text-[11px] font-bold text-amber-300 uppercase tracking-wider">
+                Leave & Roster Status Codes (18 Official BMRCL Codes)
+              </h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-40 overflow-y-auto custom-scrollbar bg-slate-955 p-2 rounded-lg border border-slate-800">
+                {Object.values(ROSTER_STATUS_CODES)
+                  .filter((st) => !pickerSearch || st.code.toLowerCase().includes(pickerSearch.toLowerCase()) || st.label.toLowerCase().includes(pickerSearch.toLowerCase()))
+                  .map((st) => {
+                    const isChecked = selectedPickerDuties.includes(st.code);
+                    return (
+                      <button
+                        key={`pick-st-${st.code}`}
+                        onClick={() => {
+                          setSelectedPickerDuties([st.code]);
+                        }}
+                        className={`px-2 py-1 rounded text-[10px] font-bold border transition text-left truncate flex items-center justify-between ${
+                          isChecked
+                            ? "bg-amber-600 text-white border-amber-400 shadow-md"
+                            : "bg-slate-900 hover:bg-slate-800 text-amber-300/90 border-slate-800"
+                        }`}
+                      >
+                        <span className="truncate">{st.code} - {st.label}</span>
+                        {isChecked && <CheckCircle2 className="h-3 w-3 shrink-0 ml-1" />}
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex justify-between items-center border-t border-slate-800 pt-3">
+              <button
+                onClick={() => setSelectedPickerDuties([])}
+                className="text-slate-400 hover:text-rose-400 text-xs font-bold uppercase transition"
+              >
+                Clear Selection (No Duty)
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setDutyPickerModal(null)}
+                  className="px-3 py-1.5 rounded text-xs font-bold uppercase bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    handleAssignDutyForDate(dutyPickerModal.dateStr, selectedPickerDuties.join(", "));
+                    setDutyPickerModal(null);
+                  }}
+                  className="px-4 py-1.5 rounded text-xs font-bold uppercase bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/40 transition flex items-center gap-1"
+                >
+                  <Save className="h-3.5 w-3.5" /> Apply Selection
+                </button>
+              </div>
             </div>
           </div>
         </div>

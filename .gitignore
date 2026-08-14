@@ -78,6 +78,10 @@ dist/
 # IDE and agent settings/skills
 .continue/
 .agents/
+.claude/
+.tokencap/
+.kilo/
+AGENT_CAPSULE.md
 
 # Temporary run logs and text outputs
 eslint-errors.txt

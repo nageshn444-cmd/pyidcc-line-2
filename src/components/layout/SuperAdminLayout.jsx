@@ -41,6 +41,7 @@ const ChangeoverDashboard        = lazy(() => import('../admin/ChangeoverDashboa
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { BMRCL_CREW_REGISTRY } from '../../data/bmrclCrewRegistry';
+import { computeDutyLegKms } from '../../utils/kmCalculator'; // WTT km calculation engine
 
 // ── Tab-level Suspense fallback ──
 const TabLoader = () => (
@@ -118,6 +119,7 @@ export default function SuperAdminLayout({
     { key: 'leg1TimeTo', label: 'Deboard Time' },
     { key: 'leg1TripTime', label: 'Trip Time' },
     { key: 'leg1HandoverLoc', label: 'Deboard Loc' },
+    { key: 'leg1Km', label: 'Leg 1 KM' },
     // Leg 2
     { key: 'leg2DepLoc', label: 'Board Loc' },
     { key: 'leg2TrainNo', label: 'Train No' },
@@ -125,6 +127,7 @@ export default function SuperAdminLayout({
     { key: 'leg2ArrTime', label: 'Deboard Time' },
     { key: 'leg2TimeTo', label: 'Trip Time' },
     { key: 'leg2ArrLoc', label: 'Deboard Loc' },
+    { key: 'leg2Km', label: 'Leg 2 KM' },
     // Leg 3
     { key: 'leg3DepLoc', label: 'Board Loc' },
     { key: 'leg3TrainNo', label: 'Train No' },
@@ -132,6 +135,7 @@ export default function SuperAdminLayout({
     { key: 'leg3ArrTime', label: 'Deboard Time' },
     { key: 'leg3TimeTo', label: 'Trip Time' },
     { key: 'leg3ArrLoc', label: 'Deboard Loc' },
+    { key: 'leg3Km', label: 'Leg 3 KM' },
     // Leg 4
     { key: 'leg4FinalDepLoc', label: 'Board Loc' },
     { key: 'leg4TrainNo', label: 'Train No' },
@@ -139,15 +143,17 @@ export default function SuperAdminLayout({
     { key: 'leg4FinalArrTime', label: 'Deboard Time' },
     { key: 'leg4TimeTo', label: 'Trip Time' },
     { key: 'leg4FinalArrLoc', label: 'Deboard Loc' },
+    { key: 'leg4Km', label: 'Leg 4 KM' },
     // Summary
     { key: 'signOffTime', label: 'Sign Off Time' },
     { key: 'signOffLocation', label: 'Sign Off Loc' },
     { key: 'totalHours', label: 'Total Hours' },
-    { key: 'remarks', label: 'Remarks' }
+    { key: 'remarks', label: 'Remarks' },
+    { key: 'totalKm', label: 'Total KM' }
   ];
 
   const [headers, setHeaders] = useState(() => {
-    const saved = localStorage.getItem('pyidcc_roster_headers_v3');
+    const saved = localStorage.getItem('pyidcc_roster_headers_v4');
     return saved ? JSON.parse(saved) : defaultHeaders;
   });
 
@@ -156,11 +162,11 @@ export default function SuperAdminLayout({
   // ── Ordered column field list (matches table render order) ──
   const ROSTER_COL_FIELDS = [
     'signOnTime','signOnLocation','trainId',
-    'leg1TimeFrom','leg1TimeTo','leg1TripTime','leg1HandoverLoc',
-    'leg2DepLoc','leg2TrainNo','leg2DepTime','leg2ArrTime','leg2TimeTo','leg2ArrLoc',
-    'leg3DepLoc','leg3TrainNo','leg3DepTime','leg3ArrTime','leg3TimeTo','leg3ArrLoc',
-    'leg4FinalDepLoc','leg4TrainNo','leg4FinalDepTime','leg4FinalArrTime','leg4TimeTo','leg4FinalArrLoc',
-    'signOffTime','signOffLocation','totalHours','remarks'
+    'leg1TimeFrom','leg1TimeTo','leg1TripTime','leg1HandoverLoc','leg1Km',
+    'leg2DepLoc','leg2TrainNo','leg2DepTime','leg2ArrTime','leg2TimeTo','leg2ArrLoc','leg2Km',
+    'leg3DepLoc','leg3TrainNo','leg3DepTime','leg3ArrTime','leg3TimeTo','leg3ArrLoc','leg3Km',
+    'leg4FinalDepLoc','leg4TrainNo','leg4FinalDepTime','leg4FinalArrTime','leg4TimeTo','leg4FinalArrLoc','leg4Km',
+    'signOffTime','signOffLocation','totalHours','remarks','totalKm'
   ];
 
   // ── Cell-Level Copy/Paste States ──
@@ -1253,11 +1259,11 @@ export default function SuperAdminLayout({
                         {!isTrainOperator && <th className="w-[60px] bg-slate-950">Kill</th>}
                         <th className="w-[80px] bg-slate-950 border-r border-slate-800">Duty ID</th>
                         <th className="w-[150px] bg-slate-950 border-r border-slate-800 text-emerald-400">Train Operator</th>
-                        <th colSpan="7" className="py-2 border-r border-slate-800 text-blue-400 bg-blue-950/5">LEG 1: Primary Sign-On Duty Frame</th>
-                        <th colSpan="6" className="py-2 border-r border-slate-800 text-amber-400 bg-amber-950/5">LEG 2: Mid-Shift Operational Workings</th>
-                        <th colSpan="6" className="py-2 border-r border-slate-800 text-cyan-400 bg-cyan-950/5">LEG 3: Secondary Handover Working Loop</th>
-                        <th colSpan="6" className="py-2 border-r border-slate-800 text-purple-400 bg-purple-950/5">LEG 4: Final Closing Target Leg</th>
-                        <th colSpan="4" className="py-2 text-slate-300 bg-slate-900">Total Shift Summary</th>
+                        <th colSpan="8" className="py-2 border-r border-slate-800 text-blue-400 bg-blue-950/5">LEG 1: Primary Sign-On Duty Frame</th>
+                        <th colSpan="7" className="py-2 border-r border-slate-800 text-amber-400 bg-amber-950/5">LEG 2: Mid-Shift Operational Workings</th>
+                        <th colSpan="7" className="py-2 border-r border-slate-800 text-cyan-400 bg-cyan-950/5">LEG 3: Secondary Handover Working Loop</th>
+                        <th colSpan="7" className="py-2 border-r border-slate-800 text-purple-400 bg-purple-950/5">LEG 4: Final Closing Target Leg</th>
+                        <th colSpan="5" className="py-2 text-slate-300 bg-slate-900">Total Shift Summary</th>
                       </tr>
                     <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 text-center font-semibold">
                       {!isTrainOperator && (
@@ -1274,12 +1280,13 @@ export default function SuperAdminLayout({
                       <th className="py-2 px-2 border-r border-slate-800/50 w-[150px]">Operator Name</th>
                       {headers.map((hdr, idx) => {
                         // Section borders logic
-                        const isSectionEnd = ['leg1HandoverLoc', 'leg2ArrLoc', 'leg3ArrLoc', 'leg4FinalArrLoc'].includes(hdr.key);
+                        const isSectionEnd = ['leg1Km', 'leg2Km', 'leg3Km', 'leg4Km', 'leg1HandoverLoc', 'leg2ArrLoc', 'leg3ArrLoc', 'leg4FinalArrLoc'].includes(hdr.key);
                         const borderClass = isSectionEnd ? 'border-r border-slate-800' : 'border-r border-slate-800/50';
                         
                         // Width classes matching original columns
                         let widthClass = 'w-[100px]';
-                        if (hdr.key === 'signOnLocation' || hdr.key === 'signOffLocation') widthClass = 'w-[110px]';
+                        if (hdr.key.endsWith('Km') || hdr.key === 'totalKm') widthClass = 'w-[85px]';
+                        else if (hdr.key === 'signOnLocation' || hdr.key === 'signOffLocation') widthClass = 'w-[110px]';
                         else if (hdr.key === 'trainId' || hdr.key === 'leg2TrainNo' || hdr.key === 'leg3TrainNo' || hdr.key === 'leg4TrainNo') widthClass = 'w-[90px]';
                         else if (hdr.key === 'remarks') widthClass = 'text-left w-[240px] px-4';
                         
@@ -1319,7 +1326,24 @@ export default function SuperAdminLayout({
                     </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/50 text-slate-350 text-center">
-                      {finalRosterLinks.map((duty, idx) => {
+                      {finalRosterLinks.map((dutyRaw, idx) => {
+                        const computedLegs = computeDutyLegKms(dutyRaw, activeDay);
+                        const formatCellVal = (rawVal, compVal) => {
+                          if (typeof compVal === 'number' && compVal > 0) return `${compVal} km`;
+                          if (typeof rawVal === 'number' && rawVal > 0) return `${rawVal} km`;
+                          if (typeof rawVal === 'string' && rawVal.trim() !== '' && rawVal.trim() !== '--' && rawVal.trim() !== '0' && rawVal.trim() !== '0 km') {
+                            return rawVal.includes('km') ? rawVal : `${rawVal} km`;
+                          }
+                          return compVal > 0 ? `${compVal} km` : '--';
+                        };
+                        const duty = {
+                          ...dutyRaw,
+                          leg1Km: formatCellVal(dutyRaw.leg1Km, computedLegs.leg1Km),
+                          leg2Km: formatCellVal(dutyRaw.leg2Km, computedLegs.leg2Km),
+                          leg3Km: formatCellVal(dutyRaw.leg3Km, computedLegs.leg3Km),
+                          leg4Km: formatCellVal(dutyRaw.leg4Km, computedLegs.leg4Km),
+                          totalKm: formatCellVal(dutyRaw.totalKm, computedLegs.totalKm),
+                        };
                         const rowBgClass = idx % 2 === 0 ? "bg-slate-900" : "bg-slate-950/40";
                         const stickyDutyBgClass = idx % 2 === 0 ? "bg-slate-900" : "bg-slate-950";
                         const matchedDeploy = deployments.find(d =>
@@ -1478,12 +1502,11 @@ export default function SuperAdminLayout({
                                 </>
                               )}
                             </td>
-                            {renderCell('signOnTime', 'text-emerald-400 font-bold')}{renderCell('signOnLocation', 'text-slate-400')}{renderCell('trainId', 'text-slate-100 font-bold')}{renderCell('leg1TimeFrom')}{renderCell('leg1TimeTo')}{renderCell('leg1TripTime')}{renderCell('leg1HandoverLoc')}
-                            {renderCell('leg2DepLoc')}{renderCell('leg2TrainNo', 'text-amber-400 font-bold')}{renderCell('leg2DepTime')}{renderCell('leg2ArrTime')}{renderCell('leg2TimeTo')}{renderCell('leg2ArrLoc')}
-                            {renderCell('leg3DepLoc')}{renderCell('leg3TrainNo', 'text-cyan-400 font-bold')}{renderCell('leg3DepTime')}{renderCell('leg3ArrTime')}{renderCell('leg3TimeTo')}{renderCell('leg3ArrLoc')}
-                            {renderCell('leg4FinalDepLoc')}{renderCell('leg4TrainNo', 'text-purple-400 font-bold')}{renderCell('leg4FinalDepTime')}{renderCell('leg4FinalArrTime')}{renderCell('leg4TimeTo')}{renderCell('leg4FinalArrLoc')}
-                            {renderCell('signOffTime', 'text-rose-400 font-semibold')}{renderCell('signOffLocation', 'text-slate-400')}{renderCell('totalHours', 'text-emerald-400 font-bold')}
-                            {renderCell('remarks', 'text-left text-slate-400 italic px-4 max-w-[240px] truncate')}
+                            {renderCell('signOnTime', 'text-emerald-400 font-bold')}{renderCell('signOnLocation', 'text-slate-400')}{renderCell('trainId', 'text-slate-100 font-bold')}{renderCell('leg1TimeFrom')}{renderCell('leg1TimeTo')}{renderCell('leg1TripTime')}{renderCell('leg1HandoverLoc')}{renderCell('leg1Km', 'text-blue-400 font-bold bg-blue-950/20')}
+                            {renderCell('leg2DepLoc')}{renderCell('leg2TrainNo', 'text-amber-400 font-bold')}{renderCell('leg2DepTime')}{renderCell('leg2ArrTime')}{renderCell('leg2TimeTo')}{renderCell('leg2ArrLoc')}{renderCell('leg2Km', 'text-amber-400 font-bold bg-amber-950/20')}
+                            {renderCell('leg3DepLoc')}{renderCell('leg3TrainNo', 'text-cyan-400 font-bold')}{renderCell('leg3DepTime')}{renderCell('leg3ArrTime')}{renderCell('leg3TimeTo')}{renderCell('leg3ArrLoc')}{renderCell('leg3Km', 'text-cyan-400 font-bold bg-cyan-950/20')}
+                            {renderCell('leg4FinalDepLoc')}{renderCell('leg4TrainNo', 'text-purple-400 font-bold')}{renderCell('leg4FinalDepTime')}{renderCell('leg4FinalArrTime')}{renderCell('leg4TimeTo')}{renderCell('leg4FinalArrLoc')}{renderCell('leg4Km', 'text-purple-400 font-bold bg-purple-950/20')}
+                            {renderCell('signOffTime', 'text-rose-400 font-semibold')}{renderCell('signOffLocation', 'text-slate-400')}{renderCell('totalHours', 'text-emerald-400 font-bold')}{renderCell('remarks', 'text-left text-slate-400 italic px-4 max-w-[240px] truncate')}{renderCell('totalKm', 'text-emerald-400 font-black bg-emerald-950/30')}
                           </tr>
                         );
                       })}
@@ -1638,6 +1661,7 @@ export default function SuperAdminLayout({
           ) : activeTab === 'ALS_PLANNER' ? (
             <AIALSCabInspectionPlanner />
           ) : null}
+          </Suspense>
         </main>
       </div>
 

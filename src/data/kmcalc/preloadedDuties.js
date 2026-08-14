@@ -29,7 +29,7 @@ export const PRELOADED_DUTIES = [
     { trainNo: "212", timeFrm: "09:43:00", timeTo: "11:23:00", takeoverLocation: "PYID", handoverLocation: "PYID" },
     { trainNo: "209", timeFrm: "12:12:00", timeTo: "12:43:00", takeoverLocation: "PYID", handoverLocation: "PYID Dn" }
   ]},
-  { dutyNo: "7", sOnTime: "06:05:00", signOnLocation: "Dpo - Rd3", sOffTime: "14:00:00", signOffLocation: "PYID", kms: 163, dutyHrs: "07:55:00", drivingHrs: "06:15:00", breakTime: "01:17:00", dutyType: "7", trips: [
+  { dutyNo: "7", sOnTime: "06:05:00", signOnLocation: "Dpo - Rd3", sOffTime: "14:00:00", signOffLocation: "PYID", kms: 186, dutyHrs: "07:55:00", drivingHrs: "06:15:00", breakTime: "01:17:00", dutyType: "7", trips: [
     { trainNo: "216", timeFrm: "06:20:00", timeTo: "08:43:00", isShortLoop: true, takeoverLocation: "Dpo - Rd3", handoverLocation: "PYID" },
     { trainNo: "220", timeFrm: "09:13:00", timeTo: "10:53:00", takeoverLocation: "PYID", handoverLocation: "PYID" },
     { trainNo: "207", timeFrm: "11:41:00", timeTo: "13:53:00", takeoverLocation: "PYID", handoverLocation: "PYID" }
@@ -44,7 +44,7 @@ export const PRELOADED_DUTIES = [
     { trainNo: "203", timeFrm: "08:48:00", timeTo: "10:58:00", takeoverLocation: "PYID", handoverLocation: "PYID" },
     { trainNo: "221", timeFrm: "11:48:00", timeTo: "14:01:00", takeoverLocation: "PYID", handoverLocation: "PYID" }
   ]},
-  { dutyNo: "10", sOnTime: "06:10:00", signOnLocation: "Depo/No PDC", sOffTime: "13:50:00", signOffLocation: "PYID", kms: 163, dutyHrs: "07:40:00", drivingHrs: "05:49:00", breakTime: "01:31:00", dutyType: "10", trips: [
+  { dutyNo: "10", sOnTime: "06:10:00", signOnLocation: "Depo/No PDC", sOffTime: "13:50:00", signOffLocation: "PYID", kms: 180, dutyHrs: "07:40:00", drivingHrs: "05:49:00", breakTime: "01:31:00", dutyType: "10", trips: [
     { trainNo: "214", timeFrm: "06:25:00", timeTo: "08:23:00", isShortLoop: true, takeoverLocation: "Depo", handoverLocation: "PYID" },
     { trainNo: "219", timeFrm: "09:03:00", timeTo: "10:43:00", takeoverLocation: "PYID", handoverLocation: "PYID" },
     { trainNo: "213", timeFrm: "11:34:00", timeTo: "13:45:00", takeoverLocation: "PYID", handoverLocation: "PYID" }

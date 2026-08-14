@@ -157,8 +157,10 @@ export default defineConfig({
     hmr: {
       protocol: 'ws',
       host: 'localhost',
-      // Prevent false HMR disconnections during slow transforms
-      timeout: 5000,
+      port: 5173,
+      clientPort: 5173,
+      overlay: true,
+      timeout: 30000,
     },
     watch: {
       usePolling: false,

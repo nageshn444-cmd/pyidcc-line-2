@@ -657,107 +657,46 @@ export default function AutomatedDispatchGate({
       return;
     }
 
+    const fileName = file.name || '';
+    const fileExt = fileName.split('.').pop().toLowerCase();
+    const isJSON = fileExt === 'json';
+    const isPDF = fileExt === 'pdf';
+    const isCSVorExcel = ['xlsx', 'xls', 'xlsb', 'xlsm', 'csv'].includes(fileExt);
+
     setIsInspectingPath(true);
+    let deployedDutiesCount = 0;
+    let classifiedData = null;
+
     try {
-      const arrayBuffer = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
-        reader.onerror = reject;
-        reader.readAsArrayBuffer(file);
-      });
-
-      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-      
-      let classifiedData = null;
-      try {
-        classifiedData = rosterAutoClassifierService.parseWorkbook(workbook, new Date(), currentDayType);
-      } catch (err) {
-        console.warn("Auto-classifier warning, using multi-sheet fallback parser:", err);
-      }
-
-      if (classifiedData) {
-        const consoleObj = {
-          controlDesks: classifiedData.controlDesks || [],
-          leaves: classifiedData.leaves || [],
-          standbys: classifiedData.standbys || [],
-          outstationStepbacks: classifiedData.outstationStepbacks || [],
-          crtTraining: classifiedData.crtTraining || [],
-          bmrtiTraining: classifiedData.bmrtiTraining || [],
-          weeklyOffs: classifiedData.weeklyOffs || [],
-          relievedOperators: classifiedData.relievedOperators || [],
-          pmeOperators: classifiedData.pmeOperators || [],
-          routeLearning: classifiedData.routeLearning || [],
-          notReporting: classifiedData.notReporting || [],
-          absents: classifiedData.absents || [],
-          onDuty: classifiedData.onDuty || [],
-          customRegisters: classifiedData.customRegisters || {}
-        };
-
-        setConsoleData(consoleObj);
-        if (classifiedData.duties && classifiedData.duties.length > 0) {
-          setDeployments(classifiedData.duties);
-        }
-
-        setStagedRoster({
-          ...classifiedData,
-          fileName: file?.name || 'Roster Sheet'
+      // ─── JSON BRANCH ─────────────────────────────────────────────────────────
+      if (isJSON) {
+        const text = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = reject;
+          reader.readAsText(file);
         });
-        setIsRosterConfirmed(false);
-      } else {
-        const parsedDutiesMap = new Map();
-
-        for (const sheetName of workbook.SheetNames) {
-          const sheet = workbook.Sheets[sheetName];
-          if (!sheet) continue;
-          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-          if (!rows || rows.length === 0) continue;
-
-          let headerRowIdx = -1;
-          let dutyColIdx = 0;
-          let nameColIdx = 4;
-          let empColIdx = 5;
-
-          for (let i = 0; i < Math.min(rows.length, 25); i++) {
-            const row = rows[i];
-            if (!Array.isArray(row)) continue;
-            const rowStr = row.map(cell => cell ? String(cell).toLowerCase() : '');
-            const hasDuty = rowStr.some(c => c.includes('duty'));
-            const hasSignOn = rowStr.some(c => c.includes('sign') || c.includes('s on') || c.includes('ontime'));
-            if (hasDuty || hasSignOn) {
-              headerRowIdx = i;
-              row.forEach((cell, cIdx) => {
-                if (!cell) return;
-                const cellStr = String(cell).toLowerCase();
-                if (cellStr.includes('duty')) dutyColIdx = cIdx;
-                else if (cellStr.includes('name') || cellStr.includes('operator') || cellStr === 'to') nameColIdx = cIdx;
-                else if ((cellStr.includes('emp') || cellStr.includes('id')) && !cellStr.includes('duty') && !cellStr.includes('train')) empColIdx = cIdx;
-              });
-              break;
-            }
-          }
-
-          const startIdx = headerRowIdx !== -1 ? headerRowIdx + 1 : 0;
-
-          for (let i = startIdx; i < rows.length; i++) {
-            const row = rows[i];
-            if (!row || row.length === 0) continue;
-            const rawDuty = row[dutyColIdx];
-            if (rawDuty === undefined || rawDuty === null || String(rawDuty).trim() === '') continue;
-
-            const dutyId = normalizeDutyId(rawDuty);
-            if (!dutyId || dutyId === '--' || dutyId === 'DUTY') continue;
-
-            const empId = row[empColIdx] !== undefined && row[empColIdx] !== null ? String(row[empColIdx]).trim() : '';
-            const empName = row[nameColIdx] !== undefined && row[nameColIdx] !== null ? String(row[nameColIdx]).trim() : '';
-
-            if (empId || empName) {
-              parsedDutiesMap.set(dutyId, { dutyId, empId, empName });
-            }
-          }
+        let jsonData;
+        try {
+          jsonData = JSON.parse(text);
+        } catch (parseErr) {
+          throw new Error('Invalid JSON file: ' + parseErr.message);
         }
-
+        // Support array of duty objects or wrapped object { duties: [...], leaves: [...] ... }
+        const duties = Array.isArray(jsonData) ? jsonData : (jsonData.duties || []);
+        if (duties.length === 0) throw new Error('No duty records found in JSON file.');
+        const parsedDutiesMap = new Map();
+        duties.forEach(d => {
+          const rawDuty = d.dutyId || d.duty_id || d.duty || d.Duty || d['Duty No'] || d['DUTY NO'];
+          if (!rawDuty) return;
+          const dutyId = normalizeDutyId(rawDuty);
+          if (!isValidDutyId(dutyId)) return;
+          const empId = String(d.empId || d.emp_id || d.employeeId || d.EmployeeId || d['Emp No'] || '').trim();
+          const empName = String(d.empName || d.emp_name || d.name || d.Name || d.OperatorName || d['Operator Name'] || '').trim();
+          const aligned = alignRecordWithRegistry({ dutyId, empNo: empId, employeeId: empId, name: empName });
+          parsedDutiesMap.set(dutyId, { dutyId, empId: aligned.empNo || empId, empName: aligned.name || empName });
+        });
         const parsedDuties = Array.from(parsedDutiesMap.values());
-
         if (parsedDuties.length > 0) {
           const batch = writeBatch(db);
           parsedDuties.forEach(d => {
@@ -767,18 +706,237 @@ export default function AutomatedDispatchGate({
               dutyId: d.dutyId,
               empId: d.empId || '--',
               empName: d.empName || '--',
-              remarks: 'CSV/Excel Direct File Ingest',
+              remarks: 'JSON File Auto-Ingest',
               lastUpdated: serverTimestamp()
             }, { merge: true });
           });
           await batch.commit();
           deployedDutiesCount = parsedDuties.length;
         }
+        // Build a minimal classifiedData scaffold from JSON extras
+        classifiedData = {
+          duties: parsedDuties,
+          sheetName: fileName,
+          leaves: Array.isArray(jsonData.leaves) ? jsonData.leaves : [],
+          standbys: Array.isArray(jsonData.standbys) ? jsonData.standbys : [],
+          weeklyOffs: Array.isArray(jsonData.weeklyOffs) ? jsonData.weeklyOffs : [],
+          controlDesks: Array.isArray(jsonData.controlDesks) ? jsonData.controlDesks : [],
+          outstationStepbacks: Array.isArray(jsonData.outstationStepbacks) ? jsonData.outstationStepbacks : [],
+          crtTraining: Array.isArray(jsonData.crtTraining) ? jsonData.crtTraining : [],
+          bmrtiTraining: Array.isArray(jsonData.bmrtiTraining) ? jsonData.bmrtiTraining : [],
+          relievedOperators: Array.isArray(jsonData.relievedOperators) ? jsonData.relievedOperators : [],
+          pmeOperators: Array.isArray(jsonData.pmeOperators) ? jsonData.pmeOperators : [],
+          routeLearning: Array.isArray(jsonData.routeLearning) ? jsonData.routeLearning : [],
+          notReporting: Array.isArray(jsonData.notReporting) ? jsonData.notReporting : [],
+          absents: Array.isArray(jsonData.absents) ? jsonData.absents : [],
+          onDuty: Array.isArray(jsonData.onDuty) ? jsonData.onDuty : [],
+          customRegisters: jsonData.customRegisters && typeof jsonData.customRegisters === 'object' ? jsonData.customRegisters : {}
+        };
+        setConsoleData({
+          controlDesks: classifiedData.controlDesks,
+          leaves: classifiedData.leaves,
+          standbys: classifiedData.standbys,
+          outstationStepbacks: classifiedData.outstationStepbacks,
+          crtTraining: classifiedData.crtTraining,
+          bmrtiTraining: classifiedData.bmrtiTraining,
+          weeklyOffs: classifiedData.weeklyOffs,
+          relievedOperators: classifiedData.relievedOperators,
+          pmeOperators: classifiedData.pmeOperators,
+          routeLearning: classifiedData.routeLearning,
+          notReporting: classifiedData.notReporting,
+          absents: classifiedData.absents,
+          onDuty: classifiedData.onDuty,
+          customRegisters: classifiedData.customRegisters
+        });
+        setStagedRoster({ ...classifiedData, fileName });
+        setIsRosterConfirmed(false);
+
+      // ─── PDF BRANCH ───────────────────────────────────────────────────────────
+      } else if (isPDF) {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        if (!apiKey) throw new Error('VITE_GEMINI_API_KEY not configured. Cannot process PDF files.');
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const filePart = await fileToGenerativePart(file);
+        const prompt = `You are a BMRCL crew roster parser. Extract ALL duty assignments from this roster PDF.
+Return ONLY a valid JSON array (no markdown, no explanation) in this exact format:
+[{"dutyId":"01","empId":"12345","empName":"OPERATOR NAME","signOnTime":"06:00","signOffTime":"14:00","trainId":"T-01"},{...}]
+Rules:
+- dutyId: numeric 01-99 or CC/SB/RR prefix codes
+- empId: employee number digits only
+- empName: full name as printed
+- If a field is missing, use empty string ""
+- Include ALL rows found including standby, leave, weekly off entries as separate objects with dutyId as their category code`;
+        let pdfResult;
+        try {
+          const geminiResponse = await model.generateContent([prompt, filePart]);
+          const rawText = geminiResponse.response.text().trim();
+          // Strip markdown code fences if present
+          const jsonStr = rawText.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '').trim();
+          pdfResult = JSON.parse(jsonStr);
+        } catch (geminiErr) {
+          throw new Error('PDF AI extraction failed: ' + geminiErr.message + '. Ensure the PDF contains a readable roster table.');
+        }
+        if (!Array.isArray(pdfResult) || pdfResult.length === 0) {
+          throw new Error('Gemini AI returned no roster records from PDF.');
+        }
+        const parsedDutiesMap = new Map();
+        pdfResult.forEach(d => {
+          const rawDuty = d.dutyId || d.duty_id || d.duty;
+          if (!rawDuty) return;
+          const dutyId = normalizeDutyId(rawDuty);
+          if (!isValidDutyId(dutyId)) return;
+          const aligned = alignRecordWithRegistry({ dutyId, empNo: String(d.empId || '').trim(), employeeId: String(d.empId || '').trim(), name: String(d.empName || '').trim() });
+          parsedDutiesMap.set(dutyId, {
+            dutyId,
+            empId: aligned.empNo || String(d.empId || '').trim(),
+            empName: aligned.name || String(d.empName || '').trim(),
+            signOnTime: d.signOnTime || '',
+            signOffTime: d.signOffTime || '',
+            trainId: d.trainId || 'UNASSIGNED'
+          });
+        });
+        const parsedDuties = Array.from(parsedDutiesMap.values());
+        if (parsedDuties.length > 0) {
+          const batch = writeBatch(db);
+          parsedDuties.forEach(d => {
+            const docId = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${d.dutyId}`;
+            batch.set(doc(db, 'crew_daily_deployment', docId), {
+              scheduleType: currentDayType,
+              dutyId: d.dutyId,
+              empId: d.empId || '--',
+              empName: d.empName || '--',
+              trainId: d.trainId || 'UNASSIGNED',
+              signOnTime: d.signOnTime || '',
+              signOffTime: d.signOffTime || '',
+              remarks: 'PDF AI Auto-Extracted via Gemini Vision',
+              lastUpdated: serverTimestamp()
+            }, { merge: true });
+          });
+          await batch.commit();
+          deployedDutiesCount = parsedDuties.length;
+        }
+        classifiedData = {
+          duties: parsedDuties,
+          sheetName: fileName,
+          leaves: [], standbys: [], weeklyOffs: [], controlDesks: [],
+          outstationStepbacks: [], crtTraining: [], bmrtiTraining: [],
+          relievedOperators: [], pmeOperators: [], routeLearning: [],
+          notReporting: [], absents: [], onDuty: [], customRegisters: {}
+        };
+        setStagedRoster({ ...classifiedData, fileName });
+        setIsRosterConfirmed(false);
+
+      // ─── EXCEL / CSV BRANCH (original logic) ─────────────────────────────────
+      } else if (isCSVorExcel) {
+        const arrayBuffer = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = reject;
+          reader.readAsArrayBuffer(file);
+        });
+
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+
+        try {
+          classifiedData = rosterAutoClassifierService.parseWorkbook(workbook, new Date(), currentDayType);
+        } catch (err) {
+          console.warn("Auto-classifier warning, using multi-sheet fallback parser:", err);
+        }
+
+        if (classifiedData) {
+          const consoleObj = {
+            controlDesks: classifiedData.controlDesks || [],
+            leaves: classifiedData.leaves || [],
+            standbys: classifiedData.standbys || [],
+            outstationStepbacks: classifiedData.outstationStepbacks || [],
+            crtTraining: classifiedData.crtTraining || [],
+            bmrtiTraining: classifiedData.bmrtiTraining || [],
+            weeklyOffs: classifiedData.weeklyOffs || [],
+            relievedOperators: classifiedData.relievedOperators || [],
+            pmeOperators: classifiedData.pmeOperators || [],
+            routeLearning: classifiedData.routeLearning || [],
+            notReporting: classifiedData.notReporting || [],
+            absents: classifiedData.absents || [],
+            onDuty: classifiedData.onDuty || [],
+            customRegisters: classifiedData.customRegisters || {}
+          };
+          setConsoleData(consoleObj);
+          if (classifiedData.duties && classifiedData.duties.length > 0) {
+            setFallbackDeployments(deduplicateDeployments(classifiedData.duties));
+          }
+          setStagedRoster({ ...classifiedData, fileName: file?.name || 'Roster Sheet' });
+          setIsRosterConfirmed(false);
+          deployedDutiesCount = classifiedData.duties?.length || 0;
+        } else {
+          const parsedDutiesMap = new Map();
+          for (const sheetName of workbook.SheetNames) {
+            const sheet = workbook.Sheets[sheetName];
+            if (!sheet) continue;
+            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+            if (!rows || rows.length === 0) continue;
+            let headerRowIdx = -1;
+            let dutyColIdx = 0;
+            let nameColIdx = 4;
+            let empColIdx = 5;
+            for (let i = 0; i < Math.min(rows.length, 25); i++) {
+              const row = rows[i];
+              if (!Array.isArray(row)) continue;
+              const rowStr = row.map(cell => cell ? String(cell).toLowerCase() : '');
+              const hasDuty = rowStr.some(c => c.includes('duty'));
+              const hasSignOn = rowStr.some(c => c.includes('sign') || c.includes('s on') || c.includes('ontime'));
+              if (hasDuty || hasSignOn) {
+                headerRowIdx = i;
+                row.forEach((cell, cIdx) => {
+                  if (!cell) return;
+                  const cellStr = String(cell).toLowerCase();
+                  if (cellStr.includes('duty')) dutyColIdx = cIdx;
+                  else if (cellStr.includes('name') || cellStr.includes('operator') || cellStr === 'to') nameColIdx = cIdx;
+                  else if ((cellStr.includes('emp') || cellStr.includes('id')) && !cellStr.includes('duty') && !cellStr.includes('train')) empColIdx = cIdx;
+                });
+                break;
+              }
+            }
+            const startIdx = headerRowIdx !== -1 ? headerRowIdx + 1 : 0;
+            for (let i = startIdx; i < rows.length; i++) {
+              const row = rows[i];
+              if (!row || row.length === 0) continue;
+              const rawDuty = row[dutyColIdx];
+              if (rawDuty === undefined || rawDuty === null || String(rawDuty).trim() === '') continue;
+              const dutyId = normalizeDutyId(rawDuty);
+              if (!dutyId || dutyId === '--' || dutyId === 'DUTY') continue;
+              const empId = row[empColIdx] !== undefined && row[empColIdx] !== null ? String(row[empColIdx]).trim() : '';
+              const empName = row[nameColIdx] !== undefined && row[nameColIdx] !== null ? String(row[nameColIdx]).trim() : '';
+              if (empId || empName) {
+                parsedDutiesMap.set(dutyId, { dutyId, empId, empName });
+              }
+            }
+          }
+          const parsedDuties = Array.from(parsedDutiesMap.values());
+          if (parsedDuties.length > 0) {
+            const batch = writeBatch(db);
+            parsedDuties.forEach(d => {
+              const docId = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${d.dutyId}`;
+              batch.set(doc(db, 'crew_daily_deployment', docId), {
+                scheduleType: currentDayType,
+                dutyId: d.dutyId,
+                empId: d.empId || '--',
+                empName: d.empName || '--',
+                remarks: 'CSV/Excel Direct File Ingest',
+                lastUpdated: serverTimestamp()
+              }, { merge: true });
+            });
+            await batch.commit();
+            deployedDutiesCount = parsedDuties.length;
+          }
+        }
+      } else {
+        throw new Error(`Unsupported file type: .${fileExt}. Please upload .xlsx, .xls, .xlsb, .xlsm, .csv, .json, or .pdf`);
       }
 
       if (deployedDutiesCount > 0) {
-        const woCount = classifiedData?.weeklyOffs?.length || 13;
-        const leaveCount = classifiedData?.leaves?.length || 11;
+        const woCount = classifiedData?.weeklyOffs?.length || 0;
+        const leaveCount = classifiedData?.leaves?.length || 0;
         const extractedSheetName = classifiedData?.sheetName || file?.name || currentDayType;
         const meta = {
           sheetName: extractedSheetName,
@@ -791,11 +949,11 @@ export default function AutomatedDispatchGate({
         };
         setDeployedRosterInfo(meta);
         await setDoc(doc(db, 'roster_desk_console', 'latest_deployment_meta'), meta, { merge: true });
-
-        alert(`✅ Date Roster Sheet (${extractedSheetName}) Parsed & Deployed!\nToday: Deployed ${deployedDutiesCount} Operators to Dispatch Gate | ${woCount} to Weekly Off Page | ${leaveCount} to Leave & Rest Page.`);
+        const fileTypeLabel = isJSON ? 'JSON' : isPDF ? 'PDF (AI-Extracted)' : 'Excel/CSV';
+        alert(`✅ Date Roster Sheet [${fileTypeLabel}] (${extractedSheetName}) Parsed & Deployed!\nDeployed ${deployedDutiesCount} Operators | ${woCount} Weekly Off | ${leaveCount} Leave & Rest.`);
         if (onImportComplete) onImportComplete();
       } else {
-        alert("❌ Ingestion failed: No valid roster entries could be extracted from the file.");
+        alert(`❌ Ingestion failed: No valid roster entries could be extracted from the ${isPDF ? 'PDF (check Gemini AI response)' : isJSON ? 'JSON' : 'Excel/CSV'} file.`);
       }
     } catch (err) {
       console.error("Failed to parse roster file:", err);
@@ -1603,51 +1761,175 @@ export default function AutomatedDispatchGate({
       {activeTab === 'LIVE' && (
         <div className="space-y-6">
 
-          {/* Staging Confirmation Banner */}
-          {stagedRoster && !isRosterConfirmed && (
-            <div className="bg-gradient-to-r from-amber-955/90 via-slate-900 to-amber-955/90 border-2 border-amber-500 rounded-xl p-4 shadow-2xl space-y-3 font-mono">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="bg-amber-400 text-slate-955 px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1 shadow">
-                      <AlertTriangle className="h-3.5 w-3.5" /> STAGING PREVIEW MODE (UNCONFIRMED DRAFT)
-                    </span>
-                    <span className="text-[10px] text-amber-300 font-mono font-bold">
-                      {stagedRoster.dateStr || 'Today'} • {stagedRoster.duties?.length || 0} Duties Staged
-                    </span>
+          {/* Staging Confirmation Banner + Full Preview Panel */}
+          {stagedRoster && !isRosterConfirmed && (() => {
+            const previewDuties = stagedRoster.duties || [];
+            const previewLeaves = stagedRoster.leaves || [];
+            const previewWO = stagedRoster.weeklyOffs || [];
+            const previewStandbys = stagedRoster.standbys || [];
+            const previewDesks = stagedRoster.controlDesks || [];
+            const previewCRT = stagedRoster.crtTraining || [];
+            const previewBMRTI = stagedRoster.bmrtiTraining || [];
+            const previewRel = stagedRoster.relievedOperators || [];
+            const previewPME = stagedRoster.pmeOperators || [];
+            const previewRL = stagedRoster.routeLearning || [];
+            const previewNR = stagedRoster.notReporting || [];
+            const previewAbs = stagedRoster.absents || [];
+            const previewOS = stagedRoster.outstationStepbacks || [];
+            return (
+              <div className="border-2 border-amber-500 rounded-xl shadow-2xl font-mono overflow-hidden">
+                {/* Header Bar */}
+                <div className="bg-gradient-to-r from-amber-950 via-slate-900 to-amber-950 px-4 py-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="bg-amber-400 text-slate-950 px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1 shadow animate-pulse">
+                        <AlertTriangle className="h-3.5 w-3.5" /> STAGING PREVIEW MODE — UNCONFIRMED DRAFT
+                      </span>
+                      <span className="text-[10px] text-amber-300 font-bold">
+                        {stagedRoster.dateStr || new Date().toLocaleDateString('en-GB')} • {previewDuties.length} Duties • {previewLeaves.length} Leaves • {previewWO.length} Weekly Offs
+                      </span>
+                    </div>
+                    <h3 className="text-slate-100 font-black text-sm mt-1">
+                      📄 Roster File: <span className="text-amber-300">{stagedRoster.sheetName || stagedRoster.fileName || 'Uploaded Sheet'}</span>
+                    </h3>
+                    <p className="text-[10px] text-amber-200/80 mt-0.5">
+                      Review the data below carefully. Click <strong className="text-emerald-400">CONFIRM & SAVE</strong> to publish, or <strong className="text-rose-400">DISCARD DRAFT</strong> to cancel.
+                    </p>
                   </div>
-                  <h3 className="text-slate-100 font-black text-sm mt-1">
-                    Roster File: {stagedRoster.sheetName || stagedRoster.fileName || 'Uploaded Sheet'}
-                  </h3>
-                  <p className="text-[11px] text-amber-200/90 leading-relaxed mt-0.5">
-                    Data is currently in preview mode. Click <strong>CONFIRM & SAVE DAY ROSTER TO FIREBASE</strong> to publish official data to live operational suite & monthly archives.
-                  </p>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleDiscardStagingDraft}
+                      className="bg-slate-900 hover:bg-rose-950 text-slate-400 hover:text-rose-300 font-bold text-xs px-3.5 py-2 rounded-lg border border-slate-700 hover:border-rose-600 transition"
+                    >
+                      DISCARD DRAFT ✕
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmAndSaveToFirebase}
+                      disabled={isSavingToFirebase}
+                      className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs px-5 py-2.5 rounded-lg shadow-xl transition-all uppercase tracking-wider flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      {isSavingToFirebase ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                      <span>{isSavingToFirebase ? 'SAVING...' : 'CONFIRM & SAVE TO FIREBASE'}</span>
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={handleDiscardStagingDraft}
-                    className="bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white font-bold text-xs px-3.5 py-2 rounded-lg border border-slate-700 transition"
-                  >
-                    DISCARD DRAFT ✕
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleConfirmAndSaveToFirebase}
-                    disabled={isSavingToFirebase}
-                    className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-955 font-black text-xs px-5 py-2.5 rounded-lg shadow-xl transition-all uppercase tracking-wider flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                  >
-                    {isSavingToFirebase ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <CheckCircle className="h-4 w-4" />
-                    )}
-                    <span>CONFIRM & SAVE DAY ROSTER TO FIREBASE</span>
-                  </button>
+
+                {/* Category Summary Pills */}
+                <div className="bg-slate-950 border-b border-slate-800 px-4 py-2.5 flex flex-wrap gap-2">
+                  {[
+                    { label: 'Duties', count: previewDuties.length, color: 'emerald' },
+                    { label: 'Leaves', count: previewLeaves.length, color: 'blue' },
+                    { label: 'Weekly Off', count: previewWO.length, color: 'violet' },
+                    { label: 'Standby', count: previewStandbys.length, color: 'amber' },
+                    { label: 'Control Desk', count: previewDesks.length, color: 'cyan' },
+                    { label: 'CRT Training', count: previewCRT.length, color: 'orange' },
+                    { label: 'BMRTI', count: previewBMRTI.length, color: 'pink' },
+                    { label: 'Relieved', count: previewRel.length, color: 'rose' },
+                    { label: 'PME', count: previewPME.length, color: 'teal' },
+                    { label: 'Route Learning', count: previewRL.length, color: 'indigo' },
+                    { label: 'Not Reporting', count: previewNR.length, color: 'red' },
+                    { label: 'Absent', count: previewAbs.length, color: 'red' },
+                    { label: 'Outstation', count: previewOS.length, color: 'yellow' },
+                  ].map(({ label, count, color }) => (
+                    <span key={label} className={`bg-${color}-950/60 border border-${color}-700/40 text-${color}-300 text-[10px] font-black px-2.5 py-1 rounded-lg flex items-center gap-1.5`}>
+                      <span className={`h-1.5 w-1.5 rounded-full bg-${color}-400`} />
+                      {label}: <span className="font-black">{count}</span>
+                    </span>
+                  ))}
+                </div>
+
+                {/* DUTIES PREVIEW TABLE */}
+                {previewDuties.length > 0 && (
+                  <div className="bg-slate-950/80 border-b border-slate-800">
+                    <div className="px-4 pt-3 pb-1 text-[10px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                      DUTY DEPLOYMENTS — {previewDuties.length} Records
+                    </div>
+                    <div className="overflow-x-auto max-h-56 overflow-y-auto">
+                      <table className="w-full text-[10px] font-mono">
+                        <thead className="sticky top-0 bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800">
+                          <tr>
+                            <th className="px-3 py-1.5 text-left">#</th>
+                            <th className="px-3 py-1.5 text-left">Duty</th>
+                            <th className="px-3 py-1.5 text-left">Emp ID</th>
+                            <th className="px-3 py-1.5 text-left">Operator Name</th>
+                            <th className="px-3 py-1.5 text-left">Train</th>
+                            <th className="px-3 py-1.5 text-left">Sign On</th>
+                            <th className="px-3 py-1.5 text-left">Sign Off</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/50">
+                          {previewDuties.map((d, idx) => {
+                            const hasEmp = d.empId && d.empId !== '--';
+                            const hasName = d.empName && d.empName !== '--';
+                            return (
+                              <tr key={d.dutyId || idx} className={`hover:bg-slate-900/60 transition ${!hasEmp && !hasName ? 'opacity-50' : ''}`}>
+                                <td className="px-3 py-1 text-slate-500">{idx + 1}</td>
+                                <td className="px-3 py-1 text-amber-300 font-black">{d.dutyId || '--'}</td>
+                                <td className="px-3 py-1 text-cyan-300">{d.empId || d.empNo || '--'}</td>
+                                <td className="px-3 py-1 text-slate-100 font-bold">{d.empName || d.name || '--'}</td>
+                                <td className="px-3 py-1 text-slate-300">{d.trainId || '--'}</td>
+                                <td className="px-3 py-1 text-emerald-300">{d.signOnTime || '--'}</td>
+                                <td className="px-3 py-1 text-rose-300">{d.signOffTime || '--'}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* CONSOLE CATEGORIES PREVIEW — Leaves, WO, Standby side by side */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-0 divide-x divide-slate-800 border-b border-slate-800">
+                  {[
+                    { title: 'LEAVES', color: 'blue', items: previewLeaves },
+                    { title: 'WEEKLY OFF', color: 'violet', items: previewWO },
+                    { title: 'STANDBY', color: 'amber', items: previewStandbys },
+                    { title: 'NOT REPORTING / ABSENT', color: 'rose', items: [...previewNR, ...previewAbs] },
+                  ].map(({ title, color, items }) => (
+                    <div key={title} className="bg-slate-950/60 p-3 min-h-[80px]">
+                      <div className={`text-[9px] font-black text-${color}-400 uppercase tracking-widest mb-1.5 flex items-center gap-1`}>
+                        <span className={`h-1.5 w-1.5 rounded-full bg-${color}-400`} /> {title} ({items.length})
+                      </div>
+                      {items.length === 0 ? (
+                        <span className="text-[9px] text-slate-600 italic">None</span>
+                      ) : (
+                        <div className="space-y-0.5 max-h-24 overflow-y-auto">
+                          {items.map((item, i) => (
+                            <div key={i} className="text-[10px] text-slate-300 font-mono flex items-center gap-1.5">
+                              <span className={`text-${color}-300 font-black`}>{item.empNo || item.employeeId || '--'}</span>
+                              <span className="text-slate-400 truncate">{item.name || item.empName || '--'}</span>
+                              {item.type && <span className={`text-[9px] text-${color}-400/70`}>[{item.type}]</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Bottom action strip */}
+                <div className="bg-slate-900/80 px-4 py-2.5 flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                  <span>⚠️ This data has <strong className="text-amber-400">NOT been saved</strong> to Firebase yet. Review above and confirm.</span>
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={handleDiscardStagingDraft} className="text-rose-400 hover:text-rose-300 font-bold transition">✕ Discard</button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmAndSaveToFirebase}
+                      disabled={isSavingToFirebase}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] px-4 py-1.5 rounded-lg transition disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      {isSavingToFirebase ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                      CONFIRM & PUBLISH
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {stagedRoster && isRosterConfirmed && (
             <div className="bg-emerald-955/80 border border-emerald-500/60 rounded-xl p-3.5 shadow-xl flex justify-between items-center text-xs font-mono">
@@ -1682,17 +1964,17 @@ export default function AutomatedDispatchGate({
                   type="text"
                   value={excelPathInput}
                   onChange={(e) => setExcelPathInput(e.target.value)}
-                  placeholder="Paste Excel File Path Link (e.g. C:\Users\nages\roster.xlsx or URL) or select file..."
+                  placeholder="Paste file path or URL — supports .xlsx, .xls, .xlsb, .xlsm, .csv, .json, .pdf (AI-extracted)"
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>
               <div className="flex items-center gap-2 w-full md:w-auto">
-                <label className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs px-3 py-2 rounded-lg cursor-pointer border border-slate-700 flex items-center gap-1.5 shrink-0 transition">
+                <label className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs px-3 py-2 rounded-lg cursor-pointer border border-slate-700 flex items-center gap-1.5 shrink-0 transition" title="Supported: Excel (.xlsx/.xls), CSV, JSON, PDF (AI-extracted via Gemini)">
                   <UploadCloud className="h-4 w-4 text-emerald-400" />
                   <span>Browse File</span>
                   <input id="automateddispatchgat-i10" name="automateddispatchgat-i10"
                     type="file"
-                    accept=".xlsx, .xls, .csv"
+                    accept=".xlsx,.xls,.xlsb,.xlsm,.csv,.json,.pdf"
                     className="hidden"
                     onChange={(e) => {
                       if (e.target.files && e.target.files[0]) {

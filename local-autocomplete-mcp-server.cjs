@@ -97,7 +97,7 @@ async function queryLocalAgentEndpoint(prompt, messages = null) {
   const openrouterKey = process.env.OPENROUTER_API_KEY;
   if (openrouterKey) {
     const payloadMessages = messages ? messages : [{ role: 'user', content: prompt }];
-    const modelsToTry = ["openrouter/free", "google/gemma-4-31b-it:free", "poolside/laguna-s-2.1:free", "cohere/north-mini-code:free"];
+    const modelsToTry = ["openrouter/free", "nvidia/nemotron-3.5-lightning:free", "nvidia/nemotron-3-super-120b-a12b:free", "liquid/lfm-2.5-2.6b:free", "poolside/laguna-s-2.1:free", "cohere/north-mini-code:free"];
 
     for (const model of modelsToTry) {
       try {
@@ -139,7 +139,7 @@ async function queryLocalAgentEndpoint(prompt, messages = null) {
       }
     }
 
-    const preferredOrder = ['qwen2.5-coder:7b', 'qwen2.5-coder:14b', 'deepseek-coder:6.7b', 'gemma4:e4b', 'llama3.1:8b'];
+    const preferredOrder = ['nemotron-mini', 'nemotron', 'qwen2.5-coder:7b', 'qwen2.5-coder:14b', 'deepseek-coder:6.7b', 'gemma4:e4b', 'llama3.1:8b'];
     const modelsToTry = preferredOrder.filter(m => installedModels.includes(m)).concat(installedModels.filter(m => !preferredOrder.includes(m)));
 
     for (const modelName of modelsToTry) {
