@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Calendar, CheckCircle, FileText, User, ChevronRight, 
-  Clock, MapPin, ShieldAlert, Award, Compass, RefreshCw, Send 
+  Clock, MapPin, ShieldAlert, Award, Compass, RefreshCw, Send, FileSpreadsheet 
 } from 'lucide-react';
 import { db } from '../../firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import TORequestForm from '../TORequestForm';
 import ShiftExchange from '../ShiftExchange';
+import RosterPublisherBoard from '../RosterPublisherBoard';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 
@@ -534,6 +535,10 @@ export default function TrainOperatorPwa({
             </div>
 
           </div>
+        ) : activeTab === 'NOTICE' ? (
+          <div className="space-y-4 pb-16">
+            <RosterPublisherBoard userRole="TRAIN_OPERATOR" currentOperatorId={empId} />
+          </div>
         ) : null}
       </main>
 
@@ -548,6 +553,13 @@ export default function TrainOperatorPwa({
             <span>Duty</span>
           </button>
         )}
+        <button 
+          onClick={() => setActiveTab('NOTICE')}
+          className={`flex flex-col items-center gap-1.5 text-[9px] font-black uppercase tracking-wider ${activeTab === 'NOTICE' ? 'text-cyan-400' : 'text-neutral-500'}`}
+        >
+          <FileSpreadsheet className="h-5 w-5" />
+          <span>Notice Sheet</span>
+        </button>
         {canViewSwaps && (
           <button 
             onClick={() => setActiveTab('REQUESTS')}

@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Users, UserCheck, ShieldAlert, Award, FileSpreadsheet, 
-  HelpCircle, Compass, ClipboardList, LogOut, RefreshCw, Sparkles, Calculator, Clock 
+  HelpCircle, Compass, ClipboardList, LogOut, RefreshCw, Sparkles, Calculator, Clock, Send, Eye
 } from 'lucide-react';
 import AutomatedDispatchGate from '../AutomatedDispatchGate';
 import EmergencyReliefEngine from '../EmergencyReliefEngine';
 import CrewDirectory from '../CrewDirectory';
 import ShiftExchange from '../ShiftExchange';
 import CrewKMCalculatorSuite from '../kmcalc/CrewKMCalculatorSuite';
+import RosterPublisherBoard from '../RosterPublisherBoard';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { BMRCL_CREW_REGISTRY } from '../../data/bmrclCrewRegistry';
@@ -32,6 +33,7 @@ export default function CrewControllerLayout({
 
   const menuItems = [
     { id: 'DISPATCH', label: 'Crew Dispatch Desk', icon: FileSpreadsheet, module: 'Automated Dispatch Gate' },
+    { id: 'PUBLISHER', label: 'Roster Notice Publisher', icon: Send, module: 'Automated Dispatch Gate' },
     { id: 'RELIEF', label: 'Emergency Relief Reserves', icon: ShieldAlert, module: 'Emergency Relief Module' },
     { id: 'CREW', label: 'Operator Directory', icon: Users, module: 'Crew Registry' },
     { id: 'EXCHANGE', label: 'Shift Exchange Swap Desk', icon: RefreshCw, module: 'Shift Exchange' },
@@ -166,6 +168,8 @@ export default function CrewControllerLayout({
                 onImportComplete={fetchLiveData}
               />
             </div>
+          ) : activeTab === 'PUBLISHER' ? (
+            <RosterPublisherBoard userRole="CONTROLLER" />
           ) : activeTab === 'RELIEF' ? (
             <EmergencyReliefEngine />
           ) : activeTab === 'CREW' ? (
