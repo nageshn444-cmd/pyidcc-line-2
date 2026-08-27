@@ -42,7 +42,13 @@ async function fetchFreeModels() {
   const blacklisted = new Set([
     "google/gemma-4-31b-it:free",
     "google/gemma-4-26b-a4b-it:free",
-    "google/gemma-2b-it:free"
+    "google/gemma-2b-it:free",
+    "google/lyria-3-pro-preview",
+    "google/lyria-3-clip-preview",
+    "z-ai/glm-5.2:free",
+    "openai/gpt-oss-20b:free",
+    "nvidia/nemotron-3.5-content-safety:free",
+    "sarvamai/fine-tuna-llama-3-8b-swa:free"
   ]);
   try {
     log("Fetching live list of free models from OpenRouter...");
@@ -54,21 +60,35 @@ async function fetchFreeModels() {
     const freeModels = data.data
       .filter(model => (parseFloat(model.pricing.prompt) === 0 && parseFloat(model.pricing.completion) === 0) && !blacklisted.has(model.id))
       .map(m => m.id);
-    log(`Successfully fetched ${freeModels.length} free models dynamically.`);
-    return freeModels;
-  } catch (err) {
-    log("Failed to fetch live free models, using fallback list. Error:", err.message);
-    // Hardcoded fallback list of free models
-    return [
-      "openrouter/free",
+    
+    // Put high performance coding models at top
+    const priorityList = [
       "nvidia/nemotron-3.5-lightning:free",
       "nvidia/nemotron-3-super-120b-a12b:free",
-      "nvidia/nemotron-3-nano-30b-a3b:free",
       "nvidia/nemotron-3-ultra-550b-a55b:free",
       "liquid/lfm-2.5-2.6b:free",
       "cohere/north-mini-code:free",
       "poolside/laguna-s-2.1:free",
-      "poolside/laguna-xs-2.1:free"
+      "nvidia/nemotron-3-nano-30b-a3b:free",
+      "dots-studio/dots-3-note-preview:free",
+      "openrouter/free"
+    ];
+
+    const combined = [...priorityList, ...freeModels.filter(m => !priorityList.includes(m))];
+    log(`Successfully filtered ${combined.length} verified free models dynamically.`);
+    return combined.filter(m => !blacklisted.has(m));
+  } catch (err) {
+    log("Failed to fetch live free models, using fallback list. Error:", err.message);
+    return [
+      "nvidia/nemotron-3.5-lightning:free",
+      "nvidia/nemotron-3-super-120b-a12b:free",
+      "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "liquid/lfm-2.5-2.6b:free",
+      "cohere/north-mini-code:free",
+      "poolside/laguna-s-2.1:free",
+      "nvidia/nemotron-3-nano-30b-a3b:free",
+      "dots-studio/dots-3-note-preview:free",
+      "openrouter/free"
     ];
   }
 }
@@ -84,14 +104,31 @@ async function queryOpenRouterWithAutoSwitch(prompt, systemPrompt, preferredMode
   }
 
   const freeModels = await fetchFreeModels();
+  const blacklisted = new Set([
+    "google/gemma-4-31b-it:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "google/gemma-2b-it:free",
+    "google/lyria-3-pro-preview",
+    "google/lyria-3-clip-preview",
+    "z-ai/glm-5.2:free",
+    "openai/gpt-oss-20b:free",
+    "nvidia/nemotron-3.5-content-safety:free",
+    "sarvamai/fine-tuna-llama-3-8b-swa:free"
+  ]);
+
   let modelsToTry = [];
   
   if (preferredModel && preferredModel !== 'auto') {
-    modelsToTry.push(preferredModel);
+    if (blacklisted.has(preferredModel)) {
+      log(`Requested model ${preferredModel} is blacklisted/inaccessible on OpenRouter. Remapping to 'nvidia/nemotron-3.5-lightning:free'...`);
+      modelsToTry.push('nvidia/nemotron-3.5-lightning:free');
+    } else {
+      modelsToTry.push(preferredModel);
+    }
   }
   
   for (const model of freeModels) {
-    if (!modelsToTry.includes(model)) {
+    if (!modelsToTry.includes(model) && !blacklisted.has(model)) {
       modelsToTry.push(model);
     }
   }

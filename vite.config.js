@@ -151,16 +151,10 @@ export default defineConfig({
   ],
 
   server: {
-    host: 'localhost',
+    host: true,
     port: 5173,
-    strictPort: true,
     hmr: {
-      protocol: 'ws',
-      host: 'localhost',
-      port: 5173,
-      clientPort: 5173,
       overlay: true,
-      timeout: 30000,
     },
     watch: {
       usePolling: false,
@@ -185,9 +179,12 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            if (id.includes('firebase'))     return 'vendor-firebase';
+            if (id.includes('xlsx')) return 'vendor-excel';
+            if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
+            if (id.includes('@google/generative-ai') || id.includes('@openrouter')) return 'vendor-ai';
+            if (id.includes('html2canvas')) return 'vendor-canvas';
+            if (id.includes('firebase')) return 'vendor-firebase';
             if (id.includes('lucide-react')) return 'vendor-ui-icons';
-            return 'vendor-core-framework';
           }
         },
       },

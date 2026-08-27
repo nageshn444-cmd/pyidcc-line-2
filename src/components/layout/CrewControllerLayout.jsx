@@ -1,19 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { 
   Users, UserCheck, ShieldAlert, Award, FileSpreadsheet, 
   HelpCircle, Compass, ClipboardList, LogOut, RefreshCw, Sparkles, Calculator, Clock, Send, Eye
 } from 'lucide-react';
-import AutomatedDispatchGate from '../AutomatedDispatchGate';
-import EmergencyReliefEngine from '../EmergencyReliefEngine';
-import CrewDirectory from '../CrewDirectory';
-import ShiftExchange from '../ShiftExchange';
-import CrewKMCalculatorSuite from '../kmcalc/CrewKMCalculatorSuite';
-import RosterPublisherBoard from '../RosterPublisherBoard';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { BMRCL_CREW_REGISTRY } from '../../data/bmrclCrewRegistry';
-import AIALSCabInspectionPlanner from '../ai/AIALSCabInspectionPlanner';
-import JmdDrivingHours from '../JmdDrivingHours';
+import { lazyWithRetry } from '../../utils/lazyWithRetry';
+
+const AutomatedDispatchGate      = lazyWithRetry(() => import('../AutomatedDispatchGate'));
+const EmergencyReliefEngine      = lazyWithRetry(() => import('../EmergencyReliefEngine'));
+const CrewDirectory              = lazyWithRetry(() => import('../CrewDirectory'));
+const ShiftExchange              = lazyWithRetry(() => import('../ShiftExchange'));
+const CrewKMCalculatorSuite      = lazyWithRetry(() => import('../kmcalc/CrewKMCalculatorSuite'));
+const RosterPublisherBoard       = lazyWithRetry(() => import('../RosterPublisherBoard'));
+const AIALSCabInspectionPlanner  = lazyWithRetry(() => import('../ai/AIALSCabInspectionPlanner'));
+const JmdDrivingHours            = lazyWithRetry(() => import('../JmdDrivingHours'));
+const DailyDutyGeneratorSuite    = lazyWithRetry(() => import('../dutyGenerator/DailyDutyGeneratorSuite'));
+
+const TabLoader = () => (
+  <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
+    <div className="animate-spin rounded-full h-10 w-10 border-4 border-lime-500 border-t-transparent" />
+    <p className="text-xs text-slate-500 animate-pulse tracking-widest uppercase font-mono">Loading Panel...</p>
+  </div>
+);
 
 export default function CrewControllerLayout({
   liveTrainTrackingMap,
@@ -33,6 +43,7 @@ export default function CrewControllerLayout({
 
   const menuItems = [
     { id: 'DISPATCH', label: 'Crew Dispatch Desk', icon: FileSpreadsheet, module: 'Automated Dispatch Gate' },
+    { id: 'DUTY_GENERATOR', label: 'Auto Duty Generator', icon: Sparkles, module: 'Automated Dispatch Gate' },
     { id: 'PUBLISHER', label: 'Roster Notice Publisher', icon: Send, module: 'Automated Dispatch Gate' },
     { id: 'RELIEF', label: 'Emergency Relief Reserves', icon: ShieldAlert, module: 'Emergency Relief Module' },
     { id: 'CREW', label: 'Operator Directory', icon: Users, module: 'Crew Registry' },
@@ -96,7 +107,7 @@ export default function CrewControllerLayout({
           </nav>
         </div>
 
-        <div className="border-t border-slate-850 pt-4 space-y-3">
+        <div className="border-t border-slate-855 pt-4 space-y-3">
           <div className="text-[9px] text-slate-500 uppercase">
             Controller: {userProfile?.employeeName || 'CrewController'}
           </div>
@@ -156,33 +167,37 @@ export default function CrewControllerLayout({
 
         {/* Content Body */}
         <main className="flex-1 p-3 lg:p-6 overflow-y-auto">
-          {activeTab === 'DISPATCH' ? (
-            <div className="space-y-6">
-              <AutomatedDispatchGate 
-                deployments={deployments}
-                loading={loading}
-                activeDay={activeDay}
-                setActiveDay={setActiveDay}
-                runningFleetCount={Object.keys(liveTrainTrackingMap).length}
-                onAuthorize={onOneClickAuthorize}
-                onImportComplete={fetchLiveData}
-              />
-            </div>
-          ) : activeTab === 'PUBLISHER' ? (
-            <RosterPublisherBoard userRole="CONTROLLER" />
-          ) : activeTab === 'RELIEF' ? (
-            <EmergencyReliefEngine />
-          ) : activeTab === 'CREW' ? (
-            <CrewDirectory crewData={BMRCL_CREW_REGISTRY} isAdmin={userProfile?.role === 'CREW_CONTROLLER'} />
-          ) : activeTab === 'EXCHANGE' ? (
-            <ShiftExchange />
-          ) : activeTab === 'KM_CALC_SUITE' ? (
-            <CrewKMCalculatorSuite />
-          ) : activeTab === 'JMD_DRIVING_HOURS' ? (
-            <JmdDrivingHours />
-          ) : activeTab === 'ALS_PLANNER' ? (
-            <AIALSCabInspectionPlanner />
-          ) : null}
+          <Suspense fallback={<TabLoader />}>
+            {activeTab === 'DISPATCH' ? (
+              <div className="space-y-6">
+                <AutomatedDispatchGate 
+                  deployments={deployments}
+                  loading={loading}
+                  activeDay={activeDay}
+                  setActiveDay={setActiveDay}
+                  runningFleetCount={Object.keys(liveTrainTrackingMap).length}
+                  onAuthorize={onOneClickAuthorize}
+                  onImportComplete={fetchLiveData}
+                />
+              </div>
+            ) : activeTab === 'PUBLISHER' ? (
+              <RosterPublisherBoard userRole="CONTROLLER" />
+            ) : activeTab === 'RELIEF' ? (
+              <EmergencyReliefEngine />
+            ) : activeTab === 'CREW' ? (
+              <CrewDirectory crewData={BMRCL_CREW_REGISTRY} isAdmin={userProfile?.role === 'CREW_CONTROLLER'} />
+            ) : activeTab === 'EXCHANGE' ? (
+              <ShiftExchange />
+            ) : activeTab === 'KM_CALC_SUITE' ? (
+              <CrewKMCalculatorSuite />
+            ) : activeTab === 'JMD_DRIVING_HOURS' ? (
+              <JmdDrivingHours />
+            ) : activeTab === 'ALS_PLANNER' ? (
+              <AIALSCabInspectionPlanner />
+            ) : activeTab === 'DUTY_GENERATOR' ? (
+              <DailyDutyGeneratorSuite />
+            ) : null}
+          </Suspense>
         </main>
       </div>
 

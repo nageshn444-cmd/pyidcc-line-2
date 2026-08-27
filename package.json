@@ -11,7 +11,11 @@
     "seed-db": "node functions/migrateMasterData.js",
     "start:local-agent": "node local-autocomplete-agent.cjs",
     "start:local-mcp": "node local-autocomplete-mcp-server.cjs",
-    "autocomplete:status": "powershell -Command \"Invoke-RestMethod -Uri http://localhost:5050/status\""
+    "autocomplete:status": "powershell -Command \"Invoke-RestMethod -Uri http://localhost:5050/status\"",
+    "claude": "node claude-local-cli.cjs",
+    "claude:start": "node claude-local-cli.cjs",
+    "claude:code": "powershell -ExecutionPolicy Bypass -File ./run-claude-local.ps1",
+    "claude:status": "powershell -Command \"Invoke-RestMethod -Uri http://localhost:5050/v1/models\""
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

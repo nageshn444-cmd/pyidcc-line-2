@@ -1862,7 +1862,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-850 text-slate-300">
-                {paginatedEmployees.map(emp => {
+                {paginatedEmployees.map((emp, empIdx) => {
                   const todayStr = new Date().toISOString().split('T')[0];
                   const isMedExp = emp.medicalValidTill && emp.medicalValidTill < todayStr;
                   const isCompExp = emp.competencyValidTill && emp.competencyValidTill < todayStr;
@@ -1870,7 +1870,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
 
                   return (
                     <tr 
-                      key={emp.employeeId} 
+                      key={emp.id || (emp.employeeId ? `emp_${emp.employeeId}_${empIdx}` : `emp_row_${empIdx}`)} 
                       className={`hover:bg-slate-950/40 transition-colors ${emp.deleted ? 'bg-rose-950/5 opacity-55' : emp.operationalCrew !== 'YES' ? 'opacity-55' : ''}`}
                     >
                       <td className="p-3 text-center">
@@ -2020,8 +2020,8 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
             {auditLogs.length === 0 ? (
               <div className="text-center py-6 text-slate-650 italic uppercase">No log entries logged in audit registry.</div>
             ) : (
-              auditLogs.map(log => (
-                <div key={log.id} className="bg-slate-950 border border-slate-850 p-2.5 rounded flex flex-col md:flex-row justify-between md:items-center text-slate-400 gap-2">
+              auditLogs.map((log, idx) => (
+                <div key={log.id || `audit_${idx}`} className="bg-slate-950 border border-slate-850 p-2.5 rounded flex flex-col md:flex-row justify-between md:items-center text-slate-400 gap-2">
                   <div>
                     <span className="font-bold text-cyan-400">#{log.employeeId} {log.employeeName}</span>
                     <span className="mx-2 text-indigo-400">[{log.action}]</span>
@@ -2498,8 +2498,8 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                   <div className="space-y-2">
                     <h5 className="font-black text-emerald-400 border-b border-slate-850 pb-1">New Employees</h5>
                     <div className="max-h-24 overflow-y-auto space-y-1">
-                      {importPreview.newDocs.map(d => (
-                        <div key={d.id} className="text-slate-400">
+                      {importPreview.newDocs.map((d, idx) => (
+                        <div key={d.id || d.employeeId || `new_${idx}`} className="text-slate-400">
                           <strong className="text-slate-200">#{d.employeeId} {d.employeeName}</strong> ({d.designation} - {d.depot})
                         </div>
                       ))}
@@ -2511,8 +2511,8 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                   <div className="space-y-2">
                     <h5 className="font-black text-cyan-400 border-b border-slate-850 pb-1">Updates to Apply</h5>
                     <div className="max-h-24 overflow-y-auto space-y-1">
-                      {importPreview.updateDocs.map(d => (
-                        <div key={d.id} className="text-slate-400">
+                      {importPreview.updateDocs.map((d, idx) => (
+                        <div key={d.id || d.employeeId || `upd_${idx}`} className="text-slate-400">
                           <strong className="text-slate-200">#{d.employeeId} {d.employeeName}</strong> ({d.designation} - {d.depot})
                         </div>
                       ))}
@@ -2524,8 +2524,8 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                   <div className="space-y-2">
                     <h5 className="font-black text-rose-400 border-b border-slate-850 pb-1">Missing in Import (Will be soft-deleted)</h5>
                     <div className="max-h-24 overflow-y-auto space-y-1">
-                      {importPreview.deleteDocs.map(d => (
-                        <div key={d.employeeId} className="text-slate-400">
+                      {importPreview.deleteDocs.map((d, idx) => (
+                        <div key={d.id || d.employeeId || `del_${idx}`} className="text-slate-400">
                           <strong className="text-slate-200">#{d.employeeId} {d.employeeName}</strong> ({d.designation} - {d.depot})
                         </div>
                       ))}
@@ -2660,8 +2660,8 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
               {registryAuditLogs.length === 0 ? (
                 <div className="text-center py-8 text-slate-650 italic">No audit log history entries recorded for this employee.</div>
               ) : (
-                registryAuditLogs.map(log => (
-                  <div key={log.id} className="bg-slate-955 border border-slate-850 p-3 rounded text-slate-400 space-y-1">
+                registryAuditLogs.map((log, idx) => (
+                  <div key={log.id || `audit_hist_${idx}`} className="bg-slate-955 border border-slate-850 p-3 rounded text-slate-400 space-y-1">
                     <div className="flex justify-between items-center text-[9px] uppercase tracking-wide">
                       <span className="font-bold text-cyan-400">{log.action}</span>
                       <span className="text-slate-550">

@@ -7,42 +7,18 @@ import {
   Trash2, RotateCcw, AlertTriangle, Clock, UploadCloud, Calendar, Download, Activity
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import * as XLSX from 'xlsx';
 import { WTT_MASTER_REGISTRY } from '../data/wttMasterRegistry';
 
-// ── Lazy-loaded chunks: each component is split into its own JS chunk ──
-// Role-based Layouts (heaviest — split first)
-const SuperAdminLayout      = lazy(() => import('./layout/SuperAdminLayout'));
-const AdminSSLayout         = lazy(() => import('./layout/AdminSSLayout'));
-const OccControllerLayout   = lazy(() => import('./layout/OccControllerLayout'));
-const CrewControllerLayout  = lazy(() => import('./layout/CrewControllerLayout'));
-const StationControllerLayout = lazy(() => import('./layout/StationControllerLayout'));
-const TrainOperatorPwa      = lazy(() => import('./layout/TrainOperatorPwa'));
-const ViewerLayout          = lazy(() => import('./layout/ViewerLayout'));
+import { lazyWithRetry } from '../utils/lazyWithRetry';
 
-// Feature modules (large — lazy load on tab switch)
-const AutomatedDispatchGate   = lazy(() => import('./AutomatedDispatchGate'));
-const EmergencyReliefEngine   = lazy(() => import('./EmergencyReliefEngine'));
-const LeaveRequestManager     = lazy(() => import('./LeaveRequestManager'));
-const TrainOperatorPerformance = lazy(() => import('./TrainOperatorPerformance'));
-const ReportsCenter           = lazy(() => import('./ReportsCenter'));
-const ShiftExchange           = lazy(() => import('./ShiftExchange'));
-const GccRosterUploader       = lazy(() => import('./GccRosterUploader'));
-const ManualOverrideForm      = lazy(() => import('./ManualOverrideForm'));
-const TrainRakeRegistry       = lazy(() => import('./TrainRakeRegistry'));
-const TORequestForm           = lazy(() => import('./TORequestForm'));
-const WTTPage                 = lazy(() => import('../pages/WTTPage'));
-
-// Light components (keep eager — very small, no impact)
-import AdminPanel from './AdminPanel';
-import CrewDirectory from './CrewDirectory';
-import LiveOperationalStream from './LiveOperationalStream';
-import PerformanceMetrics from './PerformanceMetrics';
-import RollingStockFaultLog from './RollingStockFaultLog';
-import Safety from './Safety';
-import StationSafetyChecklist from './StationSafetyChecklist';
-import GCCControl from './GCCControl';
+// ── Lazy-loaded role-based Layout chunks with retry resilience ──
+const SuperAdminLayout        = lazyWithRetry(() => import('./layout/SuperAdminLayout'));
+const AdminSSLayout           = lazyWithRetry(() => import('./layout/AdminSSLayout'));
+const OccControllerLayout     = lazyWithRetry(() => import('./layout/OccControllerLayout'));
+const CrewControllerLayout    = lazyWithRetry(() => import('./layout/CrewControllerLayout'));
+const StationControllerLayout = lazyWithRetry(() => import('./layout/StationControllerLayout'));
+const TrainOperatorPwa        = lazyWithRetry(() => import('./layout/TrainOperatorPwa'));
+const ViewerLayout            = lazyWithRetry(() => import('./layout/ViewerLayout'));
 
 // Data
 import { BMRCL_CREW_REGISTRY, BMRCL_CREW_MASTER_BACKUP } from '../data/bmrclCrewRegistry';
@@ -50,8 +26,8 @@ import { BMRCL_CREW_REGISTRY, BMRCL_CREW_MASTER_BACKUP } from '../data/bmrclCrew
 // ── Global Suspense fallback shown while lazy chunks download ──
 const ModuleLoader = () => (
   <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-    <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent" />
-    <p className="text-sm text-gray-400 animate-pulse tracking-widest uppercase">Loading Module...</p>
+    <div className="animate-spin rounded-full h-12 w-12 border-4 border-amber-500 border-t-transparent" />
+    <p className="text-sm text-gray-400 animate-pulse tracking-widest uppercase font-mono">Loading PYIDCC Module...</p>
   </div>
 );
 
@@ -268,6 +244,7 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       { id: 'DISPATCH', label: 'DISPATCH GATE', module: 'Dashboard', permission: 'View' },
       { id: 'WTT', label: 'WTT', module: 'Dashboard', permission: 'View' },
       { id: 'ROSTER', label: 'ROSTER', module: 'Duty Roster', permission: 'Own' },
+      { id: 'DUTY_GENERATOR', label: 'DUTY GENERATOR', module: 'Duty Roster', permission: 'Own' },
       { id: 'CREW', label: 'CREW', module: 'Crew Registry', permission: 'View' },
       { id: 'REPORTS', label: 'REPORTS', module: 'Reports', permission: 'View' },
       { id: 'ADMIN', label: 'ADMIN', module: 'Settings', permission: 'Full' },
@@ -777,10 +754,14 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
     let deployData = [];
     let attData = [];
     let incData = [];
+    let animFrameId = null;
 
     const runProcessing = () => {
-      const activeWtt = (wttData && wttData.length > 0) ? wttData : WTT_MASTER_REGISTRY;
-      processAndSyncData(activeWtt, linksData, deployData, attData, incData);
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      animFrameId = requestAnimationFrame(() => {
+        const activeWtt = (wttData && wttData.length > 0) ? wttData : WTT_MASTER_REGISTRY;
+        processAndSyncData(activeWtt, linksData, deployData, attData, incData);
+      });
     };
 
     const fetchBase = async () => {
@@ -866,6 +847,7 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
     });
 
     return () => {
+      if (animFrameId) cancelAnimationFrame(animFrameId);
       unsubDeploy();
       unsubAtt();
       unsubInc();
@@ -886,6 +868,8 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       let parsedDuties = [];
 
       if (isSpreadsheet) {
+        // Dynamically load XLSX only when spreadsheet is uploaded
+        const XLSX = await import('xlsx');
         // Read file as binary string to parse Excel or CSV locally
         const data = await new Promise((resolve, reject) => {
           const reader = new FileReader();

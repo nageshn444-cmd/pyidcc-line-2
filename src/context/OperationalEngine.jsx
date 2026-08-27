@@ -37,7 +37,13 @@ export function OperationalEngineProvider({ children }) {
       if (err.code !== 'permission-denied') {
         console.error(`${name} err:`, err);
       }
+      setLoading(false);
     };
+
+    // Safety timeout to ensure loading never hangs if Firestore is slow or offline
+    const safetyTimer = setTimeout(() => {
+      setLoading(false);
+    }, 1500);
 
     const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
       setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -81,6 +87,7 @@ export function OperationalEngineProvider({ children }) {
     }, err => handleErr("OperationalEngine automated_dispatch_gate", err));
 
     return () => {
+      clearTimeout(safetyTimer);
       unsubUsers();
       unsubCrew();
       unsubLinks();

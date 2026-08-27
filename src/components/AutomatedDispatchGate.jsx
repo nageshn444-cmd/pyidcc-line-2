@@ -2697,17 +2697,17 @@ Rules:
                           CONFIRM & SAVE
                         </strong>{" "}
                         to publish, or{" "}
-                        <strong className="text-rose-400">DISCARD DRAFT</strong>{" "}
-                        to cancel.
+                        <strong className="text-rose-400">DISCARD DRAFT (CANCEL)</strong>{" "}
+                        to cancel and abort deployment.
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         type="button"
                         onClick={handleDiscardStagingDraft}
-                        className="bg-slate-900 hover:bg-rose-950 text-slate-400 hover:text-rose-300 font-bold text-xs px-3.5 py-2 rounded-lg border border-slate-700 hover:border-rose-600 transition"
+                        className="bg-slate-900 hover:bg-rose-950 text-rose-400 hover:text-rose-300 font-bold text-xs px-4 py-2.5 rounded-lg border border-rose-600/50 hover:border-rose-500 transition shadow-sm flex items-center gap-1.5"
                       >
-                        DISCARD DRAFT ✕
+                        DISCARD DRAFT (CANCEL) ✕
                       </button>
                       <button
                         type="button"
@@ -2946,9 +2946,9 @@ Rules:
                       <button
                         type="button"
                         onClick={handleDiscardStagingDraft}
-                        className="text-rose-400 hover:text-rose-300 font-bold transition"
+                        className="bg-slate-900 hover:bg-rose-950 text-rose-400 hover:text-rose-300 font-bold text-xs px-3.5 py-1.5 rounded-lg border border-rose-500/40 transition flex items-center gap-1"
                       >
-                        ✕ Discard
+                        ✕ DISCARD DRAFT (CANCEL)
                       </button>
                       <button
                         type="button"

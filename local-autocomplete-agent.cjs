@@ -127,33 +127,24 @@ async function fetchOpenRouterFreeModels() {
   const blacklisted = new Set([
     "google/gemma-4-31b-it:free",
     "google/gemma-4-26b-a4b-it:free",
-    "google/gemma-2b-it:free"
+    "google/gemma-2b-it:free",
+    "google/lyria-3-pro-preview",
+    "google/lyria-3-clip-preview",
+    "z-ai/glm-5.2:free",
+    "openai/gpt-oss-20b:free",
+    "nvidia/nemotron-3.5-content-safety:free",
+    "sarvamai/fine-tuna-llama-3-8b-swa:free"
   ]);
   const fallbackList = [
-    "openrouter/free",
     "nvidia/nemotron-3.5-lightning:free",
     "nvidia/nemotron-3-super-120b-a12b:free",
-    "nvidia/nemotron-3-nano-30b-a3b:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
     "liquid/lfm-2.5-2.6b:free",
     "cohere/north-mini-code:free",
-    "inclusionai/ling-3.0-tiny:free",
     "poolside/laguna-s-2.1:free",
-    "poolside/laguna-xs-2.1:free",
-    "nvidia/nemotron-3.5-content-safety:free",
-    "nvidia/nemotron-3-ultra-550b-a55b:free",
-    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-    "nvidia/nemotron-nano-12b-v2-vl:free",
-    "nvidia/nemotron-nano-9b-v2:free",
-    "openai/gpt-oss-20b:free",
-    "meta-llama/llama-3.1-8b-instruct:free",
-    "mistralai/mistral-7b-instruct:free",
-    "qwen/qwen2.5-7b-instruct:free",
-    "google/gemma-2b-it:free",
-    "anthropic/claude-3-5-haiku:free",
-    "command/b-aido-2:free",
-    "nvidia/llama-3.1-nemotron-70b-instruct:free",
-    "tomsoderlund/qwen2.5-coder-32b-instruct:free",
-    "sarvamai/fine-tuna-llama-3-8b-swa:free"
+    "nvidia/nemotron-3-nano-30b-a3b:free",
+    "dots-studio/dots-3-note-preview:free",
+    "openrouter/free"
   ];
   try {
     const res = await fetch('https://openrouter.ai/api/v1/models');
@@ -163,8 +154,8 @@ async function fetchOpenRouterFreeModels() {
       .filter(m => (m.id.includes(':free') || (parseFloat(m.pricing?.prompt || '1') === 0 && parseFloat(m.pricing?.completion || '1') === 0)) && !blacklisted.has(m.id))
       .map(m => m.id);
 
-    const combined = ["openrouter/free", ...fetchedFree, ...fallbackList.filter(m => !blacklisted.has(m))];
-    return Array.from(new Set(combined));
+    const combined = [...fallbackList, ...fetchedFree.filter(m => !fallbackList.includes(m))];
+    return Array.from(new Set(combined.filter(m => !blacklisted.has(m))));
   } catch (e) {
     return fallbackList.filter(m => !blacklisted.has(m));
   }
@@ -456,6 +447,174 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Anthropic /v1/models and OpenAI /v1/models endpoint
+  if (req.method === 'GET' && (pathname === '/v1/models' || pathname === '/models')) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      object: 'list',
+      data: [
+        { id: 'claude-3-5-sonnet-20241022', object: 'model', created: 1729641600, owned_by: 'anthropic' },
+        { id: 'claude-3-5-sonnet', object: 'model', created: 1729641600, owned_by: 'anthropic' },
+        { id: 'claude-3-7-sonnet', object: 'model', created: 1735689600, owned_by: 'anthropic' },
+        { id: 'claude-3-5-haiku-20241022', object: 'model', created: 1729641600, owned_by: 'anthropic' },
+        { id: 'claude-3-5-haiku', object: 'model', created: 1729641600, owned_by: 'anthropic' },
+        { id: 'claude-3-opus-20240229', object: 'model', created: 1709164800, owned_by: 'anthropic' },
+        { id: 'claude-3-opus', object: 'model', created: 1709164800, owned_by: 'anthropic' },
+        { id: 'claude-3-sonnet-20240229', object: 'model', created: 1709164800, owned_by: 'anthropic' },
+        { id: 'claude-3-haiku-20240307', object: 'model', created: 1709769600, owned_by: 'anthropic' },
+        { id: 'google/gemma-4-31b-it:free', object: 'model', created: 1720000000, owned_by: 'google' },
+        { id: 'google/gemma-4-26b-a4b-it:free', object: 'model', created: 1720000000, owned_by: 'google' },
+        { id: 'qwen2.5-coder', object: 'model', created: 1720000000, owned_by: 'ollama' },
+        { id: 'gemma4:e4b', object: 'model', created: 1720000000, owned_by: 'ollama' },
+        { id: 'default', object: 'model', created: 1729641600, owned_by: 'anthropic' }
+      ]
+    }, null, 2));
+    return;
+  }
+
+  // Anthropic count tokens endpoint
+  if (req.method === 'POST' && (pathname === '/v1/messages/count_tokens' || pathname === '/v1/count_tokens' || pathname === '/messages/count_tokens')) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ input_tokens: 25 }));
+    return;
+  }
+
+  // Anthropic Messages API (/v1/messages or /messages) for Claude Code CLI and Anthropic SDKs
+  if (req.method === 'POST' && (pathname === '/v1/messages' || pathname === '/messages')) {
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        let rawMessages = payload.messages || [];
+        const systemPrompt = payload.system || '';
+        const isStream = Boolean(payload.stream);
+        
+        // Format messages for cascade router
+        const messages = [];
+        if (systemPrompt) {
+          messages.push({ role: 'system', content: typeof systemPrompt === 'string' ? systemPrompt : JSON.stringify(systemPrompt) });
+        }
+        
+        rawMessages.forEach(m => {
+          let text = '';
+          if (typeof m.content === 'string') {
+            text = m.content;
+          } else if (Array.isArray(m.content)) {
+            text = m.content.map(c => (c.text || c.content || '')).join('\n');
+          }
+          messages.push({ role: m.role, content: text });
+        });
+
+        if (messages.length === 0) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { type: 'invalid_request_error', message: 'messages array is required' } }));
+          return;
+        }
+
+        const result = await executeWithCascade(messages, null);
+        const msgId = `msg_${Date.now()}`;
+        const modelName = payload.model || 'claude-3-5-sonnet-20241022';
+
+        if (isStream) {
+          // SSE Streaming Response Format required by Claude Code CLI
+          res.writeHead(200, {
+            'Content-Type': 'text/event-stream; charset=utf-8',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive'
+          });
+
+          const sendEvent = (event, data) => {
+            res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+          };
+
+          sendEvent('message_start', {
+            type: 'message_start',
+            message: {
+              id: msgId,
+              type: 'message',
+              role: 'assistant',
+              model: modelName,
+              content: [],
+              stop_reason: null,
+              stop_sequence: null,
+              usage: { input_tokens: 10, output_tokens: 1 }
+            }
+          });
+
+          sendEvent('content_block_start', {
+            type: 'content_block_start',
+            index: 0,
+            content_block: { type: 'text', text: '' }
+          });
+
+          // Chunk text slightly for natural streaming flow
+          const chunks = result.text.match(/.{1,120}/gs) || [result.text];
+          for (const chunk of chunks) {
+            sendEvent('content_block_delta', {
+              type: 'content_block_delta',
+              index: 0,
+              delta: { type: 'text_delta', text: chunk }
+            });
+          }
+
+          sendEvent('content_block_stop', {
+            type: 'content_block_stop',
+            index: 0
+          });
+
+          sendEvent('message_delta', {
+            type: 'message_delta',
+            delta: { stop_reason: 'end_turn', stop_sequence: null },
+            usage: { output_tokens: result.text.length }
+          });
+
+          sendEvent('message_stop', {
+            type: 'message_stop'
+          });
+
+          res.end();
+          return;
+        }
+
+        // Standard Non-Streaming Anthropic Messages API Response Format
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          id: msgId,
+          type: 'message',
+          role: 'assistant',
+          model: modelName,
+          content: [
+            {
+              type: 'text',
+              text: result.text
+            }
+          ],
+          stop_reason: 'end_turn',
+          stop_sequence: null,
+          usage: {
+            input_tokens: 10,
+            output_tokens: 50
+          },
+          antigravity_metadata: {
+            tier: result.tier,
+            provider: result.provider,
+            cost: '$0.00 (100% Free / Local)'
+          }
+        }, null, 2));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: {
+            type: 'api_error',
+            message: err.message
+          }
+        }));
+      }
+    });
+    return;
+  }
+
   if (req.method === 'POST' && (pathname === '/v1/chat/completions' || pathname === '/v1/completions' || pathname === '/autocomplete')) {
     let body = '';
     req.on('data', chunk => { body += chunk.toString(); });
@@ -532,7 +691,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   res.writeHead(404, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ error: 'Endpoint not found. Available endpoints: /status, /v1/chat/completions, /v1/completions, /autocomplete' }));
+  res.end(JSON.stringify({ error: 'Endpoint not found. Available endpoints: /status, /v1/models, /v1/messages, /v1/chat/completions, /v1/completions, /autocomplete' }));
 });
 
 server.on('error', (err) => {

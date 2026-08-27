@@ -400,3 +400,50 @@ option {
   background-color: var(--panel-bg-solid) !important;
   color: var(--text-main) !important;
 }
+
+/* ==========================================================================
+   8. BMRCL CONTROL-ROOM PRINT STYLES
+   ========================================================================== */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11px !important;
+  }
+  
+  /* Hide non-printable navigation, sidebar, floating action buttons */
+  header, nav, aside, .no-print, button, input[type="button"], input[type="submit"], [role="dialog"], .fixed {
+    display: none !important;
+  }
+  
+  /* Crisp high-contrast printable table formatting */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+  }
+
+  th, td {
+    border: 1px solid #333333 !important;
+    padding: 4px 6px !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+    font-size: 10px !important;
+  }
+
+  th {
+    background-color: #f0f0f0 !important;
+    font-weight: bold !important;
+    text-transform: uppercase !important;
+  }
+
+  /* Prevent awkward page breaks inside rows */
+  tr {
+    page-break-inside: avoid !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+}

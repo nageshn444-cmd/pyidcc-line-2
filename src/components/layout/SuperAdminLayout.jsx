@@ -10,33 +10,36 @@ import {
   MessageSquare, BookOpen, Calculator, Sliders, Repeat, Clock, Copy, Plus
 } from 'lucide-react';
 
-// ── Lazy-loaded chunks: split each heavy panel into its own async bundle ──
-const LiveTrainPositionTracker   = lazy(() => import('../LiveTrainPositionTracker'));
-const AutomatedDispatchGate      = lazy(() => import('../AutomatedDispatchGate'));
-const CrewDirectory              = lazy(() => import('../CrewDirectory'));
-const TrainOperatorPerformance   = lazy(() => import('../TrainOperatorPerformance'));
-const ReportsCenter              = lazy(() => import('../ReportsCenter'));
-const AdminPanel                 = lazy(() => import('../AdminPanel'));
-const ThemeSettings              = lazy(() => import('../ThemeSettings'));
-const AiAssistantSidebar         = lazy(() => import('../AiAssistantSidebar'));
-const AIALSCabInspectionPlanner  = lazy(() => import('../ai/AIALSCabInspectionPlanner'));
-const WTTPage                    = lazy(() => import('../../pages/WTTPage'));
-const ShiftExchange              = lazy(() => import('../ShiftExchange'));
-const TrainRakeRegistry          = lazy(() => import('../TrainRakeRegistry'));
-const LeaveRequestManager        = lazy(() => import('../LeaveRequestManager'));
-const GCCControl                 = lazy(() => import('../GCCControl'));
-const TORequestForm              = lazy(() => import('../TORequestForm'));
-const EmergencyReliefEngine      = lazy(() => import('../EmergencyReliefEngine'));
-const ManualOverrideForm         = lazy(() => import('../ManualOverrideForm'));
-const GccRosterUploader          = lazy(() => import('../GccRosterUploader'));
-const RollingStockFaultLog       = lazy(() => import('../RollingStockFaultLog'));
-const PerformanceMetrics         = lazy(() => import('../PerformanceMetrics'));
-const CrewKMCalculatorSuite      = lazy(() => import('../kmcalc/CrewKMCalculatorSuite'));
-const JmdDrivingHours            = lazy(() => import('../JmdDrivingHours'));
-const LeaveBookOffManager        = lazy(() => import('../LeaveBookOffManager'));
-const ShiftHandoverReportView    = lazy(() => import('../ShiftHandoverReportView'));
-const ChangeoverLink             = lazy(() => import('../admin/ChangeoverLink'));
-const ChangeoverDashboard        = lazy(() => import('../admin/ChangeoverDashboard'));
+import { lazyWithRetry } from '../../utils/lazyWithRetry';
+
+// ── Lazy-loaded chunks: split each heavy panel into its own async bundle with retry resilience ──
+const LiveTrainPositionTracker   = lazyWithRetry(() => import('../LiveTrainPositionTracker'));
+const AutomatedDispatchGate      = lazyWithRetry(() => import('../AutomatedDispatchGate'));
+const CrewDirectory              = lazyWithRetry(() => import('../CrewDirectory'));
+const TrainOperatorPerformance   = lazyWithRetry(() => import('../TrainOperatorPerformance'));
+const ReportsCenter              = lazyWithRetry(() => import('../ReportsCenter'));
+const AdminPanel                 = lazyWithRetry(() => import('../AdminPanel'));
+const ThemeSettings              = lazyWithRetry(() => import('../ThemeSettings'));
+const AiAssistantSidebar         = lazyWithRetry(() => import('../AiAssistantSidebar'));
+const AIALSCabInspectionPlanner  = lazyWithRetry(() => import('../ai/AIALSCabInspectionPlanner'));
+const WTTPage                    = lazyWithRetry(() => import('../../pages/WTTPage'));
+const ShiftExchange              = lazyWithRetry(() => import('../ShiftExchange'));
+const TrainRakeRegistry          = lazyWithRetry(() => import('../TrainRakeRegistry'));
+const LeaveRequestManager        = lazyWithRetry(() => import('../LeaveRequestManager'));
+const GCCControl                 = lazyWithRetry(() => import('../GCCControl'));
+const TORequestForm              = lazyWithRetry(() => import('../TORequestForm'));
+const EmergencyReliefEngine      = lazyWithRetry(() => import('../EmergencyReliefEngine'));
+const ManualOverrideForm         = lazyWithRetry(() => import('../ManualOverrideForm'));
+const GccRosterUploader          = lazyWithRetry(() => import('../GccRosterUploader'));
+const RollingStockFaultLog       = lazyWithRetry(() => import('../RollingStockFaultLog'));
+const PerformanceMetrics         = lazyWithRetry(() => import('../PerformanceMetrics'));
+const CrewKMCalculatorSuite      = lazyWithRetry(() => import('../kmcalc/CrewKMCalculatorSuite'));
+const JmdDrivingHours            = lazyWithRetry(() => import('../JmdDrivingHours'));
+const LeaveBookOffManager        = lazyWithRetry(() => import('../LeaveBookOffManager'));
+const ShiftHandoverReportView    = lazyWithRetry(() => import('../ShiftHandoverReportView'));
+const ChangeoverLink             = lazyWithRetry(() => import('../admin/ChangeoverLink'));
+const ChangeoverDashboard        = lazyWithRetry(() => import('../admin/ChangeoverDashboard'));
+const DailyDutyGeneratorSuite    = lazyWithRetry(() => import('../dutyGenerator/DailyDutyGeneratorSuite'));
 
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -760,6 +763,7 @@ export default function SuperAdminLayout({
     { id: 'DISPATCH', label: 'Automated Dispatch', icon: Table, module: 'Automated Dispatch Gate' },
     { id: 'WTT', label: 'WTT Timetable', icon: Activity, module: 'Duty Roster' },
     { id: 'ROSTER', label: 'Link Roster', icon: ClipboardList, module: 'Duty Roster' },
+    { id: 'DUTY_GENERATOR', label: 'Duty Generator Suite', icon: Sparkles, module: 'Duty Roster' },
     { id: 'CREW', label: 'Crew Registry', icon: Users, module: 'Crew Registry' },
     { id: 'EXCHANGE', label: 'Shift Exchange', icon: RefreshCw, module: 'Shift Exchange' },
     { id: 'REPORTS', label: 'Reports Desk', icon: FileText, module: 'Reports Center' },
@@ -961,7 +965,10 @@ export default function SuperAdminLayout({
             <div className="space-y-6">
               
               {/* Interactive transit map */}
-              <LiveTrainPositionTracker />
+              <LiveTrainPositionTracker 
+                liveTrainTrackingMap={liveTrainTrackingMap}
+                activeDay={activeDay}
+              />
 
               {/* System Health Indicators */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1660,6 +1667,8 @@ export default function SuperAdminLayout({
             <JmdDrivingHours />
           ) : activeTab === 'ALS_PLANNER' ? (
             <AIALSCabInspectionPlanner />
+          ) : activeTab === 'DUTY_GENERATOR' ? (
+            <DailyDutyGeneratorSuite />
           ) : null}
           </Suspense>
         </main>

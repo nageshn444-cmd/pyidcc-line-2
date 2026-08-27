@@ -1,5 +1,6 @@
 import { collection, getDocs, doc, setDoc, getDoc, writeBatch } from 'firebase/firestore';
 import { BMRCL_CREW_REGISTRY } from '../data/bmrclCrewRegistry';
+import { buildUnifiedEmployeeProfile } from './crewRegistryDataMerger';
 
 export const seedDatabaseIfNeeded = async (db) => {
   try {
@@ -119,19 +120,22 @@ export const seedDatabaseIfNeeded = async (db) => {
     // 2. Seed Crew Registry if empty
     const registryCheck = await getDocs(collection(db, 'crewRegistry'));
     if (registryCheck.empty) {
-      console.log("Seeding crewRegistry collection...");
+      console.log("Seeding crewRegistry collection with unified employee profiles...");
       const batch = writeBatch(db);
       BMRCL_CREW_REGISTRY.forEach(employee => {
-        const empRef = doc(db, 'crewRegistry', String(employee.id));
+        const empId = employee.empId || employee.id;
+        const unified = buildUnifiedEmployeeProfile(empId);
+        const empRef = doc(db, 'crewRegistry', String(empId));
         batch.set(empRef, {
-          employeeId: String(employee.id),
-          employeeName: employee.name,
+          ...unified,
+          employeeId: String(empId),
+          employeeName: employee.name || employee.employeeName || unified.name,
           email: employee.email || "",
-          designation: employee.designation,
-          contact: employee.contact,
+          designation: employee.designation || unified.designation,
+          contact: employee.contact || unified.phone,
           active: true,
-          operationalCrew: (employee.activeCrew === true) ? 'YES' : 'NO'
-        });
+          operationalCrew: (employee.activeCrew === true || unified.activeCrew) ? 'YES' : 'NO'
+        }, { merge: true });
       });
       await batch.commit();
     }

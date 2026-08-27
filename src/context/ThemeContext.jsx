@@ -3,12 +3,63 @@ import { db } from '../firebase';
 import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
 
-const ThemeContext = createContext();
+export const DEFAULT_THEME_VALUE = {
+  theme: 'theme-occ-dark',
+  rawTheme: 'theme-occ-dark',
+  setTheme: () => {},
+  autoThemeMode: 'system',
+  setAutoThemeMode: () => {},
+  tokens: {
+    background: 'var(--app-bg)',
+    surface: 'var(--panel-bg-solid)',
+    card: 'var(--panel-bg)',
+    primary: 'var(--accent-color)',
+    secondary: 'var(--text-sub)',
+    text: 'var(--text-main)',
+    textMuted: 'var(--text-muted)',
+    border: 'var(--border-color)',
+    success: 'var(--success-color)',
+    warning: 'var(--warning-color)',
+    error: 'var(--error-color)',
+    info: 'var(--info-color)',
+    hover: 'var(--hover-bg)',
+    headerBg: 'var(--header-bg)',
+    accentText: 'var(--accent-text)',
+    cardShadow: 'var(--card-shadow)'
+  },
+  accessibility: {
+    fontSize: 'medium',
+    highContrast: false,
+    animations: 'normal',
+    brightness: 100,
+    blueLightReduction: false,
+  },
+  setAccessibility: () => {},
+  personalization: {
+    density: 'comfortable',
+    widgetOrder: ['status', 'map', 'relief', 'swap', 'leave', 'matrix'],
+    language: 'EN',
+  },
+  setPersonalization: () => {},
+  customThemeColors: {
+    appBg: '#0b1329',
+    panelBg: 'rgba(20, 30, 55, 0.5)',
+    textMain: '#f1f5f9',
+    accentColor: '#10b981',
+  },
+  setCustomThemeColors: () => {},
+  resetThemeSettings: () => {},
+  emergencyMode: false,
+  activeIncidentsCount: 0,
+  detectedOS: 'Windows'
+};
+
+const ThemeContext = createContext(DEFAULT_THEME_VALUE);
 
 export function useTheme() {
   const context = useContext(ThemeContext);
   if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider');
+    return DEFAULT_THEME_VALUE;
   }
   return context;
 }

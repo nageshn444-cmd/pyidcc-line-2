@@ -241,6 +241,7 @@ export default function AIALSCabInspectionPlanner() {
 
       if (empId === '--') return;
       if (isExcluded(empId, matchingDuty?.status || matchingDuty?.remarks)) return;
+      if (processedEmpIds.has(String(empId).trim())) return;
 
       // Check if signed-on in automated dispatch gate or crew live attendance
       const hasLiveAttendance = liveAttendance.some(a => 
@@ -899,10 +900,10 @@ export default function AIALSCabInspectionPlanner() {
                         <td colSpan="7" className="p-8 text-center text-slate-500 italic">No operators on duty match the selected criteria.</td>
                       </tr>
                     ) : (
-                      filteredOperators.map(op => {
+                      filteredOperators.map((op, opIdx) => {
                         const isSelected = selectedOperatorIds.includes(op.empId);
                         
-                        let badgeColor = 'bg-slate-950 text-slate-550 border-slate-900';
+                        let badgeColor = 'bg-slate-950 text-slate-555 border-slate-900';
                         if (op.statusText === 'Inspection Completed') badgeColor = 'bg-emerald-955 text-emerald-400 border-emerald-900/30';
                         if (op.statusText === 'Inspection Due') badgeColor = 'bg-amber-955 text-amber-500 border-amber-900/20';
                         if (op.statusText === 'Inspection Overdue') badgeColor = 'bg-rose-955 text-rose-500 border-rose-900/30';
@@ -910,7 +911,7 @@ export default function AIALSCabInspectionPlanner() {
 
                         return (
                           <tr 
-                            key={`${op.empId}_${op.dutyId}`} 
+                            key={op.id || `op_${op.empId}_${op.dutyId}_${opIdx}`} 
                             onClick={() => toggleSelectOp(op.empId)}
                             className={`hover:bg-slate-955/40 cursor-pointer transition ${isSelected ? 'bg-cyan-950/10' : ''}`}
                           >

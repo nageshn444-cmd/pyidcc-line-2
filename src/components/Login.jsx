@@ -17,12 +17,20 @@ export default function Login() {
   useEffect(() => {
     if (!currentUser || authLoading || approvalPending) return;
 
-    const isReady = Boolean(userProfile) && (userProfile.approved === true || userProfile.active === true || userProfile.status === 'ACTIVE' || userProfile.loginEnabled === true);
-    if (currentUser && isReady) {
-      const from = location.state?.from?.pathname || '/';
-      navigate(from, { replace: true });
+    const isOwnerUser = currentUser?.email === 'nageshn444@gmail.com' || userProfile?.employeeId === '20726';
+    const isReady = Boolean(userProfile) && (
+      userProfile.approved === true || 
+      userProfile.active === true || 
+      userProfile.status === 'ACTIVE' || 
+      userProfile.loginEnabled === true ||
+      isOwnerUser
+    );
+
+    if (isReady) {
+      const dest = location.state?.from?.pathname && location.state.from.pathname !== '/login' ? location.state.from.pathname : '/';
+      navigate(dest, { replace: true });
     }
-  }, [currentUser, userProfile, authLoading, approvalPending, location.state, navigate]);
+  }, [currentUser?.uid, Boolean(userProfile), userProfile?.approved, userProfile?.active, userProfile?.status, userProfile?.loginEnabled, authLoading, approvalPending, navigate]);
 
   const handleGoogleLogin = async () => {
     setIsRedirecting(true);

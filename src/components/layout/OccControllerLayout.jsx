@@ -1,14 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { 
   Activity, Train, AlertOctagon, HelpCircle, ShieldAlert, Sparkles, 
   MapPin, Clock, Maximize2, Minimize2, Radio 
 } from 'lucide-react';
 import MetroMapNavigation from '../MetroMapNavigation';
-import EmergencyReliefEngine from '../EmergencyReliefEngine';
 import ReliefTracking from '../ReliefTracking';
-import AiAssistantSidebar from '../AiAssistantSidebar';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { lazyWithRetry } from '../../utils/lazyWithRetry';
+
+const EmergencyReliefEngine = lazyWithRetry(() => import('../EmergencyReliefEngine'));
+const AiAssistantSidebar    = lazyWithRetry(() => import('../AiAssistantSidebar'));
+
+const MiniLoader = () => (
+  <div className="flex items-center justify-center p-8">
+    <div className="animate-spin rounded-full h-8 w-8 border-2 border-emerald-500 border-t-transparent" />
+  </div>
+);
 
 
 export default function OccControllerLayout({
@@ -154,19 +162,23 @@ export default function OccControllerLayout({
 
           {/* Right Column: Emergency Standby reserves & reliefs (3/12 width) */}
           <div className="xl:col-span-3">
-            <EmergencyReliefEngine />
+            <Suspense fallback={<MiniLoader />}>
+              <EmergencyReliefEngine />
+            </Suspense>
           </div>
         </div>
       )
 
       {/* AI Assistant Sidebar */}
-      <AiAssistantSidebar 
-        isOpen={isAiOpen}
-        onClose={() => setIsAiOpen(false)}
-        liveIncidents={liveIncidents}
-        deployments={deployments}
-        liveTrainTrackingMap={liveTrainTrackingMap}
-      />
+      <Suspense fallback={null}>
+        <AiAssistantSidebar 
+          isOpen={isAiOpen}
+          onClose={() => setIsAiOpen(false)}
+          liveIncidents={liveIncidents}
+          deployments={deployments}
+          liveTrainTrackingMap={liveTrainTrackingMap}
+        />
+      </Suspense>
 
     </div>
   );

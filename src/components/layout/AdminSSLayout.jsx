@@ -1,17 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { 
   FileText, CheckSquare, Award, Clock, Calendar, ShieldAlert, 
   ChevronRight, BarChart3, Users, RefreshCw, LogOut, Sparkles 
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import LeaveRequestManager from '../LeaveRequestManager';
-import GCCControl from '../GCCControl';
-import ShiftExchange from '../ShiftExchange';
-import TrainOperatorPerformance from '../TrainOperatorPerformance';
-import ReportsCenter from '../ReportsCenter';
-import PerformanceMetrics from '../PerformanceMetrics';
-import JmdDrivingHours from '../JmdDrivingHours';
+import { lazyWithRetry } from '../../utils/lazyWithRetry';
+
+const LeaveRequestManager        = lazyWithRetry(() => import('../LeaveRequestManager'));
+const GCCControl                 = lazyWithRetry(() => import('../GCCControl'));
+const ShiftExchange              = lazyWithRetry(() => import('../ShiftExchange'));
+const TrainOperatorPerformance   = lazyWithRetry(() => import('../TrainOperatorPerformance'));
+const ReportsCenter              = lazyWithRetry(() => import('../ReportsCenter'));
+const PerformanceMetrics         = lazyWithRetry(() => import('../PerformanceMetrics'));
+const JmdDrivingHours            = lazyWithRetry(() => import('../JmdDrivingHours'));
+
+const TabLoader = () => (
+  <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
+    <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent" />
+    <p className="text-xs text-slate-500 animate-pulse tracking-widest uppercase font-mono">Loading Panel...</p>
+  </div>
+);
 
 export default function AdminSSLayout({
   liveTrainTrackingMap,
@@ -163,53 +172,55 @@ export default function AdminSSLayout({
 
         {/* Content Body */}
         <main className="flex-1 p-3 lg:p-6 overflow-y-auto">
-          {activeTab === 'KPI' ? (
-            <div className="space-y-6">
-              
-              {/* Quick statistics cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm flex flex-col justify-between">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase">Today's Fleet Count</span>
-                  <div className="text-3xl font-black text-blue-600 mt-2">{Object.keys(liveTrainTrackingMap).length} Active</div>
-                  <span className="text-[9px] text-slate-500 mt-1 uppercase">Operating on Green Line link</span>
-                </div>
-                <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm flex flex-col justify-between">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase">Standby Crew Reserves</span>
-                  <div className="text-3xl font-black text-emerald-600 mt-2">
-                    {deployments.filter(d => d.status === 'STANDBY').length} Operators
+          <Suspense fallback={<TabLoader />}>
+            {activeTab === 'KPI' ? (
+              <div className="space-y-6">
+                
+                {/* Quick statistics cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm flex flex-col justify-between">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase">Today's Fleet Count</span>
+                    <div className="text-3xl font-black text-blue-600 mt-2">{Object.keys(liveTrainTrackingMap).length} Active</div>
+                    <span className="text-[9px] text-slate-500 mt-1 uppercase">Operating on Green Line link</span>
                   </div>
-                  <span className="text-[9px] text-slate-500 mt-1 uppercase">Ready for immediate relief</span>
-                </div>
-                <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm flex flex-col justify-between">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase">Active System Delays</span>
-                  <div className="text-3xl font-black text-rose-500 mt-2">
-                    {liveIncidents.filter(i => i.status !== 'RESOLVED').length} Incidents
+                  <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm flex flex-col justify-between">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase">Standby Crew Reserves</span>
+                    <div className="text-3xl font-black text-emerald-600 mt-2">
+                      {deployments.filter(d => d.status === 'STANDBY').length} Operators
+                    </div>
+                    <span className="text-[9px] text-slate-500 mt-1 uppercase">Ready for immediate relief</span>
                   </div>
-                  <span className="text-[9px] text-slate-500 mt-1 uppercase">OCC propagates live updates</span>
+                  <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm flex flex-col justify-between">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase">Active System Delays</span>
+                    <div className="text-3xl font-black text-rose-500 mt-2">
+                      {liveIncidents.filter(i => i.status !== 'RESOLVED').length} Incidents
+                    </div>
+                    <span className="text-[9px] text-slate-500 mt-1 uppercase">OCC propagates live updates</span>
+                  </div>
                 </div>
-              </div>
 
-              {/* Performance Metrics Summary */}
-              <TrainOperatorPerformance />
-              <PerformanceMetrics incidents={liveIncidents} />
-            </div>
-          ) : activeTab === 'LEAVES' ? (
-            <div className="space-y-6">
-              <GCCControl onOpenWindow={(d) => console.log(d)} />
-              <LeaveRequestManager userRole="ADMIN_SS" />
-            </div>
-          ) : activeTab === 'SWAPS' ? (
-            <div className="space-y-6">
-              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest border-b border-slate-200 pb-2">Shift Swaps & Exchanges Desk</h3>
-              <ShiftExchange />
-            </div>
-          ) : activeTab === 'REPORTS' ? (
-            <div className="space-y-6">
-              <ReportsCenter />
-            </div>
-          ) : activeTab === 'JMD_DRIVING_HOURS' ? (
-            <JmdDrivingHours />
-          ) : null}
+                {/* Performance Metrics Summary */}
+                <TrainOperatorPerformance />
+                <PerformanceMetrics incidents={liveIncidents} />
+              </div>
+            ) : activeTab === 'LEAVES' ? (
+              <div className="space-y-6">
+                <GCCControl onOpenWindow={(d) => console.log(d)} />
+                <LeaveRequestManager userRole="ADMIN_SS" />
+              </div>
+            ) : activeTab === 'SWAPS' ? (
+              <div className="space-y-6">
+                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest border-b border-slate-200 pb-2">Shift Swaps & Exchanges Desk</h3>
+                <ShiftExchange />
+              </div>
+            ) : activeTab === 'REPORTS' ? (
+              <div className="space-y-6">
+                <ReportsCenter />
+              </div>
+            ) : activeTab === 'JMD_DRIVING_HOURS' ? (
+              <JmdDrivingHours />
+            ) : null}
+          </Suspense>
         </main>
       </div>
 
