@@ -4,7 +4,7 @@ import {
   Search, Filter, Edit3, Eye, FileSpreadsheet, Send, RefreshCw, X, Lock, Unlock,
   Layers, Users, Clock, Compass, HeartPulse, SplitSquareVertical, Table, Printer
 } from 'lucide-react';
-import { DAY_TYPE_CONFIGS, DUTY_TEMPLATES_REGISTRY } from '../../data/dutyTemplatesRegistry';
+import { DUTY_TEMPLATES_REGISTRY } from '../../data/dutyTemplatesRegistry';
 import { DAY_TYPE_PROFILES } from '../../data/dayTypeProfiles';
 import { EMPLOYEE_MASTER_REGISTRY } from '../../data/employeeProfileMaster';
 import { HISTORICAL_ROSTER_INTELLIGENCE } from '../../data/historicalRosterIntelligence';

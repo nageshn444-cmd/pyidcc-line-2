@@ -8,7 +8,7 @@
  * - Integration with 4-Layer Validation Firewall (rosterIntegrityValidator.js).
  */
 
-import { DUTY_TEMPLATES_REGISTRY, DAY_TYPE_CONFIGS } from '../data/dutyTemplatesRegistry.js';
+import { DUTY_TEMPLATES_REGISTRY } from '../data/dutyTemplatesRegistry.js';
 import { 
   DAY_TYPE_PROFILES, 
   OR_LADDER, 

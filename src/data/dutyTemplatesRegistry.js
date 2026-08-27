@@ -1,6 +1,8 @@
 /* Auto-generated Verified Duty Templates Registry for BMRCL Line 2 (Peenya Depot) */
 import { DAY_TYPE_PROFILES } from './dayTypeProfiles.js';
-export { DAY_TYPE_PROFILES, DAY_TYPE_PROFILES as DAY_TYPE_CONFIGS };
+
+export const DAY_TYPE_CONFIGS = DAY_TYPE_PROFILES;
+export { DAY_TYPE_PROFILES };
 
 export const DUTY_TEMPLATES_REGISTRY = {
   "WEEKDAY": [
