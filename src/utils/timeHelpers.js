@@ -3,6 +3,87 @@
 export const TIMEZONE_IST = 'Asia/Kolkata';
 
 /**
+ * Converts any 12-hour, AM/PM, or ambiguous time string to strict 24-hour "HH:MM" format.
+ * Automatically handles BMRCL shift patterns (Morning, Afternoon/Evening, Night).
+ */
+export const formatTo24HourTime = (timeStr, sOnTime = null, shift = null) => {
+  if (!timeStr || timeStr === '--' || timeStr === '—' || timeStr === '-') return timeStr || '—';
+  
+  let str = String(timeStr).trim().toUpperCase();
+
+  // Strip seconds if in "HH:MM:SS" format
+  if (/^\d{1,2}:\d{2}:\d{2}$/.test(str)) {
+    str = str.substring(0, 5);
+  }
+  
+  // Handle explicit AM / PM strings (e.g. "2:14 PM", "02:14 PM")
+  if (str.includes('PM')) {
+    const clean = str.replace('PM', '').trim();
+    const [h, m] = clean.split(':');
+    const hour = parseInt(h, 10);
+    const min = m || '00';
+    const h24 = hour === 12 ? 12 : hour + 12;
+    return `${String(h24).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+  }
+  if (str.includes('AM')) {
+    const clean = str.replace('AM', '').trim();
+    const [h, m] = clean.split(':');
+    const hour = parseInt(h, 10);
+    const min = m || '00';
+    const h24 = hour === 12 ? 0 : hour;
+    return `${String(h24).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+  }
+
+  const parts = str.split(':');
+  let h = parseInt(parts[0], 10);
+  const m = parts[1] ? String(parts[1]).padStart(2, '0') : '00';
+  if (isNaN(h)) return str;
+
+  // If already in 24h format (>= 13), return standard zero-padded
+  if (h >= 13) {
+    return `${String(h).padStart(2, '0')}:${m}`;
+  }
+
+  const onHour = sOnTime ? parseInt(String(sOnTime).split(':')[0], 10) : null;
+  const shiftUpper = shift ? String(shift).toUpperCase() : '';
+
+  // A Shift (Morning 05:00 - 12:00) -> Sign off in afternoon (12:00 - 17:00)
+  if (shiftUpper === 'A' || shiftUpper === 'PRO' || shiftUpper === 'STBY' || (onHour !== null && onHour >= 5 && onHour < 12)) {
+    if (h >= 1 && h <= 5) {
+      h += 12; // 02:14 -> 14:14, 01:44 -> 13:44, 02:13 -> 14:13
+    } else if (h === 0) {
+      h = 12; // 00:34 -> 12:34
+    }
+    return `${String(h).padStart(2, '0')}:${m}`;
+  }
+
+  // B Shift (Afternoon 12:00 - 17:00) -> Sign off in evening/night (20:00 - 23:59)
+  if (shiftUpper === 'B' || (onHour !== null && onHour >= 12 && onHour < 18)) {
+    if (h >= 7 && h <= 11) {
+      h += 12; // 08:30 -> 20:30, 09:30 -> 21:30, 10:00 -> 22:00
+    } else if (h >= 1 && h <= 3) {
+      h += 20; // 02:10 -> 22:10, 01:55 -> 21:55
+    } else if (h >= 4 && h <= 6) {
+      h += 12;
+    }
+    return `${String(h).padStart(2, '0')}:${m}`;
+  }
+
+  // N / Night Shift (Night 20:00 - 23:59) -> Sign off next morning (04:00 - 08:00)
+  if (shiftUpper === 'N' || (onHour !== null && (onHour >= 20 || onHour <= 4))) {
+    // Already morning next day (05:xx, 06:xx, 07:xx)
+    return `${String(h).padStart(2, '0')}:${m}`;
+  }
+
+  // Default fallback heuristic: if morning sign-on and 1 <= h <= 5, convert to 13:xx-17:xx
+  if (h >= 1 && h <= 5 && onHour !== null && onHour >= 6 && onHour <= 10) {
+    h += 12;
+  }
+
+  return `${String(h).padStart(2, '0')}:${m}`;
+};
+
+/**
  * Converts a HH:MM or HH:MM:SS string to total seconds
  */
 export const timeToSeconds = (tStr) => {

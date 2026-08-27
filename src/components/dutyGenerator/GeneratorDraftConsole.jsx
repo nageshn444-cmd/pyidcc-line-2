@@ -14,8 +14,7 @@ import { exportRosterToExcel } from '../../services/rosterExportService';
 import { rosterAutoClassifierService } from '../../services/RosterAutoClassifierService';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { formatDutyTypeLink } from '../../utils/timeHelpers';
+import { formatDutyTypeLink, formatTo24HourTime } from '../../utils/timeHelpers';
 import RosterExplainerModal from './RosterExplainerModal';
 
 export default function GeneratorDraftConsole({
@@ -350,7 +349,7 @@ export default function GeneratorDraftConsole({
         empNo: String(item.empId),
         empId: item.empId,
         signOn: item.sOnTime,
-        signOff: item.sOffTime,
+        signOff: formatTo24HourTime(item.sOffTime, item.sOnTime, item.shift),
         signOnLoc: item.sOnLoc,
         signOffLoc: item.sOffLoc,
         shift: item.shift,
@@ -367,7 +366,7 @@ export default function GeneratorDraftConsole({
         shift: item.shift,
         code: item.assignedDutyCode,
         timeFrom: item.sOnTime,
-        timeTo: item.sOffTime,
+        timeTo: formatTo24HourTime(item.sOffTime, item.sOnTime, item.shift),
         loc: item.sOnLoc,
         role: item.role
       }));
@@ -910,7 +909,7 @@ export default function GeneratorDraftConsole({
                                 #{item.empId || '—'}
                               </td>
                               <td className="px-4 py-3 font-mono text-slate-300 tabular-nums">
-                                {item.sOffTime}
+                                {formatTo24HourTime(item.sOffTime, item.sOnTime, item.shift)}
                               </td>
                               <td className="px-4 py-3 text-slate-500 text-[11px]">
                                 {item.sOffLoc}
@@ -981,7 +980,7 @@ export default function GeneratorDraftConsole({
                                 </span>
                               </td>
                               <td className="px-3 py-2 font-mono text-amber-300">{t.empId}</td>
-                              <td className="px-3 py-2 font-mono">{t.sOffTime}</td>
+                              <td className="px-3 py-2 font-mono">{formatTo24HourTime(t.sOffTime, t.sOnTime, t.shift)}</td>
                               <td className="px-3 py-2 text-slate-400">{t.sOffLoc}</td>
                               <td className="px-3 py-2 text-right">
                                 <span className="text-[10px] text-amber-400/80 font-mono font-bold">Shadow TD</span>
@@ -1036,7 +1035,7 @@ export default function GeneratorDraftConsole({
                               ) : null}
                             </div>
                             <span className="text-[10px] text-slate-500 font-mono">
-                              #{emp.empId} · {emp.sOnTime && emp.sOffTime ? `${emp.sOnTime}–${emp.sOffTime}` : 'CC Shift'}
+                              #{emp.empId} · {emp.sOnTime && emp.sOffTime ? `${emp.sOnTime}–${formatTo24HourTime(emp.sOffTime, emp.sOnTime, emp.shift)}` : 'CC Shift'}
                             </span>
                           </div>
                           <span className="px-2 py-1 bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 rounded-lg text-[10px] font-bold font-mono flex-shrink-0">
@@ -1072,7 +1071,7 @@ export default function GeneratorDraftConsole({
                               )}
                             </div>
                             <span className="text-[10px] text-slate-400 font-mono">
-                              Emp #{emp.empId} • {emp.sOnTime}–{emp.sOffTime} • {emp.sOnLoc}
+                              Emp #{emp.empId} • {emp.sOnTime}–{formatTo24HourTime(emp.sOffTime, emp.sOnTime, emp.shift)} • {emp.sOnLoc}
                             </span>
                           </div>
                           <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-[10px] font-bold font-mono">
@@ -1134,7 +1133,7 @@ export default function GeneratorDraftConsole({
                         <div key={emp.empId} className="p-2 bg-slate-950 rounded-xl flex items-center justify-between border border-indigo-500/30">
                           <div>
                             <strong className="text-indigo-200 block">{emp.name}</strong>
-                            <span className="text-[10px] text-slate-400 font-mono">Emp #{emp.empId} • {emp.sOnTime}–{emp.sOffTime}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">Emp #{emp.empId} • {emp.sOnTime}–{formatTo24HourTime(emp.sOffTime, emp.sOnTime, emp.shift)}</span>
                           </div>
                           <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded text-[10px] font-bold font-mono">
                             {emp.assignedDutyCode || 'TRAINING'}
@@ -1320,7 +1319,7 @@ export default function GeneratorDraftConsole({
                         <td className="px-4 py-2.5 font-bold text-white">{item.name}</td>
                         <td className="px-4 py-2.5 font-mono text-slate-400 font-bold">{item.empId}</td>
                         <td className="px-4 py-2.5 font-mono text-slate-300">{item.sOnTime}</td>
-                        <td className="px-4 py-2.5 font-mono text-slate-300">{item.sOffTime}</td>
+                        <td className="px-4 py-2.5 font-mono text-slate-300">{formatTo24HourTime(item.sOffTime, item.sOnTime, item.shift)}</td>
                         <td className="px-4 py-2.5 text-slate-400">{item.sOnLoc}</td>
                         <td className="px-4 py-2.5">
                           <span className="px-2 py-0.5 bg-slate-800 rounded text-[10px] font-bold">{item.status}</span>
@@ -1440,7 +1439,7 @@ export default function GeneratorDraftConsole({
                 >
                   {(DUTY_TEMPLATES_REGISTRY[dayType] || DUTY_TEMPLATES_REGISTRY.WEEKDAY).map(d => (
                     <option key={d.dutyCode} value={d.dutyCode}>
-                      {d.dutyCode} ({d.shift} Shift: {d.sOnTime} → {d.sOffTime} • {d.kms} kms)
+                      {d.dutyCode} ({d.shift} Shift: {d.sOnTime} → {formatTo24HourTime(d.sOffTime, d.sOnTime, d.shift)} • {d.kms} kms)
                     </option>
                   ))}
                   <option value="STBY_RESERVE">STBY_RESERVE (Standby)</option>

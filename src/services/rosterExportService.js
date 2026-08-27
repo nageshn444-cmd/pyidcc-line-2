@@ -3,7 +3,7 @@
  * Generates official BMRCL Duty Roster Excel matching Print Wd & Indv Duties sheets
  */
 import * as XLSX from 'xlsx';
-import { formatDutyTypeLink } from '../utils/timeHelpers';
+import { formatDutyTypeLink, formatTo24HourTime } from '../utils/timeHelpers';
 
 export function exportRosterToExcel({
   targetDate,
@@ -47,7 +47,7 @@ export function exportRosterToExcel({
       a.sOnLoc || '--',
       a.name || '--',
       a.empId || '--',
-      a.sOffTime || '--',
+      formatTo24HourTime(a.sOffTime, a.sOnTime, a.shift) || '--',
       a.sOffLoc || '--',
       a.trainNo || '--',
       'MAINLINE DRIVING',
@@ -67,7 +67,7 @@ export function exportRosterToExcel({
         a.sOnLoc,
         a.name,
         a.empId,
-        a.sOffTime,
+        formatTo24HourTime(a.sOffTime, a.sOnTime, a.shift),
         a.sOffLoc,
         '--',
         'CREW CONTROLLER',
@@ -87,7 +87,7 @@ export function exportRosterToExcel({
         a.sOnLoc,
         a.name,
         a.empId,
-        a.sOffTime,
+        formatTo24HourTime(a.sOffTime, a.sOnTime, a.shift),
         a.sOffLoc,
         '--',
         'SPECIAL DUTY',
@@ -107,7 +107,7 @@ export function exportRosterToExcel({
         a.sOnLoc,
         a.name,
         a.empId,
-        a.sOffTime,
+        formatTo24HourTime(a.sOffTime, a.sOnTime, a.shift),
         a.sOffLoc,
         '--',
         'TRAINING',

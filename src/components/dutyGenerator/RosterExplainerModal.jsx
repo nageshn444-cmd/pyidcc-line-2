@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, CheckCircle2, AlertTriangle, ShieldCheck, Clock, Moon, Sparkles, User, Award } from 'lucide-react';
+import { formatTo24HourTime } from '../../utils/timeHelpers';
 
 export default function RosterExplainerModal({
   isOpen,
@@ -61,7 +62,7 @@ export default function RosterExplainerModal({
             <div className="text-right font-mono">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Timing & Location</span>
               <span className="text-xs text-slate-200 block font-semibold">
-                {assignment.sOnTime} → {assignment.sOffTime}
+                {assignment.sOnTime} → {formatTo24HourTime(assignment.sOffTime, assignment.sOnTime, assignment.shift)}
               </span>
               <span className="text-[11px] text-slate-400 block">
                 {assignment.sOnLoc} ({assignment.kms || 0} kms)
