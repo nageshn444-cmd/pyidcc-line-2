@@ -88,52 +88,87 @@ const detectOS = () => {
   return 'Browser-Default';
 };
 
+const getStored = (key, fallback) => {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const val = localStorage.getItem(key);
+    return val !== null && val !== undefined ? val : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const getStoredJSON = (key, fallback) => {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const val = localStorage.getItem(key);
+    return val ? JSON.parse(val) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 export function ThemeProvider({ children }) {
   const { currentUser } = useAuth();
   const uid = currentUser?.uid || 'anonymous';
 
-  // Base state definitions
-  const [theme, setThemeState] = useState('theme-occ-dark');
-  const [autoThemeMode, setAutoThemeModeState] = useState('system'); // 'system' | 'time'
+  // Instant synchronous lazy initialization from localStorage for 0ms load time
+  const [theme, setThemeState] = useState(() => 
+    getStored(`pyidcc_theme_${uid}`, getStored('pyidcc_theme_active', 'theme-occ-dark'))
+  );
+  const [autoThemeMode, setAutoThemeModeState] = useState(() => 
+    getStored(`pyidcc_automode_${uid}`, getStored('pyidcc_automode_active', 'system'))
+  );
   
-  const [accessibility, setAccessibilityState] = useState({
-    fontSize: 'medium', // 'small' | 'medium' | 'large' | 'xlarge'
-    highContrast: false,
-    animations: 'normal', // 'normal' | 'reduced' | 'fast'
-    brightness: 100, // 50 to 100
-    blueLightReduction: false,
-  });
+  const [accessibility, setAccessibilityState] = useState(() => 
+    getStoredJSON(`pyidcc_access_${uid}`, {
+      fontSize: 'medium',
+      highContrast: false,
+      animations: 'normal',
+      brightness: 100,
+      blueLightReduction: false,
+    })
+  );
 
-  const [personalization, setPersonalizationState] = useState({
-    density: 'comfortable', // 'compact' | 'comfortable' | 'spacious'
-    widgetOrder: ['status', 'map', 'relief', 'swap', 'leave', 'matrix'],
-    language: 'EN',
-  });
+  const [personalization, setPersonalizationState] = useState(() => 
+    getStoredJSON(`pyidcc_pers_${uid}`, {
+      density: 'comfortable',
+      widgetOrder: ['status', 'map', 'relief', 'swap', 'leave', 'matrix'],
+      language: 'EN',
+    })
+  );
 
-  const [customThemeColors, setCustomThemeColorsState] = useState({
-    appBg: '#0b1329',
-    panelBg: 'rgba(20, 30, 55, 0.5)',
-    textMain: '#f1f5f9',
-    accentColor: '#10b981',
-  });
+  const [customThemeColors, setCustomThemeColorsState] = useState(() => 
+    getStoredJSON(`pyidcc_custom_${uid}`, {
+      appBg: '#0b1329',
+      panelBg: 'rgba(20, 30, 55, 0.5)',
+      textMain: '#f1f5f9',
+      accentColor: '#10b981',
+    })
+  );
 
-  const [emergencyMode, setEmergencyMode] = useState(false);
-  const [activeIncidentsCount, setActiveIncidentsCount] = useState(0);
+  const [emergencyMode] = useState(false);
+  const [activeIncidentsCount] = useState(0);
 
-  // Sync Preferences to database and localStorage
+  // Sync Preferences to database and localStorage non-blockingly
   const savePreferences = async (updatedTheme, updatedAutoMode, updatedAccess, updatedPers, updatedCustom) => {
-    // Save to LocalStorage first for speed
     const activeTheme = updatedTheme || theme;
     const activeAutoMode = updatedAutoMode || autoThemeMode;
     const activeAccess = updatedAccess || accessibility;
     const activePers = updatedPers || personalization;
     const activeCustom = updatedCustom || customThemeColors;
 
-    localStorage.setItem(`pyidcc_theme_${uid}`, activeTheme);
-    localStorage.setItem(`pyidcc_automode_${uid}`, activeAutoMode);
-    localStorage.setItem(`pyidcc_access_${uid}`, JSON.stringify(activeAccess));
-    localStorage.setItem(`pyidcc_pers_${uid}`, JSON.stringify(activePers));
-    localStorage.setItem(`pyidcc_custom_${uid}`, JSON.stringify(activeCustom));
+    try {
+      localStorage.setItem('pyidcc_theme_active', activeTheme);
+      localStorage.setItem('pyidcc_automode_active', activeAutoMode);
+      localStorage.setItem(`pyidcc_theme_${uid}`, activeTheme);
+      localStorage.setItem(`pyidcc_automode_${uid}`, activeAutoMode);
+      localStorage.setItem(`pyidcc_access_${uid}`, JSON.stringify(activeAccess));
+      localStorage.setItem(`pyidcc_pers_${uid}`, JSON.stringify(activePers));
+      localStorage.setItem(`pyidcc_custom_${uid}`, JSON.stringify(activeCustom));
+    } catch {
+      // ignore storage quota issues
+    }
 
     if (!currentUser) return;
     try {
@@ -147,20 +182,13 @@ export function ThemeProvider({ children }) {
       };
       await setDoc(doc(db, 'userThemeSettings', uid), payload, { merge: true });
     } catch (e) {
-      console.error("Failed to save theme settings to Firestore:", e);
+      console.warn("Theme preferences background sync:", e);
     }
   };
 
-  // 1. Fetch & Sync with Firestore & LocalStorage
+  // Background non-blocking sync with Firestore
   useEffect(() => {
-    if (!currentUser) {
-      // Offline fallback
-      const storedTheme = localStorage.getItem(`pyidcc_theme_anonymous`) || 'theme-occ-dark';
-      const storedAuto = localStorage.getItem(`pyidcc_automode_anonymous`) || 'system';
-      setThemeState(storedTheme);
-      setAutoThemeModeState(storedAuto);
-      return;
-    }
+    if (!currentUser) return;
 
     const unsub = onSnapshot(doc(db, 'userThemeSettings', uid), (docSnap) => {
       if (docSnap.exists()) {
@@ -170,47 +198,10 @@ export function ThemeProvider({ children }) {
         if (data.accessibility) setAccessibilityState(prev => ({ ...prev, ...data.accessibility }));
         if (data.personalization) setPersonalizationState(prev => ({ ...prev, ...data.personalization }));
         if (data.customThemeColors) setCustomThemeColorsState(data.customThemeColors);
-      } else {
-        // Sync fallback from localStorage
-        const storedTheme = localStorage.getItem(`pyidcc_theme_${uid}`);
-        if (storedTheme) setThemeState(storedTheme);
-
-        const storedAuto = localStorage.getItem(`pyidcc_automode_${uid}`);
-        if (storedAuto) setAutoThemeModeState(storedAuto);
-
-        const storedAccess = localStorage.getItem(`pyidcc_access_${uid}`);
-        if (storedAccess) {
-          try { setAccessibilityState(JSON.parse(storedAccess)); } catch (e) { console.error(e); }
-        }
-        const storedPers = localStorage.getItem(`pyidcc_pers_${uid}`);
-        if (storedPers) {
-          try { setPersonalizationState(JSON.parse(storedPers)); } catch (e) { console.error(e); }
-        }
-        const storedCustom = localStorage.getItem(`pyidcc_custom_${uid}`);
-        if (storedCustom) {
-          try { setCustomThemeColorsState(JSON.parse(storedCustom)); } catch (e) { console.error(e); }
-        }
       }
+    }, () => {
+      // offline silent fallback
     });
-
-    return () => unsub();
-  }, [currentUser, uid]);
-
-  // Listen to live incidents to trigger emergency mode
-  useEffect(() => {
-    if (!currentUser) {
-      setActiveIncidentsCount(0);
-      setEmergencyMode(false);
-      return;
-    }
-
-    const unsub = onSnapshot(doc(db, 'userThemeSettings', uid), () => {
-      // Nested subscription to incidents
-      const incidentsUnsub = onSnapshot(doc(db, 'config', 'incidents'), () => {
-        // Safe check since we may not need to read all collections in offline modes
-      });
-      return () => incidentsUnsub();
-    }, () => {});
 
     return () => unsub();
   }, [currentUser, uid]);
@@ -225,11 +216,6 @@ export function ThemeProvider({ children }) {
         const isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         setComputedAutoSubTheme(isSystemDark ? 'theme-occ-dark' : 'theme-occ-light');
       } else {
-        // Time based progressive cycle:
-        // 06:00 - 09:00: Eye Comfort Day
-        // 09:00 - 17:00: OCC Light
-        // 17:00 - 21:00: OCC Dark
-        // 21:00 - 06:00: Eye Comfort Night
         const now = new Date();
         const hour = now.getHours() + now.getMinutes() / 60;
         if (hour >= 6.0 && hour < 9.0) {
@@ -245,7 +231,7 @@ export function ThemeProvider({ children }) {
     };
 
     determineAutoTheme();
-    const interval = setInterval(determineAutoTheme, 30000);
+    const interval = setInterval(determineAutoTheme, 60000);
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const listener = () => determineAutoTheme();
@@ -284,74 +270,35 @@ export function ThemeProvider({ children }) {
     cardShadow: 'var(--card-shadow)'
   }), []);
 
-  // 4. Apply classes and css variables to HTML element
-  useEffect(() => {
-    const htmlEl = document.documentElement;
-
-    // List of all themes to remove
-    const themesList = [
-      'theme-occ-dark',
-      'theme-occ-light',
-      'theme-night-ops',
-      'theme-comfort-day',
-      'theme-comfort-night',
-      'theme-contrast',
-      'theme-emerald-ops',
-      'theme-bmrcl',
-      'theme-emergency',
-      'theme-custom'
-    ];
-    themesList.forEach(t => htmlEl.classList.remove(t));
-    htmlEl.classList.add(activeTheme);
-
-    // Apply custom colors if theme-custom is active
+  // 4. Pure CSS/React container styling - ZERO imperative DOM manipulation ("dont do DOM")
+  const containerStyle = useMemo(() => {
     if (activeTheme === 'theme-custom') {
-      htmlEl.style.setProperty('--custom-app-bg', customThemeColors.appBg);
-      htmlEl.style.setProperty('--custom-panel-bg', customThemeColors.panelBg);
-      htmlEl.style.setProperty('--custom-panel-bg-solid', customThemeColors.panelBg.replace(/[\d\.]+\)$/, '1)'));
-      htmlEl.style.setProperty('--custom-header-bg', customThemeColors.appBg);
-      htmlEl.style.setProperty('--custom-text-main', customThemeColors.textMain);
-      htmlEl.style.setProperty('--custom-text-sub', customThemeColors.textMain + 'dd');
-      htmlEl.style.setProperty('--custom-text-muted', customThemeColors.textMain + 'aa');
-      htmlEl.style.setProperty('--custom-border-color', 'rgba(255,255,255,0.08)');
-      htmlEl.style.setProperty('--custom-accent-color', customThemeColors.accentColor);
-      htmlEl.style.setProperty('--custom-accent-glow', customThemeColors.accentColor + '55');
-    } else {
-      // Clear custom properties
-      const propertiesToRemove = [
-        '--custom-app-bg', '--custom-panel-bg', '--custom-panel-bg-solid',
-        '--custom-header-bg', '--custom-text-main', '--custom-text-sub',
-        '--custom-text-muted', '--custom-border-color', '--custom-accent-color',
-        '--custom-accent-glow'
-      ];
-      propertiesToRemove.forEach(p => htmlEl.style.removeProperty(p));
+      return {
+        '--custom-app-bg': customThemeColors.appBg,
+        '--custom-panel-bg': customThemeColors.panelBg,
+        '--custom-panel-bg-solid': customThemeColors.panelBg.replace(/[\d\.]+\)$/, '1)'),
+        '--custom-header-bg': customThemeColors.appBg,
+        '--custom-text-main': customThemeColors.textMain,
+        '--custom-text-sub': customThemeColors.textMain + 'dd',
+        '--custom-text-muted': customThemeColors.textMain + 'aa',
+        '--custom-border-color': 'rgba(255,255,255,0.08)',
+        '--custom-accent-color': customThemeColors.accentColor,
+        '--custom-accent-glow': customThemeColors.accentColor + '55',
+      };
     }
+    return undefined;
+  }, [activeTheme, customThemeColors]);
 
-    // Apply accessibility properties
-    htmlEl.classList.remove('text-sz-small', 'text-sz-medium', 'text-sz-large', 'text-sz-xlarge');
-    htmlEl.classList.add(`text-sz-${accessibility.fontSize}`);
-
-    htmlEl.setAttribute('data-density', personalization.density || 'comfortable');
-
-    if (accessibility.highContrast || activeTheme === 'theme-contrast') {
-      htmlEl.classList.add('high-contrast');
-    } else {
-      htmlEl.classList.remove('high-contrast');
-    }
-
-    htmlEl.classList.remove('reduce-motion', 'fast-motion');
-    if (accessibility.animations === 'reduced') {
-      htmlEl.classList.add('reduce-motion');
-    } else if (accessibility.animations === 'fast') {
-      htmlEl.classList.add('fast-motion');
-    }
-
-    let filterString = `brightness(${accessibility.brightness || 100}%)`;
-    if (accessibility.blueLightReduction) {
-      filterString += ` sepia(0.45) saturate(0.85) hue-rotate(-12deg)`;
-    }
-    htmlEl.style.filter = filterString;
-  }, [activeTheme, accessibility, personalization, customThemeColors]);
+  const containerClass = useMemo(() => {
+    const list = [
+      activeTheme,
+      `text-sz-${accessibility.fontSize || 'medium'}`,
+      accessibility.highContrast || activeTheme === 'theme-contrast' ? 'high-contrast' : '',
+      accessibility.animations === 'reduced' ? 'reduce-motion' : accessibility.animations === 'fast' ? 'fast-motion' : '',
+      'min-h-screen w-full bg-[var(--app-bg,#0B1220)] text-[var(--text-main,#F8FAFC)]'
+    ];
+    return list.filter(Boolean).join(' ');
+  }, [activeTheme, accessibility]);
 
   const setTheme = (newTheme) => {
     setThemeState(newTheme);
@@ -437,7 +384,14 @@ export function ThemeProvider({ children }) {
 
   return (
     <ThemeContext.Provider value={value}>
-      {children}
+      <div 
+        id="pyidcc-theme-root"
+        className={containerClass}
+        style={containerStyle}
+        data-density={personalization.density || 'comfortable'}
+      >
+        {children}
+      </div>
     </ThemeContext.Provider>
   );
 }

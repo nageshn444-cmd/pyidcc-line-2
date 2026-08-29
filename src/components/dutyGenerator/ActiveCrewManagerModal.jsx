@@ -271,7 +271,7 @@ export default function ActiveCrewManagerModal({
       fixedWo: newFixedWo,
       specialProfile: newGender === 'FEMALE' && newProfile === 'NORMAL' ? 'PINK' : newProfile,
       pinkDutyEligible: newGender === 'FEMALE' || newProfile === 'PINK',
-      nightTarget: newGender === 'FEMALE' ? 5 : 6,
+      nightTarget: 6,
       boardingStation: newStation,
       travellingBy: 'Train',
       homeLocation: '',
@@ -999,7 +999,7 @@ export default function ActiveCrewManagerModal({
                       className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
                     >
                       <option value="MALE">Male (Max 6 Nights)</option>
-                      <option value="FEMALE">Female (Max 5 Nights / Pink Roster)</option>
+                      <option value="FEMALE">Female (Max 6 Nights / Pink Roster)</option>
                     </select>
                   </div>
                   <div>

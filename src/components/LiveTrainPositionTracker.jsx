@@ -17,6 +17,7 @@ import {
   minutesToTime 
 } from '../utils/kpiEngine';
 import { EMPLOYEE_MASTER_REGISTRY } from '../data/employeeProfileMaster';
+import { WTT_MASTER_REGISTRY } from '../data/wttMasterRegistry';
 
 export default function LiveTrainPositionTracker({ 
   liveTrainTrackingMap: propLiveTrainTrackingMap = {}, 
@@ -46,8 +47,31 @@ export default function LiveTrainPositionTracker({
     const day = new Date().getDay();
     if (day === 0) return 'SUNDAY';
     if (day === 6) return 'SATURDAY';
+    if (day === 1) return 'MONDAY';
     return 'WEEKDAY';
   });
+
+  // Extract static trips from WTT Master Registry as reliable schedule coverage
+  const staticWttTrips = useMemo(() => {
+    const trips = [];
+    (WTT_MASTER_REGISTRY || []).forEach(row => {
+      if (row.downTrip) trips.push(row.downTrip);
+      if (row.upTrip) trips.push(row.upTrip);
+      if (!row.downTrip && !row.upTrip && row.stations) trips.push(row);
+    });
+    return trips;
+  }, []);
+
+  // Normalization helper for flexible schedule matching (e.g. MON / MONDAY)
+  const isScheduleMatch = (itemSched, targetSched) => {
+    const s1 = String(itemSched || '').toUpperCase();
+    const s2 = String(targetSched || '').toUpperCase();
+    if (s1 === s2) return true;
+    if ((s2 === 'MONDAY' || s2 === 'MON') && (s1 === 'MONDAY' || s1 === 'MON')) return true;
+    if ((s2 === 'SATURDAY' || s2 === 'SAT') && (s1 === 'SATURDAY' || s1 === 'SAT' || s1 === 'SAT_GH')) return true;
+    if ((s2 === 'SUNDAY' || s2 === 'SUN') && (s1 === 'SUNDAY' || s1 === 'SUN')) return true;
+    return false;
+  };
 
   // Sync active schedule when prop changes
   useEffect(() => {
@@ -124,11 +148,18 @@ export default function LiveTrainPositionTracker({
   const [stationFilter, setStationFilter] = useState('ALL'); // 'ALL' | 'PYID' | 'KGWA' | 'PUTH'
   const [trackFilter, setTrackFilter] = useState('ALL'); // 'ALL' | 'UP' | 'DOWN'
 
-  // Relief station metadata definitions
+  // Relief station metadata definitions (including PYID, YPI / Goraguntepalya, KGWA, PUTH, etc.)
   const RELIEF_STATION_CONFIG = useMemo(() => [
-    { code: 'PYID', label: 'Peenya Industry (PYID)', nameEn: 'Peenya Industry', nameKn: 'ಪೀಣ್ಯ ಇಂಡಸ್ಟ್ರಿ', chainage: -3.020 },
-    { code: 'KGWA', label: 'Majestic Kempegowda (KGWA)', nameEn: 'Kempegowda Majestic', nameKn: 'ಕೆಂಪೇಗೌಡ ಮೆಜೆಸ್ಟಿಕ್', chainage: 7.569 },
-    { code: 'PUTH', label: 'Yelachenahalli (PUTH)', nameEn: 'Yelachenahalli', nameKn: 'ಯಲಚೇನಹಳ್ಳಿ', chainage: 17.780 },
+    { code: 'PYID', label: 'Peenya Industry (PYID)', nameEn: 'Peenya Industry', nameKn: 'ಪೀಣ್ಯ ಇಂಡಸ್ಟ್ರಿ', chainage: -3.020, isReliefStation: true },
+    { code: 'YPI', label: 'Goraguntepalya (YPI)', nameEn: 'Goraguntepalya', nameKn: 'ಗೊರಗುಂಟೆಪಾಳ್ಯ', chainage: -1.125, isReliefStation: true },
+    { code: 'PEYA', label: 'Peenya (PEYA)', nameEn: 'Peenya', nameKn: 'ಪೀಣ್ಯ', chainage: -2.074, isReliefStation: true },
+    { code: 'KGWA', label: 'Majestic Kempegowda (KGWA)', nameEn: 'Kempegowda Majestic', nameKn: 'ಕೆಂಪೇಗೌಡ ಮೆಜೆಸ್ಟಿಕ್', chainage: 7.569, isReliefStation: true },
+    { code: 'PUTH', label: 'Yelachenahalli (PUTH)', nameEn: 'Yelachenahalli', nameKn: 'ಯಲಚೇನಹಳ್ಳಿ', chainage: 17.780, isReliefStation: true },
+    { code: 'JLHL', label: 'Jalahalli (JLHL)', nameEn: 'Jalahalli', nameKn: 'ಜಾಲಹಳ್ಳಿ', chainage: -3.721, isReliefStation: false },
+    { code: 'YPM', label: 'Yeshwanthpur (YPM)', nameEn: 'Yeshwanthpur', nameKn: 'ಯಶವಂತಪುರ', chainage: 0.000, isReliefStation: false },
+    { code: 'NGSA', label: 'Nagasandra (NGSA)', nameEn: 'Nagasandra', nameKn: 'ನಾಗಸಂದ್ರ', chainage: -6.088, isReliefStation: false },
+    { code: 'BIET', label: 'Madavara (BIET)', nameEn: 'Madavara', nameKn: 'ಮಾದಾವರ', chainage: -9.227, isReliefStation: false },
+    { code: 'APTS', label: 'Silk Institute (APTS)', nameEn: 'Silk Institute', nameKn: 'ಸಿಲ್ಕ್ ಇನ್‌ಸ್ಟಿಟ್ಯೂಟ್', chainage: 23.833, isReliefStation: false },
   ], []);
 
   // Normalized time conversion for operational schedule calculations (< 3 AM rollover)
@@ -150,21 +181,37 @@ export default function LiveTrainPositionTracker({
   const getStationInfo = (stCode) => {
     const found = RELIEF_STATION_CONFIG.find(s => s.code === stCode);
     if (found) return found;
-    return { code: stCode, label: stCode, nameEn: stCode, nameKn: stCode, chainage: 0 };
+    return { code: stCode, label: `${stCode}`, nameEn: stCode, nameKn: stCode, chainage: 0 };
   };
 
-  // ── High-Fidelity Bilingual Voice Announcement Engine ──
-  const triggerBilingualAnnouncement = (trainId, direction, relieverName, activeOperatorName, stationCode = 'PYID') => {
+  // ── High-Fidelity Bilingual Voice Announcement Engine (Verified Reliever Only) ──
+  const triggerBilingualAnnouncement = (
+    trainId, 
+    direction, 
+    relieverName, 
+    activeOperatorName, 
+    stationCode = 'PYID',
+    relieverDutyNo = '--',
+    activeDutyNo = '--'
+  ) => {
     if (!voiceEnabled || !('speechSynthesis' in window)) return;
     
-    // STRICT OPERATIONAL RULE: Only announce when a reliever is verified and available!
-    if (
-      !relieverName || 
-      relieverName === '--' || 
-      relieverName === 'Unassigned' || 
-      relieverName.startsWith('Train Operator')
-    ) {
-      console.log(`[Handover Announcement Suppressed] Train ${trainId} at ${stationCode}: No reliever assigned.`);
+    const cleanReliever = String(relieverName || '').trim();
+    const cleanActive = String(activeOperatorName || '').trim();
+
+    // STRICT OPERATIONAL RULE: Only announce when a verified, distinct reliever is assigned!
+    const isVerifiedReliever = Boolean(
+      cleanReliever && 
+      cleanReliever !== '--' && 
+      cleanReliever !== '-' &&
+      cleanReliever !== 'Unassigned' && 
+      !cleanReliever.toLowerCase().includes('unassigned') &&
+      !cleanReliever.startsWith('Train Operator') &&
+      (cleanReliever !== cleanActive || (relieverDutyNo && activeDutyNo && relieverDutyNo !== activeDutyNo && relieverDutyNo !== '--'))
+    );
+
+    if (!isVerifiedReliever) {
+      console.log(`[Handover Announcement Suppressed] Train ${trainId} at ${stationCode}: No verified reliever assigned.`);
       return;
     }
 
@@ -177,10 +224,10 @@ export default function LiveTrainPositionTracker({
       const stInfo = getStationInfo(stationCode);
 
       const hasActive = Boolean(
-        activeOperatorName && 
-        activeOperatorName !== '--' && 
-        activeOperatorName !== 'Unassigned' && 
-        !activeOperatorName.startsWith('Train Operator')
+        cleanActive && 
+        cleanActive !== '--' && 
+        cleanActive !== 'Unassigned' && 
+        !cleanActive.startsWith('Train Operator')
       );
 
       // Clean digit pronunciation for train ID (e.g., "2 0 6")
@@ -198,22 +245,24 @@ export default function LiveTrainPositionTracker({
       const enVoice = voices.find(v => v.lang === 'en-IN' || v.name?.includes('India')) ||
                       voices.find(v => v.lang.startsWith('en'));
 
-      // 1. Kannada Announcement (Refined, Phonetically Natural Phrasing)
+      // 1. Kannada Announcement (Refined, Duty-Accurate Phrasing)
       let utterKn = null;
       if (knVoice) {
-        const knActivePart = hasActive ? `ಚಾಲಕ ${activeOperatorName} ರವರನ್ನು ರಿಲೀವ್ ಮಾಡಲು, ` : '';
-        const knText = `ಗಮನಿಸಿ. ರೈಲು ಸಂಖ್ಯೆ ${trainDigits}, ${stInfo.nameKn} ${dirKn} ಪ್ಲಾಟ್‌ಫಾರ್ಮ್‌ಗೆ ಆಗಮಿಸುತ್ತಿದೆ. ${knActivePart}ರಿಲೀವರ್ ${relieverName} ರವರು ದಯವಿಟ್ಟು ಕರ್ತವ್ಯಕ್ಕೆ ಹಾಜರಾಗಿ.`;
+        const knActivePart = hasActive ? `ಚಾಲಕ ${cleanActive} ರವರನ್ನು ರಿಲೀವ್ ಮಾಡಲು, ` : '';
+        const knDutyPart = relieverDutyNo && relieverDutyNo !== '--' ? `ಡ್ಯೂಟಿ ${relieverDutyNo}, ` : '';
+        const knText = `ಗಮನಿಸಿ. ರೈಲು ಸಂಖ್ಯೆ ${trainDigits}, ${stInfo.nameKn} ${dirKn} ಪ್ಲಾಟ್‌ಫಾರ್ಮ್‌ಗೆ ಆಗಮಿಸುತ್ತಿದೆ. ${knActivePart}ರಿಲೀವರ್ ${knDutyPart}${cleanReliever} ರವರು ದಯವಿಟ್ಟು ಕರ್ತವ್ಯ ಹಸ್ತಾಂತರಕ್ಕೆ ಪ್ಲಾಟ್‌ಫಾರ್ಮ್‌ಗೆ ಹಾಜರಾಗಿ.`;
         
         utterKn = new SpeechSynthesisUtterance(knText);
         utterKn.voice = knVoice;
         utterKn.lang = knVoice.lang || 'kn-IN';
-        utterKn.rate = 0.85; // Measured pace for maximum phonetic clarity
+        utterKn.rate = 0.85; // Measured pace for maximum clarity
         utterKn.pitch = 1.0;
       }
 
-      // 2. English Announcement (Clear Professional Standard)
-      const enActivePart = hasActive ? `Active train operator is ${activeOperatorName}. ` : '';
-      const enText = `Attention please. Train ${trainDigits} is approaching ${stInfo.nameEn}, ${dirEn} platform. ${enActivePart}Reliever train operator ${relieverName}, please proceed to the platform for handover.`;
+      // 2. English Announcement (Professional BMRCL Operational Standard)
+      const enActivePart = hasActive ? `Active train operator is ${cleanActive}. ` : '';
+      const enDutyPart = relieverDutyNo && relieverDutyNo !== '--' ? `Duty ${relieverDutyNo}, ` : '';
+      const enText = `Attention please. Train ${trainDigits} is approaching ${stInfo.nameEn}, ${dirEn} platform. ${enActivePart}Reliever train operator ${enDutyPart}${cleanReliever}, please proceed to the platform for handover.`;
       
       const utterEn = new SpeechSynthesisUtterance(enText);
       if (enVoice) utterEn.voice = enVoice;
@@ -222,7 +271,7 @@ export default function LiveTrainPositionTracker({
       utterEn.pitch = 1.0;
 
       // Speak Kannada first if native Kannada voice is supported, followed by English;
-      // If Kannada voice is absent on user OS, speak crystal-clear English to avoid garbled unicode stutter.
+      // If Kannada voice is absent on user OS, speak crystal-clear English to avoid garbled stutter.
       if (utterKn) {
         window.speechSynthesis.speak(utterKn);
         utterKn.onend = () => {
@@ -242,13 +291,19 @@ export default function LiveTrainPositionTracker({
     const evalSecs = timeToSecondsNormalized(simulatedTime);
 
     // 1. Unified deployments from link roster & daily deployment
-    const currentDayLinks = linkRoster.filter(l => 
-      String(l.scheduleType || '').toUpperCase() === currentSchedule
+    let currentDayLinks = linkRoster.filter(l => 
+      isScheduleMatch(l.scheduleType, currentSchedule)
     );
+    if (currentDayLinks.length === 0 && (currentSchedule === 'MONDAY' || currentSchedule === 'MON')) {
+      currentDayLinks = linkRoster.filter(l => isScheduleMatch(l.scheduleType, 'WEEKDAY'));
+    }
 
-    const deployData = dailyDeployments.filter(d => 
-      String(d.scheduleType || '').toUpperCase() === currentSchedule
+    let deployData = dailyDeployments.filter(d => 
+      isScheduleMatch(d.scheduleType, currentSchedule)
     );
+    if (deployData.length === 0 && (currentSchedule === 'MONDAY' || currentSchedule === 'MON')) {
+      deployData = dailyDeployments.filter(d => isScheduleMatch(d.scheduleType, 'WEEKDAY'));
+    }
 
     const activeDeployments = currentDayLinks.map(link => {
       const normLinkId = normalizeDuty(link.dutyId);
@@ -344,7 +399,26 @@ export default function LiveTrainPositionTracker({
       const current = timeline.find(c => evalSecs >= c.startSec && evalSecs <= c.endSec) || null;
       const finished = timeline.filter(c => c.endSec < evalSecs);
       const previous = finished.length > 0 ? finished[finished.length - 1] : null;
-      const nextReliver = timeline.find(c => c.startSec > evalSecs) || null;
+
+      // Find the immediate upcoming next operator on this train who is distinct from current operator
+      let nextReliver = null;
+      if (current) {
+        // Look for the next leg in timeline with distinct duty/operator
+        const futureLegs = timeline.filter(c => c.startSec >= current.endSec - 300);
+        const distinctReliever = futureLegs.find(c => 
+          (c.dutyId !== current.dutyId || c.empId !== current.empId || c.empName !== current.empName) &&
+          c.empName && c.empName !== '--' && !c.empName.toLowerCase().includes('unassigned') && !c.empName.startsWith('Train Operator')
+        );
+        nextReliver = distinctReliever || null;
+      } else {
+        // If no current operator active right now, find the very next upcoming scheduled operator
+        nextReliver = timeline.find(c => 
+          c.startSec > evalSecs && 
+          c.empName && c.empName !== '--' && 
+          !c.empName.toLowerCase().includes('unassigned') && 
+          !c.empName.startsWith('Train Operator')
+        ) || null;
+      }
 
       calculatedTracking[tid] = {
         current,
@@ -371,10 +445,14 @@ export default function LiveTrainPositionTracker({
   // Position detection logic for active trains moving along Green Line & Relief Station Alerts (PYID, KGWA, PUTH)
   const { liveTrainPositions, reliefStationAlerts } = useMemo(() => {
     const timeMins = timeToMinutes(simulatedTime);
+    const evalSecs = timeToSecondsNormalized(simulatedTime);
     const activeChainages = Object.keys(stationChainageDB).length > 0 ? stationChainageDB : STATION_CHAINAGE;
 
-    // Filter WTT matrix for active day
-    const activeTrips = wttMatrix.filter(t => String(t.scheduleType).toUpperCase() === activeSchedule);
+    // Filter WTT matrix for active day (with full WTT master registry fallback for complete schedule coverage)
+    const firestoreTrips = (wttMatrix || []).filter(t => isScheduleMatch(t.scheduleType, activeSchedule));
+    const activeTrips = firestoreTrips.length > 0 
+      ? firestoreTrips 
+      : staticWttTrips.filter(t => isScheduleMatch(t.scheduleType, activeSchedule));
     const activeWTTTrains = [...new Set(activeTrips.map(t => String(t.trainId).trim()))];
     const positions = [];
     const stationAlerts = [];
@@ -495,6 +573,7 @@ export default function LiveTrainPositionTracker({
             id: relieverOp.empId || '--',
             dutyNo: relieverOp.dutyId || '--',
             takeoverTime: relieverOp.startStr || '--',
+            startSec: relieverOp.startSec,
             isExchanged: relieverOp.isExchanged,
             originalEmpName: relieverOp.originalEmpName
           };
@@ -510,6 +589,50 @@ export default function LiveTrainPositionTracker({
             relievedTime: prevOp.endStr || '--'
           };
         }
+
+        // Determine the exact scheduled handover station for this reliever (from WTT timetable at reliever takeover time)
+        let scheduledHandoverStation = null;
+        if (relieverOp && relieverOp.startSec < 999999) {
+          const targetMin = Math.round(relieverOp.startSec / 60);
+          for (let ti = 0; ti < trainTrips.length; ti++) {
+            const trip = trainTrips[ti];
+            for (const [stCode, timeStr] of Object.entries(trip.stations || {})) {
+              if (timeStr && timeStr !== '--' && timeStr !== '-') {
+                const stMin = timeToMinutes(timeStr);
+                if (Math.abs(stMin - targetMin) <= 4) {
+                  scheduledHandoverStation = stCode;
+                  break;
+                }
+              }
+            }
+            if (scheduledHandoverStation) break;
+          }
+        }
+        if (!scheduledHandoverStation) {
+          scheduledHandoverStation = 'PYID'; // Default Line-2 main crew changeover depot
+        }
+
+        // Check if reliever is valid and distinct from current operator
+        const isVerifiedReliever = Boolean(
+          reliever && 
+          reliever.name && 
+          reliever.name !== '--' && 
+          reliever.name !== '-' && 
+          reliever.name !== 'Unassigned' && 
+          !reliever.name.toLowerCase().includes('unassigned') && 
+          !reliever.name.startsWith('Train Operator') &&
+          (reliever.name !== operatorInfo.name || (reliever.dutyNo && operatorInfo.dutyNo && reliever.dutyNo !== operatorInfo.dutyNo && reliever.dutyNo !== '--'))
+        );
+
+        // STRICT Current-Time Reliever Handover Window:
+        // A handover announcement is ONLY active if the reliever's scheduled start time (relieverStartSec)
+        // is within [-2.5 mins, +2.5 mins] of current simulation time (evalSecs).
+        const relieverStartSec = (relieverOp && relieverOp.startSec < 999999) ? relieverOp.startSec : 999999;
+        const timeDiffToReliever = relieverStartSec - evalSecs;
+        const isTimeMatch = relieverStartSec !== 999999 && Math.abs(timeDiffToReliever) <= 150;
+        
+        const isCurrentTimeHandover = isVerifiedReliever && isTimeMatch;
+        const hasReliever = isCurrentTimeHandover;
 
         const trainObj = {
           trainId: tId,
@@ -527,12 +650,16 @@ export default function LiveTrainPositionTracker({
           distanceRemaining: parseFloat(distanceRemaining.toFixed(2)),
           pctLine: (currentChainage - activeChainages.BIET) / (activeChainages.APTS - activeChainages.BIET),
           reliever,
+          scheduledHandoverStation,
+          isVerifiedReliever,
+          isCurrentTimeHandover,
+          hasReliever,
           previousOperator
         };
 
         positions.push(trainObj);
 
-        // ── Precise Proximity & Departure Detection for all Relief Stations (PYID, KGWA, PUTH) ──
+        // ── Precise Proximity & Departure Detection for all Relief Stations (PYID, YPI, KGWA, PUTH, etc.) ──
         RELIEF_STATION_CONFIG.forEach(st => {
           const stChain = activeChainages[st.code] ?? st.chainage;
           
@@ -544,37 +671,36 @@ export default function LiveTrainPositionTracker({
           if (isUp) {
             // UP Track: travels APTS (+23.833) ➔ BIET (-9.227) [decreasing chainage]
             distToStation = currentChainage - stChain; // > 0 before station, < 0 after station
-            isApproaching = distToStation >= -0.15 && distToStation <= 1.25;
+            isApproaching = distToStation >= -0.15 && distToStation <= 1.35;
             isAtPlatform = Math.abs(distToStation) <= 0.15;
             isDeparted = distToStation < -0.15;
           } else {
             // DOWN Track: travels BIET (-9.227) ➔ APTS (+23.833) [increasing chainage]
             distToStation = stChain - currentChainage; // > 0 before station, < 0 after station
-            isApproaching = distToStation >= -0.15 && distToStation <= 1.25;
+            isApproaching = distToStation >= -0.15 && distToStation <= 1.35;
             isAtPlatform = Math.abs(distToStation) <= 0.15;
             isDeparted = distToStation < -0.15;
           }
 
-          // If train is in the vicinity of this relief station (within 1.5 km before or 0.8 km after)
-          if ((isApproaching || isAtPlatform || (distToStation >= -0.8 && distToStation < 0)) || nextSt.station === st.code || prevSt.station === st.code) {
-            const hasReliever = Boolean(
-              reliever && 
-              reliever.name && 
-              reliever.name !== '--' && 
-              reliever.name !== 'Unassigned' && 
-              !reliever.name.startsWith('Train Operator')
-            );
+          // STRICT STATION & TIME FILTER:
+          // A station only has an active reliever announcement if this station matches the SCHEDULED handover station
+          const isStationMatch = (st.code === scheduledHandoverStation);
+          const stationHasReliever = isCurrentTimeHandover && isStationMatch;
 
+          // If train is in the vicinity of this station (within 1.5 km before or 0.8 km after), or currently at this station
+          if ((isApproaching || isAtPlatform || (distToStation >= -0.8 && distToStation < 0)) || nextSt.station === st.code || prevSt.station === st.code || trainObj.currentStation.includes(st.code)) {
             stationAlerts.push({
               ...trainObj,
               stationCode: st.code,
               stationLabel: st.label,
               stationNameEn: st.nameEn,
               stationNameKn: st.nameKn,
-              isApproaching: isApproaching || isAtPlatform,
+              hasReliever: stationHasReliever,
+              isCurrentTimeHandover: stationHasReliever,
+              isStationMatch,
+              isApproaching: (isApproaching || isAtPlatform || trainObj.currentStation.includes(st.code)) && !isDeparted,
               isAtPlatform,
               isDeparted,
-              hasReliever,
               distToStation: Math.abs(distToStation).toFixed(2),
               stationStatus: isDeparted ? 'DEPARTED' : isAtPlatform ? 'AT PLATFORM' : 'APPROACHING'
             });
@@ -587,23 +713,25 @@ export default function LiveTrainPositionTracker({
       liveTrainPositions: positions, 
       reliefStationAlerts: stationAlerts 
     };
-  }, [simulatedTime, wttMatrix, liveIncidents, dynamicTrainTrackingMap, stationChainageDB, activeSchedule, dailyCrewTracks, RELIEF_STATION_CONFIG]);
+  }, [simulatedTime, wttMatrix, staticWttTrips, liveIncidents, dynamicTrainTrackingMap, stationChainageDB, activeSchedule, dailyCrewTracks, RELIEF_STATION_CONFIG]);
 
-  // Automated Voice Announcement Trigger at Relief Stations (PYID, KGWA, PUTH)
-  // STRICT RULE 1: Only announce if a verified reliever is available.
+  // Automated Voice Announcement Trigger on Current Time Basis (PYID, YPI, KGWA, PUTH)
+  // STRICT RULE 1: Only announce if a verified reliever is scheduled for handover at CURRENT TIME.
   // STRICT RULE 2: Once a train departs/crosses the station, NEVER make an announcement for that departed train!
   useEffect(() => {
     reliefStationAlerts.forEach(alert => {
       if (!alert.isDeparted && alert.isApproaching && alert.hasReliever && alert.reliever?.name) {
-        const announceKey = `${alert.trainId}_${alert.stationCode}_${alert.direction}_${alert.reliever.name}_${alert.operatorName}`;
+        const announceKey = `${alert.trainId}_${alert.stationCode}_${alert.direction}_${alert.reliever.takeoverTime || ''}_${alert.reliever.dutyNo || ''}_${alert.reliever.name}`;
         if (!announcedSetRef.current.has(announceKey)) {
           announcedSetRef.current.add(announceKey);
           triggerBilingualAnnouncement(
             alert.trainId, 
             alert.direction, 
             alert.reliever.name, 
-            alert.operatorName,
-            alert.stationCode
+            alert.operatorName, 
+            alert.stationCode,
+            alert.reliever.dutyNo,
+            alert.dutyNo
           );
 
           setAnnouncementLogs(prev => [
@@ -611,12 +739,16 @@ export default function LiveTrainPositionTracker({
               id: Date.now() + Math.random(),
               time: simulatedTime,
               stationCode: alert.stationCode,
+              stationName: alert.stationNameEn || alert.stationCode,
               trainId: alert.trainId,
               direction: alert.direction,
               operatorName: alert.operatorName,
+              operatorDuty: alert.dutyNo,
               relieverName: alert.reliever.name,
+              relieverDuty: alert.reliever.dutyNo,
               relieverId: alert.reliever.id,
-              status: 'ANNOUNCED_BILINGUAL'
+              handoverTime: alert.reliever.takeoverTime,
+              status: 'ANNOUNCED_CURRENT_TIME'
             },
             ...prev.slice(0, 19)
           ]);
@@ -669,11 +801,19 @@ export default function LiveTrainPositionTracker({
 
           <button
             onClick={() => {
-              const testAlert = filteredReliefAlerts.find(a => !a.isDeparted && a.hasReliever) || filteredReliefAlerts[0] || reliefStationAlerts[0];
+              const testAlert = filteredReliefAlerts.find(a => !a.isDeparted && a.hasReliever) || filteredReliefAlerts.find(a => a.hasReliever) || reliefStationAlerts.find(a => a.hasReliever);
               if (testAlert && testAlert.reliever?.name) {
-                triggerBilingualAnnouncement(testAlert.trainId, testAlert.direction, testAlert.reliever.name, testAlert.operatorName, testAlert.stationCode);
+                triggerBilingualAnnouncement(
+                  testAlert.trainId, 
+                  testAlert.direction, 
+                  testAlert.reliever.name, 
+                  testAlert.operatorName, 
+                  testAlert.stationCode,
+                  testAlert.reliever.dutyNo,
+                  testAlert.dutyNo
+                );
               } else {
-                triggerBilingualAnnouncement('206', 'UP', 'Ramesh Kumar', 'Suresh Patel', 'PYID');
+                triggerBilingualAnnouncement('206', 'UP', 'Ramesh Kumar', 'Suresh Patel', 'PYID', 'D12', 'D04');
               }
             }}
             className="flex items-center gap-1 text-[9px] bg-cyan-600/20 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-600/40 px-2 py-1 rounded font-bold transition"
@@ -713,9 +853,10 @@ export default function LiveTrainPositionTracker({
             name="livetrainpositiontra-i2"
             value={activeSchedule}
             onChange={(e) => setActiveSchedule(e.target.value)}
-            className="bg-slate-900 border border-slate-700 text-xs rounded px-2 py-1 focus:outline-none focus:border-cyan-500 font-bold text-cyan-300 font-mono"
+            className="bg-slate-900 border border-slate-700 text-xs rounded px-2 py-1 focus:outline-none focus:border-cyan-500 font-bold text-cyan-300 font-mono cursor-pointer"
           >
             <option value="WEEKDAY">WEEKDAY</option>
+            <option value="MONDAY">MONDAY</option>
             <option value="SATURDAY">SATURDAY</option>
             <option value="SUNDAY">SUNDAY</option>
           </select>
@@ -895,10 +1036,12 @@ export default function LiveTrainPositionTracker({
           {/* Station & Track Filter Controls */}
           <div className="flex flex-wrap items-center gap-2">
             {/* Station Filter Pills */}
-            <div className="flex gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800 text-[10px] font-bold">
+            <div className="flex flex-wrap gap-1 bg-slate-900 p-1 rounded-lg border border-slate-850 text-[10px] font-bold">
               {[
-                { id: 'ALL', label: 'ALL STATIONS' },
-                { id: 'PYID', label: 'PYID (Peenya)' },
+                { id: 'ALL', label: 'ALL RELIEF STATIONS' },
+                { id: 'PYID', label: 'PYID (Peenya Ind.)' },
+                { id: 'YPI', label: 'YPI (Goraguntepalya)' },
+                { id: 'PEYA', label: 'PEYA (Peenya)' },
                 { id: 'KGWA', label: 'KGWA (Majestic)' },
                 { id: 'PUTH', label: 'PUTH (Yelachenahalli)' }
               ].map(st => (
@@ -942,22 +1085,25 @@ export default function LiveTrainPositionTracker({
         {/* Informational Guidance Banner */}
         <div className="bg-slate-900/60 border border-slate-850 rounded-lg px-3 py-2 mb-3 text-[10px] flex flex-wrap items-center justify-between gap-2">
           <span className="text-slate-400">
-            <strong>Rule:</strong> Automated audio alerts trigger <em>only</em> when a reliever is available. Departed trains are muted.
+            <strong>Time-Based Rule:</strong> Automated voice announcement triggers <em>only</em> when a reliever handover is scheduled for the <strong>current time</strong> (e.g. approaching YPI / PYID / KGWA). Non-current handovers and departed trains are muted.
           </span>
           <span className="text-cyan-400 font-bold">
-            Active Approaching Trains: {filteredReliefAlerts.filter(a => !a.isDeparted).length}
+            Active Current-Time Handovers: {filteredReliefAlerts.filter(a => !a.isDeparted && a.hasReliever).length}
           </span>
         </div>
 
         {filteredReliefAlerts.length === 0 ? (
           <div className="text-xs text-slate-500 italic py-4 text-center">
-            No trains currently approaching or holding at {stationFilter === 'ALL' ? 'Relief Stations (PYID, KGWA, PUTH)' : stationFilter} at {simulatedTime}.
+            No trains currently approaching or holding at {stationFilter === 'ALL' ? 'Relief Stations (PYID, YPI, KGWA, PUTH)' : stationFilter} at {simulatedTime}.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {filteredReliefAlerts.map(t => {
               const isDeparted = t.isDeparted;
               const hasReliever = t.hasReliever;
+              const isVerifiedReliever = t.isVerifiedReliever;
+              const isCurrentTimeHandover = t.isCurrentTimeHandover;
+              const isImminentHandover = Boolean(isCurrentTimeHandover);
 
               return (
                 <div 
@@ -967,27 +1113,33 @@ export default function LiveTrainPositionTracker({
                       ? 'bg-slate-900/40 border-slate-800 text-slate-400 opacity-60'
                       : hasReliever 
                         ? 'bg-emerald-950/20 border-emerald-500/40 text-emerald-200 shadow-md hover:border-emerald-500/60'
-                        : 'bg-rose-950/20 border-rose-500/30 text-rose-200'
+                        : isVerifiedReliever && !isCurrentTimeHandover
+                          ? 'bg-amber-950/15 border-amber-500/30 text-amber-200'
+                          : 'bg-rose-950/20 border-rose-500/30 text-rose-200'
                   }`}
                 >
                   {/* Card Top Title & Status */}
                   <div className="flex justify-between items-center mb-2.5 border-b border-slate-800/80 pb-2">
                     <span className="font-black text-sm text-white flex items-center gap-1.5 font-mono">
                       <Train className={`h-4 w-4 ${isDeparted ? 'text-slate-500' : 'text-cyan-400'}`} /> 
-                      Train {t.trainId} • {t.stationCode} ({t.direction} Platform)
+                      Train {t.trainId} • {t.stationNameEn || t.stationCode} ({t.direction} Platform)
                     </span>
                     <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${
                       isDeparted
                         ? 'bg-slate-800 text-slate-400 border border-slate-700'
                         : hasReliever 
                           ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse' 
-                          : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                          : isVerifiedReliever && !isCurrentTimeHandover
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                            : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
                     }`}>
                       {isDeparted
                         ? 'DEPARTED • MUTED'
                         : hasReliever 
-                          ? `RELIEVER AVAILABLE (${t.stationStatus})` 
-                          : 'NO RELIEVER • MUTED'}
+                          ? `CURRENT-TIME RELIEVER (${t.reliever?.takeoverTime || simulatedTime})` 
+                          : isVerifiedReliever && !isCurrentTimeHandover
+                            ? `RELIEF LATER (${t.reliever?.takeoverTime}) • MUTED`
+                            : 'NO RELIEVER • MUTED'}
                     </span>
                   </div>
 
@@ -1017,26 +1169,33 @@ export default function LiveTrainPositionTracker({
                     <div className={`p-2 rounded-lg border ${
                       hasReliever 
                         ? 'bg-cyan-950/30 border-cyan-500/40' 
-                        : 'bg-slate-900/40 border-slate-850'
+                        : isVerifiedReliever && !isCurrentTimeHandover
+                          ? 'bg-amber-950/20 border-amber-500/30'
+                          : 'bg-slate-900/40 border-slate-850'
                     }`}>
                       <div className="flex justify-between items-center">
-                        <span className="text-[9px] uppercase tracking-wider text-cyan-400 font-mono font-bold">
+                        <span className={`text-[9px] uppercase tracking-wider font-mono font-bold ${
+                          hasReliever ? 'text-cyan-400' : isVerifiedReliever ? 'text-amber-400' : 'text-slate-500'
+                        }`}>
                           Upcoming Reliever TO
                         </span>
-                        {hasReliever && t.reliever.dutyNo && t.reliever.dutyNo !== '--' && (
-                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/20 font-mono font-bold">
+                        {isVerifiedReliever && t.reliever?.dutyNo && t.reliever.dutyNo !== '--' && (
+                          <span className={`text-[9px] px-1.5 py-0.2 rounded border font-mono font-bold ${
+                            hasReliever ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/20' : 'bg-amber-500/15 text-amber-300 border-amber-500/20'
+                          }`}>
                             Duty {t.reliever.dutyNo}
                           </span>
                         )}
                       </div>
-                      {hasReliever ? (
+                      {isVerifiedReliever ? (
                         <div className="mt-0.5">
-                          <div className="text-cyan-300 text-xs font-bold font-mono">
-                            {t.reliever.name} <span className="text-cyan-400/70 font-normal text-[10px]">({t.reliever.id})</span>
+                          <div className={`text-xs font-bold font-mono ${hasReliever ? 'text-cyan-300' : 'text-amber-300'}`}>
+                            {t.reliever.name} <span className="font-normal text-[10px] opacity-75">({t.reliever.id})</span>
                           </div>
                           {t.reliever.takeoverTime && t.reliever.takeoverTime !== '--' && (
                             <div className="text-[9px] text-slate-400 font-mono mt-1">
                               Scheduled Handover: <span className="text-white font-bold">{t.reliever.takeoverTime}</span>
+                              {!isCurrentTimeHandover && <span className="text-amber-400/80 ml-1">(Handover later • Audio Muted)</span>}
                             </div>
                           )}
                         </div>
@@ -1063,7 +1222,15 @@ export default function LiveTrainPositionTracker({
                     </span>
                     {hasReliever && !isDeparted && (
                       <button
-                        onClick={() => triggerBilingualAnnouncement(t.trainId, t.direction, t.reliever.name, t.operatorName, t.stationCode)}
+                        onClick={() => triggerBilingualAnnouncement(
+                          t.trainId, 
+                          t.direction, 
+                          t.reliever.name, 
+                          t.operatorName, 
+                          t.stationCode,
+                          t.reliever.dutyNo,
+                          t.dutyNo
+                        )}
                         className="flex items-center gap-1 text-[9px] text-cyan-300 bg-cyan-950 hover:bg-cyan-900 px-2.5 py-1 rounded border border-cyan-700 font-bold font-mono transition"
                         title="Re-trigger Handover Voice Announcement"
                       >
@@ -1074,6 +1241,39 @@ export default function LiveTrainPositionTracker({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* ── Verified Audio Announcement Activity History ── */}
+        {announcementLogs.length > 0 && (
+          <div className="mt-5 border-t border-slate-850 pt-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 font-mono flex items-center gap-1.5">
+                <Volume2 className="h-3.5 w-3.5 text-emerald-400" /> Recent Verified Audio Announcements Log ({announcementLogs.length})
+              </span>
+              <button 
+                onClick={() => setAnnouncementLogs([])}
+                className="text-[9px] text-slate-500 hover:text-slate-400 font-mono"
+              >
+                Clear Log
+              </button>
+            </div>
+            <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+              {announcementLogs.slice(0, 10).map((log) => (
+                <div key={log.id} className="bg-slate-900/70 border border-slate-850 rounded px-2.5 py-1.5 flex flex-wrap justify-between items-center text-[9px] font-mono gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-cyan-400 font-bold">{log.time}</span>
+                    <span className="px-1.5 py-0.2 rounded bg-slate-800 text-slate-200 font-bold">{log.stationCode} ({log.direction})</span>
+                    <span className="text-white font-bold">Train {log.trainId}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-400">Active: <strong className="text-slate-200">{log.operatorName}</strong> ({log.operatorDuty || '--'})</span>
+                    <span className="text-emerald-400">➔ Reliever: <strong className="text-white">{log.relieverName}</strong> ({log.relieverDuty ? `Duty ${log.relieverDuty}` : log.relieverId})</span>
+                    <span className="px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 text-[8px] font-bold">BILINGUAL</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -1170,7 +1370,11 @@ export default function LiveTrainPositionTracker({
               </div>
 
               {selectedTrain.reliever && (
-                <div className="bg-amber-950/30 border border-amber-500/40 p-3 rounded-lg flex items-center justify-between text-amber-200">
+                <div className={`p-3 rounded-lg flex items-center justify-between border ${
+                  selectedTrain.hasReliever 
+                    ? 'bg-amber-950/30 border-amber-500/40 text-amber-200' 
+                    : 'bg-slate-900/60 border-slate-800 text-slate-400'
+                }`}>
                   <div>
                     <span className="text-[9px] uppercase text-amber-400 block font-bold font-mono">Assigned Reliever Operator</span>
                     <strong className="text-amber-300 text-sm font-mono">{selectedTrain.reliever.name}</strong>
@@ -1183,16 +1387,27 @@ export default function LiveTrainPositionTracker({
                     {selectedTrain.reliever.takeoverTime && selectedTrain.reliever.takeoverTime !== '--' && (
                       <div className="text-[9px] text-amber-400/80 font-mono mt-0.5">
                         Scheduled Handover: <strong className="text-white">{selectedTrain.reliever.takeoverTime}</strong>
+                        {!selectedTrain.hasReliever && <span className="text-slate-500 ml-1">(Handover not active now)</span>}
                       </div>
                     )}
                   </div>
-                  <button
-                    onClick={() => triggerBilingualAnnouncement(selectedTrain.trainId, selectedTrain.direction, selectedTrain.reliever.name, selectedTrain.operatorName, selectedTrain.currentStation?.includes('KGWA') ? 'KGWA' : selectedTrain.currentStation?.includes('PUTH') ? 'PUTH' : 'PYID')}
-                    className="p-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/30 transition"
-                    title="Trigger Handover Voice Announcement"
-                  >
-                    <Megaphone className="h-4 w-4 text-amber-400 animate-pulse" />
-                  </button>
+                  {selectedTrain.hasReliever && (
+                    <button
+                      onClick={() => triggerBilingualAnnouncement(
+                        selectedTrain.trainId, 
+                        selectedTrain.direction, 
+                        selectedTrain.reliever.name, 
+                        selectedTrain.operatorName, 
+                        selectedTrain.currentStation?.includes('KGWA') ? 'KGWA' : selectedTrain.currentStation?.includes('PUTH') ? 'PUTH' : 'PYID',
+                        selectedTrain.reliever.dutyNo,
+                        selectedTrain.dutyNo
+                      )}
+                      className="p-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/30 transition"
+                      title="Trigger Handover Voice Announcement"
+                    >
+                      <Megaphone className="h-4 w-4 text-amber-400 animate-pulse" />
+                    </button>
+                  )}
                 </div>
               )}
 

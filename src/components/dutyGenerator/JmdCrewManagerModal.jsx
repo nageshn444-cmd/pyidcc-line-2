@@ -187,7 +187,7 @@ export default function JmdCrewManagerModal({
       canDriveTrain: true,
       ccWilling: false,
       pinkDutyEligible: newGender === 'FEMALE',
-      nightTarget: newGender === 'FEMALE' ? 5 : 6,
+      nightTarget: 6,
       boardingStation: newStation,
       travellingBy: 'Train',
       homeLocation: '',

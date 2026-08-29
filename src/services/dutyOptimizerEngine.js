@@ -333,6 +333,37 @@ export function generateDailyDutyRoster({
     }
   });
 
+  // ── PHASE 2.6: OTHER DUTY DEMAND PRE-ASSIGNMENTS ──
+  activeRequests.filter(r => r.type === 'OTHER_DUTY' && r.empId).forEach(req => {
+    if (!assignedEmpIds.has(req.empId)) {
+      const candIdx = availableDrivingPool.findIndex(e => e.empId === req.empId);
+      if (candIdx >= 0) {
+        const cand = availableDrivingPool.splice(candIdx, 1)[0];
+        assignedEmpIds.add(cand.empId);
+        const title = req.dutyTitle || req.topic || 'Other Duty';
+        specialAuxAssignments.push({
+          empId: cand.empId,
+          name: cand.name,
+          gender: cand.gender,
+          assignmentCategory: 'SPECIAL_AUX_DUTY',
+          assignmentSubType: 'OD',
+          tag: 'OD',
+          dutyCode: title,
+          dutyTitle: title,
+          dutyNo: null,
+          shift: 'OD',
+          sOnTime: req.startTime || '09:00',
+          sOffTime: req.endTime || '17:30',
+          sOnLoc: req.location || 'PYID',
+          sOffLoc: req.location || 'PYID',
+          kms: 0,
+          reason: `Other Duty: ${title}`,
+          isOfficialForRole: true
+        });
+      }
+    }
+  });
+
   // ── PHASE 3: NIGHT BAND ALLOCATION (NIGHT FIRST - HARD GATES H2 & H18) ──
   const [nStart, nEnd] = profile.n || [64, 77];
   const nightSlots = linkTemplates.filter(d => {

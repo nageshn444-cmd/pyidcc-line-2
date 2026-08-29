@@ -98,7 +98,7 @@ export default function RosterExplainerModal({
             </div>
             <div className="p-2.5 bg-slate-950/50 rounded-lg border border-slate-800">
               <span className="text-[10px] text-slate-500 uppercase block font-semibold">Night Target</span>
-              <span className="font-bold text-slate-200">{employee.gender === 'FEMALE' ? '5 Nights (F)' : '6 Nights (M)'}</span>
+              <span className="font-bold text-slate-200">{employee.nightTarget || 6} Nights</span>
             </div>
             <div className="p-2.5 bg-slate-950/50 rounded-lg border border-slate-800">
               <span className="text-[10px] text-slate-500 uppercase block font-semibold">Boarding Stn</span>

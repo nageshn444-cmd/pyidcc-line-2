@@ -467,7 +467,7 @@ export default function DailyDutyGeneratorSuite() {
     { id: 'DRAFT_GENERATOR', label: 'AI Duty Generator', icon: Sparkles, badge: 'LIVE', color: 'blue' },
     { id: 'NEXT_DAY_REQ', label: 'Requirements', icon: Calendar, badge: activeRequests.length, color: 'amber' },
     { id: 'WEEK_OFF_MGR', label: 'Week-Off Control', icon: Lock, badge: null, color: 'purple' },
-    { id: 'NIGHT_BALANCER', label: 'Night Balance (26d)', icon: Moon, badge: '5/6', color: 'indigo' },
+    { id: 'NIGHT_BALANCER', label: 'Night Balance (26d)', icon: Moon, badge: '6/6', color: 'indigo' },
     { id: 'HISTORY_INTEL', label: 'History (90d)', icon: History, badge: null, color: 'teal' }
   ];
 

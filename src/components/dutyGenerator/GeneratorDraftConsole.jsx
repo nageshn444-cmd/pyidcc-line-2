@@ -511,8 +511,8 @@ export default function GeneratorDraftConsole({
               title: 'Plan B',
               subtitle: 'Equal Night Balancing',
               score: solutions.PLAN_B?.overallScore,
-              desc: 'Strict monthly 5/6 night quota balancing.',
-              bullets: ['🌙 5/6 nights per month quota', '⚖ Equal night distribution', '📊 Monthly balance enforced'],
+              desc: 'Strict monthly 6/6 night quota balancing.',
+              bullets: ['🌙 6/6 nights per month quota', '⚖ Equal night distribution', '📊 Monthly balance enforced'],
               color: 'indigo',
               gradient: 'from-indigo-600 to-purple-600'
             },

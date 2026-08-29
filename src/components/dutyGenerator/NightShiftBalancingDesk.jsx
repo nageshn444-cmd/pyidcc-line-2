@@ -24,7 +24,7 @@ export default function NightShiftBalancingDesk({
 
   const operatorsWithStats = activeTOs.map(emp => {
     const hist = HISTORICAL_ROSTER_INTELLIGENCE[emp.empId] || { nightCount: 0, lastNightDate: null, lastNightDuty: null };
-    const maxNights = emp.gender === 'FEMALE' ? 5 : 6;
+    const maxNights = emp.nightTarget || 6;
     const remainingNights = Math.max(0, maxNights - (hist.nightCount || 0));
     
     // Calculate days since last night
@@ -88,7 +88,7 @@ export default function NightShiftBalancingDesk({
               <Moon className="w-3.5 h-3.5" /> 26-Day Recurrence &amp; Quota Balancer
             </span>
             <span className="text-xs text-slate-400">
-              Women: <strong>{femaleCount}</strong> (Max 5) • Men: <strong>{maleCount}</strong> (Max 6)
+              Women: <strong>{femaleCount}</strong> (Max 6) • Men: <strong>{maleCount}</strong> (Max 6)
             </span>
           </div>
           <h2 className="text-xl font-black text-white mt-1">Night Shift Balancing &amp; Recurrence Desk</h2>

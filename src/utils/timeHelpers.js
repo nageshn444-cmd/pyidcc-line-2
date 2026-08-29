@@ -196,6 +196,7 @@ export const formatDutyTypeLink = (item) => {
     return code;
   }
   if (item.assignmentCategory === 'SPECIAL_AUX_DUTY') {
+    if (item.dutyTitle) return item.dutyTitle;
     const sub = item.assignmentSubType || item.assignedDutyCode || item.tag || 'Special Duty';
     if (sub.includes('STBK') || sub.includes('Standby')) return sub;
     if (sub === 'OR1' || sub === 'OR-1') return 'OR-1 (PYID)';

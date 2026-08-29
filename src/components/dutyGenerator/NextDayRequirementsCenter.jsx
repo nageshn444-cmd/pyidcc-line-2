@@ -3,7 +3,7 @@ import {
   Plus, Calendar, Clock, MapPin, AlertCircle, CheckCircle, ShieldAlert,
   GraduationCap, RefreshCw, HeartPulse, UserX, Users, ArrowRightLeft, 
   Sparkles, Trash2, Filter, CalendarRange, Repeat, CheckCircle2, ShieldCheck,
-  BarChart2, Zap, Train, Award, Shield, FileText, CheckSquare
+  BarChart2, Zap, Train, Award, Shield, FileText, CheckSquare, ClipboardList
 } from 'lucide-react';
 import { EMPLOYEE_MASTER_REGISTRY } from '../../data/employeeProfileMaster';
 import WhatIfSimulator from './WhatIfSimulator';
@@ -47,6 +47,7 @@ export default function NextDayRequirementsCenter({
   const [selectedEmpId,      setSelectedEmpId]      = useState('');
   const [selectedEmpId2,     setSelectedEmpId2]     = useState('');
   const [topic,              setTopic]              = useState('');
+  const [dutyTitle,          setDutyTitle]          = useState('');
   const [startTime,          setStartTime]          = useState('10:00');
   const [endTime,            setEndTime]            = useState('13:00');
   const [location,           setLocation]           = useState('PYID');
@@ -92,8 +93,9 @@ export default function NextDayRequirementsCenter({
     setSelectedEmpId(customDefaults.empId || '');
     setSelectedEmpId2(customDefaults.empId2 || '');
     setTopic(customDefaults.topic || '');
-    setStartTime(customDefaults.startTime || (type === 'TEST_TRACK' ? '23:00' : type === 'ACTIVE_DUTY' ? '06:00' : '10:00'));
-    setEndTime(customDefaults.endTime || (type === 'TEST_TRACK' ? '03:30' : type === 'ACTIVE_DUTY' ? '14:00' : '13:00'));
+    setDutyTitle(customDefaults.dutyTitle || '');
+    setStartTime(customDefaults.startTime || (type === 'TEST_TRACK' ? '23:00' : type === 'ACTIVE_DUTY' ? '06:00' : type === 'OTHER_DUTY' ? '09:00' : '10:00'));
+    setEndTime(customDefaults.endTime || (type === 'TEST_TRACK' ? '03:30' : type === 'ACTIVE_DUTY' ? '14:00' : type === 'OTHER_DUTY' ? '17:30' : '13:00'));
     setLocation(customDefaults.location || 'PYID');
     setPriority(customDefaults.priority || (['BOOK_OFF', 'LEAVE', 'MATERNITY_LEAVE'].includes(type) ? 'CRITICAL' : 'HIGH'));
     setQty(customDefaults.qty || 1);
@@ -144,6 +146,8 @@ export default function NextDayRequirementsCenter({
         autoTopic = `Mutual Shift Exchange (${exchangeType})`;
       } else if (modalType === 'SPECIAL_DUTY') {
         autoTopic = `Special Duty: ${restrictionType}`;
+      } else if (modalType === 'OTHER_DUTY') {
+        autoTopic = dutyTitle.trim() || 'Other Duty';
       } else {
         autoTopic = modalType.replace(/_/g, ' ');
       }
@@ -161,6 +165,7 @@ export default function NextDayRequirementsCenter({
       empId2:             emp2 ? emp2.empId : null,
       empName2:           emp2 ? emp2.name  : null,
       topic:              autoTopic,
+      dutyTitle:          modalType === 'OTHER_DUTY' ? (dutyTitle.trim() || autoTopic) : null,
       dutyNumber:         ['ACTIVE_DUTY', 'SHIFT_REQUEST'].includes(modalType) ? dutyNumber : null,
       trainingCategory:   modalType === 'TRAINING' ? trainingCategory : null,
       crtModule:          modalType === 'CRT' ? crtModule : null,
@@ -192,6 +197,7 @@ export default function NextDayRequirementsCenter({
     setSelectedEmpId('');
     setSelectedEmpId2('');
     setTopic('');
+    setDutyTitle('');
     setReason('');
   };
 
@@ -364,6 +370,16 @@ export default function NextDayRequirementsCenter({
                 <Sparkles className="w-4 h-4 text-fuchsia-400" />
                 ++ Special Duty
               </button>
+
+              {/* 12. 📋 + Other Duty */}
+              <button
+                onClick={() => openModal('OTHER_DUTY', { dutyTitle: '', startTime: '09:00', endTime: '17:30', location: 'PYID', priority: 'HIGH' })}
+                className="flex items-center gap-1.5 px-3 py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 rounded-xl text-xs font-bold transition-all shadow-sm"
+                title="Assign custom named duty with specific title, time slot and train operator"
+              >
+                <ClipboardList className="w-4 h-4 text-purple-400" />
+                📋 + Other Duty
+              </button>
             </div>
           </div>
 
@@ -382,7 +398,8 @@ export default function NextDayRequirementsCenter({
                 { id: 'TEST_TRACK', label: '🚆 TEST TRACK' },
                 { id: 'NIGHT_EXCHANGE', label: '⇄ DUTY EXCHANGE' },
                 { id: 'MATERNITY_LEAVE', label: '🌸 MATERNITY LEAVE' },
-                { id: 'SPECIAL_DUTY', label: '✨ SPECIAL DUTY' }
+                { id: 'SPECIAL_DUTY', label: '✨ SPECIAL DUTY' },
+                { id: 'OTHER_DUTY', label: '📋 OTHER DUTY' }
               ].map(t => (
                 <button
                   key={t.id}
@@ -413,6 +430,7 @@ export default function NextDayRequirementsCenter({
                 const isCritical   = req.priority === 'CRITICAL';
                 const isHigh       = req.priority === 'HIGH';
                 const isActiveDuty = req.type === 'ACTIVE_DUTY';
+                const isOtherDuty  = req.type === 'OTHER_DUTY';
                 const isLeave      = req.type === 'LEAVE';
                 const isShiftReq   = req.type === 'SHIFT_REQUEST';
                 const isML         = req.type === 'MATERNITY_LEAVE';
@@ -425,6 +443,7 @@ export default function NextDayRequirementsCenter({
                     key={req.id}
                     className={`bg-slate-900 border rounded-2xl p-4 shadow-md transition-all flex flex-col justify-between ${
                       isActiveDuty                ? 'border-teal-500/50 bg-teal-950/15' :
+                      isOtherDuty                 ? 'border-purple-500/50 bg-purple-950/20' :
                       isLeave                     ? 'border-rose-500/50 bg-rose-950/10' :
                       isShiftReq                  ? 'border-emerald-500/40 bg-emerald-950/10' :
                       isML                        ? 'border-pink-500/40 bg-pink-950/10' :
@@ -437,6 +456,7 @@ export default function NextDayRequirementsCenter({
                       <div className="flex items-center justify-between mb-2">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
                           isActiveDuty                ? 'bg-teal-500/20 text-teal-300' :
+                          isOtherDuty                 ? 'bg-purple-500/25 text-purple-300 border border-purple-500/30' :
                           isLeave                     ? 'bg-rose-500/20 text-rose-300' :
                           isShiftReq                  ? 'bg-emerald-500/20 text-emerald-300' :
                           req.type === 'BOOK_OFF'     ? 'bg-orange-500/20 text-orange-300' :
@@ -448,7 +468,7 @@ export default function NextDayRequirementsCenter({
                           isML                        ? 'bg-pink-600/20 text-pink-400' :
                                                         'bg-emerald-500/20 text-emerald-300'
                         }`}>
-                          {req.type === 'ACTIVE_DUTY' ? '⚡ ACTIVE DUTY' : req.type.replace(/_/g, ' ')}
+                          {req.type === 'ACTIVE_DUTY' ? '⚡ ACTIVE DUTY' : req.type === 'OTHER_DUTY' ? '📋 OTHER DUTY' : req.type.replace(/_/g, ' ')}
                         </span>
 
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isCritical ? 'bg-rose-500 text-white' : isHigh ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-700 text-slate-300'}`}>
@@ -456,16 +476,31 @@ export default function NextDayRequirementsCenter({
                         </span>
                       </div>
 
-                      <h4 className="text-sm font-bold text-white mb-1">
-                        {req.topic || req.type.replace(/_/g, ' ')}
-                      </h4>
+                      {/* Prominent Duty Title Banner for Other Duty */}
+                      {isOtherDuty ? (
+                        <div className="mb-2 p-2.5 rounded-xl bg-purple-900/30 border border-purple-500/30">
+                          <span className="text-[9px] uppercase tracking-wider text-purple-400 font-bold block mb-0.5">
+                            Duty Title
+                          </span>
+                          <h4 className="text-sm font-black text-white font-mono flex items-center gap-1.5">
+                            <ClipboardList className="w-4 h-4 text-purple-400 shrink-0" />
+                            {req.dutyTitle || req.topic || 'Other Duty'}
+                          </h4>
+                        </div>
+                      ) : (
+                        <h4 className="text-sm font-bold text-white mb-1">
+                          {req.topic || req.type.replace(/_/g, ' ')}
+                        </h4>
+                      )}
 
                       {req.empName && (
-                        <p className="text-xs text-slate-300 font-semibold mb-1 flex items-center gap-1">
-                          <Users className="w-3.5 h-3.5 text-slate-400" />
-                          {req.empName} ({req.empId})
+                        <div className="text-xs text-slate-200 font-bold mb-1.5 flex items-center gap-1.5 bg-slate-950/60 px-2.5 py-1.5 rounded-xl border border-slate-800">
+                          <Users className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                          <span className="text-slate-400 font-normal text-[11px]">Assigned TO:</span>
+                          <span className="text-white font-mono">{req.empName}</span>
+                          <span className="text-slate-400 font-mono text-[10px]">({req.empId})</span>
                           {req.empName2 && <span> ⇄ {req.empName2} ({req.empId2})</span>}
-                        </p>
+                        </div>
                       )}
 
                       {/* ── Universal Duration Date Badge (From Date -> To Date) ── */}
@@ -498,12 +533,13 @@ export default function NextDayRequirementsCenter({
 
                       {/* Operational Details (Times, Qty, Competency, etc.) */}
                       {!isLeave && !isML && req.startTime && req.endTime && (
-                        <div className="flex items-center gap-3 text-xs text-slate-400 font-mono mt-2">
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5 text-slate-500" />
-                            {req.startTime} - {req.endTime}
+                        <div className="flex items-center justify-between text-xs text-slate-300 font-mono mt-2 bg-slate-950/70 px-2.5 py-2 rounded-xl border border-slate-800">
+                          <span className="flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <span className="text-slate-400 text-[10px] uppercase font-sans font-bold">Time:</span>
+                            <strong className="text-white">{req.startTime}</strong> - <strong className="text-white">{req.endTime}</strong>
                           </span>
-                          <span className="flex items-center gap-1">
+                          <span className="flex items-center gap-1 text-slate-400 text-[11px]">
                             <MapPin className="w-3.5 h-3.5 text-slate-500" />
                             {req.location}
                           </span>
@@ -560,6 +596,7 @@ export default function NextDayRequirementsCenter({
                modalType === 'NIGHT_EXCHANGE'  ? '🔄 Mutual Shift Exchange' :
                modalType === 'MATERNITY_LEAVE' ? '🌸 Statutory Maternity Leave (180 Days)' :
                modalType === 'SPECIAL_DUTY'    ? '✨ Special Duty Profile & Restriction' :
+               modalType === 'OTHER_DUTY'      ? '📋 Other Duty Assignment' :
                `Add Requirement: ${modalType.replace(/_/g, ' ')}`}
             </h3>
             <p className="text-xs text-slate-400 mb-4">
@@ -571,6 +608,8 @@ export default function NextDayRequirementsCenter({
                 ? '180 Days statutory duration per Karnataka Govt Norms. Auto-retained on ML status.'
                 : modalType === 'SHIFT_REQUEST'
                 ? 'The AI optimizer will honour this shift preference across the specified dates as a prioritized constraint.'
+                : modalType === 'OTHER_DUTY'
+                ? 'Assign a designated non-driving or operational duty with a custom title, time window, and assigned train operator.'
                 : `Configure date-time slots and parameters for ${modalType.replace(/_/g, ' ')}.`}
             </p>
 
@@ -923,6 +962,26 @@ export default function NextDayRequirementsCenter({
                 </div>
               )}
 
+              {/* ── 12.5. Other Duty Title Field ── */}
+              {modalType === 'OTHER_DUTY' && (
+                <div>
+                  <label className="font-bold text-purple-300 block mb-1">
+                    Duty Title / Name <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={dutyTitle}
+                    onChange={e => setDutyTitle(e.target.value)}
+                    placeholder="e.g. Yard Shunting In-Charge, CC Desk Relief, Safety Inspection"
+                    required
+                    className="w-full bg-slate-800 border border-purple-500/50 rounded-xl px-3 py-2 text-xs text-white font-bold placeholder:text-slate-500 placeholder:font-normal focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Enter the title of this particular duty. It will be displayed prominently alongside the assigned train operator and time window.
+                  </p>
+                </div>
+              )}
+
               {/* ── 13. UNIVERSAL DURATION DATES (START DATE & END DATE) ── */}
               <div className="p-3.5 bg-slate-950/80 border border-blue-500/40 rounded-2xl space-y-2.5">
                 <div className="flex items-center justify-between text-xs font-black text-blue-400 uppercase tracking-wide">
@@ -968,7 +1027,7 @@ export default function NextDayRequirementsCenter({
               </div>
 
               {/* ── 14. Topic / Subject ── */}
-              {modalType !== 'LEAVE' && modalType !== 'SHIFT_REQUEST' && modalType !== 'ACTIVE_DUTY' && (
+              {modalType !== 'LEAVE' && modalType !== 'SHIFT_REQUEST' && modalType !== 'ACTIVE_DUTY' && modalType !== 'OTHER_DUTY' && (
                 <div>
                   <label className="font-bold text-slate-300 block mb-1">Topic / Subject</label>
                   <input
@@ -1046,6 +1105,7 @@ export default function NextDayRequirementsCenter({
                     modalType === 'MATERNITY_LEAVE' ? 'bg-pink-600 hover:bg-pink-500 shadow-pink-600/30' :
                     modalType === 'BOOK_OFF'        ? 'bg-orange-600 hover:bg-orange-500 shadow-orange-600/30' :
                     modalType === 'SPECIAL_DUTY'    ? 'bg-fuchsia-600 hover:bg-fuchsia-500 shadow-fuchsia-600/30' :
+                    modalType === 'OTHER_DUTY'      ? 'bg-purple-600 hover:bg-purple-500 shadow-purple-600/30' :
                     'bg-blue-600 hover:bg-blue-500 shadow-blue-600/30'
                   }`}>
                   Confirm &amp; Add Requirement ({durationDays}d)

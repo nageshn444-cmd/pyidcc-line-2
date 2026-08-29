@@ -8,6 +8,7 @@ import './index.css';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 
 import OperationalErrorBoundary from './components/common/OperationalErrorBoundary';
+import OperatorRequestNotificationCenter from './components/common/OperatorRequestNotificationCenter';
 
 const Dashboard = lazyWithRetry(() => import('./components/Dashboard'));
 const Login = lazyWithRetry(() => import('./components/Login'));
@@ -24,6 +25,7 @@ const RouteLoader = () => (
 function MainApp() {
   return (
     <div className="min-h-screen bg-transparent flex flex-col">
+      <OperatorRequestNotificationCenter />
       <OperationalErrorBoundary>
         <Suspense fallback={<RouteLoader />}>
           <Routes>

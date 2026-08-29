@@ -58,7 +58,7 @@ export default function NewStaffLRDModal({
       fixedWo,
       specialProfile: lrdDaysRequired > 0 ? 'LRD' : 'NORMAL',
       pinkDutyEligible: gender === 'FEMALE',
-      nightTarget: gender === 'FEMALE' ? 5 : 6,
+      nightTarget: 6,
       boardingStation: 'PYID',
       travellingBy: 'Train',
       homeLocation: '',
@@ -260,7 +260,7 @@ export default function NewStaffLRDModal({
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
                   >
                     <option value="MALE">Male (Night Target: 6)</option>
-                    <option value="FEMALE">Female (Night Target: 5, Pink Duty Eligible)</option>
+                    <option value="FEMALE">Female (Night Target: 6, Pink Duty Eligible)</option>
                   </select>
                 </div>
 

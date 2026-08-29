@@ -106,7 +106,7 @@ export function buildUnifiedEmployeeProfile(empId) {
     relievedDate: isRelieved ? (masterProfile.relievedDate || '2026-08-01') : null,
     relievedNotes: isRelieved ? (masterProfile.relievedNotes || 'Working as Station Controller. Click Reinstate when returned to PYID CC.') : null,
     specialProfile: masterProfile.specialProfile || (gender === 'FEMALE' ? 'PINK' : 'STANDARD'),
-    nightTarget: masterProfile.nightTarget || (gender === 'FEMALE' ? 5 : 6),
+    nightTarget: masterProfile.nightTarget === 5 ? 6 : (masterProfile.nightTarget || 6),
     boardingStation: masterProfile.boardingStation || baseCrew.station || 'PYID',
     phone: baseCrew.phone || baseCrew.contact || masterProfile.phone || '',
     bloodGroup: baseCrew.bloodGroup || masterProfile.bloodGroup || '',
