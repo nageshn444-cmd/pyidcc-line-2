@@ -1,9 +1,39 @@
 import { initializeApp } from "firebase/app";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache, setLogLevel, collection, getDocs, setDoc, doc, serverTimestamp } from "firebase/firestore";
+import { 
+  getFirestore, 
+  initializeFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager, 
+  memoryLocalCache, 
+  setLogLevel, 
+  collection, 
+  getDocs, 
+  setDoc, 
+  doc, 
+  serverTimestamp 
+} from "firebase/firestore";
 import { getAuth } from "firebase/auth"; 
 
-// Suppress internal non-fatal multi-tab lease warnings (e.g. Backfill Indexes / Apply remote event)
-setLogLevel('error');
+// Suppress internal non-fatal Firestore SDK multi-tab lease warnings
+setLogLevel('silent');
+
+// Filter non-fatal Firestore multi-tab lease arbitration errors from React DevTools / console
+if (typeof window !== 'undefined') {
+  const originalError = console.error;
+  console.error = (...args) => {
+    const combined = args
+      .map(a => (typeof a === 'string' ? a : (a?.message || '')))
+      .join(' ');
+    if (
+      combined.includes("Failed to obtain primary lease for action") ||
+      combined.includes("Backfill Indexes")
+    ) {
+      // Harmless multi-tab lease contention from Firestore background sync
+      return;
+    }
+    originalError.apply(console, args);
+  };
+}
 
 export const firebaseConfig = {
   apiKey: "AIzaSyDucdRrkYezPjjzZ250pqZUovb3B8MO5lg",
@@ -25,10 +55,14 @@ try {
     })
   });
 } catch (e) {
-  // Fallback to memory local cache if multi-tab IndexedDB persistence is contended or already initialized
-  firestoreDb = initializeFirestore(app, {
-    localCache: memoryLocalCache()
-  });
+  // If already initialized (e.g. across Vite HMR) or multi-tab contention occurs, reuse instance
+  try {
+    firestoreDb = getFirestore(app);
+  } catch (_) {
+    firestoreDb = initializeFirestore(app, {
+      localCache: memoryLocalCache()
+    });
+  }
 }
 
 export const db = firestoreDb;

@@ -947,6 +947,18 @@ export default function SuperAdminLayout({
               <Settings size={14} />
             </button>
 
+            {/* Excel Workspace Link */}
+            <a 
+              href="/excel-workspace"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 font-bold text-[10px] px-3 py-1.5 rounded-lg transition uppercase tracking-widest"
+              title="Open Enterprise Excel Workspace"
+            >
+              <Table className="h-3.5 w-3.5 text-emerald-400" />
+              <span>Excel Sheet</span>
+            </a>
+
             {/* AI Assistant Trigger */}
             <button 
               onClick={() => setIsAiOpen(true)}

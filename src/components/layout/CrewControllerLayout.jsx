@@ -44,7 +44,7 @@ export default function CrewControllerLayout({
   const menuItems = [
     { id: 'DISPATCH', label: 'Crew Dispatch Desk', icon: FileSpreadsheet, module: 'Automated Dispatch Gate' },
     { id: 'DUTY_GENERATOR', label: 'Auto Duty Generator', icon: Sparkles, module: 'Automated Dispatch Gate' },
-    { id: 'PUBLISHER', label: 'Roster Notice Publisher', icon: Send, module: 'Automated Dispatch Gate' },
+    { id: 'PUBLISHER', label: 'Enterprise Excel Sheet', icon: FileSpreadsheet, module: 'Automated Dispatch Gate' },
     { id: 'RELIEF', label: 'Emergency Relief Reserves', icon: ShieldAlert, module: 'Emergency Relief Module' },
     { id: 'CREW', label: 'Operator Directory', icon: Users, module: 'Crew Registry' },
     { id: 'EXCHANGE', label: 'Shift Exchange Swap Desk', icon: RefreshCw, module: 'Shift Exchange' },

@@ -265,48 +265,254 @@ export function generateDailyDutyRoster({
     emp._rotatedIndex = (index + dayOffset + planShiftSeed) % poolLen;
   });
 
-  // ── PHASE 2: CONSUME DECLARED DEMAND (CREW CONTROLLERS & SPECIAL POSTS) ──
+  // ── PHASE 2: CONSUME DECLARED DEMAND (CREW CONTROLLERS & CC-WILLING RELIEF) ──
   const ccAssignments = [];
-  const officialCCIds = new Set(OFFICIAL_CC_STAFF.map(c => c.empId));
 
-  // 1. Place Official Crew Controllers according to personal monthly cycle
-  OFFICIAL_CC_STAFF.forEach((ccStaff, idx) => {
-    const empId = ccStaff.empId;
-    if (assignedEmpIds.has(empId)) return;
+  // Helper to determine candidate's current cyclic shift for targetDate
+  const [ladderAStart, ladderAEnd] = profile.a || [1, 32];
+  const [ladderBStart, ladderBEnd] = profile.b || [33, 63];
+  const ladderNumA = Math.max(1, ladderAEnd - ladderAStart + 1);
+  const ladderNumB = Math.max(1, ladderBEnd - ladderBStart + 1);
+  const totalDutiesCount = profile.totalDuties || 79;
 
-    const resolved = resolveCCDutyForDate(empId, targetDate);
-    const shiftCode = resolved.shiftCode || (idx === 0 ? 'A' : (idx === 1 ? 'B' : (idx === 2 ? 'C' : 'G')));
-    
-    if (['A', 'B', 'C', 'G', 'GCC'].includes(shiftCode)) {
-      const subType = shiftCode === 'A' ? 'CC1' : (shiftCode === 'B' ? 'CC2' : (shiftCode === 'C' ? 'CC3' : 'GCC'));
-      const sOnTime = shiftCode === 'A' ? '06:30' : (shiftCode === 'B' ? '14:00' : (shiftCode === 'C' ? '21:30' : '09:00'));
-      const sOffTime = shiftCode === 'A' ? '14:00' : (shiftCode === 'B' ? '21:30' : (shiftCode === 'C' ? '06:30' : '17:30'));
+  const getCandidateCyclicShift = (cand) => {
+    // 1. Direct explicit shift on candidate profile
+    if (cand.shift && ['A', 'B', 'C', 'N'].includes(cand.shift)) {
+      return cand.shift === 'C' ? 'N' : cand.shift;
+    }
+    if (cand.currentShift && ['A', 'B', 'C', 'N'].includes(cand.currentShift)) {
+      return cand.currentShift === 'C' ? 'N' : cand.currentShift;
+    }
 
-      ccAssignments.push({
-        empId,
-        name: ccStaff.name,
-        gender: 'Male',
-        assignmentCategory: 'CREW_CONTROLLER',
-        assignmentSubType: subType,
-        tag: subType,
-        dutyCode: subType,
-        dutyNo: null,
-        shift: shiftCode === 'C' ? 'N' : shiftCode,
-        sOnTime,
-        sOffTime,
-        sOnLoc: 'PYID CC',
-        sOffLoc: 'PYID CC',
-        kms: 0,
-        reason: `Official Crew Controller Desk (${subType})`,
-        isOfficialForRole: true
-      });
-      assignedEmpIds.add(empId);
+    // 2. Active shift request
+    const sReq = activeRequests.find(r => r.empId === cand.empId && (r.type === 'SHIFT_REQUEST' || r.type === 'PREFERENCE'));
+    if (sReq && sReq.preferredShift) {
+      return sReq.preferredShift === 'C' ? 'N' : sReq.preferredShift;
+    }
 
-      // Remove from availableDrivingPool if present
-      const poolIdx = availableDrivingPool.findIndex(e => e.empId === empId);
-      if (poolIdx >= 0) availableDrivingPool.splice(poolIdx, 1);
+    // 3. Cyclic link rotation position on targetDate (modulo timetable duties)
+    const rawPos = cand._rotatedIndex !== undefined ? cand._rotatedIndex : 0;
+    const cyclicPos = rawPos % totalDutiesCount;
+    if (cyclicPos < ladderNumA) return 'A';
+    if (cyclicPos < ladderNumA + ladderNumB) return 'B';
+    return 'N';
+  };
+
+  // Mandatory 3 CC Desk shifts (CC1, CC2, CC3) must ALWAYS be staffed 24/7
+  const MANDATORY_CC_SLOTS = [
+    { slotCode: 'CC1', shift: 'A', sOnTime: '06:30', sOffTime: '14:00', defaultEmpId: 20726, label: 'CC1 Morning Desk' },
+    { slotCode: 'CC2', shift: 'B', sOnTime: '14:00', sOffTime: '21:30', defaultEmpId: 20038, label: 'CC2 Afternoon Desk' },
+    { slotCode: 'CC3', shift: 'N', sOnTime: '21:30', sOffTime: '06:30', defaultEmpId: 20037, label: 'CC3 Night Desk' }
+  ];
+
+  MANDATORY_CC_SLOTS.forEach(slot => {
+    const defaultStaff = OFFICIAL_CC_STAFF.find(c => c.empId === slot.defaultEmpId) || {
+      empId: slot.defaultEmpId,
+      name: slot.slotCode === 'CC1' ? 'Nagesh N' : (slot.slotCode === 'CC2' ? 'Deepa L' : 'Rashmi'),
+      gender: slot.slotCode === 'CC1' ? 'MALE' : 'FEMALE'
+    };
+
+    let isOfficialAssigned = false;
+
+    // Check if official CC is available and scheduled to work on targetDate
+    if (!assignedEmpIds.has(defaultStaff.empId)) {
+      const resolved = resolveCCDutyForDate(defaultStaff.empId, targetDate);
+      const isWorking = resolved && ['A', 'B', 'C', 'N'].includes(resolved.shiftCode);
+
+      if (isWorking) {
+        ccAssignments.push({
+          empId: defaultStaff.empId,
+          name: defaultStaff.name,
+          gender: defaultStaff.gender || 'MALE',
+          assignmentCategory: 'CREW_CONTROLLER',
+          assignmentSubType: slot.slotCode,
+          tag: slot.slotCode,
+          dutyCode: slot.slotCode,
+          dutyNo: null,
+          shift: slot.shift,
+          sOnTime: slot.sOnTime,
+          sOffTime: slot.sOffTime,
+          sOnLoc: 'PYID CC',
+          sOffLoc: 'PYID CC',
+          kms: 0,
+          reason: `Official Crew Controller (${slot.label})`,
+          isOfficialForRole: true,
+          specialTag: 'OFFICIAL_CC',
+          specialProfile: 'CC'
+        });
+        assignedEmpIds.add(defaultStaff.empId);
+        isOfficialAssigned = true;
+
+        const poolIdx = availableDrivingPool.findIndex(e => e.empId === defaultStaff.empId);
+        if (poolIdx >= 0) availableDrivingPool.splice(poolIdx, 1);
+      }
+    }
+
+    // When Official CC is on Leave, Weekly Off (Saturday/Sunday), or Unavailable:
+    // CC Desk MUST NEVER BE BLANK — Relieve with a CC-Willing Train Operator from the SAME cyclic shift
+    if (!isOfficialAssigned) {
+      let bestReliefCand = null;
+      let bestReliefIdx = -1;
+      let bestReliefScore = -99999;
+
+      for (let i = 0; i < availableDrivingPool.length; i++) {
+        const cand = availableDrivingPool[i];
+        if (assignedEmpIds.has(cand.empId)) continue;
+
+        // Must be in CC-Willing Relief Pool
+        const isWilling = cand.ccWilling === true || cand.specialProfile === 'CC_WILLING';
+        if (!isWilling) continue;
+
+        // H22: Pregnant staff never assigned to Night CC Desk
+        if (slot.shift === 'N' && (cand.specialProfile === 'PINK' || cand.isPregnant || cand.maternityStatus === 'PREGNANT')) {
+          continue;
+        }
+
+        // Rest rules check from previous day
+        const hist = historicalData[cand.empId] || { recentDuties: [] };
+        const prev = hist.recentDuties && hist.recentDuties.length > 0 ? hist.recentDuties[hist.recentDuties.length - 1] : null;
+        if (prev && prev.sOffTime) {
+          const isPrevNight = prev.isNight || prev.shift === 'N' || String(prev.dutyCode).startsWith('N');
+          if (isPrevNight && slot.shift === 'A') continue; // Prohibit Night -> A shift transition
+          const rest = calculateRestHours(prev.sOffTime, slot.sOnTime, isPrevNight);
+          if (rest < 12.0) continue; // Minimum 12h rest required
+        }
+
+        // Strict cyclic shift match: "do not use other train operator other cyclic shift train operators"
+        const candShift = getCandidateCyclicShift(cand);
+        if (candShift !== slot.shift) continue;
+
+        // H5: High night streak check for Night CC desk
+        if (slot.shift === 'N' && (hist.nightStreak || 0) >= 6) continue;
+
+        // Fairness and rotation scoring
+        let score = 100;
+        if (slot.shift === 'N') {
+          score -= (hist.nightCount || 0) * 5;
+        }
+        score -= (hist.totalDuties || 0);
+
+        if (score > bestReliefScore) {
+          bestReliefScore = score;
+          bestReliefCand = cand;
+          bestReliefIdx = i;
+        }
+      }
+
+      // If strict cyclic match found:
+      if (bestReliefCand && bestReliefIdx >= 0) {
+        availableDrivingPool.splice(bestReliefIdx, 1);
+        assignedEmpIds.add(bestReliefCand.empId);
+
+        ccAssignments.push({
+          empId: bestReliefCand.empId,
+          name: bestReliefCand.name,
+          gender: bestReliefCand.gender || 'MALE',
+          assignmentCategory: 'CREW_CONTROLLER',
+          assignmentSubType: slot.slotCode,
+          tag: slot.slotCode,
+          dutyCode: slot.slotCode,
+          dutyNo: null,
+          shift: slot.shift,
+          sOnTime: slot.sOnTime,
+          sOffTime: slot.sOffTime,
+          sOnLoc: 'PYID CC',
+          sOffLoc: 'PYID CC',
+          kms: 0,
+          reason: `CC-Willing Relief (${slot.label} · Shift ${slot.shift} · Relieving ${defaultStaff.name})`,
+          isOfficialForRole: false,
+          specialTag: 'CC_RELIEF',
+          specialProfile: 'CC_RELIEF',
+          relievingOfficialName: defaultStaff.name,
+          relievingOfficialEmpId: defaultStaff.empId
+        });
+      } else {
+        // Fallback: If no candidate matched the strict cyclic shift, find the best available CC-Willing operator with valid rest
+        let fallbackCand = null;
+        let fallbackIdx = -1;
+
+        for (let i = 0; i < availableDrivingPool.length; i++) {
+          const cand = availableDrivingPool[i];
+          if (assignedEmpIds.has(cand.empId)) continue;
+          const isWilling = cand.ccWilling === true || cand.specialProfile === 'CC_WILLING';
+          if (!isWilling) continue;
+          if (slot.shift === 'N' && (cand.specialProfile === 'PINK' || cand.isPregnant || cand.maternityStatus === 'PREGNANT')) continue;
+
+          const hist = historicalData[cand.empId] || { recentDuties: [] };
+          const prev = hist.recentDuties && hist.recentDuties.length > 0 ? hist.recentDuties[hist.recentDuties.length - 1] : null;
+          if (prev && prev.sOffTime) {
+            const isPrevNight = prev.isNight || prev.shift === 'N' || String(prev.dutyCode).startsWith('N');
+            if (isPrevNight && slot.shift === 'A') continue;
+            const rest = calculateRestHours(prev.sOffTime, slot.sOnTime, isPrevNight);
+            if (rest < 12.0) continue;
+          }
+          fallbackCand = cand;
+          fallbackIdx = i;
+          break;
+        }
+
+        if (fallbackCand && fallbackIdx >= 0) {
+          availableDrivingPool.splice(fallbackIdx, 1);
+          assignedEmpIds.add(fallbackCand.empId);
+
+          ccAssignments.push({
+            empId: fallbackCand.empId,
+            name: fallbackCand.name,
+            gender: fallbackCand.gender || 'MALE',
+            assignmentCategory: 'CREW_CONTROLLER',
+            assignmentSubType: slot.slotCode,
+            tag: slot.slotCode,
+            dutyCode: slot.slotCode,
+            dutyNo: null,
+            shift: slot.shift,
+            sOnTime: slot.sOnTime,
+            sOffTime: slot.sOffTime,
+            sOnLoc: 'PYID CC',
+            sOffLoc: 'PYID CC',
+            kms: 0,
+            reason: `CC-Willing Relief Standby (${slot.label} · Relieving ${defaultStaff.name})`,
+            isOfficialForRole: false,
+            specialTag: 'CC_RELIEF',
+            specialProfile: 'CC_RELIEF',
+            relievingOfficialName: defaultStaff.name,
+            relievingOfficialEmpId: defaultStaff.empId
+          });
+        }
+      }
     }
   });
+
+  // Official GCC Desk (Manjunath BM) - Non-CC desk supervision
+  const gccStaff = OFFICIAL_ALS_GCC_STAFF.find(s => s.empId === 20019);
+  if (gccStaff && !assignedEmpIds.has(gccStaff.empId)) {
+    const resolvedGcc = resolveCCDutyForDate(gccStaff.empId, targetDate);
+    const isGccWorking = resolvedGcc && resolvedGcc.shiftCode !== 'WO' && resolvedGcc.shiftCode !== 'L';
+    if (isGccWorking) {
+      ccAssignments.push({
+        empId: gccStaff.empId,
+        name: gccStaff.name,
+        gender: gccStaff.gender || 'MALE',
+        assignmentCategory: 'CREW_CONTROLLER',
+        assignmentSubType: 'GCC',
+        tag: 'GCC',
+        dutyCode: 'GCC',
+        dutyNo: null,
+        shift: 'GCC',
+        sOnTime: '08:00',
+        sOffTime: '16:30',
+        sOnLoc: 'PYID GCC Desk',
+        sOffLoc: 'PYID GCC Desk',
+        kms: 0,
+        reason: 'Official GCC Desk Supervision',
+        isOfficialForRole: true,
+        specialTag: 'OFFICIAL_GCC',
+        specialProfile: 'GCC'
+      });
+      assignedEmpIds.add(gccStaff.empId);
+      const poolIdx = availableDrivingPool.findIndex(e => e.empId === gccStaff.empId);
+      if (poolIdx >= 0) availableDrivingPool.splice(poolIdx, 1);
+    }
+  }
 
   const activeDutyAssignments = [];
 

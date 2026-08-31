@@ -12,6 +12,7 @@ import OperatorRequestNotificationCenter from './components/common/OperatorReque
 
 const Dashboard = lazyWithRetry(() => import('./components/Dashboard'));
 const Login = lazyWithRetry(() => import('./components/Login'));
+const ExcelWorkspace = lazyWithRetry(() => import('./pages/ExcelWorkspace'));
 
 const RouteLoader = () => (
   <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -31,6 +32,16 @@ function MainApp() {
           <Routes>
             <Route path="/login" element={<Login />} />
             
+            {/* Enterprise Excel Workspace Route - Code Split & Lazy Loaded */}
+            <Route 
+              path="/excel-workspace" 
+              element={
+                <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ADMIN_SS', 'ADMIN_Station_Superintendent', 'CREW_CONTROLLER', 'STATION_CONTROLLER', 'TRAIN_OPERATOR', 'VIEWER']}>
+                  <ExcelWorkspace />
+                </ProtectedRoute>
+              } 
+            />
+
             {/* Protected Routes - All roles allowed access to base layout */}
             <Route 
               path="/*" 

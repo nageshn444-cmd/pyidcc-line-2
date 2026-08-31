@@ -24,6 +24,7 @@
     "firebase": "^12.15.0",
     "firebase-admin": "^14.0.0",
     "firebase-functions": "^7.2.5",
+    "hot-formula-parser": "^4.0.0",
     "html2canvas": "^1.4.1",
     "lucide-react": "^1.21.0",
     "react": "^18.2.0",

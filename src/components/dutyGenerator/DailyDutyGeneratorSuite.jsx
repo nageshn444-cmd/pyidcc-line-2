@@ -243,6 +243,21 @@ export default function DailyDutyGeneratorSuite() {
   const bmrclCount = Math.max(0, activeCount - jmdCount);
   const relievedCount = crewList.filter(e => e.status === 'RELIEVED' || e.isRelieved || e.status === 'INACTIVE' || e.activeCrew === false).length;
 
+  // Dynamic CC-Willing Relief Pool count (updates live when operators are added/removed/toggled)
+  const ccWillingCount = useMemo(() => {
+    return crewList.filter(e => {
+      if (!e) return false;
+      const isRelieved = e.isRelieved === true || e.status === 'RELIEVED' || e.status === 'INACTIVE' || e.activeCrew === false || e.isDeleted === true;
+      if (isRelieved) return false;
+      const cid = normalizeCanonicalEmpId(e.empId);
+      if (e.isOfficialCC === true || e.role === 'OFFICIAL_CREW_CONTROLLER' || e.specialProfile === 'CC') return false;
+      if ([20726, 20038, 20037, 20018, 20019, 20057, 20087].includes(cid)) return false;
+      if (e.role === 'Official ALS' || e.role === 'Official GCC' || e.role === 'STATION_CONTROLLER') return false;
+
+      return e.ccWilling === true || e.specialProfile === 'CC_WILLING';
+    }).length;
+  }, [crewList]);
+
   // Handlers with Live Firestore Persistence
   const handleAddNewStaff = async (newStaff) => {
     const strId = String(newStaff.empId).trim();
@@ -694,9 +709,14 @@ export default function DailyDutyGeneratorSuite() {
               </div>
               <div className="min-w-0">
                 <div className="text-[9px] text-blue-400 uppercase font-bold tracking-wider">CC Roster Desk</div>
-                <div className="text-xl font-black text-white leading-none mt-0.5">7</div>
-                <div className="text-[10px] text-slate-500 mt-0.5">Official CCs</div>
+                <div className="text-xl font-black text-white leading-none mt-0.5">{ccWillingCount}</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">CC Willing Staff</div>
               </div>
+              {ccWillingCount > 0 && (
+                <span className="absolute top-2 right-2 text-[9px] bg-blue-500/20 text-blue-300 border border-blue-500/40 px-1.5 py-0.5 rounded-full font-mono font-bold">
+                  {ccWillingCount} Willing
+                </span>
+              )}
               <ChevronRight className="absolute bottom-3 right-3 w-3.5 h-3.5 text-slate-600 group-hover:text-blue-400 transition-colors" />
             </button>
           </div>
