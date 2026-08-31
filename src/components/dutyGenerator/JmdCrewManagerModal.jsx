@@ -3,7 +3,8 @@ import {
   Users, UserCheck, UserX, Search, Filter, AlertTriangle, 
   CheckCircle2, X, ShieldAlert, Clock, ArrowRight, UserMinus,
   FileText, Calendar, Sparkles, Plus, Edit, Save, Phone, Droplet,
-  Check, Briefcase, Zap, Compass, Moon, Sun, HeartPulse, RefreshCw
+  Check, Briefcase, Zap, Compass, Moon, Sun, HeartPulse, RefreshCw,
+  Trash2, RotateCcw, ChevronDown
 } from 'lucide-react';
 
 import { OFFICIAL_JMD_TD_REGISTRY } from '../../data/jmdCrewMaster';
@@ -16,13 +17,42 @@ export default function JmdCrewManagerModal({
   onUpdateCrewStatus,
   onBatchUpdateCrewStatus,
   onAddNewCrewMember,
-  onOpenActiveCrewModal
+  onOpenActiveCrewModal,
+  onDeleteCrewMember
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('ALL'); // 'ALL', 'MAINLINE', 'NIGHT', 'LOOP', 'PINK', 'WO', 'LEAVE'
   
   // Multi-Selection State
   const [selectedEmpIds, setSelectedEmpIds] = useState(new Set());
+
+  // Dropdown Menu State
+  const [openActionDropdownId, setOpenActionDropdownId] = useState(null);
+
+  // Close actions dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.action-dropdown-container')) {
+        setOpenActionDropdownId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Deleted Driver State (persisted locally and synced to Firestore)
+  const [deletedIds, setDeletedIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pyidcc_deleted_jmd_td_ids');
+      return saved ? new Set(JSON.parse(saved).map(id => String(id).trim())) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  // Delete Confirmation Modals
+  const [driverToDelete, setDriverToDelete] = useState(null);
+  const [isBatchDeleteConfirmOpen, setIsBatchDeleteConfirmOpen] = useState(false);
 
   // Edit Directory Profile Modal State
   const [editProfileTD, setEditProfileTD] = useState(null);
@@ -53,7 +83,8 @@ export default function JmdCrewManagerModal({
     (OFFICIAL_JMD_TD_REGISTRY || []).forEach(e => {
       const canonicalId = normalizeCanonicalEmpId(e.empId);
       if (canonicalId) {
-        map.set(canonicalId, { ...e, empId: canonicalId, isJMD: true });
+        const isDel = deletedIds.has(String(canonicalId)) || e.isDeleted === true || e.status === 'DELETED';
+        map.set(canonicalId, { ...e, empId: canonicalId, isJMD: true, isDeleted: isDel });
       }
     });
     // 2. Overlay live crewList
@@ -62,23 +93,32 @@ export default function JmdCrewManagerModal({
         const canonicalId = normalizeCanonicalEmpId(e.empId || e.employeeId || e.id);
         if (canonicalId && String(canonicalId).startsWith('8')) {
           const existing = map.get(canonicalId) || {};
+          const isDel = deletedIds.has(String(canonicalId)) || e.isDeleted === true || e.status === 'DELETED' || existing.isDeleted;
           map.set(canonicalId, {
             ...existing,
             ...e,
             empId: canonicalId,
             isJMD: true,
+            isDeleted: isDel,
+            status: isDel ? 'DELETED' : (e.status || existing.status || 'ACTIVE'),
             designation: e.designation || existing.designation || 'Train Driver (JMD Contract)'
           });
         }
       }
     });
     return Array.from(map.values()).sort((a, b) => a.empId - b.empId);
-  }, [crewList]);
+  }, [crewList, deletedIds]);
 
-  const totalJmdCount = jmdCrewList.length;
+  const deletedCount = useMemo(() => {
+    return jmdCrewList.filter(e => e.isDeleted).length;
+  }, [jmdCrewList]);
+
+  const totalJmdCount = useMemo(() => {
+    return jmdCrewList.filter(e => !e.isDeleted).length;
+  }, [jmdCrewList]);
 
   const activeJmdList = useMemo(() => {
-    return jmdCrewList.filter(e => (e.status === 'ACTIVE' || e.status === 'MATERNITY_LEAVE' || (e.maternityLeave && e.maternityLeave.active)) && !e.isRelieved && e.activeCrew !== false);
+    return jmdCrewList.filter(e => !e.isDeleted && (e.status === 'ACTIVE' || e.status === 'MATERNITY_LEAVE' || (e.maternityLeave && e.maternityLeave.active)) && !e.isRelieved && e.activeCrew !== false);
   }, [jmdCrewList]);
 
   const activeJmdCount = activeJmdList.length;
@@ -96,6 +136,13 @@ export default function JmdCrewManagerModal({
       const phone = String(emp.phone || '');
 
       const matchesSearch = !q || name.includes(q) || empIdStr.includes(q) || notes.includes(q) || phone.includes(q);
+
+      if (activeFilter === 'DELETED') {
+        return matchesSearch && emp.isDeleted;
+      }
+
+      // Hide deleted drivers in all regular roster tabs
+      if (emp.isDeleted) return false;
 
       let matchesFilter = true;
       if (activeFilter === 'ACTIVE_ONLY') {
@@ -215,6 +262,106 @@ export default function JmdCrewManagerModal({
     setNewBloodGroup('');
   };
 
+  const handleConfirmDeleteTD = (driver) => {
+    if (!driver) return;
+    const cid = String(driver.empId).trim();
+    const updated = new Set(deletedIds);
+    updated.add(cid);
+    setDeletedIds(updated);
+
+    try {
+      localStorage.setItem('pyidcc_deleted_jmd_td_ids', JSON.stringify(Array.from(updated)));
+    } catch (e) {
+      console.warn(e);
+    }
+
+    if (onDeleteCrewMember) {
+      onDeleteCrewMember(driver.empId);
+    }
+    if (onUpdateCrewStatus) {
+      onUpdateCrewStatus(driver.empId, {
+        status: 'DELETED',
+        isDeleted: true,
+        activeCrew: false,
+        isRelieved: true,
+        deletedAt: new Date().toISOString()
+      });
+    }
+
+    setDriverToDelete(null);
+    setSelectedEmpIds(prev => {
+      const next = new Set(prev);
+      next.delete(cid);
+      return next;
+    });
+  };
+
+  const handleConfirmBatchDelete = () => {
+    const idsToDelete = Array.from(selectedEmpIds);
+    if (idsToDelete.length === 0) return;
+
+    const updated = new Set(deletedIds);
+    idsToDelete.forEach(id => updated.add(String(id).trim()));
+    setDeletedIds(updated);
+
+    try {
+      localStorage.setItem('pyidcc_deleted_jmd_td_ids', JSON.stringify(Array.from(updated)));
+    } catch (e) {
+      console.warn(e);
+    }
+
+    const updates = idsToDelete.map(id => ({
+      empId: id,
+      status: 'DELETED',
+      isDeleted: true,
+      activeCrew: false,
+      isRelieved: true,
+      deletedAt: new Date().toISOString()
+    }));
+
+    if (onBatchUpdateCrewStatus) {
+      onBatchUpdateCrewStatus(updates);
+    } else if (onUpdateCrewStatus) {
+      idsToDelete.forEach(id => {
+        if (onDeleteCrewMember) onDeleteCrewMember(id);
+        onUpdateCrewStatus(id, {
+          status: 'DELETED',
+          isDeleted: true,
+          activeCrew: false,
+          isRelieved: true,
+          deletedAt: new Date().toISOString()
+        });
+      });
+    }
+
+    setSelectedEmpIds(new Set());
+    setIsBatchDeleteConfirmOpen(false);
+  };
+
+  const handleRestoreTD = (driver) => {
+    if (!driver) return;
+    const cid = String(driver.empId).trim();
+    const updated = new Set(deletedIds);
+    updated.delete(cid);
+    setDeletedIds(updated);
+
+    try {
+      localStorage.setItem('pyidcc_deleted_jmd_td_ids', JSON.stringify(Array.from(updated)));
+    } catch (e) {
+      console.warn(e);
+    }
+
+    if (onUpdateCrewStatus) {
+      onUpdateCrewStatus(driver.empId, {
+        status: 'ACTIVE',
+        isDeleted: false,
+        activeCrew: true,
+        isRelieved: false,
+        restoredAt: new Date().toISOString()
+      });
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -312,14 +459,15 @@ export default function JmdCrewManagerModal({
               { id: 'ACTIVE_ONLY', label: `Active (${activeJmdCount})` },
               { id: 'PINK', label: `🌸 Pink Pool (${pinkJmdCount})` },
               { id: 'WO', label: 'Weekly Off' },
-              { id: 'RELIEVED', label: 'Standby / Relieved' }
+              { id: 'RELIEVED', label: 'Standby / Relieved' },
+              { id: 'DELETED', label: `🗑️ Deleted (${deletedCount})` }
             ].map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveFilter(tab.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                   activeFilter === tab.id 
-                    ? 'bg-amber-600 text-white shadow-md' 
+                    ? tab.id === 'DELETED' ? 'bg-rose-600 text-white shadow-md' : 'bg-amber-600 text-white shadow-md' 
                     : 'bg-slate-800 text-slate-400 hover:text-white'
                 }`}
               >
@@ -341,17 +489,28 @@ export default function JmdCrewManagerModal({
             <span className="text-[11px] font-mono text-amber-400/90 font-semibold flex items-center gap-1.5 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
               <span>Verified SL NO:</span>
               <strong className="text-amber-300">#01 – #{String(filteredCrew.length).padStart(2, '0')}</strong>
-              <span className="text-slate-500">(Total {totalJmdCount} in Master)</span>
+              <span className="text-slate-500">(Total {totalJmdCount} Active Master)</span>
             </span>
           </div>
 
           {selectedEmpIds.size > 0 && (
-            <button
-              onClick={() => setSelectedEmpIds(new Set())}
-              className="text-xs text-slate-400 hover:text-white underline font-semibold"
-            >
-              Clear Selection ({selectedEmpIds.size})
-            </button>
+            <div className="flex items-center gap-2">
+              {activeFilter !== 'DELETED' && (
+                <button
+                  onClick={() => setIsBatchDeleteConfirmOpen(true)}
+                  className="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold transition-all shadow-md inline-flex items-center gap-1.5 animate-pulse"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete Selected ({selectedEmpIds.size} TDs)
+                </button>
+              )}
+              <button
+                onClick={() => setSelectedEmpIds(new Set())}
+                className="text-xs text-slate-400 hover:text-white underline font-semibold"
+              >
+                Clear Selection ({selectedEmpIds.size})
+              </button>
+            </div>
           )}
         </div>
 
@@ -376,7 +535,7 @@ export default function JmdCrewManagerModal({
                 <th className="px-4 py-3">Designation &amp; Role</th>
                 <th className="px-4 py-3">Fixed WO &amp; Depot</th>
                 <th className="px-4 py-3">Roster Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="px-4 py-3 text-right">Directory &amp; Relieve Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-sans">
@@ -439,24 +598,158 @@ export default function JmdCrewManagerModal({
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded text-[10px] font-bold inline-flex items-center gap-1">
-                          <Check className="w-3 h-3" />
-                          ACTIVE
-                        </span>
+                        {emp.isDeleted ? (
+                          <span className="px-2 py-0.5 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded text-[10px] font-bold inline-flex items-center gap-1">
+                            <UserX className="w-3 h-3 text-rose-400" />
+                            DELETED
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded text-[10px] font-bold inline-flex items-center gap-1">
+                            <Check className="w-3 h-3" />
+                            ACTIVE
+                          </span>
+                        )}
                         {emp.notes && (
                           <div className="text-[10px] text-slate-400 italic mt-0.5 truncate max-w-xs">
                             "{emp.notes}"
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => handleOpenEdit(emp)}
-                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-[11px] font-semibold transition-all inline-flex items-center gap-1"
-                        >
-                          <Edit className="w-3 h-3 text-amber-400" />
-                          Edit TD Profile
-                        </button>
+                      <td className="px-4 py-3 text-right relative">
+                        {emp.isDeleted ? (
+                          <button
+                            type="button"
+                            onClick={() => handleRestoreTD(emp)}
+                            className="px-2.5 py-1 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-500/40 rounded-lg text-[11px] font-bold transition-all inline-flex items-center gap-1 shadow-sm"
+                            title="Restore Train Driver to Line-2 Roster"
+                          >
+                            <RotateCcw className="w-3 h-3 text-emerald-400" />
+                            Restore Driver
+                          </button>
+                        ) : (
+                          <div className="relative inline-block text-left action-dropdown-container">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenActionDropdownId(openActionDropdownId === emp.empId ? null : emp.empId);
+                              }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1.5 border shadow-sm ${
+                                openActionDropdownId === emp.empId
+                                  ? 'bg-amber-600 text-white border-amber-400 shadow-amber-950/60 ring-2 ring-amber-500/40'
+                                  : 'bg-slate-800/90 hover:bg-slate-750 text-slate-200 hover:text-white border-slate-700/80 hover:border-slate-600'
+                              }`}
+                            >
+                              <span className="text-[11px]">Actions</span>
+                              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openActionDropdownId === emp.empId ? 'rotate-180 text-white' : 'text-slate-400'}`} />
+                            </button>
+
+                            {openActionDropdownId === emp.empId && (
+                              <div 
+                                onClick={(e) => e.stopPropagation()}
+                                className={`absolute right-0 w-64 bg-slate-900/98 backdrop-blur-xl border border-slate-700/90 rounded-2xl shadow-2xl z-50 overflow-hidden text-left p-1.5 animate-fadeIn ${
+                                  idx >= Math.max(0, filteredCrew.length - 3) && filteredCrew.length > 3
+                                    ? 'bottom-full mb-1.5 origin-bottom-right'
+                                    : 'top-full mt-1.5 origin-top-right'
+                                }`}
+                              >
+                                <div className="px-3 py-2 border-b border-slate-800/90 mb-1 bg-slate-950/70 rounded-xl">
+                                  <div className="text-[10px] uppercase font-mono tracking-wider text-slate-400 font-bold">Directory &amp; Relieve Actions</div>
+                                  <div className="text-xs font-bold text-white truncate flex items-center justify-between gap-1 mt-0.5">
+                                    <span className="truncate">{emp.name}</span>
+                                    <span className="text-amber-400 font-mono text-[11px] font-black">#{emp.empId}</span>
+                                  </div>
+                                </div>
+                                
+                                <div className="space-y-0.5">
+                                  {/* Action 1: Edit Profile */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionDropdownId(null);
+                                      handleOpenEdit(emp);
+                                    }}
+                                    className="w-full px-2.5 py-2 text-left hover:bg-slate-800/90 rounded-xl text-xs font-semibold text-slate-200 hover:text-white transition-all flex items-center gap-2.5 group"
+                                  >
+                                    <div className="p-1.5 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/25 group-hover:bg-amber-500/25">
+                                      <Edit className="w-3.5 h-3.5" />
+                                    </div>
+                                    <div>
+                                      <div className="font-bold text-slate-100 group-hover:text-amber-300 transition-colors">Edit TD Profile</div>
+                                      <div className="text-[10px] text-slate-400 font-normal">Contact, Depot &amp; Fixed WO</div>
+                                    </div>
+                                  </button>
+
+                                  {/* Action 2: Toggle Pink Duty */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionDropdownId(null);
+                                      const nextGender = emp.gender === 'FEMALE' ? 'MALE' : 'FEMALE';
+                                      onUpdateCrewStatus?.(emp.empId, {
+                                        gender: nextGender,
+                                        specialProfile: nextGender === 'FEMALE' ? 'PINK' : 'STANDARD',
+                                        pinkDutyEligible: nextGender === 'FEMALE'
+                                      });
+                                    }}
+                                    className="w-full px-2.5 py-2 text-left hover:bg-pink-950/50 rounded-xl text-xs font-semibold text-pink-300 transition-all flex items-center gap-2.5 group"
+                                  >
+                                    <div className="p-1.5 rounded-lg bg-pink-500/20 text-pink-400 border border-pink-500/30 group-hover:bg-pink-500/30">
+                                      <HeartPulse className="w-3.5 h-3.5" />
+                                    </div>
+                                    <div>
+                                      <div className="font-bold text-pink-200 group-hover:text-pink-100">
+                                        {emp.gender === 'FEMALE' ? 'Set Standard Male Crew' : 'Set Pink Duty (Female)'}
+                                      </div>
+                                      <div className="text-[10px] text-pink-400/80 font-normal">Toggle Pink Pool classification</div>
+                                    </div>
+                                  </button>
+
+                                  {/* Action 3: Relieve to Standby */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionDropdownId(null);
+                                      onUpdateCrewStatus?.(emp.empId, {
+                                        status: 'RELIEVED',
+                                        isRelieved: true,
+                                        activeCrew: false,
+                                        relievedReason: 'Standby / Relieved from Mainline Running Duties'
+                                      });
+                                    }}
+                                    className="w-full px-2.5 py-2 text-left hover:bg-amber-950/50 rounded-xl text-xs font-semibold text-amber-300 transition-all flex items-center gap-2.5 group"
+                                  >
+                                    <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 group-hover:bg-amber-500/30">
+                                      <UserMinus className="w-3.5 h-3.5" />
+                                    </div>
+                                    <div>
+                                      <div className="font-bold text-amber-200 group-hover:text-amber-100">Relieve from Mainline</div>
+                                      <div className="text-[10px] text-amber-400/80 font-normal">Move to Standby / Relieved Pool</div>
+                                    </div>
+                                  </button>
+
+                                  {/* Action 4: Delete Driver */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionDropdownId(null);
+                                      setDriverToDelete(emp);
+                                    }}
+                                    className="w-full px-2.5 py-2 text-left hover:bg-rose-950/60 rounded-xl text-xs font-semibold text-rose-300 transition-all flex items-center gap-2.5 border-t border-slate-800/80 pt-2 mt-1 group"
+                                  >
+                                    <div className="p-1.5 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30 group-hover:bg-rose-500/30">
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </div>
+                                    <div>
+                                      <div className="font-bold text-rose-200 group-hover:text-rose-100">Delete Train Driver</div>
+                                      <div className="text-[10px] text-rose-400/80 font-normal">Remove permanently from roster</div>
+                                    </div>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );
@@ -717,6 +1010,122 @@ export default function JmdCrewManagerModal({
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal for Single Driver */}
+        {driverToDelete && (
+          <div className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+            <div className="bg-slate-900 border border-rose-500/50 rounded-3xl w-full max-w-md shadow-2xl p-6 text-slate-100 font-sans">
+              <div className="flex items-center gap-3 text-rose-400 pb-3 border-b border-slate-800">
+                <div className="p-2 bg-rose-500/20 rounded-xl border border-rose-500/30">
+                  <AlertTriangle className="w-6 h-6 text-rose-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">
+                    Delete JMD Train Driver?
+                  </h3>
+                  <span className="text-[10px] text-rose-300/80 font-mono">
+                    Permanent Line-2 Roster Removal
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3 text-xs">
+                <p className="text-slate-300">
+                  Are you sure you want to delete this contract Train Driver from the Line 2 Peenya Depot active roster?
+                </p>
+                <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5 font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Driver Name:</span>
+                    <span className="font-bold text-white">{driverToDelete.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">JMD Emp ID:</span>
+                    <span className="font-bold text-amber-400">#{driverToDelete.empId}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Designation:</span>
+                    <span className="text-slate-300">{driverToDelete.designation || 'Train Driver (JMD Contract)'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Depot Base:</span>
+                    <span className="text-slate-300">{driverToDelete.boardingStation || 'PYID'}</span>
+                  </div>
+                </div>
+                <div className="p-2.5 bg-amber-950/30 border border-amber-500/20 rounded-xl text-[11px] text-amber-300 flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400" />
+                  <span>This driver will no longer be assigned to Mainline Duties #1 – #78.</span>
+                </div>
+              </div>
+
+              <div className="mt-5 flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setDriverToDelete(null)}
+                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleConfirmDeleteTD(driverToDelete)}
+                  className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Confirm Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Batch Delete Confirmation Modal */}
+        {isBatchDeleteConfirmOpen && (
+          <div className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+            <div className="bg-slate-900 border border-rose-500/50 rounded-3xl w-full max-w-md shadow-2xl p-6 text-slate-100 font-sans">
+              <div className="flex items-center gap-3 text-rose-400 pb-3 border-b border-slate-800">
+                <div className="p-2 bg-rose-500/20 rounded-xl border border-rose-500/30">
+                  <Trash2 className="w-6 h-6 text-rose-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">
+                    Delete {selectedEmpIds.size} Selected Drivers?
+                  </h3>
+                  <span className="text-[10px] text-rose-300/80 font-mono">
+                    Batch Roster Removal
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3 text-xs">
+                <p className="text-slate-300">
+                  You are about to delete <strong className="text-rose-400 font-bold font-mono">{selectedEmpIds.size}</strong> selected JMD Train Drivers from the active Line 2 roster.
+                </p>
+                <div className="p-2.5 bg-amber-950/30 border border-amber-500/20 rounded-xl text-[11px] text-amber-300 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+                  <span>These drivers will be removed from all upcoming mainline driving duty allocations.</span>
+                </div>
+              </div>
+
+              <div className="mt-5 flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsBatchDeleteConfirmOpen(false)}
+                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmBatchDelete}
+                  className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Confirm Batch Delete
+                </button>
+              </div>
             </div>
           </div>
         )}

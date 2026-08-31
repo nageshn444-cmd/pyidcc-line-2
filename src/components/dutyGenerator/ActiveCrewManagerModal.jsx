@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { 
   Users, UserMinus, UserCheck, Search, Filter, AlertTriangle, 
   CheckCircle2, X, ShieldAlert, Clock, ArrowRight, UserX, RefreshCw,
-  HeartPulse, Calendar, Sparkles, Plus, Edit, Save, Phone, Droplet, FileText, Check, Briefcase
+  HeartPulse, Calendar, Sparkles, Plus, Edit, Save, Phone, Droplet, FileText, Check, Briefcase,
+  ChevronDown, Trash2
 } from 'lucide-react';
 import { normalizeCanonicalEmpId, OFFICIAL_PYID_ACTIVE_IDS } from '../../utils/crewRegistryDataMerger';
 import { getCanonicalStaffName } from './CCWillingDeskModal';
@@ -14,6 +15,7 @@ export default function ActiveCrewManagerModal({
   onUpdateCrewStatus,
   onBatchUpdateCrewStatus,
   onAddNewCrewMember,
+  onDeleteCrewMember,
   onOpenRelievedModal,
   onOpenJmdModal
 }) {
@@ -25,6 +27,21 @@ export default function ActiveCrewManagerModal({
   const [isBulkRelieveModalOpen, setIsBulkRelieveModalOpen] = useState(false);
   const [bulkRelieveReason, setBulkRelieveReason] = useState('Working as Station Controller / Transferred from PYID CC');
   const [bulkRelieveNotes, setBulkRelieveNotes] = useState('');
+
+  // Dropdown Menu & Delete States
+  const [openActionDropdownId, setOpenActionDropdownId] = useState(null);
+  const [staffToDelete, setStaffToDelete] = useState(null);
+
+  // Close actions dropdown when clicking anywhere outside
+  React.useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.action-dropdown-container')) {
+        setOpenActionDropdownId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Edit Directory Profile Modal State
   const [editProfileTO, setEditProfileTO] = useState(null);
@@ -250,6 +267,23 @@ export default function ActiveCrewManagerModal({
     setEditMedicalDate(emp.medicalValidTill || '2027-12-31');
   };
 
+  const handleConfirmDeleteStaff = (staff) => {
+    if (!staff) return;
+    if (onDeleteCrewMember) {
+      onDeleteCrewMember(staff.empId);
+    }
+    if (onUpdateCrewStatus) {
+      onUpdateCrewStatus(staff.empId, {
+        status: 'DELETED',
+        isDeleted: true,
+        activeCrew: false,
+        isRelieved: true,
+        deletedAt: new Date().toISOString()
+      });
+    }
+    setStaffToDelete(null);
+  };
+
   const handleAddNewTO = (e) => {
     e.preventDefault();
     if (!newEmpId || !newName) return;
@@ -384,6 +418,20 @@ export default function ActiveCrewManagerModal({
           </div>
 
           <div className="flex items-center gap-2">
+            {onOpenJmdModal && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenJmdModal();
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-bold transition-all shadow-sm"
+                title="Switch to dedicated JMD Contract TD Desk"
+              >
+                <Briefcase className="w-4 h-4 text-amber-400" />
+                JMD Desk ({jmdCrewCount})
+              </button>
+            )}
+
             {onOpenRelievedModal && (
               <button
                 onClick={() => {
@@ -455,6 +503,7 @@ export default function ActiveCrewManagerModal({
             {[
               { id: 'ALL', label: `All Active (${activeCrewCount})` },
               { id: 'BMRCL_TO', label: `BMRCL TOs (${bmrclCrewCount})` },
+              { id: 'JMD_TD', label: `JMD Contract TDs (${jmdCrewCount})` },
               { id: 'MATERNITY', label: `🌸 Maternity (${maternityCount})` },
               { id: 'PINK', label: `🌸 Pink Pool (${pinkDutyCount})` }
             ].map(tab => (
@@ -645,55 +694,139 @@ export default function ActiveCrewManagerModal({
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                      <td className="px-4 py-3 text-right relative">
+                        <div className="relative inline-block text-left action-dropdown-container">
                           <button
-                            onClick={() => handleOpenEditProfile(emp)}
-                            className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-[11px] font-semibold transition-all inline-flex items-center gap-1"
-                            title="Edit full employee record in Crew Directory"
-                          >
-                            <Edit className="w-3 h-3 text-blue-400" />
-                            Directory
-                          </button>
-
-                          {isFemale && (
-                            <>
-                              {isMLActive ? (
-                                <button
-                                  onClick={() => handleReportBackFromML(emp.empId)}
-                                  className="px-2.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-lg text-xs font-bold transition-all inline-flex items-center gap-1"
-                                  title="Operator reports back from ML and transitions to Pink Duty"
-                                >
-                                  <CheckCircle2 className="w-3.5 h-3.5" />
-                                  Report to Duty
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => {
-                                    setMaternityModalTO(emp);
-                                    setMlStartDate(new Date().toISOString().split('T')[0]);
-                                  }}
-                                  className="px-2.5 py-1.5 bg-pink-600/20 hover:bg-pink-600/30 text-pink-300 border border-pink-500/30 rounded-lg text-xs font-bold transition-all inline-flex items-center gap-1"
-                                  title="Grant 180 Days Maternity Leave"
-                                >
-                                  <HeartPulse className="w-3.5 h-3.5" />
-                                  Grant ML (180d)
-                                </button>
-                              )}
-                            </>
-                          )}
-
-                          <button
-                            onClick={() => {
-                              setRelieveModalTO(emp);
-                              setRelieveReason('Working as Station Controller / Transferred from PYID CC');
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenActionDropdownId(openActionDropdownId === emp.empId ? null : emp.empId);
                             }}
-                            className="px-2.5 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-bold transition-all inline-flex items-center gap-1"
-                            title="Relieve operator from active PYID roster to Station Controller / Transferred"
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1.5 border shadow-sm ${
+                              openActionDropdownId === emp.empId
+                                ? 'bg-emerald-600 text-white border-emerald-400 shadow-emerald-950/60 ring-2 ring-emerald-500/40'
+                                : 'bg-slate-800/90 hover:bg-slate-750 text-slate-200 hover:text-white border-slate-700/80 hover:border-slate-600'
+                            }`}
                           >
-                            <UserMinus className="w-3.5 h-3.5" />
-                            Relieve to SC
+                            <span className="text-[11px]">Actions</span>
+                            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openActionDropdownId === emp.empId ? 'rotate-180 text-white' : 'text-slate-400'}`} />
                           </button>
+
+                          {openActionDropdownId === emp.empId && (
+                            <div 
+                              onClick={(e) => e.stopPropagation()}
+                              className={`absolute right-0 w-64 bg-slate-900/98 backdrop-blur-xl border border-slate-700/90 rounded-2xl shadow-2xl z-50 overflow-hidden text-left p-1.5 animate-fadeIn ${
+                                idx >= Math.max(0, filteredCrew.length - 3) && filteredCrew.length > 3
+                                  ? 'bottom-full mb-1.5 origin-bottom-right'
+                                  : 'top-full mt-1.5 origin-top-right'
+                              }`}
+                            >
+                              <div className="px-3 py-2 border-b border-slate-800/90 mb-1 bg-slate-950/70 rounded-xl">
+                                <div className="text-[10px] uppercase font-mono tracking-wider text-slate-400 font-bold">Directory &amp; Relieve Actions</div>
+                                <div className="text-xs font-bold text-white truncate flex items-center justify-between gap-1 mt-0.5">
+                                  <span className="truncate">{emp.name}</span>
+                                  <span className="text-emerald-400 font-mono text-[11px] font-black">#{emp.empId}</span>
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-0.5">
+                                {/* Action 1: Directory Profile */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenActionDropdownId(null);
+                                    handleOpenEditProfile(emp);
+                                  }}
+                                  className="w-full px-2.5 py-2 text-left hover:bg-slate-800/90 rounded-xl text-xs font-semibold text-slate-200 hover:text-white transition-all flex items-center gap-2.5 group"
+                                >
+                                  <div className="p-1.5 rounded-lg bg-blue-500/15 text-blue-400 border border-blue-500/25 group-hover:bg-blue-500/25">
+                                    <Edit className="w-3.5 h-3.5" />
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-slate-100 group-hover:text-blue-300 transition-colors">Directory Profile</div>
+                                    <div className="text-[10px] text-slate-400 font-normal">Contact, Depot &amp; Medical dates</div>
+                                  </div>
+                                </button>
+
+                                {/* Action 2: Maternity Leave actions for female crew */}
+                                {isFemale && (
+                                  isMLActive ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setOpenActionDropdownId(null);
+                                        handleReportBackFromML(emp.empId);
+                                      }}
+                                      className="w-full px-2.5 py-2 text-left hover:bg-emerald-950/50 rounded-xl text-xs font-semibold text-emerald-300 transition-all flex items-center gap-2.5 group"
+                                    >
+                                      <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 group-hover:bg-emerald-500/30">
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                      </div>
+                                      <div>
+                                        <div className="font-bold text-emerald-200 group-hover:text-emerald-100">Report Back to Duty</div>
+                                        <div className="text-[10px] text-emerald-400/80 font-normal">Resume active duty &amp; Pink Duty</div>
+                                      </div>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setOpenActionDropdownId(null);
+                                        setMaternityModalTO(emp);
+                                        setMlStartDate(new Date().toISOString().split('T')[0]);
+                                      }}
+                                      className="w-full px-2.5 py-2 text-left hover:bg-pink-950/50 rounded-xl text-xs font-semibold text-pink-300 transition-all flex items-center gap-2.5 group"
+                                    >
+                                      <div className="p-1.5 rounded-lg bg-pink-500/20 text-pink-400 border border-pink-500/30 group-hover:bg-pink-500/30">
+                                        <HeartPulse className="w-3.5 h-3.5" />
+                                      </div>
+                                      <div>
+                                        <div className="font-bold text-pink-200 group-hover:text-pink-100">Grant Maternity Leave</div>
+                                        <div className="text-[10px] text-pink-400/80 font-normal">180 Days Statutory ML grant</div>
+                                      </div>
+                                    </button>
+                                  )
+                                )}
+
+                                {/* Action 3: Relieve to SC / Transfer */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenActionDropdownId(null);
+                                    setRelieveModalTO(emp);
+                                    setRelieveReason('Working as Station Controller / Transferred from PYID CC');
+                                  }}
+                                  className="w-full px-2.5 py-2 text-left hover:bg-amber-950/50 rounded-xl text-xs font-semibold text-amber-300 transition-all flex items-center gap-2.5 group"
+                                >
+                                  <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 group-hover:bg-amber-500/30">
+                                    <UserMinus className="w-3.5 h-3.5" />
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-amber-200 group-hover:text-amber-100">Relieve to SC / Transfer</div>
+                                    <div className="text-[10px] text-amber-400/80 font-normal">Move to Station Controller desk</div>
+                                  </div>
+                                </button>
+
+                                {/* Action 4: Delete Staff */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenActionDropdownId(null);
+                                    setStaffToDelete(emp);
+                                  }}
+                                  className="w-full px-2.5 py-2 text-left hover:bg-rose-950/60 rounded-xl text-xs font-semibold text-rose-300 transition-all flex items-center gap-2.5 border-t border-slate-800/80 pt-2 mt-1 group"
+                                >
+                                  <div className="p-1.5 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30 group-hover:bg-rose-500/30">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-rose-200 group-hover:text-rose-100">Delete Staff</div>
+                                    <div className="text-[10px] text-rose-400/80 font-normal">Remove permanently from roster</div>
+                                  </div>
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1210,6 +1343,73 @@ export default function ActiveCrewManagerModal({
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal for Staff */}
+        {staffToDelete && (
+          <div className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+            <div className="bg-slate-900 border border-rose-500/50 rounded-3xl w-full max-w-md shadow-2xl p-6 text-slate-100 font-sans">
+              <div className="flex items-center gap-3 text-rose-400 pb-3 border-b border-slate-800">
+                <div className="p-2 bg-rose-500/20 rounded-xl border border-rose-500/30">
+                  <AlertTriangle className="w-6 h-6 text-rose-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">
+                    Delete Staff Record?
+                  </h3>
+                  <span className="text-[10px] text-rose-300/80 font-mono">
+                    Permanent Roster Removal
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3 text-xs">
+                <p className="text-slate-300">
+                  Are you sure you want to delete this staff member from the Line 2 Peenya Depot active roster?
+                </p>
+                <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5 font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Staff Name:</span>
+                    <span className="font-bold text-white">{staffToDelete.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Employee ID:</span>
+                    <span className="font-bold text-emerald-400">#{staffToDelete.empId}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Designation:</span>
+                    <span className="text-slate-300">{staffToDelete.designation || 'Train Operator'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Depot Base:</span>
+                    <span className="text-slate-300">{staffToDelete.depot || staffToDelete.boardingStation || 'PYID'}</span>
+                  </div>
+                </div>
+                <div className="p-2.5 bg-amber-950/30 border border-amber-500/20 rounded-xl text-[11px] text-amber-300 flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400" />
+                  <span>This staff member will no longer be eligible for duty assignments or roster generation.</span>
+                </div>
+              </div>
+
+              <div className="mt-5 flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setStaffToDelete(null)}
+                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleConfirmDeleteStaff(staffToDelete)}
+                  className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Confirm Delete
+                </button>
+              </div>
             </div>
           </div>
         )}

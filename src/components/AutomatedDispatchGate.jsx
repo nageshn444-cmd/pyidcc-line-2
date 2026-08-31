@@ -55,6 +55,7 @@ import {
   formatExcelTime,
   rosterAutoClassifierService,
 } from "../services/RosterAutoClassifierService";
+import { swapOperatorsInConsoleData } from "../services/RosterService";
 import RosterPublisherBoard from "./RosterPublisherBoard";
 
 // ── Duty ID Utilities (shared with Dashboard) ──
@@ -763,7 +764,9 @@ export default function AutomatedDispatchGate({
         const cached = window.localStorage.getItem("pyidcc_roster_desk_meta");
         if (cached) return JSON.parse(cached);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn("Could not read local meta cache", e);
+    }
     return null;
   });
 
@@ -796,7 +799,9 @@ export default function AutomatedDispatchGate({
           if (typeof window !== "undefined" && window.localStorage) {
             window.localStorage.removeItem("pyidcc_roster_desk_console_cache");
           }
-        } catch (e) {}
+        } catch (e) {
+          console.warn("Could not clear console cache", e);
+        }
         return;
       }
 
@@ -848,7 +853,9 @@ export default function AutomatedDispatchGate({
               JSON.stringify(next),
             );
           }
-        } catch (e) {}
+        } catch (e) {
+          console.warn("Could not write console cache", e);
+        }
 
         return next;
       });
@@ -867,7 +874,9 @@ export default function AutomatedDispatchGate({
                 JSON.stringify(data),
               );
             }
-          } catch (e) {}
+          } catch (e) {
+            console.warn("Could not write meta cache", e);
+          }
         }
       },
     );
@@ -1690,6 +1699,7 @@ Rules:
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [swapDuty1, setSwapDuty1] = useState("");
   const [swapDuty2, setSwapDuty2] = useState("");
+  const [swapSearchQuery, setSwapSearchQuery] = useState("");
 
   const duplicateEmpIds = useMemo(() => {
     const counts = {};
@@ -1783,7 +1793,9 @@ Rules:
             window.localStorage.removeItem("pyidcc_roster_desk_console_cache");
             window.localStorage.removeItem("pyidcc_roster_desk_meta");
           }
-        } catch (e) {}
+        } catch (e) {
+          console.warn("Could not clear cache on reset", e);
+        }
 
         setDeployedRosterInfo(null);
         setConsoleData({
@@ -1895,48 +1907,224 @@ Rules:
     }
   };
 
+  // Swappable entities combining Mainline Train Duties and all Roster Desk Console columns
+  const allSwappableGroups = useMemo(() => {
+    const groups = [];
+    const currentList = providedDeployments || fallbackDeployments || [];
+
+    // 1. Mainline Train Duties
+    if (currentList && currentList.length > 0) {
+      const mainlineItems = currentList.map((d) => ({
+        id: `mainline_${d.dutyId}`,
+        type: "MAINLINE",
+        dutyId: d.dutyId,
+        empId: String(d.empId || ""),
+        empName: String(d.empName || ""),
+        label: `Duty ${d.dutyId} - ${d.empName || "Vacant"} (${d.empId || "--"})`,
+        category: "Mainline Train Duty",
+      }));
+      groups.push({
+        groupLabel: `🚆 Mainline Train Duties (${mainlineItems.length})`,
+        categoryKey: "mainline",
+        items: mainlineItems,
+      });
+    }
+
+    // Helper to add console category
+    const addConsoleGroup = (groupName, list, catKey, defaultPrefix) => {
+      if (!list || list.length === 0) return;
+      const validItems = list
+        .map((item, idx) => {
+          const empId = String(item.empNo || item.empId || "").trim();
+          const empName = String(item.name || "").trim();
+          if (!empName && !empId) return null;
+          const dutyCode = item.duty || item.code || item.dutyId || item.type || defaultPrefix;
+          return {
+            id: `console_${catKey}_${idx}_${empId || idx}`,
+            type: "CONSOLE",
+            catKey,
+            idx,
+            dutyId: dutyCode,
+            empId,
+            empName,
+            label: `${groupName}: ${dutyCode ? `[${dutyCode}] ` : ""}${empName || "Staff"} (${empId || "--"})`,
+            category: groupName,
+            rawItem: item,
+          };
+        })
+        .filter(Boolean);
+
+      if (validItems.length > 0) {
+        groups.push({
+          groupLabel: `${groupName} (${validItems.length})`,
+          categoryKey: catKey,
+          items: validItems,
+        });
+      }
+    };
+
+    addConsoleGroup("Co-Operators & 2nd Crew", consoleData.coOperators, "coOperators", "Co-Op");
+    addConsoleGroup("Crew Controllers", consoleData.controlDesks, "controlDesks", "CC");
+    addConsoleGroup("Leave & Rest", consoleData.leaves, "leaves", "Leave");
+    addConsoleGroup("Standby", consoleData.standbys, "standbys", "Standby");
+    addConsoleGroup("STBK (Outstation Stepbacks)", consoleData.outstationStepbacks, "outstationStepbacks", "STBK");
+    addConsoleGroup("CRT Training", consoleData.crtTraining, "crtTraining", "CRT");
+    addConsoleGroup("BMRTI Training", consoleData.bmrtiTraining, "bmrtiTraining", "BMRTI");
+    addConsoleGroup("Weekly Off", consoleData.weeklyOffs, "weeklyOffs", "WO");
+    addConsoleGroup("REL (Relieved)", consoleData.relievedOperators, "relievedOperators", "REL");
+    addConsoleGroup("PME (Medical Exam)", consoleData.pmeOperators, "pmeOperators", "PME");
+    addConsoleGroup("LRD (Route Learning)", consoleData.routeLearning, "routeLearning", "LRD");
+    addConsoleGroup("OD (On Duty)", consoleData.onDuty, "onDuty", "OD");
+    addConsoleGroup("NR (Not Reporting)", consoleData.notReporting, "notReporting", "NR");
+    addConsoleGroup("AB (Absent)", consoleData.absents, "absents", "AB");
+
+    // Custom Registers including CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)
+    if (consoleData.customRegisters && typeof consoleData.customRegisters === "object") {
+      Object.entries(consoleData.customRegisters).forEach(([tagName, list]) => {
+        addConsoleGroup(tagName, list, `custom_${tagName}`, tagName);
+      });
+    }
+
+    return groups;
+  }, [providedDeployments, fallbackDeployments, consoleData]);
+
+  // Flattened for easy lookup
+  const allSwappableEntities = useMemo(() => {
+    return allSwappableGroups.flatMap((g) => g.items);
+  }, [allSwappableGroups]);
+
+  const findSwappableEntity = (val) => {
+    if (!val) return null;
+    const direct = allSwappableEntities.find((e) => e.id === val);
+    if (direct) return direct;
+    const byDuty = allSwappableEntities.find(
+      (e) => String(e.dutyId).trim().toLowerCase() === String(val).trim().toLowerCase()
+    );
+    if (byDuty) return byDuty;
+    const byEmp = allSwappableEntities.find(
+      (e) => String(e.empId).trim() === String(val).trim()
+    );
+    if (byEmp) return byEmp;
+    return null;
+  };
+
+  // Filtered groups based on swapSearchQuery
+  const filteredSwappableGroups = useMemo(() => {
+    const q = (swapSearchQuery || "").trim().toLowerCase();
+    if (!q) return allSwappableGroups;
+    return allSwappableGroups
+      .map((group) => {
+        const filteredItems = group.items.filter((item) => {
+          return (
+            item.label.toLowerCase().includes(q) ||
+            item.empName.toLowerCase().includes(q) ||
+            item.empId.toLowerCase().includes(q) ||
+            String(item.dutyId).toLowerCase().includes(q) ||
+            group.groupLabel.toLowerCase().includes(q)
+          );
+        });
+        return { ...group, items: filteredItems };
+      })
+      .filter((g) => g.items.length > 0);
+  }, [allSwappableGroups, swapSearchQuery]);
+
   const handleExecuteSwap = async () => {
     if (!swapDuty1 || !swapDuty2) {
-      alert("Please select both Duty IDs to swap.");
+      alert("Please select both Duty IDs / Operators to swap.");
       return;
     }
-    const currentList = providedDeployments || fallbackDeployments;
-    const dep1 = currentList.find(
-      (d) => String(d.dutyId) === String(swapDuty1),
-    );
-    const dep2 = currentList.find(
-      (d) => String(d.dutyId) === String(swapDuty2),
-    );
-    if (!dep1 || !dep2) {
-      alert("One or both Duty IDs not found in current deployment roster.");
+    if (swapDuty1 === swapDuty2) {
+      alert("Please select two different duties or operators to swap.");
       return;
     }
-    try {
-      const docId1 = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${dep1.dutyId}`;
-      const docId2 = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${dep2.dutyId}`;
 
+    const item1 = findSwappableEntity(swapDuty1);
+    const item2 = findSwappableEntity(swapDuty2);
+
+    if (!item1 || !item2) {
+      alert("One or both Duty IDs / Operators not found in current deployment roster or console.");
+      return;
+    }
+
+    try {
       const batch = writeBatch(db);
-      batch.update(doc(db, "crew_daily_deployment", docId1), {
-        empName: dep2.empName,
-        empId: dep2.empId,
-        status: "SWAPPED_BY_CC",
-        remarks: `Swapped with Duty ${dep2.dutyId}`,
-        lastUpdated: serverTimestamp(),
-      });
-      batch.update(doc(db, "crew_daily_deployment", docId2), {
-        empName: dep1.empName,
-        empId: dep1.empId,
-        status: "SWAPPED_BY_CC",
-        remarks: `Swapped with Duty ${dep1.dutyId}`,
-        lastUpdated: serverTimestamp(),
-      });
+      let newConsoleData = { ...consoleData };
+      let updatedConsole = false;
+
+      // 1. If item1 is Mainline:
+      if (item1.type === "MAINLINE") {
+        const docId1 = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${item1.dutyId}`;
+        batch.update(doc(db, "crew_daily_deployment", docId1), {
+          empName: item2.empName,
+          empId: item2.empId,
+          status: "SWAPPED_BY_CC",
+          remarks: `Swapped with ${item2.category} (${item2.empName || item2.dutyId})`,
+          lastUpdated: serverTimestamp(),
+        });
+      }
+
+      // 2. If item2 is Mainline:
+      if (item2.type === "MAINLINE") {
+        const docId2 = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${item2.dutyId}`;
+        batch.update(doc(db, "crew_daily_deployment", docId2), {
+          empName: item1.empName,
+          empId: item1.empId,
+          status: "SWAPPED_BY_CC",
+          remarks: `Swapped with ${item1.category} (${item1.empName || item1.dutyId})`,
+          lastUpdated: serverTimestamp(),
+        });
+      }
+
+      // 3. If any item is from Roster Desk Console, swap operators across all console registers:
+      if (item1.type === "CONSOLE" || item2.type === "CONSOLE") {
+        newConsoleData = swapOperatorsInConsoleData(
+          newConsoleData,
+          item1.empId,
+          item1.empName,
+          item2.empId,
+          item2.empName
+        );
+        updatedConsole = true;
+      }
+
+      if (updatedConsole) {
+        newConsoleData.lastUpdated = serverTimestamp();
+        batch.set(doc(db, "roster_desk_console", "current"), newConsoleData, { merge: true });
+        batch.set(doc(db, "roster_desk_console", "latest"), newConsoleData, { merge: true });
+        batch.set(doc(db, "dispatch_excel_cache", "current"), newConsoleData, { merge: true });
+        if (typeof window !== "undefined" && window.localStorage) {
+          window.localStorage.setItem(
+            "pyidcc_roster_desk_console_cache",
+            JSON.stringify(newConsoleData)
+          );
+        }
+        setConsoleData(newConsoleData);
+      }
+
+      // Audit Log
+      try {
+        const auditRef = doc(collection(db, "auditLogs"));
+        batch.set(auditRef, {
+          action: "ROSTER_DESK_DUTY_SWAP",
+          performedBy: "Crew Controller / GCC",
+          timestamp: serverTimestamp(),
+          duty1: item1.label,
+          duty2: item2.label,
+          operator1: `${item1.empName} (${item1.empId})`,
+          operator2: `${item2.empName} (${item2.empId})`,
+          details: `Swapped: [${item1.category}] ${item1.label} ↔ [${item2.category}] ${item2.label}`,
+        });
+      } catch (logErr) {
+        console.warn("Audit log error:", logErr);
+      }
+
       await batch.commit();
-      alert(
-        `✅ Swapped Duty ${dep1.dutyId} (${dep1.empName}) with Duty ${dep2.dutyId} (${dep2.empName})`,
-      );
+
+      alert(`✅ Swapped Successfully:\n${item1.label}\n↔\n${item2.label}`);
       setShowSwapModal(false);
       setSwapDuty1("");
       setSwapDuty2("");
+      setSwapSearchQuery("");
       if (onImportComplete) onImportComplete();
     } catch (err) {
       console.error(err);
@@ -4959,27 +5147,57 @@ Rules:
       )}
       {/* Swap Duties Modal */}
       {showSwapModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-amber-500/40 rounded-xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-amber-500/40 rounded-xl p-6 max-w-xl w-full space-y-4 shadow-2xl">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <h3 className="text-sm font-black text-amber-400 flex items-center gap-2 uppercase tracking-wider">
-                <Repeat className="h-4 w-4" /> SWAP DUTIES (CC/GCC/ALS)
-              </h3>
+              <div>
+                <h3 className="text-sm font-black text-amber-400 flex items-center gap-2 uppercase tracking-wider">
+                  <Repeat className="h-4 w-4" /> SWAP DUTIES (CC/GCC/ALS)
+                </h3>
+                <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                  BMRCL LINE 2 PEENYA DEPOT ROSTER DESK CONSOLE
+                </div>
+              </div>
               <button
-                onClick={() => setShowSwapModal(false)}
+                onClick={() => {
+                  setShowSwapModal(false);
+                  setSwapSearchQuery("");
+                }}
                 className="text-slate-400 hover:text-white font-bold text-sm"
               >
                 ✕
               </button>
             </div>
 
+            {/* Quick Filter Search */}
+            <div className="relative">
+              <input
+                type="text"
+                value={swapSearchQuery}
+                onChange={(e) => setSwapSearchQuery(e.target.value)}
+                placeholder="Filter by operator name, ID, duty, or column (e.g. Mahantesh, 21953, CRRC, Standby)..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg py-1.5 pl-8 pr-3 text-xs text-slate-200 placeholder-slate-500 font-mono focus:border-amber-500 focus:outline-none"
+              />
+              <Search className="h-3.5 w-3.5 text-slate-500 absolute left-2.5 top-2.5 pointer-events-none" />
+              {swapSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSwapSearchQuery("")}
+                  className="absolute right-2.5 top-2 text-[10px] text-slate-400 hover:text-slate-200 cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
             <div className="space-y-3">
+              {/* Dropdown 1 */}
               <div>
                 <label
                   className="block text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1"
-                  htmlFor="automateddispatchgat-l18"
+                  htmlFor="automateddispatchgat-i21"
                 >
-                  First Duty ID
+                  First Duty / Operator
                 </label>
                 <select
                   id="automateddispatchgat-i21"
@@ -4988,21 +5206,26 @@ Rules:
                   onChange={(e) => setSwapDuty1(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-200 font-mono focus:border-amber-500"
                 >
-                  <option value="">Select Duty 1...</option>
-                  {deployments.map((d) => (
-                    <option key={d.id} value={d.dutyId}>
-                      Duty {d.dutyId} - {d.empName} ({d.empId})
-                    </option>
+                  <option value="">-- Select Operator 1 / Duty --</option>
+                  {filteredSwappableGroups.map((group) => (
+                    <optgroup key={group.categoryKey || group.groupLabel} label={group.groupLabel}>
+                      {group.items.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>
 
+              {/* Dropdown 2 */}
               <div>
                 <label
                   className="block text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1"
-                  htmlFor="automateddispatchgat-l19"
+                  htmlFor="automateddispatchgat-i22"
                 >
-                  Second Duty ID
+                  Second Duty / Operator
                 </label>
                 <select
                   id="automateddispatchgat-i22"
@@ -5011,26 +5234,69 @@ Rules:
                   onChange={(e) => setSwapDuty2(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-200 font-mono focus:border-amber-500"
                 >
-                  <option value="">Select Duty 2...</option>
-                  {deployments.map((d) => (
-                    <option key={d.id} value={d.dutyId}>
-                      Duty {d.dutyId} - {d.empName} ({d.empId})
-                    </option>
+                  <option value="">-- Select Operator 2 / Duty --</option>
+                  {filteredSwappableGroups.map((group) => (
+                    <optgroup key={group.categoryKey || group.groupLabel} label={group.groupLabel}>
+                      {group.items.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>
+
+              {/* Visual Preview Card of Selected Operators */}
+              {(swapDuty1 || swapDuty2) && (
+                <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 grid grid-cols-1 sm:grid-cols-5 gap-2 items-center text-xs">
+                  <div className="sm:col-span-2 bg-slate-900 border border-slate-800 rounded p-2 min-w-0">
+                    <div className="text-[10px] text-amber-400 font-bold uppercase tracking-wider truncate">
+                      {findSwappableEntity(swapDuty1)?.category || "Operator 1"}
+                    </div>
+                    <div className="font-bold text-slate-200 truncate mt-0.5">
+                      {findSwappableEntity(swapDuty1)?.empName || "--"}
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-mono truncate">
+                      ID: #{findSwappableEntity(swapDuty1)?.empId || "--"} • Duty: {findSwappableEntity(swapDuty1)?.dutyId || "--"}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-center items-center py-1">
+                    <div className="p-1.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                      <Repeat className="h-4 w-4" />
+                    </div>
+                  </div>
+
+                  <div className="sm:col-span-2 bg-slate-900 border border-slate-800 rounded p-2 min-w-0">
+                    <div className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider truncate">
+                      {findSwappableEntity(swapDuty2)?.category || "Operator 2"}
+                    </div>
+                    <div className="font-bold text-slate-200 truncate mt-0.5">
+                      {findSwappableEntity(swapDuty2)?.empName || "--"}
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-mono truncate">
+                      ID: #{findSwappableEntity(swapDuty2)?.empId || "--"} • Duty: {findSwappableEntity(swapDuty2)?.dutyId || "--"}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
               <button
-                onClick={() => setShowSwapModal(false)}
-                className="px-4 py-1.5 rounded text-xs font-bold text-slate-400 hover:text-white bg-slate-800"
+                onClick={() => {
+                  setShowSwapModal(false);
+                  setSwapSearchQuery("");
+                }}
+                className="px-4 py-1.5 rounded text-xs font-bold text-slate-400 hover:text-white bg-slate-800 cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleExecuteSwap}
-                className="px-4 py-1.5 rounded text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 font-black uppercase tracking-wider"
+                disabled={!swapDuty1 || !swapDuty2 || swapDuty1 === swapDuty2}
+                className="px-4 py-1.5 rounded text-xs font-bold text-slate-955 bg-amber-400 hover:bg-amber-300 disabled:opacity-50 disabled:cursor-not-allowed font-black uppercase tracking-wider transition-all cursor-pointer"
               >
                 CONFIRM SWAP
               </button>

@@ -338,6 +338,7 @@ export default function DailyDutyGeneratorSuite() {
     });
   };
 
+
   const handleAddRequest = async (req) => {
     setLocalRequests([req, ...localRequests]);
     try {
@@ -836,6 +837,7 @@ export default function DailyDutyGeneratorSuite() {
         onUpdateCrewStatus={handleUpdateCrewStatus}
         onBatchUpdateCrewStatus={handleBatchUpdateCrewStatus}
         onAddNewCrewMember={handleAddNewCrewMember}
+        onDeleteCrewMember={handleDeleteCrewMember}
         onOpenRelievedModal={() => setIsRelievedCrewModalOpen(true)}
         onOpenJmdModal={() => setIsJmdCrewModalOpen(true)}
       />
@@ -848,6 +850,7 @@ export default function DailyDutyGeneratorSuite() {
         onUpdateCrewStatus={handleUpdateCrewStatus}
         onBatchUpdateCrewStatus={handleBatchUpdateCrewStatus}
         onAddNewCrewMember={handleAddNewCrewMember}
+        onDeleteCrewMember={handleDeleteCrewMember}
         onOpenActiveCrewModal={() => setIsActiveCrewModalOpen(true)}
       />
 

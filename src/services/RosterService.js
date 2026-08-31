@@ -5,6 +5,7 @@ import {
   collection, 
   where, 
   getDocs, 
+  getDoc,
   runTransaction, 
   setDoc, 
   increment, 
@@ -13,7 +14,49 @@ import {
 } from 'firebase/firestore';
 import { auditService } from './auditService';
 
-class RosterService {
+export const swapOperatorsInConsoleData = (consoleData, op1Id, op1Name, op2Id, op2Name) => {
+  if (!consoleData) return consoleData;
+  const updated = JSON.parse(JSON.stringify(consoleData));
+  
+  const swapInArray = (arr) => {
+    if (!Array.isArray(arr)) return;
+    arr.forEach(item => {
+      const currentEmp = String(item.empNo || item.empId || '').trim();
+      if (currentEmp === String(op1Id).trim()) {
+        item.empNo = String(op2Id).trim();
+        if (item.empId !== undefined) item.empId = String(op2Id).trim();
+        item.name = op2Name;
+      } else if (currentEmp === String(op2Id).trim()) {
+        item.empNo = String(op1Id).trim();
+        if (item.empId !== undefined) item.empId = String(op1Id).trim();
+        item.name = op1Name;
+      }
+    });
+  };
+
+  swapInArray(updated.coOperators);
+  swapInArray(updated.controlDesks);
+  swapInArray(updated.leaves);
+  swapInArray(updated.standbys);
+  swapInArray(updated.outstationStepbacks);
+  swapInArray(updated.crtTraining);
+  swapInArray(updated.bmrtiTraining);
+  swapInArray(updated.weeklyOffs);
+  swapInArray(updated.relievedOperators);
+  swapInArray(updated.pmeOperators);
+  swapInArray(updated.routeLearning);
+  swapInArray(updated.notReporting);
+  swapInArray(updated.absents);
+  swapInArray(updated.onDuty);
+
+  if (updated.customRegisters && typeof updated.customRegisters === 'object') {
+    Object.values(updated.customRegisters).forEach(arr => swapInArray(arr));
+  }
+
+  return updated;
+};
+
+export class RosterService {
   async pasteCellRange(grid, startRowIndex, startColIndex, columnFieldsList, rows, updatedByUserId, updatedByUserName) {
     try {
       const batch = writeBatch(db);
@@ -52,18 +95,47 @@ class RosterService {
     }
   }
 
+  async pasteRosterExcelData(parsedRows, scheduleType = 'WEEKDAY') {
+    // ... existing paste logic ...
+    try {
+      const batch = writeBatch(db);
+      for (const row of parsedRows) {
+        if (!row.dutyId) continue;
+        const normId = ['1','2','3','4','5','6','7','8','9'].includes(String(row.dutyId).trim()) 
+          ? '0' + String(row.dutyId).trim() 
+          : String(row.dutyId).trim();
+        const docId = `gcc_deploy_${scheduleType.toLowerCase()}_duty_${normId}`;
+        const ref = doc(db, 'crew_daily_deployment', docId);
+        batch.set(ref, {
+          ...row,
+          dutyId: normId,
+          scheduleType,
+          lastUpdated: serverTimestamp()
+        }, { merge: true });
+      }
+      await batch.commit();
+      return true;
+    } catch (err) {
+      console.error("RosterService paste failed:", err);
+      throw err;
+    }
+  }
+
   async approveShiftExchange(ex, userProfile, finalRemarks) {
     const id = ex.id;
+    const isPureNumericDuty = (s) => /^\d{1,2}$/.test(String(s || '').trim());
     const normalizeDutyId = (idStr) => {
       if (!idStr) return '';
-      const num = parseInt(idStr.replace(/\D/g, ''), 10);
-      return isNaN(num) ? idStr : `gcc_duty_${num}`;
+      const s = String(idStr).trim();
+      if (!isPureNumericDuty(s)) return s;
+      const num = parseInt(s, 10);
+      return isNaN(num) ? s : `gcc_duty_${num}`;
     };
 
     const duty1 = normalizeDutyId(ex.operator1Duty);
     const duty2 = normalizeDutyId(ex.operator2Duty);
-    const unnormDuty1 = String(parseInt(ex.operator1Duty, 10));
-    const unnormDuty2 = String(parseInt(ex.operator2Duty, 10));
+    const unnormDuty1 = isPureNumericDuty(ex.operator1Duty) ? String(parseInt(ex.operator1Duty, 10)) : String(ex.operator1Duty || '');
+    const unnormDuty2 = isPureNumericDuty(ex.operator2Duty) ? String(parseInt(ex.operator2Duty, 10)) : String(ex.operator2Duty || '');
 
     // 1. Fetch matching deployments
     const q1 = query(collection(db, 'crew_daily_deployment'), where('dutyId', '==', duty1));
@@ -243,6 +315,30 @@ class RosterService {
     };
     await updateCount(ex.operator1Id, ex.operator1Name);
     await updateCount(ex.operator2Id, ex.operator2Name);
+
+    // 4. Synchronize swap across BMRCL Line 2 Peenya Depot Roster Desk Console
+    try {
+      const consoleDocSnap = await getDoc(doc(db, 'roster_desk_console', 'current'));
+      if (consoleDocSnap.exists()) {
+        const currentConsole = consoleDocSnap.data();
+        const updatedConsole = swapOperatorsInConsoleData(
+          currentConsole,
+          ex.operator1Id,
+          ex.operator1Name,
+          ex.operator2Id,
+          ex.operator2Name
+        );
+        updatedConsole.lastUpdated = serverTimestamp();
+        await setDoc(doc(db, 'roster_desk_console', 'current'), updatedConsole, { merge: true });
+        await setDoc(doc(db, 'roster_desk_console', 'latest'), updatedConsole, { merge: true });
+        await setDoc(doc(db, 'dispatch_excel_cache', 'current'), updatedConsole, { merge: true });
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('pyidcc_roster_desk_console_cache', JSON.stringify(updatedConsole));
+        }
+      }
+    } catch (consoleSyncErr) {
+      console.warn("Roster Desk Console swap synchronization warning:", consoleSyncErr);
+    }
   }
 }
 

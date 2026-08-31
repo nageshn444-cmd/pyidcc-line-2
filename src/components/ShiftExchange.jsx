@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
-import { collection, addDoc, query, orderBy, onSnapshot, updateDoc, doc, serverTimestamp, getDocs, where, setDoc, increment, getDoc, deleteDoc, runTransaction, writeBatch } from 'firebase/firestore';
-import { Repeat, CheckCircle, Clock, ShieldCheck, UserCheck, CheckSquare, X, Check, Trash2 } from 'lucide-react';
+import { collection, addDoc, query, orderBy, onSnapshot, updateDoc, doc, serverTimestamp, getDocs, where, setDoc, getDoc, runTransaction, writeBatch } from 'firebase/firestore';
+import { 
+  Repeat, CheckCircle, Clock, UserCheck, X, Check, Trash2,
+  Cpu, FileSpreadsheet, Users, Search, ArrowRightLeft
+} from 'lucide-react';
 import { BMRCL_CREW_REGISTRY, BMRCL_CREW_MASTER_BACKUP } from '../data/bmrclCrewRegistry';
 import { useAuth } from '../context/AuthContext';
-import { rosterService } from '../services/RosterService';
+import { rosterService, swapOperatorsInConsoleData } from '../services/RosterService';
 
 // Normalize duty ID: pad single digits to match Firestore doc ID format "01"
 const normalizeDutyId = (raw) => {
@@ -21,15 +24,22 @@ const STATUS_OPTIONS = [
   'CRT',
   'CL',
   'EL',
-  'WO'
+  'WO',
+  'REL',
+  'PME',
+  'LRD',
+  'OD',
+  'CRRC TRAINING',
+  'STANDBY (OR)'
 ];
 
-const DUTY_OPTIONS = [
-  ...Array.from({ length: 100 }, (_, i) => (i + 1).toString()),
+const BASE_DUTY_OPTIONS = [
+  ...Array.from({ length: 100 }, (_, i) => (i + 1).toString().padStart(2, '0')),
   '06:30 OR',
   '07:00 OR',
   '07:30 OR',
   '08:00 OR',
+  '08:30 OR',
   '09:00 OR',
   '10:00 OR',
   '10:30 OR',
@@ -39,10 +49,51 @@ const DUTY_OPTIONS = [
   '13:30 OR',
   '14:00 OR',
   '14:30 OR',
+  'Standby RD3',
   'PUTH STBK 07:00',
   'PUTH STBK 14:00',
   'NGSA STBK 07:00',
-  'NGSA STBK 14:00'
+  'NGSA STBK 14:00',
+  'CC1',
+  'CC2',
+  'CC3',
+  'CC4',
+  'CC5',
+  'CC Night',
+  'GCC Controller',
+  'ALS Controller',
+  'Co-Op Duty 01',
+  'Co-Op Duty 02',
+  'Co-Op Duty 03',
+  'Co-Op Duty 04',
+  'Co-Op Duty 05',
+  'Co-Op Duty 06',
+  'Co-Op Duty 07',
+  'Co-Op Duty 08',
+  'Co-Op Duty 09',
+  'Co-Op Duty 10',
+  'Co-Op Duty 11',
+  'Co-Op Duty 12',
+  'Co-Op Duty 13',
+  'Co-Op Duty 14',
+  'Co-Op Duty 15',
+  'Co-Op Duty 16',
+  'Co-Op Duty 17',
+  'Co-Op Duty 18',
+  'Co-Op Duty 19',
+  'Co-Op Duty 20',
+  'CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)',
+  'CRT Training',
+  'BMRTI Training',
+  'Weekly Off (WO)',
+  'Leave (CL)',
+  'Leave (EL)',
+  'Relieved (REL)',
+  'PME (Medical Exam)',
+  'LRD (Route Learning)',
+  'OD (On Duty)',
+  'NR (Not Reporting)',
+  'AB (Absent)'
 ];
 
 export default function ShiftExchange() {
@@ -66,16 +117,51 @@ export default function ShiftExchange() {
   const [op1Query, setOp1Query] = useState('');
   const [op2Query, setOp2Query] = useState('');
 
-  // Sync crew data with Firestore crewRegistry collection or local registry backups
+  // Live Roster Desk Console and Deployment states
+  const [consoleData, setConsoleData] = useState(() => {
+    try {
+      const cached = localStorage.getItem("pyidcc_roster_desk_console_cache");
+      if (cached) return JSON.parse(cached);
+    } catch (e) {
+      console.warn("Could not load roster console cache", e);
+    }
+    return {};
+  });
+  const [deployments, setDeployments] = useState([]);
+  const [selectedConsoleCategory, setSelectedConsoleCategory] = useState(null);
+
+  // 1. Sync live deployments & Roster Desk Console snapshots
   useEffect(() => {
-    // 1. Initial fallback load
+    const unsubDeskCurrent = onSnapshot(doc(db, "roster_desk_console", "current"), (docSnap) => {
+      if (docSnap.exists()) {
+        const d = docSnap.data();
+        setConsoleData(prev => ({ ...prev, ...d }));
+      }
+    });
+    const unsubDeskLatest = onSnapshot(doc(db, "roster_desk_console", "latest"), (docSnap) => {
+      if (docSnap.exists()) {
+        const d = docSnap.data();
+        setConsoleData(prev => ({ ...prev, ...d }));
+      }
+    });
+    const unsubDeploy = onSnapshot(collection(db, "crew_daily_deployment"), (snap) => {
+      setDeployments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return () => {
+      unsubDeskCurrent();
+      unsubDeskLatest();
+      unsubDeploy();
+    };
+  }, []);
+
+  // 2. Sync crew data with Firestore crewRegistry collection or local registry backups
+  useEffect(() => {
     if (BMRCL_CREW_REGISTRY && BMRCL_CREW_REGISTRY.length > 0) {
       setCrewList(BMRCL_CREW_REGISTRY);
     } else {
       setCrewList(BMRCL_CREW_MASTER_BACKUP);
     }
 
-    // 2. Real-time Firestore sync
     const qRegistry = query(collection(db, 'crewRegistry'));
     const unsubRegistry = onSnapshot(qRegistry, (snapshot) => {
       if (snapshot.empty) {
@@ -128,43 +214,420 @@ export default function ShiftExchange() {
     return () => unsubRegistry();
   }, []);
 
-  const filteredCrew1 = React.useMemo(() => {
+  // 3. Consolidated Deployed Crew Map across ALL Roster Desk Console Columns & Mainline Duties
+  const deployedCrewMap = useMemo(() => {
+    const map = new Map();
+
+    // A. Mainline numeric train duties from crew_daily_deployment
+    (deployments || []).forEach(d => {
+      const empId = String(d.empId || '').trim();
+      if (!empId || empId === '--' || empId === 'UNASSIGNED') return;
+      const dutyId = String(d.dutyId || '').padStart(2, '0');
+      map.set(empId, {
+        empId,
+        name: d.empName || '',
+        category: 'Mainline Train Duty',
+        duty: dutyId,
+        status: d.status || 'PRESENT',
+        trainId: d.trainId || '',
+        time: d.signOnTime && d.signOffTime ? `${d.signOnTime} - ${d.signOffTime}` : (d.signOnTime || ''),
+        tagColor: 'border-emerald-500/40 text-emerald-300'
+      });
+    });
+
+    // B. Co-Operators & 2nd Crew (consoleData.coOperators)
+    (consoleData.coOperators || []).forEach(item => {
+      const empId = String(item.empNo || item.empId || '').trim();
+      if (!empId || empId === '--') return;
+      map.set(empId, {
+        empId,
+        name: item.name || '',
+        category: 'Co-Operators & 2nd Crew',
+        duty: item.dutyId ? `Co-Op Duty ${item.dutyId}` : 'Co-Op Duty',
+        status: 'PRESENT',
+        trainId: item.trainId || '',
+        time: item.time || `${item.signOn || ''} - ${item.signOff || ''}`,
+        tagColor: 'border-amber-500/40 text-amber-300'
+      });
+    });
+
+    // C. Crew Controllers (consoleData.controlDesks)
+    (consoleData.controlDesks || []).forEach(item => {
+      const empId = String(item.empNo || item.empId || '').trim();
+      if (!empId || empId === '--') return;
+      map.set(empId, {
+        empId,
+        name: item.name || '',
+        category: 'Crew Controllers',
+        duty: item.code || item.label || 'CC Desk',
+        status: 'PRESENT',
+        time: item.time || '06:30 - 14:00',
+        tagColor: 'border-amber-400/40 text-amber-400'
+      });
+    });
+
+    // D. Standbys & OR (consoleData.standbys)
+    (consoleData.standbys || []).forEach(item => {
+      const empId = String(item.empNo || item.empId || '').trim();
+      if (!empId || empId === '--') return;
+      const code = item.code || item.label || 'OR';
+      map.set(empId, {
+        empId,
+        name: item.name || '',
+        category: 'Standby',
+        duty: code,
+        status: 'STANDBY (OR)',
+        time: item.time || '',
+        tagColor: 'border-emerald-400/40 text-emerald-400'
+      });
+    });
+
+    // E. Outstation Step-Back STBK (consoleData.outstationStepbacks)
+    (consoleData.outstationStepbacks || []).forEach(item => {
+      const empId = String(item.empNo || item.empId || '').trim();
+      if (!empId || empId === '--') return;
+      const stn = item.station || 'PUTH';
+      map.set(empId, {
+        empId,
+        name: item.name || '',
+        category: 'STBK',
+        duty: `${stn} STBK 07:00`,
+        status: 'PRESENT',
+        time: item.time || '',
+        tagColor: 'border-purple-400/40 text-purple-400'
+      });
+    });
+
+    // F. CRT Training (consoleData.crtTraining)
+    (consoleData.crtTraining || []).forEach(item => {
+      const empId = String(item.empNo || item.empId || '').trim();
+      if (!empId || empId === '--') return;
+      map.set(empId, {
+        empId,
+        name: item.name || '',
+        category: 'CRT',
+        duty: 'CRT Training',
+        status: 'CRT',
+        time: item.time || '',
+        tagColor: 'border-teal-400/40 text-teal-400'
+      });
+    });
+
+    // G. BMRTI Training (consoleData.bmrtiTraining)
+    (consoleData.bmrtiTraining || []).forEach(item => {
+      const empId = String(item.empNo || item.empId || '').trim();
+      if (!empId || empId === '--') return;
+      map.set(empId, {
+        empId,
+        name: item.name || '',
+        category: 'BMRTI',
+        duty: 'BMRTI Training',
+        status: 'BMRTI',
+        time: item.date || item.time || '',
+        tagColor: 'border-sky-400/40 text-sky-400'
+      });
+    });
+
+    // H. Weekly Off (consoleData.weeklyOffs)
+    (consoleData.weeklyOffs || []).forEach(item => {
+      const empId = String(item.empNo || item.empId || '').trim();
+      if (!empId || empId === '--') return;
+      map.set(empId, {
+        empId,
+        name: item.name || '',
+        category: 'Weekly Off',
+        duty: 'Weekly Off (WO)',
+        status: 'WO',
+        time: item.date || '',
+        tagColor: 'border-rose-400/40 text-rose-400'
+      });
+    });
+
+    // I. Leave & Rest (consoleData.leaves)
+    (consoleData.leaves || []).forEach(item => {
+      const empId = String(item.empNo || item.empId || '').trim();
+      if (!empId || empId === '--') return;
+      const leaveType = item.type || 'CL';
+      map.set(empId, {
+        empId,
+        name: item.name || '',
+        category: 'Leave & Rest',
+        duty: `Leave (${leaveType})`,
+        status: leaveType,
+        time: item.from || '',
+        tagColor: 'border-cyan-400/40 text-cyan-400'
+      });
+    });
+
+    // J. Relieved Operators (consoleData.relievedOperators)
+    (consoleData.relievedOperators || []).forEach(item => {
+      const empId = String(item.empNo || item.empId || '').trim();
+      if (!empId || empId === '--') return;
+      map.set(empId, {
+        empId,
+        name: item.name || '',
+        category: 'REL',
+        duty: 'Relieved (REL)',
+        status: 'REL',
+        time: item.time || '',
+        tagColor: 'border-fuchsia-400/40 text-fuchsia-400'
+      });
+    });
+
+    // K. Periodical Medical Examination PME (consoleData.pmeOperators)
+    (consoleData.pmeOperators || []).forEach(item => {
+      const empId = String(item.empNo || item.empId || '').trim();
+      if (!empId || empId === '--') return;
+      map.set(empId, {
+        empId,
+        name: item.name || '',
+        category: 'PME',
+        duty: 'PME (Medical Exam)',
+        status: 'PME',
+        time: item.time || '',
+        tagColor: 'border-lime-400/40 text-lime-400'
+      });
+    });
+
+    // L. Route Learning LRD (consoleData.routeLearning)
+    (consoleData.routeLearning || []).forEach(item => {
+      const empId = String(item.empNo || item.empId || '').trim();
+      if (!empId || empId === '--') return;
+      map.set(empId, {
+        empId,
+        name: item.name || '',
+        category: 'LRD',
+        duty: 'LRD (Route Learning)',
+        status: 'LRD',
+        time: item.time || '',
+        tagColor: 'border-indigo-400/40 text-indigo-400'
+      });
+    });
+
+    // M. On Duty OD (consoleData.onDuty)
+    (consoleData.onDuty || []).forEach(item => {
+      const empId = String(item.empNo || item.empId || '').trim();
+      if (!empId || empId === '--') return;
+      map.set(empId, {
+        empId,
+        name: item.name || '',
+        category: 'OD',
+        duty: 'OD (On Duty)',
+        status: 'OD',
+        time: item.info || '',
+        tagColor: 'border-amber-300/40 text-amber-300'
+      });
+    });
+
+    // N. Not Reporting NR (consoleData.notReporting)
+    (consoleData.notReporting || []).forEach(item => {
+      const empId = String(item.empNo || item.empId || '').trim();
+      if (!empId || empId === '--') return;
+      map.set(empId, {
+        empId,
+        name: item.name || '',
+        category: 'NR',
+        duty: 'NR (Not Reporting)',
+        status: 'NOT REPORTING (NR)',
+        time: '',
+        tagColor: 'border-rose-300/40 text-rose-300'
+      });
+    });
+
+    // O. Absent AB (consoleData.absents)
+    (consoleData.absents || []).forEach(item => {
+      const empId = String(item.empNo || item.empId || '').trim();
+      if (!empId || empId === '--') return;
+      map.set(empId, {
+        empId,
+        name: item.name || '',
+        category: 'AB',
+        duty: 'AB (Absent)',
+        status: 'ABSENT (AB)',
+        time: '',
+        tagColor: 'border-red-400/40 text-red-400'
+      });
+    });
+
+    // P. Custom Registers (CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL) and dynamic registers)
+    if (consoleData.customRegisters) {
+      Object.entries(consoleData.customRegisters).forEach(([tag, list]) => {
+        if (!Array.isArray(list)) return;
+        const isCrrc = tag.toUpperCase().includes('CRRC');
+        list.forEach(item => {
+          const empId = String(item.empNo || item.empId || '').trim();
+          if (!empId || empId === '--') return;
+          map.set(empId, {
+            empId,
+            name: item.name || '',
+            category: tag,
+            duty: tag,
+            status: isCrrc ? 'CRRC TRAINING' : 'PRESENT',
+            time: item.info || '',
+            tagColor: 'border-cyan-500/40 text-cyan-300'
+          });
+        });
+      });
+    }
+
+    return map;
+  }, [consoleData, deployments]);
+
+  // 4. Enriched Crew List incorporating all console deployments with priority
+  const enrichedCrewList = useMemo(() => {
+    const seenIds = new Set();
+    const result = [];
+
+    deployedCrewMap.forEach((deployInfo, empId) => {
+      seenIds.add(empId);
+      const registryMatch = crewList.find(c => String(c.id) === empId);
+      result.push({
+        id: empId,
+        name: deployInfo.name || registryMatch?.name || '',
+        designation: registryMatch?.designation || 'Train Operator',
+        contact: registryMatch?.contact || '',
+        role: registryMatch?.role || 'Train Operator',
+        isDeployedToday: true,
+        deployedDuty: deployInfo.duty,
+        deployedStatus: deployInfo.status,
+        deployedCategory: deployInfo.category,
+        deployedTime: deployInfo.time,
+        deployedTrainId: deployInfo.trainId,
+        tagColor: deployInfo.tagColor
+      });
+    });
+
+    crewList.forEach(c => {
+      const idStr = String(c.id);
+      if (!seenIds.has(idStr)) {
+        seenIds.add(idStr);
+        result.push({
+          ...c,
+          isDeployedToday: false,
+          deployedDuty: '',
+          deployedStatus: 'PRESENT',
+          deployedCategory: 'Off Roster'
+        });
+      }
+    });
+
+    return result;
+  }, [crewList, deployedCrewMap]);
+
+  // 5. Dynamic Duty Options combining base duties, console duties, and current selections
+  const dynamicDutyOptions = useMemo(() => {
+    const set = new Set(BASE_DUTY_OPTIONS);
+    if (formData.operator1Duty) set.add(formData.operator1Duty);
+    if (formData.operator2Duty) set.add(formData.operator2Duty);
+    deployedCrewMap.forEach(d => {
+      if (d.duty) set.add(d.duty);
+    });
+    return Array.from(set);
+  }, [formData.operator1Duty, formData.operator2Duty, deployedCrewMap]);
+
+  // 6. Zero Manual Entry Selection Handlers
+  const handleSelectOperator1 = (empId) => {
+    const sel = enrichedCrewList.find(c => String(c.id) === String(empId));
+    if (sel) {
+      const deployInfo = deployedCrewMap.get(String(empId));
+      const autoDuty = deployInfo?.duty || sel.deployedDuty || '';
+      const autoStatus = deployInfo?.status || sel.deployedStatus || 'PRESENT';
+      const autoDate = formData.exchangeDate || consoleData.date || new Date().toISOString().split('T')[0];
+
+      setFormData(prev => ({
+        ...prev,
+        operator1Id: sel.id,
+        operator1Name: sel.name,
+        operator1Search: `${sel.id} - ${sel.name}${autoDuty ? ` [${autoDuty}]` : ''}`,
+        operator1Duty: autoDuty || prev.operator1Duty,
+        operator1Status: autoStatus,
+        exchangeDate: autoDate
+      }));
+      setOp1Query(`${sel.id} - ${sel.name}`);
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        operator1Id: '',
+        operator1Name: '',
+        operator1Search: '',
+        operator1Duty: '',
+        operator1Status: 'PRESENT'
+      }));
+    }
+  };
+
+  const handleSelectOperator2 = (empId) => {
+    const sel = enrichedCrewList.find(c => String(c.id) === String(empId));
+    if (sel) {
+      const deployInfo = deployedCrewMap.get(String(empId));
+      const autoDuty = deployInfo?.duty || sel.deployedDuty || '';
+      const autoStatus = deployInfo?.status || sel.deployedStatus || 'PRESENT';
+      const autoDate = formData.exchangeDate || consoleData.date || new Date().toISOString().split('T')[0];
+
+      setFormData(prev => ({
+        ...prev,
+        operator2Id: sel.id,
+        operator2Name: sel.name,
+        operator2Search: `${sel.id} - ${sel.name}${autoDuty ? ` [${autoDuty}]` : ''}`,
+        operator2Duty: autoDuty || prev.operator2Duty,
+        operator2Status: autoStatus,
+        exchangeDate: autoDate
+      }));
+      setOp2Query(`${sel.id} - ${sel.name}`);
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        operator2Id: '',
+        operator2Name: '',
+        operator2Search: '',
+        operator2Duty: '',
+        operator2Status: 'PRESENT'
+      }));
+    }
+  };
+
+  // 7. Filtered crew list with multi-field search (ID, name, duty, category)
+  const filteredCrew1 = useMemo(() => {
     const q = op1Query.toLowerCase().trim();
     const isSelectedMatch = formData.operator1Id && `${formData.operator1Id} - ${formData.operator1Name}`.toLowerCase() === q;
     
-    let list = crewList;
+    let list = enrichedCrewList;
     if (q && !isSelectedMatch) {
-      list = crewList.filter(c => 
-        String(c.id).includes(q) || 
-        c.name.toLowerCase().includes(q)
+      list = enrichedCrewList.filter(c => 
+        String(c.id).toLowerCase().includes(q) || 
+        c.name.toLowerCase().includes(q) ||
+        (c.deployedDuty && c.deployedDuty.toLowerCase().includes(q)) ||
+        (c.deployedCategory && c.deployedCategory.toLowerCase().includes(q))
       );
     }
     
     if (formData.operator1Id && !list.some(c => String(c.id) === String(formData.operator1Id))) {
-      const selectedObj = crewList.find(c => String(c.id) === String(formData.operator1Id));
+      const selectedObj = enrichedCrewList.find(c => String(c.id) === String(formData.operator1Id));
       if (selectedObj) list = [selectedObj, ...list];
     }
     return list;
-  }, [op1Query, formData.operator1Id, formData.operator1Name, crewList]);
+  }, [op1Query, formData.operator1Id, formData.operator1Name, enrichedCrewList]);
 
-  const filteredCrew2 = React.useMemo(() => {
+  const filteredCrew2 = useMemo(() => {
     const q = op2Query.toLowerCase().trim();
     const isSelectedMatch = formData.operator2Id && `${formData.operator2Id} - ${formData.operator2Name}`.toLowerCase() === q;
     
-    let list = crewList;
+    let list = enrichedCrewList;
     if (q && !isSelectedMatch) {
-      list = crewList.filter(c => 
-        String(c.id).includes(q) || 
-        c.name.toLowerCase().includes(q)
+      list = enrichedCrewList.filter(c => 
+        String(c.id).toLowerCase().includes(q) || 
+        c.name.toLowerCase().includes(q) ||
+        (c.deployedDuty && c.deployedDuty.toLowerCase().includes(q)) ||
+        (c.deployedCategory && c.deployedCategory.toLowerCase().includes(q))
       );
     }
     
     if (formData.operator2Id && !list.some(c => String(c.id) === String(formData.operator2Id))) {
-      const selectedObj = crewList.find(c => String(c.id) === String(formData.operator2Id));
+      const selectedObj = enrichedCrewList.find(c => String(c.id) === String(formData.operator2Id));
       if (selectedObj) list = [selectedObj, ...list];
     }
     return list;
-  }, [op2Query, formData.operator2Id, formData.operator2Name, crewList]);
+  }, [op2Query, formData.operator2Id, formData.operator2Name, enrichedCrewList]);
 
   useEffect(() => {
     const q = query(collection(db, 'shift_exchanges'), orderBy('timestamp', 'desc'));
@@ -316,8 +779,8 @@ export default function ShiftExchange() {
 
   // Safety validation engine
   const validateSafetyRules = (ex) => {
-    const op1 = crewList.find(c => String(c.id) === String(ex.operator1Id));
-    const op2 = crewList.find(c => String(c.id) === String(ex.operator2Id));
+    const op1 = enrichedCrewList.find(c => String(c.id) === String(ex.operator1Id)) || crewList.find(c => String(c.id) === String(ex.operator1Id));
+    const op2 = enrichedCrewList.find(c => String(c.id) === String(ex.operator2Id)) || crewList.find(c => String(c.id) === String(ex.operator2Id));
     
     if (!op1 || !op2) {
       return { valid: false, errors: ["One or both operators not found in the Crew Registry."] };
@@ -326,9 +789,25 @@ export default function ShiftExchange() {
     const errors = [];
     const warnings = [];
     
-    // 1. Line / Designation Compatibility: Designation must contain Train Operator / Station Controller
-    const op1RoleOk = op1.designation?.toLowerCase().includes('operator') || op1.designation?.toLowerCase().includes('controller');
-    const op2RoleOk = op2.designation?.toLowerCase().includes('operator') || op2.designation?.toLowerCase().includes('controller');
+    // 1. Line / Designation Compatibility: Designation must contain Train Operator / Station Controller / Deployed Console Role
+    const isOpRoleValid = (op) => {
+      const des = (op.designation || '').toLowerCase();
+      const role = (op.role || '').toLowerCase();
+      const cat = (op.deployedCategory || '').toLowerCase();
+      return (
+        des.includes('operator') || 
+        des.includes('controller') || 
+        role.includes('operator') || 
+        role.includes('controller') || 
+        cat.includes('crew') || 
+        cat.includes('co-operator') || 
+        cat.includes('standby') || 
+        cat.includes('training') || 
+        op.isDeployedToday
+      );
+    };
+    const op1RoleOk = isOpRoleValid(op1);
+    const op2RoleOk = isOpRoleValid(op2);
     if (!op1RoleOk) errors.push(`Operator 1 (${op1.name}) is not certified as a Train Operator/Station Controller.`);
     if (!op2RoleOk) errors.push(`Operator 2 (${op2.name}) is not certified as a Train Operator/Station Controller.`);
     
@@ -527,6 +1006,30 @@ export default function ShiftExchange() {
         });
       });
 
+      // Reverse console desk swap if any
+      try {
+        const consoleDocSnap = await getDoc(doc(db, 'roster_desk_console', 'current'));
+        if (consoleDocSnap.exists()) {
+          const currentConsole = consoleDocSnap.data();
+          const restoredConsole = swapOperatorsInConsoleData(
+            currentConsole,
+            ex.operator2Id,
+            ex.operator2Name,
+            ex.operator1Id,
+            ex.operator1Name
+          );
+          restoredConsole.lastUpdated = serverTimestamp();
+          await setDoc(doc(db, 'roster_desk_console', 'current'), restoredConsole, { merge: true });
+          await setDoc(doc(db, 'roster_desk_console', 'latest'), restoredConsole, { merge: true });
+          await setDoc(doc(db, 'dispatch_excel_cache', 'current'), restoredConsole, { merge: true });
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem('pyidcc_roster_desk_console_cache', JSON.stringify(restoredConsole));
+          }
+        }
+      } catch (consoleErr) {
+        console.warn("Error restoring console data:", consoleErr);
+      }
+
       alert("🔄 Exchange reversed successfully! Original operators restored across all modules.");
     } catch (err) {
       console.error(err);
@@ -625,140 +1128,317 @@ export default function ShiftExchange() {
   };
 
 
+  const consoleCategories = useMemo(() => {
+    const cats = [
+      { key: 'coOperators', label: 'Co-Operators & 2nd Crew', count: consoleData.coOperators?.length || 0, max: null, color: 'text-amber-300 border-amber-500/40 bg-amber-950/40' },
+      { key: 'controlDesks', label: 'Crew Controllers', count: consoleData.controlDesks?.length || 0, max: 10, color: 'text-amber-400 border-slate-800 bg-slate-950' },
+      { key: 'leaves', label: 'Leave & Rest', count: consoleData.leaves?.length || 0, max: 50, color: 'text-cyan-400 border-slate-800 bg-slate-950' },
+      { key: 'standbys', label: 'Standby', count: consoleData.standbys?.length || 0, max: 50, color: 'text-emerald-400 border-slate-800 bg-slate-950' },
+      { key: 'outstationStepbacks', label: 'STBK', count: consoleData.outstationStepbacks?.length || 0, max: 20, color: 'text-purple-400 border-slate-800 bg-slate-950' },
+      { key: 'crtTraining', label: 'CRT', count: consoleData.crtTraining?.length || 0, max: 15, color: 'text-teal-400 border-slate-800 bg-slate-950' },
+      { key: 'bmrtiTraining', label: 'BMRTI', count: consoleData.bmrtiTraining?.length || 0, max: 50, color: 'text-sky-400 border-slate-800 bg-slate-950' },
+      { key: 'weeklyOffs', label: 'Weekly Off', count: consoleData.weeklyOffs?.length || 0, max: 50, color: 'text-rose-400 border-slate-800 bg-slate-950' },
+      { key: 'relievedOperators', label: 'REL', count: consoleData.relievedOperators?.length || 0, max: 10, color: 'text-fuchsia-400 border-slate-800 bg-slate-950' },
+      { key: 'pmeOperators', label: 'PME', count: consoleData.pmeOperators?.length || 0, max: 20, color: 'text-lime-400 border-slate-800 bg-slate-950' },
+      { key: 'routeLearning', label: 'LRD', count: consoleData.routeLearning?.length || 0, max: 20, color: 'text-indigo-400 border-slate-800 bg-slate-950' },
+      { key: 'onDuty', label: 'OD', count: consoleData.onDuty?.length || 0, max: 20, color: 'text-amber-300 border-slate-800 bg-slate-950' },
+      { key: 'notReporting', label: 'NR', count: consoleData.notReporting?.length || 0, max: 20, color: 'text-rose-300 border-slate-800 bg-slate-950' },
+      { key: 'absents', label: 'AB', count: consoleData.absents?.length || 0, max: 20, color: 'text-red-400 border-slate-800 bg-slate-950' }
+    ];
+
+    if (consoleData.customRegisters) {
+      Object.keys(consoleData.customRegisters).forEach(tagName => {
+        const isCrrc = tagName.toUpperCase().includes('CRRC');
+        cats.push({
+          key: `custom_${tagName}`,
+          isCustom: true,
+          tagName,
+          label: tagName,
+          count: consoleData.customRegisters[tagName]?.length || 0,
+          max: null,
+          color: isCrrc 
+            ? 'text-emerald-300 border-emerald-500/50 bg-emerald-950/60 font-black' 
+            : 'text-cyan-300 border-cyan-800/60 bg-cyan-950/40'
+        });
+      });
+    }
+
+    return cats;
+  }, [consoleData]);
+
+  const activeCategoryOperators = useMemo(() => {
+    if (!selectedConsoleCategory) return [];
+    if (selectedConsoleCategory.startsWith('custom_')) {
+      const tagName = selectedConsoleCategory.replace('custom_', '');
+      return consoleData.customRegisters?.[tagName] || [];
+    }
+    return consoleData[selectedConsoleCategory] || [];
+  }, [selectedConsoleCategory, consoleData]);
+
+  const activeCategoryObj = useMemo(() => {
+    return consoleCategories.find(c => c.key === selectedConsoleCategory);
+  }, [selectedConsoleCategory, consoleCategories]);
+
   return (
     <div className='space-y-6 max-w-[100vw] font-mono'>
       {/* HEADER */}
-      <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 shadow-lg flex items-center gap-3">
-        <Repeat className="h-6 w-6 text-emerald-400" />
-        <h2 className="text-xl font-black tracking-wider text-slate-100">TRAIN OPERATOR SHIFT EXCHANGE DESK</h2>
+      <div className="rounded-xl border border-emerald-500/40 bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/40 p-4 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-emerald-500/20 rounded-xl border border-emerald-500/40">
+            <Repeat className="h-6 w-6 text-emerald-400" />
+          </div>
+          <div>
+            <h2 className="text-lg font-black tracking-wider text-slate-100 flex items-center gap-2">
+              SWAP DUTIES (CC/GCC/ALS) & TRAIN OPERATOR SHIFT EXCHANGE DESK
+            </h2>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              <span className="text-[10px] text-cyan-400 font-bold tracking-widest uppercase">
+                ZERO MANUAL ENTRY ENGINE
+              </span>
+              <span className="text-slate-600">•</span>
+              <span className="text-[10px] text-emerald-400 font-mono">
+                BMRCL LINE 2 PEENYA DEPOT ROSTER DESK CONSOLE
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="bg-emerald-950/80 text-emerald-300 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-700/50 flex items-center gap-1.5 shadow-sm">
+            <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400" />
+            AUTO-READER LINKED
+          </span>
+        </div>
       </div>
 
-      {/* CREATE REQUEST FORM */}
+      {/* BMRCL LINE 2 PEENYA DEPOT ROSTER DESK CONSOLE STRIP */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl space-y-3 font-mono">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-800 pb-2.5">
+          <div className="flex items-center gap-2">
+            <Cpu className="h-4 w-4 text-emerald-400" />
+            <h3 className="text-xs font-black text-slate-100 tracking-wider">
+              BMRCL LINE 2 PEENYA DEPOT ROSTER DESK CONSOLE
+            </h3>
+            <span className="text-[10px] text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+              {consoleData.date || (new Date().toISOString().split('T')[0])}
+            </span>
+          </div>
+          <span className="text-[10px] text-slate-400">
+            Click any column badge to quick-select operators for swap
+          </span>
+        </div>
+
+        {/* 15+ Column Badges */}
+        <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold">
+          {consoleCategories.map(cat => {
+            const isSelected = selectedConsoleCategory === cat.key;
+            return (
+              <button
+                key={cat.key}
+                type="button"
+                onClick={() => setSelectedConsoleCategory(isSelected ? null : cat.key)}
+                className={`px-2.5 py-1 rounded border transition-all cursor-pointer flex items-center gap-1.5 ${
+                  isSelected 
+                    ? 'ring-2 ring-emerald-400 border-emerald-400 bg-emerald-950 text-emerald-200 shadow-md scale-105' 
+                    : `${cat.color} hover:brightness-125`
+                }`}
+              >
+                <span>{cat.label}</span>
+                <span className="font-mono px-1 rounded bg-black/40 text-[9px]">
+                  {cat.max !== null ? `${cat.count}/${cat.max}` : cat.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Quick Pick Drawer if a category is selected */}
+        {selectedConsoleCategory && (
+          <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2 mt-2 transition-all">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+              <span className="text-xs font-bold text-slate-200 flex items-center gap-2">
+                <Users className="h-3.5 w-3.5 text-cyan-400" />
+                Deployed Operators in <span className="text-emerald-400 font-black">{activeCategoryObj?.label}</span> ({activeCategoryOperators.length})
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedConsoleCategory(null)}
+                className="text-[10px] text-slate-400 hover:text-white px-2 py-0.5 rounded bg-slate-900 border border-slate-800 cursor-pointer"
+              >
+                Close ✕
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-56 overflow-y-auto pr-1 text-xs">
+              {activeCategoryOperators.length === 0 ? (
+                <div className="col-span-full py-4 text-center text-slate-500 italic text-xs">
+                  No operators currently deployed in this column for this day.
+                </div>
+              ) : (
+                activeCategoryOperators.map((item, idx) => {
+                  const empId = item.empNo || item.empId || '';
+                  return (
+                    <div key={idx} className="bg-slate-900/90 border border-slate-800 p-2 rounded flex justify-between items-center hover:border-slate-700 transition">
+                      <div className="space-y-0.5 min-w-0 pr-2">
+                        <div className="font-bold text-slate-200 truncate flex items-center gap-1.5">
+                          <span className="text-amber-400 font-mono text-[10px]">#{empId}</span>
+                          <span className="truncate">{item.name}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-mono truncate">
+                          {item.duty || item.code || item.label || activeCategoryObj?.label} {item.time ? `• ${item.time}` : ''}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleSelectOperator1(empId)}
+                          className="bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/40 text-[9px] font-bold px-2 py-0.5 rounded transition uppercase cursor-pointer"
+                          title="Set as Operator 1 (Requester)"
+                        >
+                          + Op 1
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectOperator2(empId)}
+                          className="bg-cyan-500/20 hover:bg-cyan-500/40 text-cyan-300 border border-cyan-500/40 text-[9px] font-bold px-2 py-0.5 rounded transition uppercase cursor-pointer"
+                          title="Set as Operator 2 (Target)"
+                        >
+                          + Op 2
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* CREATE REQUEST FORM (ZERO MANUAL ENTRY ENGINE) */}
       <div className='bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl'>
-        <h3 className='text-emerald-400 font-bold mb-4 border-b border-slate-800 pb-2 flex items-center gap-2'>
-          <Clock size={16} /> Initiate New Exchange Request
-        </h3>
+        <div className="flex justify-between items-center border-b border-slate-800 pb-2 mb-4">
+          <h3 className='text-emerald-400 font-bold flex items-center gap-2 text-sm'>
+            <Clock size={16} /> Initiate New Exchange Request
+          </h3>
+          <span className="text-[10px] text-slate-400 font-mono bg-slate-950 px-2.5 py-0.5 rounded border border-slate-800">
+            ⚡ Zero Manual Entry Active
+          </span>
+        </div>
+
         <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-          {/* Operator 1 */}
+          {/* Operator 1 (Requester) */}
           <div className='bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-3'>
-            <h4 className='text-amber-400 font-semibold text-xs tracking-wider border-b border-slate-800 pb-1'>OPERATOR 1 (REQUESTER)</h4>
+            <div className="flex justify-between items-center border-b border-slate-800 pb-1">
+              <h4 className='text-amber-400 font-semibold text-xs tracking-wider'>OPERATOR 1 (REQUESTER)</h4>
+              {formData.operator1Duty && (
+                <span className="text-[10px] bg-amber-500/10 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30 font-bold font-mono">
+                  {formData.operator1Duty}
+                </span>
+              )}
+            </div>
             
             <div>
               <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l1">Search Operator ID / Name</label>
-              <input id="shiftexchange-i1" name="shiftexchange-i1" 
-                type="text"
-                placeholder="Type to filter..."
-                value={op1Query}
-                onChange={(e) => setOp1Query(e.target.value)}
-                className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-250 focus:border-amber-500 focus:outline-none mb-2'
-              />
+              <div className="relative">
+                <input id="shiftexchange-i1" name="shiftexchange-i1" 
+                  type="text"
+                  placeholder="Type to filter by ID, name, duty, or column..."
+                  value={op1Query}
+                  onChange={(e) => setOp1Query(e.target.value)}
+                  className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-amber-500 focus:outline-none mb-2 pl-7 font-mono'
+                />
+                <Search className="h-3.5 w-3.5 text-slate-500 absolute left-2 top-2 pointer-events-none" />
+              </div>
               <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l2">Select Operator</label>
               <select id="shiftexchange-i2" name="shiftexchange-i2" 
                 value={formData.operator1Id}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const sel = crewList.find(c => String(c.id) === val);
-                  if (sel) {
-                    setFormData({
-                      ...formData,
-                      operator1Id: sel.id,
-                      operator1Name: sel.name,
-                      operator1Search: `${sel.id} - ${sel.name}`
-                    });
-                    setOp1Query(`${sel.id} - ${sel.name}`);
-                  } else {
-                    setFormData({
-                      ...formData,
-                      operator1Id: '',
-                      operator1Name: '',
-                      operator1Search: ''
-                    });
-                  }
-                }}
-                className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-250 focus:border-amber-500 focus:outline-none'
+                onChange={(e) => handleSelectOperator1(e.target.value)}
+                className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-amber-500 focus:outline-none font-mono'
               >
                 <option value="">-- Select Operator --</option>
                 {filteredCrew1.map(crew => (
                   <option key={`op1-select-${crew.id}`} value={crew.id}>
-                    {crew.id} - {crew.name}
+                    {crew.id} - {crew.name} {crew.deployedDuty ? `[${crew.deployedDuty}]` : (crew.deployedCategory ? `[${crew.deployedCategory}]` : '')}
                   </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l3">Status</label>
-              <select name="operator1Status" value={formData.operator1Status || 'PRESENT'} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-amber-500 focus:outline-none'>
+              <div className="flex justify-between items-center mb-1">
+                <label className='block text-[10px] text-slate-500' htmlFor="shiftexchange-l3">Status</label>
+                <span className="text-[9px] text-emerald-400 font-mono">AUTO-DETECTED</span>
+              </div>
+              <select name="operator1Status" value={formData.operator1Status || 'PRESENT'} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-amber-500 focus:outline-none font-mono'>
                 {STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
             </div>
 
             <div>
-              <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l4">Current Duty Number</label>
-              <select name="operator1Duty" value={formData.operator1Duty} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-amber-500 focus:outline-none'>
+              <div className="flex justify-between items-center mb-1">
+                <label className='block text-[10px] text-slate-500' htmlFor="shiftexchange-l4">Current Duty Number</label>
+                <span className="text-[9px] text-cyan-400 font-mono">ZERO MANUAL ENTRY</span>
+              </div>
+              <select name="operator1Duty" value={formData.operator1Duty} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-amber-500 focus:outline-none font-mono'>
                 <option value="" disabled>Select Duty</option>
-                {DUTY_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                {dynamicDutyOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
             </div>
           </div>
 
-          {/* Operator 2 */}
+          {/* Operator 2 (Target) */}
           <div className='bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-3'>
-            <h4 className='text-cyan-400 font-semibold text-xs tracking-wider border-b border-slate-800 pb-1'>OPERATOR 2 (TARGET)</h4>
+            <div className="flex justify-between items-center border-b border-slate-800 pb-1">
+              <h4 className='text-cyan-400 font-semibold text-xs tracking-wider'>OPERATOR 2 (TARGET)</h4>
+              {formData.operator2Duty && (
+                <span className="text-[10px] bg-cyan-500/10 text-cyan-300 px-2 py-0.5 rounded border border-cyan-500/30 font-bold font-mono">
+                  {formData.operator2Duty}
+                </span>
+              )}
+            </div>
             
             <div>
               <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l5">Search Operator ID / Name</label>
-              <input id="shiftexchange-i3" name="shiftexchange-i3" 
-                type="text"
-                placeholder="Type to filter..."
-                value={op2Query}
-                onChange={(e) => setOp2Query(e.target.value)}
-                className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-250 focus:border-cyan-500 focus:outline-none mb-2'
-              />
+              <div className="relative">
+                <input id="shiftexchange-i3" name="shiftexchange-i3" 
+                  type="text"
+                  placeholder="Type to filter by ID, name, duty, or column..."
+                  value={op2Query}
+                  onChange={(e) => setOp2Query(e.target.value)}
+                  className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none mb-2 pl-7 font-mono'
+                />
+                <Search className="h-3.5 w-3.5 text-slate-500 absolute left-2 top-2 pointer-events-none" />
+              </div>
               <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l6">Select Operator</label>
               <select id="shiftexchange-i4" name="shiftexchange-i4" 
                 value={formData.operator2Id}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const sel = crewList.find(c => String(c.id) === val);
-                  if (sel) {
-                    setFormData({
-                      ...formData,
-                      operator2Id: sel.id,
-                      operator2Name: sel.name,
-                      operator2Search: `${sel.id} - ${sel.name}`
-                    });
-                    setOp2Query(`${sel.id} - ${sel.name}`);
-                  } else {
-                    setFormData({
-                      ...formData,
-                      operator2Id: '',
-                      operator2Name: '',
-                      operator2Search: ''
-                    });
-                  }
-                }}
-                className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-250 focus:border-cyan-500 focus:outline-none'
+                onChange={(e) => handleSelectOperator2(e.target.value)}
+                className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none font-mono'
               >
                 <option value="">-- Select Operator --</option>
                 {filteredCrew2.map(crew => (
                   <option key={`op2-select-${crew.id}`} value={crew.id}>
-                    {crew.id} - {crew.name}
+                    {crew.id} - {crew.name} {crew.deployedDuty ? `[${crew.deployedDuty}]` : (crew.deployedCategory ? `[${crew.deployedCategory}]` : '')}
                   </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l7">Status</label>
-              <select name="operator2Status" value={formData.operator2Status || 'PRESENT'} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none'>
+              <div className="flex justify-between items-center mb-1">
+                <label className='block text-[10px] text-slate-500' htmlFor="shiftexchange-l7">Status</label>
+                <span className="text-[9px] text-emerald-400 font-mono">AUTO-DETECTED</span>
+              </div>
+              <select name="operator2Status" value={formData.operator2Status || 'PRESENT'} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none font-mono'>
                 {STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
             </div>
 
             <div>
-              <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l8">Current Duty Number</label>
-              <select name="operator2Duty" value={formData.operator2Duty} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none'>
+              <div className="flex justify-between items-center mb-1">
+                <label className='block text-[10px] text-slate-500' htmlFor="shiftexchange-l8">Current Duty Number</label>
+                <span className="text-[9px] text-cyan-400 font-mono">ZERO MANUAL ENTRY</span>
+              </div>
+              <select name="operator2Duty" value={formData.operator2Duty} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none font-mono'>
                 <option value="" disabled>Select Duty</option>
-                {DUTY_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                {dynamicDutyOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
             </div>
           </div>
@@ -767,10 +1447,11 @@ export default function ShiftExchange() {
         <div className='mt-4 flex flex-col sm:flex-row items-end sm:items-center justify-between gap-4'>
           <div className='w-full sm:w-1/3'>
             <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l9">Target Date for Exchange</label>
-            <input type="date" name="exchangeDate" value={formData.exchangeDate} onChange={handleInputChange} className='w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none' />
+            <input type="date" name="exchangeDate" value={formData.exchangeDate} onChange={handleInputChange} className='w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none font-mono' />
           </div>
-          <button onClick={handleSubmitRequest} className='w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 px-6 py-2 rounded text-white font-bold text-xs shadow-md transition-colors'>
-            RAISE EXCHANGE REQUEST
+          <button onClick={handleSubmitRequest} className='w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 px-6 py-2 rounded text-white font-bold text-xs shadow-md transition-colors cursor-pointer flex items-center justify-center gap-1.5'>
+            <ArrowRightLeft className="h-4 w-4" />
+            <span>RAISE EXCHANGE REQUEST</span>
           </button>
         </div>
       </div>

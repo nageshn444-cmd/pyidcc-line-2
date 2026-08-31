@@ -325,6 +325,12 @@ export const rosterAutoClassifierService = {
             if (!leaves.some(e => e.empNo === empId)) leaves.push({ name: empName, empNo: empId, type: leaveType, from: signOnTime });
           } else if (rawDutyUpper.includes('STBK') || rawDutyUpper.includes('STEPBACK')) {
             if (!outstationStepbacks.some(e => e.empNo === empId)) outstationStepbacks.push({ ...deskEntry, station: 'PUTH' });
+          } else if (rawDutyUpper.includes('CRRC') || (currentSectionBanner && currentSectionBanner.toUpperCase().includes('CRRC'))) {
+            const crrcKey = 'CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)';
+            if (!customRegisters[crrcKey]) customRegisters[crrcKey] = [];
+            if (!customRegisters[crrcKey].some(e => e.empNo === empId)) {
+              customRegisters[crrcKey].push({ name: empName, empNo: empId, tag: crrcKey, info: signOnTime || 'CRRC DM-DTG' });
+            }
           } else if (rawDutyUpper.includes('BMRTI') || rawDutyUpper.includes('TRG') || rawDutyUpper.includes('CRRC VIVA') || rawDutyUpper.includes('BRMM') || rawDutyUpper.includes('TRNR')) {
             if (!bmrtiTraining.some(e => e.empNo === empId)) bmrtiTraining.push({ ...deskEntry, date: signOnTime });
           } else if (rawDutyUpper && rawDutyUpper !== 'GENERAL') {
@@ -418,6 +424,12 @@ export const rosterAutoClassifierService = {
         } else if (combinedContext.includes('STBK')) {
           if (!outstationStepbacks.some(e => e.empNo === empNo)) {
             outstationStepbacks.push({ ...entry, station: activeSectionTag });
+          }
+        } else if (combinedContext.includes('CRRC') || activeSectionTag.toUpperCase().includes('CRRC') || (currentSectionBanner && currentSectionBanner.toUpperCase().includes('CRRC'))) {
+          const crrcKey = 'CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)';
+          if (!customRegisters[crrcKey]) customRegisters[crrcKey] = [];
+          if (!customRegisters[crrcKey].some(e => e.empNo === empNo)) {
+            customRegisters[crrcKey].push({ name, empNo, tag: crrcKey, info: formatExcelDate(colK) || subTag || 'CRRC DM-DTG' });
           }
         } else if (combinedContext.includes('BMRTI') || combinedContext.includes('TRG') || combinedContext.includes('CRRC VIVA') || combinedContext.includes('BRMM') || combinedContext.includes('TRNR')) {
           if (!bmrtiTraining.some(e => e.empNo === empNo)) {
