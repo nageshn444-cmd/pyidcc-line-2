@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Play, Sparkles, ShieldCheck, AlertTriangle, CheckCircle2, Download, 
   Search, Filter, Edit3, Eye, FileSpreadsheet, Send, RefreshCw, X, Lock, Unlock,
-  Layers, Users, Clock, Compass, HeartPulse, SplitSquareVertical, Table, Printer
+  Layers, Users, Clock, Compass, HeartPulse, SplitSquareVertical, Table, Printer, Activity
 } from 'lucide-react';
 import { DUTY_TEMPLATES_REGISTRY } from '../../data/dutyTemplatesRegistry';
 import { DAY_TYPE_PROFILES } from '../../data/dayTypeProfiles';
@@ -29,6 +29,7 @@ export default function GeneratorDraftConsole({
   onOpenCCWillingModal
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationPhase, setGenerationPhase] = useState(0); // 0-5 during generation
   const [solutions, setSolutions] = useState(null);
   const [selectedPlanId, setSelectedPlanId] = useState('PLAN_A');
   const [searchQuery, setSearchQuery] = useState('');
@@ -82,12 +83,26 @@ export default function GeneratorDraftConsole({
     setIsGenerating(true);
     setIsPublished(false);
     setPublishMessage('');
+    setGenerationPhase(1);
+
+    const GEN_PHASES = [
+      { id: 1, label: 'Analyzing crew availability & WO ledger...' },
+      { id: 2, label: 'Allocating CC desks & special assignments...' },
+      { id: 3, label: 'Distributing night band (N) duties...' },
+      { id: 4, label: 'Assigning A & B shift mainline links...' },
+      { id: 5, label: 'Validating constraints & computing scores...' },
+    ];
+
+    // Animate through phases over 130ms total
+    GEN_PHASES.forEach((ph, idx) => {
+      setTimeout(() => setGenerationPhase(ph.id), idx * 26);
+    });
 
     // Filter strictly for active operational crew: 88 BMRCL TOs + 49 JMD TDs
-    const activeCrewOnly = crewList.filter(e => 
-      e && 
-      (e.status === 'ACTIVE' || e.status === 'MATERNITY_LEAVE' || (e.maternityLeave && e.maternityLeave.active)) && 
-      !e.isRelieved && 
+    const activeCrewOnly = crewList.filter(e =>
+      e &&
+      (e.status === 'ACTIVE' || e.status === 'MATERNITY_LEAVE' || (e.maternityLeave && e.maternityLeave.active)) &&
+      !e.isRelieved &&
       e.activeCrew !== false &&
       e.status !== 'RELIEVED' &&
       e.status !== 'INACTIVE'
@@ -109,8 +124,10 @@ export default function GeneratorDraftConsole({
         });
 
         setSolutions(result.solutions);
+        setGenerationPhase(0);
       } catch (err) {
-        console.error("Roster generation error:", err);
+        console.error('Roster generation error:', err);
+        setGenerationPhase(0);
       } finally {
         isGeneratingRef.current = false;
         setIsGenerating(false);
@@ -162,6 +179,8 @@ export default function GeneratorDraftConsole({
     if (sub === 'WO' || code === 'WO' || a.status === 'WEEK_OFF') return false;
     // Exclude generic residual overflow
     if (code === 'OR_SPARE' || sub === 'OR SPARE POOL') return false;
+    // Exclude station standbys — shown in dedicated STBK panel
+    if (a.isStationStandby === true) return false;
     return true;
   });
   const reservePool = allSpecialAux.filter(a => {
@@ -180,6 +199,15 @@ export default function GeneratorDraftConsole({
   const lrdDuties = notAvailableStaff.filter(a => a.assignmentSubType === 'LRD' || a.status === 'LRD');
   const pinkLine4Staff = allAssignments.filter(a => a.specialProfile === 'PINK_LINE_4' || a.notes?.includes('Pink Line 4'));
   const jmdStandbyStaff = specialDuties.filter(a => a.assignmentSubType?.includes('STBY') || a.assignedDutyCode?.includes('STBY'));
+
+  // Station Standby (STBK) — extracted from specialDuties, grouped by station for the dedicated STBK panel
+  const stationStandbyDuties = allSpecialAux.filter(a => a.isStationStandby === true);
+  // Group STBK by station in priority order
+  const STBK_STATION_ORDER = ['NGSA', 'PUTH', 'APTS', 'BIET', 'KGWA'];
+  const stbkByStation = STBK_STATION_ORDER.reduce((acc, stn) => {
+    acc[stn] = stationStandbyDuties.filter(a => a.stbkStation === stn);
+    return acc;
+  }, {});
 
   // ── Dynamic Summary Breakdown from Generated Roster ──
   const presentRunningCount = runningDuties.length;
@@ -328,7 +356,18 @@ export default function GeneratorDraftConsole({
       targetDate,
       dayType,
       planTitle: currentPlan.strategyTitle,
-      assignments: currentPlan.assignments,
+      assignments: allAssignments,
+      runningDuties,
+      ccDuties,
+      specialDuties,
+      reservePool,
+      stationStandbyDuties,
+      weekOffStaff,
+      leaveStaff,
+      pinkLine4Staff,
+      trainingStaff,
+      lrdDuties,
+      traineeStaff,
       qualityScore: currentPlan.overallScore
     });
   };
@@ -500,31 +539,43 @@ export default function GeneratorDraftConsole({
               id: 'PLAN_A',
               title: 'Plan A',
               subtitle: 'Balanced & Fatigue Safe',
-              score: solutions.PLAN_A?.overallScore,
-              desc: 'Zero violations, maximized rest & 26d night gap.',
-              bullets: ['⏱ 8h+ rest enforced', '🌙 26d night recurrence locked', '✅ Zero hard violations'],
+              score: solutions.PLAN_A?.overallScore ?? 0,
+              desc: solutions.PLAN_A?.description || 'Optimized for rest compliance, fatigue safety & night equity.',
+              bullets: ['⏱ 8h+ rest enforced', '🌙 26d night recurrence locked', '✅ Zero hard violations target'],
               color: 'emerald',
-              gradient: 'from-emerald-600 to-teal-600'
+              gradient: 'from-emerald-600 to-teal-600',
+              violations: solutions.PLAN_A?.hardViolations?.length || 0,
+              warnings: solutions.PLAN_A?.warnings?.length || 0,
+              canPublish: solutions.PLAN_A?.canPublish,
+              stats: solutions.PLAN_A?.stats
             },
             {
               id: 'PLAN_B',
               title: 'Plan B',
               subtitle: 'Equal Night Balancing',
-              score: solutions.PLAN_B?.overallScore,
-              desc: 'Strict monthly 6/6 night quota balancing.',
+              score: solutions.PLAN_B?.overallScore ?? 0,
+              desc: solutions.PLAN_B?.description || 'Strict 6/6 monthly night balance across all operators.',
               bullets: ['🌙 6/6 nights per month quota', '⚖ Equal night distribution', '📊 Monthly balance enforced'],
               color: 'indigo',
-              gradient: 'from-indigo-600 to-purple-600'
+              gradient: 'from-indigo-600 to-purple-600',
+              violations: solutions.PLAN_B?.hardViolations?.length || 0,
+              warnings: solutions.PLAN_B?.warnings?.length || 0,
+              canPublish: solutions.PLAN_B?.canPublish,
+              stats: solutions.PLAN_B?.stats
             },
             {
               id: 'PLAN_C',
               title: 'Plan C',
-              subtitle: 'Duty Diversity & Experience',
-              score: solutions.PLAN_C?.overallScore,
-              desc: 'Rotates links to prevent repetitive route fatigue.',
+              subtitle: 'Duty Diversity & Anti-Repetition',
+              score: solutions.PLAN_C?.overallScore ?? 0,
+              desc: solutions.PLAN_C?.description || 'Anti-repetition rotation — prevents same links consecutively.',
               bullets: ['🔄 Link diversity rotation', '🛤 Anti-repetitive routes', '🎯 Experience-weighted'],
               color: 'blue',
-              gradient: 'from-blue-600 to-indigo-600'
+              gradient: 'from-blue-600 to-indigo-600',
+              violations: solutions.PLAN_C?.hardViolations?.length || 0,
+              warnings: solutions.PLAN_C?.warnings?.length || 0,
+              canPublish: solutions.PLAN_C?.canPublish,
+              stats: solutions.PLAN_C?.stats
             }
           ].map(plan => {
             const isSelected = selectedPlanId === plan.id;
@@ -558,7 +609,7 @@ export default function GeneratorDraftConsole({
                 </div>
 
                 {/* Score Bar */}
-                <div className="mb-3">
+                <div className="mb-2">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">Quality Score</span>
                     <strong className="text-base font-black text-white font-mono">{scoreVal}<span className="text-slate-500 text-xs">/100</span></strong>
@@ -569,6 +620,21 @@ export default function GeneratorDraftConsole({
                       style={{ width: `${scoreVal}%` }}
                     />
                   </div>
+                </div>
+
+                {/* Violations / Warnings mini-row */}
+                <div className="flex items-center gap-2 mb-2">
+                  {plan.violations > 0 ? (
+                    <span className="text-[9px] px-1.5 py-0.5 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded font-mono font-bold">🔴 {plan.violations} Hard</span>
+                  ) : (
+                    <span className="text-[9px] px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 rounded font-mono font-bold">✅ Clean</span>
+                  )}
+                  {plan.warnings > 0 && (
+                    <span className="text-[9px] px-1.5 py-0.5 bg-amber-500/15 text-amber-300 border border-amber-500/25 rounded font-mono font-bold">⚠ {plan.warnings} Warn</span>
+                  )}
+                  {plan.stats?.totalKms > 0 && (
+                    <span className="text-[9px] px-1.5 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded font-mono ml-auto">{plan.stats.totalKms.toLocaleString()} km</span>
+                  )}
                 </div>
 
                 <ul className="space-y-1">
@@ -619,14 +685,60 @@ export default function GeneratorDraftConsole({
         </div>
       )}
 
-      {/* Loading spinner */}
-      {isGenerating && (
-        <div className="bg-slate-900 border border-blue-500/30 rounded-3xl p-12 flex flex-col items-center justify-center text-center shadow-2xl">
-          <div className="w-16 h-16 border-4 border-blue-600/30 border-t-blue-500 rounded-full animate-spin mb-5" />
-          <h3 className="text-lg font-black text-white mb-1">Solving Roster...</h3>
-          <p className="text-xs text-slate-400">Running 13-phase optimization pipeline across all crew members</p>
-        </div>
-      )}
+      {/* Loading — multi-phase animated progress */}
+      {isGenerating && (() => {
+        const PHASES = [
+          { id: 1, label: 'Crew Availability Ledger' },
+          { id: 2, label: 'CC Desk & Special Demand' },
+          { id: 3, label: 'Night Band Allocation' },
+          { id: 4, label: 'A & B Mainline Distribution' },
+          { id: 5, label: 'Validation & Scoring' },
+        ];
+        return (
+          <div className="bg-slate-900 border border-blue-500/30 rounded-3xl p-10 flex flex-col items-center justify-center text-center shadow-2xl">
+            {/* Spinning ring */}
+            <div className="relative mb-6">
+              <div className="w-16 h-16 border-4 border-blue-600/20 border-t-blue-500 rounded-full animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Sparkles className="w-6 h-6 text-blue-400 animate-pulse" />
+              </div>
+            </div>
+            <h3 className="text-base font-black text-white mb-1">Auto-Generating Duty Roster...</h3>
+            <p className="text-xs text-slate-400 mb-5">13-Phase AI Optimization Pipeline · 3 Alternative Plans</p>
+
+            {/* Phase progress strip */}
+            <div className="w-full max-w-md space-y-1.5">
+              {PHASES.map(ph => {
+                const isDone = generationPhase > ph.id;
+                const isActive = generationPhase === ph.id;
+                return (
+                  <div key={ph.id} className="flex items-center gap-2.5">
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
+                      isDone ? 'bg-emerald-500' : isActive ? 'bg-blue-500 animate-pulse' : 'bg-slate-800'
+                    }`}>
+                      {isDone ? (
+                        <span className="text-[9px] text-white font-black">✓</span>
+                      ) : (
+                        <span className="text-[9px] text-slate-400 font-mono">{ph.id}</span>
+                      )}
+                    </div>
+                    <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          isDone ? 'bg-emerald-500 w-full' : isActive ? 'bg-blue-500 animate-pulse w-2/3' : 'w-0'
+                        }`}
+                      />
+                    </div>
+                    <span className={`text-[10px] font-mono w-44 text-left transition-colors ${
+                      isDone ? 'text-emerald-400' : isActive ? 'text-blue-300 font-bold' : 'text-slate-600'
+                    }`}>{ph.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── 3. Quality & Validation Firewall Gate Summary ── */}
       {currentPlan && (
@@ -664,11 +776,11 @@ export default function GeneratorDraftConsole({
                 </button>
                 <button
                   onClick={() => setViewMode('TABLE')}
-                  className={`px-3 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-all ${viewMode === 'TABLE' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                  title="Unified Full-width Table View"
+                  className={`px-3 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-all ${viewMode === 'TABLE' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+                  title="Full Official BMRCL Excel Sheet View (All 8 Categories)"
                 >
-                  <Table className="w-3.5 h-3.5" />
-                  Full Table
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  Excel Sheet View
                 </button>
               </div>
 
@@ -1144,6 +1256,110 @@ export default function GeneratorDraftConsole({
                   </div>
                 )}
 
+                {/* ── Station Standby (STBK) — Auto-Allocated Dual Shift Panel ── */}
+                {stationStandbyDuties.length > 0 && (() => {
+                  const totalStbk = stationStandbyDuties.length;
+                  const PRIORITY_META = {
+                    1: { label: 'Priority 1', color: 'text-rose-300', bg: 'bg-rose-500/15 border-rose-500/30' },
+                    2: { label: 'Priority 2', color: 'text-amber-300', bg: 'bg-amber-500/15 border-amber-500/30' },
+                    3: { label: 'Priority 3', color: 'text-slate-400', bg: 'bg-slate-700/40 border-slate-600/40' },
+                  };
+                  const STATION_LABELS = { NGSA: 'Nagasandra', PUTH: 'Puttenahalli', APTS: 'Yelachenahalli', BIET: 'BIET', KGWA: 'Kengeri' };
+                  const STATION_PRIORITY = { NGSA: 1, PUTH: 1, APTS: 2, BIET: 2, KGWA: 3 };
+                  const STBK_STATION_ORDER = ['NGSA', 'PUTH', 'APTS', 'BIET', 'KGWA'];
+
+                  return (
+                    <div className="bg-gradient-to-br from-slate-900 to-cyan-950/20 border border-cyan-500/40 rounded-2xl p-4 shadow-xl">
+                      {/* Header */}
+                      <div className="flex items-center justify-between pb-2.5 border-b border-cyan-500/20 mb-3">
+                        <span className="text-xs font-black text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
+                          <span className="text-base">🏢</span>
+                          Station Standby (STBK)
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-mono bg-cyan-500/15 text-cyan-300 px-2 py-0.5 rounded-full font-bold border border-cyan-500/25">
+                            {totalStbk} Operators
+                          </span>
+                          <span className="text-[9px] font-mono bg-slate-700/60 text-slate-400 px-1.5 py-0.5 rounded font-bold">
+                            5 Stations · 2 Shifts
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Shift legend */}
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-[9px] px-2 py-0.5 bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 rounded font-mono font-bold">A  06:30–14:00</span>
+                        <span className="text-[9px] px-2 py-0.5 bg-blue-500/15 text-blue-400 border border-blue-500/25 rounded font-mono font-bold">B  14:00–21:30</span>
+                        <span className="text-[9px] text-slate-600 font-mono ml-auto">Priority: NGSA=PUTH › APTS=BIET › KGWA</span>
+                      </div>
+
+                      {/* Station rows */}
+                      <div className="space-y-2">
+                        {STBK_STATION_ORDER.map(stnCode => {
+                          const stnOps = stbkByStation[stnCode] || [];
+                          if (stnOps.length === 0) return null;
+                          const pMeta = PRIORITY_META[STATION_PRIORITY[stnCode]] || PRIORITY_META[3];
+                          const aShift = stnOps.find(o => o.stbkShift === 'A');
+                          const bShift = stnOps.find(o => o.stbkShift === 'B');
+
+                          return (
+                            <div key={stnCode} className="rounded-xl border border-slate-700/60 overflow-hidden">
+                              {/* Station header row */}
+                              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/80">
+                                <span className={`text-[9px] px-1.5 py-0.3 rounded border font-mono font-black ${pMeta.bg} ${pMeta.color}`}>
+                                  {pMeta.label}
+                                </span>
+                                <span className="text-xs font-black text-white">{stnCode}</span>
+                                <span className="text-[10px] text-slate-500">{STATION_LABELS[stnCode]}</span>
+                                <span className="ml-auto text-[9px] text-slate-600 font-mono">{stnOps.length}/2 assigned</span>
+                              </div>
+
+                              {/* Operator cards: A then B */}
+                              <div className="divide-y divide-slate-800/60">
+                                {[aShift, bShift].map((op, idx) => {
+                                  const shiftCode = idx === 0 ? 'A' : 'B';
+                                  const timeLabel = idx === 0 ? '06:30–14:00' : '14:00–21:30';
+                                  const shiftColor = idx === 0
+                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
+                                    : 'bg-blue-500/10 text-blue-400 border-blue-500/25';
+
+                                  return (
+                                    <div key={shiftCode} className="flex items-center gap-3 px-3 py-2 bg-slate-950/40 hover:bg-slate-900/60 transition-colors">
+                                      {/* Shift badge */}
+                                      <span className={`text-[9px] px-1.5 py-0.5 rounded border font-mono font-black flex-shrink-0 ${shiftColor}`}>
+                                        {shiftCode}
+                                      </span>
+
+                                      {op ? (
+                                        <>
+                                          <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-1.5">
+                                              <strong className="text-[11px] text-white truncate">{op.name}</strong>
+                                              {op.gender === 'FEMALE' && (
+                                                <span className="text-[8px] px-1 py-0.2 bg-pink-500/20 text-pink-300 rounded font-bold">🌸</span>
+                                              )}
+                                            </div>
+                                            <span className="text-[9px] text-slate-500 font-mono">#{op.empId}</span>
+                                          </div>
+                                          <span className={`text-[9px] px-2 py-0.5 rounded border font-mono font-bold flex-shrink-0 ${shiftColor}`}>
+                                            {timeLabel}
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <span className="text-[10px] text-slate-600 italic">— Not assigned (pool exhausted)</span>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Category 4: LRD (Learning Road Duty) */}
                 {lrdDuties.length > 0 && (
                   <div className="bg-slate-900 border border-amber-500/40 rounded-2xl p-4 shadow-xl">
@@ -1290,42 +1506,440 @@ export default function GeneratorDraftConsole({
               </div>
             </div>
           ) : (
-            /* Full Table View */
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-              <div className="p-4 bg-slate-950/80 border-b border-slate-800 flex justify-between items-center">
-                <h3 className="text-sm font-black text-white">Full Unified Roster ({allAssignments.length} Staff Records)</h3>
+            /* ──────────────── FULL STRUCTURED BMRCL EXCEL SHEET VIEW ──────────────── */
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl space-y-4 p-4">
+              {/* Excel Sheet Header Bar */}
+              <div className="p-4 bg-gradient-to-r from-emerald-950/60 via-slate-950 to-slate-900 border border-emerald-500/30 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-emerald-400">
+                    <FileSpreadsheet className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-white flex items-center gap-2">
+                      BMRCL Line 2 — Daily Duty Roster Excel Sheet
+                      <span className="text-xs px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-full font-mono border border-emerald-500/30">
+                        {allAssignments.length} Total Records
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Target Date: <strong className="text-slate-200 font-mono">{targetDate}</strong> · Schedule: <strong className="text-slate-200 font-mono">{dayType}</strong> · Plan: <strong className="text-slate-200">{currentPlan.strategyTitle}</strong>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleExportExcel}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-emerald-600/30"
+                    title="Download complete Excel workbook"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download .XLSX Sheet
+                  </button>
+                </div>
               </div>
-              <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="bg-slate-950 text-[11px] uppercase tracking-wider text-slate-400 font-bold font-mono sticky top-0 z-10">
+
+              {/* Excel Category Navigation Strip */}
+              <div className="flex flex-wrap gap-2 text-[11px] font-mono font-bold">
+                <span className="px-2.5 py-1 bg-blue-500/15 text-blue-300 border border-blue-500/30 rounded-lg">
+                  🚆 1. Mainline ({runningDuties.length})
+                </span>
+                <span className="px-2.5 py-1 bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 rounded-lg">
+                  🎛️ 2. CC Desk ({ccDuties.length})
+                </span>
+                <span className="px-2.5 py-1 bg-purple-500/15 text-purple-300 border border-purple-500/30 rounded-lg">
+                  ⭐ 3. Special Duty ({specialDuties.length})
+                </span>
+                <span className="px-2.5 py-1 bg-slate-700/50 text-slate-300 border border-slate-600 rounded-lg">
+                  🔄 4. Reserve ({reservePool.length})
+                </span>
+                <span className="px-2.5 py-1 bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 rounded-lg">
+                  🏢 5. STBK ({stationStandbyDuties.length})
+                </span>
+                <span className="px-2.5 py-1 bg-slate-800 text-slate-400 border border-slate-700 rounded-lg">
+                  🔒 6. Rest/WO ({weekOffStaff.length})
+                </span>
+                <span className="px-2.5 py-1 bg-rose-500/15 text-rose-300 border border-rose-500/30 rounded-lg">
+                  🌸 7. Leaves/ML ({leaveStaff.length})
+                </span>
+                <span className="px-2.5 py-1 bg-pink-500/15 text-pink-300 border border-pink-500/30 rounded-lg">
+                  🎀 8. Pink Line 4 ({pinkLine4Staff.length})
+                </span>
+              </div>
+
+              {/* Master Table */}
+              <div className="overflow-x-auto max-h-[750px] overflow-y-auto rounded-xl border border-slate-800">
+                <table className="w-full text-left text-xs text-slate-300 border-collapse">
+                  <thead className="bg-slate-950 text-[11px] uppercase tracking-wider text-slate-400 font-bold font-mono sticky top-0 z-10 border-b border-slate-800">
                     <tr>
-                      <th className="px-4 py-3">Sl No</th>
-                      <th className="px-4 py-3">Duty Code</th>
-                      <th className="px-4 py-3">Shift</th>
-                      <th className="px-4 py-3">Train Operator</th>
-                      <th className="px-4 py-3">Emp ID</th>
-                      <th className="px-4 py-3">Sign On</th>
-                      <th className="px-4 py-3">Sign Off</th>
-                      <th className="px-4 py-3">Location</th>
-                      <th className="px-4 py-3">Status</th>
+                      <th className="px-3 py-3 w-16 text-center">Duty No</th>
+                      <th className="px-3 py-3">Duty Link</th>
+                      <th className="px-3 py-3">Shift</th>
+                      <th className="px-3 py-3">Train Operator</th>
+                      <th className="px-3 py-3">Emp ID</th>
+                      <th className="px-3 py-3">Sign On</th>
+                      <th className="px-3 py-3">Sign Off</th>
+                      <th className="px-3 py-3">Location</th>
+                      <th className="px-3 py-3">Train No</th>
+                      <th className="px-3 py-3">Category / Status</th>
+                      <th className="px-3 py-3">Notes / Profile</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 font-sans">
-                    {allAssignments.map((item, idx) => (
-                      <tr key={item.empId} className="hover:bg-slate-800/40">
-                        <td className="px-4 py-2.5 font-mono text-slate-500">{idx + 1}</td>
-                        <td className="px-4 py-2.5 font-mono font-bold text-blue-400">{formatDutyTypeLink(item)}</td>
-                        <td className="px-4 py-2.5 font-mono text-slate-400">{item.shift}</td>
-                        <td className="px-4 py-2.5 font-bold text-white">{item.name}</td>
-                        <td className="px-4 py-2.5 font-mono text-slate-400 font-bold">{item.empId}</td>
-                        <td className="px-4 py-2.5 font-mono text-slate-300">{item.sOnTime}</td>
-                        <td className="px-4 py-2.5 font-mono text-slate-300">{formatTo24HourTime(item.sOffTime, item.sOnTime, item.shift)}</td>
-                        <td className="px-4 py-2.5 text-slate-400">{item.sOnLoc}</td>
-                        <td className="px-4 py-2.5">
-                          <span className="px-2 py-0.5 bg-slate-800 rounded text-[10px] font-bold">{item.status}</span>
+
+                    {/* ── SECTION 1: ACTIVE MAINLINE DRIVING DUTIES (#1 TO #77) ── */}
+                    <tr className="bg-blue-950/50 border-y border-blue-500/40">
+                      <td colSpan={11} className="py-2.5 px-4 text-xs font-mono text-blue-200 font-black">
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-blue-400" />
+                            SECTION 1: ACTIVE MAINLINE DRIVING DUTIES (Sorted Duty #1 → #{runningDuties.length})
+                          </span>
+                          <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full font-mono border border-blue-500/30">
+                            {runningDuties.length} Assigned Mainline TOs
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                    {runningDuties.map((item, idx) => (
+                      <tr key={item.empId || idx} className="hover:bg-slate-800/40">
+                        <td className="px-3 py-2 font-mono font-bold text-center text-blue-400">{item.dutyNo || idx + 1}</td>
+                        <td className="px-3 py-2 font-mono font-bold text-white">{formatDutyTypeLink(item)}</td>
+                        <td className="px-3 py-2 font-mono text-slate-300">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
+                            item.shift === 'A' ? 'bg-emerald-500/20 text-emerald-300' :
+                            item.shift === 'B' ? 'bg-blue-500/20 text-blue-300' :
+                            item.shift === 'C' || item.shift === 'N' ? 'bg-purple-500/20 text-purple-300' : 'bg-slate-800 text-slate-300'
+                          }`}>
+                            {item.shift}
+                          </span>
                         </td>
+                        <td className="px-3 py-2 font-bold text-white">{item.name}</td>
+                        <td className="px-3 py-2 font-mono text-cyan-300 font-bold">{item.empId}</td>
+                        <td className="px-3 py-2 font-mono text-slate-200">{item.sOnTime}</td>
+                        <td className="px-3 py-2 font-mono text-slate-200">{formatTo24HourTime(item.sOffTime, item.sOnTime, item.shift)}</td>
+                        <td className="px-3 py-2 text-slate-400 font-mono">{item.sOnLoc}</td>
+                        <td className="px-3 py-2 text-slate-400 font-mono">{item.trainNo || '—'}</td>
+                        <td className="px-3 py-2">
+                          <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded text-[10px] font-bold font-mono">
+                            MAINLINE DRIVING
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-[11px] text-slate-400">{item.reason || 'Standard Mainline Run'}</td>
                       </tr>
                     ))}
+
+                    {/* ── SECTION 2: CREW CONTROLLERS (CC DESK) ── */}
+                    {ccDuties.length > 0 && (
+                      <>
+                        <tr className="bg-indigo-950/50 border-y border-indigo-500/40">
+                          <td colSpan={11} className="py-2.5 px-4 text-xs font-mono text-indigo-200 font-black">
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-2">
+                                <Users className="w-4 h-4 text-indigo-400" />
+                                SECTION 2: CREW CONTROLLERS (CC DESK)
+                              </span>
+                              <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono border border-indigo-500/30">
+                                {ccDuties.length} Assigned Controllers
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                        {ccDuties.map((item, idx) => (
+                          <tr key={item.empId || idx} className="hover:bg-slate-800/40 bg-indigo-950/10">
+                            <td className="px-3 py-2 font-mono font-bold text-center text-indigo-400">CC</td>
+                            <td className="px-3 py-2 font-mono font-bold text-indigo-300">{item.assignedDutyCode || item.role || 'CC'}</td>
+                            <td className="px-3 py-2 font-mono text-slate-300">{item.shift || 'G'}</td>
+                            <td className="px-3 py-2 font-bold text-white">{item.name}</td>
+                            <td className="px-3 py-2 font-mono text-indigo-300 font-bold">{item.empId}</td>
+                            <td className="px-3 py-2 font-mono text-slate-300">{item.sOnTime || '07:00'}</td>
+                            <td className="px-3 py-2 font-mono text-slate-300">{formatTo24HourTime(item.sOffTime, item.sOnTime, item.shift) || '15:00'}</td>
+                            <td className="px-3 py-2 text-slate-400 font-mono">PYID</td>
+                            <td className="px-3 py-2 text-slate-500 font-mono">—</td>
+                            <td className="px-3 py-2">
+                              <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded text-[10px] font-bold font-mono">
+                                CREW CONTROLLER
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-[11px] text-indigo-300 font-mono">CC Desk Management</td>
+                          </tr>
+                        ))}
+                      </>
+                    )}
+
+                    {/* ── SECTION 3: SPECIAL DUTY & TEST TRACK ── */}
+                    {specialDuties.length > 0 && (
+                      <>
+                        <tr className="bg-purple-950/50 border-y border-purple-500/40">
+                          <td colSpan={11} className="py-2.5 px-4 text-xs font-mono text-purple-200 font-black">
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-2">
+                                <Sparkles className="w-4 h-4 text-purple-400" />
+                                SECTION 3: SPECIAL DUTY &amp; TEST TRACK
+                              </span>
+                              <span className="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full font-mono border border-purple-500/30">
+                                {specialDuties.length} Assigned Staff
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                        {specialDuties.map((item, idx) => (
+                          <tr key={item.empId || idx} className="hover:bg-slate-800/40 bg-purple-950/10">
+                            <td className="px-3 py-2 font-mono font-bold text-center text-purple-400">SPEC</td>
+                            <td className="px-3 py-2 font-mono font-bold text-purple-300">{item.assignedDutyCode || 'SPECIAL_DUTY'}</td>
+                            <td className="px-3 py-2 font-mono text-slate-300">{item.shift || '—'}</td>
+                            <td className="px-3 py-2 font-bold text-white">{item.name}</td>
+                            <td className="px-3 py-2 font-mono text-purple-300 font-bold">{item.empId}</td>
+                            <td className="px-3 py-2 font-mono text-slate-300">{item.sOnTime || '—'}</td>
+                            <td className="px-3 py-2 font-mono text-slate-300">{formatTo24HourTime(item.sOffTime, item.sOnTime, item.shift) || '—'}</td>
+                            <td className="px-3 py-2 text-slate-400 font-mono">{item.sOnLoc || 'PYID'}</td>
+                            <td className="px-3 py-2 text-slate-500 font-mono">—</td>
+                            <td className="px-3 py-2">
+                              <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-[10px] font-bold font-mono">
+                                SPECIAL DUTY
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-[11px] text-purple-300">{item.reason || 'Depot Standby / Test Track'}</td>
+                          </tr>
+                        ))}
+                      </>
+                    )}
+
+                    {/* ── SECTION 4: AVAILABLE RESERVE (8 CREW) ── */}
+                    {reservePool.length > 0 && (
+                      <>
+                        <tr className="bg-slate-800/80 border-y border-slate-600">
+                          <td colSpan={11} className="py-2.5 px-4 text-xs font-mono text-slate-200 font-black">
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-2">
+                                🔄 SECTION 4: AVAILABLE RESERVE (Reserve Pool — Standby Crew)
+                              </span>
+                              <span className="text-[10px] bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full font-mono border border-slate-600">
+                                {reservePool.length} Available Crew
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                        {reservePool.map((item, idx) => (
+                          <tr key={item.empId || idx} className="hover:bg-slate-800/40 bg-slate-950/30">
+                            <td className="px-3 py-2 font-mono font-bold text-center text-slate-500">RSV</td>
+                            <td className="px-3 py-2 font-mono font-bold text-slate-300">AVAILABLE RESERVE</td>
+                            <td className="px-3 py-2 font-mono text-slate-400">STANDBY</td>
+                            <td className="px-3 py-2 font-bold text-slate-200">{item.name}</td>
+                            <td className="px-3 py-2 font-mono text-slate-400 font-bold">{item.empId}</td>
+                            <td className="px-3 py-2 font-mono text-slate-500">—</td>
+                            <td className="px-3 py-2 font-mono text-slate-500">—</td>
+                            <td className="px-3 py-2 text-slate-400 font-mono">PYID</td>
+                            <td className="px-3 py-2 text-slate-500 font-mono">—</td>
+                            <td className="px-3 py-2">
+                              <span className="px-2 py-0.5 bg-slate-800 text-slate-400 rounded text-[10px] font-bold font-mono">
+                                RESERVE POOL
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-[11px] text-slate-500">
+                              {item.fixedWo ? `WO: ${item.fixedWo} · Active Reserve` : 'Available Reserve (No driving duty slot)'}
+                            </td>
+                          </tr>
+                        ))}
+                      </>
+                    )}
+
+                    {/* ── SECTION 5: STATION STANDBY (STBK — PRIORITY ORDERED) ── */}
+                    {stationStandbyDuties.length > 0 && (
+                      <>
+                        <tr className="bg-cyan-950/50 border-y border-cyan-500/40">
+                          <td colSpan={11} className="py-2.5 px-4 text-xs font-mono text-cyan-200 font-black">
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-2">
+                                🏢 SECTION 5: STATION STANDBY (STBK — NGSA, PUTH, APTS, BIET, KGWA)
+                              </span>
+                              <span className="text-[10px] bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-full font-mono border border-cyan-500/30">
+                                {stationStandbyDuties.length} Operators Assigned (Shifts A &amp; B)
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                        {stationStandbyDuties.map((item, idx) => (
+                          <tr key={item.empId || idx} className="hover:bg-slate-800/40 bg-cyan-950/10">
+                            <td className="px-3 py-2 font-mono font-bold text-center text-cyan-400">STBK</td>
+                            <td className="px-3 py-2 font-mono font-bold text-cyan-300">{item.stbkStation} STBK ({item.stbkShift} Shift)</td>
+                            <td className="px-3 py-2 font-mono text-cyan-300 font-bold">
+                              {item.stbkShift === 'B' ? 'B (14:00–21:30)' : 'A (06:30–14:00)'}
+                            </td>
+                            <td className="px-3 py-2 font-bold text-white">{item.name}</td>
+                            <td className="px-3 py-2 font-mono text-cyan-300 font-bold">{item.empId}</td>
+                            <td className="px-3 py-2 font-mono text-slate-300">{item.stbkShift === 'B' ? '14:00' : '06:30'}</td>
+                            <td className="px-3 py-2 font-mono text-slate-300">{item.stbkShift === 'B' ? '21:30' : '14:00'}</td>
+                            <td className="px-3 py-2 text-cyan-300 font-mono font-bold">{item.stbkStation}</td>
+                            <td className="px-3 py-2 text-slate-500 font-mono">—</td>
+                            <td className="px-3 py-2">
+                              <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-300 rounded text-[10px] font-bold font-mono">
+                                STATION STANDBY
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-[11px] text-cyan-400/80 font-mono">
+                              Priority Standby at {item.stbkStation}
+                            </td>
+                          </tr>
+                        ))}
+                      </>
+                    )}
+
+                    {/* ── SECTION 6: WEEKLY OFF (REST / WO) ── */}
+                    {weekOffStaff.length > 0 && (
+                      <>
+                        <tr className="bg-slate-900 border-y border-slate-700">
+                          <td colSpan={11} className="py-2.5 px-4 text-xs font-mono text-slate-400 font-black">
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-2">
+                                <Lock className="w-4 h-4 text-slate-500" />
+                                SECTION 6: WEEKLY OFF (REST / WO)
+                              </span>
+                              <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full font-mono border border-slate-700">
+                                {weekOffStaff.length} Rest Operators
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                        {weekOffStaff.map((item, idx) => (
+                          <tr key={item.empId || idx} className="hover:bg-slate-800/40 bg-slate-950/20">
+                            <td className="px-3 py-2 font-mono font-bold text-center text-slate-600">WO</td>
+                            <td className="px-3 py-2 font-mono font-bold text-slate-400">WEEK_OFF</td>
+                            <td className="px-3 py-2 font-mono text-slate-500">REST</td>
+                            <td className="px-3 py-2 font-bold text-slate-300">{item.name}</td>
+                            <td className="px-3 py-2 font-mono text-slate-500 font-bold">{item.empId}</td>
+                            <td className="px-3 py-2 font-mono text-slate-600">—</td>
+                            <td className="px-3 py-2 font-mono text-slate-600">—</td>
+                            <td className="px-3 py-2 text-slate-600 font-mono">—</td>
+                            <td className="px-3 py-2 text-slate-600 font-mono">—</td>
+                            <td className="px-3 py-2">
+                              <span className="px-2 py-0.5 bg-slate-800 text-slate-400 rounded text-[10px] font-bold font-mono">
+                                REST
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-[11px] text-slate-500">{item.reason || 'Weekly Off'}</td>
+                          </tr>
+                        ))}
+                      </>
+                    )}
+
+                    {/* ── SECTION 7: LEAVES, MATERNITY (ML) & HPL / BOOK-OFF ── */}
+                    {leaveStaff.length > 0 && (
+                      <>
+                        <tr className="bg-rose-950/50 border-y border-rose-500/40">
+                          <td colSpan={11} className="py-2.5 px-4 text-xs font-mono text-rose-200 font-black">
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-2">
+                                <HeartPulse className="w-4 h-4 text-rose-400" />
+                                SECTION 7: LEAVES, MATERNITY (ML) &amp; HPL / BOOK-OFF
+                              </span>
+                              <span className="text-[10px] bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-full font-mono border border-rose-500/30">
+                                {leaveStaff.length} On Leave
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                        {leaveStaff.map((item, idx) => {
+                          const lp = item.leavePeriod;
+                          return (
+                            <tr key={item.empId || idx} className="hover:bg-slate-800/40 bg-rose-950/10">
+                              <td className="px-3 py-2 font-mono font-bold text-center text-rose-400">LV</td>
+                              <td className="px-3 py-2 font-mono font-bold text-rose-300">{item.assignedDutyCode || item.assignmentSubType || 'LEAVE'}</td>
+                              <td className="px-3 py-2 font-mono text-rose-300">LEAVE</td>
+                              <td className="px-3 py-2 font-bold text-white">{item.name}</td>
+                              <td className="px-3 py-2 font-mono text-rose-300 font-bold">{item.empId}</td>
+                              <td className="px-3 py-2 font-mono text-slate-500">—</td>
+                              <td className="px-3 py-2 font-mono text-slate-500">—</td>
+                              <td className="px-3 py-2 text-slate-500 font-mono">—</td>
+                              <td className="px-3 py-2 text-slate-500 font-mono">—</td>
+                              <td className="px-3 py-2">
+                                <span className="px-2 py-0.5 bg-rose-500/20 text-rose-300 rounded text-[10px] font-bold font-mono">
+                                  {item.status || 'LEAVE'}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-[11px] text-rose-300">
+                                {lp && lp.fromDate ? `${lp.leaveType || 'Leave'}: ${lp.fromDate} → ${lp.toDate} (${lp.durationDays}d)` : (item.reason || 'Approved Leave')}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </>
+                    )}
+
+                    {/* ── SECTION 8: PINK LINE 4 STAFF ── */}
+                    {pinkLine4Staff.length > 0 && (
+                      <>
+                        <tr className="bg-pink-950/50 border-y border-pink-500/40">
+                          <td colSpan={11} className="py-2.5 px-4 text-xs font-mono text-pink-200 font-black">
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-2">
+                                🌸 SECTION 8: PINK LINE 4 STAFF POOL
+                              </span>
+                              <span className="text-[10px] bg-pink-500/20 text-pink-300 px-2 py-0.5 rounded-full font-mono border border-pink-500/30">
+                                {pinkLine4Staff.length} Staff Members
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                        {pinkLine4Staff.map((item, idx) => (
+                          <tr key={item.empId || idx} className="hover:bg-slate-800/40 bg-pink-950/10">
+                            <td className="px-3 py-2 font-mono font-bold text-center text-pink-400">PINK</td>
+                            <td className="px-3 py-2 font-mono font-bold text-pink-300">PINK LINE 4</td>
+                            <td className="px-3 py-2 font-mono text-pink-300">—</td>
+                            <td className="px-3 py-2 font-bold text-white">{item.name}</td>
+                            <td className="px-3 py-2 font-mono text-pink-400 font-bold">{item.empId}</td>
+                            <td className="px-3 py-2 font-mono text-slate-500">—</td>
+                            <td className="px-3 py-2 font-mono text-slate-500">—</td>
+                            <td className="px-3 py-2 text-slate-500 font-mono">—</td>
+                            <td className="px-3 py-2 text-slate-500 font-mono">—</td>
+                            <td className="px-3 py-2">
+                              <span className="px-2 py-0.5 bg-pink-500/20 text-pink-300 rounded text-[10px] font-bold font-mono">
+                                PINK_LINE_4
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-[11px] text-pink-300">{item.notes || 'Pink Line 4 Staff'}</td>
+                          </tr>
+                        ))}
+                      </>
+                    )}
+
+                    {/* ── SECTION 9: TRAINING, CRT & LRD ── */}
+                    {(trainingStaff.length > 0 || lrdDuties.length > 0) && (
+                      <>
+                        <tr className="bg-amber-950/50 border-y border-amber-500/40">
+                          <td colSpan={11} className="py-2.5 px-4 text-xs font-mono text-amber-200 font-black">
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-2">
+                                🎓 SECTION 9: TRAINING, CRT &amp; LEARNING ROAD DUTY (LRD)
+                              </span>
+                              <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-mono border border-amber-500/30">
+                                {trainingStaff.length + lrdDuties.length} Staff
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                        {trainingStaff.concat(lrdDuties).map((item, idx) => (
+                          <tr key={item.empId || idx} className="hover:bg-slate-800/40 bg-amber-950/10">
+                            <td className="px-3 py-2 font-mono font-bold text-center text-amber-400">TRG</td>
+                            <td className="px-3 py-2 font-mono font-bold text-amber-300">{item.assignedDutyCode || item.assignmentSubType || 'TRAINING'}</td>
+                            <td className="px-3 py-2 font-mono text-amber-300">{item.shift || '07:00–15:00'}</td>
+                            <td className="px-3 py-2 font-bold text-white">{item.name}</td>
+                            <td className="px-3 py-2 font-mono text-amber-300 font-bold">{item.empId}</td>
+                            <td className="px-3 py-2 font-mono text-slate-300">{item.sOnTime || '07:00'}</td>
+                            <td className="px-3 py-2 font-mono text-slate-300">{formatTo24HourTime(item.sOffTime, item.sOnTime, item.shift) || '15:00'}</td>
+                            <td className="px-3 py-2 text-slate-400 font-mono">PYID</td>
+                            <td className="px-3 py-2 text-slate-500 font-mono">—</td>
+                            <td className="px-3 py-2">
+                              <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded text-[10px] font-bold font-mono">
+                                TRAINING / LRD
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-[11px] text-amber-300">{item.reason || 'Training Refresher'}</td>
+                          </tr>
+                        ))}
+                      </>
+                    )}
+
                   </tbody>
                 </table>
               </div>
@@ -1406,6 +2020,49 @@ export default function GeneratorDraftConsole({
           </div>
         </>
       )}
+
+      {/* ── Smart Operational Intelligence Summary ── */}
+      {currentPlan && (() => {
+        const totalKms = currentPlan.stats?.totalKms || runningDuties.reduce((s, a) => s + (a.kms || 0), 0);
+        const nightCoverage = currentPlan.stats?.nightCoveragePercent ?? (
+          runningDuties.filter(a => a.shift === 'N').length > 0
+            ? Math.round((runningDuties.filter(a => a.shift === 'N').length / Math.max(1, runningDuties.length)) * 100)
+            : 0
+        );
+        const unassignedCount = runningDuties.filter(a => !a.empId || a.name === '— UNASSIGNED —').length;
+        const aShiftCount = runningDuties.filter(a => a.shift === 'A').length;
+        const bShiftCount = runningDuties.filter(a => a.shift === 'B').length;
+        const nShiftCount = runningDuties.filter(a => a.shift === 'N').length;
+        const totalKmsFormatted = totalKms >= 1000 ? `${(totalKms / 1000).toFixed(1)}k` : String(totalKms);
+
+        return (
+          <div className="bg-gradient-to-r from-slate-900/90 via-blue-950/20 to-slate-900/90 border border-blue-500/15 rounded-2xl px-5 py-4 shadow-lg">
+            <div className="flex items-center gap-2 mb-3">
+              <Activity className="w-4 h-4 text-blue-400" />
+              <span className="text-xs font-black text-slate-300 uppercase tracking-wider">Operational Intelligence</span>
+              <span className="text-[10px] text-slate-600 font-mono ml-auto">{targetDate} · {dayType}</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+              {[
+                { label: 'Total KMs', value: totalKmsFormatted, sub: 'scheduled today', color: 'text-blue-400', bg: 'bg-blue-950/50 border-blue-500/20', alert: false },
+                { label: 'A Shift', value: aShiftCount, sub: 'mainline duties', color: 'text-emerald-400', bg: 'bg-emerald-950/40 border-emerald-500/20', alert: false },
+                { label: 'B Shift', value: bShiftCount, sub: 'afternoon duties', color: 'text-amber-400', bg: 'bg-amber-950/40 border-amber-500/20', alert: false },
+                { label: 'Night Band', value: nShiftCount, sub: 'night duties', color: 'text-indigo-400', bg: 'bg-indigo-950/40 border-indigo-500/20', alert: false },
+                { label: 'Night Cover', value: `${nightCoverage}%`, sub: 'band fill rate', color: nightCoverage >= 90 ? 'text-emerald-400' : nightCoverage >= 70 ? 'text-amber-400' : 'text-rose-400', bg: nightCoverage >= 90 ? 'bg-emerald-950/40 border-emerald-500/20' : 'bg-amber-950/40 border-amber-500/20', alert: nightCoverage < 70 },
+                { label: 'Reserve Pool', value: reservePool.length, sub: 'available spare', color: 'text-teal-400', bg: 'bg-teal-950/40 border-teal-500/20', alert: false },
+                { label: 'Unassigned', value: unassignedCount, sub: 'duty gaps', color: unassignedCount > 0 ? 'text-rose-400 animate-pulse' : 'text-emerald-400', bg: unassignedCount > 0 ? 'bg-rose-950/60 border-rose-500/40' : 'bg-emerald-950/40 border-emerald-500/20', alert: unassignedCount > 0 },
+              ].map(stat => (
+                <div key={stat.label} className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center ${stat.bg} ${stat.alert ? 'ring-1 ring-rose-500/40' : ''}`}>
+                  <div className={`text-lg font-black tabular-nums ${stat.color}`}>{stat.value}</div>
+                  <div className="text-[9px] font-bold uppercase tracking-wide text-slate-500 mt-0.5">{stat.label}</div>
+                  <div className="text-[9px] text-slate-600">{stat.sub}</div>
+                  {stat.alert && <div className="text-[8px] text-rose-400 font-black mt-0.5">⚠ ATTENTION</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── 6. Edit Duty & Override Modal ── */}
       {editItem && (

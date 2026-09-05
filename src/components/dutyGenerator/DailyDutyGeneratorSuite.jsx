@@ -25,11 +25,21 @@ import { doc, setDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch } from '
 import OperationalErrorBoundary from '../common/OperationalErrorBoundary';
 
 export default function DailyDutyGeneratorSuite() {
+  const todayStr = () => {
+    const d = new Date();
+    const offset = 5.5 * 60 * 60 * 1000; // IST offset
+    const ist = new Date(d.getTime() + (d.getTimezoneOffset() * 60 * 1000) + offset);
+    return ist.toISOString().split('T')[0];
+  };
   const [activeTab, setActiveTab] = useState('DRAFT_GENERATOR');
-  const [targetDate, setTargetDate] = useState('2026-08-19');
-  const [dayType, setDayType] = useState(() => resolveDayType('2026-08-19'));
+  const [targetDate, setTargetDate] = useState(() => todayStr());
+  const [dayType, setDayType] = useState(() => resolveDayType(todayStr()));
   const [isSyncingWithDb, setIsSyncingWithDb] = useState(false);
   const [syncStatusMsg, setSyncStatusMsg] = useState('');
+  const [currentTime, setCurrentTime] = useState(() => {
+    const d = new Date();
+    return d.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  });
   
   // Real-Time Firebase Context Listeners
   const operationalEngine = useOperationalEngine();
@@ -39,6 +49,28 @@ export default function DailyDutyGeneratorSuite() {
   const liveShiftExchanges = operationalEngine?.shiftExchanges || [];
   const liveDeployments = operationalEngine?.deployments || [];
   const currentUser = auth?.currentUser;
+
+  // Live IST clock — ticks every second
+  useEffect(() => {
+    const tick = () => {
+      setCurrentTime(new Date().toLocaleTimeString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }));
+    };
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Jump to today helper
+  const handleGoToToday = () => {
+    const t = todayStr();
+    setTargetDate(t);
+    setDayType(resolveDayType(t));
+    setActiveTab('DRAFT_GENERATOR');
+  };
 
   const [localCrewOverrides, setLocalCrewOverrides] = useState({});
 
@@ -550,8 +582,24 @@ export default function DailyDutyGeneratorSuite() {
               </div>
             </div>
 
-            {/* Right Controls: Date + DayType + Duties + Sync */}
+            {/* Right Controls: Date + DayType + Duties + Sync + Live Clock */}
             <div className="flex flex-wrap items-center gap-3">
+              
+              {/* Live IST Clock */}
+              <div className="hidden sm:flex flex-col items-center px-3 py-2 bg-slate-900/80 backdrop-blur-sm border border-emerald-500/20 rounded-2xl shadow">
+                <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">IST Live</span>
+                <span className="text-sm font-black text-emerald-400 font-mono tabular-nums tracking-tight">{currentTime}</span>
+              </div>
+
+              {/* Generate Today Button */}
+              <button
+                onClick={handleGoToToday}
+                className="px-3.5 py-2.5 bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-600 hover:to-teal-600 border border-emerald-500/40 rounded-2xl flex items-center gap-2 text-xs text-white font-black transition-all shadow-lg shadow-emerald-700/20 hover:shadow-emerald-600/30"
+                title="Jump to today's date and open AI Duty Generator"
+              >
+                <Zap className="w-3.5 h-3.5 text-yellow-300" />
+                Today
+              </button>
               
               {/* Date + Day-Type Control Card */}
               <div className="flex items-center gap-2 bg-slate-900/80 backdrop-blur-sm border border-slate-700/80 rounded-2xl px-4 py-2.5 shadow-lg">

@@ -49,6 +49,8 @@ export function generateDailyDutyRoster({
   activeRequests = [],
   holidayList = [],
   lockedAssignments = [],
+  woOverrides = {},        // { [empId]: { reason, date } } — week-off override map
+  planMode = 'BALANCED',  // 'BALANCED' | 'NIGHT_EQUITY' | 'LINK_DIVERSITY'
   seed = null
 }) {
   // ── PHASE 0: RESOLVE DAY TYPE & SKELETON ──
@@ -111,6 +113,31 @@ export function generateDailyDutyRoster({
         sOffLoc: '—',
         kms: 0,
         reason: 'Scheduled Weekly Off',
+        isOfficialForRole: true
+      });
+      assignedEmpIds.add(empId);
+      return;
+    }
+
+    // Check Week-Off Override (H15-OVR): user-specified WO override for this date
+    const woOverrideEntry = woOverrides && (woOverrides[empId] || woOverrides[String(empId)]);
+    if (woOverrideEntry) {
+      notAvailableCrew.push({
+        empId,
+        name: emp.name,
+        gender: emp.gender,
+        assignmentCategory: 'NOT_AVAILABLE',
+        assignmentSubType: 'WO',
+        tag: 'WO Override',
+        dutyCode: 'WO',
+        dutyNo: null,
+        shift: 'WO',
+        sOnTime: '—',
+        sOffTime: '—',
+        sOnLoc: '—',
+        sOffLoc: '—',
+        kms: 0,
+        reason: `Week-Off Override: ${woOverrideEntry.reason || 'Controller Manual Override'}`,
         isOfficialForRole: true
       });
       assignedEmpIds.add(empId);
@@ -515,6 +542,8 @@ export function generateDailyDutyRoster({
   }
 
   const activeDutyAssignments = [];
+  // ── Hoist specialAuxAssignments here so Phase 2.6 (and Phase 7-9) can both access it ──
+  const specialAuxAssignments = [];
 
   // ── PHASE 2.5: ACTIVE DUTY DIRECT PRE-ASSIGNMENTS (DEMANDS) ──
   activeRequests.filter(r => r.type === 'ACTIVE_DUTY' && r.empId && r.dutyNumber).forEach(req => {
@@ -640,10 +669,22 @@ export function generateDailyDutyRoster({
         dynDaysSinceNight = Math.max(1, (hist.daysSinceLastNight || 7) + (dayOffset % 14));
       }
 
-      // Fairness & Rotation Score: Prefer higher daysSinceLastNight and lower total nightCount
+      // Fairness & Rotation Score (planMode-aware)
       const isNightRotated = cand._rotatedIndex >= (nStart - 1) && cand._rotatedIndex <= (nEnd + 5);
       const rotationBonus = isNightRotated ? 30 : 0;
-      const score = (dynDaysSinceNight * 10) - (hist.nightCount * 8) + (streak > 0 && streak < 5 ? 20 : 0) + rotationBonus;
+      let score;
+      if (planMode === 'NIGHT_EQUITY') {
+        // Plan B: Strict night equity — strongly prefer operators with fewest nights this month
+        const monthlyNightQuota = hist.nightCount || 0;
+        score = (dynDaysSinceNight * 8) - (monthlyNightQuota * 18) + (streak > 0 && streak < 4 ? 10 : 0) + rotationBonus;
+      } else if (planMode === 'LINK_DIVERSITY') {
+        // Plan C: Link diversity — wider spread using base index vs offset alignment
+        const diversityBonus = (cand._baseIndex % 4 === (dayOffset % 4)) ? 25 : 0;
+        score = (dynDaysSinceNight * 10) - (hist.nightCount * 8) + diversityBonus + rotationBonus;
+      } else {
+        // Plan A: Balanced (default)
+        score = (dynDaysSinceNight * 10) - (hist.nightCount * 8) + (streak > 0 && streak < 5 ? 20 : 0) + rotationBonus;
+      }
 
       if (score > bestScore) {
         bestScore = score;
@@ -803,7 +844,17 @@ export function generateDailyDutyRoster({
         const shiftBonus = (shiftReq && shiftReq.preferredShift === duty.shift) ? -40 : 0;
 
         const diff = Math.abs(cand._rotatedIndex - targetLadderPos);
-        const cyclicDistance = Math.min(diff, availableDrivingPool.length - diff) + shiftBonus;
+        let cyclicDistance = Math.min(diff, availableDrivingPool.length - diff) + shiftBonus;
+
+        // Plan C: Penalize repeated duty codes to promote link diversity
+        if (planMode === 'LINK_DIVERSITY') {
+          const dutyFreq = (hist.dutyFreq && hist.dutyFreq[duty.dutyCode]) || 0;
+          cyclicDistance += dutyFreq * 6;
+        }
+        // Plan B: Spread operators more evenly by penalizing those with most total duties
+        if (planMode === 'NIGHT_EQUITY') {
+          cyclicDistance = Math.max(0, cyclicDistance - ((hist.totalDuties || 0) % 5));
+        }
 
         if (cyclicDistance < bestDistance) {
           bestDistance = cyclicDistance;
@@ -869,7 +920,7 @@ export function generateDailyDutyRoster({
   }
 
   // ── PHASE 7–9: ROSTERED OR LINKS, STATION STANDBY & OR SPARE POOLS ──
-  const specialAuxAssignments = [];
+  // (specialAuxAssignments already declared at Phase 2.5 scope — hoisted to avoid Phase 2.6 ReferenceError)
 
   // Duty 2 (OR1) & OR2 duty
   const or1Duty = linkTemplates.find(d => parseInt(d.dutyNo, 10) === profile.or1_duty);
@@ -900,30 +951,54 @@ export function generateDailyDutyRoster({
     }
   });
 
-  // Station Standby slots (PUTH, NGSA, KGWA, RVR, BIET, APTS)
-  DEFAULT_STANDBY_STATIONS.forEach(stn => {
-    if (availableDrivingPool.length > 0) {
-      const cand = availableDrivingPool.shift();
-      assignedEmpIds.add(cand.empId);
+  // ── STATION STANDBY (STBK): DUAL SHIFT — Priority-Ordered Auto Allocation ──
+  // Priority 1 (highest): NGSA, PUTH — key interchange/terminal stations
+  // Priority 2:           APTS, BIET — high-traffic depots
+  // Priority 3 (lowest):  KGWA       — end-of-line standby
+  // Each station gets TWO operators: A-shift (06:30–14:00) and B-shift (14:00–21:30)
+  const STBK_STATIONS_ORDERED = [
+    { station: 'NGSA', priority: 1, label: 'Nagasandra' },
+    { station: 'PUTH', priority: 1, label: 'Puttenahalli' },
+    { station: 'APTS', priority: 2, label: 'Yelachenahalli' },
+    { station: 'BIET', priority: 2, label: 'BIET' },
+    { station: 'KGWA', priority: 3, label: 'Kengeri' },
+  ];
 
-      specialAuxAssignments.push({
-        empId: cand.empId,
-        name: cand.name,
-        gender: cand.gender,
-        assignmentCategory: 'SPECIAL_AUX_DUTY',
-        assignmentSubType: `${stn.station} STBK`,
-        tag: '1Stbk',
-        dutyCode: '1Stbk',
-        dutyNo: null,
-        shift: 'STBY',
-        sOnTime: '07:00',
-        sOffTime: '15:00',
-        sOnLoc: stn.station,
-        sOffLoc: stn.station,
-        kms: 0,
-        reason: `${stn.station} Station Standby (1Stbk)`
-      });
-    }
+  const STBK_SHIFTS = [
+    { code: 'A', label: 'A-Shift', sOnTime: '06:30', sOffTime: '14:00', dutyCode: '1Stbk-A' },
+    { code: 'B', label: 'B-Shift', sOnTime: '14:00', sOffTime: '21:30', dutyCode: '1Stbk-B' },
+  ];
+
+  STBK_STATIONS_ORDERED.forEach(stn => {
+    STBK_SHIFTS.forEach(shf => {
+      if (availableDrivingPool.length > 0) {
+        const cand = availableDrivingPool.shift();
+        assignedEmpIds.add(cand.empId);
+
+        specialAuxAssignments.push({
+          empId: cand.empId,
+          name: cand.name,
+          gender: cand.gender,
+          assignmentCategory: 'SPECIAL_AUX_DUTY',
+          assignmentSubType: `${stn.station}_STBK`,
+          tag: shf.dutyCode,
+          dutyCode: shf.dutyCode,
+          dutyNo: null,
+          shift: shf.code,
+          sOnTime: shf.sOnTime,
+          sOffTime: shf.sOffTime,
+          sOnLoc: stn.station,
+          sOffLoc: stn.station,
+          kms: 0,
+          isStationStandby: true,
+          stbkStation: stn.station,
+          stbkStationLabel: stn.label,
+          stbkShift: shf.code,
+          stbkPriority: stn.priority,
+          reason: `${stn.station} Station Standby — ${shf.label} (${shf.sOnTime}–${shf.sOffTime})`
+        });
+      }
+    });
   });
 
   // ── PHASE 10: TRAINEE (JMD TD) SHADOW PAIRING ──
@@ -1019,12 +1094,43 @@ export function generateDailyDutyRoster({
     availableCrewCount: activePool.length
   });
 
-  // ── PHASE 14: RETURN CANONICAL RESULT ──
+  // ── PHASE 14: COMPUTE OVERALL QUALITY SCORE (0–100) ──
+  const _filledDuties = activeDutyAssignments.filter(a => a.empId && a.dutyCode !== 'BLANK').length;
+  const _totalSlots = linkTemplates.filter(d => !d.isBlank).length;
+  const _fillRate = _totalSlots > 0 ? _filledDuties / _totalSlots : 1;
+  const _hardViolCount = validationReport.hardViolations?.length || 0;
+  const _warnCount = validationReport.warnings?.length || 0;
+  const _totalKms = activeDutyAssignments.reduce((sum, a) => sum + (a.kms || 0), 0);
+  const _nightAssigned = activeDutyAssignments.filter(a => a.shift === 'N').length;
+  const _nightTarget = nightSlots.length + nproSlots.length;
+  const _nightCoverage = _nightTarget > 0 ? Math.round((_nightAssigned / _nightTarget) * 100) : 100;
+
+  // Score = fill rate (55) + hard violation penalty (25) + warning penalty (12) + coverage bonus (8)
+  const overallScore = Math.round(
+    Math.max(0, Math.min(100,
+      _fillRate * 55 +
+      (_hardViolCount === 0 ? 25 : Math.max(0, 25 - _hardViolCount * 8)) +
+      (_warnCount === 0 ? 12 : Math.max(0, 12 - _warnCount * 2)) +
+      (trainCoverage.isCovered ? 8 : Math.round((trainCoverage.coveredDrivingDuties / Math.max(1, trainCoverage.requiredDrivingDuties)) * 8))
+    ))
+  );
+
+  const _strategyTitles = {
+    BALANCED: 'Plan A — Balanced AI Optimization (Fatigue-Safe)',
+    NIGHT_EQUITY: 'Plan B — Night Equity Priority (Equal 6/6 Balance)',
+    LINK_DIVERSITY: 'Plan C — Link Diversity & Anti-Repetition Rotation'
+  };
+
+  // ── PHASE 15: RETURN CANONICAL RESULT ──
   return {
     date: targetDate,
     dayType: resolvedDayType,
     profile,
     trainCoverage,
+    overallScore,
+    strategyTitle: _strategyTitles[planMode] || 'AI Optimized Roster',
+    canPublish: _hardViolCount === 0,
+    planMode,
     assignments: allAssignments,
     buckets: {
       activeDuties: activeDutyAssignments,
@@ -1036,15 +1142,17 @@ export function generateDailyDutyRoster({
     validation: validationReport,
     stats: {
       totalDuties: linkTemplates.length,
-      activeDutiesFilled: activeDutyAssignments.filter(a => a.empId).length,
+      activeDutiesFilled: _filledDuties,
       activeDutiesUnfilled: activeDutyAssignments.filter(a => !a.empId).length,
       ccCount: ccAssignments.length,
       specialAuxCount: specialAuxAssignments.length,
       notAvailableCount: notAvailableCrew.length,
       traineeCount: traineeAssignments.length,
       totalAssignedHeadcount: assignedEmpIds.size,
-      headcountDelta: validationReport.headcountReconciliation.headcountDelta,
-      trainCoverageScore: trainCoverage.isCovered ? 100 : Math.round((trainCoverage.coveredDrivingDuties / trainCoverage.requiredDrivingDuties) * 100)
+      totalKms: _totalKms,
+      nightCoveragePercent: _nightCoverage,
+      headcountDelta: validationReport.headcountReconciliation?.headcountDelta ?? 0,
+      trainCoverageScore: trainCoverage.isCovered ? 100 : Math.round((trainCoverage.coveredDrivingDuties / Math.max(1, trainCoverage.requiredDrivingDuties)) * 100)
     }
   };
 }
@@ -1053,42 +1161,39 @@ export function generateDailyDutyRoster({
  * Multi-plan Generator for UI Solution Comparison
  */
 export function generateDailyRosterSolutions(options) {
-  const planA = generateDailyDutyRoster({ ...options, seed: 101 });
-  const planB = generateDailyDutyRoster({ ...options, seed: 202 });
-  const planC = generateDailyDutyRoster({ ...options, seed: 303 });
+  const sharedOpts = { ...options, woOverrides: options.woOverrides || {} };
+
+  // Each plan uses a distinct strategy + seed for genuinely different outputs
+  const planA = generateDailyDutyRoster({ ...sharedOpts, seed: 101, planMode: 'BALANCED' });
+  const planB = generateDailyDutyRoster({ ...sharedOpts, seed: 202, planMode: 'NIGHT_EQUITY' });
+  const planC = generateDailyDutyRoster({ ...sharedOpts, seed: 303, planMode: 'LINK_DIVERSITY' });
+
+  const _buildPlan = (plan, id) => ({
+    id,
+    title: plan.strategyTitle,
+    badge: id === 'PLAN_A' ? 'Recommended' : 'Alternative',
+    description: {
+      PLAN_A: 'Optimized for rest compliance, fatigue safety & night equity.',
+      PLAN_B: 'Strict 6/6 monthly night balance — equal distribution across all operators.',
+      PLAN_C: 'Anti-repetition rotation — prevents same operators on same links consecutively.'
+    }[id] || '',
+    strategyTitle: plan.strategyTitle,
+    overallScore: plan.overallScore,
+    canPublish: plan.canPublish,
+    planMode: plan.planMode,
+    assignments: plan.assignments,
+    validation: plan.validation,
+    hardViolations: plan.validation?.hardViolations || [],
+    warnings: plan.validation?.warnings || [],
+    stats: plan.stats,
+    buckets: plan.buckets
+  });
 
   return {
     solutions: {
-      PLAN_A: {
-        id: 'PLAN_A',
-        title: 'Master Plan A (Balanced AI Optimization)',
-        badge: 'Recommended',
-        description: 'Optimized for Rest Compliance, Night Equity & Anti-Consecutive Variety',
-        assignments: planA.assignments,
-        validation: planA.validation,
-        stats: planA.stats,
-        buckets: planA.buckets
-      },
-      PLAN_B: {
-        id: 'PLAN_B',
-        title: 'Master Plan B (Maximum Rest Priority)',
-        badge: 'Alternative',
-        description: 'Prioritizes maximum rest hours (≥14h) across all shift transitions',
-        assignments: planB.assignments,
-        validation: planB.validation,
-        stats: planB.stats,
-        buckets: planB.buckets
-      },
-      PLAN_C: {
-        id: 'PLAN_C',
-        title: 'Master Plan C (Strict Cyclic Shift Rotation)',
-        badge: 'Alternative',
-        description: 'Strictly preserves A -> B -> N -> G cyclic progression',
-        assignments: planC.assignments,
-        validation: planC.validation,
-        stats: planC.stats,
-        buckets: planC.buckets
-      }
+      PLAN_A: _buildPlan(planA, 'PLAN_A'),
+      PLAN_B: _buildPlan(planB, 'PLAN_B'),
+      PLAN_C: _buildPlan(planC, 'PLAN_C')
     }
   };
 }
