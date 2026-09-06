@@ -21,7 +21,8 @@ import { WTT_MASTER_REGISTRY } from '../data/wttMasterRegistry';
 
 export default function LiveTrainPositionTracker({ 
   liveTrainTrackingMap: propLiveTrainTrackingMap = {}, 
-  activeDay: propActiveDay = 'WEEKDAY' 
+  activeDay: propActiveDay = 'WEEKDAY',
+  onScheduleChange
 }) {
   // States
   const [dailyDeployments, setDailyDeployments] = useState([]);
@@ -938,7 +939,12 @@ export default function LiveTrainPositionTracker({
             id="livetrainpositiontra-i2"
             name="livetrainpositiontra-i2"
             value={activeSchedule}
-            onChange={(e) => setActiveSchedule(e.target.value)}
+            onChange={(e) => {
+              setActiveSchedule(e.target.value);
+              if (typeof onScheduleChange === 'function') {
+                onScheduleChange(e.target.value);
+              }
+            }}
             className="bg-slate-900 border border-slate-700 text-xs rounded px-2 py-1 focus:outline-none focus:border-cyan-500 font-bold text-cyan-300 font-mono cursor-pointer"
           >
             <option value="WEEKDAY">WEEKDAY</option>

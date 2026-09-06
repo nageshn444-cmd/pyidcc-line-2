@@ -155,7 +155,8 @@ export default function TrainOperatorPwa({
       }
 
       // 1. Update in crewRegistry
-      const registryRef = doc(db, 'crewRegistry', empId);
+      const canonicalCrewId = String(empId).startsWith('crew_') ? String(empId) : `crew_${empId}`;
+      const registryRef = doc(db, 'crewRegistry', canonicalCrewId);
       await setDoc(registryRef, {
         mobileNumber: profileForm.contact,
         contact: profileForm.contact,

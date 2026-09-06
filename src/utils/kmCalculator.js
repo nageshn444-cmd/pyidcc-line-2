@@ -827,7 +827,7 @@ export function enhanceRosterDuties(duties, scheduleType = "WEEKDAY") {
 
     const isNightDutyNo =
       (normScheduleType === "SUNDAY" && Number(dutyNoClean) >= 48 && Number(dutyNoClean) <= 62) ||
-      (Number(dutyNoClean) >= 64 && Number(dutyNoClean) <= 77);
+      (normScheduleType === "WEEKDAY" ? (Number(dutyNoClean) >= 61 && Number(dutyNoClean) <= 74) : (Number(dutyNoClean) >= 64 && Number(dutyNoClean) <= 77));
 
     if (changeoverMatch && isNightDutyNo) {
       const co = changeoverMatch;
@@ -1043,7 +1043,7 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
 
   const isNightDutyNo =
     (normSchedule === "SUNDAY" && Number(dutyNoClean) >= 48 && Number(dutyNoClean) <= 62) ||
-    (Number(dutyNoClean) >= 64 && Number(dutyNoClean) <= 77);
+    (normSchedule === "WEEKDAY" ? (Number(dutyNoClean) >= 61 && Number(dutyNoClean) <= 74) : (Number(dutyNoClean) >= 64 && Number(dutyNoClean) <= 77));
 
   if (dutyNoClean && isNightDutyNo) {
     let tableKey = "WEEKDAY__SATURDAY";

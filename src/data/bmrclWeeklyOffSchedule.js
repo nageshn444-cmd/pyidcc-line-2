@@ -118,8 +118,7 @@ export const BMRCL_OFFICIAL_WEEKLY_OFF_SCHEDULE = [
   { empId: '88000129', empName: 'Ramu A', dayOfWeek: 'Thursday' },
   { empId: '88000142', empName: 'Suryanarayan Rao', dayOfWeek: 'Thursday' },
 
-  // ── FRIDAY (22 Operators) ──
-  { empId: '21502', empName: 'Seema Subhan', dayOfWeek: 'Friday' },
+  // { empId: '21502', empName: 'Seema Subhan', dayOfWeek: 'Friday' }, // Relieved from Active Mainline Driving Duties (Station Controller)
   { empId: '21724', empName: 'Anand M', dayOfWeek: 'Friday' },
   { empId: '21968', empName: 'Venkata Kiran Kumar M', dayOfWeek: 'Friday' },
   { empId: '22264', empName: 'Yashodhar KL', dayOfWeek: 'Friday' },

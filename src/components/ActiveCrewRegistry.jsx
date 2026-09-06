@@ -192,6 +192,27 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
     }
   };
 
+  // 1b. Helper to resolve the correct Firestore docRef for an employee record
+  const getCrewDocRef = (empOrId) => {
+    if (!empOrId) return null;
+    if (typeof empOrId === 'object' && empOrId.docId) {
+      return doc(db, 'crewRegistry', String(empOrId.docId));
+    }
+    const rawId = String(typeof empOrId === 'object' ? (empOrId.employeeId || empOrId.id) : empOrId).trim();
+    if (!rawId) return null;
+    const match = employees.find(e => 
+      String(e.employeeId).trim() === rawId || 
+      String(e.id).trim() === rawId ||
+      String(e.docId).trim() === rawId ||
+      String(e.docId).trim() === `crew_${rawId}`
+    );
+    if (match && match.docId) {
+      return doc(db, 'crewRegistry', String(match.docId));
+    }
+    const canonicalId = rawId.startsWith('crew_') ? rawId : `crew_${rawId}`;
+    return doc(db, 'crewRegistry', canonicalId);
+  };
+
   // 2. Real-Time Synchronization & Seeding from Master Backup
   useEffect(() => {
     const unsubEmployees = onSnapshot(collection(db, 'crewRegistry'), async (snapshot) => {
@@ -202,7 +223,8 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
         try {
           const batch = writeBatch(db);
           BMRCL_CREW_MASTER_BACKUP.forEach(m => {
-            const docRef = doc(db, 'crewRegistry', String(m.id));
+            const canonicalId = String(m.id).startsWith('crew_') ? String(m.id) : `crew_${m.id}`;
+            const docRef = doc(db, 'crewRegistry', canonicalId);
             const payload = {
               id: String(m.id),
               employeeId: String(m.id),
@@ -235,7 +257,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
               deletedAt: null,
               deletedBy: null
             };
-            batch.set(docRef, payload);
+            batch.set(docRef, payload, { merge: true });
           });
           await batch.commit();
           console.log("✓ Successfully seeded Firestore crewRegistry.");
@@ -250,6 +272,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
         const data = docSnap.data();
         return {
           ...data,
+          docId: docSnap.id,
           id: String(data.id || docSnap.id),
           activeCrew: data.operationalCrew === 'YES' || data.operationalCrew === true // compatibility helper
         };
@@ -335,7 +358,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
     }
 
     try {
-      const docRef = doc(db, 'crewRegistry', String(formFields.employeeId));
+      const docRef = getCrewDocRef(formFields.employeeId);
       const roleMapping = {
         'Station Controller / Train Operator': 'Train Operator',
         'Station Superintendent': 'Station Superintendent',
@@ -352,13 +375,13 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
         designation: formFields.designation,
         department: formFields.department || 'Operations',
         role: resolvedRole,
-        depot: formFields.depot,
+        depot: formFields.depot || 'Peenya Depot (PYID)',
         badgeNumber: formFields.badgeNumber || `B-${formFields.employeeId}`,
         competencyNumber: formFields.competencyNumber || `C-${formFields.employeeId}`,
         competencyValidTill: formFields.competencyValidTill || '',
         medicalValidTill: formFields.medicalValidTill || '',
-        doj: formFields.doj || new Date().toISOString().split('T')[0],
-        retirementDate: formFields.retirementDate || '2045-12-31',
+        doj: formFields.doj || '',
+        retirementDate: formFields.retirementDate || '',
         bloodGroup: formFields.bloodGroup || 'O+',
         emergencyContact: formFields.emergencyContact || '',
         currentStatus: formFields.currentStatus || 'DUTY',
@@ -366,7 +389,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
         activeUser: formFields.activeUser,
         systemUser: formFields.systemUser,
         photo: formFields.photo || '',
-        remarks: formFields.remarks || 'Manually Created',
+        remarks: formFields.remarks || 'Added via UI',
         createdAt: new Date().toISOString(),
         createdBy: currentUser.displayName || currentUser.email || 'Admin',
         updatedAt: new Date().toISOString(),
@@ -376,7 +399,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
         deletedBy: null
       };
 
-      await setDoc(docRef, payload);
+      await setDoc(docRef, payload, { merge: true });
 
       // Automatic Provisioning
       if (payload.operationalCrew === 'YES') {
@@ -395,6 +418,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
 
       alert("Employee Added Successfully");
       setShowAddModal(false);
+      resetForm();
     } catch (err) {
       console.error(err);
       alert("Failed to add employee: " + err.message);
@@ -413,7 +437,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
     }
 
     try {
-      const docRef = doc(db, 'crewRegistry', String(selectedEmployee.employeeId));
+      const docRef = getCrewDocRef(selectedEmployee);
       let resolvedRole = selectedEmployee.role || 'Train Operator';
       if (!isSelfEdit) {
         const roleMapping = {
@@ -464,7 +488,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
         updatedBy: currentUser.displayName || currentUser.email || 'Admin'
       };
 
-      await updateDoc(docRef, payload);
+      await setDoc(docRef, payload, { merge: true });
 
       // Automatic Provisioning Sync
       await provisioningService.provisionEmployee({
@@ -507,12 +531,12 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
     }
 
     try {
-      const docRef = doc(db, 'crewRegistry', String(emp.employeeId));
-      await updateDoc(docRef, {
+      const docRef = getCrewDocRef(emp);
+      await setDoc(docRef, {
         operationalCrew: checked ? 'YES' : 'NO',
         updatedAt: new Date().toISOString(),
         updatedBy: currentUser.displayName || currentUser.email || 'Admin'
-      });
+      }, { merge: true });
 
       // Automatic Provisioning Sync
       await provisioningService.provisionEmployee({
@@ -540,14 +564,14 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
     if (!window.confirm(`Are you sure you want to SOFT DELETE crew member #${emp.employeeId} (${emp.employeeName})?\nThey will be removed from active rosters but preserved in archive.`)) return;
 
     try {
-      const docRef = doc(db, 'crewRegistry', String(emp.employeeId));
-      await updateDoc(docRef, {
+      const docRef = getCrewDocRef(emp);
+      await setDoc(docRef, {
         deleted: true,
         deletedAt: new Date().toISOString(),
         deletedBy: currentUser.displayName || currentUser.email || 'Admin',
         updatedAt: new Date().toISOString(),
         updatedBy: currentUser.displayName || currentUser.email || 'Admin'
-      });
+      }, { merge: true });
 
       // Automatic Provisioning Sync - deactivates login
       await provisioningService.provisionEmployee({
@@ -575,14 +599,14 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
   const handleRestoreEmployee = async (emp) => {
     if (!canWrite) return alert("Unauthorized access.");
     try {
-      const docRef = doc(db, 'crewRegistry', String(emp.employeeId));
-      await updateDoc(docRef, {
+      const docRef = getCrewDocRef(emp);
+      await setDoc(docRef, {
         deleted: false,
         deletedAt: null,
         deletedBy: null,
         updatedAt: new Date().toISOString(),
         updatedBy: currentUser.displayName || currentUser.email || 'Admin'
-      });
+      }, { merge: true });
 
       // Automatic Provisioning Sync - restores if active crew
       if (emp.operationalCrew === 'YES') {
@@ -621,10 +645,10 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
     let skipped = 0;
 
     for (const id of selectedIds) {
-      const emp = employees.find(x => String(x.employeeId) === String(id));
+      const emp = employees.find(x => String(x.employeeId) === String(id) || String(x.docId) === String(id));
       if (!emp) continue;
 
-      const docRef = doc(db, 'crewRegistry', String(id));
+      const docRef = getCrewDocRef(emp);
       const payload = {
         updatedAt: new Date().toISOString(),
         updatedBy: currentUser.displayName || currentUser.email || 'Admin'
@@ -697,7 +721,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
         continue;
       }
 
-      batch.update(docRef, payload);
+      batch.set(docRef, payload, { merge: true });
       
       // Audit log (in background loop)
       await logAudit(
@@ -827,7 +851,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
 
       // Create new ones
       importPreview.newDocs.forEach(docData => {
-        const docRef = doc(db, 'crewRegistry', String(docData.employeeId));
+        const docRef = getCrewDocRef(docData);
         batch.set(docRef, {
           ...docData,
           createdAt: new Date().toISOString(),
@@ -837,27 +861,27 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
           deleted: false,
           deletedAt: null,
           deletedBy: null
-        });
+        }, { merge: true });
       });
 
       // Update existing ones
       importPreview.updateDocs.forEach(docData => {
-        const docRef = doc(db, 'crewRegistry', String(docData.employeeId));
-        batch.update(docRef, {
+        const docRef = getCrewDocRef(docData);
+        batch.set(docRef, {
           ...docData,
           updatedAt: new Date().toISOString(),
           updatedBy: currentUser.displayName || currentUser.email || 'Admin'
-        });
+        }, { merge: true });
       });
 
       // Soft delete missing ones
       importPreview.deleteDocs.forEach(docData => {
-        const docRef = doc(db, 'crewRegistry', String(docData.employeeId));
-        batch.update(docRef, {
+        const docRef = getCrewDocRef(docData);
+        batch.set(docRef, {
           deleted: true,
           deletedAt: new Date().toISOString(),
           deletedBy: currentUser.displayName || currentUser.email || 'Admin'
-        });
+        }, { merge: true });
       });
 
       await batch.commit();
@@ -1714,8 +1738,8 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                   if (emp) {
                     if (emp.employeeId === '20726') return alert("SUPER_ADMIN role cannot be deactivated.");
                     try {
-                      await import('firebase/firestore').then(({ doc: fdoc, updateDoc }) => 
-                        updateDoc(fdoc(db, 'userAccessControl', emp.employeeId), { canLogin: false, active: false })
+                      await import('firebase/firestore').then(({ doc: fdoc, setDoc }) => 
+                        setDoc(fdoc(db, 'userAccessControl', emp.employeeId), { canLogin: false, active: false }, { merge: true })
                       );
                       alert(`Login disabled for #${emp.employeeId}`);
                     } catch (e) {
@@ -1742,15 +1766,16 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                         if (emp) {
                           if (emp.employeeId === '20726') return alert("SUPER_ADMIN role cannot be downgraded.");
                           try {
-                            await import('firebase/firestore').then(({ doc: fdoc, updateDoc, setDoc }) => Promise.all([
-                              updateDoc(fdoc(db, 'crewRegistry', emp.employeeId), { role: r }),
-                              updateDoc(fdoc(db, 'users', emp.employeeId), { role: r }),
+                            const crewRef = getCrewDocRef(emp);
+                            await import('firebase/firestore').then(({ doc: fdoc, setDoc }) => Promise.all([
+                              setDoc(crewRef, { role: r }, { merge: true }),
+                              setDoc(fdoc(db, 'users', emp.employeeId), { role: r }, { merge: true }),
                               setDoc(fdoc(db, 'userPermissions', emp.employeeId), { employeeId: emp.employeeId, permissions: getRoleDefaultPermissions(r) }, { merge: true })
                             ]));
                             const qSystem = query(collection(db, 'system_users'), where('employeeId', '==', emp.employeeId));
                             const snapSystem = await getDocs(qSystem);
                             if (!snapSystem.empty) {
-                              await updateDoc(doc(db, 'system_users', snapSystem.docs[0].id), { role: r });
+                              await setDoc(doc(db, 'system_users', snapSystem.docs[0].id), { role: r }, { merge: true });
                             }
                             alert(`Role changed to ${r} successfully.`);
                           } catch (e) {

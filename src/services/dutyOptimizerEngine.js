@@ -2,7 +2,7 @@
  * BMRCL Line 2 (Peenya Depot) — Ultra-Advanced AI Daily Duty Generator Engine
  * 
  * Implements the 13-Phase Master Generation Pipeline with 4 Day-Type Link Skeletons:
- * - WEEKDAY (79 duties) | MON (80 slots, 79 blank) | SAT & GH (74 duties, dual Npro) | SUN (65 duties, 15 nights)
+ * - WEEKDAY (75 duties) | MON (80 slots, 79 blank) | SAT & GH (74 duties, dual Npro) | SUN (65 duties, 15 nights)
  * - Single source of truth per assignment object (Canonical assignmentCategory).
  * - Hard Constraints H1–H20 (Rest, Night Streak <= 6, H18 A/B rest gate before Night, WO Immutability).
  * - Integration with 4-Layer Validation Firewall (rosterIntegrityValidator.js).

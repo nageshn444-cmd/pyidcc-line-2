@@ -5,6 +5,7 @@ import {
   Sparkles, Layers, Info, Check, RotateCcw
 } from 'lucide-react';
 import { EMPLOYEE_MASTER_REGISTRY } from '../../data/employeeProfileMaster';
+import { normalizeCanonicalEmpId } from '../../utils/crewRegistryDataMerger';
 import { db } from '../../firebase';
 import { doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 
@@ -31,7 +32,7 @@ export default function WeekOffControlManager({
   const [selectedDayFilter, setSelectedDayFilter] = useState('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL'); // 'ALL', 'BMRCL_TO', 'JMD_TD', 'PINK'
   const [revisionCycle, setRevisionCycle] = useState('6_MONTHS'); // '6_MONTHS', '1_YEAR', 'QUARTERLY'
-  const [cycleLabel, setCycleLabel] = useState('Cycle 2026-H2 (Aug 2026 – Jan 2027)');
+  const [cycleLabel, setCycleLabel] = useState('Cycle: October 2026 – March 2027 (Official PYID CC Notice Board Allotment)');
   
   // Mutual Swap Modal State
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
@@ -50,28 +51,68 @@ export default function WeekOffControlManager({
   // Audit Log
   const [auditLog, setAuditLog] = useState([
     {
-      id: 'AUDIT_01',
+      id: 'AUDIT_OFFICIAL_OCT2026',
       empId: 21029,
-      empName: 'Raghavendra K T',
-      oldWo: 'Tuesday',
-      newWo: 'Wednesday',
-      reason: '6-Month Periodic Roster Balancing Revision',
-      controller: 'Nagesh N (CC)',
-      timestamp: '2026-08-17 18:20'
-    },
-    {
-      id: 'AUDIT_02',
-      empId: 20787,
-      empName: 'Baskar S',
-      oldWo: 'Sunday',
-      newWo: 'Monday',
-      reason: 'Periodic Line 2 Manpower Optimization',
-      controller: 'Nagesh N (CC)',
-      timestamp: '2026-08-16 14:10'
+      empName: 'All 91 BMRCL Train Operators',
+      oldWo: 'Prior Cycle',
+      newWo: 'Official Allotment',
+      reason: 'PYID CC Notice Board Weekly Off Allotment from October 2026 (Dated 05/09/2026)',
+      controller: 'Crew Controller Desk (PYID CC)',
+      timestamp: '2026-09-05 12:46'
     }
   ]);
 
-  const activeTOs = workingCrew.filter(e => (e.status === 'ACTIVE' || e.status === 'MATERNITY_LEAVE' || (e.maternityLeave && e.maternityLeave.active)) && !e.isRelieved && e.activeCrew !== false);
+  const activeTOs = React.useMemo(() => {
+    let deletedSet = new Set();
+    let relievedSet = new Set();
+    let overrides = {};
+    try {
+      const deletedCrew = JSON.parse(localStorage.getItem('pyidcc_deleted_crew_ids') || '[]');
+      const deletedJmd = JSON.parse(localStorage.getItem('pyidcc_deleted_jmd_td_ids') || '[]');
+      deletedSet = new Set([...deletedCrew, ...deletedJmd].map(id => String(id).trim()));
+      const relievedCrew = JSON.parse(localStorage.getItem('pyidcc_relieved_crew_ids') || '[]');
+      relievedSet = new Set(relievedCrew.map(id => String(id).trim()));
+      overrides = JSON.parse(localStorage.getItem('pyidcc_crew_overrides') || '{}');
+    } catch {}
+
+    const SUPERVISORY_NON_DRIVING_IDS = new Set([20726, 20038, 20037, 20018, 20019, 20057, 20087, 21502]);
+
+    return workingCrew.filter(e => {
+      if (!e) return false;
+      const cid = normalizeCanonicalEmpId(e.empId || e.employeeId || e.id);
+      if (!cid) return false;
+      const strId = String(cid);
+
+      // Exclude persistent deleted and relieved operators
+      if (deletedSet.has(strId) || relievedSet.has(strId)) return false;
+
+      // Check localStorage status overrides
+      const over = overrides[strId] || overrides[cid] || {};
+      if (over.isRelieved === true || over.status === 'RELIEVED' || over.status === 'DELETED' || over.status === 'INACTIVE' || over.isDeleted === true || over.activeCrew === false || over.removedFromActiveRoster === true) {
+        return false;
+      }
+
+      // Exclude explicit relieved / deleted / inactive
+      if (
+        e.isRelieved === true ||
+        e.status === 'RELIEVED' ||
+        e.status === 'INACTIVE' ||
+        e.status === 'DELETED' ||
+        e.isDeleted === true ||
+        e.activeCrew === false ||
+        e.removedFromActiveRoster === true
+      ) {
+        return false;
+      }
+
+      // Exclude supervisory non-driving staff, official CCs, and station controllers
+      if (e.isOfficialCC === true || e.role === 'OFFICIAL_CREW_CONTROLLER' || e.specialProfile === 'CC') return false;
+      if (e.role === 'Official ALS' || e.role === 'Official GCC' || e.role === 'STATION_CONTROLLER' || e.designation === 'Station Controller') return false;
+      if (SUPERVISORY_NON_DRIVING_IDS.has(cid)) return false;
+
+      return !e.status || e.status === 'ACTIVE' || e.status === 'DUTY' || e.status === 'MATERNITY_LEAVE' || (e.maternityLeave && e.maternityLeave.active);
+    });
+  }, [workingCrew]);
   const totalActive = activeTOs.length;
   const jmdCount = activeTOs.filter(e => String(e.empId).startsWith('8')).length;
   const bmrclCount = Math.max(0, totalActive - jmdCount);
@@ -202,7 +243,7 @@ export default function WeekOffControlManager({
 
   // AI Auto-Balance / Auto-Distribute across 7 days evenly
   const handleAutoBalanceWeekOffs = () => {
-    const active = [...workingCrew.filter(e => e.status === 'ACTIVE' && !e.isRelieved)];
+    const active = [...activeTOs];
     // Sort slightly by empId or gender to distribute diversely
     active.sort((a, b) => a.empId - b.empId);
 
@@ -246,14 +287,19 @@ export default function WeekOffControlManager({
   // Save and Apply Revised Week-Off Schedule
   const handleSaveAndApply = async () => {
     if (onUpdateCrewList) {
-      onUpdateCrewList(workingCrew);
+      onUpdateCrewList(activeTOs);
     }
 
     try {
       const batch = writeBatch(db);
-      workingCrew.forEach(emp => {
+      activeTOs.forEach(emp => {
         const docRef = doc(db, 'crewRegistry', `crew_${emp.empId}`);
-        batch.set(docRef, { fixedWo: emp.fixedWo, updatedAt: serverTimestamp() }, { merge: true });
+        batch.set(docRef, { 
+          fixedWo: emp.fixedWo, 
+          weeklyOffDay: emp.fixedWo,
+          rosterCycle: cycleLabel,
+          updatedAt: serverTimestamp() 
+        }, { merge: true });
       });
       await batch.commit();
       setSavedSuccessMsg(`Successfully saved and applied Week-Off roster revision to Firestore! Daily duty generator and dispatch consoles now use updated days.`);

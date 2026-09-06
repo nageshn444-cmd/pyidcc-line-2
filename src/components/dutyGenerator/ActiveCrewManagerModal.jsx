@@ -8,10 +8,13 @@ import {
 import { normalizeCanonicalEmpId, OFFICIAL_PYID_ACTIVE_IDS } from '../../utils/crewRegistryDataMerger';
 import { getCanonicalStaffName } from './CCWillingDeskModal';
 
+const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 export default function ActiveCrewManagerModal({
   isOpen,
   onClose,
   crewList,
+  targetDate,
   onUpdateCrewStatus,
   onBatchUpdateCrewStatus,
   onAddNewCrewMember,
@@ -51,6 +54,27 @@ export default function ActiveCrewManagerModal({
   const [editBloodGroup, setEditBloodGroup] = useState('');
   const [editCompetencyDate, setEditCompetencyDate] = useState('');
   const [editMedicalDate, setEditMedicalDate] = useState('');
+  const [editFixedWo, setEditFixedWo] = useState('Sunday');
+
+  // Week-Off Management & Assignment State
+  const [bulkTargetWo, setBulkTargetWo] = useState('Sunday');
+  const [saveSuccessEmpId, setSaveSuccessEmpId] = useState(null);
+  const [selectedDayFilter, setSelectedDayFilter] = useState('ALL');
+
+  // Calculate current operational day of week based on targetDate (or live system date)
+  const currentDayOfWeek = React.useMemo(() => {
+    if (!targetDate) {
+      const today = new Date();
+      return DAYS_OF_WEEK[today.getDay()] || 'Sunday';
+    }
+    const parts = String(targetDate).split('-');
+    if (parts.length === 3) {
+      const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      return DAYS_OF_WEEK[d.getDay()] || 'Sunday';
+    }
+    const d = new Date(targetDate);
+    return DAYS_OF_WEEK[d.getDay()] || 'Sunday';
+  }, [targetDate]);
 
   // Add New TO Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -78,28 +102,41 @@ export default function ActiveCrewManagerModal({
   // Strict isolation & Deduplication: Active Driving Candidate Crew ONLY (BMRCL Regular TOs + JMD Contract TDs)
   // Guaranteed exclusion of Station Controllers, supervisory non-driving staff, and relieved crew.
   const activeCrewOnly = React.useMemo(() => {
+    let deletedSet = new Set();
+    try {
+      const deletedCrew = JSON.parse(localStorage.getItem('pyidcc_deleted_crew_ids') || '[]');
+      const deletedJmd = JSON.parse(localStorage.getItem('pyidcc_deleted_jmd_td_ids') || '[]');
+      deletedSet = new Set([...deletedCrew, ...deletedJmd].map(id => String(id).trim()));
+    } catch {}
+
+    const SUPERVISORY_EXCLUSIONS = new Set([20726, 20038, 20037, 20018, 20019, 20057, 20087, 21502]);
+
     const map = new Map();
     (crewList || []).forEach(e => {
       if (!e) return;
       const canonicalId = normalizeCanonicalEmpId(e.empId || e.employeeId || e.id);
       if (!canonicalId) return;
+      const strId = String(canonicalId);
 
-      const isRelieved = e.isRelieved === true || e.status === 'RELIEVED' || e.status === 'INACTIVE' || e.activeCrew === false;
+      // Exclude persistent deleted operators
+      if (deletedSet.has(strId)) return;
+
+      const isRelieved = e.isRelieved === true || e.status === 'RELIEVED' || e.status === 'INACTIVE' || e.status === 'DELETED' || e.isDeleted === true || e.activeCrew === false || e.removedFromActiveRoster === true;
       if (isRelieved) return;
 
       // Exclude supervisory non-driving staff, official CCs, and station controllers
       if (e.isOfficialCC === true || e.role === 'OFFICIAL_CREW_CONTROLLER' || e.specialProfile === 'CC') return;
-      if (e.role === 'Official ALS' || e.role === 'Official GCC' || e.role === 'STATION_CONTROLLER') return;
-      if ([20726, 20038, 20037, 20018, 20019, 20057, 20087].includes(canonicalId)) return;
+      if (e.role === 'Official ALS' || e.role === 'Official GCC' || e.role === 'STATION_CONTROLLER' || e.designation === 'Station Controller') return;
+      if (SUPERVISORY_EXCLUSIONS.has(canonicalId)) return;
 
       // Active candidate driving crew (BMRCL Regular TOs + JMD Contract TDs + Maternity leave TOs)
       const isActive = e.status === 'ACTIVE' || e.status === 'MATERNITY_LEAVE' || (e.maternityLeave && e.maternityLeave.active);
       const isOfficialActive = OFFICIAL_PYID_ACTIVE_IDS.has(canonicalId);
-      const isJmd = String(canonicalId).startsWith('8');
+      const isJmd = strId.startsWith('8');
 
       if ((isActive || isOfficialActive || isJmd) && !map.has(canonicalId)) {
         const canonicalName = getCanonicalStaffName(e);
-        const isJmdEmp = String(canonicalId).startsWith('8');
+        const isJmdEmp = strId.startsWith('8');
         map.set(canonicalId, {
           ...e,
           empId: canonicalId,
@@ -177,9 +214,47 @@ export default function ActiveCrewManagerModal({
         matchesCategory = emp.specialProfile !== 'PINK' && !(emp.maternityLeave && emp.maternityLeave.active && !emp.maternityLeave.actualReportDate);
       }
 
-      return matchesSearch && matchesCategory;
+      const empWo = emp.fixedWo || emp.weeklyOffDay || 'Sunday';
+      const matchesDay = selectedDayFilter === 'ALL'
+        ? true
+        : (selectedDayFilter === 'TODAY'
+          ? empWo.toLowerCase() === currentDayOfWeek.toLowerCase()
+          : empWo.toLowerCase() === selectedDayFilter.toLowerCase());
+
+      return matchesSearch && matchesCategory && matchesDay;
     });
-  }, [activeCrewOnly, searchQuery, activeFilter]);
+  }, [activeCrewOnly, searchQuery, activeFilter, selectedDayFilter, currentDayOfWeek]);
+
+  // Handlers for Instant & Bulk Fixed Week-Off Assignment
+  const handleUpdateFixedWo = (empId, newWo) => {
+    if (!onUpdateCrewStatus) return;
+    onUpdateCrewStatus(empId, {
+      fixedWo: newWo,
+      weeklyOffDay: newWo,
+      updatedAt: new Date().toISOString()
+    });
+    setSaveSuccessEmpId(empId);
+    setTimeout(() => {
+      setSaveSuccessEmpId(prev => (prev === empId ? null : prev));
+    }, 2500);
+  };
+
+  const handleBulkAssignWo = (newWo) => {
+    const targetDay = newWo || bulkTargetWo;
+    if (selectedEmpIds.size === 0) return;
+    const updates = Array.from(selectedEmpIds).map(id => ({
+      empId: id,
+      fixedWo: targetDay,
+      weeklyOffDay: targetDay,
+      updatedAt: new Date().toISOString()
+    }));
+    if (onBatchUpdateCrewStatus) {
+      onBatchUpdateCrewStatus(updates);
+    } else if (onUpdateCrewStatus) {
+      updates.forEach(u => onUpdateCrewStatus(u.empId, u));
+    }
+    alert(`Successfully assigned Fixed Week-Off (${targetDay}) to ${selectedEmpIds.size} operator(s).`);
+  };
 
   const handleConfirmRelieve = (e) => {
     e.preventDefault();
@@ -189,6 +264,7 @@ export default function ActiveCrewManagerModal({
       status: 'RELIEVED',
       activeCrew: false,
       isRelieved: true,
+      removedFromActiveRoster: true,
       relievedReason: relieveReason,
       relievedNotes: relieveNotes,
       relievedDate: new Date().toISOString().split('T')[0],
@@ -251,6 +327,8 @@ export default function ActiveCrewManagerModal({
       bloodGroup: editBloodGroup,
       competencyValidTill: editCompetencyDate,
       medicalValidTill: editMedicalDate,
+      fixedWo: editFixedWo,
+      weeklyOffDay: editFixedWo,
       updatedAt: new Date().toISOString()
     });
 
@@ -265,6 +343,7 @@ export default function ActiveCrewManagerModal({
     setEditBloodGroup(emp.bloodGroup || '');
     setEditCompetencyDate(emp.competencyValidTill || '2027-12-31');
     setEditMedicalDate(emp.medicalValidTill || '2027-12-31');
+    setEditFixedWo(emp.fixedWo || emp.weeklyOffDay || 'Sunday');
   };
 
   const handleConfirmDeleteStaff = (staff) => {
@@ -278,6 +357,7 @@ export default function ActiveCrewManagerModal({
         isDeleted: true,
         activeCrew: false,
         isRelieved: true,
+        removedFromActiveRoster: true,
         deletedAt: new Date().toISOString()
       });
     }
@@ -379,6 +459,7 @@ export default function ActiveCrewManagerModal({
       status: 'RELIEVED',
       activeCrew: false,
       isRelieved: true,
+      removedFromActiveRoster: true,
       relievedReason: bulkRelieveReason,
       relievedNotes: bulkRelieveNotes,
       relievedDate: todayStr,
@@ -499,7 +580,25 @@ export default function ActiveCrewManagerModal({
             />
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto">
+          <div className="flex items-center gap-2 overflow-x-auto flex-wrap">
+            {/* WO Day Filter Dropdown */}
+            <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700/80 rounded-xl px-2.5 py-1">
+              <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-[11px] font-bold text-slate-300">WO:</span>
+              <select
+                value={selectedDayFilter}
+                onChange={(e) => setSelectedDayFilter(e.target.value)}
+                className="bg-slate-950 border border-slate-750 text-emerald-300 font-mono font-bold text-xs rounded-lg px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
+                title="Filter active crew by Fixed Week-Off Day"
+              >
+                <option value="ALL">All Week-Off Days</option>
+                <option value="TODAY">⚡ Current Day ({currentDayOfWeek})</option>
+                {DAYS_OF_WEEK.map(day => (
+                  <option key={day} value={day}>{day}</option>
+                ))}
+              </select>
+            </div>
+
             {[
               { id: 'ALL', label: `All Active (${activeCrewCount})` },
               { id: 'BMRCL_TO', label: `BMRCL TOs (${bmrclCrewCount})` },
@@ -563,30 +662,68 @@ export default function ActiveCrewManagerModal({
 
         {/* Multi-Selection Bulk Actions Bar */}
         {selectedEmpIds.size > 0 && (
-          <div className="px-6 py-2.5 bg-rose-950/90 border-b border-rose-500/40 flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
+          <div className="px-6 py-2.5 bg-slate-900 border-b border-emerald-500/40 flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
             <div className="flex items-center gap-2 text-xs">
-              <span className="px-2.5 py-0.5 bg-rose-500 text-white rounded-full font-mono font-bold">
+              <span className="px-2.5 py-0.5 bg-emerald-600 text-white rounded-full font-mono font-bold shadow-sm">
                 {selectedEmpIds.size} Active TOs Selected
               </span>
-              <span className="text-slate-200 text-xs">
-                Relieve selected operators to Station Controller / Transfer console in a single click:
+              <span className="text-slate-200 text-xs hidden md:inline">
+                Bulk assign Fixed Week-Off or relieve selected operators:
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Bulk Week-Off Controls */}
+              <div className="flex items-center gap-1.5 bg-slate-950/90 border border-emerald-500/40 rounded-xl px-2.5 py-1">
+                <span className="text-[11px] font-bold text-emerald-300 flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                  Set WO:
+                </span>
+                <select
+                  value={bulkTargetWo}
+                  onChange={(e) => setBulkTargetWo(e.target.value)}
+                  className="bg-slate-900 border border-slate-700 text-emerald-300 text-xs font-mono font-bold rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
+                >
+                  {DAYS_OF_WEEK.map(day => (
+                    <option key={day} value={day}>
+                      {day}{day.toLowerCase() === currentDayOfWeek.toLowerCase() ? ' (Current Day)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => handleBulkAssignWo(bulkTargetWo)}
+                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-all shadow-sm"
+                  title={`Assign ${bulkTargetWo} to ${selectedEmpIds.size} selected operators`}
+                >
+                  Assign ({selectedEmpIds.size})
+                </button>
+
+                {/* Quick 1-click button to assign current weekoff day to all selected */}
+                <button
+                  type="button"
+                  onClick={() => handleBulkAssignWo(currentDayOfWeek)}
+                  className="px-2.5 py-1 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/40 text-xs font-bold rounded-lg transition-all flex items-center gap-1 shadow-sm"
+                  title={`Assign current operational day (${currentDayOfWeek}) to all ${selectedEmpIds.size} selected operators`}
+                >
+                  <Check className="w-3 h-3" />
+                  Set Current ({currentDayOfWeek.slice(0, 3)})
+                </button>
+              </div>
+
               <button
                 onClick={() => setIsBulkRelieveModalOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-lg transition-all"
+                className="flex items-center gap-1.5 px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-md transition-all"
               >
                 <UserMinus className="w-3.5 h-3.5" />
-                Bulk Relieve to SC ({selectedEmpIds.size} TOs)
+                Bulk Relieve to SC ({selectedEmpIds.size})
               </button>
 
               <button
                 onClick={handleDeselectAll}
-                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl"
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl"
               >
-                Deselect All
+                Deselect
               </button>
             </div>
           </div>
@@ -612,7 +749,15 @@ export default function ActiveCrewManagerModal({
                 <th className="px-4 py-3">Emp ID</th>
                 <th className="px-4 py-3">Train Operator &amp; Directory Info</th>
                 <th className="px-4 py-3">Designation / Base Depot</th>
-                <th className="px-4 py-3">Fixed WO</th>
+                <th className="px-4 py-3">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Fixed WO</span>
+                    <span className="text-[10px] text-emerald-400 font-mono bg-emerald-950/70 px-1.5 py-0.5 rounded border border-emerald-500/30 font-semibold" title={`Current operational day from target date: ${currentDayOfWeek}`}>
+                      Current: {currentDayOfWeek.slice(0, 3)}
+                    </span>
+                  </div>
+                </th>
                 <th className="px-4 py-3">Status / Duty Profile</th>
                 <th className="px-4 py-3 text-right">Directory &amp; Relieve Actions</th>
               </tr>
@@ -672,8 +817,50 @@ export default function ActiveCrewManagerModal({
                           Base: {emp.depot || emp.boardingStation || 'PYID'}
                         </div>
                       </td>
-                      <td className="px-4 py-3 font-mono text-emerald-400 font-semibold">
-                        {emp.fixedWo || 'Sunday'}
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <div className="relative inline-block">
+                            <select
+                              value={emp.fixedWo || 'Sunday'}
+                              onChange={(e) => handleUpdateFixedWo(emp.empId, e.target.value)}
+                              className="bg-slate-950/90 hover:bg-slate-900 border border-emerald-500/40 hover:border-emerald-400 focus:border-emerald-400 text-emerald-300 font-mono font-bold text-xs rounded-xl pl-2.5 pr-6 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer transition-all shadow-sm appearance-none"
+                              title="Click to assign or change Fixed Week-Off Day"
+                            >
+                              {DAYS_OF_WEEK.map(day => (
+                                <option key={day} value={day} className="bg-slate-900 text-slate-100 font-sans py-1">
+                                  {day}{day.toLowerCase() === currentDayOfWeek.toLowerCase() ? ' (Current Day)' : ''}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown className="w-3 h-3 text-emerald-400 pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 opacity-70" />
+                          </div>
+
+                          {(emp.fixedWo || 'Sunday').toLowerCase() !== currentDayOfWeek.toLowerCase() ? (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateFixedWo(emp.empId, currentDayOfWeek)}
+                              className="px-2 py-1 text-[10px] font-bold rounded-lg bg-emerald-950/70 hover:bg-emerald-800 text-emerald-400 hover:text-emerald-100 border border-emerald-500/30 hover:border-emerald-400 transition-all whitespace-nowrap shadow-sm flex items-center gap-1"
+                              title={`Quick assign current weekoff day (${currentDayOfWeek})`}
+                            >
+                              <Calendar className="w-2.5 h-2.5" />
+                              Set {currentDayOfWeek.slice(0, 3)}
+                            </button>
+                          ) : (
+                            <span 
+                              className="px-2 py-0.5 text-[10px] font-black rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono tracking-tight flex items-center gap-1 shadow-sm"
+                              title={`Current operational weekoff day (${currentDayOfWeek}) active for this operator`}
+                            >
+                              <Check className="w-3 h-3 text-emerald-400" />
+                              TODAY'S WO
+                            </span>
+                          )}
+
+                          {saveSuccessEmpId === emp.empId && (
+                            <span className="text-[10px] text-emerald-400 font-bold animate-fadeIn flex items-center gap-0.5 bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-500/50">
+                              <Check className="w-3 h-3 text-emerald-400" /> Saved
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         {isMLActive ? (
@@ -730,6 +917,28 @@ export default function ActiveCrewManagerModal({
                               </div>
                               
                               <div className="space-y-0.5">
+                                {/* Action: Quick Assign Current Weekoff Day */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenActionDropdownId(null);
+                                    handleUpdateFixedWo(emp.empId, currentDayOfWeek);
+                                  }}
+                                  className="w-full px-2.5 py-2 text-left hover:bg-emerald-950/50 rounded-xl text-xs font-semibold text-emerald-300 transition-all flex items-center gap-2.5 group"
+                                >
+                                  <div className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 group-hover:bg-emerald-500/25">
+                                    <Calendar className="w-3.5 h-3.5" />
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-slate-100 group-hover:text-emerald-300 transition-colors">
+                                      Assign Current WO ({currentDayOfWeek})
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 font-normal">
+                                      Current: {emp.fixedWo || 'Sunday'} → Set to {currentDayOfWeek}
+                                    </div>
+                                  </div>
+                                </button>
+
                                 {/* Action 1: Directory Profile */}
                                 <button
                                   type="button"
@@ -1324,6 +1533,35 @@ export default function ActiveCrewManagerModal({
                       className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono"
                     />
                   </div>
+                </div>
+
+                {/* Fixed Week-Off Day Field */}
+                <div className="p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-xl">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                      <Calendar className="w-4 h-4 text-emerald-400" />
+                      Fixed Week-Off Day (WO)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setEditFixedWo(currentDayOfWeek)}
+                      className="text-[10px] font-bold text-emerald-400 hover:text-emerald-200 bg-emerald-900/60 px-2 py-0.5 rounded border border-emerald-500/40 transition-colors"
+                      title="Set to current operational day"
+                    >
+                      Use Current Day ({currentDayOfWeek})
+                    </button>
+                  </div>
+                  <select
+                    value={editFixedWo}
+                    onChange={(e) => setEditFixedWo(e.target.value)}
+                    className="w-full bg-slate-900 border border-emerald-500/40 rounded-lg px-3 py-2 text-emerald-300 font-mono font-bold text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
+                  >
+                    {DAYS_OF_WEEK.map(day => (
+                      <option key={day} value={day} className="bg-slate-900 text-slate-100 font-sans">
+                        {day}{day.toLowerCase() === currentDayOfWeek.toLowerCase() ? ' (Current Day)' : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">

@@ -72,7 +72,14 @@ export default function DailyDutyGeneratorSuite() {
     setActiveTab('DRAFT_GENERATOR');
   };
 
-  const [localCrewOverrides, setLocalCrewOverrides] = useState({});
+  const [localCrewOverrides, setLocalCrewOverrides] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pyidcc_crew_overrides');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
 
   // Active Crew Master: Reads from live Firestore `crewRegistry` with seamless master fallback and strict canonical integer deduplication
   const crewList = useMemo(() => {
@@ -90,6 +97,14 @@ export default function DailyDutyGeneratorSuite() {
       if (nid) masterMap.set(nid, m);
     });
 
+    // Check persistent deleted / relieved sets from localStorage
+    let deletedSet = new Set();
+    try {
+      const deletedCrew = JSON.parse(localStorage.getItem('pyidcc_deleted_crew_ids') || '[]');
+      const deletedJmd = JSON.parse(localStorage.getItem('pyidcc_deleted_jmd_td_ids') || '[]');
+      deletedSet = new Set([...deletedCrew, ...deletedJmd].map(id => String(id).trim()));
+    } catch {}
+
     if (liveCrewRegistry && liveCrewRegistry.length > 0) {
       liveCrewRegistry.forEach(docSnap => {
         const empId = normalizeCanonicalEmpId(docSnap.empId || docSnap.employeeId || docSnap.id);
@@ -98,26 +113,46 @@ export default function DailyDutyGeneratorSuite() {
         const unified = buildUnifiedEmployeeProfile(empId);
         const masterEmp = masterMap.get(empId);
         const isMasterActive = !!masterEmp || OFFICIAL_PYID_ACTIVE_IDS.has(empId);
+        const localOver = localCrewOverrides[empId] || localCrewOverrides[String(empId)] || {};
+        const isLocallyDeleted = deletedSet.has(String(empId));
 
         // Partition active vs relieved strictly
         let isRelieved = false;
         let status = 'ACTIVE';
         let activeCrew = true;
 
-        if (docSnap.maternityLeave && docSnap.maternityLeave.active && !docSnap.maternityLeave.actualReportDate) {
-          status = 'MATERNITY_LEAVE';
-          activeCrew = true;
-          isRelieved = false;
-        } else if (docSnap.isRelieved === true || docSnap.status === 'RELIEVED' || docSnap.status === 'INACTIVE' || docSnap.activeCrew === false) {
+        if (localOver.isDeleted === true || localOver.status === 'DELETED' || isLocallyDeleted) {
+          isRelieved = true;
+          status = 'DELETED';
+          activeCrew = false;
+        } else if (localOver.isRelieved === true || localOver.status === 'RELIEVED' || localOver.activeCrew === false) {
           isRelieved = true;
           status = 'RELIEVED';
           activeCrew = false;
-        } else if (docSnap.isRelieved === false || docSnap.status === 'ACTIVE' || docSnap.activeCrew === true) {
+        } else if (localOver.isRelieved === false && (localOver.status === 'ACTIVE' || localOver.activeCrew === true)) {
           isRelieved = false;
           status = 'ACTIVE';
           activeCrew = true;
+        } else if (docSnap.maternityLeave && docSnap.maternityLeave.active && !docSnap.maternityLeave.actualReportDate) {
+          status = 'MATERNITY_LEAVE';
+          activeCrew = true;
+          isRelieved = false;
+        } else if (docSnap.isRelieved === true || docSnap.status === 'RELIEVED' || docSnap.status === 'DELETED' || docSnap.isDeleted === true || docSnap.status === 'INACTIVE' || docSnap.activeCrew === false || docSnap.removedFromActiveRoster === true) {
+          isRelieved = true;
+          status = docSnap.status || 'RELIEVED';
+          activeCrew = false;
+        } else if (docSnap.isRelieved === false || docSnap.status === 'ACTIVE' || docSnap.activeCrew === true) {
+          if (masterEmp?.isRelieved === true || masterEmp?.status === 'RELIEVED' || masterEmp?.activeCrew === false) {
+            isRelieved = true;
+            status = 'RELIEVED';
+            activeCrew = false;
+          } else {
+            isRelieved = false;
+            status = 'ACTIVE';
+            activeCrew = true;
+          }
         } else {
-          isRelieved = !isMasterActive;
+          isRelieved = !isMasterActive || masterEmp?.isRelieved === true || masterEmp?.status === 'RELIEVED' || masterEmp?.activeCrew === false;
           status = isRelieved ? 'RELIEVED' : 'ACTIVE';
           activeCrew = !isRelieved;
         }
@@ -140,12 +175,13 @@ export default function DailyDutyGeneratorSuite() {
           role: docSnap.role || existing.role || unified.role,
           isOfficialCC: docSnap.isOfficialCC !== undefined ? docSnap.isOfficialCC : (existing.isOfficialCC !== undefined ? existing.isOfficialCC : unified.isOfficialCC),
           ccWilling: docSnap.ccWilling !== undefined ? docSnap.ccWilling : (existing.ccWilling !== undefined ? existing.ccWilling : unified.ccWilling),
-          fixedWo: docSnap.fixedWo || docSnap.weeklyOffDay || existing.fixedWo || unified.fixedWo || 'Sunday',
+          fixedWo: (localCrewOverrides[empId] || localCrewOverrides[String(empId)])?.fixedWo || masterEmp?.fixedWo || docSnap.fixedWo || docSnap.weeklyOffDay || existing.fixedWo || unified.fixedWo || 'Sunday',
+          ...(localCrewOverrides[empId] || localCrewOverrides[String(empId)] || {}),
           status,
           activeCrew,
           isRelieved,
-          relievedReason: isRelieved ? (docSnap.relievedReason || existing.relievedReason || unified.relievedReason || 'Working as Station Controller / Transferred from PYID CC') : null,
-          ...(localCrewOverrides[empId] || localCrewOverrides[String(empId)] || {})
+          removedFromActiveRoster: isRelieved || status === 'DELETED',
+          relievedReason: isRelieved ? (docSnap.relievedReason || existing.relievedReason || masterEmp?.relievedReason || unified.relievedReason || 'Working as Station Controller / Transferred from PYID CC') : null
         };
         crewMap.set(empId, merged);
       });
@@ -156,13 +192,19 @@ export default function DailyDutyGeneratorSuite() {
         const empId = normalizeCanonicalEmpId(masterEmp.empId);
         if (!empId) return;
         const localOver = localCrewOverrides[empId] || localCrewOverrides[String(empId)] || {};
-        if (localOver.isDeleted === true) return;
+        if (localOver.isDeleted === true || localOver.isRelieved === true) return;
+        if (deletedSet.has(String(empId))) return;
+
         if (!crewMap.has(empId)) {
           const unified = buildUnifiedEmployeeProfile(empId);
+          const isMasterRelieved = masterEmp.isRelieved === true || masterEmp.status === 'RELIEVED' || masterEmp.activeCrew === false;
           crewMap.set(empId, {
             ...unified,
             ...masterEmp,
             empId,
+            status: isMasterRelieved ? 'RELIEVED' : (masterEmp.status || 'ACTIVE'),
+            activeCrew: !isMasterRelieved,
+            isRelieved: isMasterRelieved,
             ...localOver
           });
         }
@@ -173,13 +215,19 @@ export default function DailyDutyGeneratorSuite() {
         const empId = normalizeCanonicalEmpId(masterEmp.empId);
         if (!empId) return;
         const localOver = localCrewOverrides[empId] || localCrewOverrides[String(empId)] || {};
-        if (localOver.isDeleted === true) return;
+        if (localOver.isDeleted === true || localOver.isRelieved === true) return;
+        if (deletedSet.has(String(empId))) return;
+
         if (!crewMap.has(empId)) {
           const unified = buildUnifiedEmployeeProfile(empId);
+          const isMasterRelieved = masterEmp.isRelieved === true || masterEmp.status === 'RELIEVED' || masterEmp.activeCrew === false;
           crewMap.set(empId, {
             ...unified,
             ...masterEmp,
             empId,
+            status: isMasterRelieved ? 'RELIEVED' : (masterEmp.status || 'ACTIVE'),
+            activeCrew: !isMasterRelieved,
+            isRelieved: isMasterRelieved,
             ...localOver
           });
         }
@@ -257,18 +305,44 @@ export default function DailyDutyGeneratorSuite() {
   const [woOverrides, setWoOverrides] = useState({});
 
   const activeCandidateDrivingCrew = useMemo(() => {
+    let deletedSet = new Set();
+    let relievedSet = new Set();
+    let overrides = {};
+    try {
+      const deletedCrew = JSON.parse(localStorage.getItem('pyidcc_deleted_crew_ids') || '[]');
+      const deletedJmd = JSON.parse(localStorage.getItem('pyidcc_deleted_jmd_td_ids') || '[]');
+      deletedSet = new Set([...deletedCrew, ...deletedJmd].map(id => String(id).trim()));
+      const relievedCrew = JSON.parse(localStorage.getItem('pyidcc_relieved_crew_ids') || '[]');
+      relievedSet = new Set(relievedCrew.map(id => String(id).trim()));
+      overrides = JSON.parse(localStorage.getItem('pyidcc_crew_overrides') || '{}');
+    } catch {}
+
+    const SUPERVISORY_NON_DRIVING_IDS = new Set([20726, 20038, 20037, 20018, 20019, 20057, 20087, 21502]);
+
     return crewList.filter(e => {
       if (!e) return false;
       const canonicalId = normalizeCanonicalEmpId(e.empId || e.employeeId || e.id);
       if (!canonicalId) return false;
-      const isRelieved = e.status === 'RELIEVED' || e.isRelieved === true || e.status === 'INACTIVE' || e.activeCrew === false;
+      const strId = String(canonicalId);
+
+      if (deletedSet.has(strId) || relievedSet.has(strId)) return false;
+
+      const over = overrides[strId] || overrides[canonicalId] || {};
+      if (over.isRelieved === true || over.status === 'RELIEVED' || over.status === 'DELETED' || over.status === 'INACTIVE' || over.isDeleted === true || over.activeCrew === false || over.removedFromActiveRoster === true) {
+        return false;
+      }
+
+      const isRelieved = e.status === 'RELIEVED' || e.isRelieved === true || e.status === 'INACTIVE' || e.status === 'DELETED' || e.isDeleted === true || e.activeCrew === false || e.removedFromActiveRoster === true;
       if (isRelieved) return false;
+
+      // Exclude supervisory non-driving staff, official CCs, and station controllers
       if (e.isOfficialCC === true || e.role === 'OFFICIAL_CREW_CONTROLLER' || e.specialProfile === 'CC') return false;
-      if (e.role === 'Official ALS' || e.role === 'Official GCC' || e.role === 'STATION_CONTROLLER') return false;
-      if ([20726, 20038, 20037, 20018, 20019, 20057, 20087].includes(canonicalId)) return false;
-      return e.status === 'ACTIVE' || e.status === 'MATERNITY_LEAVE' || (e.maternityLeave && e.maternityLeave.active) || OFFICIAL_PYID_ACTIVE_IDS.has(canonicalId);
+      if (e.role === 'Official ALS' || e.role === 'Official GCC' || e.role === 'STATION_CONTROLLER' || e.designation === 'Station Controller') return false;
+      if (SUPERVISORY_NON_DRIVING_IDS.has(canonicalId)) return false;
+
+      return e.status === 'ACTIVE' || e.status === 'MATERNITY_LEAVE' || (e.maternityLeave && e.maternityLeave.active);
     });
-  }, [crewList]);
+  }, [crewList, localCrewOverrides]);
 
   const activeCount = activeCandidateDrivingCrew.length;
   const jmdCount = activeCandidateDrivingCrew.filter(e => String(e.empId || '').startsWith('8')).length;
@@ -321,14 +395,49 @@ export default function DailyDutyGeneratorSuite() {
 
   const handleUpdateCrewStatus = async (empId, statusUpdate) => {
     const strId = String(empId).trim();
-    setLocalCrewOverrides(prev => ({
-      ...prev,
-      [strId]: { ...(prev[strId] || {}), ...statusUpdate }
-    }));
+    const numId = normalizeCanonicalEmpId(empId) || empId;
+
+    setLocalCrewOverrides(prev => {
+      const next = {
+        ...prev,
+        [strId]: { ...(prev[strId] || {}), ...statusUpdate }
+      };
+      try {
+        localStorage.setItem('pyidcc_crew_overrides', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+
+    const isRelievedOrDeleted = statusUpdate.isRelieved === true || statusUpdate.status === 'RELIEVED' || statusUpdate.status === 'DELETED' || statusUpdate.isDeleted === true || statusUpdate.activeCrew === false || statusUpdate.removedFromActiveRoster === true;
+    const isReinstated = statusUpdate.isRelieved === false && (statusUpdate.status === 'ACTIVE' || statusUpdate.activeCrew === true);
 
     try {
-      const docRef = doc(db, 'crewRegistry', `crew_${empId}`);
-      await setDoc(docRef, { ...statusUpdate, updatedAt: serverTimestamp() }, { merge: true });
+      const delKey = strId.startsWith('8') ? 'pyidcc_deleted_jmd_td_ids' : 'pyidcc_deleted_crew_ids';
+      const relKey = 'pyidcc_relieved_crew_ids';
+      let delSaved = JSON.parse(localStorage.getItem(delKey) || '[]');
+      let relSaved = JSON.parse(localStorage.getItem(relKey) || '[]');
+
+      if (statusUpdate.status === 'DELETED' || statusUpdate.isDeleted === true) {
+        if (!delSaved.includes(strId)) {
+          delSaved.push(strId);
+          localStorage.setItem(delKey, JSON.stringify(delSaved));
+        }
+      } else if (statusUpdate.status === 'RELIEVED' || statusUpdate.isRelieved === true || statusUpdate.activeCrew === false || statusUpdate.removedFromActiveRoster === true) {
+        if (!relSaved.includes(strId)) {
+          relSaved.push(strId);
+          localStorage.setItem(relKey, JSON.stringify(relSaved));
+        }
+      } else if (isReinstated) {
+        delSaved = delSaved.filter(id => String(id) !== strId && String(id) !== String(numId));
+        localStorage.setItem(delKey, JSON.stringify(delSaved));
+        relSaved = relSaved.filter(id => String(id) !== strId && String(id) !== String(numId));
+        localStorage.setItem(relKey, JSON.stringify(relSaved));
+      }
+    } catch (e) {}
+
+    try {
+      const docRef = doc(db, 'crewRegistry', `crew_${numId}`);
+      await setDoc(docRef, { ...statusUpdate, empId: numId, updatedAt: serverTimestamp() }, { merge: true });
     } catch (err) {
       console.warn("Firestore crew status update error:", err);
     }
@@ -342,14 +451,50 @@ export default function DailyDutyGeneratorSuite() {
         const strId = String(u.empId).trim();
         next[strId] = { ...(next[strId] || {}), ...u };
       });
+      try {
+        localStorage.setItem('pyidcc_crew_overrides', JSON.stringify(next));
+      } catch (e) {}
       return next;
     });
 
     try {
+      let bmrclSaved = JSON.parse(localStorage.getItem('pyidcc_deleted_crew_ids') || '[]');
+      let jmdSaved = JSON.parse(localStorage.getItem('pyidcc_deleted_jmd_td_ids') || '[]');
+      let relSaved = JSON.parse(localStorage.getItem('pyidcc_relieved_crew_ids') || '[]');
+
+      updatesList.forEach(u => {
+        const strId = String(u.empId).trim();
+        const numId = normalizeCanonicalEmpId(u.empId) || u.empId;
+        const isDel = u.status === 'DELETED' || u.isDeleted === true;
+        const isRel = u.isRelieved === true || u.status === 'RELIEVED' || u.activeCrew === false || u.removedFromActiveRoster === true;
+        const isReinstated = u.isRelieved === false && (u.status === 'ACTIVE' || u.activeCrew === true);
+
+        if (isDel) {
+          if (strId.startsWith('8')) {
+            if (!jmdSaved.includes(strId)) jmdSaved.push(strId);
+          } else {
+            if (!bmrclSaved.includes(strId)) bmrclSaved.push(strId);
+          }
+        } else if (isRel) {
+          if (!relSaved.includes(strId)) relSaved.push(strId);
+        } else if (isReinstated) {
+          bmrclSaved = bmrclSaved.filter(id => String(id) !== strId && String(id) !== String(numId));
+          jmdSaved = jmdSaved.filter(id => String(id) !== strId && String(id) !== String(numId));
+          relSaved = relSaved.filter(id => String(id) !== strId && String(id) !== String(numId));
+        }
+      });
+
+      localStorage.setItem('pyidcc_deleted_crew_ids', JSON.stringify(bmrclSaved));
+      localStorage.setItem('pyidcc_deleted_jmd_td_ids', JSON.stringify(jmdSaved));
+      localStorage.setItem('pyidcc_relieved_crew_ids', JSON.stringify(relSaved));
+    } catch (e) {}
+
+    try {
       const batch = writeBatch(db);
       updatesList.forEach(u => {
-        const docRef = doc(db, 'crewRegistry', `crew_${u.empId}`);
-        batch.set(docRef, { ...u, updatedAt: serverTimestamp() }, { merge: true });
+        const numId = normalizeCanonicalEmpId(u.empId) || u.empId;
+        const docRef = doc(db, 'crewRegistry', `crew_${numId}`);
+        batch.set(docRef, { ...u, empId: numId, updatedAt: serverTimestamp() }, { merge: true });
       });
       await batch.commit();
       setSyncStatusMsg(`✅ Updated ${updatesList.length} crew status records in Firestore!`);
@@ -364,8 +509,15 @@ export default function DailyDutyGeneratorSuite() {
       const next = { ...prev };
       (updatedList || []).forEach(u => {
         const strId = String(u.empId).trim();
-        next[strId] = { ...(next[strId] || {}), ...u };
+        next[strId] = { 
+          ...(next[strId] || {}), 
+          fixedWo: u.fixedWo || next[strId]?.fixedWo,
+          weeklyOffDay: u.fixedWo || next[strId]?.weeklyOffDay
+        };
       });
+      try {
+        localStorage.setItem('pyidcc_crew_overrides', JSON.stringify(next));
+      } catch (e) {}
       return next;
     });
   };
@@ -424,15 +576,39 @@ export default function DailyDutyGeneratorSuite() {
   // Add Newly Reported Train Operator to PYID CC and Firestore
   const handleAddNewCrewMember = async (newMember) => {
     const strId = String(newMember.empId).trim();
-    setLocalCrewOverrides(prev => ({
-      ...prev,
-      [strId]: { ...(prev[strId] || {}), ...newMember }
-    }));
+    const numId = normalizeCanonicalEmpId(newMember.empId) || newMember.empId;
+
+    // Un-delete if previously in deleted sets
+    try {
+      ['pyidcc_deleted_crew_ids', 'pyidcc_deleted_jmd_td_ids'].forEach(key => {
+        const saved = JSON.parse(localStorage.getItem(key) || '[]');
+        const filtered = saved.filter(id => String(id) !== strId && String(id) !== String(numId));
+        localStorage.setItem(key, JSON.stringify(filtered));
+      });
+    } catch (e) {}
+
+    const freshMember = {
+      ...newMember,
+      empId: numId,
+      isDeleted: false,
+      isRelieved: false,
+      activeCrew: true,
+      status: 'ACTIVE',
+      removedFromActiveRoster: false
+    };
+
+    setLocalCrewOverrides(prev => {
+      const next = { ...prev, [strId]: freshMember };
+      try {
+        localStorage.setItem('pyidcc_crew_overrides', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
 
     try {
-      const docRef = doc(db, 'crewRegistry', `crew_${newMember.empId}`);
-      await setDoc(docRef, { ...newMember, updatedAt: serverTimestamp() }, { merge: true });
-      setSyncStatusMsg(`✅ Operator ${newMember.name} (#${newMember.empId}) successfully registered and saved to Firestore crewRegistry!`);
+      const docRef = doc(db, 'crewRegistry', `crew_${numId}`);
+      await setDoc(docRef, { ...freshMember, updatedAt: serverTimestamp() }, { merge: true });
+      setSyncStatusMsg(`✅ Operator ${newMember.name} (#${numId}) successfully registered and saved to Firestore crewRegistry!`);
       setTimeout(() => setSyncStatusMsg(''), 4000);
     } catch (err) {
       console.warn("Firestore error adding new crew member:", err);
@@ -459,6 +635,9 @@ export default function DailyDutyGeneratorSuite() {
         isRelieved: updatedMember.isRelieved === true,
         isDeleted: false
       };
+      try {
+        localStorage.setItem('pyidcc_crew_overrides', JSON.stringify(next));
+      } catch (e) {}
       return next;
     });
 
@@ -488,23 +667,48 @@ export default function DailyDutyGeneratorSuite() {
   // Permanently Delete Staff Record
   const handleDeleteCrewMember = async (empId) => {
     const strId = String(empId).trim();
-    setLocalCrewOverrides(prev => ({
-      ...prev,
-      [strId]: {
-        isRelieved: true,
-        status: 'RELIEVED',
-        activeCrew: false,
-        isDeleted: true,
-        relievedReason: 'Removed / Deleted from PYID Registry'
+    const numId = normalizeCanonicalEmpId(empId) || empId;
+
+    const deleteUpdate = {
+      empId: numId,
+      isRelieved: true,
+      status: 'DELETED',
+      activeCrew: false,
+      isDeleted: true,
+      removedFromActiveRoster: true,
+      relievedReason: 'Removed / Deleted from PYID Registry'
+    };
+
+    setLocalCrewOverrides(prev => {
+      const next = { ...prev, [strId]: deleteUpdate };
+      try {
+        localStorage.setItem('pyidcc_crew_overrides', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+
+    try {
+      const key = strId.startsWith('8') ? 'pyidcc_deleted_jmd_td_ids' : 'pyidcc_deleted_crew_ids';
+      const saved = JSON.parse(localStorage.getItem(key) || '[]');
+      if (!saved.includes(strId)) {
+        saved.push(strId);
+        localStorage.setItem(key, JSON.stringify(saved));
       }
-    }));
+    } catch (e) {}
 
     try {
       const batch = writeBatch(db);
-      batch.delete(doc(db, 'crewRegistry', `crew_${empId}`));
-      batch.delete(doc(db, 'crewRegistry', strId));
+      // Persist the explicit deleted state in canonical doc
+      batch.set(doc(db, 'crewRegistry', `crew_${numId}`), {
+        ...deleteUpdate,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      // Delete any orphan non-prefixed doc
+      if (strId !== `crew_${numId}`) {
+        try { batch.delete(doc(db, 'crewRegistry', strId)); } catch {}
+      }
       await batch.commit();
-      setSyncStatusMsg(`🗑️ Staff #${empId} permanently deleted from registry and Firestore!`);
+      setSyncStatusMsg(`🗑️ Staff #${empId} permanently removed from active candidate roster!`);
       setTimeout(() => setSyncStatusMsg(''), 4000);
     } catch (err) {
       console.warn("Firestore delete crew error:", err);
@@ -850,7 +1054,7 @@ export default function DailyDutyGeneratorSuite() {
             {activeTab === 'WEEK_OFF_MGR' && (
               <WeekOffControlManager
                 targetDate={targetDate}
-                crewList={crewList}
+                crewList={activeCandidateDrivingCrew}
                 onUpdateCrewList={handleUpdateCrewList}
                 woOverrides={woOverrides}
                 onOverrideWO={handleOverrideWO}
@@ -860,13 +1064,13 @@ export default function DailyDutyGeneratorSuite() {
             {activeTab === 'NIGHT_BALANCER' && (
               <NightShiftBalancingDesk
                 targetDate={targetDate}
-                crewList={crewList}
+                crewList={activeCandidateDrivingCrew}
               />
             )}
 
             {activeTab === 'HISTORY_INTEL' && (
               <DutyHistoryIntelligence
-                crewList={crewList}
+                crewList={activeCandidateDrivingCrew}
               />
             )}
           </div>
@@ -882,6 +1086,7 @@ export default function DailyDutyGeneratorSuite() {
         isOpen={isActiveCrewModalOpen}
         onClose={() => setIsActiveCrewModalOpen(false)}
         crewList={crewList}
+        targetDate={targetDate}
         onUpdateCrewStatus={handleUpdateCrewStatus}
         onBatchUpdateCrewStatus={handleBatchUpdateCrewStatus}
         onAddNewCrewMember={handleAddNewCrewMember}
@@ -895,6 +1100,7 @@ export default function DailyDutyGeneratorSuite() {
         isOpen={isJmdCrewModalOpen}
         onClose={() => setIsJmdCrewModalOpen(false)}
         crewList={crewList}
+        targetDate={targetDate}
         onUpdateCrewStatus={handleUpdateCrewStatus}
         onBatchUpdateCrewStatus={handleBatchUpdateCrewStatus}
         onAddNewCrewMember={handleAddNewCrewMember}

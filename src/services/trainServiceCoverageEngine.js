@@ -3,7 +3,7 @@
  * 
  * CORE PRINCIPLE:
  * Train count is an OPERATIONAL INPUT to the coverage engine, NOT a duty count.
- * - WEEKDAY: 23 Active Trains, 161+ Trips -> 79 derived duties
+ * - WEEKDAY: 23 Active Trains, 161+ Trips -> 75 derived duties
  * - MONDAY: 23 Active Trains, 161+ Trips -> 80 derived slots (slot 79 blank)
  * - SATURDAY / GH: 21 Active Trains -> 74 derived duties (dual Npro)
  * - SUNDAY: 17 Active Trains -> 65 derived duties (15 nights)
@@ -17,8 +17,8 @@ export const TRAIN_SERVICE_CONFIGS = {
     trainIds: ['201', '202', '203', '204', '205', '206', '207', '208', '209', '210', '211', '212', '213', '214', '215', '216', '217', '218', '219', '220', '221', '222', '223'],
     peakHeadwayMin: 5,
     nonPeakHeadwayMin: 8,
-    requiredDrivingDuties: 77, // Total 79 minus 2 OR
-    totalDerivedDuties: 79
+    requiredDrivingDuties: 71, // Total 75 minus Pro/Stby
+    totalDerivedDuties: 75
   },
   MON: {
     dayType: 'MON',

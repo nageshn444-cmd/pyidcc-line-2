@@ -10,10 +10,13 @@ import {
 import { OFFICIAL_JMD_TD_REGISTRY } from '../../data/jmdCrewMaster';
 import { normalizeCanonicalEmpId } from '../../utils/crewRegistryDataMerger';
 
+const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 export default function JmdCrewManagerModal({
   isOpen,
   onClose,
   crewList = [],
+  targetDate,
   onUpdateCrewStatus,
   onBatchUpdateCrewStatus,
   onAddNewCrewMember,
@@ -22,6 +25,22 @@ export default function JmdCrewManagerModal({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('ALL'); // 'ALL', 'MAINLINE', 'NIGHT', 'LOOP', 'PINK', 'WO', 'LEAVE'
+  const [saveSuccessEmpId, setSaveSuccessEmpId] = useState(null);
+
+  // Calculate current operational day of week based on targetDate (or live system date)
+  const currentDayOfWeek = React.useMemo(() => {
+    if (!targetDate) {
+      const today = new Date();
+      return DAYS_OF_WEEK[today.getDay()] || 'Sunday';
+    }
+    const parts = String(targetDate).split('-');
+    if (parts.length === 3) {
+      const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      return DAYS_OF_WEEK[d.getDay()] || 'Sunday';
+    }
+    const d = new Date(targetDate);
+    return DAYS_OF_WEEK[d.getDay()] || 'Sunday';
+  }, [targetDate]);
   
   // Multi-Selection State
   const [selectedEmpIds, setSelectedEmpIds] = useState(new Set());
@@ -262,6 +281,19 @@ export default function JmdCrewManagerModal({
     setNewBloodGroup('');
   };
 
+  const handleUpdateFixedWo = (empId, newWo) => {
+    if (!onUpdateCrewStatus) return;
+    onUpdateCrewStatus(empId, {
+      fixedWo: newWo,
+      weeklyOffDay: newWo,
+      updatedAt: new Date().toISOString()
+    });
+    setSaveSuccessEmpId(empId);
+    setTimeout(() => {
+      setSaveSuccessEmpId(prev => (prev === empId ? null : prev));
+    }, 2500);
+  };
+
   const handleConfirmDeleteTD = (driver) => {
     if (!driver) return;
     const cid = String(driver.empId).trim();
@@ -284,6 +316,7 @@ export default function JmdCrewManagerModal({
         isDeleted: true,
         activeCrew: false,
         isRelieved: true,
+        removedFromActiveRoster: true,
         deletedAt: new Date().toISOString()
       });
     }
@@ -316,6 +349,7 @@ export default function JmdCrewManagerModal({
       isDeleted: true,
       activeCrew: false,
       isRelieved: true,
+      removedFromActiveRoster: true,
       deletedAt: new Date().toISOString()
     }));
 
@@ -329,6 +363,7 @@ export default function JmdCrewManagerModal({
           isDeleted: true,
           activeCrew: false,
           isRelieved: true,
+          removedFromActiveRoster: true,
           deletedAt: new Date().toISOString()
         });
       });
@@ -589,11 +624,51 @@ export default function JmdCrewManagerModal({
                           Mainline Duties #1 - #78
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="text-xs text-slate-200 font-semibold font-mono">
-                          WO: {emp.fixedWo || 'Sunday'}
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <div className="relative inline-block">
+                            <select
+                              value={emp.fixedWo || 'Sunday'}
+                              onChange={(e) => handleUpdateFixedWo(emp.empId, e.target.value)}
+                              className="bg-slate-950/90 hover:bg-slate-900 border border-amber-500/40 hover:border-amber-400 focus:border-amber-400 text-amber-300 font-mono font-bold text-xs rounded-xl pl-2.5 pr-6 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-400 cursor-pointer transition-all shadow-sm appearance-none"
+                              title="Click to assign or change Fixed Week-Off Day"
+                            >
+                              {DAYS_OF_WEEK.map(day => (
+                                <option key={day} value={day} className="bg-slate-900 text-slate-100 font-sans py-1">
+                                  {day}{day.toLowerCase() === currentDayOfWeek.toLowerCase() ? ' (Current Day)' : ''}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown className="w-3 h-3 text-amber-400 pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 opacity-70" />
+                          </div>
+
+                          {(emp.fixedWo || 'Sunday').toLowerCase() !== currentDayOfWeek.toLowerCase() ? (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateFixedWo(emp.empId, currentDayOfWeek)}
+                              className="px-1.5 py-1 text-[10px] font-bold rounded-lg bg-amber-950/70 hover:bg-amber-800 text-amber-400 hover:text-amber-100 border border-amber-500/30 hover:border-amber-400 transition-all whitespace-nowrap shadow-sm flex items-center gap-1"
+                              title={`Quick assign current weekoff day (${currentDayOfWeek})`}
+                            >
+                              <Calendar className="w-2.5 h-2.5" />
+                              Set {currentDayOfWeek.slice(0, 3)}
+                            </button>
+                          ) : (
+                            <span 
+                              className="px-1.5 py-0.5 text-[9px] font-black rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono tracking-tight flex items-center gap-0.5 shadow-sm"
+                              title={`Current operational weekoff day (${currentDayOfWeek}) active`}
+                            >
+                              <Check className="w-2.5 h-2.5 text-amber-400" />
+                              TODAY'S WO
+                            </span>
+                          )}
+
+                          {saveSuccessEmpId === emp.empId && (
+                            <span className="text-[10px] text-amber-400 font-bold animate-fadeIn flex items-center gap-0.5 bg-amber-950 px-1 py-0.5 rounded border border-amber-500/50">
+                              <Check className="w-3 h-3 text-amber-400" /> Saved
+                            </span>
+                          )}
                         </div>
-                        <div className="text-[10px] text-slate-400">
+                        <div className="text-[10px] text-slate-400 mt-1">
                           Depot: {emp.boardingStation || 'PYID'}
                         </div>
                       </td>
@@ -714,6 +789,7 @@ export default function JmdCrewManagerModal({
                                         status: 'RELIEVED',
                                         isRelieved: true,
                                         activeCrew: false,
+                                        removedFromActiveRoster: true,
                                         relievedReason: 'Standby / Relieved from Mainline Running Duties'
                                       });
                                     }}

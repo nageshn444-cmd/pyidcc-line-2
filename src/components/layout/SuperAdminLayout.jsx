@@ -980,6 +980,7 @@ export default function SuperAdminLayout({
               <LiveTrainPositionTracker 
                 liveTrainTrackingMap={liveTrainTrackingMap}
                 activeDay={activeDay}
+                onScheduleChange={setActiveDay}
               />
 
               {/* System Health Indicators */}

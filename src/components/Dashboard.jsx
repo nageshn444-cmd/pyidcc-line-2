@@ -271,7 +271,13 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
   }, [allowedTabs, activeTab]);
   const [wttActiveView, setWttActiveView] = useState('MATRIX');
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeDay, setActiveDay] = useState('WEEKDAY');
+  const [activeDay, setActiveDay] = useState(() => {
+    const day = new Date().getDay(); // 0=Sun, 1=Mon, 2=Tue ... 6=Sat
+    if (day === 0) return 'SUNDAY';
+    if (day === 6) return 'SATURDAY';
+    if (day === 1) return 'MONDAY';
+    return 'WEEKDAY';
+  });
   const [unifiedRows, setUnifiedRows] = useState([]);
   const [links, setLinks] = useState([]);
   const [dailyDeployment, setDailyDeployment] = useState([]);
