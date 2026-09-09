@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect, Suspense, lazy } from 'react';
+import { Link } from 'react-router-dom';
 import { db } from '../../firebase';
 import { writeBatch, doc, serverTimestamp, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { provisioningService } from '../../services/ProvisioningService';
@@ -999,11 +1000,18 @@ export default function SuperAdminLayout({
                   <span className="text-[9px] text-slate-400 mt-1 uppercase">Relief reserves ready</span>
                 </div>
                 <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-col justify-between">
-                  <span className="text-[10px] text-slate-500 font-bold uppercase">Active Delays</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase">Active Delays & Faults</span>
+                    <Link to="/fault-reporting" className="text-[9px] text-rose-400 hover:text-rose-300 font-bold underline flex items-center gap-0.5">
+                      AI Desk ➔
+                    </Link>
+                  </div>
                   <div className="text-2xl font-black text-rose-500 mt-2">
                     {liveIncidents.filter(i => i.status !== 'RESOLVED').length} Active
                   </div>
-                  <span className="text-[9px] text-slate-400 mt-1 uppercase">Downstream propagate logs</span>
+                  <Link to="/fault-reporting" className="text-[9px] text-rose-400/80 hover:text-rose-300 mt-1 uppercase transition">
+                    Open AI Faults Reporting Desk
+                  </Link>
                 </div>
                 <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-col justify-between">
                   <span className="text-[10px] text-slate-500 font-bold uppercase">Roster Schedule</span>

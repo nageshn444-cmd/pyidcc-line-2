@@ -1,4 +1,5 @@
 import React, { useState, useEffect, Suspense } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Users, UserCheck, ShieldAlert, Award, FileSpreadsheet, 
   HelpCircle, Compass, ClipboardList, LogOut, RefreshCw, Sparkles, Calculator, Clock, Send, Eye
@@ -155,6 +156,15 @@ export default function CrewControllerLayout({
               </select>
             </div>
             
+            <Link
+              to="/fault-reporting"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold transition shadow-sm"
+              title="Open AI Faults Reporting Desk"
+            >
+              <ShieldAlert className="h-4 w-4 animate-pulse text-rose-400" />
+              <span className="hidden md:inline">AI Faults Reporting</span>
+            </Link>
+
             <button 
               onClick={fetchLiveData}
               className="p-1.5 rounded-lg border border-slate-850 bg-slate-900 hover:bg-slate-800 text-slate-400 transition"

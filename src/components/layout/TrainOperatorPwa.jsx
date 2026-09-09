@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Calendar, CheckCircle, FileText, User, ChevronRight, 
   Clock, MapPin, ShieldAlert, Award, Compass, RefreshCw, Send, FileSpreadsheet 
@@ -204,12 +205,22 @@ export default function TrainOperatorPwa({
           <div className="w-2.5 h-2.5 rounded-full bg-cyan-500 animate-pulse"></div>
           <span className="text-xs font-black uppercase tracking-wider text-cyan-400">BMRCL PWA OPERATOR</span>
         </div>
-        <button 
-          onClick={logout}
-          className="text-neutral-500 hover:text-white text-[10px] font-bold border border-neutral-850 px-2.5 py-1 rounded"
-        >
-          Sign-Out
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/fault-reporting"
+            className="flex items-center gap-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-[10px] font-bold px-2 py-1 rounded transition"
+            title="Report Train/Mainline Fault via AI"
+          >
+            <ShieldAlert className="h-3 w-3 text-rose-400 animate-pulse" />
+            <span>FAULT</span>
+          </Link>
+          <button 
+            onClick={logout}
+            className="text-neutral-500 hover:text-white text-[10px] font-bold border border-neutral-850 px-2.5 py-1 rounded"
+          >
+            Sign-Out
+          </button>
+        </div>
       </header>
 
       {/* 2. Scrollable Body Content */}
@@ -576,6 +587,13 @@ export default function TrainOperatorPwa({
             <span>KPIs</span>
           </button>
         )}
+        <Link
+          to="/fault-reporting"
+          className="flex flex-col items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-rose-400 hover:text-rose-300 transition"
+        >
+          <ShieldAlert className="h-5 w-5 animate-pulse" />
+          <span>Faults</span>
+        </Link>
       </footer>
 
     </div>

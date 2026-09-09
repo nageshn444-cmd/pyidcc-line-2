@@ -13,6 +13,7 @@ import OperatorRequestNotificationCenter from './components/common/OperatorReque
 const Dashboard = lazyWithRetry(() => import('./components/Dashboard'));
 const Login = lazyWithRetry(() => import('./components/Login'));
 const ExcelWorkspace = lazyWithRetry(() => import('./pages/ExcelWorkspace'));
+const AIFaultReportingPage = lazyWithRetry(() => import('./pages/AIFaultReportingPage'));
 
 const RouteLoader = () => (
   <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -40,6 +41,20 @@ function MainApp() {
                   <ExcelWorkspace />
                 </ProtectedRoute>
               } 
+            />
+
+            {/* AI Faults Reporting Dedicated Page (ALS, CC, Train Operator) */}
+            <Route 
+              path="/fault-reporting" 
+              element={
+                <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ADMIN_SS', 'ADMIN_Station_Superintendent', 'CREW_CONTROLLER', 'STATION_CONTROLLER', 'TRAIN_OPERATOR', 'VIEWER']}>
+                  <AIFaultReportingPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/faults" 
+              element={<Navigate to="/fault-reporting" replace />} 
             />
 
             {/* Protected Routes - All roles allowed access to base layout */}
