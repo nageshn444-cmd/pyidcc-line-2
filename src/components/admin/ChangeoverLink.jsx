@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { db } from '../../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { getChangeoverMappings } from '../../services/changeoverService';
@@ -175,8 +176,18 @@ export default function ChangeoverLink() {
               <p className="text-[10px] text-slate-500 font-mono">BMRCL Line 2 — Direct Mapping Excel Table Editor</p>
             </div>
           </div>
-          <div className="flex items-center gap-1 bg-slate-955/60 border border-slate-700 px-2 py-0.5 rounded text-[9px] font-mono font-bold text-slate-400">
-            <Lock className="h-3 w-3 text-amber-500" /> CONTROLLER WRITE ACCESS
+          <div className="flex items-center gap-2">
+            <Link
+              to="/fault-reporting"
+              className="flex items-center gap-1.5 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-rose-200 px-3 py-1 rounded-lg text-[10px] font-bold font-mono tracking-wide uppercase transition shadow-sm"
+              title="Open AI Faults & Incident Reporting Page"
+            >
+              <AlertCircle className="h-3.5 w-3.5 text-rose-400 animate-pulse" />
+              <span>AI Faults Report Page ➔</span>
+            </Link>
+            <div className="flex items-center gap-1 bg-slate-955/60 border border-slate-700 px-2 py-0.5 rounded text-[9px] font-mono font-bold text-slate-400">
+              <Lock className="h-3 w-3 text-amber-500" /> CONTROLLER WRITE ACCESS
+            </div>
           </div>
         </div>
 

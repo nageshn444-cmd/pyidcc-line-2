@@ -40,6 +40,7 @@ const LeaveBookOffManager        = lazyWithRetry(() => import('../LeaveBookOffMa
 const ShiftHandoverReportView    = lazyWithRetry(() => import('../ShiftHandoverReportView'));
 const ChangeoverLink             = lazyWithRetry(() => import('../admin/ChangeoverLink'));
 const ChangeoverDashboard        = lazyWithRetry(() => import('../admin/ChangeoverDashboard'));
+const AIFaultReportingPage       = lazyWithRetry(() => import('../../pages/AIFaultReportingPage'));
 const DailyDutyGeneratorSuite    = lazyWithRetry(() => import('../dutyGenerator/DailyDutyGeneratorSuite'));
 
 import { useTheme } from '../../context/ThemeContext';
@@ -777,6 +778,7 @@ export default function SuperAdminLayout({
     { id: 'EMERGENCY_RELIEF', label: 'Emergency Relief', icon: ShieldAlert, module: 'Emergency Relief Module' },
     { id: 'NIGHT_CHANGEOVER', label: 'Night Changeover', icon: Clock, module: 'Shift Exchange' },
     { id: 'CHANGEOVER_LINK', label: 'Changeover Link', icon: Repeat, module: 'Shift Exchange' },
+    { id: 'AI_FAULTS', label: 'AI Faults Reporting', icon: AlertTriangle, module: 'Dashboard' },
     { id: 'ALS_PLANNER', label: 'AI ALS Cab Inspection', icon: Sparkles, module: 'AI ALS Cab Inspection' },
     { id: 'ADMIN', label: 'System Settings', icon: Settings, module: 'User Control Center' }
   ];
@@ -1647,6 +1649,8 @@ export default function SuperAdminLayout({
             <ChangeoverDashboard onRefresh={fetchLiveData} />
           ) : activeTab === 'CHANGEOVER_LINK' ? (
             <ChangeoverLink />
+          ) : activeTab === 'AI_FAULTS' ? (
+            <AIFaultReportingPage />
           ) : activeTab === 'MODULES' ? (
             <div className="space-y-8 p-4 bg-slate-900 rounded-xl border border-slate-800">
               <div className="flex items-center justify-between border-b border-slate-700 pb-4 mb-4">
