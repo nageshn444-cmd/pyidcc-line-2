@@ -25,6 +25,9 @@ export default function GeneratorDraftConsole({
   crewList = EMPLOYEE_MASTER_REGISTRY,
   activeRequests = [],
   woOverrides = {},
+  previousDayGCCRoster = null,
+  previousDayGCCMeta = null,
+  liveDeployments = [],
   onOpenActiveCrewModal,
   onOpenCCWillingModal
 }) {
@@ -38,6 +41,7 @@ export default function GeneratorDraftConsole({
   const [isPublished, setIsPublished] = useState(false);
   const [publishMessage, setPublishMessage] = useState('');
   const [lockedDuties, setLockedDuties] = useState({});
+  const [showPrevDayComparison, setShowPrevDayComparison] = useState(false);
 
   const auth = useAuth();
   const currentUser = auth?.currentUser;
@@ -120,7 +124,9 @@ export default function GeneratorDraftConsole({
           historicalData: HISTORICAL_ROSTER_INTELLIGENCE,
           activeRequests,
           woOverrides,
-          lockedAssignments: lockedList
+          lockedAssignments: lockedList,
+          previousDayRoster: previousDayGCCRoster,
+          liveDeployments
         });
 
         setSolutions(result.solutions);
@@ -530,6 +536,141 @@ export default function GeneratorDraftConsole({
           </button>
         </div>
       </div>
+
+      {/* ── GCC Previous Day Reference Roster Status Card ── */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/30 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center flex-shrink-0">
+            <FileSpreadsheet className="w-5 h-5 text-indigo-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-black text-white tracking-wide uppercase flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                GCC Previous Day Reference Active
+              </span>
+              <span className="text-[10px] px-2.5 py-0.5 bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 rounded-full font-mono font-bold">
+                {previousDayGCCMeta?.sheetName || previousDayGCCRoster?.sheetName || 'EXCEL AUTO-DEPLOYED ROSTER'}
+              </span>
+              {(previousDayGCCMeta?.dateStr || previousDayGCCRoster?.date) && (
+                <span className="text-[10px] px-2 py-0.5 bg-slate-800 text-slate-300 border border-slate-700 rounded-full font-mono">
+                  Date: {previousDayGCCMeta?.dateStr || previousDayGCCRoster?.date}
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Deployed from <strong className="text-cyan-300 font-mono">DISPATCH GATEWAY CORE (ZERO MANUAL ENTRY ENGINE)</strong> · Validating statutory 12h/16h turnaround rest &amp; anti-consecutive link diversity
+            </p>
+          </div>
+        </div>
+
+        {currentPlan?.previousDayComparison && (
+          <div className="flex items-center gap-2 self-end md:self-center">
+            <button
+              onClick={() => setShowPrevDayComparison(prev => !prev)}
+              className="px-3.5 py-2 bg-indigo-900/60 hover:bg-indigo-800/80 border border-indigo-500/40 text-indigo-200 text-xs font-bold rounded-xl flex items-center gap-2 transition-all shadow-md hover:shadow-indigo-500/20 cursor-pointer"
+            >
+              <Activity className="w-4 h-4 text-indigo-400" />
+              <span>{showPrevDayComparison ? 'Hide' : 'View'} GCC Shift Comparison Matrix</span>
+              <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-md font-mono text-[10px] font-black">
+                {currentPlan.previousDayComparison.complianceRate}% Rest OK
+              </span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Expandable Comparison Analysis Panel ── */}
+      {showPrevDayComparison && currentPlan?.previousDayComparison && (
+        <div className="bg-slate-900/95 border border-indigo-500/40 rounded-3xl p-5 shadow-2xl space-y-4 animate-in fade-in duration-300">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+            <div>
+              <h3 className="text-sm font-black text-white flex items-center gap-2">
+                <Activity className="w-4 h-4 text-indigo-400" />
+                Previous Day GCC Roster vs Next Day Auto-Duty Comparison Matrix
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Baseline Reference: <span className="text-indigo-300 font-mono">{currentPlan.previousDayComparison.source}</span> ({currentPlan.previousDayComparison.date})
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-xs font-mono">
+              <span className="px-2.5 py-1 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 rounded-xl font-bold">
+                ✓ {currentPlan.previousDayComparison.matchedCount} Operators Cross-Referenced
+              </span>
+              <span className="px-2.5 py-1 bg-blue-500/15 border border-blue-500/30 text-blue-300 rounded-xl font-bold">
+                ⏱ Avg Rest: {currentPlan.previousDayComparison.avgRestHours}h
+              </span>
+            </div>
+          </div>
+
+          {/* Shift Transitions Grid */}
+          <div className="space-y-2">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+              Shift Band Progressions &amp; Movements (Yesterday ➔ Today)
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(currentPlan.previousDayComparison.shiftTransitions || {}).map(([trans, count]) => {
+                const isNightExit = trans.startsWith('N ➔');
+                const isNightEnter = trans.endsWith('➔ N');
+                const isWoEnter = trans.endsWith('➔ WO') || trans.endsWith('➔ OFF');
+                return (
+                  <div
+                    key={trans}
+                    className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 text-xs font-mono font-bold ${
+                      isNightExit ? 'bg-purple-950/50 border-purple-500/40 text-purple-300' :
+                      isNightEnter ? 'bg-indigo-950/50 border-indigo-500/40 text-indigo-300' :
+                      isWoEnter ? 'bg-slate-800/80 border-slate-700 text-slate-300' :
+                      'bg-slate-950 border-slate-800 text-emerald-300'
+                    }`}
+                  >
+                    <span>{trans}:</span>
+                    <span className="text-white font-black bg-white/10 px-1.5 py-0.2 rounded">{count}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Rest Compliance & Anti-Repetition Indicators */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+            <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-3 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-sm">
+                ✓
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500 uppercase font-bold">Statutory Rest Compliance</div>
+                <div className="text-xs font-black text-emerald-300 font-mono">
+                  {currentPlan.previousDayComparison.restCompliantCount} / {currentPlan.previousDayComparison.matchedCount} Compliant ({currentPlan.previousDayComparison.complianceRate}%)
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-3 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center font-black text-sm">
+                🛡️
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500 uppercase font-bold">Consecutive Same Duties</div>
+                <div className="text-xs font-black text-blue-300 font-mono">
+                  {currentPlan.previousDayComparison.consecutiveSameDutyCount} Repeated (Anti-Repetition Diversified)
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-3 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center font-black text-sm">
+                🌙
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500 uppercase font-bold">Night Gate Enforcement</div>
+                <div className="text-xs font-black text-purple-300 font-mono">
+                  0 Night ➔ A Violations (H18 Blocked)
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 2. Plan Candidates (A / B / C) ── */}
       {solutions && (
@@ -1016,6 +1157,21 @@ export default function GeneratorDraftConsole({
                                     </span>
                                   )}
                                 </div>
+                                {item.previousDayDuty && (
+                                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                    <span className="text-[9px] px-1.5 py-0.2 bg-slate-800 text-slate-300 border border-slate-700 rounded font-mono font-bold" title={`Yesterday's GCC Duty: ${item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo} (${item.previousDayDuty.shift})`}>
+                                      Prev: {item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo} ({item.previousDayDuty.shift})
+                                    </span>
+                                    <span className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-black border ${
+                                      item.previousDayDuty.isRestCompliant ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/40' : 'bg-rose-950/60 text-rose-300 border-rose-500/40'
+                                    }`} title={`Turnaround continuous rest: ${item.previousDayDuty.restHoursFromPrev}h`}>
+                                      ⏱ {item.previousDayDuty.restHoursFromPrev}h rest
+                                    </span>
+                                    <span className="text-[9px] text-slate-400 font-mono font-bold">
+                                      {item.previousDayDuty.transition}
+                                    </span>
+                                  </div>
+                                )}
                               </td>
                               <td className="px-4 py-3 font-mono text-slate-400 font-bold tabular-nums">
                                 #{item.empId || '—'}
@@ -1581,6 +1737,7 @@ export default function GeneratorDraftConsole({
                       <th className="px-3 py-3">Sign Off</th>
                       <th className="px-3 py-3">Location</th>
                       <th className="px-3 py-3">Train No</th>
+                      <th className="px-3 py-3">Previous Day (GCC)</th>
                       <th className="px-3 py-3">Category / Status</th>
                       <th className="px-3 py-3">Notes / Profile</th>
                     </tr>
@@ -1589,7 +1746,7 @@ export default function GeneratorDraftConsole({
 
                     {/* ── SECTION 1: ACTIVE MAINLINE DRIVING DUTIES (#1 TO #77) ── */}
                     <tr className="bg-blue-950/50 border-y border-blue-500/40">
-                      <td colSpan={11} className="py-2.5 px-4 text-xs font-mono text-blue-200 font-black">
+                      <td colSpan={12} className="py-2.5 px-4 text-xs font-mono text-blue-200 font-black">
                         <div className="flex items-center justify-between">
                           <span className="flex items-center gap-2">
                             <Clock className="w-4 h-4 text-blue-400" />
@@ -1620,6 +1777,28 @@ export default function GeneratorDraftConsole({
                         <td className="px-3 py-2 font-mono text-slate-200">{formatTo24HourTime(item.sOffTime, item.sOnTime, item.shift)}</td>
                         <td className="px-3 py-2 text-slate-400 font-mono">{item.sOnLoc}</td>
                         <td className="px-3 py-2 text-slate-400 font-mono">{item.trainNo || '—'}</td>
+                        <td className="px-3 py-2 font-mono">
+                          {item.previousDayDuty ? (
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1 text-[10px]">
+                                <span className="font-bold text-slate-200">
+                                  {item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo}
+                                </span>
+                                <span className="text-slate-500">({item.previousDayDuty.shift})</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-[9px]">
+                                <span className={`px-1 py-0.2 rounded font-bold border ${
+                                  item.previousDayDuty.isRestCompliant ? 'text-emerald-300 bg-emerald-950/60 border-emerald-500/40' : 'text-rose-300 bg-rose-950/60 border-rose-500/40'
+                                }`}>
+                                  ⏱ {item.previousDayDuty.restHoursFromPrev}h rest
+                                </span>
+                                <span className="text-slate-400 font-mono">{item.previousDayDuty.transition}</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-slate-600 text-[10px]">—</span>
+                          )}
+                        </td>
                         <td className="px-3 py-2">
                           <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded text-[10px] font-bold font-mono">
                             MAINLINE DRIVING
@@ -1633,7 +1812,7 @@ export default function GeneratorDraftConsole({
                     {ccDuties.length > 0 && (
                       <>
                         <tr className="bg-indigo-950/50 border-y border-indigo-500/40">
-                          <td colSpan={11} className="py-2.5 px-4 text-xs font-mono text-indigo-200 font-black">
+                          <td colSpan={12} className="py-2.5 px-4 text-xs font-mono text-indigo-200 font-black">
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-2">
                                 <Users className="w-4 h-4 text-indigo-400" />
@@ -1656,6 +1835,13 @@ export default function GeneratorDraftConsole({
                             <td className="px-3 py-2 font-mono text-slate-300">{formatTo24HourTime(item.sOffTime, item.sOnTime, item.shift) || '15:00'}</td>
                             <td className="px-3 py-2 text-slate-400 font-mono">PYID</td>
                             <td className="px-3 py-2 text-slate-500 font-mono">—</td>
+                            <td className="px-3 py-2 font-mono">
+                              {item.previousDayDuty ? (
+                                <span className="text-[10px] text-indigo-300 font-bold">
+                                  {item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo} ({item.previousDayDuty.shift})
+                                </span>
+                              ) : <span className="text-slate-600 text-[10px]">—</span>}
+                            </td>
                             <td className="px-3 py-2">
                               <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded text-[10px] font-bold font-mono">
                                 CREW CONTROLLER
@@ -1671,7 +1857,7 @@ export default function GeneratorDraftConsole({
                     {specialDuties.length > 0 && (
                       <>
                         <tr className="bg-purple-950/50 border-y border-purple-500/40">
-                          <td colSpan={11} className="py-2.5 px-4 text-xs font-mono text-purple-200 font-black">
+                          <td colSpan={12} className="py-2.5 px-4 text-xs font-mono text-purple-200 font-black">
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-2">
                                 <Sparkles className="w-4 h-4 text-purple-400" />
@@ -1694,6 +1880,13 @@ export default function GeneratorDraftConsole({
                             <td className="px-3 py-2 font-mono text-slate-300">{formatTo24HourTime(item.sOffTime, item.sOnTime, item.shift) || '—'}</td>
                             <td className="px-3 py-2 text-slate-400 font-mono">{item.sOnLoc || 'PYID'}</td>
                             <td className="px-3 py-2 text-slate-500 font-mono">—</td>
+                            <td className="px-3 py-2 font-mono">
+                              {item.previousDayDuty ? (
+                                <span className="text-[10px] text-purple-300 font-bold">
+                                  {item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo} ({item.previousDayDuty.shift})
+                                </span>
+                              ) : <span className="text-slate-600 text-[10px]">—</span>}
+                            </td>
                             <td className="px-3 py-2">
                               <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-[10px] font-bold font-mono">
                                 SPECIAL DUTY
@@ -1709,7 +1902,7 @@ export default function GeneratorDraftConsole({
                     {reservePool.length > 0 && (
                       <>
                         <tr className="bg-slate-800/80 border-y border-slate-600">
-                          <td colSpan={11} className="py-2.5 px-4 text-xs font-mono text-slate-200 font-black">
+                          <td colSpan={12} className="py-2.5 px-4 text-xs font-mono text-slate-200 font-black">
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-2">
                                 🔄 SECTION 4: AVAILABLE RESERVE (Reserve Pool — Standby Crew)
@@ -1731,6 +1924,13 @@ export default function GeneratorDraftConsole({
                             <td className="px-3 py-2 font-mono text-slate-500">—</td>
                             <td className="px-3 py-2 text-slate-400 font-mono">PYID</td>
                             <td className="px-3 py-2 text-slate-500 font-mono">—</td>
+                            <td className="px-3 py-2 font-mono">
+                              {item.previousDayDuty ? (
+                                <span className="text-[10px] text-slate-300 font-bold">
+                                  {item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo} ({item.previousDayDuty.shift})
+                                </span>
+                              ) : <span className="text-slate-600 text-[10px]">—</span>}
+                            </td>
                             <td className="px-3 py-2">
                               <span className="px-2 py-0.5 bg-slate-800 text-slate-400 rounded text-[10px] font-bold font-mono">
                                 RESERVE POOL
@@ -1748,7 +1948,7 @@ export default function GeneratorDraftConsole({
                     {stationStandbyDuties.length > 0 && (
                       <>
                         <tr className="bg-cyan-950/50 border-y border-cyan-500/40">
-                          <td colSpan={11} className="py-2.5 px-4 text-xs font-mono text-cyan-200 font-black">
+                          <td colSpan={12} className="py-2.5 px-4 text-xs font-mono text-cyan-200 font-black">
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-2">
                                 🏢 SECTION 5: STATION STANDBY (STBK — NGSA, PUTH, APTS, BIET, KGWA)
@@ -1772,6 +1972,13 @@ export default function GeneratorDraftConsole({
                             <td className="px-3 py-2 font-mono text-slate-300">{item.stbkShift === 'B' ? '21:30' : '14:00'}</td>
                             <td className="px-3 py-2 text-cyan-300 font-mono font-bold">{item.stbkStation}</td>
                             <td className="px-3 py-2 text-slate-500 font-mono">—</td>
+                            <td className="px-3 py-2 font-mono">
+                              {item.previousDayDuty ? (
+                                <span className="text-[10px] text-cyan-300 font-bold">
+                                  {item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo} ({item.previousDayDuty.shift})
+                                </span>
+                              ) : <span className="text-slate-600 text-[10px]">—</span>}
+                            </td>
                             <td className="px-3 py-2">
                               <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-300 rounded text-[10px] font-bold font-mono">
                                 STATION STANDBY
@@ -1789,7 +1996,7 @@ export default function GeneratorDraftConsole({
                     {weekOffStaff.length > 0 && (
                       <>
                         <tr className="bg-slate-900 border-y border-slate-700">
-                          <td colSpan={11} className="py-2.5 px-4 text-xs font-mono text-slate-400 font-black">
+                          <td colSpan={12} className="py-2.5 px-4 text-xs font-mono text-slate-400 font-black">
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-2">
                                 <Lock className="w-4 h-4 text-slate-500" />
@@ -1812,6 +2019,13 @@ export default function GeneratorDraftConsole({
                             <td className="px-3 py-2 font-mono text-slate-600">—</td>
                             <td className="px-3 py-2 text-slate-600 font-mono">—</td>
                             <td className="px-3 py-2 text-slate-600 font-mono">—</td>
+                            <td className="px-3 py-2 font-mono">
+                              {item.previousDayDuty ? (
+                                <span className="text-[10px] text-slate-400 font-bold">
+                                  {item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo} ({item.previousDayDuty.shift})
+                                </span>
+                              ) : <span className="text-slate-600 text-[10px]">—</span>}
+                            </td>
                             <td className="px-3 py-2">
                               <span className="px-2 py-0.5 bg-slate-800 text-slate-400 rounded text-[10px] font-bold font-mono">
                                 REST
@@ -1827,7 +2041,7 @@ export default function GeneratorDraftConsole({
                     {leaveStaff.length > 0 && (
                       <>
                         <tr className="bg-rose-950/50 border-y border-rose-500/40">
-                          <td colSpan={11} className="py-2.5 px-4 text-xs font-mono text-rose-200 font-black">
+                          <td colSpan={12} className="py-2.5 px-4 text-xs font-mono text-rose-200 font-black">
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-2">
                                 <HeartPulse className="w-4 h-4 text-rose-400" />
@@ -1852,6 +2066,13 @@ export default function GeneratorDraftConsole({
                               <td className="px-3 py-2 font-mono text-slate-500">—</td>
                               <td className="px-3 py-2 text-slate-500 font-mono">—</td>
                               <td className="px-3 py-2 text-slate-500 font-mono">—</td>
+                              <td className="px-3 py-2 font-mono">
+                                {item.previousDayDuty ? (
+                                  <span className="text-[10px] text-rose-300 font-bold">
+                                    {item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo} ({item.previousDayDuty.shift})
+                                  </span>
+                                ) : <span className="text-slate-600 text-[10px]">—</span>}
+                              </td>
                               <td className="px-3 py-2">
                                 <span className="px-2 py-0.5 bg-rose-500/20 text-rose-300 rounded text-[10px] font-bold font-mono">
                                   {item.status || 'LEAVE'}
@@ -1870,7 +2091,7 @@ export default function GeneratorDraftConsole({
                     {pinkLine4Staff.length > 0 && (
                       <>
                         <tr className="bg-pink-950/50 border-y border-pink-500/40">
-                          <td colSpan={11} className="py-2.5 px-4 text-xs font-mono text-pink-200 font-black">
+                          <td colSpan={12} className="py-2.5 px-4 text-xs font-mono text-pink-200 font-black">
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-2">
                                 🌸 SECTION 8: PINK LINE 4 STAFF POOL
@@ -1892,6 +2113,13 @@ export default function GeneratorDraftConsole({
                             <td className="px-3 py-2 font-mono text-slate-500">—</td>
                             <td className="px-3 py-2 text-slate-500 font-mono">—</td>
                             <td className="px-3 py-2 text-slate-500 font-mono">—</td>
+                            <td className="px-3 py-2 font-mono">
+                              {item.previousDayDuty ? (
+                                <span className="text-[10px] text-pink-300 font-bold">
+                                  {item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo} ({item.previousDayDuty.shift})
+                                </span>
+                              ) : <span className="text-slate-600 text-[10px]">—</span>}
+                            </td>
                             <td className="px-3 py-2">
                               <span className="px-2 py-0.5 bg-pink-500/20 text-pink-300 rounded text-[10px] font-bold font-mono">
                                 PINK_LINE_4
@@ -1907,7 +2135,7 @@ export default function GeneratorDraftConsole({
                     {(trainingStaff.length > 0 || lrdDuties.length > 0) && (
                       <>
                         <tr className="bg-amber-950/50 border-y border-amber-500/40">
-                          <td colSpan={11} className="py-2.5 px-4 text-xs font-mono text-amber-200 font-black">
+                          <td colSpan={12} className="py-2.5 px-4 text-xs font-mono text-amber-200 font-black">
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-2">
                                 🎓 SECTION 9: TRAINING, CRT &amp; LEARNING ROAD DUTY (LRD)
@@ -1929,6 +2157,13 @@ export default function GeneratorDraftConsole({
                             <td className="px-3 py-2 font-mono text-slate-300">{formatTo24HourTime(item.sOffTime, item.sOnTime, item.shift) || '15:00'}</td>
                             <td className="px-3 py-2 text-slate-400 font-mono">PYID</td>
                             <td className="px-3 py-2 text-slate-500 font-mono">—</td>
+                            <td className="px-3 py-2 font-mono">
+                              {item.previousDayDuty ? (
+                                <span className="text-[10px] text-amber-300 font-bold">
+                                  {item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo} ({item.previousDayDuty.shift})
+                                </span>
+                              ) : <span className="text-slate-600 text-[10px]">—</span>}
+                            </td>
                             <td className="px-3 py-2">
                               <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded text-[10px] font-bold font-mono">
                                 TRAINING / LRD

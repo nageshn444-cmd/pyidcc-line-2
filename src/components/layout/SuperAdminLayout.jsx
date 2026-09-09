@@ -979,6 +979,7 @@ export default function SuperAdminLayout({
               {/* Interactive transit map */}
               <LiveTrainPositionTracker 
                 liveTrainTrackingMap={liveTrainTrackingMap}
+                unifiedRows={unifiedRows}
                 activeDay={activeDay}
                 onScheduleChange={setActiveDay}
               />

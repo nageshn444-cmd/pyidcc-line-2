@@ -38,6 +38,281 @@ const COMBINED_FALLBACK_REGISTRY = [
 ];
 
 /**
+ * Normalizes and extracts previous day GCC deployed assignments from:
+ * 1. Firestore 'dispatch_excel_cache' (dateStr or 'current')
+ * 2. Firestore 'roster_desk_console' ('current' or 'latest')
+ * 3. Live 'crew_daily_deployment' records
+ * 4. LocalStorage cache 'pyidcc_roster_desk_console_cache'
+ * 
+ * Returns Map<canonicalEmpId, GCCAssignmentRecord>
+ */
+export function extractPreviousDayGCCAssignments(previousDayRoster = null, liveDeployments = []) {
+  const map = new Map();
+
+  const normId = (id) => {
+    if (id === null || id === undefined) return '';
+    const cleaned = String(id).replace(/\D/g, '').trim();
+    if (!cleaned) return '';
+    const num = parseInt(cleaned, 10);
+    return isNaN(num) ? '' : String(num);
+  };
+
+  const setEntry = (rawId, record) => {
+    if (!rawId) return;
+    const strId = String(rawId).trim();
+    if (strId) map.set(strId, record);
+    const nid = normId(rawId);
+    if (nid && nid !== strId) map.set(nid, record);
+  };
+
+  const getShiftFromDutyOrTime = (dutyId, sOnTime, explicitShift) => {
+    if (explicitShift && ['A', 'B', 'C', 'N'].includes(String(explicitShift).toUpperCase())) {
+      return String(explicitShift).toUpperCase() === 'C' ? 'N' : String(explicitShift).toUpperCase();
+    }
+    const dStr = String(dutyId || '').trim();
+    if (dStr.startsWith('N') || dStr.includes('NIGHT')) return 'N';
+    const num = parseInt(dStr, 10);
+    if (!isNaN(num) && num > 0) {
+      if (num <= 32) return 'A';
+      if (num <= 63) return 'B';
+      return 'N';
+    }
+    if (sOnTime) {
+      const parts = sOnTime.split(':');
+      if (parts.length >= 2) {
+        const hour = parseInt(parts[0], 10);
+        if (hour >= 20 || hour < 5) return 'N';
+        if (hour >= 12 && hour < 20) return 'B';
+        return 'A';
+      }
+    }
+    return 'A';
+  };
+
+  const estimateSignOffTime = (shift, sOnTime) => {
+    if (shift === 'N') return '06:30';
+    if (shift === 'B') return '21:30';
+    return '14:00';
+  };
+
+  // 1. Process live deployments (from crew_daily_deployment)
+  if (Array.isArray(liveDeployments) && liveDeployments.length > 0) {
+    liveDeployments.forEach(item => {
+      const rawId = item.empId || item.empNo || item.employeeId || item.operatorId || item.toEmpId || item.id;
+      if (!rawId) return;
+      const nid = normId(rawId) || String(rawId).trim();
+      const dutyId = String(item.dutyId || item.dutyNo || '').trim();
+      const sOnTime = item.signOnTime || item.sOnTime || '';
+      const shift = getShiftFromDutyOrTime(dutyId, sOnTime, item.shift);
+      const sOffTime = item.signOffTime || item.sOffTime || estimateSignOffTime(shift, sOnTime);
+
+      setEntry(rawId, {
+        empId: nid,
+        empName: item.empName || item.name || item.operatorName || '',
+        dutyNo: dutyId,
+        dutyCode: item.dutyCode || (dutyId ? `Duty ${dutyId}` : 'Mainline'),
+        shift,
+        sOnTime,
+        sOffTime,
+        trainId: item.trainId || '',
+        category: 'MAINLINE',
+        isNight: shift === 'N',
+        status: item.status || 'ASSIGNED',
+        source: 'LIVE_DEPLOYMENT'
+      });
+    });
+  }
+
+  // 2. Process previousDayRoster object (from dispatch_excel_cache / roster_desk_console / cache)
+  if (previousDayRoster && typeof previousDayRoster === 'object') {
+    // 2a. Mainline duties array
+    if (Array.isArray(previousDayRoster.duties)) {
+      previousDayRoster.duties.forEach(d => {
+        const rawId = d.empId || d.empNo || d.operatorId || d.toEmpId || d.employeeId || d.id;
+        if (!rawId) return;
+        const nid = normId(rawId) || String(rawId).trim();
+        const dutyId = String(d.dutyId || d.dutyNo || '').trim();
+        const sOnTime = d.signOnTime || d.sOnTime || '';
+        const shift = getShiftFromDutyOrTime(dutyId, sOnTime, d.shift);
+        const sOffTime = d.signOffTime || d.sOffTime || estimateSignOffTime(shift, sOnTime);
+
+        setEntry(rawId, {
+          empId: nid,
+          empName: d.empName || d.name || d.operatorName || '',
+          dutyNo: dutyId,
+          dutyCode: d.dutyCode || (dutyId ? `Duty ${dutyId}` : 'Mainline'),
+          shift,
+          sOnTime,
+          sOffTime,
+          trainId: d.trainId || '',
+          category: 'MAINLINE',
+          isNight: shift === 'N',
+          status: d.status || 'ASSIGNED',
+          source: 'GCC_ROSTER_DUTIES'
+        });
+      });
+    }
+
+    // 2b. Control Desks
+    if (Array.isArray(previousDayRoster.controlDesks)) {
+      previousDayRoster.controlDesks.forEach(cd => {
+        const rawId = cd.empNo || cd.empId || cd.operatorId || cd.employeeId || cd.id;
+        if (!rawId) return;
+        const nid = normId(rawId) || String(rawId).trim();
+        const dutyCode = cd.duty || cd.dutyId || 'CC';
+        const shift = dutyCode === 'CC1' ? 'A' : (dutyCode === 'CC2' ? 'B' : (dutyCode === 'CC3' ? 'N' : (cd.shift || 'A')));
+        const sOnTime = cd.sOnTime || (shift === 'A' ? '06:30' : (shift === 'B' ? '14:00' : '21:30'));
+        const sOffTime = cd.sOffTime || (shift === 'A' ? '14:00' : (shift === 'B' ? '21:30' : '06:30'));
+
+        setEntry(rawId, {
+          empId: nid,
+          empName: cd.name || cd.empName || '',
+          dutyNo: null,
+          dutyCode,
+          shift,
+          sOnTime,
+          sOffTime,
+          category: 'CC_DESK',
+          isNight: shift === 'N',
+          source: 'GCC_CONTROL_DESK'
+        });
+      });
+    }
+
+    // 2c. Weekly Offs
+    if (Array.isArray(previousDayRoster.weeklyOffs)) {
+      previousDayRoster.weeklyOffs.forEach(wo => {
+        const rawId = wo.empNo || wo.empId || wo.operatorId || wo.employeeId || wo.id;
+        if (!rawId) return;
+        const nid = normId(rawId) || String(rawId).trim();
+        setEntry(rawId, {
+          empId: nid,
+          empName: wo.name || wo.empName || '',
+          dutyNo: null,
+          dutyCode: 'WO',
+          shift: 'WO',
+          sOnTime: '—',
+          sOffTime: '00:00',
+          category: 'WEEKLY_OFF',
+          isNight: false,
+          source: 'GCC_WEEKLY_OFF'
+        });
+      });
+    }
+
+    // 2d. Leaves
+    if (Array.isArray(previousDayRoster.leaves)) {
+      previousDayRoster.leaves.forEach(lv => {
+        const rawId = lv.empNo || lv.empId || lv.operatorId || lv.employeeId || lv.id;
+        if (!rawId) return;
+        const nid = normId(rawId) || String(rawId).trim();
+        const code = lv.type || lv.leaveType || 'CL';
+        setEntry(rawId, {
+          empId: nid,
+          empName: lv.name || lv.empName || '',
+          dutyNo: null,
+          dutyCode: code,
+          shift: 'LEAVE',
+          sOnTime: '—',
+          sOffTime: '00:00',
+          category: 'LEAVE',
+          isNight: false,
+          source: 'GCC_LEAVE'
+        });
+      });
+    }
+
+    // 2e. Standbys
+    if (Array.isArray(previousDayRoster.standbys)) {
+      previousDayRoster.standbys.forEach(st => {
+        const rawId = st.empNo || st.empId || st.operatorId || st.employeeId || st.id;
+        if (!rawId) return;
+        const nid = normId(rawId) || String(rawId).trim();
+        setEntry(rawId, {
+          empId: nid,
+          empName: st.name || st.empName || '',
+          dutyNo: null,
+          dutyCode: st.duty || 'STBY',
+          shift: st.shift || 'A',
+          sOnTime: st.sOnTime || '06:00',
+          sOffTime: st.sOffTime || '14:00',
+          category: 'STANDBY',
+          isNight: false,
+          source: 'GCC_STANDBY'
+        });
+      });
+    }
+
+    // 2f. Training (BMRTI / CRT)
+    if (Array.isArray(previousDayRoster.bmrtiTraining)) {
+      previousDayRoster.bmrtiTraining.forEach(tr => {
+        const rawId = tr.empNo || tr.empId || tr.operatorId || tr.employeeId || tr.id;
+        if (!rawId) return;
+        const nid = normId(rawId) || String(rawId).trim();
+        setEntry(rawId, {
+          empId: nid,
+          empName: tr.name || tr.empName || '',
+          dutyNo: null,
+          dutyCode: 'BMRTI',
+          shift: 'TRG',
+          sOnTime: '09:00',
+          sOffTime: '17:30',
+          category: 'TRAINING',
+          isNight: false,
+          source: 'GCC_BMRTI'
+        });
+      });
+    }
+
+    if (Array.isArray(previousDayRoster.crtTraining)) {
+      previousDayRoster.crtTraining.forEach(tr => {
+        const rawId = tr.empNo || tr.empId || tr.operatorId || tr.employeeId || tr.id;
+        if (!rawId) return;
+        const nid = normId(rawId) || String(rawId).trim();
+        setEntry(rawId, {
+          empId: nid,
+          empName: tr.name || tr.empName || '',
+          dutyNo: null,
+          dutyCode: 'CRT',
+          shift: 'TRG',
+          sOnTime: '09:00',
+          sOffTime: '17:30',
+          category: 'TRAINING',
+          isNight: false,
+          source: 'GCC_CRT'
+        });
+      });
+    }
+
+    // 2g. Outstation Stepbacks, PME, Route Learning, Absents, Not Reporting
+    ['outstationStepbacks', 'pmeOperators', 'routeLearning', 'absents', 'notReporting', 'onDuty'].forEach(catKey => {
+      if (Array.isArray(previousDayRoster[catKey])) {
+        previousDayRoster[catKey].forEach(item => {
+          const rawId = item.empNo || item.empId || item.operatorId || item.employeeId || item.id;
+          if (!rawId) return;
+          const nid = normId(rawId) || String(rawId).trim();
+          const code = item.duty || item.type || catKey.toUpperCase();
+          setEntry(rawId, {
+            empId: nid,
+            empName: item.name || item.empName || '',
+            dutyNo: null,
+            dutyCode: code,
+            shift: catKey === 'absents' || catKey === 'notReporting' ? 'ABSENT' : 'SPECIAL',
+            sOnTime: item.sOnTime || '09:00',
+            sOffTime: item.sOffTime || '17:00',
+            category: catKey.toUpperCase(),
+            isNight: false,
+            source: `GCC_${catKey.toUpperCase()}`
+          });
+        });
+      }
+    });
+  }
+
+  return map;
+}
+
+/**
  * Main 13-Phase Generator Entry Point
  */
 export function generateDailyDutyRoster({
@@ -51,8 +326,13 @@ export function generateDailyDutyRoster({
   lockedAssignments = [],
   woOverrides = {},        // { [empId]: { reason, date } } — week-off override map
   planMode = 'BALANCED',  // 'BALANCED' | 'NIGHT_EQUITY' | 'LINK_DIVERSITY'
-  seed = null
+  seed = null,
+  previousDayRoster = null,
+  liveDeployments = []
 }) {
+  // Extract canonical lookup of yesterday's GCC-deployed assignments
+  const prevDayGCCMap = extractPreviousDayGCCAssignments(previousDayRoster, liveDeployments);
+
   // ── PHASE 0: RESOLVE DAY TYPE & SKELETON ──
   const resolvedDayType = dayTypeOverride || resolveDayType(targetDate, holidayList);
   const profile = DAY_TYPE_PROFILES[resolvedDayType] || DAY_TYPE_PROFILES.WEEKDAY;
@@ -395,9 +675,9 @@ export function generateDailyDutyRoster({
           continue;
         }
 
-        // Rest rules check from previous day
+        // Rest rules check from previous day (GCC deployed roster authoritative reference)
         const hist = historicalData[cand.empId] || { recentDuties: [] };
-        const prev = hist.recentDuties && hist.recentDuties.length > 0 ? hist.recentDuties[hist.recentDuties.length - 1] : null;
+        const prev = prevDayGCCMap.get(String(cand.empId)) || (hist.recentDuties && hist.recentDuties.length > 0 ? hist.recentDuties[hist.recentDuties.length - 1] : null);
         if (prev && prev.sOffTime) {
           const isPrevNight = prev.isNight || prev.shift === 'N' || String(prev.dutyCode).startsWith('N');
           if (isPrevNight && slot.shift === 'A') continue; // Prohibit Night -> A shift transition
@@ -646,10 +926,10 @@ export function generateDailyDutyRoster({
       }
 
       const hist = historicalData[cand.empId] || { nightCount: 0, daysSinceLastNight: 999, recentDuties: [] };
-      const prevDuty = hist.recentDuties && hist.recentDuties.length > 0 ? hist.recentDuties[hist.recentDuties.length - 1] : null;
+      const prevDuty = prevDayGCCMap.get(String(cand.empId)) || (hist.recentDuties && hist.recentDuties.length > 0 ? hist.recentDuties[hist.recentDuties.length - 1] : null);
 
       // H18: Reject if previous day was A or B shift with tight rest (< 12h)
-      if (prevDuty && (prevDuty.shift === 'A' || prevDuty.shift === 'B')) {
+      if (prevDuty && (prevDuty.shift === 'A' || prevDuty.shift === 'B') && prevDuty.sOffTime) {
         const rest = calculateRestHours(prevDuty.sOffTime, duty.sOnTime, false);
         if (rest < 12.0) continue;
       }
@@ -831,7 +1111,7 @@ export function generateDailyDutyRoster({
       for (let i = 0; i < availableDrivingPool.length; i++) {
         const cand = availableDrivingPool[i];
         const hist = historicalData[cand.empId] || { recentDuties: [] };
-        const prev = hist.recentDuties && hist.recentDuties.length > 0 ? hist.recentDuties[hist.recentDuties.length - 1] : null;
+        const prev = prevDayGCCMap.get(String(cand.empId)) || (hist.recentDuties && hist.recentDuties.length > 0 ? hist.recentDuties[hist.recentDuties.length - 1] : null);
         
         const isPrevNight = prev && (prev.isNight || prev.shift === 'N' || String(prev.dutyCode).startsWith('N'));
         if (isPrevNight && duty.shift === 'A') continue; // Prohibit Night -> A shift
@@ -839,12 +1119,18 @@ export function generateDailyDutyRoster({
         const rest = prev && prev.sOffTime ? calculateRestHours(prev.sOffTime, duty.sOnTime, isPrevNight) : 16;
         if (rest < 12.0) continue;
 
+        // Anti-repetition: Strongly penalize repeating yesterday's exact GCC deployed mainline duty
+        let repetitionPenalty = 0;
+        if (prev && prev.dutyNo && String(duty.dutyNo) === String(prev.dutyNo)) {
+          repetitionPenalty = 60; // Strongly diversify to prevent same duty consecutive days
+        }
+
         // Check if candidate requested this specific shift
         const shiftReq = activeRequests.find(r => r.empId === cand.empId && r.type === 'SHIFT_REQUEST');
         const shiftBonus = (shiftReq && shiftReq.preferredShift === duty.shift) ? -40 : 0;
 
         const diff = Math.abs(cand._rotatedIndex - targetLadderPos);
-        let cyclicDistance = Math.min(diff, availableDrivingPool.length - diff) + shiftBonus;
+        let cyclicDistance = Math.min(diff, availableDrivingPool.length - diff) + shiftBonus + repetitionPenalty;
 
         // Plan C: Penalize repeated duty codes to promote link diversity
         if (planMode === 'LINK_DIVERSITY') {
@@ -1068,14 +1354,73 @@ export function generateDailyDutyRoster({
     ...traineeAssignments
   ];
 
-  // Guarantee clean human-readable Duty Type / Link across all assignments
+  // Guarantee clean human-readable Duty Type / Link across all assignments & attach GCC Previous Day Comparison
   allAssignments.forEach(item => {
     const formatted = formatDutyTypeLink(item);
     item.assignedDutyCode = formatted;
     if (!item.dutyCode || String(item.dutyCode).startsWith('0.')) {
       item.dutyCode = formatted;
     }
+
+    // Attach Previous Day GCC Reference Assignment
+    if (item.empId) {
+      const prev = prevDayGCCMap.get(String(item.empId));
+      if (prev) {
+        const isPrevNight = prev.shift === 'N' || prev.isNight;
+        const restHours = (prev.sOffTime && item.sOnTime && item.sOnTime !== '—')
+          ? calculateRestHours(prev.sOffTime, item.sOnTime, isPrevNight)
+          : (prev.shift === 'WO' ? 24.0 : 16.0);
+        const requiredRest = isPrevNight ? 16.0 : 12.0;
+        const isRestCompliant = restHours >= requiredRest;
+
+        item.previousDayDuty = {
+          dutyNo: prev.dutyNo,
+          dutyCode: prev.dutyCode,
+          shift: prev.shift,
+          sOnTime: prev.sOnTime,
+          sOffTime: prev.sOffTime,
+          trainId: prev.trainId,
+          category: prev.category,
+          source: prev.source,
+          restHoursFromPrev: restHours,
+          isRestCompliant,
+          transition: `${prev.shift || 'OFF'} ➔ ${item.shift || item.assignmentSubType || 'DUTY'}`
+        };
+      } else {
+        item.previousDayDuty = null;
+      }
+    }
   });
+
+  // Calculate comprehensive GCC comparison metrics
+  const matchedPrevAssignments = allAssignments.filter(a => a.previousDayDuty);
+  const shiftTransitions = {};
+  let totalRestHours = 0;
+  let restCompliantCount = 0;
+  let consecutiveSameDutyCount = 0;
+
+  matchedPrevAssignments.forEach(a => {
+    const p = a.previousDayDuty;
+    const transKey = p.transition;
+    shiftTransitions[transKey] = (shiftTransitions[transKey] || 0) + 1;
+    totalRestHours += p.restHoursFromPrev || 0;
+    if (p.isRestCompliant) restCompliantCount++;
+    if (a.dutyNo && p.dutyNo && String(a.dutyNo) === String(p.dutyNo)) {
+      consecutiveSameDutyCount++;
+    }
+  });
+
+  const previousDayComparison = {
+    source: previousDayRoster?.sheetName || previousDayRoster?.fileName || 'GCC Deployed Console',
+    date: previousDayRoster?.date || previousDayRoster?.dateStr || 'Previous Day',
+    matchedCount: matchedPrevAssignments.length,
+    totalCrew: allAssignments.length,
+    shiftTransitions,
+    restCompliantCount,
+    complianceRate: matchedPrevAssignments.length > 0 ? Math.round((restCompliantCount / matchedPrevAssignments.length) * 100) : 100,
+    avgRestHours: matchedPrevAssignments.length > 0 ? Math.round((totalRestHours / matchedPrevAssignments.length) * 10) / 10 : 16.0,
+    consecutiveSameDutyCount
+  };
 
   // ── PHASE 12: VALIDATION FIREWALL & SCORING ──
   const validationReport = validateCompleteRoster({
@@ -1132,6 +1477,7 @@ export function generateDailyDutyRoster({
     canPublish: _hardViolCount === 0,
     planMode,
     assignments: allAssignments,
+    previousDayComparison,
     buckets: {
       activeDuties: activeDutyAssignments,
       crewControllers: ccAssignments,
@@ -1152,7 +1498,8 @@ export function generateDailyDutyRoster({
       totalKms: _totalKms,
       nightCoveragePercent: _nightCoverage,
       headcountDelta: validationReport.headcountReconciliation?.headcountDelta ?? 0,
-      trainCoverageScore: trainCoverage.isCovered ? 100 : Math.round((trainCoverage.coveredDrivingDuties / Math.max(1, trainCoverage.requiredDrivingDuties)) * 100)
+      trainCoverageScore: trainCoverage.isCovered ? 100 : Math.round((trainCoverage.coveredDrivingDuties / Math.max(1, trainCoverage.requiredDrivingDuties)) * 100),
+      previousDayComparison
     }
   };
 }
@@ -1186,7 +1533,8 @@ export function generateDailyRosterSolutions(options) {
     hardViolations: plan.validation?.hardViolations || [],
     warnings: plan.validation?.warnings || [],
     stats: plan.stats,
-    buckets: plan.buckets
+    buckets: plan.buckets,
+    previousDayComparison: plan.previousDayComparison
   });
 
   return {

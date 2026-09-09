@@ -62,16 +62,21 @@ export function updateStationChainage(newChainage) {
 }
 
 // Helper: Convert "HH:MM" or "HH:MM:SS" time string to minutes from midnight
+// Returns fractional minutes (e.g. "05:53:12" → 353.2) for sub-minute position accuracy
 export function timeToMinutes(timeStr) {
   if (!timeStr || timeStr === '--' || timeStr === '-') return 0;
-  const [h, m] = timeStr.split(':').map(Number);
-  return (h || 0) * 60 + (m || 0);
+  const parts = String(timeStr).trim().split(':').map(Number);
+  const h = parts[0] || 0;
+  const m = parts[1] || 0;
+  const s = parts[2] || 0; // seconds — critical for WTT accuracy (times like "05:53:12")
+  return h * 60 + m + s / 60;
 }
 
-// Helper: Convert minutes from midnight to "HH:MM" string
+// Helper: Convert minutes from midnight to "HH:MM" string (handles fractional minutes)
 export function minutesToTime(mins) {
-  const h = Math.floor(mins / 60) % 24;
-  const m = mins % 60;
+  const totalMins = Math.floor(mins);
+  const h = Math.floor(totalMins / 60) % 24;
+  const m = totalMins % 60;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 

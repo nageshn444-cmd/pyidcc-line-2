@@ -7,11 +7,11 @@
  */
 
 export const PINK_LINE_4_CREW_IDS = [
-  21414, 21482, 21723, 21724, 22224, 22237, 22294, 22296, 22297, 22315
+  21414, 21482, 21723, 21724, 22224, 22237, 22294, 22296
 ];
 
 export const BMRTI_R5_CREW_IDS = [
-  21490, 21487, 21496
+  21490, 21487, 21496, 22297, 22315
 ];
 
 export const STANDING_GROUPS = {
@@ -21,7 +21,11 @@ export const STANDING_GROUPS = {
 
 export function isStandingOfflineGroup(empId) {
   const numId = parseInt(empId, 10);
-  if (PINK_LINE_4_CREW_IDS.includes(numId)) return 'PINK_LINE_4';
-  if (BMRTI_R5_CREW_IDS.includes(numId)) return 'BMRTI_R5';
+  if (BMRTI_R5_CREW_IDS.includes(numId) || BMRTI_R5_CREW_IDS.map(String).includes(String(empId).trim())) {
+    return 'BMRTI_R5';
+  }
+  if (PINK_LINE_4_CREW_IDS.includes(numId) || PINK_LINE_4_CREW_IDS.map(String).includes(String(empId).trim())) {
+    return 'PINK_LINE_4';
+  }
   return null;
 }

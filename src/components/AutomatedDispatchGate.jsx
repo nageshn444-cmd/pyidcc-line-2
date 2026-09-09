@@ -39,6 +39,7 @@ import {
   UserCheck,
   Users,
   UserX,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
@@ -51,6 +52,7 @@ import {
 } from "../data/kmcalc/preloadedDuties";
 import { db } from "../firebase";
 import {
+  enforceSingleDutyRule,
   formatExcelDate,
   formatExcelTime,
   rosterAutoClassifierService,
@@ -204,10 +206,11 @@ const generateDailyPositionReportText = (dayType, deployments, console) => {
   const crtCount = console.crtTraining?.length || 0;
   const pmeCount = console.pmeOperators?.length || 0;
   const stbkCount = console.outstationStepbacks?.length || 0;
-  const r6TrgCount =
-    (console.coOperators?.length || 0) > 0 ? console.coOperators.length : 10;
+  const r6TrgCount = console.coOperators?.length || 0;
   const bmrtiCount = console.bmrtiTraining?.length || 0;
-  const crrcCount = 15;
+  const crrcCount =
+    console.customRegisters?.["CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)"]
+      ?.length || 0;
   const relR5Count = console.relievedOperators?.length || 0;
   const odCount = console.onDuty?.length || 0;
 
@@ -707,6 +710,27 @@ export default function AutomatedDispatchGate({
     return dupes;
   }, [deduplicatedDeployments]);
 
+  const ensureBmrtiCrew = (list = []) => {
+    const arr = Array.isArray(list) ? [...list] : [];
+    const required = [
+      { empNo: "22297", name: "Mohammed Rafiq", date: "BMRTI", time: "09:00 - 17:30" },
+      { empNo: "22315", name: "Krishna Murthy", date: "BMRTI", time: "09:00 - 17:30" },
+    ];
+    required.forEach((r) => {
+      if (
+        !arr.some(
+          (e) =>
+            String(e.empNo || e.empId).trim() === r.empNo ||
+            String(e.name || e.empName).trim().toUpperCase() ===
+              r.name.toUpperCase(),
+        )
+      ) {
+        arr.push(r);
+      }
+    });
+    return arr;
+  };
+
   const [consoleData, setConsoleData] = useState(() => {
     try {
       if (typeof window !== "undefined" && window.localStorage) {
@@ -716,14 +740,14 @@ export default function AutomatedDispatchGate({
         if (cached) {
           const parsed = JSON.parse(cached);
           if (parsed && typeof parsed === "object") {
-            return {
+            const rawObj = {
               controlDesks: parsed.controlDesks || [],
               coOperators: parsed.coOperators || [],
               leaves: parsed.leaves || [],
               standbys: parsed.standbys || [],
               outstationStepbacks: parsed.outstationStepbacks || [],
               crtTraining: parsed.crtTraining || [],
-              bmrtiTraining: parsed.bmrtiTraining || [],
+              bmrtiTraining: ensureBmrtiCrew(parsed.bmrtiTraining || []),
               weeklyOffs: parsed.weeklyOffs || [],
               relievedOperators: parsed.relievedOperators || [],
               pmeOperators: parsed.pmeOperators || [],
@@ -733,6 +757,7 @@ export default function AutomatedDispatchGate({
               onDuty: parsed.onDuty || [],
               customRegisters: parsed.customRegisters || {},
             };
+            return enforceSingleDutyRule(rawObj);
           }
         }
       }
@@ -746,7 +771,7 @@ export default function AutomatedDispatchGate({
       standbys: [],
       outstationStepbacks: [],
       crtTraining: [],
-      bmrtiTraining: [],
+      bmrtiTraining: ensureBmrtiCrew([]),
       weeklyOffs: [],
       relievedOperators: [],
       pmeOperators: [],
@@ -757,6 +782,130 @@ export default function AutomatedDispatchGate({
       customRegisters: {},
     };
   });
+
+  const [consoleSearchQuery, setConsoleSearchQuery] = useState("");
+  const [consoleFilterCategory, setConsoleFilterCategory] = useState("ALL");
+
+  const matchesConsoleSearch = (item) => {
+    if (!consoleSearchQuery || !consoleSearchQuery.trim()) return true;
+    const q = consoleSearchQuery.trim().toLowerCase();
+    const name = String(item?.name || item?.empName || "").toLowerCase();
+    const empNo = String(item?.empNo || item?.empId || "").toLowerCase();
+    const duty = String(
+      item?.dutyId ||
+        item?.code ||
+        item?.type ||
+        item?.station ||
+        item?.tag ||
+        item?.info ||
+        item?.remark ||
+        "",
+    ).toLowerCase();
+    const train = String(item?.trainId || "").toLowerCase();
+    return (
+      name.includes(q) ||
+      empNo.includes(q) ||
+      duty.includes(q) ||
+      train.includes(q)
+    );
+  };
+
+  const filteredCoOperators = useMemo(
+    () => (consoleData.coOperators || []).filter(matchesConsoleSearch),
+    [consoleData.coOperators, consoleSearchQuery],
+  );
+  const filteredControlDesks = useMemo(
+    () => (consoleData.controlDesks || []).filter(matchesConsoleSearch),
+    [consoleData.controlDesks, consoleSearchQuery],
+  );
+  const filteredLeaves = useMemo(
+    () => (consoleData.leaves || []).filter(matchesConsoleSearch),
+    [consoleData.leaves, consoleSearchQuery],
+  );
+  const filteredStandbys = useMemo(
+    () => (consoleData.standbys || []).filter(matchesConsoleSearch),
+    [consoleData.standbys, consoleSearchQuery],
+  );
+  const filteredStepbacks = useMemo(
+    () => (consoleData.outstationStepbacks || []).filter(matchesConsoleSearch),
+    [consoleData.outstationStepbacks, consoleSearchQuery],
+  );
+  const filteredCrt = useMemo(
+    () => (consoleData.crtTraining || []).filter(matchesConsoleSearch),
+    [consoleData.crtTraining, consoleSearchQuery],
+  );
+  const filteredBmrti = useMemo(
+    () => (consoleData.bmrtiTraining || []).filter(matchesConsoleSearch),
+    [consoleData.bmrtiTraining, consoleSearchQuery],
+  );
+  const filteredWeeklyOffs = useMemo(
+    () => (consoleData.weeklyOffs || []).filter(matchesConsoleSearch),
+    [consoleData.weeklyOffs, consoleSearchQuery],
+  );
+  const filteredRel = useMemo(
+    () => (consoleData.relievedOperators || []).filter(matchesConsoleSearch),
+    [consoleData.relievedOperators, consoleSearchQuery],
+  );
+  const filteredPme = useMemo(
+    () => (consoleData.pmeOperators || []).filter(matchesConsoleSearch),
+    [consoleData.pmeOperators, consoleSearchQuery],
+  );
+  const filteredLrd = useMemo(
+    () => (consoleData.routeLearning || []).filter(matchesConsoleSearch),
+    [consoleData.routeLearning, consoleSearchQuery],
+  );
+  const filteredNr = useMemo(
+    () => (consoleData.notReporting || []).filter(matchesConsoleSearch),
+    [consoleData.notReporting, consoleSearchQuery],
+  );
+  const filteredAbsents = useMemo(
+    () => (consoleData.absents || []).filter(matchesConsoleSearch),
+    [consoleData.absents, consoleSearchQuery],
+  );
+  const filteredOd = useMemo(
+    () => (consoleData.onDuty || []).filter(matchesConsoleSearch),
+    [consoleData.onDuty, consoleSearchQuery],
+  );
+
+  const totalConsoleMatches = useMemo(() => {
+    let count =
+      filteredCoOperators.length +
+      filteredControlDesks.length +
+      filteredLeaves.length +
+      filteredStandbys.length +
+      filteredStepbacks.length +
+      filteredCrt.length +
+      filteredBmrti.length +
+      filteredWeeklyOffs.length +
+      filteredRel.length +
+      filteredPme.length +
+      filteredLrd.length +
+      filteredNr.length +
+      filteredAbsents.length +
+      filteredOd.length;
+
+    Object.values(consoleData.customRegisters || {}).forEach((list) => {
+      count += (list || []).filter(matchesConsoleSearch).length;
+    });
+    return count;
+  }, [
+    filteredCoOperators,
+    filteredControlDesks,
+    filteredLeaves,
+    filteredStandbys,
+    filteredStepbacks,
+    filteredCrt,
+    filteredBmrti,
+    filteredWeeklyOffs,
+    filteredRel,
+    filteredPme,
+    filteredLrd,
+    filteredNr,
+    filteredAbsents,
+    filteredOd,
+    consoleData.customRegisters,
+    consoleSearchQuery,
+  ]);
 
   const [deployedRosterInfo, setDeployedRosterInfo] = useState(() => {
     try {
@@ -806,45 +955,83 @@ export default function AutomatedDispatchGate({
       }
 
       setConsoleData((prev) => {
+        const isFullDeployment = Boolean(
+          data.sheetName ||
+          data.date ||
+          data.dayType ||
+          data.updatedAt ||
+          Array.isArray(data.coOperators)
+        );
         const has = (arr) => Array.isArray(arr) && arr.length > 0;
-        const next = {
-          controlDesks: has(data.controlDesks)
+
+        const rawNext = {
+          controlDesks: Array.isArray(data.controlDesks)
             ? data.controlDesks
-            : prev.controlDesks,
-          coOperators: has(data.coOperators)
+            : has(data.controlDesks)
+              ? data.controlDesks
+              : prev.controlDesks,
+          coOperators: Array.isArray(data.coOperators)
             ? data.coOperators
-            : prev.coOperators,
-          leaves: has(data.leaves) ? data.leaves : prev.leaves,
-          standbys: has(data.standbys) ? data.standbys : prev.standbys,
-          outstationStepbacks: has(data.outstationStepbacks)
+            : (isFullDeployment ? [] : prev.coOperators),
+          leaves: Array.isArray(data.leaves)
+            ? data.leaves
+            : has(data.leaves) ? data.leaves : prev.leaves,
+          standbys: Array.isArray(data.standbys)
+            ? data.standbys
+            : has(data.standbys) ? data.standbys : prev.standbys,
+          outstationStepbacks: Array.isArray(data.outstationStepbacks)
             ? data.outstationStepbacks
-            : prev.outstationStepbacks,
-          crtTraining: has(data.crtTraining)
+            : has(data.outstationStepbacks)
+              ? data.outstationStepbacks
+              : prev.outstationStepbacks,
+          crtTraining: Array.isArray(data.crtTraining)
             ? data.crtTraining
-            : prev.crtTraining,
-          bmrtiTraining: has(data.bmrtiTraining)
-            ? data.bmrtiTraining
-            : prev.bmrtiTraining,
-          weeklyOffs: has(data.weeklyOffs) ? data.weeklyOffs : prev.weeklyOffs,
-          relievedOperators: has(data.relievedOperators)
+            : has(data.crtTraining)
+              ? data.crtTraining
+              : prev.crtTraining,
+          bmrtiTraining: ensureBmrtiCrew(
+            Array.isArray(data.bmrtiTraining)
+              ? data.bmrtiTraining
+              : has(data.bmrtiTraining)
+                ? data.bmrtiTraining
+                : prev.bmrtiTraining,
+          ),
+          weeklyOffs: Array.isArray(data.weeklyOffs)
+            ? data.weeklyOffs
+            : has(data.weeklyOffs) ? data.weeklyOffs : prev.weeklyOffs,
+          relievedOperators: Array.isArray(data.relievedOperators)
             ? data.relievedOperators
-            : prev.relievedOperators,
-          pmeOperators: has(data.pmeOperators)
+            : has(data.relievedOperators)
+              ? data.relievedOperators
+              : prev.relievedOperators,
+          pmeOperators: Array.isArray(data.pmeOperators)
             ? data.pmeOperators
-            : prev.pmeOperators,
-          routeLearning: has(data.routeLearning)
+            : has(data.pmeOperators)
+              ? data.pmeOperators
+              : prev.pmeOperators,
+          routeLearning: Array.isArray(data.routeLearning)
             ? data.routeLearning
-            : prev.routeLearning,
-          notReporting: has(data.notReporting)
+            : has(data.routeLearning)
+              ? data.routeLearning
+              : prev.routeLearning,
+          notReporting: Array.isArray(data.notReporting)
             ? data.notReporting
-            : prev.notReporting,
-          absents: has(data.absents) ? data.absents : prev.absents,
-          onDuty: has(data.onDuty) ? data.onDuty : prev.onDuty,
+            : has(data.notReporting)
+              ? data.notReporting
+              : prev.notReporting,
+          absents: Array.isArray(data.absents)
+            ? data.absents
+            : has(data.absents) ? data.absents : prev.absents,
+          onDuty: Array.isArray(data.onDuty)
+            ? data.onDuty
+            : has(data.onDuty) ? data.onDuty : prev.onDuty,
           customRegisters:
             data.customRegisters && typeof data.customRegisters === "object"
               ? data.customRegisters
               : prev.customRegisters,
         };
+
+        const next = enforceSingleDutyRule(rawNext);
 
         try {
           if (typeof window !== "undefined" && window.localStorage) {
@@ -1367,7 +1554,7 @@ export default function AutomatedDispatchGate({
           standbys: classifiedData.standbys,
           outstationStepbacks: classifiedData.outstationStepbacks,
           crtTraining: classifiedData.crtTraining,
-          bmrtiTraining: classifiedData.bmrtiTraining,
+          bmrtiTraining: ensureBmrtiCrew(classifiedData.bmrtiTraining),
           weeklyOffs: classifiedData.weeklyOffs,
           relievedOperators: classifiedData.relievedOperators,
           pmeOperators: classifiedData.pmeOperators,
@@ -1530,7 +1717,16 @@ Rules:
             onDuty: classifiedData.onDuty || [],
             customRegisters: classifiedData.customRegisters || {},
           };
-          setConsoleData(consoleObj);
+          const cleanConsoleObj = enforceSingleDutyRule(consoleObj);
+          setConsoleData(cleanConsoleObj);
+          try {
+            if (typeof window !== "undefined" && window.localStorage) {
+              window.localStorage.setItem(
+                "pyidcc_roster_desk_console_cache",
+                JSON.stringify(cleanConsoleObj),
+              );
+            }
+          } catch (e) {}
           if (classifiedData.duties && classifiedData.duties.length > 0) {
             setFallbackDeployments(
               deduplicateDeployments(classifiedData.duties),
@@ -1805,7 +2001,7 @@ Rules:
           standbys: [],
           outstationStepbacks: [],
           crtTraining: [],
-          bmrtiTraining: [],
+          bmrtiTraining: ensureBmrtiCrew([]),
           weeklyOffs: [],
           relievedOperators: [],
           pmeOperators: [],
@@ -2310,7 +2506,11 @@ Rules:
   };
 
   const handleAbnormalEvent = async (deployment, eventType) => {
-    if (eventType === "NOT_REPORTING" || eventType === "ABSENT") {
+    if (
+      eventType === "NOT_REPORTING" ||
+      eventType === "ABSENT" ||
+      eventType === "RESET"
+    ) {
       try {
         const docId =
           deployment.dutyId && deployment.dutyId !== "UNASSIGNED"
@@ -2324,10 +2524,15 @@ Rules:
 
         let newStatus = eventType;
         let newRemarks =
-          eventType === "NOT_REPORTING" ? "Not Reporting (NR)" : "Absent (AB)";
+          eventType === "NOT_REPORTING"
+            ? "Not Reporting (NR)"
+            : eventType === "ABSENT"
+              ? "Absent (AB)"
+              : "Status Reset";
 
-        // Toggle back to ACTIVE if already marked
+        // Toggle back to ACTIVE if already marked or if RESET chosen
         if (
+          eventType === "RESET" ||
           (eventType === "NOT_REPORTING" && isCurrentlyNR) ||
           (eventType === "ABSENT" && isCurrentlyAB)
         ) {
@@ -2346,6 +2551,85 @@ Rules:
           },
           { merge: true },
         );
+
+        // Update fallback / local deployment state
+        setFallbackDeployments((prev) =>
+          prev.map((d) =>
+            d.dutyId === deployment.dutyId
+              ? {
+                  ...d,
+                  status: newStatus,
+                  isNotReporting: newStatus === "NOT_REPORTING",
+                  isAbsent: newStatus === "ABSENT",
+                }
+              : d,
+          ),
+        );
+
+        const empId = String(deployment.empId || "").trim();
+        const empName = String(deployment.empName || "").trim();
+
+        // Immediately update consoleData in real time
+        setConsoleData((prev) => {
+          let updatedNR = (prev.notReporting || []).filter(
+            (e) =>
+              String(e.empNo || e.empId).trim() !== empId &&
+              e.name !== empName,
+          );
+          let updatedAB = (prev.absents || []).filter(
+            (e) =>
+              String(e.empNo || e.empId).trim() !== empId &&
+              e.name !== empName,
+          );
+
+          if (newStatus === "NOT_REPORTING") {
+            updatedNR.push({
+              empNo: empId,
+              empId,
+              name: empName,
+              dutyId: deployment.dutyId,
+              type: "NOT_REPORTING",
+            });
+          } else if (newStatus === "ABSENT") {
+            updatedAB.push({
+              empNo: empId,
+              empId,
+              name: empName,
+              dutyId: deployment.dutyId,
+              type: "ABSENT",
+            });
+          }
+
+          const rawUpdated = {
+            ...prev,
+            notReporting: updatedNR,
+            absents: updatedAB,
+          };
+          const next = enforceSingleDutyRule(rawUpdated);
+
+          const todayStr = new Date().toISOString().split("T")[0];
+          setDoc(
+            doc(db, "roster_desk_console", "current"),
+            { notReporting: next.notReporting, absents: next.absents },
+            { merge: true },
+          ).catch(console.warn);
+          setDoc(
+            doc(db, "dispatch_excel_cache", todayStr),
+            { notReporting: next.notReporting, absents: next.absents },
+            { merge: true },
+          ).catch(console.warn);
+
+          try {
+            if (typeof window !== "undefined" && window.localStorage) {
+              window.localStorage.setItem(
+                "pyidcc_roster_desk_console_cache",
+                JSON.stringify(next),
+              );
+            }
+          } catch (err) {}
+
+          return next;
+        });
 
         // Sync to absent_bookoff_register for real-time leave & book-off register tracking
         if (newStatus !== "ACTIVE") {
@@ -2370,7 +2654,7 @@ Rules:
         }
 
         alert(
-          `✅ Operator ${deployment.empName || deployment.dutyId} status updated to: ${newStatus}`,
+          `✅ Operator ${deployment.empName || deployment.dutyId} moved to: ${newStatus === "ACTIVE" ? "ACTIVE (Cleared)" : newStatus}`,
         );
         if (onImportComplete) onImportComplete();
         return;
@@ -3356,8 +3640,8 @@ Rules:
               Operator Status Legend:
             </span>
             <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]"></span>
-              <span className="text-cyan-300">EXCHANGED DUTY (Cyan)</span>
+              <span className="h-2.5 w-2.5 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.5)]"></span>
+              <span className="text-purple-300">EXCHANGED DUTY (Purple)</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]"></span>
@@ -4056,8 +4340,8 @@ Rules:
                                     searchQuery,
                                   )}
                                 </span>
-                                <span className="text-[9px] bg-cyan-950/90 text-cyan-300 border border-cyan-500/80 px-1.5 py-0.5 rounded font-mono font-black uppercase tracking-wider inline-flex items-center gap-1 shadow">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse"></span>{" "}
+                                <span className="text-[9px] bg-purple-950/90 text-purple-300 border border-purple-500/80 px-1.5 py-0.5 rounded font-mono font-black uppercase tracking-wider inline-flex items-center gap-1 shadow">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse"></span>{" "}
                                   EXCH
                                 </span>
                               </span>
@@ -4093,7 +4377,7 @@ Rules:
                                   : isNR
                                     ? "text-rose-400"
                                     : isExchanged
-                                      ? "text-cyan-300"
+                                      ? "text-purple-300"
                                       : isSwapped
                                         ? "text-amber-300"
                                         : "text-cyan-400"
@@ -4136,26 +4420,46 @@ Rules:
                             </div>
                           </td>
 
-                          {/* Engine Triggers */}
+                          {/* Engine Triggers Dropdown */}
                           <td className="p-3 text-center">
-                            <div className="flex justify-center gap-1 flex-wrap w-44 mx-auto">
-                              {ABNORMAL_EVENT_TYPES.map((e) => {
-                                const Icon = e.icon;
-                                return (
-                                  <button
-                                    key={e.id}
-                                    onClick={() => handleAbnormalEvent(d, e.id)}
-                                    disabled={
-                                      !!activeAbnormalEvent ||
-                                      d.status === "RELIEF_DISPATCHED"
-                                    }
-                                    className={`px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase tracking-wider border transition-all flex items-center gap-0.5 disabled:opacity-30 disabled:cursor-not-allowed ${e.className}`}
-                                    title={`Trigger ${e.label} Resolution`}
-                                  >
-                                    <Icon className="h-2.5 w-2.5" /> {e.label}
-                                  </button>
-                                );
-                              })}
+                            <div className="flex items-center justify-center">
+                              <select
+                                value={
+                                  d.status === "NOT_REPORTING" || d.status === "NR"
+                                    ? "NOT_REPORTING"
+                                    : d.status === "ABSENT" || d.status === "AB"
+                                      ? "ABSENT"
+                                      : ""
+                                }
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val) {
+                                    handleAbnormalEvent(d, val);
+                                  }
+                                }}
+                                disabled={
+                                  !!activeAbnormalEvent ||
+                                  d.status === "RELIEF_DISPATCHED"
+                                }
+                                className={`text-[10px] font-black tracking-wider uppercase px-2 py-1 rounded border outline-none transition-all cursor-pointer shadow-sm ${
+                                  d.status === "NOT_REPORTING" || d.status === "NR"
+                                    ? "bg-rose-950/90 border-rose-500/60 text-rose-300"
+                                    : d.status === "ABSENT" || d.status === "AB"
+                                      ? "bg-red-950/90 border-red-500/60 text-red-300"
+                                      : "bg-slate-900 border-slate-700 text-slate-300 hover:border-amber-500/60"
+                                }`}
+                                title="Algorithmic Shift Validation & Relief Engine Trigger"
+                              >
+                                <option value="">⚡ Engine Trigger...</option>
+                                <option value="NOT_REPORTING">🔴 Not Reported (NR)</option>
+                                <option value="ABSENT">⛔ Absent (AB)</option>
+                                <option value="EMERGENCY">🚨 Emergency</option>
+                                <option value="INCIDENT">⚠️ Incident</option>
+                                <option value="DELAY">⏱️ Delay</option>
+                                {(d.status === "NOT_REPORTING" || d.status === "NR" || d.status === "ABSENT" || d.status === "AB") && (
+                                  <option value="RESET">🔄 Reset to Active</option>
+                                )}
+                              </select>
                             </div>
                           </td>
 
@@ -4193,60 +4497,269 @@ Rules:
                   BMRCL LINE 2 PEENYA DEPOT ROSTER DESK CONSOLE
                 </h2>
                 <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[10px] font-bold text-slate-400">
-                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-amber-500/40 text-amber-300 font-bold">
-                    Co-Operators & 2nd Crew (
-                    {consoleData.coOperators?.length || 0})
-                  </span>
-                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-amber-400">
-                    Crew Controllers ({consoleData.controlDesks?.length || 0}
-                    /10)
-                  </span>
-                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-cyan-400">
+                  <button
+                    type="button"
+                    onClick={() => setConsoleFilterCategory("ALL")}
+                    className={`px-2 py-0.5 rounded border transition-all cursor-pointer font-bold ${
+                      consoleFilterCategory === "ALL"
+                        ? "bg-emerald-500 text-slate-950 border-emerald-400 shadow-sm"
+                        : "bg-slate-955 border-slate-800 text-emerald-400 hover:bg-slate-850"
+                    }`}
+                  >
+                    ALL ({totalConsoleMatches})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConsoleFilterCategory(
+                        consoleFilterCategory === "CO_OP" ? "ALL" : "CO_OP",
+                      )
+                    }
+                    className={`px-2 py-0.5 rounded border transition-all cursor-pointer font-bold ${
+                      consoleFilterCategory === "CO_OP"
+                        ? "bg-amber-500 text-slate-950 border-amber-400 ring-2 ring-amber-400 shadow-sm"
+                        : "bg-slate-955 border-amber-500/40 text-amber-300 hover:bg-slate-850"
+                    }`}
+                  >
+                    Co-Operators & 2nd Crew ({consoleData.coOperators?.length || 0})
+                    {consoleSearchQuery.trim() && filteredCoOperators.length > 0 && ` 🎯${filteredCoOperators.length}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConsoleFilterCategory(
+                        consoleFilterCategory === "CC" ? "ALL" : "CC",
+                      )
+                    }
+                    className={`px-2 py-0.5 rounded border transition-all cursor-pointer font-bold ${
+                      consoleFilterCategory === "CC"
+                        ? "bg-amber-500 text-slate-950 border-amber-400 ring-2 ring-amber-400 shadow-sm"
+                        : "bg-slate-955 border-slate-800 text-amber-400 hover:bg-slate-850"
+                    }`}
+                  >
+                    Crew Controllers ({consoleData.controlDesks?.length || 0}/10)
+                    {consoleSearchQuery.trim() && filteredControlDesks.length > 0 && ` 🎯${filteredControlDesks.length}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConsoleFilterCategory(
+                        consoleFilterCategory === "LEAVE" ? "ALL" : "LEAVE",
+                      )
+                    }
+                    className={`px-2 py-0.5 rounded border transition-all cursor-pointer font-bold ${
+                      consoleFilterCategory === "LEAVE"
+                        ? "bg-cyan-500 text-slate-950 border-cyan-400 ring-2 ring-cyan-400 shadow-sm"
+                        : "bg-slate-955 border-slate-800 text-cyan-400 hover:bg-slate-850"
+                    }`}
+                  >
                     Leave & Rest ({consoleData.leaves?.length || 0}/50)
-                  </span>
-                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-emerald-400">
+                    {consoleSearchQuery.trim() && filteredLeaves.length > 0 && ` 🎯${filteredLeaves.length}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConsoleFilterCategory(
+                        consoleFilterCategory === "STANDBY" ? "ALL" : "STANDBY",
+                      )
+                    }
+                    className={`px-2 py-0.5 rounded border transition-all cursor-pointer font-bold ${
+                      consoleFilterCategory === "STANDBY"
+                        ? "bg-emerald-500 text-slate-950 border-emerald-400 ring-2 ring-emerald-400 shadow-sm"
+                        : "bg-slate-955 border-slate-800 text-emerald-400 hover:bg-slate-850"
+                    }`}
+                  >
                     Standby ({consoleData.standbys?.length || 0}/50)
-                  </span>
-                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-purple-400">
+                    {consoleSearchQuery.trim() && filteredStandbys.length > 0 && ` 🎯${filteredStandbys.length}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConsoleFilterCategory(
+                        consoleFilterCategory === "STBK" ? "ALL" : "STBK",
+                      )
+                    }
+                    className={`px-2 py-0.5 rounded border transition-all cursor-pointer font-bold ${
+                      consoleFilterCategory === "STBK"
+                        ? "bg-purple-500 text-slate-950 border-purple-400 ring-2 ring-purple-400 shadow-sm"
+                        : "bg-slate-955 border-slate-800 text-purple-400 hover:bg-slate-850"
+                    }`}
+                  >
                     STBK ({consoleData.outstationStepbacks?.length || 0}/20)
-                  </span>
-                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-teal-400">
+                    {consoleSearchQuery.trim() && filteredStepbacks.length > 0 && ` 🎯${filteredStepbacks.length}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConsoleFilterCategory(
+                        consoleFilterCategory === "CRT" ? "ALL" : "CRT",
+                      )
+                    }
+                    className={`px-2 py-0.5 rounded border transition-all cursor-pointer font-bold ${
+                      consoleFilterCategory === "CRT"
+                        ? "bg-teal-500 text-slate-950 border-teal-400 ring-2 ring-teal-400 shadow-sm"
+                        : "bg-slate-955 border-slate-800 text-teal-400 hover:bg-slate-850"
+                    }`}
+                  >
                     CRT ({consoleData.crtTraining?.length || 0}/15)
-                  </span>
-                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-sky-400">
+                    {consoleSearchQuery.trim() && filteredCrt.length > 0 && ` 🎯${filteredCrt.length}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConsoleFilterCategory(
+                        consoleFilterCategory === "BMRTI" ? "ALL" : "BMRTI",
+                      )
+                    }
+                    className={`px-2 py-0.5 rounded border transition-all cursor-pointer font-bold ${
+                      consoleFilterCategory === "BMRTI"
+                        ? "bg-sky-500 text-slate-950 border-sky-400 ring-2 ring-sky-400 shadow-sm"
+                        : "bg-slate-955 border-sky-500/40 text-sky-300 hover:bg-slate-850"
+                    }`}
+                  >
                     BMRTI ({consoleData.bmrtiTraining?.length || 0}/50)
-                  </span>
-                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-rose-400">
+                    {consoleSearchQuery.trim() && filteredBmrti.length > 0 && ` 🎯${filteredBmrti.length}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConsoleFilterCategory(
+                        consoleFilterCategory === "WO" ? "ALL" : "WO",
+                      )
+                    }
+                    className={`px-2 py-0.5 rounded border transition-all cursor-pointer font-bold ${
+                      consoleFilterCategory === "WO"
+                        ? "bg-rose-500 text-slate-950 border-rose-400 ring-2 ring-rose-400 shadow-sm"
+                        : "bg-slate-955 border-slate-800 text-rose-400 hover:bg-slate-850"
+                    }`}
+                  >
                     Weekly Off ({consoleData.weeklyOffs?.length || 0}/50)
-                  </span>
-                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-fuchsia-400">
+                    {consoleSearchQuery.trim() && filteredWeeklyOffs.length > 0 && ` 🎯${filteredWeeklyOffs.length}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConsoleFilterCategory(
+                        consoleFilterCategory === "REL" ? "ALL" : "REL",
+                      )
+                    }
+                    className={`px-2 py-0.5 rounded border transition-all cursor-pointer font-bold ${
+                      consoleFilterCategory === "REL"
+                        ? "bg-fuchsia-500 text-slate-950 border-fuchsia-400 ring-2 ring-fuchsia-400 shadow-sm"
+                        : "bg-slate-955 border-slate-800 text-fuchsia-400 hover:bg-slate-850"
+                    }`}
+                  >
                     REL ({consoleData.relievedOperators?.length || 0}/10)
-                  </span>
-                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-lime-400">
+                    {consoleSearchQuery.trim() && filteredRel.length > 0 && ` 🎯${filteredRel.length}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConsoleFilterCategory(
+                        consoleFilterCategory === "PME" ? "ALL" : "PME",
+                      )
+                    }
+                    className={`px-2 py-0.5 rounded border transition-all cursor-pointer font-bold ${
+                      consoleFilterCategory === "PME"
+                        ? "bg-lime-500 text-slate-950 border-lime-400 ring-2 ring-lime-400 shadow-sm"
+                        : "bg-slate-955 border-slate-800 text-lime-400 hover:bg-slate-850"
+                    }`}
+                  >
                     PME ({consoleData.pmeOperators?.length || 0}/20)
-                  </span>
-                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-indigo-400">
+                    {consoleSearchQuery.trim() && filteredPme.length > 0 && ` 🎯${filteredPme.length}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConsoleFilterCategory(
+                        consoleFilterCategory === "LRD" ? "ALL" : "LRD",
+                      )
+                    }
+                    className={`px-2 py-0.5 rounded border transition-all cursor-pointer font-bold ${
+                      consoleFilterCategory === "LRD"
+                        ? "bg-indigo-500 text-slate-950 border-indigo-400 ring-2 ring-indigo-400 shadow-sm"
+                        : "bg-slate-955 border-slate-800 text-indigo-400 hover:bg-slate-850"
+                    }`}
+                  >
                     LRD ({consoleData.routeLearning?.length || 0}/20)
-                  </span>
-                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-amber-300">
+                    {consoleSearchQuery.trim() && filteredLrd.length > 0 && ` 🎯${filteredLrd.length}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConsoleFilterCategory(
+                        consoleFilterCategory === "OD" ? "ALL" : "OD",
+                      )
+                    }
+                    className={`px-2 py-0.5 rounded border transition-all cursor-pointer font-bold ${
+                      consoleFilterCategory === "OD"
+                        ? "bg-amber-500 text-slate-950 border-amber-400 ring-2 ring-amber-400 shadow-sm"
+                        : "bg-slate-955 border-slate-800 text-amber-300 hover:bg-slate-850"
+                    }`}
+                  >
                     OD ({consoleData.onDuty?.length || 0}/20)
-                  </span>
-                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-rose-300">
+                    {consoleSearchQuery.trim() && filteredOd.length > 0 && ` 🎯${filteredOd.length}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConsoleFilterCategory(
+                        consoleFilterCategory === "NR" ? "ALL" : "NR",
+                      )
+                    }
+                    className={`px-2 py-0.5 rounded border transition-all cursor-pointer font-bold ${
+                      consoleFilterCategory === "NR"
+                        ? "bg-rose-500 text-slate-950 border-rose-400 ring-2 ring-rose-400 shadow-sm"
+                        : "bg-slate-955 border-slate-800 text-rose-300 hover:bg-slate-850"
+                    }`}
+                  >
                     NR ({consoleData.notReporting?.length || 0}/20)
-                  </span>
-                  <span className="bg-slate-955 px-2 py-0.5 rounded border border-slate-800 text-red-400">
+                    {consoleSearchQuery.trim() && filteredNr.length > 0 && ` 🎯${filteredNr.length}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConsoleFilterCategory(
+                        consoleFilterCategory === "AB" ? "ALL" : "AB",
+                      )
+                    }
+                    className={`px-2 py-0.5 rounded border transition-all cursor-pointer font-bold ${
+                      consoleFilterCategory === "AB"
+                        ? "bg-red-500 text-slate-950 border-red-400 ring-2 ring-red-400 shadow-sm"
+                        : "bg-slate-955 border-slate-800 text-red-400 hover:bg-slate-850"
+                    }`}
+                  >
                     AB ({consoleData.absents?.length || 0}/20)
-                  </span>
+                    {consoleSearchQuery.trim() && filteredAbsents.length > 0 && ` 🎯${filteredAbsents.length}`}
+                  </button>
                   {Object.keys(consoleData.customRegisters || {}).map(
-                    (tagName) => (
-                      <span
-                        key={tagName}
-                        className="bg-slate-955 px-2 py-0.5 rounded border border-cyan-800 text-cyan-300"
-                      >
-                        {tagName} (
-                        {consoleData.customRegisters[tagName]?.length || 0})
-                      </span>
-                    ),
+                    (tagName) => {
+                      const matchCount = (
+                        consoleData.customRegisters[tagName] || []
+                      ).filter(matchesConsoleSearch).length;
+                      return (
+                        <button
+                          key={tagName}
+                          type="button"
+                          onClick={() =>
+                            setConsoleFilterCategory(
+                              consoleFilterCategory === tagName ? "ALL" : tagName,
+                            )
+                          }
+                          className={`px-2 py-0.5 rounded border transition-all cursor-pointer font-bold ${
+                            consoleFilterCategory === tagName
+                              ? "bg-cyan-500 text-slate-950 border-cyan-400 ring-2 ring-cyan-400 shadow-sm"
+                              : "bg-slate-955 border-cyan-800 text-cyan-300 hover:bg-slate-850"
+                          }`}
+                        >
+                          {tagName} (
+                          {consoleData.customRegisters[tagName]?.length || 0})
+                          {consoleSearchQuery.trim() &&
+                            matchCount > 0 &&
+                            ` 🎯${matchCount}`}
+                        </button>
+                      );
+                    },
                   )}
                 </div>
               </div>
@@ -4398,745 +4911,1271 @@ Rules:
               </div>
             )}
 
+            {/* Omni-Search & Filter Toolbar for Desk Registers */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-955 p-3 rounded-xl border border-slate-800 shadow-lg">
+              <div className="relative w-full sm:w-96">
+                <input
+                  type="text"
+                  value={consoleSearchQuery}
+                  onChange={(e) => setConsoleSearchQuery(e.target.value)}
+                  placeholder="Search desk console (Name, Emp ID, Duty, Station, Tag)..."
+                  className="w-full bg-slate-900 border border-slate-750 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 rounded-lg py-2 pl-9 pr-8 text-xs text-slate-200 placeholder-slate-500 font-mono outline-none transition-all shadow-inner"
+                />
+                <Search className="h-4 w-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+                {consoleSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setConsoleSearchQuery("")}
+                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white p-0.5 rounded cursor-pointer"
+                    title="Clear search"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 text-xs font-mono w-full sm:w-auto justify-between sm:justify-end flex-wrap">
+                {consoleSearchQuery.trim() && (
+                  <span className="text-[11px] text-amber-300 font-bold bg-amber-950/60 px-2.5 py-1 rounded border border-amber-800/60 flex items-center gap-1.5 shadow-sm">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping"></span>
+                    Found {totalConsoleMatches} match{totalConsoleMatches === 1 ? "" : "es"}
+                  </span>
+                )}
+                {consoleFilterCategory !== "ALL" && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-cyan-300 font-bold bg-cyan-950/60 px-2.5 py-1 rounded border border-cyan-800/60 flex items-center gap-1">
+                      Filter: {consoleFilterCategory}
+                      <button
+                        type="button"
+                        onClick={() => setConsoleFilterCategory("ALL")}
+                        className="ml-1 text-slate-400 hover:text-white cursor-pointer"
+                        title="Clear category filter"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setConsoleFilterCategory("ALL")}
+                      className="text-[10px] text-amber-400 hover:underline font-bold cursor-pointer"
+                    >
+                      SHOW ALL
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Console Cards Grid (Desk Registers) */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Empty Search Results Alert */}
+              {consoleSearchQuery.trim() && totalConsoleMatches === 0 && (
+                <div className="col-span-1 md:col-span-2 lg:col-span-4 bg-slate-955 border border-amber-500/30 rounded-xl p-8 text-center space-y-3 shadow-xl">
+                  <div className="inline-flex p-3 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                    <Search className="h-6 w-6" />
+                  </div>
+                  <h3 className="text-slate-200 font-bold text-sm">
+                    No crew members found matching "{consoleSearchQuery}"
+                  </h3>
+                  <p className="text-slate-400 text-xs font-mono max-w-md mx-auto">
+                    Checked across all 15+ desk registers (BMRTI, CRT, Co-Operators, Standby, Stepbacks, Leaves, Weekly Offs, NR, AB, etc.).
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setConsoleSearchQuery("")}
+                    className="bg-amber-500 hover:bg-amber-400 text-slate-955 font-black text-xs px-4 py-2 rounded-lg transition-all cursor-pointer"
+                  >
+                    CLEAR SEARCH
+                  </button>
+                </div>
+              )}
+
               {/* 0. Co-Operators & Trainee Drivers (2nd Crew) */}
-              <div className="bg-slate-955 border border-amber-500/30 rounded-xl p-3 space-y-2 col-span-1 md:col-span-2 lg:col-span-2 shadow-lg">
-                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-black text-amber-400 uppercase tracking-wide flex items-center gap-1.5">
-                    <Users className="h-4 w-4 text-amber-400" />
-                    Co-Operators & Trainee Drivers (2nd Crew) (
-                    {consoleData.coOperators?.length || 0})
-                  </span>
-                  <span className="text-[10px] bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded border border-amber-800/40 font-mono font-bold">
-                    {consoleData.coOperators?.length || 0} Operators
-                  </span>
-                </div>
-                <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1 text-xs">
-                  {consoleData.coOperators &&
-                  consoleData.coOperators.length > 0 ? (
-                    consoleData.coOperators.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="bg-slate-900 border border-slate-800 hover:border-amber-500/40 p-2 rounded flex justify-between items-center transition-all"
-                      >
-                        <div className="space-y-0.5">
-                          <div className="font-bold text-slate-200 flex items-center gap-1.5">
-                            <span className="bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-mono text-[10px] border border-amber-500/30 font-black">
-                              Duty {item.dutyId}
-                            </span>
-                            <span>{item.name}</span>
-                          </div>
-                          <div className="text-[10px] text-slate-400 font-mono">
-                            Train {item.trainId || "--"} •{" "}
-                            {item.time ||
-                              `${item.signOn || "--"} - ${item.signOff || "--"}`}
-                          </div>
-                        </div>
-                        <span className="text-[10px] font-mono text-amber-400 font-bold bg-slate-955 px-2 py-1 rounded border border-slate-800">
-                          #{item.empNo || "--"}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="p-4 bg-slate-900/40 border border-slate-850 rounded text-center text-slate-500 text-xs font-mono">
-                      No Co-Operators / Trainees deployed in secondary block for
-                      this day.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* 1. Crew Controllers */}
-              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
-                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-amber-400 uppercase">
-                    Crew Controllers ({consoleData.controlDesks?.length || 0})
-                  </span>
-                  <span className="text-[10px] bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded border border-amber-800/40">
-                    {consoleData.controlDesks?.length || 0} / 10
-                  </span>
-                </div>
-                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {(consoleData.controlDesks || []).map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center"
-                    >
-                      <div>
-                        <div className="font-bold text-slate-200">
-                          {item.code || item.label || `CC${idx + 1}`} •{" "}
-                          {item.name}
-                        </div>
-                        <div className="text-[10px] text-slate-400">
-                          {item.time || "06:30 - 14:00"}
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-amber-400 font-bold">
-                        #{item.empNo || "--"}
-                      </span>
-                    </div>
-                  ))}
-                  {Array.from(
-                    {
-                      length: Math.max(
-                        0,
-                        10 - (consoleData.controlDesks?.length || 0),
-                      ),
-                    },
-                    (_, i) => (
-                      <div
-                        key={i}
-                        className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
-                      >
-                        <div>
-                          CC{(consoleData.controlDesks?.length || 0) + i + 1} •
-                          --
-                        </div>
-                        <span className="text-[10px]">06:00 • --</span>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-
-              {/* 2. Leave & Rest */}
-              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
-                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-cyan-400 uppercase">
-                    Leave & Rest ({consoleData.leaves?.length || 0})
-                  </span>
-                  <span className="text-[10px] bg-cyan-950/60 text-cyan-300 px-2 py-0.5 rounded border border-cyan-800/40">
-                    {consoleData.leaves?.length || 0} / 50
-                  </span>
-                </div>
-                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {(consoleData.leaves || []).map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center"
-                    >
-                      <div>
-                        <div className="font-bold text-slate-200">
-                          <span className="text-cyan-400">
-                            {item.type || "CL"}
-                          </span>{" "}
-                          • {item.name}
-                        </div>
-                        <div className="text-[10px] text-slate-400 font-mono">
-                          {safeFormatExcelDate(
-                            item.from || item.dateCode || "--",
-                          )}
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-cyan-400 font-bold">
-                        #{item.empNo || "--"}
-                      </span>
-                    </div>
-                  ))}
-                  {Array.from(
-                    {
-                      length: Math.max(
-                        0,
-                        50 - (consoleData.leaves?.length || 0),
-                      ),
-                    },
-                    (_, i) => (
-                      <div
-                        key={i}
-                        className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
-                      >
-                        <div>-- • --</div>
-                        <span className="text-[10px]">--</span>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-
-              {/* 3. Standby Operators */}
-              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
-                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-emerald-400 uppercase">
-                    Standby ({consoleData.standbys?.length || 0})
-                  </span>
-                  <span className="text-[10px] bg-emerald-950/60 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800/40">
-                    {consoleData.standbys?.length || 0} / 50
-                  </span>
-                </div>
-                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {(consoleData.standbys || []).map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center"
-                    >
-                      <div>
-                        <div className="font-bold text-slate-200">
-                          {item.code || item.label || "OR"} • {item.name}
-                        </div>
-                        <div className="text-[10px] text-slate-400">
-                          {item.time || "09:00 - 17:00"}
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-emerald-400 font-bold">
-                        #{item.empNo || "--"}
-                      </span>
-                    </div>
-                  ))}
-                  {Array.from(
-                    {
-                      length: Math.max(
-                        0,
-                        50 - (consoleData.standbys?.length || 0),
-                      ),
-                    },
-                    (_, i) => (
-                      <div
-                        key={i}
-                        className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
-                      >
-                        <div>--</div>
-                        <span className="text-[10px]">06:00 • --</span>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-
-              {/* 4. Step-Back STBK */}
-              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
-                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-purple-400 uppercase">
-                    STBK ({consoleData.outstationStepbacks?.length || 0})
-                  </span>
-                  <span className="text-[10px] bg-purple-950/60 text-purple-300 px-2 py-0.5 rounded border border-purple-800/40">
-                    {consoleData.outstationStepbacks?.length || 0} / 20
-                  </span>
-                </div>
-                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {(consoleData.outstationStepbacks || []).map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center"
-                    >
-                      <div>
-                        <div className="font-bold text-purple-300">
-                          {item.station || item.loc || "STBK"}
-                        </div>
-                        <div className="text-[10px] text-slate-400">
-                          {item.time}
-                        </div>
-                        <div className="font-bold text-slate-200 mt-0.5">
-                          {item.name}
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-purple-400 font-bold">
-                        #{item.empNo || "--"}
-                      </span>
-                    </div>
-                  ))}
-                  {Array.from(
-                    {
-                      length: Math.max(
-                        0,
-                        20 - (consoleData.outstationStepbacks?.length || 0),
-                      ),
-                    },
-                    (_, i) => (
-                      <div
-                        key={i}
-                        className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
-                      >
-                        <div>STBK • --</div>
-                        <span className="text-[10px]">06:00 • --</span>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-
-              {/* 5. CRT Training */}
-              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
-                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-teal-400 uppercase">
-                    CRT ({consoleData.crtTraining?.length || 0})
-                  </span>
-                  <span className="text-[10px] bg-teal-950/60 text-teal-300 px-2 py-0.5 rounded border border-teal-800/40">
-                    {consoleData.crtTraining?.length || 0} / 15
-                  </span>
-                </div>
-                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {(consoleData.crtTraining || []).map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center"
-                    >
-                      <div>
-                        <div className="font-bold text-slate-200">
-                          {item.name}
-                        </div>
-                        <div className="text-[10px] text-slate-400 font-mono">
-                          {safeFormatExcelDate(item.time || item.date || "CRT")}
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-teal-400 font-bold">
-                        #{item.empNo || "--"}
-                      </span>
-                    </div>
-                  ))}
-                  {Array.from(
-                    {
-                      length: Math.max(
-                        0,
-                        15 - (consoleData.crtTraining?.length || 0),
-                      ),
-                    },
-                    (_, i) => (
-                      <div
-                        key={i}
-                        className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
-                      >
-                        <div>--</div>
-                        <span className="text-[10px]">06:00 • --</span>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-
-              {/* 6. BMRTI Training */}
-              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
-                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-sky-400 uppercase">
-                    BMRTI ({consoleData.bmrtiTraining?.length || 0})
-                  </span>
-                  <span className="text-[10px] bg-sky-950/60 text-sky-300 px-2 py-0.5 rounded border border-sky-800/40">
-                    {consoleData.bmrtiTraining?.length || 0} / 50
-                  </span>
-                </div>
-                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {(consoleData.bmrtiTraining || []).map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center"
-                    >
-                      <div>
-                        <div className="font-bold text-slate-200">
-                          {item.name}
-                        </div>
-                        <div className="text-[10px] text-slate-400 font-mono">
-                          {safeFormatExcelDate(
-                            item.date || item.time || "BMRTI",
-                          )}
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-sky-400 font-bold">
-                        #{item.empNo || "--"}
-                      </span>
-                    </div>
-                  ))}
-                  {Array.from(
-                    {
-                      length: Math.max(
-                        0,
-                        50 - (consoleData.bmrtiTraining?.length || 0),
-                      ),
-                    },
-                    (_, i) => (
-                      <div
-                        key={i}
-                        className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
-                      >
-                        <div>--</div>
-                        <span className="text-[10px]">06:00 • --</span>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-
-              {/* 7. Weekly Off */}
-              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
-                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-rose-400 uppercase">
-                    Weekly Off ({consoleData.weeklyOffs?.length || 0})
-                  </span>
-                  <span className="text-[10px] bg-rose-950/60 text-rose-300 px-2 py-0.5 rounded border border-rose-800/40">
-                    {consoleData.weeklyOffs?.length || 0} / 50
-                  </span>
-                </div>
-                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {(consoleData.weeklyOffs || []).map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center"
-                    >
-                      <div className="font-bold text-slate-200">
-                        {item.name}
-                      </div>
-                      {item.date && (
-                        <div className="text-[10px] text-slate-400 font-mono">
-                          {safeFormatExcelDate(item.date)}
-                        </div>
-                      )}
-                      <span className="text-[10px] text-rose-400 font-bold">
-                        #{item.empNo || "--"}
-                      </span>
-                    </div>
-                  ))}
-                  {Array.from(
-                    {
-                      length: Math.max(
-                        0,
-                        50 - (consoleData.weeklyOffs?.length || 0),
-                      ),
-                    },
-                    (_, i) => (
-                      <div
-                        key={i}
-                        className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
-                      >
-                        <div>--</div>
-                        <span className="text-[10px]">--</span>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-
-              {/* 8. REL (Relieved) */}
-              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
-                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-fuchsia-400 uppercase">
-                    REL ({consoleData.relievedOperators?.length || 0})
-                  </span>
-                  <span className="text-[10px] bg-fuchsia-950/60 text-fuchsia-300 px-2 py-0.5 rounded border border-fuchsia-800/40">
-                    {consoleData.relievedOperators?.length || 0} / 10
-                  </span>
-                </div>
-                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {(consoleData.relievedOperators || []).map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center"
-                    >
-                      <div>
-                        <div className="font-bold text-slate-200">
-                          {item.name}
-                        </div>
-                        <div className="text-[10px] text-slate-400 font-mono">
-                          {safeFormatExcelDate(item.time || "--")}
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-fuchsia-400 font-bold">
-                        #{item.empNo || "--"}
-                      </span>
-                    </div>
-                  ))}
-                  {Array.from(
-                    {
-                      length: Math.max(
-                        0,
-                        10 - (consoleData.relievedOperators?.length || 0),
-                      ),
-                    },
-                    (_, i) => (
-                      <div
-                        key={i}
-                        className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
-                      >
-                        <div>--</div>
-                        <span className="text-[10px]">06:00 • --</span>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-
-              {/* 9. PME Register */}
-              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
-                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-lime-400 uppercase">
-                    PME ({consoleData.pmeOperators?.length || 0})
-                  </span>
-                  <span className="text-[10px] bg-lime-950/60 text-lime-300 px-2 py-0.5 rounded border border-lime-800/40">
-                    {consoleData.pmeOperators?.length || 0} / 20
-                  </span>
-                </div>
-                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {(consoleData.pmeOperators || []).map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center"
-                    >
-                      <div>
-                        <div className="font-bold text-slate-200">
-                          {item.name}
-                        </div>
-                        <div className="text-[10px] text-slate-400 font-mono">
-                          {safeFormatExcelDate(item.time || item.date || "PME")}
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-lime-400 font-bold">
-                        #{item.empNo || "--"}
-                      </span>
-                    </div>
-                  ))}
-                  {Array.from(
-                    {
-                      length: Math.max(
-                        0,
-                        20 - (consoleData.pmeOperators?.length || 0),
-                      ),
-                    },
-                    (_, i) => (
-                      <div
-                        key={i}
-                        className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
-                      >
-                        <div>--</div>
-                        <span className="text-[10px]">PME</span>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-
-              {/* 10. Route Learning (LRD) */}
-              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
-                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-indigo-400 uppercase">
-                    LRD ({consoleData.routeLearning?.length || 0})
-                  </span>
-                  <span className="text-[10px] bg-indigo-950/60 text-indigo-300 px-2 py-0.5 rounded border border-indigo-800/40">
-                    {consoleData.routeLearning?.length || 0} / 20
-                  </span>
-                </div>
-                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {(consoleData.routeLearning || []).map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center"
-                    >
-                      <div>
-                        <div className="font-bold text-slate-200">
-                          {item.name}
-                        </div>
-                        <div className="text-[10px] text-slate-400 font-mono">
-                          {safeFormatExcelDate(item.time || item.date || "LRD")}
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-indigo-400 font-bold">
-                        #{item.empNo || "--"}
-                      </span>
-                    </div>
-                  ))}
-                  {Array.from(
-                    {
-                      length: Math.max(
-                        0,
-                        20 - (consoleData.routeLearning?.length || 0),
-                      ),
-                    },
-                    (_, i) => (
-                      <div
-                        key={i}
-                        className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
-                      >
-                        <div>--</div>
-                        <span className="text-[10px]">LRD</span>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-
-              {/* 11. NOT REPORTING (NR) */}
-              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
-                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-rose-300 uppercase">
-                    NOT REPORTING ({consoleData.notReporting?.length || 0})
-                  </span>
-                  <span className="text-[10px] bg-rose-950/60 text-rose-300 px-2 py-0.5 rounded border border-rose-800/40">
-                    {consoleData.notReporting?.length || 0} / 20
-                  </span>
-                </div>
-                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {(consoleData.notReporting || []).map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center"
-                    >
-                      <div className="font-bold text-slate-200">
-                        {item.name}
-                      </div>
-                      <span className="text-[10px] text-rose-400 font-bold">
-                        #{item.empNo || "--"}
-                      </span>
-                    </div>
-                  ))}
-                  {Array.from(
-                    {
-                      length: Math.max(
-                        0,
-                        20 - (consoleData.notReporting?.length || 0),
-                      ),
-                    },
-                    (_, i) => (
-                      <div
-                        key={i}
-                        className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
-                      >
-                        <div>--</div>
-                        <span className="text-[10px]">NR</span>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-
-              {/* 12. ABSENT (AB) */}
-              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2">
-                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-red-400 uppercase">
-                    ABSENT ({consoleData.absents?.length || 0})
-                  </span>
-                  <span className="text-[10px] bg-red-950/60 text-red-300 px-2 py-0.5 rounded border border-red-800/40">
-                    {consoleData.absents?.length || 0} / 20
-                  </span>
-                </div>
-                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {(consoleData.absents || []).map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center"
-                    >
-                      <div className="font-bold text-slate-200">
-                        {item.name}
-                      </div>
-                      <span className="text-[10px] text-red-400 font-bold">
-                        #{item.empNo || "--"}
-                      </span>
-                    </div>
-                  ))}
-                  {Array.from(
-                    {
-                      length: Math.max(
-                        0,
-                        20 - (consoleData.absents?.length || 0),
-                      ),
-                    },
-                    (_, i) => (
-                      <div
-                        key={i}
-                        className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
-                      >
-                        <div>--</div>
-                        <span className="text-[10px]">AB</span>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-
-              {/* 13. OD (On Duty / Outstation Duty) */}
-              <div className="bg-slate-955 border border-amber-900/40 rounded-xl p-3 space-y-2">
-                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-amber-400 uppercase">
-                    OD (On Duty) ({consoleData.onDuty?.length || 0})
-                  </span>
-                  <span className="text-[10px] bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded border border-amber-800/40">
-                    {consoleData.onDuty?.length || 0} / 20
-                  </span>
-                </div>
-                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                  {(consoleData.onDuty || []).map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center"
-                    >
-                      <div>
-                        <div className="font-bold text-slate-200">
-                          {item.name}
-                        </div>
-                        <div className="text-[10px] text-amber-300 font-mono">
-                          {safeFormatExcelDate(
-                            item.info || item.remark || "OD",
-                          )}
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-amber-400 font-bold">
-                        #{item.empNo || "--"}
-                      </span>
-                    </div>
-                  ))}
-                  {Array.from(
-                    {
-                      length: Math.max(
-                        0,
-                        20 - (consoleData.onDuty?.length || 0),
-                      ),
-                    },
-                    (_, i) => (
-                      <div
-                        key={i}
-                        className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
-                      >
-                        <div>--</div>
-                        <span className="text-[10px]">OD</span>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-
-              {/* 14+. Dynamic Custom Section Cards */}
-              {Object.keys(consoleData.customRegisters || {}).map((tagName) => {
-                const list = consoleData.customRegisters[tagName] || [];
-                return (
+              {(consoleFilterCategory === "ALL" ||
+                consoleFilterCategory === "CO_OP") &&
+                (!consoleSearchQuery.trim() ||
+                  filteredCoOperators.length > 0 ||
+                  consoleFilterCategory === "CO_OP") && (
                   <div
-                    key={tagName}
-                    className="bg-slate-955 border border-cyan-900/40 rounded-xl p-3 space-y-2"
+                    className={`bg-slate-955 border rounded-xl p-3 space-y-2 col-span-1 md:col-span-2 lg:col-span-2 shadow-lg transition-all ${
+                      consoleSearchQuery.trim() && filteredCoOperators.length > 0
+                        ? "border-amber-400 ring-2 ring-amber-400/30"
+                        : "border-amber-500/30"
+                    }`}
                   >
                     <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                      <span className="text-xs font-bold text-cyan-300 uppercase">
-                        {tagName} ({list.length})
+                      <span className="text-xs font-black text-amber-400 uppercase tracking-wide flex items-center gap-1.5">
+                        <Users className="h-4 w-4 text-amber-400" />
+                        Co-Operators & Trainee Drivers (2nd Crew) (
+                        {filteredCoOperators.length}
+                        {consoleSearchQuery.trim()
+                          ? ` / ${consoleData.coOperators?.length || 0}`
+                          : ""}
+                        )
                       </span>
-                      <span className="text-[10px] bg-cyan-950/60 text-cyan-300 px-2 py-0.5 rounded border border-cyan-800/40">
-                        {list.length} / 20
+                      <span className="text-[10px] bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded border border-amber-800/40 font-mono font-bold">
+                        {filteredCoOperators.length} Operators
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1 text-xs">
+                      {filteredCoOperators && filteredCoOperators.length > 0 ? (
+                        filteredCoOperators.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className={`border p-2 rounded flex justify-between items-center transition-all ${
+                              consoleSearchQuery.trim()
+                                ? "bg-amber-950/30 border-amber-500/50"
+                                : "bg-slate-900 border-slate-800 hover:border-amber-500/40"
+                            }`}
+                          >
+                            <div className="space-y-0.5">
+                              <div className="font-bold text-slate-200 flex items-center gap-1.5">
+                                <span className="bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-mono text-[10px] border border-amber-500/30 font-black">
+                                  Duty {item.dutyId}
+                                </span>
+                                <span>{item.name}</span>
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                Train {item.trainId || "--"} •{" "}
+                                {item.time ||
+                                  `${item.signOn || "--"} - ${item.signOff || "--"}`}
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-mono text-amber-400 font-bold bg-slate-955 px-2 py-1 rounded border border-slate-800">
+                              #{item.empNo || item.empId || "--"}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-4 bg-slate-900/40 border border-slate-850 rounded text-center text-slate-500 text-xs font-mono">
+                          {consoleSearchQuery.trim()
+                            ? `No co-operators matching "${consoleSearchQuery}"`
+                            : "No Co-Operators / Trainees deployed in secondary block for this day."}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              {/* 1. Crew Controllers */}
+              {(consoleFilterCategory === "ALL" ||
+                consoleFilterCategory === "CC") &&
+                (!consoleSearchQuery.trim() ||
+                  filteredControlDesks.length > 0 ||
+                  consoleFilterCategory === "CC") && (
+                  <div
+                    className={`bg-slate-955 border rounded-xl p-3 space-y-2 transition-all ${
+                      consoleSearchQuery.trim() && filteredControlDesks.length > 0
+                        ? "border-amber-400 ring-2 ring-amber-400/30"
+                        : "border-slate-800 hover:border-amber-500/40"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <span className="text-xs font-bold text-amber-400 uppercase">
+                        Crew Controllers ({filteredControlDesks.length}
+                        {consoleSearchQuery.trim()
+                          ? ` / ${consoleData.controlDesks?.length || 0}`
+                          : ""}
+                        )
+                      </span>
+                      <span className="text-[10px] bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded border border-amber-800/40 font-mono font-bold">
+                        {filteredControlDesks.length} / 10
                       </span>
                     </div>
                     <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                      {list.map((item, idx) => (
-                        <div
-                          key={idx}
-                          className="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center"
-                        >
-                          <div>
+                      {filteredControlDesks && filteredControlDesks.length > 0 ? (
+                        filteredControlDesks.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className={`border p-2 rounded flex justify-between items-center transition-all ${
+                              consoleSearchQuery.trim()
+                                ? "bg-amber-950/30 border-amber-500/50"
+                                : "bg-slate-900 border-slate-800"
+                            }`}
+                          >
+                            <div>
+                              <div className="font-bold text-slate-200">
+                                {item.code || item.label || `CC${idx + 1}`} •{" "}
+                                {item.name}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {item.time || "06:30 - 14:00"}
+                              </div>
+                            </div>
+                            <span className="text-[10px] text-amber-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                              #{item.empNo || item.empId || "--"}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 bg-slate-900/40 border border-slate-850 rounded text-center text-slate-500 text-xs font-mono">
+                          {consoleSearchQuery.trim()
+                            ? `No controllers matching "${consoleSearchQuery}"`
+                            : "No controllers assigned."}
+                        </div>
+                      )}
+                      {!consoleSearchQuery.trim() &&
+                        Array.from(
+                          {
+                            length: Math.max(
+                              0,
+                              10 - (consoleData.controlDesks?.length || 0),
+                            ),
+                          },
+                          (_, i) => (
+                            <div
+                              key={i}
+                              className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
+                            >
+                              <div>
+                                CC{(consoleData.controlDesks?.length || 0) + i + 1} •
+                                --
+                              </div>
+                              <span className="text-[10px]">06:00 • --</span>
+                            </div>
+                          ),
+                        )}
+                    </div>
+                  </div>
+                )}
+
+              {/* 2. Leave & Rest */}
+              {(consoleFilterCategory === "ALL" ||
+                consoleFilterCategory === "LEAVE") &&
+                (!consoleSearchQuery.trim() ||
+                  filteredLeaves.length > 0 ||
+                  consoleFilterCategory === "LEAVE") && (
+                  <div
+                    className={`bg-slate-955 border rounded-xl p-3 space-y-2 transition-all ${
+                      consoleSearchQuery.trim() && filteredLeaves.length > 0
+                        ? "border-cyan-400 ring-2 ring-cyan-400/30"
+                        : "border-slate-800 hover:border-cyan-500/40"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <span className="text-xs font-bold text-cyan-400 uppercase">
+                        Leave & Rest ({filteredLeaves.length}
+                        {consoleSearchQuery.trim()
+                          ? ` / ${consoleData.leaves?.length || 0}`
+                          : ""}
+                        )
+                      </span>
+                      <span className="text-[10px] bg-cyan-950/60 text-cyan-300 px-2 py-0.5 rounded border border-cyan-800/40 font-mono font-bold">
+                        {filteredLeaves.length} / 50
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                      {filteredLeaves && filteredLeaves.length > 0 ? (
+                        filteredLeaves.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className={`border p-2 rounded flex justify-between items-center transition-all ${
+                              consoleSearchQuery.trim()
+                                ? "bg-cyan-950/30 border-cyan-500/50"
+                                : "bg-slate-900 border-slate-800"
+                            }`}
+                          >
+                            <div>
+                              <div className="font-bold text-slate-200">
+                                <span className="text-cyan-400">
+                                  {item.type || "CL"}
+                                </span>{" "}
+                                • {item.name}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {safeFormatExcelDate(
+                                  item.from || item.dateCode || "--",
+                                )}
+                              </div>
+                            </div>
+                            <span className="text-[10px] text-cyan-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                              #{item.empNo || item.empId || "--"}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 bg-slate-900/40 border border-slate-850 rounded text-center text-slate-500 text-xs font-mono">
+                          {consoleSearchQuery.trim()
+                            ? `No leaves matching "${consoleSearchQuery}"`
+                            : "No leaves recorded for this day."}
+                        </div>
+                      )}
+                      {!consoleSearchQuery.trim() &&
+                        Array.from(
+                          {
+                            length: Math.max(
+                              0,
+                              Math.min(5, 50 - (consoleData.leaves?.length || 0)),
+                            ),
+                          },
+                          (_, i) => (
+                            <div
+                              key={i}
+                              className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
+                            >
+                              <div>-- • --</div>
+                              <span className="text-[10px]">--</span>
+                            </div>
+                          ),
+                        )}
+                    </div>
+                  </div>
+                )}
+
+              {/* 3. Standby Operators */}
+              {(consoleFilterCategory === "ALL" ||
+                consoleFilterCategory === "STANDBY") &&
+                (!consoleSearchQuery.trim() ||
+                  filteredStandbys.length > 0 ||
+                  consoleFilterCategory === "STANDBY") && (
+                  <div
+                    className={`bg-slate-955 border rounded-xl p-3 space-y-2 transition-all ${
+                      consoleSearchQuery.trim() && filteredStandbys.length > 0
+                        ? "border-emerald-400 ring-2 ring-emerald-400/30"
+                        : "border-slate-800 hover:border-emerald-500/40"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <span className="text-xs font-bold text-emerald-400 uppercase">
+                        Standby ({filteredStandbys.length}
+                        {consoleSearchQuery.trim()
+                          ? ` / ${consoleData.standbys?.length || 0}`
+                          : ""}
+                        )
+                      </span>
+                      <span className="text-[10px] bg-emerald-950/60 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800/40 font-mono font-bold">
+                        {filteredStandbys.length} / 50
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                      {filteredStandbys && filteredStandbys.length > 0 ? (
+                        filteredStandbys.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className={`border p-2 rounded flex justify-between items-center transition-all ${
+                              consoleSearchQuery.trim()
+                                ? "bg-emerald-950/30 border-emerald-500/50"
+                                : "bg-slate-900 border-slate-800"
+                            }`}
+                          >
+                            <div>
+                              <div className="font-bold text-slate-200">
+                                {item.code || item.label || "OR"} • {item.name}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {item.time || "09:00 - 17:00"}
+                              </div>
+                            </div>
+                            <span className="text-[10px] text-emerald-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                              #{item.empNo || item.empId || "--"}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 bg-slate-900/40 border border-slate-850 rounded text-center text-slate-500 text-xs font-mono">
+                          {consoleSearchQuery.trim()
+                            ? `No standby crew matching "${consoleSearchQuery}"`
+                            : "No standby crew deployed."}
+                        </div>
+                      )}
+                      {!consoleSearchQuery.trim() &&
+                        Array.from(
+                          {
+                            length: Math.max(
+                              0,
+                              Math.min(5, 50 - (consoleData.standbys?.length || 0)),
+                            ),
+                          },
+                          (_, i) => (
+                            <div
+                              key={i}
+                              className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
+                            >
+                              <div>--</div>
+                              <span className="text-[10px]">06:00 • --</span>
+                            </div>
+                          ),
+                        )}
+                    </div>
+                  </div>
+                )}
+
+              {/* 4. Step-Back STBK */}
+              {(consoleFilterCategory === "ALL" ||
+                consoleFilterCategory === "STBK") &&
+                (!consoleSearchQuery.trim() ||
+                  filteredStepbacks.length > 0 ||
+                  consoleFilterCategory === "STBK") && (
+                  <div
+                    className={`bg-slate-955 border rounded-xl p-3 space-y-2 transition-all ${
+                      consoleSearchQuery.trim() && filteredStepbacks.length > 0
+                        ? "border-purple-400 ring-2 ring-purple-400/30"
+                        : "border-slate-800 hover:border-purple-500/40"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <span className="text-xs font-bold text-purple-400 uppercase">
+                        STBK ({filteredStepbacks.length}
+                        {consoleSearchQuery.trim()
+                          ? ` / ${consoleData.outstationStepbacks?.length || 0}`
+                          : ""}
+                        )
+                      </span>
+                      <span className="text-[10px] bg-purple-950/60 text-purple-300 px-2 py-0.5 rounded border border-purple-800/40 font-mono font-bold">
+                        {filteredStepbacks.length} / 20
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                      {filteredStepbacks && filteredStepbacks.length > 0 ? (
+                        filteredStepbacks.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className={`border p-2 rounded flex justify-between items-center transition-all ${
+                              consoleSearchQuery.trim()
+                                ? "bg-purple-950/30 border-purple-500/50"
+                                : "bg-slate-900 border-slate-800"
+                            }`}
+                          >
+                            <div>
+                              <div className="font-bold text-purple-300">
+                                {item.station || item.loc || "STBK"}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {item.time}
+                              </div>
+                              <div className="font-bold text-slate-200 mt-0.5">
+                                {item.name}
+                              </div>
+                            </div>
+                            <span className="text-[10px] text-purple-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                              #{item.empNo || item.empId || "--"}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 bg-slate-900/40 border border-slate-850 rounded text-center text-slate-500 text-xs font-mono">
+                          {consoleSearchQuery.trim()
+                            ? `No STBK operators matching "${consoleSearchQuery}"`
+                            : "No STBK operators assigned."}
+                        </div>
+                      )}
+                      {!consoleSearchQuery.trim() &&
+                        Array.from(
+                          {
+                            length: Math.max(
+                              0,
+                              Math.min(5, 20 - (consoleData.outstationStepbacks?.length || 0)),
+                            ),
+                          },
+                          (_, i) => (
+                            <div
+                              key={i}
+                              className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
+                            >
+                              <div>STBK • --</div>
+                              <span className="text-[10px]">06:00 • --</span>
+                            </div>
+                          ),
+                        )}
+                    </div>
+                  </div>
+                )}
+
+              {/* 5. CRT Training */}
+              {(consoleFilterCategory === "ALL" ||
+                consoleFilterCategory === "CRT") &&
+                (!consoleSearchQuery.trim() ||
+                  filteredCrt.length > 0 ||
+                  consoleFilterCategory === "CRT") && (
+                  <div
+                    className={`bg-slate-955 border rounded-xl p-3 space-y-2 transition-all ${
+                      consoleSearchQuery.trim() && filteredCrt.length > 0
+                        ? "border-teal-400 ring-2 ring-teal-400/30"
+                        : "border-slate-800 hover:border-teal-500/40"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <span className="text-xs font-bold text-teal-400 uppercase">
+                        CRT ({filteredCrt.length}
+                        {consoleSearchQuery.trim()
+                          ? ` / ${consoleData.crtTraining?.length || 0}`
+                          : ""}
+                        )
+                      </span>
+                      <span className="text-[10px] bg-teal-950/60 text-teal-300 px-2 py-0.5 rounded border border-teal-800/40 font-mono font-bold">
+                        {filteredCrt.length} / 15
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                      {filteredCrt && filteredCrt.length > 0 ? (
+                        filteredCrt.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className={`border p-2 rounded flex justify-between items-center transition-all ${
+                              consoleSearchQuery.trim()
+                                ? "bg-teal-950/30 border-teal-500/50"
+                                : "bg-slate-900 border-slate-800"
+                            }`}
+                          >
+                            <div>
+                              <div className="font-bold text-slate-200">
+                                {item.name}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {safeFormatExcelDate(
+                                  item.time || item.date || "CRT",
+                                )}
+                              </div>
+                            </div>
+                            <span className="text-[10px] text-teal-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                              #{item.empNo || item.empId || "--"}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 bg-slate-900/40 border border-slate-850 rounded text-center text-slate-500 text-xs font-mono">
+                          {consoleSearchQuery.trim()
+                            ? `No CRT operators matching "${consoleSearchQuery}"`
+                            : "No CRT trainees deployed."}
+                        </div>
+                      )}
+                      {!consoleSearchQuery.trim() &&
+                        Array.from(
+                          {
+                            length: Math.max(
+                              0,
+                              Math.min(5, 15 - (consoleData.crtTraining?.length || 0)),
+                            ),
+                          },
+                          (_, i) => (
+                            <div
+                              key={i}
+                              className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
+                            >
+                              <div>--</div>
+                              <span className="text-[10px]">06:00 • --</span>
+                            </div>
+                          ),
+                        )}
+                    </div>
+                  </div>
+                )}
+
+              {/* 6. BMRTI Training (Includes Employee 22297 Mohammed Rafiq & 22315 Krishna Murthy) */}
+              {(consoleFilterCategory === "ALL" ||
+                consoleFilterCategory === "BMRTI") &&
+                (!consoleSearchQuery.trim() ||
+                  filteredBmrti.length > 0 ||
+                  consoleFilterCategory === "BMRTI") && (
+                  <div
+                    className={`bg-slate-955 border rounded-xl p-3 space-y-2 transition-all ${
+                      consoleSearchQuery.trim() && filteredBmrti.length > 0
+                        ? "border-sky-400 ring-2 ring-sky-400/40 shadow-xl"
+                        : "border-slate-800 hover:border-sky-500/40"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <span className="text-xs font-bold text-sky-400 uppercase flex items-center gap-1.5">
+                        <Users className="h-4 w-4 text-sky-400" />
+                        BMRTI ({filteredBmrti.length}
+                        {consoleSearchQuery.trim()
+                          ? ` / ${consoleData.bmrtiTraining?.length || 0}`
+                          : ""}
+                        )
+                      </span>
+                      <span className="text-[10px] bg-sky-950/60 text-sky-300 px-2 py-0.5 rounded border border-sky-800/40 font-mono font-bold">
+                        {filteredBmrti.length} / 50
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                      {filteredBmrti && filteredBmrti.length > 0 ? (
+                        filteredBmrti.map((item, idx) => {
+                          const isSpecialBmrti =
+                            String(item.empNo || item.empId).trim() === "22297" ||
+                            String(item.empNo || item.empId).trim() === "22315";
+                          return (
+                            <div
+                              key={idx}
+                              className={`border p-2 rounded flex justify-between items-center transition-all ${
+                                isSpecialBmrti
+                                  ? "bg-sky-950/60 border-sky-400/80 shadow-md"
+                                  : consoleSearchQuery.trim()
+                                    ? "bg-sky-950/30 border-sky-500/50"
+                                    : "bg-slate-900 border-slate-800"
+                              }`}
+                            >
+                              <div>
+                                <div className="font-bold text-slate-200 flex items-center gap-1.5">
+                                  <span>{item.name}</span>
+                                  {isSpecialBmrti && (
+                                    <span className="text-[9px] bg-sky-500 text-slate-950 font-black px-1.5 py-0.2 rounded uppercase">
+                                      BMRTI
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-slate-400 font-mono">
+                                  {safeFormatExcelDate(
+                                    item.date || item.time || "BMRTI",
+                                  )}
+                                </div>
+                              </div>
+                              <span className="text-[10px] text-sky-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                                #{item.empNo || item.empId || "--"}
+                              </span>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="p-3 bg-slate-900/40 border border-slate-850 rounded text-center text-slate-500 text-xs font-mono">
+                          {consoleSearchQuery.trim()
+                            ? `No BMRTI operators matching "${consoleSearchQuery}"`
+                            : "No operators deployed under BMRTI for this day."}
+                        </div>
+                      )}
+                      {!consoleSearchQuery.trim() &&
+                        Array.from(
+                          {
+                            length: Math.max(
+                              0,
+                              Math.min(5, 50 - (consoleData.bmrtiTraining?.length || 0)),
+                            ),
+                          },
+                          (_, i) => (
+                            <div
+                              key={i}
+                              className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
+                            >
+                              <div>--</div>
+                              <span className="text-[10px]">06:00 • --</span>
+                            </div>
+                          ),
+                        )}
+                    </div>
+                  </div>
+                )}
+
+              {/* 7. Weekly Off */}
+              {(consoleFilterCategory === "ALL" ||
+                consoleFilterCategory === "WO") &&
+                (!consoleSearchQuery.trim() ||
+                  filteredWeeklyOffs.length > 0 ||
+                  consoleFilterCategory === "WO") && (
+                  <div
+                    className={`bg-slate-955 border rounded-xl p-3 space-y-2 transition-all ${
+                      consoleSearchQuery.trim() && filteredWeeklyOffs.length > 0
+                        ? "border-rose-400 ring-2 ring-rose-400/30"
+                        : "border-slate-800 hover:border-rose-500/40"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <span className="text-xs font-bold text-rose-400 uppercase">
+                        Weekly Off ({filteredWeeklyOffs.length}
+                        {consoleSearchQuery.trim()
+                          ? ` / ${consoleData.weeklyOffs?.length || 0}`
+                          : ""}
+                        )
+                      </span>
+                      <span className="text-[10px] bg-rose-950/60 text-rose-300 px-2 py-0.5 rounded border border-rose-800/40 font-mono font-bold">
+                        {filteredWeeklyOffs.length} / 50
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                      {filteredWeeklyOffs && filteredWeeklyOffs.length > 0 ? (
+                        filteredWeeklyOffs.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className={`border p-2 rounded flex justify-between items-center transition-all ${
+                              consoleSearchQuery.trim()
+                                ? "bg-rose-950/30 border-rose-500/50"
+                                : "bg-slate-900 border-slate-800"
+                            }`}
+                          >
                             <div className="font-bold text-slate-200">
                               {item.name}
                             </div>
-                            <div className="text-[10px] text-cyan-400 font-mono">
-                              {item.info || item.tag || ""}
-                            </div>
+                            {item.date && (
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {safeFormatExcelDate(item.date)}
+                              </div>
+                            )}
+                            <span className="text-[10px] text-rose-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                              #{item.empNo || item.empId || "--"}
+                            </span>
                           </div>
-                          <span className="text-[10px] text-cyan-300 font-bold">
-                            #{item.empNo || "--"}
-                          </span>
+                        ))
+                      ) : (
+                        <div className="p-3 bg-slate-900/40 border border-slate-850 rounded text-center text-slate-500 text-xs font-mono">
+                          {consoleSearchQuery.trim()
+                            ? `No Weekly Off crew matching "${consoleSearchQuery}"`
+                            : "No Weekly Off crew recorded."}
                         </div>
-                      ))}
-                      {Array.from(
-                        { length: Math.max(0, 20 - list.length) },
-                        (_, i) => (
-                          <div
-                            key={i}
-                            className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
-                          >
-                            <div>--</div>
-                            <span className="text-[10px]">{tagName}</span>
-                          </div>
-                        ),
                       )}
+                      {!consoleSearchQuery.trim() &&
+                        Array.from(
+                          {
+                            length: Math.max(
+                              0,
+                              Math.min(5, 50 - (consoleData.weeklyOffs?.length || 0)),
+                            ),
+                          },
+                          (_, i) => (
+                            <div
+                              key={i}
+                              className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
+                            >
+                              <div>--</div>
+                              <span className="text-[10px]">--</span>
+                            </div>
+                          ),
+                        )}
+                    </div>
+                  </div>
+                )}
+
+              {/* 8. REL (Relieved) */}
+              {(consoleFilterCategory === "ALL" ||
+                consoleFilterCategory === "REL") &&
+                (!consoleSearchQuery.trim() ||
+                  filteredRel.length > 0 ||
+                  consoleFilterCategory === "REL") && (
+                  <div
+                    className={`bg-slate-955 border rounded-xl p-3 space-y-2 transition-all ${
+                      consoleSearchQuery.trim() && filteredRel.length > 0
+                        ? "border-fuchsia-400 ring-2 ring-fuchsia-400/30"
+                        : "border-slate-800 hover:border-fuchsia-500/40"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <span className="text-xs font-bold text-fuchsia-400 uppercase">
+                        REL ({filteredRel.length}
+                        {consoleSearchQuery.trim()
+                          ? ` / ${consoleData.relievedOperators?.length || 0}`
+                          : ""}
+                        )
+                      </span>
+                      <span className="text-[10px] bg-fuchsia-950/60 text-fuchsia-300 px-2 py-0.5 rounded border border-fuchsia-800/40 font-mono font-bold">
+                        {filteredRel.length} / 10
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                      {filteredRel && filteredRel.length > 0 ? (
+                        filteredRel.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className={`border p-2 rounded flex justify-between items-center transition-all ${
+                              consoleSearchQuery.trim()
+                                ? "bg-fuchsia-950/30 border-fuchsia-500/50"
+                                : "bg-slate-900 border-slate-800"
+                            }`}
+                          >
+                            <div>
+                              <div className="font-bold text-slate-200">
+                                {item.name}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {safeFormatExcelDate(item.time || "--")}
+                              </div>
+                            </div>
+                            <span className="text-[10px] text-fuchsia-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                              #{item.empNo || item.empId || "--"}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 bg-slate-900/40 border border-slate-850 rounded text-center text-slate-500 text-xs font-mono">
+                          {consoleSearchQuery.trim()
+                            ? `No REL crew matching "${consoleSearchQuery}"`
+                            : "No relieved operators recorded."}
+                        </div>
+                      )}
+                      {!consoleSearchQuery.trim() &&
+                        Array.from(
+                          {
+                            length: Math.max(
+                              0,
+                              Math.min(5, 10 - (consoleData.relievedOperators?.length || 0)),
+                            ),
+                          },
+                          (_, i) => (
+                            <div
+                              key={i}
+                              className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
+                            >
+                              <div>--</div>
+                              <span className="text-[10px]">06:00 • --</span>
+                            </div>
+                          ),
+                        )}
+                    </div>
+                  </div>
+                )}
+
+              {/* 9. PME Register */}
+              {(consoleFilterCategory === "ALL" ||
+                consoleFilterCategory === "PME") &&
+                (!consoleSearchQuery.trim() ||
+                  filteredPme.length > 0 ||
+                  consoleFilterCategory === "PME") && (
+                  <div
+                    className={`bg-slate-955 border rounded-xl p-3 space-y-2 transition-all ${
+                      consoleSearchQuery.trim() && filteredPme.length > 0
+                        ? "border-lime-400 ring-2 ring-lime-400/30"
+                        : "border-slate-800 hover:border-lime-500/40"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <span className="text-xs font-bold text-lime-400 uppercase">
+                        PME ({filteredPme.length}
+                        {consoleSearchQuery.trim()
+                          ? ` / ${consoleData.pmeOperators?.length || 0}`
+                          : ""}
+                        )
+                      </span>
+                      <span className="text-[10px] bg-lime-950/60 text-lime-300 px-2 py-0.5 rounded border border-lime-800/40 font-mono font-bold">
+                        {filteredPme.length} / 20
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                      {filteredPme && filteredPme.length > 0 ? (
+                        filteredPme.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className={`border p-2 rounded flex justify-between items-center transition-all ${
+                              consoleSearchQuery.trim()
+                                ? "bg-lime-950/30 border-lime-500/50"
+                                : "bg-slate-900 border-slate-800"
+                            }`}
+                          >
+                            <div>
+                              <div className="font-bold text-slate-200">
+                                {item.name}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {safeFormatExcelDate(
+                                  item.time || item.date || "PME",
+                                )}
+                              </div>
+                            </div>
+                            <span className="text-[10px] text-lime-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                              #{item.empNo || item.empId || "--"}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 bg-slate-900/40 border border-slate-850 rounded text-center text-slate-500 text-xs font-mono">
+                          {consoleSearchQuery.trim()
+                            ? `No PME crew matching "${consoleSearchQuery}"`
+                            : "No PME scheduled."}
+                        </div>
+                      )}
+                      {!consoleSearchQuery.trim() &&
+                        Array.from(
+                          {
+                            length: Math.max(
+                              0,
+                              Math.min(5, 20 - (consoleData.pmeOperators?.length || 0)),
+                            ),
+                          },
+                          (_, i) => (
+                            <div
+                              key={i}
+                              className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
+                            >
+                              <div>--</div>
+                              <span className="text-[10px]">PME</span>
+                            </div>
+                          ),
+                        )}
+                    </div>
+                  </div>
+                )}
+
+              {/* 10. Route Learning (LRD) */}
+              {(consoleFilterCategory === "ALL" ||
+                consoleFilterCategory === "LRD") &&
+                (!consoleSearchQuery.trim() ||
+                  filteredLrd.length > 0 ||
+                  consoleFilterCategory === "LRD") && (
+                  <div
+                    className={`bg-slate-955 border rounded-xl p-3 space-y-2 transition-all ${
+                      consoleSearchQuery.trim() && filteredLrd.length > 0
+                        ? "border-indigo-400 ring-2 ring-indigo-400/30"
+                        : "border-slate-800 hover:border-indigo-500/40"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <span className="text-xs font-bold text-indigo-400 uppercase">
+                        LRD ({filteredLrd.length}
+                        {consoleSearchQuery.trim()
+                          ? ` / ${consoleData.routeLearning?.length || 0}`
+                          : ""}
+                        )
+                      </span>
+                      <span className="text-[10px] bg-indigo-950/60 text-indigo-300 px-2 py-0.5 rounded border border-indigo-800/40 font-mono font-bold">
+                        {filteredLrd.length} / 20
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                      {filteredLrd && filteredLrd.length > 0 ? (
+                        filteredLrd.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className={`border p-2 rounded flex justify-between items-center transition-all ${
+                              consoleSearchQuery.trim()
+                                ? "bg-indigo-950/30 border-indigo-500/50"
+                                : "bg-slate-900 border-slate-800"
+                            }`}
+                          >
+                            <div>
+                              <div className="font-bold text-slate-200">
+                                {item.name}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {safeFormatExcelDate(
+                                  item.time || item.date || "LRD",
+                                )}
+                              </div>
+                            </div>
+                            <span className="text-[10px] text-indigo-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                              #{item.empNo || item.empId || "--"}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 bg-slate-900/40 border border-slate-850 rounded text-center text-slate-500 text-xs font-mono">
+                          {consoleSearchQuery.trim()
+                            ? `No LRD crew matching "${consoleSearchQuery}"`
+                            : "No route learning crew."}
+                        </div>
+                      )}
+                      {!consoleSearchQuery.trim() &&
+                        Array.from(
+                          {
+                            length: Math.max(
+                              0,
+                              Math.min(5, 20 - (consoleData.routeLearning?.length || 0)),
+                            ),
+                          },
+                          (_, i) => (
+                            <div
+                              key={i}
+                              className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
+                            >
+                              <div>--</div>
+                              <span className="text-[10px]">LRD</span>
+                            </div>
+                          ),
+                        )}
+                    </div>
+                  </div>
+                )}
+
+              {/* 11. NOT REPORTING (NR) */}
+              {(consoleFilterCategory === "ALL" ||
+                consoleFilterCategory === "NR") &&
+                (!consoleSearchQuery.trim() ||
+                  filteredNr.length > 0 ||
+                  consoleFilterCategory === "NR") && (
+                  <div
+                    className={`bg-slate-955 border rounded-xl p-3 space-y-2 transition-all ${
+                      consoleSearchQuery.trim() && filteredNr.length > 0
+                        ? "border-rose-400 ring-2 ring-rose-400/30"
+                        : "border-slate-800 hover:border-rose-500/40"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <span className="text-xs font-bold text-rose-300 uppercase">
+                        NOT REPORTING ({filteredNr.length}
+                        {consoleSearchQuery.trim()
+                          ? ` / ${consoleData.notReporting?.length || 0}`
+                          : ""}
+                        )
+                      </span>
+                      <span className="text-[10px] bg-rose-950/60 text-rose-300 px-2 py-0.5 rounded border border-rose-800/40 font-mono font-bold">
+                        {filteredNr.length} / 20
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                      {filteredNr && filteredNr.length > 0 ? (
+                        filteredNr.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className={`border p-2 rounded flex justify-between items-center transition-all ${
+                              consoleSearchQuery.trim()
+                                ? "bg-rose-950/30 border-rose-500/50"
+                                : "bg-slate-900 border-slate-800"
+                            }`}
+                          >
+                            <div className="font-bold text-slate-200">
+                              {item.name}
+                            </div>
+                            <span className="text-[10px] text-rose-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                              #{item.empNo || item.empId || "--"}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 bg-slate-900/40 border border-slate-850 rounded text-center text-slate-500 text-xs font-mono">
+                          {consoleSearchQuery.trim()
+                            ? `No not-reporting crew matching "${consoleSearchQuery}"`
+                            : "No Not-Reporting operators recorded."}
+                        </div>
+                      )}
+                      {!consoleSearchQuery.trim() &&
+                        Array.from(
+                          {
+                            length: Math.max(
+                              0,
+                              Math.min(5, 20 - (consoleData.notReporting?.length || 0)),
+                            ),
+                          },
+                          (_, i) => (
+                            <div
+                              key={i}
+                              className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
+                            >
+                              <div>--</div>
+                              <span className="text-[10px]">NR</span>
+                            </div>
+                          ),
+                        )}
+                    </div>
+                  </div>
+                )}
+
+              {/* 12. ABSENT (AB) */}
+              {(consoleFilterCategory === "ALL" ||
+                consoleFilterCategory === "AB") &&
+                (!consoleSearchQuery.trim() ||
+                  filteredAbsents.length > 0 ||
+                  consoleFilterCategory === "AB") && (
+                  <div
+                    className={`bg-slate-955 border rounded-xl p-3 space-y-2 transition-all ${
+                      consoleSearchQuery.trim() && filteredAbsents.length > 0
+                        ? "border-red-400 ring-2 ring-red-400/30"
+                        : "border-slate-800 hover:border-red-500/40"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <span className="text-xs font-bold text-red-400 uppercase">
+                        ABSENT ({filteredAbsents.length}
+                        {consoleSearchQuery.trim()
+                          ? ` / ${consoleData.absents?.length || 0}`
+                          : ""}
+                        )
+                      </span>
+                      <span className="text-[10px] bg-red-950/60 text-red-300 px-2 py-0.5 rounded border border-red-800/40 font-mono font-bold">
+                        {filteredAbsents.length} / 20
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                      {filteredAbsents && filteredAbsents.length > 0 ? (
+                        filteredAbsents.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className={`border p-2 rounded flex justify-between items-center transition-all ${
+                              consoleSearchQuery.trim()
+                                ? "bg-red-950/30 border-red-500/50"
+                                : "bg-slate-900 border-slate-800"
+                            }`}
+                          >
+                            <div className="font-bold text-slate-200">
+                              {item.name}
+                            </div>
+                            <span className="text-[10px] text-red-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                              #{item.empNo || item.empId || "--"}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 bg-slate-900/40 border border-slate-850 rounded text-center text-slate-500 text-xs font-mono">
+                          {consoleSearchQuery.trim()
+                            ? `No absent crew matching "${consoleSearchQuery}"`
+                            : "No Absent operators recorded."}
+                        </div>
+                      )}
+                      {!consoleSearchQuery.trim() &&
+                        Array.from(
+                          {
+                            length: Math.max(
+                              0,
+                              Math.min(5, 20 - (consoleData.absents?.length || 0)),
+                            ),
+                          },
+                          (_, i) => (
+                            <div
+                              key={i}
+                              className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
+                            >
+                              <div>--</div>
+                              <span className="text-[10px]">AB</span>
+                            </div>
+                          ),
+                        )}
+                    </div>
+                  </div>
+                )}
+
+              {/* 13. OD (On Duty / Outstation Duty) */}
+              {(consoleFilterCategory === "ALL" ||
+                consoleFilterCategory === "OD") &&
+                (!consoleSearchQuery.trim() ||
+                  filteredOd.length > 0 ||
+                  consoleFilterCategory === "OD") && (
+                  <div
+                    className={`bg-slate-955 border rounded-xl p-3 space-y-2 transition-all ${
+                      consoleSearchQuery.trim() && filteredOd.length > 0
+                        ? "border-amber-400 ring-2 ring-amber-400/30"
+                        : "border-amber-900/40 hover:border-amber-500/40"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <span className="text-xs font-bold text-amber-400 uppercase">
+                        OD (On Duty) ({filteredOd.length}
+                        {consoleSearchQuery.trim()
+                          ? ` / ${consoleData.onDuty?.length || 0}`
+                          : ""}
+                        )
+                      </span>
+                      <span className="text-[10px] bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded border border-amber-800/40 font-mono font-bold">
+                        {filteredOd.length} / 20
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                      {filteredOd && filteredOd.length > 0 ? (
+                        filteredOd.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className={`border p-2 rounded flex justify-between items-center transition-all ${
+                              consoleSearchQuery.trim()
+                                ? "bg-amber-950/30 border-amber-500/50"
+                                : "bg-slate-900 border-slate-800"
+                            }`}
+                          >
+                            <div>
+                              <div className="font-bold text-slate-200">
+                                {item.name}
+                              </div>
+                              <div className="text-[10px] text-amber-300 font-mono">
+                                {safeFormatExcelDate(
+                                  item.info || item.remark || "OD",
+                                )}
+                              </div>
+                            </div>
+                            <span className="text-[10px] text-amber-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                              #{item.empNo || item.empId || "--"}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 bg-slate-900/40 border border-slate-850 rounded text-center text-slate-500 text-xs font-mono">
+                          {consoleSearchQuery.trim()
+                            ? `No On-Duty crew matching "${consoleSearchQuery}"`
+                            : "No On-Duty crew recorded."}
+                        </div>
+                      )}
+                      {!consoleSearchQuery.trim() &&
+                        Array.from(
+                          {
+                            length: Math.max(
+                              0,
+                              Math.min(5, 20 - (consoleData.onDuty?.length || 0)),
+                            ),
+                          },
+                          (_, i) => (
+                            <div
+                              key={i}
+                              className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
+                            >
+                              <div>--</div>
+                              <span className="text-[10px]">OD</span>
+                            </div>
+                          ),
+                        )}
+                    </div>
+                  </div>
+                )}
+
+              {/* 14+. Dynamic Custom Section Cards (e.g. CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)) */}
+              {Object.keys(consoleData.customRegisters || {}).map((tagName) => {
+                const list = consoleData.customRegisters[tagName] || [];
+                const filteredCustomList = list.filter(matchesConsoleSearch);
+                if (
+                  consoleFilterCategory !== "ALL" &&
+                  consoleFilterCategory !== tagName
+                ) {
+                  return null;
+                }
+                if (
+                  consoleSearchQuery.trim() &&
+                  filteredCustomList.length === 0 &&
+                  consoleFilterCategory !== tagName
+                ) {
+                  return null;
+                }
+
+                return (
+                  <div
+                    key={tagName}
+                    className={`bg-slate-955 border rounded-xl p-3 space-y-2 transition-all ${
+                      consoleSearchQuery.trim() && filteredCustomList.length > 0
+                        ? "border-cyan-400 ring-2 ring-cyan-400/30"
+                        : "border-cyan-900/40 hover:border-cyan-500/40"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <span className="text-xs font-bold text-cyan-300 uppercase truncate" title={tagName}>
+                        {tagName} ({filteredCustomList.length}
+                        {consoleSearchQuery.trim() ? ` / ${list.length}` : ""})
+                      </span>
+                      <span className="text-[10px] bg-cyan-950/60 text-cyan-300 px-2 py-0.5 rounded border border-cyan-800/40 font-mono font-bold shrink-0">
+                        {filteredCustomList.length} / 20
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                      {filteredCustomList && filteredCustomList.length > 0 ? (
+                        filteredCustomList.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className={`border p-2 rounded flex justify-between items-center transition-all ${
+                              consoleSearchQuery.trim()
+                                ? "bg-cyan-950/30 border-cyan-500/50"
+                                : "bg-slate-900 border-slate-800"
+                            }`}
+                          >
+                            <div>
+                              <div className="font-bold text-slate-200">
+                                {item.name}
+                              </div>
+                              <div className="text-[10px] text-cyan-400 font-mono">
+                                {item.info || item.tag || ""}
+                              </div>
+                            </div>
+                            <span className="text-[10px] text-cyan-300 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                              #{item.empNo || item.empId || "--"}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 bg-slate-900/40 border border-slate-850 rounded text-center text-slate-500 text-xs font-mono">
+                          {consoleSearchQuery.trim()
+                            ? `No operators in ${tagName} matching "${consoleSearchQuery}"`
+                            : "No operators recorded."}
+                        </div>
+                      )}
+                      {!consoleSearchQuery.trim() &&
+                        Array.from(
+                          { length: Math.max(0, Math.min(5, 20 - list.length)) },
+                          (_, i) => (
+                            <div
+                              key={i}
+                              className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
+                            >
+                              <div>--</div>
+                              <span className="text-[10px]">{tagName}</span>
+                            </div>
+                          ),
+                        )}
                     </div>
                   </div>
                 );

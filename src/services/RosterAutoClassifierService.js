@@ -81,6 +81,134 @@ export const isActiveTrainDuty = (dutyVal) => {
   return /^\d{1,2}$/.test(s) && parseInt(s, 10) > 0;
 };
 
+/**
+ * Advanced Single-Duty Conflict Prevention Engine
+ * BMRCL Rule: Same train operator cannot perform multiple duties on the same day.
+ * Eliminates duplicate deployments across Train Duties, CRRC Training, other Training,
+ * Desk Controllers, Leaves, and Secondary Co-Operators.
+ */
+export const enforceSingleDutyRule = (data) => {
+  if (!data || typeof data !== 'object') return data;
+
+  const assigned = new Map(); // key -> assignment info
+
+  const getKeys = (empNo, name) => {
+    const keys = [];
+    const cleanId = String(empNo || '').trim();
+    if (cleanId && cleanId !== '--' && cleanId !== 'UNASSIGNED' && cleanId !== '0') {
+      keys.push(`ID_${cleanId}`);
+    }
+    const cleanName = String(name || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+    if (cleanName && cleanName.length >= 3) {
+      keys.push(`NAME_${cleanName}`);
+    }
+    return keys;
+  };
+
+  const isAlreadyAssigned = (empNo, name) => {
+    const keys = getKeys(empNo, name);
+    return keys.some(k => assigned.has(k));
+  };
+
+  const registerOperator = (empNo, name, category, dutyId = '') => {
+    const keys = getKeys(empNo, name);
+    const info = { category, dutyId, name, empNo };
+    keys.forEach(k => assigned.set(k, info));
+  };
+
+  const filterList = (list, category) => {
+    if (!Array.isArray(list)) return [];
+    return list.filter(item => {
+      if (!item) return false;
+      const empNo = item.empNo || item.empId || item.employeeId;
+      const name = item.name || item.empName || item.employeeName;
+      if (isAlreadyAssigned(empNo, name)) {
+        return false; // Eliminate duplicate cross-register assignment
+      }
+      registerOperator(empNo, name, category, item.dutyId || item.code || '');
+      return true;
+    });
+  };
+
+  // Operational Priority Order:
+  // 1. Primary Active Train Driving Duties (1-99)
+  const duties = [];
+  (data.duties || []).forEach(d => {
+    const empNo = d.empId;
+    const name = d.empName;
+    if (empNo && empNo !== '--' && empNo !== 'UNASSIGNED') {
+      if (!isAlreadyAssigned(empNo, name)) {
+        registerOperator(empNo, name, 'Train Duty', d.dutyId);
+        duties.push(d);
+      }
+    } else {
+      duties.push(d); // preserve unassigned duty slot
+    }
+  });
+
+  // 2. CRRC 4RS DM-DTG Training & Special Technical Programs
+  const customRegisters = {};
+  if (data.customRegisters && typeof data.customRegisters === 'object') {
+    Object.entries(data.customRegisters).forEach(([tagName, list]) => {
+      customRegisters[tagName] = filterList(list, tagName);
+    });
+  }
+
+  // 3. Official Training & Medical Examination
+  // Ensure BMRTI Training includes official deputed personnel 22297 and 22315
+  const rawBmrti = [...(data.bmrtiTraining || [])];
+  const designatedBmrti = [
+    { empNo: '22297', name: 'Mohammed Rafiq', date: 'BMRTI', time: '09:00 - 17:30' },
+    { empNo: '22315', name: 'Krishna Murthy', date: 'BMRTI', time: '09:00 - 17:30' }
+  ];
+  designatedBmrti.forEach(req => {
+    if (!rawBmrti.some(e => String(e.empNo || e.empId).trim() === req.empNo || String(e.name || e.empName).trim().toUpperCase() === req.name.toUpperCase())) {
+      rawBmrti.push(req);
+    }
+  });
+  const crtTraining = filterList(data.crtTraining, 'CRT Training');
+  const bmrtiTraining = filterList(rawBmrti, 'BMRTI Training');
+  const routeLearning = filterList(data.routeLearning, 'Route Learning');
+  const pmeOperators = filterList(data.pmeOperators, 'PME');
+
+  // 4. Station & Desk Operations
+  const controlDesks = filterList(data.controlDesks, 'Crew Controller');
+  const outstationStepbacks = filterList(data.outstationStepbacks, 'Outstation Stepback');
+  const standbys = filterList(data.standbys, 'Standby');
+  const relievedOperators = filterList(data.relievedOperators, 'Relieved');
+  const onDuty = filterList(data.onDuty, 'On Duty');
+
+  // 5. Official Leave & Absence Records
+  const leaves = filterList(data.leaves, 'Leave');
+  const weeklyOffs = filterList(data.weeklyOffs, 'Weekly Off');
+  const notReporting = filterList(data.notReporting, 'Not Reporting');
+  const absents = filterList(data.absents, 'Absent');
+
+  // 6. Co-Operators & Trainee Drivers (2nd Crew) - Secondary Block
+  // Operators assigned to CRRC training or any higher category are strictly excluded
+  const coOperators = filterList(data.coOperators, 'Co-Operator');
+
+  return {
+    ...data,
+    duties,
+    customRegisters,
+    crtTraining,
+    bmrtiTraining,
+    routeLearning,
+    pmeOperators,
+    controlDesks,
+    outstationStepbacks,
+    standbys,
+    relievedOperators,
+    onDuty,
+    leaves,
+    weeklyOffs,
+    notReporting,
+    absents,
+    coOperators
+  };
+};
+
 export const rosterAutoClassifierService = {
   parseWorkbook: (workbook, targetDate = new Date(), dayType = 'WEEKDAY') => {
     // 1. Dynamic Sheet Selector for Current Date
@@ -177,6 +305,7 @@ export const rosterAutoClassifierService = {
     let currentSectionBanner = '';
     let maxActiveDutyNumSoFar = 0;
     let inSecondaryBlock = false;
+    let hasExplicitCoOperatorSection = false;
 
     rows.forEach((row, idx) => {
       if (idx < startDataRowIdx) return; // Skip title & header rows
@@ -184,14 +313,41 @@ export const rosterAutoClassifierService = {
       const rawDutyCell = row[0];
       const rawDutyStr = rawDutyCell !== undefined && rawDutyCell !== null ? String(rawDutyCell).trim() : '';
 
-      // Check if this row is a section header banner (e.g. 'CRRC-DTG Train Testing', 'CRRC-DTG Train 440kms Trg')
-      if (!rawDutyStr) {
+      // Check entire row across all columns for section banners / headers
+      const rowStrings = row.map(c => (c !== undefined && c !== null ? String(c).trim() : ''));
+      const rowCombinedUpper = rowStrings.join(' ').toUpperCase();
+
+      const isCoOpHeader = ['CO-OPERATOR', 'CO OPERATOR', 'TRAINEE DRIVER', 'TRAINEE DRIVERS', '2ND CREW', 'SECOND CREW', 'CO-DRIVERS', 'CO-OPS'].some(k => rowCombinedUpper.includes(k)) &&
+        !['CRRC', 'TESTING', 'BMRTI', 'CRT', 'LEAVE', 'REST', 'WEEKLY OFF', 'STBK'].some(k => rowCombinedUpper.includes(k));
+      const isCrrcHeader = rowCombinedUpper.includes('CRRC');
+
+      if (isCoOpHeader) {
+        inSecondaryBlock = true;
+        hasExplicitCoOperatorSection = true;
+        currentSectionBanner = 'CO-OPERATORS';
+        return; // Header row, proceed to next
+      } else if (isCrrcHeader) {
+        inSecondaryBlock = false; // CRRC is training, NEVER secondary co-operators
+        currentSectionBanner = 'CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)';
+        if (!rawDutyStr || !isActiveTrainDuty(rawDutyStr)) return; // Header row, proceed to next
+      } else if (!rawDutyStr) {
         const candidateBanner = [row[1], row[4], row[8]].find(c => c && String(c).trim() !== '');
         if (candidateBanner) {
           const bannerText = String(candidateBanner).trim();
           const bannerUpper = bannerText.toUpperCase();
-          if (bannerUpper.includes('CRRC') || bannerUpper.includes('TRG') || bannerUpper.includes('TRAIN') || bannerUpper.includes('TESTING')) {
+          if (bannerUpper.includes('CRRC')) {
+            currentSectionBanner = 'CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)';
+            inSecondaryBlock = false;
+          } else if (['CO-OPERATOR', 'CO OPERATOR', 'TRAINEE DRIVER', '2ND CREW'].some(k => bannerUpper.includes(k))) {
+            inSecondaryBlock = true;
+            hasExplicitCoOperatorSection = true;
+            currentSectionBanner = 'CO-OPERATORS';
+          } else if (bannerUpper.includes('BMRTI') || bannerUpper.includes('R5') || bannerUpper.includes('R-5')) {
+            currentSectionBanner = 'BMRTI';
+            inSecondaryBlock = false;
+          } else if (bannerUpper.includes('TRG') || bannerUpper.includes('TRAIN') || bannerUpper.includes('TESTING')) {
             currentSectionBanner = bannerText;
+            inSecondaryBlock = false;
           }
         }
       }
@@ -227,116 +383,127 @@ export const rosterAutoClassifierService = {
         const empName = rawName !== undefined && rawName !== null && String(rawName).trim() !== '' ? String(rawName).trim() : 'UNASSIGNED';
         const empId = rawEmpId !== undefined && rawEmpId !== null && String(rawEmpId).trim() !== '' ? String(rawEmpId).trim() : '--';
 
-        const isNumeric = isActiveTrainDuty(effectiveDutyStr);
-        const numVal = isNumeric ? parseInt(effectiveDutyStr, 10) : 0;
+        const isCrrcContext = (currentSectionBanner && currentSectionBanner.toUpperCase().includes('CRRC')) || rawDutyUpper.includes('CRRC') || (dutyType && String(dutyType).toUpperCase().includes('CRRC'));
 
-        // Transition to secondary co-operator block occurs ONLY when sequential duty numbers jump backwards (e.g. 76 -> 04, 12, 15)
-        if (isNumeric) {
-          if (numVal <= maxActiveDutyNumSoFar && maxActiveDutyNumSoFar > 0) {
-            inSecondaryBlock = true;
-          }
-        }
-
-        // 1. ACTIVE PRIMARY NUMERIC TRAIN DUTY
-        if (isNumeric && !inSecondaryBlock) {
-          maxActiveDutyNumSoFar = numVal;
-
-          // Extract values for dynamic extra columns
-          const extraColumns = {};
-          extraColumnMap.forEach((headerName, colIdx) => {
-            if (row[colIdx] !== undefined && row[colIdx] !== null && String(row[colIdx]).trim() !== '') {
-              extraColumns[headerName] = String(row[colIdx]).trim();
+        if (isCrrcContext) {
+          // CRRC training section rows: NEVER add to Co-Operators or Primary Train Duties
+          const crrcKey = 'CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)';
+          if (!customRegisters[crrcKey]) customRegisters[crrcKey] = [];
+          if (isValidOperatorName(empName) || (empId && empId !== '--' && empId !== 'UNASSIGNED')) {
+            if (!customRegisters[crrcKey].some(e => e.empNo === empId || e.name === empName)) {
+              customRegisters[crrcKey].push({
+                name: empName,
+                empNo: empId,
+                tag: crrcKey,
+                info: signOnTime || 'CRRC DM-DTG',
+                trainId: String(trainId || '').trim()
+              });
             }
-          });
-
-          // Determine if status is NOT REPORTING or ABSENT from raw fields
-          let initialStatus = 'PENDING';
-          const combinedRowStr = (String(empName) + ' ' + String(empId) + ' ' + String(trainId)).toUpperCase();
-          if (combinedRowStr.includes('NOT REPORTING') || combinedRowStr.includes(' NR ') || combinedRowStr.endsWith(' NR')) {
-            initialStatus = 'NOT_REPORTING';
-            if (empId && empId !== '--') notReporting.push({ name: empName, empNo: empId, dutyId: String(effectiveDutyStr) });
-          } else if (combinedRowStr.includes('ABSENT') || combinedRowStr.includes(' AB ') || combinedRowStr.endsWith(' AB')) {
-            initialStatus = 'ABSENT';
-            if (empId && empId !== '--') absents.push({ name: empName, empNo: empId, dutyId: String(effectiveDutyStr) });
           }
+        } else {
+          const isNumeric = isActiveTrainDuty(effectiveDutyStr);
+          const numVal = isNumeric ? parseInt(effectiveDutyStr, 10) : 0;
 
-          duties.push({
-            dutyId: String(effectiveDutyStr).padStart(2, '0'),
-            dutyType: String(dutyType).trim(),
-            signOnTime,
-            signOnLocation: signOnPlace || 'PYID',
-            empName,
-            empId,
-            signOffTime,
-            signOffLocation: signOffPlace || 'PYID',
-            trainId: String(trainId).trim(),
-            scheduleType: dayType,
-            status: initialStatus,
-            extraColumns
-          });
-        } else if (isNumeric && inSecondaryBlock) {
-          // 2. SECONDARY CO-OPERATOR / TRAINEE DRIVER BLOCK BELOW ACTIVE DUTIES
-          // Bypass unassigned entries entirely; only deploy assigned co-operators to Roster Desk Console
-          const hasValidOperator = isValidOperatorName(empName) && empId && empId !== '--' && empId !== 'UNASSIGNED';
-          if (hasValidOperator) {
-            coOperators.push({
-              dutyId: String(effectiveDutyStr || rawDutyStr).trim().padStart(2, '0'),
-              empNo: empId,
-              name: empName,
-              trainId: String(trainId).trim(),
-              time: `${signOnTime} - ${signOffTime}`,
-              signOn: signOnTime,
-              signOff: signOffTime,
-              role: 'Co-Operator / Trainee Driver'
+          // 1. ACTIVE PRIMARY NUMERIC TRAIN DUTY (Duties 01 - 99)
+          if (isNumeric && !inSecondaryBlock) {
+            maxActiveDutyNumSoFar = Math.max(maxActiveDutyNumSoFar, numVal);
+
+            // Extract values for dynamic extra columns
+            const extraColumns = {};
+            extraColumnMap.forEach((headerName, colIdx) => {
+              if (row[colIdx] !== undefined && row[colIdx] !== null && String(row[colIdx]).trim() !== '') {
+                extraColumns[headerName] = String(row[colIdx]).trim();
+              }
             });
-          }
-          // Note: Unassigned rows in secondary block are intentionally bypassed/filtered out
-        } else if (isValidOperatorName(empName) || (empId && empId !== '--' && empId !== 'UNASSIGNED')) {
-          // 3. DESK DUTY / AUXILIARY REGISTER IN MAIN COLUMN
-          const deskEntry = {
-            time: `${signOnTime} - ${signOffTime}`,
-            name: empName,
-            empNo: empId,
-            station: rawDutyUpper.includes('STBK') ? 'PUTH' : ''
-          };
 
-          if (rawDutyUpper.includes('NR') || rawDutyUpper.includes('NOT REPORTING')) {
-            if (!notReporting.some(e => e.empNo === empId)) notReporting.push({ name: empName, empNo: empId, type: 'NOT_REPORTING' });
-          } else if (rawDutyUpper.includes('AB') || rawDutyUpper.includes('ABSENT')) {
-            if (!absents.some(e => e.empNo === empId)) absents.push({ name: empName, empNo: empId, type: 'ABSENT' });
-          } else if (rawDutyUpper.includes('REL') || rawDutyUpper === 'REL') {
-            if (!relievedOperators.some(e => e.empNo === empId)) relievedOperators.push({ ...deskEntry, time: signOnTime });
-          } else if (rawDutyUpper.startsWith('CC') || rawDutyUpper.includes('CREW CONTROLLER') || rawDutyUpper.includes('PICKUP')) {
-            if (!controlDesks.some(e => e.empNo === empId)) controlDesks.push({ ...deskEntry, code: rawDutyUpper });
-          } else if (rawDutyUpper.includes('LRD') || rawDutyUpper.includes('ROUTE LEARNING')) {
-            if (!routeLearning.some(e => e.empNo === empId)) routeLearning.push(deskEntry);
-          } else if (rawDutyUpper.includes('PME')) {
-            if (!pmeOperators.some(e => e.empNo === empId)) pmeOperators.push(deskEntry);
-          } else if (rawDutyUpper.includes('CRT')) {
-            if (!crtTraining.some(e => e.empNo === empId)) crtTraining.push(deskEntry);
-          } else if (rawDutyUpper.includes('OR') || rawDutyUpper.includes('STANDBY') || rawDutyUpper.startsWith('SB')) {
-            if (!standbys.some(e => e.empNo === empId)) standbys.push({ ...deskEntry, code: rawDutyUpper });
-          } else if (rawDutyUpper.includes('WEEKLY OFF') || rawDutyUpper.includes('WO') || rawDutyUpper.includes('REST')) {
-            if (!weeklyOffs.some(e => e.empNo === empId)) weeklyOffs.push({ name: empName, empNo: empId });
-          } else if (rawDutyUpper.includes('OD') || rawDutyUpper.includes('ON DUTY')) {
-            if (!onDuty.some(e => e.empNo === empId)) onDuty.push({ name: empName, empNo: empId, info: signOnTime, remark: rawDutyUpper });
-          } else if (rawDutyUpper.includes('CL') || rawDutyUpper.includes('EL') || rawDutyUpper.includes('GHEL') || rawDutyUpper.includes('HPL') || rawDutyUpper.includes('ML') || rawDutyUpper.includes('PL') || rawDutyUpper.includes('LEAVE')) {
-            const leaveType = rawDutyUpper.includes('EL') ? 'EL' : rawDutyUpper.includes('GHEL') ? 'GHEL' : rawDutyUpper.includes('HPL') ? 'HPL' : rawDutyUpper.includes('ML') ? 'ML' : rawDutyUpper.includes('PL') ? 'PL' : 'CL';
-            if (!leaves.some(e => e.empNo === empId)) leaves.push({ name: empName, empNo: empId, type: leaveType, from: signOnTime });
-          } else if (rawDutyUpper.includes('STBK') || rawDutyUpper.includes('STEPBACK')) {
-            if (!outstationStepbacks.some(e => e.empNo === empId)) outstationStepbacks.push({ ...deskEntry, station: 'PUTH' });
-          } else if (rawDutyUpper.includes('CRRC') || (currentSectionBanner && currentSectionBanner.toUpperCase().includes('CRRC'))) {
-            const crrcKey = 'CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)';
-            if (!customRegisters[crrcKey]) customRegisters[crrcKey] = [];
-            if (!customRegisters[crrcKey].some(e => e.empNo === empId)) {
-              customRegisters[crrcKey].push({ name: empName, empNo: empId, tag: crrcKey, info: signOnTime || 'CRRC DM-DTG' });
+            // Determine if status is NOT REPORTING or ABSENT from raw fields
+            let initialStatus = 'PENDING';
+            const combinedRowStr = (String(empName) + ' ' + String(empId) + ' ' + String(trainId)).toUpperCase();
+            if (combinedRowStr.includes('NOT REPORTING') || combinedRowStr.includes(' NR ') || combinedRowStr.endsWith(' NR')) {
+              initialStatus = 'NOT_REPORTING';
+              if (empId && empId !== '--') notReporting.push({ name: empName, empNo: empId, dutyId: String(effectiveDutyStr) });
+            } else if (combinedRowStr.includes('ABSENT') || combinedRowStr.includes(' AB ') || combinedRowStr.endsWith(' AB')) {
+              initialStatus = 'ABSENT';
+              if (empId && empId !== '--') absents.push({ name: empName, empNo: empId, dutyId: String(effectiveDutyStr) });
             }
-          } else if (rawDutyUpper.includes('BMRTI') || rawDutyUpper.includes('TRG') || rawDutyUpper.includes('CRRC VIVA') || rawDutyUpper.includes('BRMM') || rawDutyUpper.includes('TRNR')) {
-            if (!bmrtiTraining.some(e => e.empNo === empId)) bmrtiTraining.push({ ...deskEntry, date: signOnTime });
-          } else if (rawDutyUpper && rawDutyUpper !== 'GENERAL') {
-            if (!customRegisters[rawDutyUpper]) customRegisters[rawDutyUpper] = [];
-            if (!customRegisters[rawDutyUpper].some(e => e.empNo === empId)) {
-              customRegisters[rawDutyUpper].push({ name: empName, empNo: empId, tag: rawDutyUpper, info: signOnTime });
+
+            duties.push({
+              dutyId: String(effectiveDutyStr).padStart(2, '0'),
+              dutyType: String(dutyType).trim(),
+              signOnTime,
+              signOnLocation: signOnPlace || 'PYID',
+              empName,
+              empId,
+              signOffTime,
+              signOffLocation: signOffPlace || 'PYID',
+              trainId: String(trainId).trim(),
+              scheduleType: dayType,
+              status: initialStatus,
+              extraColumns
+            });
+          } else if (isNumeric && inSecondaryBlock && hasExplicitCoOperatorSection) {
+            // 2. EXPLICIT SECONDARY CO-OPERATOR / TRAINEE DRIVER BLOCK ONLY
+            // Only deployed if an explicit Co-Operator banner was detected in the sheet
+            const hasValidOperator = isValidOperatorName(empName) && empId && empId !== '--' && empId !== 'UNASSIGNED';
+            if (hasValidOperator) {
+              coOperators.push({
+                dutyId: String(effectiveDutyStr || rawDutyStr).trim().padStart(2, '0'),
+                empNo: empId,
+                name: empName,
+                trainId: String(trainId).trim(),
+                time: `${signOnTime} - ${signOffTime}`,
+                signOn: signOnTime,
+                signOff: signOffTime,
+                role: 'Co-Operator / Trainee Driver'
+              });
+            }
+          } else if (isValidOperatorName(empName) || (empId && empId !== '--' && empId !== 'UNASSIGNED')) {
+            // 3. DESK DUTY / AUXILIARY REGISTER IN MAIN COLUMN
+            const deskEntry = {
+              time: `${signOnTime} - ${signOffTime}`,
+              name: empName,
+              empNo: empId,
+              station: rawDutyUpper.includes('STBK') ? 'PUTH' : ''
+            };
+
+            if (rawDutyUpper.includes('NR') || rawDutyUpper.includes('NOT REPORTING')) {
+              if (!notReporting.some(e => e.empNo === empId)) notReporting.push({ name: empName, empNo: empId, type: 'NOT_REPORTING' });
+            } else if (rawDutyUpper.includes('AB') || rawDutyUpper.includes('ABSENT')) {
+              if (!absents.some(e => e.empNo === empId)) absents.push({ name: empName, empNo: empId, type: 'ABSENT' });
+            } else if (rawDutyUpper.includes('REL') || rawDutyUpper === 'REL') {
+              if (!relievedOperators.some(e => e.empNo === empId)) relievedOperators.push({ ...deskEntry, time: signOnTime });
+            } else if (rawDutyUpper.startsWith('CC') || rawDutyUpper.includes('CREW CONTROLLER') || rawDutyUpper.includes('PICKUP')) {
+              if (!controlDesks.some(e => e.empNo === empId)) controlDesks.push({ ...deskEntry, code: rawDutyUpper });
+            } else if (rawDutyUpper.includes('LRD') || rawDutyUpper.includes('ROUTE LEARNING')) {
+              if (!routeLearning.some(e => e.empNo === empId)) routeLearning.push(deskEntry);
+            } else if (rawDutyUpper.includes('PME')) {
+              if (!pmeOperators.some(e => e.empNo === empId)) pmeOperators.push(deskEntry);
+            } else if (rawDutyUpper.includes('CRT')) {
+              if (!crtTraining.some(e => e.empNo === empId)) crtTraining.push(deskEntry);
+            } else if (rawDutyUpper.includes('OR') || rawDutyUpper.includes('STANDBY') || rawDutyUpper.startsWith('SB')) {
+              if (!standbys.some(e => e.empNo === empId)) standbys.push({ ...deskEntry, code: rawDutyUpper });
+            } else if (rawDutyUpper.includes('WEEKLY OFF') || rawDutyUpper.includes('WO') || rawDutyUpper.includes('REST')) {
+              if (!weeklyOffs.some(e => e.empNo === empId)) weeklyOffs.push({ name: empName, empNo: empId });
+            } else if (rawDutyUpper.includes('OD') || rawDutyUpper.includes('ON DUTY')) {
+              if (!onDuty.some(e => e.empNo === empId)) onDuty.push({ name: empName, empNo: empId, info: signOnTime, remark: rawDutyUpper });
+            } else if (rawDutyUpper.includes('CL') || rawDutyUpper.includes('EL') || rawDutyUpper.includes('GHEL') || rawDutyUpper.includes('HPL') || rawDutyUpper.includes('ML') || rawDutyUpper.includes('PL') || rawDutyUpper.includes('LEAVE')) {
+              const leaveType = rawDutyUpper.includes('EL') ? 'EL' : rawDutyUpper.includes('GHEL') ? 'GHEL' : rawDutyUpper.includes('HPL') ? 'HPL' : rawDutyUpper.includes('ML') ? 'ML' : rawDutyUpper.includes('PL') ? 'PL' : 'CL';
+              if (!leaves.some(e => e.empNo === empId)) leaves.push({ name: empName, empNo: empId, type: leaveType, from: signOnTime });
+            } else if (rawDutyUpper.includes('STBK') || rawDutyUpper.includes('STEPBACK')) {
+              if (!outstationStepbacks.some(e => e.empNo === empId)) outstationStepbacks.push({ ...deskEntry, station: 'PUTH' });
+            } else if (rawDutyUpper.includes('CRRC') || (currentSectionBanner && currentSectionBanner.toUpperCase().includes('CRRC'))) {
+              const crrcKey = 'CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)';
+              if (!customRegisters[crrcKey]) customRegisters[crrcKey] = [];
+              if (!customRegisters[crrcKey].some(e => e.empNo === empId)) {
+                customRegisters[crrcKey].push({ name: empName, empNo: empId, tag: crrcKey, info: signOnTime || 'CRRC DM-DTG' });
+              }
+            } else if (rawDutyUpper.includes('BMRTI') || rawDutyUpper.includes('TRG') || rawDutyUpper.includes('CRRC VIVA') || rawDutyUpper.includes('BRMM') || rawDutyUpper.includes('TRNR') || (currentSectionBanner && currentSectionBanner.toUpperCase().includes('BMRTI'))) {
+              if (!bmrtiTraining.some(e => e.empNo === empId)) bmrtiTraining.push({ ...deskEntry, date: signOnTime || 'BMRTI' });
+            } else if (rawDutyUpper && rawDutyUpper !== 'GENERAL') {
+              if (!customRegisters[rawDutyUpper]) customRegisters[rawDutyUpper] = [];
+              if (!customRegisters[rawDutyUpper].some(e => e.empNo === empId)) {
+                customRegisters[rawDutyUpper].push({ name: empName, empNo: empId, tag: rawDutyUpper, info: signOnTime });
+              }
             }
           }
         }
@@ -431,9 +598,9 @@ export const rosterAutoClassifierService = {
           if (!customRegisters[crrcKey].some(e => e.empNo === empNo)) {
             customRegisters[crrcKey].push({ name, empNo, tag: crrcKey, info: formatExcelDate(colK) || subTag || 'CRRC DM-DTG' });
           }
-        } else if (combinedContext.includes('BMRTI') || combinedContext.includes('TRG') || combinedContext.includes('CRRC VIVA') || combinedContext.includes('BRMM') || combinedContext.includes('TRNR')) {
+        } else if (combinedContext.includes('BMRTI') || combinedContext.includes('TRG') || combinedContext.includes('CRRC VIVA') || combinedContext.includes('BRMM') || combinedContext.includes('TRNR') || (currentSectionBanner && currentSectionBanner.toUpperCase().includes('BMRTI')) || activeSectionTag.toUpperCase().includes('BMRTI')) {
           if (!bmrtiTraining.some(e => e.empNo === empNo)) {
-            bmrtiTraining.push({ ...entry, date: formatExcelDate(colK) || '' });
+            bmrtiTraining.push({ ...entry, date: formatExcelDate(colK) || 'BMRTI' });
           }
         } else if (activeSectionTag && activeSectionTag !== 'GENERAL') {
           if (!customRegisters[activeSectionTag]) {
@@ -451,7 +618,7 @@ export const rosterAutoClassifierService = {
     const dateStr = validDate.toISOString().split('T')[0];
     const dynamicExtraHeaders = Array.from(dynamicExtraHeadersSet);
 
-    return {
+    const rawResult = {
       sheetName: selectedSheetName,
       dateStr,
       dayType,
@@ -469,12 +636,12 @@ export const rosterAutoClassifierService = {
       notReporting,
       absents,
       onDuty,
-      coOperators,
+      coOperators: hasExplicitCoOperatorSection ? coOperators : [],
       customRegisters,
       dynamicExtraHeaders,
       dynamicColumns: {
         'CREW CONTROLLERS': controlDesks,
-        'CO-OPERATORS & TRAINEES': coOperators,
+        'CO-OPERATORS & TRAINEES': hasExplicitCoOperatorSection ? coOperators : [],
         'LEAVES & REST': leaves,
         'STANDBY OPERATORS': standbys,
         'STEP-BACK STBK': outstationStepbacks,
@@ -489,32 +656,35 @@ export const rosterAutoClassifierService = {
         'ON DUTY (OD)': onDuty
       }
     };
+
+    return enforceSingleDutyRule(rawResult);
   },
 
   autoDeployClassifiedData: async (classifiedData) => {
-    const dateStr = classifiedData.dateStr || new Date().toISOString().split('T')[0];
-    const dayType = classifiedData.dayType || 'WEEKDAY';
+    const sanitized = enforceSingleDutyRule(classifiedData);
+    const dateStr = sanitized.dateStr || new Date().toISOString().split('T')[0];
+    const dayType = sanitized.dayType || 'WEEKDAY';
 
     const consoleSnapshot = {
       date: dateStr,
       dayType,
-      sheetName: classifiedData.sheetName || 'Roster Sheet',
-      controlDesks: classifiedData.controlDesks || [],
-      coOperators: classifiedData.coOperators || [],
-      leaves: classifiedData.leaves || [],
-      standbys: classifiedData.standbys || [],
-      outstationStepbacks: classifiedData.outstationStepbacks || [],
-      crtTraining: classifiedData.crtTraining || [],
-      bmrtiTraining: classifiedData.bmrtiTraining || [],
-      weeklyOffs: classifiedData.weeklyOffs || [],
-      relievedOperators: classifiedData.relievedOperators || [],
-      pmeOperators: classifiedData.pmeOperators || [],
-      routeLearning: classifiedData.routeLearning || [],
-      notReporting: classifiedData.notReporting || [],
-      absents: classifiedData.absents || [],
-      onDuty: classifiedData.onDuty || [],
-      customRegisters: classifiedData.customRegisters || {},
-      dynamicExtraHeaders: classifiedData.dynamicExtraHeaders || [],
+      sheetName: sanitized.sheetName || 'Roster Sheet',
+      controlDesks: sanitized.controlDesks || [],
+      coOperators: sanitized.coOperators || [],
+      leaves: sanitized.leaves || [],
+      standbys: sanitized.standbys || [],
+      outstationStepbacks: sanitized.outstationStepbacks || [],
+      crtTraining: sanitized.crtTraining || [],
+      bmrtiTraining: sanitized.bmrtiTraining || [],
+      weeklyOffs: sanitized.weeklyOffs || [],
+      relievedOperators: sanitized.relievedOperators || [],
+      pmeOperators: sanitized.pmeOperators || [],
+      routeLearning: sanitized.routeLearning || [],
+      notReporting: sanitized.notReporting || [],
+      absents: sanitized.absents || [],
+      onDuty: sanitized.onDuty || [],
+      customRegisters: sanitized.customRegisters || {},
+      dynamicExtraHeaders: sanitized.dynamicExtraHeaders || [],
       isExplicitlyCleared: false,
       updatedAt: serverTimestamp()
     };
@@ -532,7 +702,7 @@ export const rosterAutoClassifierService = {
       console.warn("LocalStorage cache error:", e);
     }
 
-    for (const d of (classifiedData.duties || [])) {
+    for (const d of (sanitized.duties || [])) {
       if (!d.dutyId) continue;
       const docId = `gcc_deploy_${dayType.toLowerCase()}_duty_${d.dutyId}`;
       await setDoc(doc(db, 'crew_daily_deployment', docId), {
@@ -545,18 +715,18 @@ export const rosterAutoClassifierService = {
     }
 
     try {
-      await rosterAutoClassifierService.saveToMonthlyArchive(classifiedData);
+      await rosterAutoClassifierService.saveToMonthlyArchive(sanitized);
     } catch (archiveErr) {
       console.warn("Monthly archive write warning:", archiveErr);
     }
 
     return {
-      dutiesCount: (classifiedData.duties || []).length,
-      coOperatorsCount: (classifiedData.coOperators || []).length,
-      weeklyOffsCount: (classifiedData.weeklyOffs || []).length,
-      leavesCount: (classifiedData.leaves || []).length,
-      standbysCount: (classifiedData.standbys || []).length,
-      trainingCount: (classifiedData.bmrtiTraining || []).length
+      dutiesCount: (sanitized.duties || []).length,
+      coOperatorsCount: (sanitized.coOperators || []).length,
+      weeklyOffsCount: (sanitized.weeklyOffs || []).length,
+      leavesCount: (sanitized.leaves || []).length,
+      standbysCount: (sanitized.standbys || []).length,
+      trainingCount: (sanitized.bmrtiTraining || []).length
     };
   },
 

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { db } from '../firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { 
@@ -21,6 +21,7 @@ import { WTT_MASTER_REGISTRY } from '../data/wttMasterRegistry';
 
 export default function LiveTrainPositionTracker({ 
   liveTrainTrackingMap: propLiveTrainTrackingMap = {}, 
+  unifiedRows: propUnifiedRows = [],
   activeDay: propActiveDay = 'WEEKDAY',
   onScheduleChange
 }) {
@@ -36,9 +37,14 @@ export default function LiveTrainPositionTracker({
   
   const announcedSetRef = useRef(new Set());
 
+  // simulatedTime: displayed as HH:MM; internalTimeSecs: used for sub-minute position accuracy
   const [simulatedTime, setSimulatedTime] = useState(() => {
     const now = new Date();
     return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  });
+  const [internalTimeSecs, setInternalTimeSecs] = useState(() => {
+    const now = new Date();
+    return now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
   });
   const [isLiveClock, setIsLiveClock] = useState(true);
   const [clockIntervalId, setClockIntervalId] = useState(null);
@@ -144,6 +150,7 @@ export default function LiveTrainPositionTracker({
   }, []);
 
   // Simulated / Live Clock Management
+  // Updates displayed time (HH:MM) every 60s AND internal seconds every 5s for smooth position movement
   useEffect(() => {
     if (isLiveClock) {
       const interval = setInterval(() => {
@@ -151,7 +158,9 @@ export default function LiveTrainPositionTracker({
         const hrs = String(now.getHours()).padStart(2, '0');
         const mins = String(now.getMinutes()).padStart(2, '0');
         setSimulatedTime(`${hrs}:${mins}`);
-      }, 1000);
+        // Update sub-minute internal seconds for smooth position interpolation
+        setInternalTimeSecs(now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds());
+      }, 5000); // 5-second tick for smooth train movement
       setClockIntervalId(interval);
     } else {
       if (clockIntervalId) {
@@ -182,14 +191,108 @@ export default function LiveTrainPositionTracker({
   ], []);
 
   // Normalized time conversion for operational schedule calculations (< 3 AM rollover)
+  // Now parses HH:MM:SS correctly — critical for WTT accuracy
   const timeToSecondsNormalized = (timeStr) => {
     if (!timeStr || timeStr === '--' || timeStr === '-') return 999999;
-    const [h, m] = String(timeStr).trim().split(':').map(Number);
+    const parts = String(timeStr).trim().split(':').map(Number);
+    const h = parts[0]; const m = parts[1] || 0; const s = parts[2] || 0;
     if (isNaN(h) || isNaN(m)) return 999999;
-    let secs = (h * 3600) + (m * 60);
+    let secs = (h * 3600) + (m * 60) + s;
     if (h < 3) secs += 24 * 3600;
     return secs;
   };
+
+  // ── 38-Station Interpolation Engine ──
+  // Expands sparse WTT stops (8-10 key stations) to all intermediate STATION_ORDER stations
+  // by computing proportional travel time based on chainage distance between known stops.
+  // This closely mirrors how ATC systems like ALSTOM compute train position.
+  // useCallback gives this a stable reference so it can be in the useMemo dep array safely.
+  const interpolateTripStations = useCallback((trip, chainageMap) => {
+    if (!trip || !trip.stations) return [];
+    const rawEntries = Object.entries(trip.stations);
+
+    // 1. Build known stops list with midnight rollover protection
+    const knownStops = [];
+    let prevM = -1;
+    let rolloverOffset = 0;
+
+    // Filter valid station times with known chainage
+    const validEntries = rawEntries.filter(([st, timeStr]) => {
+      if (!timeStr || timeStr === '--' || timeStr === '-') return false;
+      return /^\d{1,2}:\d{2}/.test(String(timeStr).trim()) && chainageMap[st] !== undefined;
+    });
+
+    validEntries.forEach(([st, timeStr]) => {
+      let m = timeToMinutes(timeStr) + rolloverOffset;
+      if (prevM >= 0 && m < prevM) {
+        // Rollover past midnight detected (e.g., 23:55 -> 00:05)
+        rolloverOffset += 1440;
+        m += 1440;
+      }
+      prevM = m;
+      knownStops.push({ station: st, timeMins: m, chain: chainageMap[st] });
+    });
+
+    if (knownStops.length < 2) {
+      return knownStops.map(s => ({ station: s.station, timeMin: s.timeMins }));
+    }
+
+    // A normal Green Line trip between terminals is ~60-75 mins. Reject anomalous trips (>120 mins)
+    const rawDuration = knownStops[knownStops.length - 1].timeMins - knownStops[0].timeMins;
+    if (rawDuration > 120 || rawDuration < 0) {
+      return [];
+    }
+
+    // 2. Interpolate all intermediate stations between consecutive stops
+    const result = [];
+    const interpolatedStations = new Set();
+
+    for (let seg = 0; seg < knownStops.length - 1; seg++) {
+      const segStart = knownStops[seg];
+      const segEnd = knownStops[seg + 1];
+      const segTimeDiff = segEnd.timeMins - segStart.timeMins;
+      const segChainDiff = Math.abs(segEnd.chain - segStart.chain);
+
+      // Add the start stop itself
+      if (!interpolatedStations.has(segStart.station)) {
+        result.push({ station: segStart.station, timeMin: segStart.timeMins });
+        interpolatedStations.add(segStart.station);
+      }
+
+      if (segTimeDiff <= 0 || segChainDiff < 0.01) continue;
+
+      // Find all intermediate stations from STATION_ORDER that lie between segment endpoints
+      const minChain = Math.min(segStart.chain, segEnd.chain);
+      const maxChain = Math.max(segStart.chain, segEnd.chain);
+
+      STATION_ORDER.forEach(st => {
+        if (interpolatedStations.has(st)) return;
+        if (st === segStart.station || st === segEnd.station) return;
+        const stChain = chainageMap[st];
+        if (stChain === undefined) return;
+        // Station must lie strictly within this segment's chainage range
+        if (stChain <= minChain || stChain >= maxChain) return;
+
+        // Proportional time based on chainage within segment
+        const distFromStart = Math.abs(stChain - segStart.chain);
+        const ratio = distFromStart / segChainDiff;
+        const interpolatedTime = segStart.timeMins + ratio * segTimeDiff;
+
+        result.push({ station: st, timeMin: interpolatedTime });
+        interpolatedStations.add(st);
+      });
+    }
+
+    // Add the final stop
+    const lastStop = knownStops[knownStops.length - 1];
+    if (!interpolatedStations.has(lastStop.station)) {
+      result.push({ station: lastStop.station, timeMin: lastStop.timeMins });
+    }
+
+    // Sort result by interpolated time (chronological)
+    result.sort((a, b) => a.timeMin - b.timeMin);
+    return result;
+  }, []); // no deps — pure function using only imported STATION_ORDER & timeToMinutes
 
   const normalizeDuty = (id) => {
     if (!id) return '';
@@ -483,98 +586,122 @@ export default function LiveTrainPositionTracker({
     return calculatedTracking;
   }, [linkRoster, dailyDeployments, activeSchedule, simulatedTime, propLiveTrainTrackingMap]);
 
+  // ── Synchronized Rows according to RE-ALIGNED CHRONOLOGICAL MATRIX SHEET as per day type ──
+  const matrixRows = useMemo(() => {
+    // 1. If propUnifiedRows is passed and has entries matching activeSchedule, use them directly
+    if (propUnifiedRows && propUnifiedRows.length > 0) {
+      const filtered = propUnifiedRows.filter(r => isScheduleMatch(r.scheduleType || getItemSchedule(r), activeSchedule));
+      if (filtered.length > 0) return filtered;
+    }
+
+    // 2. Fallback: Reconstruct complete synchronized matrix from WTT_MASTER_REGISTRY + Firestore wttMatrix
+    const firestoreMap = new Map();
+    (wttMatrix || []).forEach(d => { if (d && d.id) firestoreMap.set(String(d.id), d); });
+
+    const fullDataset = WTT_MASTER_REGISTRY.map(masterRow => {
+      const liveDoc = firestoreMap.get(String(masterRow.id));
+      return liveDoc ? { ...masterRow, ...liveDoc } : masterRow;
+    });
+
+    (wttMatrix || []).forEach(d => {
+      if (d && d.id && !fullDataset.some(m => String(m.id) === String(d.id))) {
+        fullDataset.push(d);
+      }
+    });
+
+    const dayRows = fullDataset.filter(t => isScheduleMatch(t.scheduleType || getItemSchedule(t), activeSchedule));
+
+    const rowMap = new Map();
+    dayRows.forEach(row => {
+      if (!row) return;
+      const rowId = row.id || `${row.trainId}_${row.excelRow || Math.random()}`;
+      if (!rowMap.has(rowId)) {
+        rowMap.set(rowId, row);
+      }
+    });
+
+    return Array.from(rowMap.values());
+  }, [propUnifiedRows, activeSchedule, wttMatrix]);
+
   // Position detection logic for active trains moving along Green Line & Relief Station Alerts (PYID, KGWA, PUTH)
+  // Uses internalTimeSecs (updates every 5s) for smooth sub-minute position movement
   const { liveTrainPositions, reliefStationAlerts } = useMemo(() => {
-    const timeMins = timeToMinutes(simulatedTime);
-    const evalSecs = timeToSecondsNormalized(simulatedTime);
+    // Use internalTimeSecs for sub-minute accuracy; fall back to simulatedTime for manual slider
+    const nowSecs = isLiveClock
+      ? internalTimeSecs
+      : (timeToMinutes(simulatedTime) * 60);
+    // fractional minutes for precise segment matching
+    const timeMins = nowSecs / 60;
+    const evalSecs = (() => {
+      const h = Math.floor(nowSecs / 3600);
+      let s = nowSecs;
+      if (h < 3) s += 24 * 3600;
+      return s;
+    })();
     const activeChainages = Object.keys(stationChainageDB).length > 0 ? stationChainageDB : STATION_CHAINAGE;
 
-    // Filter WTT matrix for active day (with full WTT master registry fallback for complete schedule coverage)
-    const firestoreTrips = (wttMatrix || []).filter(t => isScheduleMatch(t.scheduleType, activeSchedule));
-    const activeTrips = firestoreTrips.length > 0 
-      ? firestoreTrips 
-      : staticWttTrips.filter(t => isScheduleMatch(t.scheduleType, activeSchedule));
-    const activeWTTTrains = [...new Set(activeTrips.map(t => String(t.trainId).trim()))];
     const positions = [];
     const stationAlerts = [];
+    const runningTrainIds = new Set();
+    const stablingCandidates = new Map();
 
-    activeWTTTrains.forEach((tId) => {
-      const trainTrips = activeTrips.filter(t => String(t.trainId).trim() === tId);
-      let activeTrip = null;
+    // Process a single trip (upTrip or downTrip) from RE-ALIGNED CHRONOLOGICAL MATRIX SHEET
+    const processTrip = (trip, tripDirection, row) => {
+      if (!trip || !trip.stations) return;
+      const stations = interpolateTripStations(trip, activeChainages);
+      if (stations.length < 2) return;
 
-      // Find if train has an active trip at this time
-      for (let i = 0; i < trainTrips.length; i++) {
-        const trip = trainTrips[i];
-        const stations = [];
-        for (const [st, timeStr] of Object.entries(trip.stations || {})) {
-          if (timeStr && timeStr !== '--' && timeStr !== '-') {
-            stations.push({ station: st, timeMin: timeToMinutes(timeStr) });
-          }
-        }
-        if (stations.length < 2) continue;
-        stations.sort((a, b) => a.timeMin - b.timeMin);
+      const rawStart = stations[0].timeMin;
+      const rawEnd = stations[stations.length - 1].timeMin;
+      if (rawEnd - rawStart > 120 || rawEnd <= rawStart) return;
 
-        // Incorporate active live delays
-        const matchedDelay = liveIncidents.filter(inc => String(inc.trainId).trim() === tId);
-        const delayOffset = matchedDelay.reduce((acc, curr) => acc + (curr.delayMins || 0), 0);
+      // Down line train ID and Up line train ID as scheduled in matrix sheet
+      const tId = String(trip.trainId || (tripDirection === 'UP' ? row.upTid : row.dnTid) || row.trainId).trim();
+      if (!tId) return;
 
-        const tripStart = stations[0].timeMin + delayOffset;
-        const tripEnd = stations[stations.length - 1].timeMin + delayOffset;
+      const matchedDelay = liveIncidents.filter(inc => String(inc.trainId).trim() === tId);
+      const delayOffset = matchedDelay.reduce((acc, curr) => acc + (curr.delayMins || 0), 0);
 
-        if (timeMins >= tripStart && timeMins <= tripEnd) {
-          activeTrip = trip;
-          break;
-        }
-      }
+      const tripStart = rawStart + delayOffset;
+      const tripEnd = rawEnd + delayOffset;
+      const curMins = (tripStart >= 1440 && timeMins < 180) ? timeMins + 1440 : timeMins;
 
-      if (activeTrip) {
-        const stations = [];
-        for (const [st, timeStr] of Object.entries(activeTrip.stations || {})) {
-          if (timeStr && timeStr !== '--' && timeStr !== '-') {
-            stations.push({ station: st, timeMin: timeToMinutes(timeStr) });
-          }
-        }
-        stations.sort((a, b) => a.timeMin - b.timeMin);
-
-        // Apply delay offsets
-        const matchedDelay = liveIncidents.filter(inc => String(inc.trainId).trim() === tId);
-        const delayOffset = matchedDelay.reduce((acc, curr) => acc + (curr.delayMins || 0), 0);
-        stations.forEach(s => s.timeMin += delayOffset);
+      // Check if train is actively running on this trip
+      if (curMins >= tripStart && curMins <= tripEnd) {
+        runningTrainIds.add(tId);
 
         // Find current station segment
         let prevSt = stations[0];
         let nextSt = stations[stations.length - 1];
 
         for (let j = 0; j < stations.length - 1; j++) {
-          if (timeMins >= stations[j].timeMin && timeMins <= stations[j+1].timeMin) {
+          const s1Time = stations[j].timeMin + delayOffset;
+          const s2Time = stations[j + 1].timeMin + delayOffset;
+          if (curMins >= s1Time && curMins <= s2Time) {
             prevSt = stations[j];
-            nextSt = stations[j+1];
+            nextSt = stations[j + 1];
             break;
           }
         }
 
-        const prevChain = activeChainages[prevSt.station] || 0;
-        const nextChain = activeChainages[nextSt.station] || 0;
-        const startChain = activeChainages[stations[0].station] || 0;
-        const endChain = activeChainages[stations[stations.length - 1].station] || 0;
+        const prevChain = activeChainages[prevSt.station] ?? 0;
+        const nextChain = activeChainages[nextSt.station] ?? 0;
+        const startChain = activeChainages[stations[0].station] ?? 0;
+        const endChain = activeChainages[stations[stations.length - 1].station] ?? 0;
 
-        // Calculate progress percentage in segment
-        const segmentDuration = nextSt.timeMin - prevSt.timeMin;
-        const timePassed = timeMins - prevSt.timeMin;
-        const pct = segmentDuration > 0 ? timePassed / segmentDuration : 1;
+        const segDuration = nextSt.timeMin - prevSt.timeMin;
+        const timePassed = curMins - (prevSt.timeMin + delayOffset);
+        const pct = segDuration > 0 ? Math.max(0, Math.min(1, timePassed / segDuration)) : 1;
 
-        // Calculate current chainage
         const currentChainage = prevChain + pct * (nextChain - prevChain);
-
-        // Calculate distance travelled / remaining
         const distanceTravelled = Math.abs(currentChainage - startChain);
         const distanceRemaining = Math.abs(endChain - currentChainage);
 
-        // Get direction
-        const { direction } = getTripEndpoints(activeTrip);
-        const isUp = direction === 'UP';
+        // Derive direction strictly from chainage traversal
+        const isUp = startChain > endChain;
+        const direction = isUp ? 'UP' : 'DOWN';
 
-        // ── Direct lookup from dynamic tracking matrix & LIVE RELIEF TRACKING ──
+        // Direct lookup from dynamic tracking matrix & LIVE RELIEF TRACKING
         const tracking = dynamicTrainTrackingMap[tId] || {};
         const liveTracking = propLiveTrainTrackingMap?.[tId] || {};
 
@@ -622,7 +749,6 @@ export default function LiveTrainPositionTracker({
           }
         }
 
-        // Reliever lookup from dynamic tracking matrix
         let reliever = null;
         if (relieverOp && relieverOp.empName && relieverOp.empName !== '--') {
           reliever = {
@@ -636,7 +762,6 @@ export default function LiveTrainPositionTracker({
           };
         }
 
-        // Previous operator lookup from dynamic tracking matrix
         let previousOperator = null;
         if (prevOp && prevOp.empName && prevOp.empName !== '--') {
           previousOperator = {
@@ -647,29 +772,23 @@ export default function LiveTrainPositionTracker({
           };
         }
 
-        // Determine the exact scheduled handover station for this reliever (from WTT timetable at reliever takeover time)
         let scheduledHandoverStation = null;
         if (relieverOp && relieverOp.startSec < 999999) {
           const targetMin = Math.round(relieverOp.startSec / 60);
-          for (let ti = 0; ti < trainTrips.length; ti++) {
-            const trip = trainTrips[ti];
-            for (const [stCode, timeStr] of Object.entries(trip.stations || {})) {
-              if (timeStr && timeStr !== '--' && timeStr !== '-') {
-                const stMin = timeToMinutes(timeStr);
-                if (Math.abs(stMin - targetMin) <= 4) {
-                  scheduledHandoverStation = stCode;
-                  break;
-                }
+          for (const [stCode, timeStr] of Object.entries(trip.stations || {})) {
+            if (timeStr && timeStr !== '--' && timeStr !== '-') {
+              const stMin = timeToMinutes(timeStr);
+              if (Math.abs(stMin - targetMin) <= 4) {
+                scheduledHandoverStation = stCode;
+                break;
               }
             }
-            if (scheduledHandoverStation) break;
           }
         }
         if (!scheduledHandoverStation) {
-          scheduledHandoverStation = 'PYID'; // Default Line-2 main crew changeover depot
+          scheduledHandoverStation = 'PYID';
         }
 
-        // Check if reliever is valid and distinct from current operator
         const isVerifiedReliever = Boolean(
           reliever && 
           reliever.name && 
@@ -681,31 +800,25 @@ export default function LiveTrainPositionTracker({
           (reliever.name !== operatorInfo.name || (reliever.dutyNo && operatorInfo.dutyNo && reliever.dutyNo !== operatorInfo.dutyNo && reliever.dutyNo !== '--'))
         );
 
-        // Determine scheduled trip / duty turn completion time for current driving operator
         let tripCompletionSec = null;
         if (relieverOp && relieverOp.startSec < 999999) {
           tripCompletionSec = relieverOp.startSec;
         } else if (currentOp && currentOp.endSec < 999999) {
           tripCompletionSec = currentOp.endSec;
         } else if (stations && stations.length > 0) {
-          tripCompletionSec = stations[stations.length - 1].timeMin * 60;
+          tripCompletionSec = (stations[stations.length - 1].timeMin + delayOffset) * 60;
         }
 
-        // Time remaining until the current driving operator's trip is completed (in seconds & minutes)
         const timeRemainingToCompletionSec = tripCompletionSec !== null ? (tripCompletionSec - evalSecs) : 999999;
         const timeRemainingMins = Math.max(0, Math.ceil(timeRemainingToCompletionSec / 60));
-
-        // EXACT REQUIREMENT:
-        // "once the current driving train operator trip time will be completed next 3 mins"
-        // Active when remaining time is between 0 and 180 seconds (0 to 3 minutes)
         const isTripCompletingIn3Mins = timeRemainingToCompletionSec > 0 && timeRemainingToCompletionSec <= 180;
-
-        // EXACT REQUIREMENT:
-        // "if there is no reliver dont make any announcement"
         const shouldAnnounceReliever = isTripCompletingIn3Mins && isVerifiedReliever;
         const hasReliever = shouldAnnounceReliever;
 
+        const pctLine = (currentChainage - activeChainages.BIET) / (activeChainages.APTS - activeChainages.BIET);
+
         const trainObj = {
+          rowId: row.id,
           trainId: tId,
           operatorName: operatorInfo.name,
           operatorId: operatorInfo.id,
@@ -719,7 +832,7 @@ export default function LiveTrainPositionTracker({
           chainage: parseFloat(currentChainage.toFixed(3)),
           distanceTravelled: parseFloat(distanceTravelled.toFixed(2)),
           distanceRemaining: parseFloat(distanceRemaining.toFixed(2)),
-          pctLine: (currentChainage - activeChainages.BIET) / (activeChainages.APTS - activeChainages.BIET),
+          pctLine: Math.max(0, Math.min(1, pctLine)),
           reliever,
           scheduledHandoverStation,
           isVerifiedReliever,
@@ -729,58 +842,161 @@ export default function LiveTrainPositionTracker({
           isTripCompletingIn3Mins,
           shouldAnnounceReliever,
           hasReliever,
-          previousOperator
+          previousOperator,
+          isStabling: false
         };
 
         positions.push(trainObj);
 
-        // ── Precise Proximity & Departure Detection for Verified Relief Stations (PYID, KGWA, PUTH) ──
+        // Relief station proximity detection for this running train
         RELIEF_STATION_CONFIG.filter(st => st.isReliefStation).forEach(st => {
           const stChain = activeChainages[st.code] ?? st.chainage;
+          const physicalDist = Math.abs(currentChainage - stChain);
           
-          let distToStation;
           let isApproaching = false;
           let isAtPlatform = false;
           let isDeparted = false;
 
-          if (isUp) {
-            // UP Track: travels APTS (+23.833) ➔ BIET (-9.227) [decreasing chainage]
-            distToStation = currentChainage - stChain; // > 0 before station, < 0 after station
-            isApproaching = distToStation >= -0.15 && distToStation <= 1.35;
-            isAtPlatform = Math.abs(distToStation) <= 0.15;
-            isDeparted = distToStation < -0.15;
-          } else {
-            // DOWN Track: travels BIET (-9.227) ➔ APTS (+23.833) [increasing chainage]
-            distToStation = stChain - currentChainage; // > 0 before station, < 0 after station
-            isApproaching = distToStation >= -0.15 && distToStation <= 1.35;
-            isAtPlatform = Math.abs(distToStation) <= 0.15;
-            isDeparted = distToStation < -0.15;
-          }
+          if (physicalDist <= 2.0) {
+            isAtPlatform = physicalDist <= 0.20;
+            if (isUp) {
+              isApproaching = currentChainage > stChain && !isAtPlatform;
+              isDeparted = currentChainage < stChain && !isAtPlatform;
+            } else {
+              isApproaching = currentChainage < stChain && !isAtPlatform;
+              isDeparted = currentChainage > stChain && !isAtPlatform;
+            }
 
-          // Relief Station matching logic
-          const isStationMatch = (st.code === scheduledHandoverStation);
-          const stationHasReliever = shouldAnnounceReliever && (isStationMatch || !scheduledHandoverStation);
+            const isStationMatch = scheduledHandoverStation === st.code;
 
-          // If train is in the vicinity of this station or scheduled for relief here
-          if ((isApproaching || isAtPlatform || (distToStation >= -0.8 && distToStation < 0)) || nextSt.station === st.code || prevSt.station === st.code || trainObj.currentStation.includes(st.code) || (isStationMatch && isTripCompletingIn3Mins)) {
             stationAlerts.push({
               ...trainObj,
               stationCode: st.code,
               stationLabel: st.label,
+              stationName: st.nameEn,
               stationNameEn: st.nameEn,
+              stationKn: st.nameKn,
               stationNameKn: st.nameKn,
-              hasReliever: stationHasReliever,
-              isTripCompletingIn3Mins,
-              shouldAnnounceReliever,
+              distanceKm: parseFloat(physicalDist.toFixed(2)),
+              distToStation: physicalDist.toFixed(2),
+              chainage: parseFloat(currentChainage.toFixed(3)),
+              stationChainage: stChain,
               isStationMatch,
-              isApproaching: (isApproaching || isAtPlatform || trainObj.currentStation.includes(st.code)) && !isDeparted,
+              isApproaching,
               isAtPlatform,
               isDeparted,
-              distToStation: Math.abs(distToStation).toFixed(2),
+              relieverName: reliever?.name || '--',
+              relieverId: reliever?.id || '--',
+              relieverDutyNo: reliever?.dutyNo || '--',
+              takeoverTime: reliever?.takeoverTime || '--',
               stationStatus: isDeparted ? 'DEPARTED' : isAtPlatform ? 'AT PLATFORM' : isTripCompletingIn3Mins ? 'TRIP ENDING (3 MIN)' : 'APPROACHING'
             });
           }
         });
+      } else {
+        // Collect closest adjacent trip for stabling fallback
+        if (!stablingCandidates.has(tId)) {
+          stablingCandidates.set(tId, { futureDiff: Infinity, pastDiff: Infinity, futureTrip: null, pastTrip: null });
+        }
+        const cand = stablingCandidates.get(tId);
+        if (curMins < tripStart) {
+          const diff = tripStart - curMins;
+          if (diff < cand.futureDiff) {
+            cand.futureDiff = diff;
+            cand.futureTrip = { trip, stations, tripStart, tripEnd };
+          }
+        } else if (curMins > tripEnd) {
+          const diff = curMins - tripEnd;
+          if (diff < cand.pastDiff) {
+            cand.pastDiff = diff;
+            cand.pastTrip = { trip, stations, tripStart, tripEnd };
+          }
+        }
+      }
+    };
+
+    // 1. Process all matrix sheet rows: BOTH downTrip and upTrip
+    matrixRows.forEach(row => {
+      if (!row) return;
+      if (row.downTrip) {
+        processTrip(row.downTrip, 'DOWN', row);
+      }
+      if (row.upTrip) {
+        processTrip(row.upTrip, 'UP', row);
+      }
+      // Single trip row (not nested in downTrip/upTrip)
+      if (!row.downTrip && !row.upTrip && row.stations) {
+        const startSt = Object.keys(row.stations)[0];
+        const endSt = Object.keys(row.stations)[Object.keys(row.stations).length - 1];
+        const startCh = activeChainages[startSt] ?? 0;
+        const endCh = activeChainages[endSt] ?? 0;
+        const dir = startCh > endCh ? 'UP' : 'DOWN';
+        processTrip(row, dir, row);
+      }
+    });
+
+    // 2. Stabling trains (only for fleet trains not currently running)
+    stablingCandidates.forEach((cand, tId) => {
+      if (runningTrainIds.has(tId)) return;
+      const stabRef = cand.pastTrip || cand.futureTrip;
+      if (!stabRef || !stabRef.stations || stabRef.stations.length < 1) return;
+
+      const stabStation = cand.pastTrip
+        ? stabRef.stations[stabRef.stations.length - 1].station
+        : stabRef.stations[0].station;
+      const stabChain = activeChainages[stabStation] ?? 0;
+      const stabPctLine = (stabChain - (activeChainages.BIET ?? -9.227)) / ((activeChainages.APTS ?? 23.833) - (activeChainages.BIET ?? -9.227));
+      const stabStart = activeChainages[stabRef.stations[0].station] ?? 0;
+      const stabEnd = activeChainages[stabRef.stations[stabRef.stations.length - 1].station] ?? 0;
+      const stabDir = stabStart > stabEnd ? 'UP' : 'DOWN';
+
+      const tracking = dynamicTrainTrackingMap[tId] || {};
+      const liveTracking = propLiveTrainTrackingMap?.[tId] || {};
+      const currentOp = tracking.current || liveTracking.current || null;
+
+      positions.push({
+        rowId: `stbl_${tId}`,
+        trainId: tId,
+        operatorName: currentOp?.empName && currentOp.empName !== '--' ? currentOp.empName : `Train Operator ${tId}`,
+        operatorId: currentOp?.empId || '--',
+        dutyNo: currentOp?.dutyId || '--',
+        isExchanged: currentOp?.isExchanged || false,
+        originalEmpName: currentOp?.originalEmpName || '',
+        currentStation: `${stabStation} (Stabling)`,
+        previousStation: stabStation,
+        nextStation: stabStation,
+        direction: cand.pastTrip ? (stabDir === 'UP' ? 'DOWN' : 'UP') : stabDir,
+        chainage: parseFloat(stabChain.toFixed(3)),
+        distanceTravelled: 0,
+        distanceRemaining: 0,
+        pctLine: Math.max(0, Math.min(1, stabPctLine)),
+        reliever: null,
+        scheduledHandoverStation: 'PYID',
+        isVerifiedReliever: false,
+        tripCompletionSec: null,
+        timeRemainingToCompletionSec: 999999,
+        timeRemainingMins: 0,
+        isTripCompletingIn3Mins: false,
+        shouldAnnounceReliever: false,
+        hasReliever: false,
+        previousOperator: null,
+        isStabling: true
+      });
+    });
+
+    // 3. Arrange trains following one after another sequentially as per WTT order (leading train first, followed by trains behind it)
+    positions.sort((a, b) => {
+      // Running trains first, stabling trains last
+      if (a.isStabling !== b.isStabling) return a.isStabling ? 1 : -1;
+      // Direction: UP first, DOWN second
+      if (a.direction !== b.direction) return a.direction === 'UP' ? -1 : 1;
+      // In direction of movement:
+      // UP line travels APTS (+23.8) ➔ BIET (-9.2): leading train has lowest chainage, followed by trains behind it
+      if (a.direction === 'UP') {
+        return a.chainage - b.chainage;
+      } else {
+        // DOWN line travels BIET (-9.2) ➔ APTS (+23.8): leading train has highest chainage, followed by trains behind it
+        return b.chainage - a.chainage;
       }
     });
 
@@ -788,7 +1004,7 @@ export default function LiveTrainPositionTracker({
       liveTrainPositions: positions, 
       reliefStationAlerts: stationAlerts 
     };
-  }, [simulatedTime, wttMatrix, staticWttTrips, liveIncidents, dynamicTrainTrackingMap, stationChainageDB, activeSchedule, dailyCrewTracks, RELIEF_STATION_CONFIG, propLiveTrainTrackingMap]);
+  }, [simulatedTime, internalTimeSecs, isLiveClock, matrixRows, liveIncidents, dynamicTrainTrackingMap, stationChainageDB, activeSchedule, dailyCrewTracks, RELIEF_STATION_CONFIG, propLiveTrainTrackingMap, interpolateTripStations]);
 
   // Automated Voice Announcement Trigger on 3-Minute Trip Completion Basis
   // STRICT RULE 1: Announce next train operator name when current driving operator's trip completes in next 3 mins.
@@ -858,10 +1074,12 @@ export default function LiveTrainPositionTracker({
           </p>
           <div className="flex flex-wrap gap-2 mt-1">
             <span className="text-[8px] font-mono text-slate-600">
-              Active Fleet: <span className="text-cyan-400 font-bold">{liveTrainPositions.length}</span>
+              Running: <span className="text-cyan-400 font-bold">{liveTrainPositions.filter(t => !t.isStabling).length}</span>
+              {' | '}Stabling: <span className="text-amber-400 font-bold">{liveTrainPositions.filter(t => t.isStabling).length}</span>
               {' | '}Station Approaches: <span className="text-amber-400 font-bold">{reliefStationAlerts.filter(a => !a.isDeparted).length}</span>
               {' | '}Relief in 3 Mins: <span className="text-emerald-400 font-bold">{liveTrainPositions.filter(t => t.shouldAnnounceReliever).length}</span>
-              {' | '}Voice System: <span className={`font-bold ${voiceEnabled ? 'text-emerald-400' : 'text-rose-500'}`}>{voiceEnabled ? 'ACTIVE (KN + EN)' : 'MUTED'}</span>
+              {' | '}Pos Source: <span className={`font-bold ${isLiveClock ? 'text-emerald-400' : 'text-amber-400'}`}>{isLiveClock ? 'LIVE 5s' : 'MANUAL'}</span>
+              {' | '}Voice: <span className={`font-bold ${voiceEnabled ? 'text-emerald-400' : 'text-rose-500'}`}>{voiceEnabled ? 'ACTIVE (KN+EN)' : 'MUTED'}</span>
             </span>
           </div>
         </div>
@@ -916,6 +1134,10 @@ export default function LiveTrainPositionTracker({
             value={simulatedTime}
             onChange={(e) => {
               setSimulatedTime(e.target.value);
+              setIsLiveClock(false); // switch to manual mode when user types a time
+              // Update internalTimeSecs from the manually typed HH:MM time
+              const [mh, mm] = (e.target.value || '').split(':').map(Number);
+              if (!isNaN(mh)) setInternalTimeSecs((mh || 0) * 3600 + (mm || 0) * 60);
             }}
             className="bg-slate-900 border border-slate-700 text-xs rounded px-2.5 py-1 focus:outline-none focus:border-cyan-500 font-bold text-cyan-300 font-mono"
           />
@@ -966,7 +1188,10 @@ export default function LiveTrainPositionTracker({
           max="1439" // 11:59 PM in minutes
           value={timeToMinutes(simulatedTime)}
           onChange={(e) => {
-            setSimulatedTime(minutesToTime(parseInt(e.target.value)));
+            const mins = parseInt(e.target.value);
+            setSimulatedTime(minutesToTime(mins));
+            setIsLiveClock(false); // switch to manual when slider is dragged
+            setInternalTimeSecs(mins * 60);
           }}
           className="flex-1 accent-cyan-500 bg-slate-900 h-1.5 rounded-lg border border-slate-800 cursor-pointer"
         />
@@ -1062,34 +1287,41 @@ export default function LiveTrainPositionTracker({
           })}
 
           {/* Dynamic train markers moving on the tracks with DISTINCT ACTIVE OPERATOR NAME */}
-          {liveTrainPositions.map((train) => {
-            const leftPos = `${4 + train.pctLine * 92}%`;
+          {liveTrainPositions.map((train, idx) => {
+            const leftPos = `${Math.max(0, Math.min(100, 4 + train.pctLine * 92))}%`;
             const isUp = train.direction === 'UP';
             const topOffset = isUp ? '40px' : '130px';
-            const themeColorClass = isUp 
-              ? 'bg-emerald-500 text-slate-950 font-black border-emerald-400/40 shadow-[0_0_12px_rgba(16,185,129,0.5)]' 
-              : 'bg-cyan-500 text-slate-950 font-black border-cyan-400/40 shadow-[0_0_12px_rgba(6,182,212,0.5)]';
+
+            // Visual differentiation: stabling trains = muted grey/amber, active = vivid emerald/cyan
+            const themeColorClass = train.isStabling
+              ? 'bg-slate-700 text-slate-300 font-bold border-amber-600/40 shadow-[0_0_6px_rgba(245,158,11,0.3)] opacity-70'
+              : isUp
+                ? 'bg-emerald-500 text-slate-950 font-black border-emerald-400/40 shadow-[0_0_12px_rgba(16,185,129,0.5)]'
+                : 'bg-cyan-500 text-slate-950 font-black border-cyan-400/40 shadow-[0_0_12px_rgba(6,182,212,0.5)]';
 
             return (
               <div
-                key={train.trainId}
-                className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group z-20 transition-all duration-300"
+                key={`${train.trainId}_${train.direction}_${train.rowId || idx}`}
+                className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group z-20 transition-all duration-[300ms]"
                 style={{ left: leftPos, top: topOffset }}
               >
                 {/* Glowing train badge */}
-                <div 
+                <div
                   onClick={() => setSelectedTrain(train)}
                   className={`${themeColorClass} text-[9px] px-2 py-1 rounded-md border flex items-center gap-1 cursor-pointer hover:scale-105 transition-transform`}
                 >
                   <Train size={9} className={isUp ? 'rotate-180 transition-transform' : ''} />
                   T{train.trainId}
+                  {train.isStabling && <span className="text-[7px] text-amber-400 font-mono ml-0.5">STBL</span>}
                 </div>
 
                 {/* Real-Time Operator Name & Duty label from LIVE RELIEF TRACKING */}
-                <div className="absolute top-6 bg-slate-900/95 text-[8px] font-bold text-cyan-300 px-2 py-0.5 rounded border border-slate-700 whitespace-nowrap shadow-lg flex items-center gap-1 z-20">
-                  <User className="h-2.5 w-2.5 text-emerald-400 shrink-0" />
+                <div className={`absolute top-6 bg-slate-900/95 text-[8px] font-bold px-2 py-0.5 rounded border whitespace-nowrap shadow-lg flex items-center gap-1 z-20 ${
+                  train.isStabling ? 'text-slate-500 border-slate-700' : 'text-cyan-300 border-slate-700'
+                }`}>
+                  <User className={`h-2.5 w-2.5 shrink-0 ${train.isStabling ? 'text-slate-600' : 'text-emerald-400'}`} />
                   <span className="truncate max-w-[110px]">{train.operatorName}</span>
-                  {train.dutyNo && train.dutyNo !== '--' && (
+                  {!train.isStabling && train.dutyNo && train.dutyNo !== '--' && (
                     <span className="text-[7px] px-1 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-mono font-bold">
                       D{train.dutyNo}
                     </span>
@@ -1100,7 +1332,7 @@ export default function LiveTrainPositionTracker({
                 {train.shouldAnnounceReliever && train.reliever && (
                   <div className="absolute -top-6 bg-gradient-to-r from-emerald-600 to-cyan-600 text-white text-[7px] font-black px-2 py-0.5 rounded border border-emerald-300 animate-pulse whitespace-nowrap shadow-lg flex items-center gap-1">
                     <Megaphone className="h-2 w-2 text-yellow-300" />
-                    <span>Relief in {train.timeRemainingMins}m: {train.reliever.name.split(' ')[0]}</span>
+                    <span>Relief in {train.timeRemainingMins}m: {train.reliever?.name ? train.reliever.name.split(' ')[0] : '--'}</span>
                   </div>
                 )}
                 {train.isTripCompletingIn3Mins && !train.isVerifiedReliever && (
@@ -1128,7 +1360,7 @@ export default function LiveTrainPositionTracker({
                   {train.reliever && (
                     <div className={`border-t border-slate-800 pt-1 mt-1 font-mono ${train.shouldAnnounceReliever ? 'text-emerald-300 font-black animate-pulse' : 'text-amber-300 font-bold'}`}>
                       {train.shouldAnnounceReliever ? '📢 Handover in 3m: ' : 'Reliever TO: '}
-                      {train.reliever.name} ({train.reliever.id}) • Duty {train.reliever.dutyNo}
+                      {train.reliever?.name || '--'} ({train.reliever?.id || '--'}) • Duty {train.reliever?.dutyNo || '--'}
                     </div>
                   )}
                   {train.isTripCompletingIn3Mins && !train.isVerifiedReliever && (
@@ -1322,12 +1554,12 @@ export default function LiveTrainPositionTracker({
                           </span>
                         )}
                       </div>
-                      {isVerifiedReliever ? (
+                      {isVerifiedReliever && t.reliever ? (
                         <div className="mt-0.5">
                           <div className={`text-xs font-bold font-mono ${hasReliever ? 'text-cyan-200 text-sm' : 'text-amber-300'}`}>
-                            {t.reliever.name} <span className="font-normal text-[10px] opacity-75">({t.reliever.id})</span>
+                            {t.reliever?.name || '--'} <span className="font-normal text-[10px] opacity-75">({t.reliever?.id || '--'})</span>
                           </div>
-                          {t.reliever.takeoverTime && t.reliever.takeoverTime !== '--' && (
+                          {t.reliever?.takeoverTime && t.reliever.takeoverTime !== '--' && (
                             <div className="text-[9px] text-slate-400 font-mono mt-1 flex justify-between">
                               <span>Handover: <strong className="text-white">{t.reliever.takeoverTime}</strong></span>
                               <span className={hasReliever ? 'text-emerald-400 font-bold' : 'text-amber-400/80'}>
@@ -1346,7 +1578,7 @@ export default function LiveTrainPositionTracker({
                     {/* Previous Operator Info */}
                     {t.previousOperator && (
                       <div className="text-[9px] text-slate-500 font-mono px-1">
-                        Previous TO: <span className="text-slate-400">{t.previousOperator.name}</span> ({t.previousOperator.id}) • Duty {t.previousOperator.dutyNo}
+                        Previous TO: <span className="text-slate-400">{t.previousOperator?.name || '--'}</span> ({t.previousOperator?.id || '--'}) • Duty {t.previousOperator?.dutyNo || '--'}
                       </div>
                     )}
                   </div>
@@ -1357,15 +1589,15 @@ export default function LiveTrainPositionTracker({
                       Pos: <strong className="text-slate-300">{t.currentStation}</strong>
                       {isDeparted ? ' (Departed)' : ` (${t.distToStation} KM away)`}
                     </span>
-                    {hasReliever && !isDeparted && (
+                    {hasReliever && !isDeparted && t.reliever && (
                       <button
                         onClick={() => triggerBilingualAnnouncement(
                           t.trainId, 
                           t.direction, 
-                          t.reliever.name, 
+                          t.reliever?.name, 
                           t.operatorName, 
                           t.scheduledHandoverStation || t.stationCode,
-                          t.reliever.dutyNo,
+                          t.reliever?.dutyNo,
                           t.dutyNo,
                           t.timeRemainingMins || 3
                         )}
@@ -1428,8 +1660,8 @@ export default function LiveTrainPositionTracker({
             No scheduled train matrix movements detected at {simulatedTime}.
           </div>
         ) : (
-          liveTrainPositions.map((t) => (
-            <div key={t.trainId} className="bg-slate-950 border border-slate-850 rounded-xl p-4 flex flex-col justify-between hover:border-cyan-500/30 transition shadow-md group">
+          liveTrainPositions.map((t, idx) => (
+            <div key={`${t.trainId}_${t.direction}_${t.rowId || idx}`} className="bg-slate-950 border border-slate-850 rounded-xl p-4 flex flex-col justify-between hover:border-cyan-500/30 transition shadow-md group">
               <div className="flex justify-between items-center border-b border-slate-850 pb-2 mb-3">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded bg-cyan-500 animate-ping"></span>
@@ -1456,7 +1688,7 @@ export default function LiveTrainPositionTracker({
                 {t.reliever && (
                   <div className="flex justify-between font-mono text-amber-300 bg-amber-950/20 p-1.5 rounded border border-amber-500/30">
                     <span>PYID Reliever:</span>
-                    <strong>{t.reliever.name}</strong>
+                    <strong>{t.reliever?.name || '--'}</strong>
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-850/60 font-mono">
@@ -1520,29 +1752,29 @@ export default function LiveTrainPositionTracker({
                 }`}>
                   <div>
                     <span className="text-[9px] uppercase text-amber-400 block font-bold font-mono">Assigned Reliever Operator</span>
-                    <strong className="text-amber-300 text-sm font-mono">{selectedTrain.reliever.name}</strong>
-                    <span className="text-xs text-amber-300/70 font-mono"> ({selectedTrain.reliever.id})</span>
-                    {selectedTrain.reliever.dutyNo && selectedTrain.reliever.dutyNo !== '--' && (
+                    <strong className="text-amber-300 text-sm font-mono">{selectedTrain.reliever?.name || '--'}</strong>
+                    <span className="text-xs text-amber-300/70 font-mono"> ({selectedTrain.reliever?.id || '--'})</span>
+                    {selectedTrain.reliever?.dutyNo && selectedTrain.reliever.dutyNo !== '--' && (
                       <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 font-mono">
                         Duty {selectedTrain.reliever.dutyNo}
                       </span>
                     )}
-                    {selectedTrain.reliever.takeoverTime && selectedTrain.reliever.takeoverTime !== '--' && (
+                    {selectedTrain.reliever?.takeoverTime && selectedTrain.reliever.takeoverTime !== '--' && (
                       <div className="text-[9px] text-amber-400/80 font-mono mt-0.5">
                         Scheduled Handover: <strong className="text-white">{selectedTrain.reliever.takeoverTime}</strong>
                         {!selectedTrain.hasReliever && <span className="text-slate-500 ml-1">(Handover not active now)</span>}
                       </div>
                     )}
                   </div>
-                  {selectedTrain.hasReliever && (
+                  {selectedTrain.hasReliever && selectedTrain.reliever && (
                     <button
                       onClick={() => triggerBilingualAnnouncement(
                         selectedTrain.trainId, 
                         selectedTrain.direction, 
-                        selectedTrain.reliever.name, 
+                        selectedTrain.reliever?.name, 
                         selectedTrain.operatorName, 
                         selectedTrain.currentStation?.includes('KGWA') ? 'KGWA' : selectedTrain.currentStation?.includes('PUTH') ? 'PUTH' : 'PYID',
-                        selectedTrain.reliever.dutyNo,
+                        selectedTrain.reliever?.dutyNo,
                         selectedTrain.dutyNo
                       )}
                       className="p-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/30 transition"
@@ -1557,7 +1789,7 @@ export default function LiveTrainPositionTracker({
               {selectedTrain.previousOperator && (
                 <div className="bg-slate-900/40 border border-slate-850 p-2.5 rounded-lg text-[10px] text-slate-400 font-mono">
                   <span className="text-[8px] uppercase text-slate-500 block">Previously Relieved Operator</span>
-                  <span className="text-slate-300 font-bold">{selectedTrain.previousOperator.name}</span> ({selectedTrain.previousOperator.id}) • Duty {selectedTrain.previousOperator.dutyNo}
+                  <span className="text-slate-300 font-bold">{selectedTrain.previousOperator?.name || '--'}</span> ({selectedTrain.previousOperator?.id || '--'}) • Duty {selectedTrain.previousOperator?.dutyNo || '--'}
                 </div>
               )}
 

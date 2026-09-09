@@ -138,7 +138,7 @@ export const OR_STATION_FLAT = {
 export const STANDING_GROUPS = {
   PINK_LINE_4: [21414, 21482, 21723, 21724, 22224, 22237, 22294, 22296, 22297, 22315],
   // Tag = "OD" on Weekday/Mon/Sat, "WO" on Sun
-  BMRTI_R5: [21490, 21487, 21496]
+  BMRTI_R5: [21490, 21487, 21496, 22297, 22315]
   // Tag = "BMRTI", open-ended training
 };
 

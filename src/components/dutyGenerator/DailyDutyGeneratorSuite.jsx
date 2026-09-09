@@ -21,7 +21,7 @@ import { useOperationalEngine } from '../../context/OperationalEngine';
 import { useAuth } from '../../context/AuthContext';
 import { buildUnifiedEmployeeProfile, mergeCrewRegistryToFirestore, purgeDuplicateFirestoreCrewDocuments, normalizeCanonicalEmpId, OFFICIAL_PYID_ACTIVE_IDS } from '../../utils/crewRegistryDataMerger';
 import { db } from '../../firebase';
-import { doc, setDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch, onSnapshot } from 'firebase/firestore';
 import OperationalErrorBoundary from '../common/OperationalErrorBoundary';
 
 export default function DailyDutyGeneratorSuite() {
@@ -49,6 +49,97 @@ export default function DailyDutyGeneratorSuite() {
   const liveShiftExchanges = operationalEngine?.shiftExchanges || [];
   const liveDeployments = operationalEngine?.deployments || [];
   const currentUser = auth?.currentUser;
+
+  // Previous Day GCC Deployed Roster (From AutomatedDispatchGate / EXCEL AUTO-READER & CLASSIFIER)
+  const [previousDayGCCRoster, setPreviousDayGCCRoster] = useState(() => {
+    try {
+      const cached = localStorage.getItem('pyidcc_roster_desk_console_cache');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [previousDayGCCMeta, setPreviousDayGCCMeta] = useState(() => {
+    try {
+      const cached = localStorage.getItem('pyidcc_roster_desk_meta');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const getPreviousDayDateStr = (dateStr) => {
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        d.setDate(d.getDate() - 1);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      }
+    } catch {}
+    const d = new Date(dateStr);
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split('T')[0];
+  };
+
+  // Real-time listener for the GCC deployed roster (date-specific and current fallbacks)
+  useEffect(() => {
+    const prevDateStr = getPreviousDayDateStr(targetDate);
+
+    const mergeRoster = (newData, meta = null) => {
+      if (!newData && !meta) return;
+      if (newData) {
+        setPreviousDayGCCRoster(prev => ({
+          ...(prev || {}),
+          ...newData,
+          date: newData.date || prevDateStr,
+          sheetName: newData.sheetName || meta?.sheetName || prev?.sheetName || 'GCC Deployed Roster'
+        }));
+      }
+      if (meta) {
+        setPreviousDayGCCMeta(meta);
+      }
+    };
+
+    // 1. Check dispatch_excel_cache for the exact previous date
+    const unsubPrevDate = onSnapshot(doc(db, 'dispatch_excel_cache', prevDateStr), (snap) => {
+      if (snap.exists()) {
+        mergeRoster(snap.data());
+      }
+    }, () => {});
+
+    // 2. Check dispatch_excel_cache 'current'
+    const unsubCacheCurrent = onSnapshot(doc(db, 'dispatch_excel_cache', 'current'), (snap) => {
+      if (snap.exists()) {
+        mergeRoster(snap.data());
+      }
+    }, () => {});
+
+    // 3. Check roster_desk_console 'current'
+    const unsubDeskCurrent = onSnapshot(doc(db, 'roster_desk_console', 'current'), (snap) => {
+      if (snap.exists()) {
+        mergeRoster(snap.data());
+      }
+    }, () => {});
+
+    // 4. Check deployment metadata
+    const unsubMeta = onSnapshot(doc(db, 'roster_desk_console', 'latest_deployment_meta'), (snap) => {
+      if (snap.exists()) {
+        const meta = snap.data();
+        mergeRoster(null, meta);
+      }
+    }, () => {});
+
+    return () => {
+      unsubPrevDate();
+      unsubCacheCurrent();
+      unsubDeskCurrent();
+      unsubMeta();
+    };
+  }, [targetDate]);
 
   // Live IST clock — ticks every second
   useEffect(() => {
@@ -1035,6 +1126,9 @@ export default function DailyDutyGeneratorSuite() {
                 crewList={crewList}
                 activeRequests={activeRequests}
                 woOverrides={woOverrides}
+                previousDayGCCRoster={previousDayGCCRoster}
+                previousDayGCCMeta={previousDayGCCMeta}
+                liveDeployments={liveDeployments}
                 onOpenActiveCrewModal={() => setIsActiveCrewModalOpen(true)}
                 onOpenCCWillingModal={() => setIsCCWillingModalOpen(true)}
                 onUpdateCrewStatus={handleUpdateCrewStatus}

@@ -3,9 +3,12 @@ import { db } from '../firebase';
 import { collection, addDoc, query, orderBy, onSnapshot, updateDoc, doc, serverTimestamp, getDocs, where, setDoc, getDoc, runTransaction, writeBatch } from 'firebase/firestore';
 import { 
   Repeat, CheckCircle, Clock, UserCheck, X, Check, Trash2,
-  Cpu, FileSpreadsheet, Users, Search, ArrowRightLeft
+  Cpu, FileSpreadsheet, Users, Search, ArrowRightLeft, ShieldCheck, UserCheck2, Briefcase
 } from 'lucide-react';
-import { BMRCL_CREW_REGISTRY, BMRCL_CREW_MASTER_BACKUP } from '../data/bmrclCrewRegistry';
+import { EMPLOYEE_MASTER_REGISTRY } from '../data/employeeProfileMaster';
+import { OFFICIAL_JMD_TD_REGISTRY } from '../data/jmdCrewMaster';
+import { normalizeCanonicalEmpId, OFFICIAL_PYID_ACTIVE_IDS } from '../utils/crewRegistryDataMerger';
+import { getCanonicalStaffName } from './dutyGenerator/CCWillingDeskModal';
 import { useAuth } from '../context/AuthContext';
 import { rosterService, swapOperatorsInConsoleData } from '../services/RosterService';
 
@@ -114,6 +117,10 @@ export default function ShiftExchange() {
   });
 
   const [crewList, setCrewList] = useState([]);
+  const [firestoreCrew, setFirestoreCrew] = useState([]);
+  const [firestoreJmd, setFirestoreJmd] = useState([]);
+  const [op1TypeFilter, setOp1TypeFilter] = useState('ALL'); // 'ALL' | 'BMRCL_TO' | 'JMD_TD' | 'DEPLOYED'
+  const [op2TypeFilter, setOp2TypeFilter] = useState('ALL'); // 'ALL' | 'BMRCL_TO' | 'JMD_TD' | 'DEPLOYED'
   const [op1Query, setOp1Query] = useState('');
   const [op2Query, setOp2Query] = useState('');
 
@@ -154,65 +161,183 @@ export default function ShiftExchange() {
     };
   }, []);
 
-  // 2. Sync crew data with Firestore crewRegistry collection or local registry backups
+  // 2. Real-time sync with Active Crew & Maternity Console (crewRegistry) and JMD TD Console (jmd_crew_registry)
   useEffect(() => {
-    if (BMRCL_CREW_REGISTRY && BMRCL_CREW_REGISTRY.length > 0) {
-      setCrewList(BMRCL_CREW_REGISTRY);
-    } else {
-      setCrewList(BMRCL_CREW_MASTER_BACKUP);
-    }
-
     const qRegistry = query(collection(db, 'crewRegistry'));
     const unsubRegistry = onSnapshot(qRegistry, (snapshot) => {
-      if (snapshot.empty) {
-        setCrewList(BMRCL_CREW_REGISTRY && BMRCL_CREW_REGISTRY.length > 0 ? BMRCL_CREW_REGISTRY : BMRCL_CREW_MASTER_BACKUP);
-        return;
+      if (!snapshot.empty) {
+        setFirestoreCrew(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
       }
-      
-      const activeList = [];
-      snapshot.docs.forEach(docSnap => {
-        const data = docSnap.data();
-        const active = (data.operationalCrew === 'YES' || data.operationalCrew === true) && data.deleted !== true;
-        if (active) {
-          activeList.push({
-            id: String(data.employeeId || data.id || docSnap.id),
-            name: data.employeeName || data.name || '',
-            designation: data.designation || '',
-            contact: data.mobileNumber || data.contact || '',
-            email: data.email || '',
-            competencyExpiry: data.competencyExpiry || '',
-            activeCrew: true,
-            department: data.department || 'Operations',
-            role: data.role || 'Train Operator',
-            depot: data.depot || 'Peenya Depot (PYID)',
-            badgeNumber: data.badgeNumber || '',
-            competencyNumber: data.competencyNumber || '',
-            competencyValidTill: data.competencyValidTill || '',
-            medicalValidTill: data.medicalValidTill || '',
-            doj: data.doj || '',
-            retirementDate: data.retirementDate || '',
-            currentStatus: data.currentStatus || 'DUTY',
-            bloodGroup: data.bloodGroup || '',
-            emergencyContact: data.emergencyContact || '',
-            remarks: data.remarks || '',
-            photo: data.photo || '',
-            systemUser: data.systemUser || false,
-            activeUser: data.activeUser || false,
-            availableForDeployment: data.availableForDeployment !== false,
-            availableForRelief: data.availableForRelief !== false
-          });
-        }
-      });
-      
-      if (activeList.length > 0) {
-        setCrewList(activeList);
-      } else {
-        setCrewList(BMRCL_CREW_REGISTRY && BMRCL_CREW_REGISTRY.length > 0 ? BMRCL_CREW_REGISTRY : BMRCL_CREW_MASTER_BACKUP);
+    }, (err) => console.warn('crewRegistry snapshot error:', err));
+
+    const qJmd = query(collection(db, 'jmd_crew_registry'));
+    const unsubJmd = onSnapshot(qJmd, (snapshot) => {
+      if (!snapshot.empty) {
+        setFirestoreJmd(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      }
+    }, () => {});
+
+    return () => {
+      unsubRegistry();
+      unsubJmd();
+    };
+  }, []);
+
+  // 2b. Canonical Active Candidate Roster for BMRCL Line 2:
+  // - 88 BMRCL Regular TOs (Active candidate roster for BMRCL Line 2 Daily Duty Generator)
+  // - 49 JMD Contract TDs (TD Roster Desk 8-Series for Line 2 Mainline Running Duties #1 to #78)
+  // - Maternity Leave Operators included
+  // - Strict exclusion of Station Controllers, supervisory staff, and relieved crew
+  const activeCandidateCrew = useMemo(() => {
+    let deletedSet = new Set();
+    try {
+      const deletedCrew = JSON.parse(localStorage.getItem('pyidcc_deleted_crew_ids') || '[]');
+      const deletedJmd = JSON.parse(localStorage.getItem('pyidcc_deleted_jmd_td_ids') || '[]');
+      deletedSet = new Set([...deletedCrew, ...deletedJmd].map(id => String(id).trim()));
+    } catch {}
+
+    const SUPERVISORY_EXCLUSIONS = new Set([20726, 20038, 20037, 20018, 20019, 20057, 20087, 21502]);
+    const map = new Map();
+
+    // A. Seed BMRCL Regular Train Operators (EMPLOYEE_MASTER_REGISTRY)
+    (EMPLOYEE_MASTER_REGISTRY || []).forEach(e => {
+      const canonicalId = normalizeCanonicalEmpId(e.empId || e.employeeId || e.id);
+      if (!canonicalId) return;
+      const strId = String(canonicalId);
+      if (deletedSet.has(strId)) return;
+      if (SUPERVISORY_EXCLUSIONS.has(canonicalId)) return;
+      if (e.isOfficialCC === true || e.role === 'OFFICIAL_CREW_CONTROLLER' || e.specialProfile === 'CC') return;
+      if (e.role === 'Official ALS' || e.role === 'Official GCC' || e.role === 'STATION_CONTROLLER' || e.designation === 'Station Controller') return;
+      if (e.isRelieved === true || e.status === 'RELIEVED' || e.status === 'DELETED') return;
+
+      const isOfficialActive = OFFICIAL_PYID_ACTIVE_IDS.has(canonicalId);
+      const isActive = e.status === 'ACTIVE' || e.status === 'MATERNITY_LEAVE' || (e.maternityLeave && e.maternityLeave.active);
+
+      if (isActive || isOfficialActive) {
+        const canonicalName = getCanonicalStaffName(e);
+        map.set(canonicalId, {
+          id: strId,
+          empId: canonicalId,
+          name: canonicalName,
+          designation: 'Train Operator (BMRCL Regular)',
+          role: 'Train Operator',
+          isJmd: false,
+          gender: e.gender || 'MALE',
+          contact: e.contact || e.phone || '',
+          competencyExpiry: e.competencyExpiry || '',
+          fixedWo: e.fixedWo || 'Sunday',
+          status: e.status || 'ACTIVE',
+          activeCrew: true
+        });
       }
     });
 
-    return () => unsubRegistry();
-  }, []);
+    // B. Seed JMD Contract Train Drivers (OFFICIAL_JMD_TD_REGISTRY - 8-Series)
+    (OFFICIAL_JMD_TD_REGISTRY || []).forEach(e => {
+      const canonicalId = normalizeCanonicalEmpId(e.empId || e.employeeId || e.id);
+      if (!canonicalId) return;
+      const strId = String(canonicalId);
+      if (deletedSet.has(strId)) return;
+      if (e.isRelieved === true || e.status === 'RELIEVED' || e.status === 'DELETED') return;
+
+      const canonicalName = getCanonicalStaffName(e);
+      map.set(canonicalId, {
+        id: strId,
+        empId: canonicalId,
+        name: canonicalName,
+        designation: 'Train Driver (JMD Contract)',
+        role: 'Train Driver (JMD)',
+        isJmd: true,
+        gender: e.gender || 'MALE',
+        contact: e.contact || e.phone || '',
+        competencyExpiry: e.competencyExpiry || '',
+        fixedWo: e.fixedWo || 'Tuesday',
+        status: e.status || 'ACTIVE',
+        activeCrew: true
+      });
+    });
+
+    // C. Overlay Live Firestore Crew Registry Documents
+    (firestoreCrew || []).forEach(docData => {
+      const canonicalId = normalizeCanonicalEmpId(docData.empId || docData.employeeId || docData.id);
+      if (!canonicalId) return;
+      const strId = String(canonicalId);
+      if (deletedSet.has(strId)) {
+        map.delete(canonicalId);
+        return;
+      }
+      if (SUPERVISORY_EXCLUSIONS.has(canonicalId)) {
+        map.delete(canonicalId);
+        return;
+      }
+
+      const isRelieved = docData.isRelieved === true || docData.status === 'RELIEVED' || docData.status === 'INACTIVE' || docData.status === 'DELETED' || docData.isDeleted === true || docData.activeCrew === false || docData.removedFromActiveRoster === true;
+      if (isRelieved) {
+        map.delete(canonicalId);
+        return;
+      }
+
+      if (docData.isOfficialCC === true || docData.role === 'OFFICIAL_CREW_CONTROLLER' || docData.specialProfile === 'CC' || docData.role === 'STATION_CONTROLLER' || docData.designation === 'Station Controller') {
+        map.delete(canonicalId);
+        return;
+      }
+
+      const isJmdEmp = strId.startsWith('8') || docData.isJmd === true;
+      const existing = map.get(canonicalId) || {};
+      const canonicalName = getCanonicalStaffName(docData) || existing.name;
+
+      map.set(canonicalId, {
+        ...existing,
+        ...docData,
+        id: strId,
+        empId: canonicalId,
+        name: canonicalName,
+        designation: isJmdEmp ? 'Train Driver (JMD Contract)' : (existing.designation || 'Train Operator (BMRCL Regular)'),
+        role: isJmdEmp ? 'Train Driver (JMD)' : (existing.role || 'Train Operator'),
+        isJmd: isJmdEmp,
+        activeCrew: true,
+        status: docData.status || existing.status || 'ACTIVE'
+      });
+    });
+
+    // D. Overlay Live Firestore JMD Crew Documents
+    (firestoreJmd || []).forEach(docData => {
+      const canonicalId = normalizeCanonicalEmpId(docData.empId || docData.employeeId || docData.id);
+      if (!canonicalId) return;
+      const strId = String(canonicalId);
+      if (deletedSet.has(strId) || docData.isDeleted === true || docData.status === 'DELETED') {
+        map.delete(canonicalId);
+        return;
+      }
+      const existing = map.get(canonicalId) || {};
+      const canonicalName = getCanonicalStaffName(docData) || existing.name;
+
+      map.set(canonicalId, {
+        ...existing,
+        ...docData,
+        id: strId,
+        empId: canonicalId,
+        name: canonicalName,
+        designation: 'Train Driver (JMD Contract)',
+        role: 'Train Driver (JMD)',
+        isJmd: true,
+        activeCrew: true,
+        status: docData.status || existing.status || 'ACTIVE'
+      });
+    });
+
+    const activeArr = Array.from(map.values()).sort((a, b) => {
+      if (a.isJmd === b.isJmd) return a.empId - b.empId;
+      return a.isJmd ? 1 : -1;
+    });
+
+    return activeArr;
+  }, [firestoreCrew, firestoreJmd]);
+
+  // Keep legacy crewList synchronized with activeCandidateCrew
+  useEffect(() => {
+    setCrewList(activeCandidateCrew);
+  }, [activeCandidateCrew]);
 
   // 3. Consolidated Deployed Crew Map across ALL Roster Desk Console Columns & Mainline Duties
   const deployedCrewMap = useMemo(() => {
@@ -478,29 +603,24 @@ export default function ShiftExchange() {
     const seenIds = new Set();
     const result = [];
 
-    deployedCrewMap.forEach((deployInfo, empId) => {
-      seenIds.add(empId);
-      const registryMatch = crewList.find(c => String(c.id) === empId);
-      result.push({
-        id: empId,
-        name: deployInfo.name || registryMatch?.name || '',
-        designation: registryMatch?.designation || 'Train Operator',
-        contact: registryMatch?.contact || '',
-        role: registryMatch?.role || 'Train Operator',
-        isDeployedToday: true,
-        deployedDuty: deployInfo.duty,
-        deployedStatus: deployInfo.status,
-        deployedCategory: deployInfo.category,
-        deployedTime: deployInfo.time,
-        deployedTrainId: deployInfo.trainId,
-        tagColor: deployInfo.tagColor
-      });
-    });
-
-    crewList.forEach(c => {
+    // First map all active candidate crew (BMRCL Regular TOs + JMD Contract TDs)
+    activeCandidateCrew.forEach(c => {
       const idStr = String(c.id);
-      if (!seenIds.has(idStr)) {
-        seenIds.add(idStr);
+      seenIds.add(idStr);
+      const deployInfo = deployedCrewMap.get(idStr);
+      if (deployInfo) {
+        result.push({
+          ...c,
+          name: deployInfo.name || c.name,
+          isDeployedToday: true,
+          deployedDuty: deployInfo.duty,
+          deployedStatus: deployInfo.status,
+          deployedCategory: deployInfo.category,
+          deployedTime: deployInfo.time,
+          deployedTrainId: deployInfo.trainId,
+          tagColor: deployInfo.tagColor
+        });
+      } else {
         result.push({
           ...c,
           isDeployedToday: false,
@@ -511,8 +631,32 @@ export default function ShiftExchange() {
       }
     });
 
+    // Also include any other operator who is currently deployed in Roster Desk Console today
+    deployedCrewMap.forEach((deployInfo, empId) => {
+      if (!seenIds.has(empId)) {
+        seenIds.add(empId);
+        const isJmd = String(empId).startsWith('8');
+        result.push({
+          id: empId,
+          empId: normalizeCanonicalEmpId(empId) || empId,
+          name: deployInfo.name || `Staff #${empId}`,
+          designation: isJmd ? 'Train Driver (JMD Contract)' : 'Train Operator (BMRCL Regular)',
+          contact: '',
+          role: isJmd ? 'Train Driver (JMD)' : 'Train Operator',
+          isJmd,
+          isDeployedToday: true,
+          deployedDuty: deployInfo.duty,
+          deployedStatus: deployInfo.status,
+          deployedCategory: deployInfo.category,
+          deployedTime: deployInfo.time,
+          deployedTrainId: deployInfo.trainId,
+          tagColor: deployInfo.tagColor
+        });
+      }
+    });
+
     return result;
-  }, [crewList, deployedCrewMap]);
+  }, [activeCandidateCrew, deployedCrewMap]);
 
   // 5. Dynamic Duty Options combining base duties, console duties, and current selections
   const dynamicDutyOptions = useMemo(() => {
@@ -586,18 +730,18 @@ export default function ShiftExchange() {
     }
   };
 
-  // 7. Filtered crew list with multi-field search (ID, name, duty, category)
+  // 7. Filtered crew list with search (ID, name, duty)
   const filteredCrew1 = useMemo(() => {
     const q = op1Query.toLowerCase().trim();
     const isSelectedMatch = formData.operator1Id && `${formData.operator1Id} - ${formData.operator1Name}`.toLowerCase() === q;
     
     let list = enrichedCrewList;
+
     if (q && !isSelectedMatch) {
       list = enrichedCrewList.filter(c => 
         String(c.id).toLowerCase().includes(q) || 
         c.name.toLowerCase().includes(q) ||
-        (c.deployedDuty && c.deployedDuty.toLowerCase().includes(q)) ||
-        (c.deployedCategory && c.deployedCategory.toLowerCase().includes(q))
+        (c.deployedDuty && c.deployedDuty.toLowerCase().includes(q))
       );
     }
     
@@ -613,12 +757,12 @@ export default function ShiftExchange() {
     const isSelectedMatch = formData.operator2Id && `${formData.operator2Id} - ${formData.operator2Name}`.toLowerCase() === q;
     
     let list = enrichedCrewList;
+
     if (q && !isSelectedMatch) {
       list = enrichedCrewList.filter(c => 
         String(c.id).toLowerCase().includes(q) || 
         c.name.toLowerCase().includes(q) ||
-        (c.deployedDuty && c.deployedDuty.toLowerCase().includes(q)) ||
-        (c.deployedCategory && c.deployedCategory.toLowerCase().includes(q))
+        (c.deployedDuty && c.deployedDuty.toLowerCase().includes(q))
       );
     }
     
@@ -789,27 +933,31 @@ export default function ShiftExchange() {
     const errors = [];
     const warnings = [];
     
-    // 1. Line / Designation Compatibility: Designation must contain Train Operator / Station Controller / Deployed Console Role
+    // 1. Line / Designation Compatibility: Designation must contain Train Operator / Train Driver / Station Controller / Deployed Console Role
     const isOpRoleValid = (op) => {
       const des = (op.designation || '').toLowerCase();
       const role = (op.role || '').toLowerCase();
       const cat = (op.deployedCategory || '').toLowerCase();
       return (
         des.includes('operator') || 
+        des.includes('driver') || 
         des.includes('controller') || 
         role.includes('operator') || 
+        role.includes('driver') || 
         role.includes('controller') || 
         cat.includes('crew') || 
         cat.includes('co-operator') || 
         cat.includes('standby') || 
         cat.includes('training') || 
-        op.isDeployedToday
+        op.isDeployedToday ||
+        op.isJmd ||
+        String(op.id).startsWith('8')
       );
     };
     const op1RoleOk = isOpRoleValid(op1);
     const op2RoleOk = isOpRoleValid(op2);
-    if (!op1RoleOk) errors.push(`Operator 1 (${op1.name}) is not certified as a Train Operator/Station Controller.`);
-    if (!op2RoleOk) errors.push(`Operator 2 (${op2.name}) is not certified as a Train Operator/Station Controller.`);
+    if (!op1RoleOk) errors.push(`Operator 1 (${op1.name}) is not certified as a Train Operator/Train Driver/Station Controller.`);
+    if (!op2RoleOk) errors.push(`Operator 2 (${op2.name}) is not certified as a Train Operator/Train Driver/Station Controller.`);
     
     // 2. Competency Validity
     if (op1.competencyExpiry) {
@@ -1315,13 +1463,25 @@ export default function ShiftExchange() {
 
       {/* CREATE REQUEST FORM (ZERO MANUAL ENTRY ENGINE) */}
       <div className='bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl'>
-        <div className="flex justify-between items-center border-b border-slate-800 pb-2 mb-4">
+        <div className="flex justify-between items-center border-b border-slate-800 pb-2 mb-3">
           <h3 className='text-emerald-400 font-bold flex items-center gap-2 text-sm'>
             <Clock size={16} /> Initiate New Exchange Request
           </h3>
           <span className="text-[10px] text-slate-400 font-mono bg-slate-950 px-2.5 py-0.5 rounded border border-slate-800">
             ⚡ Zero Manual Entry Active
           </span>
+        </div>
+
+        {/* ACTIVE OPERATIONAL CREW ROSTER SUMMARY */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-slate-950 p-3 rounded-lg border border-emerald-500/30 text-xs mb-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-slate-200 font-bold tracking-wide">ACTIVE OPERATIONAL CREW ROSTER:</span>
+            <span className="text-emerald-400 font-mono font-bold">{activeCandidateCrew.length} Train Operators & Drivers Available</span>
+          </div>
+          <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+            <span className="text-emerald-400 font-bold">⚡ {enrichedCrewList.filter(c => c.isDeployedToday).length} Deployed Today</span>
+          </div>
         </div>
 
         <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
@@ -1341,23 +1501,23 @@ export default function ShiftExchange() {
               <div className="relative">
                 <input id="shiftexchange-i1" name="shiftexchange-i1" 
                   type="text"
-                  placeholder="Type to filter by ID, name, duty, or column..."
+                  placeholder="Type to filter by ID, name, or duty..."
                   value={op1Query}
                   onChange={(e) => setOp1Query(e.target.value)}
                   className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-amber-500 focus:outline-none mb-2 pl-7 font-mono'
                 />
                 <Search className="h-3.5 w-3.5 text-slate-500 absolute left-2 top-2 pointer-events-none" />
               </div>
-              <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l2">Select Operator</label>
+              <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l2">Select Operator ({filteredCrew1.length} Available)</label>
               <select id="shiftexchange-i2" name="shiftexchange-i2" 
                 value={formData.operator1Id}
                 onChange={(e) => handleSelectOperator1(e.target.value)}
                 className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-amber-500 focus:outline-none font-mono'
               >
-                <option value="">-- Select Operator --</option>
+                <option value="">-- Select Operator ({filteredCrew1.length} Available) --</option>
                 {filteredCrew1.map(crew => (
                   <option key={`op1-select-${crew.id}`} value={crew.id}>
-                    {crew.id} - {crew.name} {crew.deployedDuty ? `[${crew.deployedDuty}]` : (crew.deployedCategory ? `[${crew.deployedCategory}]` : '')}
+                    {crew.id} - {crew.name}{crew.deployedDuty ? ` [${crew.deployedDuty}]` : ''}
                   </option>
                 ))}
               </select>
@@ -1400,23 +1560,23 @@ export default function ShiftExchange() {
               <div className="relative">
                 <input id="shiftexchange-i3" name="shiftexchange-i3" 
                   type="text"
-                  placeholder="Type to filter by ID, name, duty, or column..."
+                  placeholder="Type to filter by ID, name, or duty..."
                   value={op2Query}
                   onChange={(e) => setOp2Query(e.target.value)}
                   className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none mb-2 pl-7 font-mono'
                 />
                 <Search className="h-3.5 w-3.5 text-slate-500 absolute left-2 top-2 pointer-events-none" />
               </div>
-              <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l6">Select Operator</label>
+              <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l6">Select Operator ({filteredCrew2.length} Available)</label>
               <select id="shiftexchange-i4" name="shiftexchange-i4" 
                 value={formData.operator2Id}
                 onChange={(e) => handleSelectOperator2(e.target.value)}
                 className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none font-mono'
               >
-                <option value="">-- Select Operator --</option>
+                <option value="">-- Select Operator ({filteredCrew2.length} Available) --</option>
                 {filteredCrew2.map(crew => (
                   <option key={`op2-select-${crew.id}`} value={crew.id}>
-                    {crew.id} - {crew.name} {crew.deployedDuty ? `[${crew.deployedDuty}]` : (crew.deployedCategory ? `[${crew.deployedCategory}]` : '')}
+                    {crew.id} - {crew.name}{crew.deployedDuty ? ` [${crew.deployedDuty}]` : ''}
                   </option>
                 ))}
               </select>
