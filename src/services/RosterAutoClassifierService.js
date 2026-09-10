@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { db } from '../firebase';
-import { doc, setDoc, getDoc, getDocs, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, getDocs, collection, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { PRELOADED_DUTIES } from '../data/kmcalc/preloadedDuties';
 
 export const isTimeValue = (val) => {
@@ -313,9 +313,9 @@ export const rosterAutoClassifierService = {
       const rawDutyCell = row[0];
       const rawDutyStr = rawDutyCell !== undefined && rawDutyCell !== null ? String(rawDutyCell).trim() : '';
 
-      // Check entire row across all columns for section banners / headers
-      const rowStrings = row.map(c => (c !== undefined && c !== null ? String(c).trim() : ''));
-      const rowCombinedUpper = rowStrings.join(' ').toUpperCase();
+      // Check main duty columns (Indices 0 to 8 / Columns A to I) for section banners / headers
+      const mainColStrings = row.slice(0, 9).map(c => (c !== undefined && c !== null ? String(c).trim() : ''));
+      const rowCombinedUpper = mainColStrings.join(' ').toUpperCase();
 
       const isCoOpHeader = ['CO-OPERATOR', 'CO OPERATOR', 'TRAINEE DRIVER', 'TRAINEE DRIVERS', '2ND CREW', 'SECOND CREW', 'CO-DRIVERS', 'CO-OPS'].some(k => rowCombinedUpper.includes(k)) &&
         !['CRRC', 'TESTING', 'BMRTI', 'CRT', 'LEAVE', 'REST', 'WEEKLY OFF', 'STBK'].some(k => rowCombinedUpper.includes(k));
@@ -328,8 +328,10 @@ export const rosterAutoClassifierService = {
         return; // Header row, proceed to next
       } else if (isCrrcHeader) {
         inSecondaryBlock = false; // CRRC is training, NEVER secondary co-operators
-        currentSectionBanner = 'CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)';
-        if (!rawDutyStr || !isActiveTrainDuty(rawDutyStr)) return; // Header row, proceed to next
+        if (!rawDutyStr || !isActiveTrainDuty(rawDutyStr)) {
+          currentSectionBanner = 'CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)';
+          return; // Header row, proceed to next
+        }
       } else if (!rawDutyStr) {
         const candidateBanner = [row[1], row[4], row[8]].find(c => c && String(c).trim() !== '');
         if (candidateBanner) {
@@ -383,7 +385,24 @@ export const rosterAutoClassifierService = {
         const empName = rawName !== undefined && rawName !== null && String(rawName).trim() !== '' ? String(rawName).trim() : 'UNASSIGNED';
         const empId = rawEmpId !== undefined && rawEmpId !== null && String(rawEmpId).trim() !== '' ? String(rawEmpId).trim() : '--';
 
-        const isCrrcContext = (currentSectionBanner && currentSectionBanner.toUpperCase().includes('CRRC')) || rawDutyUpper.includes('CRRC') || (dutyType && String(dutyType).toUpperCase().includes('CRRC'));
+        const isNumeric = isActiveTrainDuty(effectiveDutyStr);
+        const numVal = isNumeric ? parseInt(effectiveDutyStr, 10) : 0;
+
+        if (isNumeric) {
+          if (numVal > maxActiveDutyNumSoFar) {
+            maxActiveDutyNumSoFar = numVal;
+            inSecondaryBlock = false;
+            currentSectionBanner = '';
+          } else if (numVal < maxActiveDutyNumSoFar && maxActiveDutyNumSoFar >= 60) {
+            inSecondaryBlock = true;
+          }
+        }
+
+        // Non-numeric CRRC training rows (e.g. separate section without duty numbers)
+        const isCrrcContext = !isNumeric && (
+          (currentSectionBanner && currentSectionBanner.toUpperCase().includes('CRRC')) ||
+          rawDutyUpper.includes('CRRC')
+        );
 
         if (isCrrcContext) {
           // CRRC training section rows: NEVER add to Co-Operators or Primary Train Duties
@@ -401,9 +420,6 @@ export const rosterAutoClassifierService = {
             }
           }
         } else {
-          const isNumeric = isActiveTrainDuty(effectiveDutyStr);
-          const numVal = isNumeric ? parseInt(effectiveDutyStr, 10) : 0;
-
           // 1. ACTIVE PRIMARY NUMERIC TRAIN DUTY (Duties 01 - 99)
           if (isNumeric && !inSecondaryBlock) {
             maxActiveDutyNumSoFar = Math.max(maxActiveDutyNumSoFar, numVal);
@@ -702,16 +718,20 @@ export const rosterAutoClassifierService = {
       console.warn("LocalStorage cache error:", e);
     }
 
-    for (const d of (sanitized.duties || [])) {
-      if (!d.dutyId) continue;
-      const docId = `gcc_deploy_${dayType.toLowerCase()}_duty_${d.dutyId}`;
-      await setDoc(doc(db, 'crew_daily_deployment', docId), {
-        ...d,
-        scheduleType: dayType,
-        autoDeployed: true,
-        isLocked: true,
-        lastUpdated: serverTimestamp()
-      }, { merge: true });
+    const dutiesToDeploy = (sanitized.duties || []).filter(d => d && d.dutyId);
+    if (dutiesToDeploy.length > 0) {
+      const batch = writeBatch(db);
+      for (const d of dutiesToDeploy) {
+        const docId = `gcc_deploy_${dayType.toLowerCase()}_duty_${d.dutyId}`;
+        batch.set(doc(db, 'crew_daily_deployment', docId), {
+          ...d,
+          scheduleType: dayType,
+          autoDeployed: true,
+          isLocked: true,
+          lastUpdated: serverTimestamp()
+        }, { merge: true });
+      }
+      await batch.commit();
     }
 
     try {

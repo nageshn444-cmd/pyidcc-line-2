@@ -1157,21 +1157,6 @@ export default function GeneratorDraftConsole({
                                     </span>
                                   )}
                                 </div>
-                                {item.previousDayDuty && (
-                                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                    <span className="text-[9px] px-1.5 py-0.2 bg-slate-800 text-slate-300 border border-slate-700 rounded font-mono font-bold" title={`Yesterday's GCC Duty: ${item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo} (${item.previousDayDuty.shift})`}>
-                                      Prev: {item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo} ({item.previousDayDuty.shift})
-                                    </span>
-                                    <span className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-black border ${
-                                      item.previousDayDuty.isRestCompliant ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/40' : 'bg-rose-950/60 text-rose-300 border-rose-500/40'
-                                    }`} title={`Turnaround continuous rest: ${item.previousDayDuty.restHoursFromPrev}h`}>
-                                      ⏱ {item.previousDayDuty.restHoursFromPrev}h rest
-                                    </span>
-                                    <span className="text-[9px] text-slate-400 font-mono font-bold">
-                                      {item.previousDayDuty.transition}
-                                    </span>
-                                  </div>
-                                )}
                               </td>
                               <td className="px-4 py-3 font-mono text-slate-400 font-bold tabular-nums">
                                 #{item.empId || '—'}

@@ -1732,11 +1732,12 @@ Rules:
               deduplicateDeployments(classifiedData.duties),
             );
           }
+          await rosterAutoClassifierService.autoDeployClassifiedData(classifiedData);
           setStagedRoster({
             ...classifiedData,
             fileName: file?.name || "Roster Sheet",
           });
-          setIsRosterConfirmed(false);
+          setIsRosterConfirmed(true);
           deployedDutiesCount = classifiedData.duties?.length || 0;
         } else {
           const parsedDutiesMap = new Map();
