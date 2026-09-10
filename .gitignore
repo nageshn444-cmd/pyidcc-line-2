@@ -102,10 +102,10 @@ extract.cjs
 fix.js
 list_models.js
 run.py
-WTTPage.jsx
-AuthContext.jsx
-login.jsx
-config.js
+/WTTPage.jsx
+/AuthContext.jsx
+/login.jsx
+/config.js
 settings.json
 test.js
 test_provided_key.js
