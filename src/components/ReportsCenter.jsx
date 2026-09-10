@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   FileText, Download, Calendar, Train, BarChart2, Clock, Mail, Zap, 
-  RefreshCw, CheckCircle2, AlertTriangle, ShieldAlert, Play, Pause, Trash2, Eye, Filter
+  RefreshCw, CheckCircle2, AlertTriangle, ShieldAlert, Play, Pause, Trash2, Eye, Filter,
+  Search, Users, CheckSquare, Wrench, ShieldCheck, Layers, Activity, FileSpreadsheet, Database, BookOpen, ChevronRight, X
 } from 'lucide-react';
 import { db } from '../firebase';
 import { 
@@ -30,6 +31,8 @@ export default function ReportsCenter() {
   const [exportFormat, setExportFormat] = useState('CSV');
   const [loadingAction, setLoadingAction] = useState(null);
   const [exchanges, setExchanges] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (activeTab === 'EXCHANGES') {
@@ -63,17 +66,262 @@ export default function ReportsCenter() {
   const [insights, setInsights] = useState(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
 
-  // Database configurations aligned with actual collections
+  // Database configurations aligned with actual collections across BMRCL Line 2 Peenya Depot
   const reportConfig = [
-    { name: 'Attendance Logs', collection: 'crew_live_attendance', dateKey: 'timestamp' },
-    { name: 'Delay & Incidents Log', collection: 'wtt_live_incidents', dateKey: 'timestamp' },
-    { name: 'Crew Daily Deployment', collection: 'crew_daily_deployment', dateKey: 'lastUpdated' },
-    { name: 'Shift Handover Notes', collection: 'shift_handover_notes', dateKey: 'timestamp' },
-    { name: 'Shift Exchange Records', collection: 'shift_exchanges', dateKey: 'timestamp' },
-    { name: 'Train Rake Registry', collection: 'rake_registry', dateKey: 'registryDate', isDateString: true },
-    { name: 'Emergency Relief Logs', collection: 'emergency_relief_reports', dateKey: 'timestamp' },
-    { name: 'Leave Priority Report', collection: 'leave_requests', dateKey: 'requestDate' }
+    // === CATEGORY: OPERATIONS & TRAIN CONTROL ===
+    {
+      id: 'crew_attendance',
+      name: 'Attendance Logs',
+      category: 'OPERATIONS',
+      collection: 'crew_live_attendance',
+      dateKey: 'timestamp',
+      description: 'Biometric, breathalyzer, and real-time sign-on/sign-off logs of Train Operators.'
+    },
+    {
+      id: 'crew_deployment',
+      name: 'Crew Daily Deployment',
+      category: 'OPERATIONS',
+      collection: 'crew_daily_deployment',
+      dateKey: 'lastUpdated',
+      description: 'Active daily duty assignments, assigned train operators, and sign-on/off milestones.'
+    },
+    {
+      id: 'daily_train_crew',
+      name: 'Daily Train Crew Tracking',
+      category: 'OPERATIONS',
+      collection: 'daily_crew_tracks',
+      dateKey: 'timestamp',
+      description: 'Real-time train rake tracking with currently operating train operator mapping.'
+    },
+    {
+      id: 'delay_incidents',
+      name: 'Delay & Incidents Log',
+      category: 'OPERATIONS',
+      collection: 'wtt_live_incidents',
+      dateKey: 'timestamp',
+      description: 'Mainline train delay events, signaling lags, traction trips, and incident reports.'
+    },
+    {
+      id: 'rake_registry',
+      name: 'Train Rake Registry',
+      category: 'OPERATIONS',
+      collection: 'rake_registry',
+      dateKey: 'registryDate',
+      isDateString: true,
+      description: 'Rolling stock 6-car rake registry, depot induction records, and operational status.'
+    },
+    {
+      id: 'emergency_relief',
+      name: 'Emergency Relief Logs',
+      category: 'OPERATIONS',
+      collection: 'emergency_relief_reports',
+      dateKey: 'timestamp',
+      description: 'Emergency relief crew deployments, SOS call-outs, and driver rescue dispatches.'
+    },
+    {
+      id: 'stepback_duties',
+      name: 'Outstation Stepback Operations',
+      category: 'OPERATIONS',
+      collection: 'stepback_duties',
+      dateKey: 'timestamp',
+      description: 'Outstation stepback (STBK) duties, station changeovers, and quick turnarounds.'
+    },
+    {
+      id: 'crew_links',
+      name: 'Master Duty Link Schedule',
+      category: 'OPERATIONS',
+      collection: 'crew_final_links',
+      dateKey: 'createdAt',
+      isMasterRegistry: true,
+      description: 'BMRCL Line 2 master duty links (01-79), trip legs, km run, and scheduled timings.'
+    },
+    {
+      id: 'dispatch_gate',
+      name: 'Automated Dispatch Gateway Logs',
+      category: 'OPERATIONS',
+      collection: 'automated_dispatch_gate',
+      dateKey: 'timestamp',
+      description: 'Dispatch engine execution history, timetable activations, and batch deployment results.'
+    },
+    {
+      id: 'wtt_matrix',
+      name: 'Working Time Table (WTT) Matrix',
+      category: 'OPERATIONS',
+      collection: 'wtt_final_matrix',
+      dateKey: 'createdAt',
+      isMasterRegistry: true,
+      description: 'WTT train trip master timetable with departure, arrival, and station dwell schedule.'
+    },
+
+    // === CATEGORY: ROSTER & LEAVE MANAGEMENT ===
+    {
+      id: 'leave_requests',
+      name: 'Leave Priority Report',
+      category: 'ROSTER & LEAVES',
+      collection: 'leave_requests',
+      dateKey: 'requestDate',
+      description: 'Staff leave applications, entitlement priority scoring, medical reasons, and approvals.'
+    },
+    {
+      id: 'leave_balances',
+      name: 'Staff Leave Balances Ledger',
+      category: 'ROSTER & LEAVES',
+      collection: 'leave_balances',
+      dateKey: 'lastUpdated',
+      isMasterRegistry: true,
+      description: 'Staff accumulated leave balances (CL, EL, HPL, RH, CCL) and credit/debit records.'
+    },
+    {
+      id: 'absent_register',
+      name: 'Absent & Medical Book-off Register',
+      category: 'ROSTER & LEAVES',
+      collection: 'absent_bookoff_register',
+      dateKey: 'date',
+      isDateString: true,
+      description: 'Daily crew absenteeism, sick/medical book-off log, and fitness-to-drive returns.'
+    },
+    {
+      id: 'weekly_off',
+      name: 'Weekly Off (WO) Master Roster',
+      category: 'ROSTER & LEAVES',
+      collection: 'weekly_off_register',
+      dateKey: 'date',
+      isDateString: true,
+      description: 'Assigned weekly rest days, rotational pattern schedules, and rest day compliance.'
+    },
+    {
+      id: 'shift_handover_notes',
+      name: 'Shift Handover Notes',
+      category: 'ROSTER & LEAVES',
+      collection: 'shift_handover_notes',
+      dateKey: 'timestamp',
+      description: 'Duty controller handover briefings, key events, and outstanding action items.'
+    },
+    {
+      id: 'shift_handover_reports',
+      name: 'Shift Handover Reports (Official)',
+      category: 'ROSTER & LEAVES',
+      collection: 'shift_handover_reports',
+      dateKey: 'timestamp',
+      description: 'Chief Crew Controller shift summary logs, crew availability, and depot handovers.'
+    },
+    {
+      id: 'shift_exchanges',
+      name: 'Shift Exchange Records',
+      category: 'ROSTER & LEAVES',
+      collection: 'shift_exchanges',
+      dateKey: 'timestamp',
+      description: 'Mutual shift exchange applications, operator pairs, and supervisory approval statuses.'
+    },
+    {
+      id: 'manual_overrides',
+      name: 'Controller Duty Overrides Log',
+      category: 'ROSTER & LEAVES',
+      collection: 'manual_overrides',
+      dateKey: 'createdAt',
+      description: 'Manual duty swaps, controller force assignments, and operational override audit trail.'
+    },
+
+    // === CATEGORY: SAFETY, DEFECTS & COMPLIANCE ===
+    {
+      id: 'rs_faults',
+      name: 'Rolling Stock Defect & Fault Reports',
+      category: 'SAFETY & DEFECTS',
+      collection: 'rolling_stock_faults',
+      dateKey: 'timestamp',
+      description: 'Train defects, HVAC, door interlocks, pantograph, and depot repair work-orders.'
+    },
+    {
+      id: 'field_faults',
+      name: 'AI Defect Desk & Field Fault Reports',
+      category: 'SAFETY & DEFECTS',
+      collection: 'fault_reports',
+      dateKey: 'createdAt',
+      description: 'AI natural language defect tickets, maintenance notifications, and SMS/Email dispatches.'
+    },
+    {
+      id: 'safety_incidents',
+      name: 'Safety Incidents & Breaches',
+      category: 'SAFETY & DEFECTS',
+      collection: 'safety_incidents',
+      dateKey: 'timestamp',
+      description: 'Track irregularities, signal pass at danger (SPAD), safety audits, and emergency events.'
+    },
+    {
+      id: 'daily_safety_checklists',
+      name: 'Station Daily Safety Compliance',
+      category: 'SAFETY & DEFECTS',
+      collection: 'daily_safety_checklists',
+      dateKey: 'timestamp',
+      description: 'Daily station fire safety, CCTV operation, and platform edge verification checklists.'
+    },
+    {
+      id: 'als_inspections',
+      name: 'AI-ALS Cab & Line Inspection Audits',
+      category: 'SAFETY & DEFECTS',
+      collection: 'alsCompletedInspection',
+      dateKey: 'timestamp',
+      description: 'Supervisor cab ride assessments, train handling scores, and ALS safety audits.'
+    },
+
+    // === CATEGORY: MASTER DIRECTORY, SECURITY & AUDIT ===
+    {
+      id: 'crew_registry',
+      name: 'Master Crew Directory & Competencies',
+      category: 'AUDIT & REGISTRIES',
+      collection: 'crewRegistry',
+      dateKey: 'updatedAt',
+      isMasterRegistry: true,
+      description: 'Master roster of 88 BMRCL Train Operators, designations, PME due dates, and competencies.'
+    },
+    {
+      id: 'jmd_crew',
+      name: 'JMD Contract Trainees & Shadow Pilots',
+      category: 'AUDIT & REGISTRIES',
+      collection: 'jmd_crew_registry',
+      dateKey: 'lastUpdated',
+      isMasterRegistry: true,
+      description: '49 JMD contract train drivers, trainee hours, mentor mapping, and certification.'
+    },
+    {
+      id: 'audit_logs',
+      name: 'System Security & Action Audit Trail',
+      category: 'AUDIT & REGISTRIES',
+      collection: 'auditLogs',
+      dateKey: 'timestamp',
+      description: 'User role modifications, provisioning actions, system configuration, and access events.'
+    },
+    {
+      id: 'integrity_logs',
+      name: 'Crew Data Integrity Audit Trail',
+      category: 'AUDIT & REGISTRIES',
+      collection: 'integrity_audit_logs',
+      dateKey: 'timestamp',
+      description: 'Automated roster validation checks, duty collision audits, and integrity scans.'
+    },
+    {
+      id: 'login_history',
+      name: 'User Login & Session History',
+      category: 'AUDIT & REGISTRIES',
+      collection: 'login_history',
+      dateKey: 'timestamp',
+      description: 'User authentication logs, login timestamps, device info, and active session history.'
+    }
   ];
+
+  const categories = ['ALL', 'OPERATIONS', 'ROSTER & LEAVES', 'SAFETY & DEFECTS', 'AUDIT & REGISTRIES'];
+
+  // Filtered reports list based on active category and search
+  const filteredReports = useMemo(() => {
+    return reportConfig.filter(rep => {
+      const matchCategory = selectedCategory === 'ALL' || rep.category === selectedCategory;
+      const matchSearch = !searchQuery || 
+        rep.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        rep.collection.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (rep.description && rep.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      return matchCategory && matchSearch;
+    });
+  }, [reportConfig, selectedCategory, searchQuery]);
 
   // Sync scheduled reports in real-time
   useEffect(() => {
@@ -154,7 +402,7 @@ export default function ReportsCenter() {
     }
   }, [activeTab, startDate, endDate]);
 
-  // Fetch preview of first 5 items
+  // Fetch preview of first 10 items
   const fetchPreview = async (reportItem) => {
     setLoadingPreview(true);
     setPreviewReport(reportItem);
@@ -165,16 +413,16 @@ export default function ReportsCenter() {
 
       // Apply Filter before showing preview
       if (filterEmployeeId) {
-        data = data.filter(d => String(d.empId || d.employeeId || d.operatorId || '').toLowerCase().includes(filterEmployeeId.toLowerCase()));
+        data = data.filter(d => String(d.empId || d.employeeId || d.operatorId || d.empNo || '').toLowerCase().includes(filterEmployeeId.toLowerCase()));
       }
       if (filterLocation) {
         data = data.filter(d => String(d.currentLocation || d.location || d.station || d.signOnLocation || '').toLowerCase().includes(filterLocation.toLowerCase()));
       }
       if (filterTrainId) {
-        data = data.filter(d => String(d.trainId || d.rakeId || d.rawLegs?.l1Train || '').toLowerCase().includes(filterTrainId.toLowerCase()));
+        data = data.filter(d => String(d.trainId || d.rakeId || d.rawLegs?.l1Train || d.trainNo || '').toLowerCase().includes(filterTrainId.toLowerCase()));
       }
 
-      if (reportItem.name === 'Leave Priority Report') {
+      if (reportItem.name.includes('Leave Priority')) {
         const getPriorityDetails = (req) => {
           let score = 50;
           let label = 'Optional / Other Leave';
@@ -197,8 +445,8 @@ export default function ReportsCenter() {
           const priority = getPriorityDetails(item);
           return {
             id: item.id,
-            "Employee ID": item.empId || '',
-            "Employee Name": item.empName || '',
+            "Employee ID": item.empId || item.employeeId || item.empNo || '',
+            "Employee Name": item.empName || item.employeeName || item.name || '',
             "Leave Type": item.leaveType || '',
             "Sub Category": item.subCategory || '--',
             "Priority Level": priority.label,
@@ -210,21 +458,25 @@ export default function ReportsCenter() {
         });
       }
 
-      setPreviewData(data.slice(0, 5));
+      setPreviewData(data.slice(0, 10));
     } catch (err) {
       console.error("Preview failed:", err);
-      alert("Failed to fetch data stream preview.");
+      alert("Failed to fetch data stream preview: " + err.message);
     } finally {
       setLoadingPreview(false);
     }
   };
 
-  // Perform CSV/JSON Export with Custom Query Filters
+  // Perform CSV/JSON Export with Custom Query Filters & Master Directory Handling
   const handleExport = async (reportItem) => {
     if (isTrainOperator) return;
-    if (!startDate || !endDate) {
-      alert(`Please select a time duration period (Start and End date) to download the ${reportItem.name}.`);
-      return;
+
+    // For non-master registries, check if date range is selected
+    if (!reportItem.isMasterRegistry && (!startDate || !endDate)) {
+      const confirmAll = window.confirm(
+        `No date range period selected. Do you want to export ALL historical records for "${reportItem.name}"? Click OK to export all, or Cancel to choose a period instead.`
+      );
+      if (!confirmAll) return;
     }
 
     setLoadingAction(reportItem.name);
@@ -233,35 +485,42 @@ export default function ReportsCenter() {
       const snapshot = await getDocs(q);
       let data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-      // Filter by Date range
-      if (reportItem.isDateString) {
-        data = data.filter(d => {
-          const dVal = d[reportItem.dateKey];
-          return dVal >= startDate && dVal <= endDate;
-        });
-      } else {
+      // Filter by Date range if both dates provided
+      if (startDate && endDate) {
         const startD = new Date(`${startDate}T00:00:00`).getTime();
         const endD = new Date(`${endDate}T23:59:59`).getTime();
+
         data = data.filter(d => {
-          const ts = d[reportItem.dateKey] || d.timestamp || d.lastUpdated || d.createdAt;
-          if (!ts) return true;
+          // If record has date string (YYYY-MM-DD)
+          const dVal = d[reportItem.dateKey] || d.date || d.registryDate || d.requestDate || d.startDate;
+          if (typeof dVal === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dVal)) {
+            const shortD = dVal.substring(0, 10);
+            return shortD >= startDate && shortD <= endDate;
+          }
+
+          const ts = d[reportItem.dateKey] || d.timestamp || d.lastUpdated || d.createdAt || d.updatedAt || d.dispatchTime;
+          if (!ts) {
+            // Keep master registry entries without timestamp
+            return !!reportItem.isMasterRegistry;
+          }
           const itemTime = ts.toDate ? ts.toDate().getTime() : new Date(ts).getTime();
+          if (isNaN(itemTime)) return !!reportItem.isMasterRegistry;
           return itemTime >= startD && itemTime <= endD;
         });
       }
 
       // Apply Advanced Filters
       if (filterEmployeeId) {
-        data = data.filter(d => String(d.empId || d.employeeId || d.operatorId || '').toLowerCase().includes(filterEmployeeId.toLowerCase()));
+        data = data.filter(d => String(d.empId || d.employeeId || d.operatorId || d.empNo || '').toLowerCase().includes(filterEmployeeId.toLowerCase()));
       }
       if (filterLocation) {
         data = data.filter(d => String(d.currentLocation || d.location || d.station || d.signOnLocation || '').toLowerCase().includes(filterLocation.toLowerCase()));
       }
       if (filterTrainId) {
-        data = data.filter(d => String(d.trainId || d.rakeId || d.rawLegs?.l1Train || '').toLowerCase().includes(filterTrainId.toLowerCase()));
+        data = data.filter(d => String(d.trainId || d.rakeId || d.rawLegs?.l1Train || d.trainNo || '').toLowerCase().includes(filterTrainId.toLowerCase()));
       }
 
-      if (reportItem.name === 'Leave Priority Report') {
+      if (reportItem.name.includes('Leave Priority')) {
         const getPriorityDetails = (req) => {
           let score = 50;
           let label = 'Optional / Other Leave';
@@ -283,52 +542,80 @@ export default function ReportsCenter() {
         data = data.map(item => {
           const priority = getPriorityDetails(item);
           return {
-            "Employee ID": item["Employee ID"] || item.empId || '',
-            "Employee Name": item["Employee Name"] || item.empName || '',
+            "Employee ID": item["Employee ID"] || item.empId || item.employeeId || item.empNo || '',
+            "Employee Name": item["Employee Name"] || item.empName || item.employeeName || item.name || '',
             "Leave Type": item["Leave Type"] || item.leaveType || '',
             "Sub Category": item["Sub Category"] || item.subCategory || '--',
             "Priority Level": priority.label,
             "Priority Score": priority.score,
             "Approval Status": item["Approval Status"] || item.status || 'PENDING',
             "Approved By": item["Approved By"] || item.approvedBy || '--',
-            "Approval Time": item["Approval Time"] || (item.approvedTime?.toDate ? item.approvedTime.toDate().toLocaleString() : item.approvedTime || '--')
+            "Approval Time": item["Approval Time"] || (item.approvedTime?.toDate ? item.approvedTime.toDate().toLocaleString() : item.approvedTime || '--'),
+            "Request Date": item.requestDate || (item.timestamp?.toDate ? item.timestamp.toDate().toLocaleDateString() : '--')
           };
         });
       }
 
       if (data.length === 0) {
-        alert(`No data found for ${reportItem.name} matching criteria in this period.`);
+        alert(`No records found for ${reportItem.name} matching criteria in this period.`);
         setLoadingAction(null);
         return;
       }
 
+      const dateSuffix = startDate && endDate ? `${startDate}_to_${endDate}` : 'ALL_RECORDS';
+      const cleanFileName = `${reportItem.name.replace(/[^a-zA-Z0-9]/g, '_')}_${dateSuffix}`;
+
       if (exportFormat === 'JSON') {
         const jsonString = JSON.stringify(data, null, 2);
         const blob = new Blob([jsonString], { type: 'application/json' });
-        triggerDownload(blob, `${reportItem.name.replace(/\s+/g, '_')}_${startDate}_to_${endDate}.json`);
+        triggerDownload(blob, `${cleanFileName}.json`);
       } else {
-        // Generic CSV Converter
-        const headers = Array.from(new Set(data.flatMap(obj => Object.keys(obj)))).filter(k => k !== 'id' && typeof data[0][k] !== 'object');
-        const csvRows = [headers.join(',')];
-        
+        // Robust CSV Serializer (handles Timestamps, Arrays, Objects gracefully)
+        const serializeVal = (val) => {
+          if (val === null || val === undefined) return '';
+          if (val.toDate && typeof val.toDate === 'function') {
+            try {
+              const d = val.toDate();
+              const pad = (n) => String(n).padStart(2, '0');
+              return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+            } catch {
+              return String(val);
+            }
+          }
+          if (Array.isArray(val)) {
+            return val.map(item => typeof item === 'object' ? JSON.stringify(item) : String(item)).join('; ');
+          }
+          if (typeof val === 'object') {
+            return Object.entries(val).map(([k, v]) => `${k}: ${v}`).join('; ');
+          }
+          return String(val);
+        };
+
+        const allHeaders = new Set();
+        data.forEach(item => {
+          Object.keys(item).forEach(k => {
+            if (k !== 'id' && !k.startsWith('_')) allHeaders.add(k);
+          });
+        });
+        const headers = Array.from(allHeaders);
+        const csvRows = [headers.map(h => `"${h.replace(/"/g, '""')}"`).join(',')];
+
         data.forEach(item => {
           const row = headers.map(header => {
-            let val = item[header];
-            if (val === null || val === undefined) return '""';
-            if (val.toDate) val = val.toDate().toLocaleString();
-            return `"${String(val).replace(/"/g, '""')}"`;
+            const val = serializeVal(item[header]);
+            return `"${val.replace(/"/g, '""')}"`;
           });
           csvRows.push(row.join(','));
         });
-        
+
         const csvString = csvRows.join('\n');
         const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-        triggerDownload(blob, `${reportItem.name.replace(/\s+/g, '_')}_${startDate}_to_${endDate}.csv`);
+        triggerDownload(blob, `${cleanFileName}.csv`);
       }
       
     } catch (error) {
       console.error(`Error downloading ${reportItem.name}:`, error);
-      alert('Failed to download report. Check console for details.');
+      alert('Failed to download report: ' + error.message);
     } finally {
       setLoadingAction(null);
     }
@@ -482,66 +769,176 @@ export default function ReportsCenter() {
       {/* Tab Content: EXPORTS */}
       {activeTab === 'EXPORTS' && (
         <div className="space-y-6 animate-in fade-in duration-300">
-          <div className="flex justify-between items-center bg-slate-900 p-4 rounded-xl border border-slate-800">
-            <span className="text-xs text-slate-400 font-bold uppercase tracking-widest flex items-center gap-2">
-              <Download className="h-4 w-4" /> Available Data Streams
-            </span>
-            {!isTrainOperator && (
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-550 font-bold uppercase">Format:</span>
-                <select id="reportscenter-i6" name="reportscenter-i6" 
-                  value={exportFormat} 
-                  onChange={(e) => setExportFormat(e.target.value)}
-                  className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 focus:border-emerald-500 outline-none"
-                >
-                  <option value="CSV">CSV / EXCEL</option>
-                  <option value="JSON">RAW JSON</option>
-                </select>
+          
+          {/* Controls Bar: Category Selector & Export Format */}
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-md">
+            {/* Category Filter Chips */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {categories.map((cat) => {
+                const count = cat === 'ALL' 
+                  ? reportConfig.length 
+                  : reportConfig.filter(r => r.category === cat).length;
+                const isSelected = selectedCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black tracking-wider uppercase transition-all flex items-center gap-1.5 ${
+                      isSelected 
+                        ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20' 
+                        : 'bg-slate-950 text-slate-400 hover:text-emerald-400 hover:bg-slate-850 border border-slate-800'
+                    }`}
+                  >
+                    <span>{cat}</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-mono ${
+                      isSelected ? 'bg-slate-950/30 text-slate-950 font-bold' : 'bg-slate-900 text-slate-500'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Right: Search & Format Selector */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+              <div className="relative w-full sm:w-64">
+                <Search size={14} className="absolute left-3 top-2.5 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Search 28 reports..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-8 pr-7 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
+                />
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-2 text-slate-500 hover:text-slate-300"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
               </div>
+
+              {!isTrainOperator && (
+                <div className="flex items-center gap-2 self-end sm:self-auto shrink-0 bg-slate-950 border border-slate-800 px-2 py-1 rounded-lg">
+                  <span className="text-[10px] text-slate-500 font-black uppercase tracking-wider">Format:</span>
+                  <select id="reportscenter-i6" name="reportscenter-i6" 
+                    value={exportFormat} 
+                    onChange={(e) => setExportFormat(e.target.value)}
+                    className="bg-transparent border-0 text-xs text-emerald-400 font-bold focus:outline-none cursor-pointer"
+                  >
+                    <option value="CSV" className="bg-slate-900 text-slate-200">CSV / EXCEL</option>
+                    <option value="JSON" className="bg-slate-900 text-slate-200">RAW JSON</option>
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Report Count Header */}
+          <div className="flex justify-between items-center px-1 text-[11px] text-slate-500 uppercase tracking-widest font-mono">
+            <span>Showing {filteredReports.length} of {reportConfig.length} Operational Reports</span>
+            {startDate && endDate && (
+              <span className="text-emerald-400/80 font-bold">Filtered Period: {startDate} → {endDate}</span>
             )}
           </div>
 
-          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
-            {reportConfig.map((report) => (
-              <div key={report.name} className='bg-slate-900 border border-slate-800 p-4 rounded-xl hover:border-emerald-500/50 transition-all flex flex-col justify-between group shadow-lg relative overflow-hidden'>
-                <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
-                  <FileText className="h-16 w-16 text-emerald-500" />
-                </div>
-                <div className="z-10 mb-4">
-                  <div className="flex justify-between items-start">
-                    <h3 className='font-black text-sm tracking-wide text-slate-200 group-hover:text-emerald-400 transition-colors uppercase'>
-                      {report.name}
-                    </h3>
+          {/* Reports Grid */}
+          {filteredReports.length === 0 ? (
+            <div className="text-center py-16 bg-slate-900/40 border border-dashed border-slate-800 rounded-xl space-y-3">
+              <FileText className="h-10 w-10 text-slate-600 mx-auto" />
+              <p className="text-slate-400 font-bold uppercase tracking-wider text-xs">No reports match "{searchQuery}" in {selectedCategory}</p>
+              <button 
+                onClick={() => { setSelectedCategory('ALL'); setSearchQuery(''); }}
+                className="text-xs text-emerald-400 underline font-bold uppercase tracking-widest"
+              >
+                Reset Filters
+              </button>
+            </div>
+          ) : (
+            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
+              {filteredReports.map((report) => {
+                const isOp = report.category === 'OPERATIONS';
+                const isRoster = report.category === 'ROSTER & LEAVES';
+                const isSafety = report.category === 'SAFETY & DEFECTS';
+                const isAudit = report.category === 'AUDIT & REGISTRIES';
+
+                const categoryBadgeClass = isOp 
+                  ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800/40'
+                  : isRoster 
+                  ? 'bg-amber-950/60 text-amber-400 border-amber-800/40'
+                  : isSafety
+                  ? 'bg-rose-950/60 text-rose-400 border-rose-800/40'
+                  : 'bg-cyan-950/60 text-cyan-400 border-cyan-800/40';
+
+                return (
+                  <div 
+                    key={report.id || report.name} 
+                    className='bg-slate-900 border border-slate-800 hover:border-slate-700 p-4 rounded-xl transition-all flex flex-col justify-between group shadow-lg relative overflow-hidden'
+                  >
+                    <div className="absolute top-0 right-0 p-2 opacity-5 group-hover:opacity-15 transition-opacity pointer-events-none">
+                      <FileText className="h-20 w-20 text-emerald-500" />
+                    </div>
+
+                    <div className="z-10 mb-4 space-y-2">
+                      <div className="flex justify-between items-start gap-2">
+                        <span className={`text-[8.5px] font-black uppercase px-2 py-0.5 rounded border tracking-wider ${categoryBadgeClass}`}>
+                          {report.category}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          {report.isMasterRegistry && (
+                            <span className="text-[8px] bg-indigo-950/70 text-indigo-400 border border-indigo-800/40 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider" title="Full Master Directory can be extracted without date limits">
+                              MASTER
+                            </span>
+                          )}
+                          <button 
+                            onClick={() => fetchPreview(report)}
+                            title="Preview live data stream (10 rows)"
+                            className="text-slate-400 hover:text-emerald-400 p-1 rounded hover:bg-slate-800 transition-colors"
+                          >
+                            <Eye size={15} />
+                          </button>
+                        </div>
+                      </div>
+
+                      <h3 className='font-black text-sm tracking-wide text-slate-100 group-hover:text-emerald-400 transition-colors uppercase leading-tight'>
+                        {report.name}
+                      </h3>
+
+                      <p className="text-[10px] text-slate-400 leading-relaxed font-sans line-clamp-2">
+                        {report.description}
+                      </p>
+
+                      <div className="pt-1 flex items-center gap-1.5 text-[9px] text-slate-500 font-mono uppercase tracking-wider">
+                        <Database size={11} className="text-slate-600" />
+                        <span className="truncate">Source: <strong className="text-slate-400 font-semibold">{report.collection}</strong></span>
+                      </div>
+                    </div>
+
                     <button 
-                      onClick={() => fetchPreview(report)}
-                      title="Preview stream data"
-                      className="text-slate-500 hover:text-emerald-400 p-1"
+                      onClick={() => handleExport(report)}
+                      disabled={isTrainOperator || loadingAction === report.name}
+                      className={`z-10 w-full border py-2.5 rounded-lg text-xs font-black tracking-wider uppercase transition-all flex items-center justify-center gap-2 ${
+                        isTrainOperator 
+                          ? 'bg-slate-950/60 border-slate-850 text-slate-600 cursor-not-allowed opacity-50' 
+                          : 'bg-slate-950 hover:bg-emerald-950/60 border-slate-700 hover:border-emerald-500 text-slate-200 hover:text-emerald-400 cursor-pointer shadow-sm active:scale-[0.99]'
+                      }`}
                     >
-                      <Eye size={16} />
+                      {isTrainOperator ? (
+                        'EXPORT LOCKED'
+                      ) : loadingAction === report.name ? (
+                        <><RefreshCw className="h-4 w-4 animate-spin text-emerald-400" /> EXTRACTING...</>
+                      ) : (
+                        <><Download className="h-4 w-4 text-emerald-400" /> GENERATE {exportFormat}</>
+                      )}
                     </button>
                   </div>
-                  <p className="text-[9px] text-slate-550 mt-1 uppercase tracking-widest">Source: {report.collection}</p>
-                </div>
-                <button 
-                  onClick={() => handleExport(report)}
-                  disabled={isTrainOperator || loadingAction === report.name}
-                  className={`z-10 w-full border py-2 rounded text-xs font-bold tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${
-                    isTrainOperator 
-                      ? 'bg-slate-950/60 border-slate-850 text-slate-600 cursor-not-allowed opacity-50' 
-                      : 'bg-slate-950 hover:bg-emerald-900/40 border-slate-700 hover:border-emerald-500 text-slate-300 hover:text-emerald-400 cursor-pointer'
-                  }`}
-                >
-                  {isTrainOperator ? (
-                    'EXPORT LOCKED'
-                  ) : loadingAction === report.name ? (
-                    <><RefreshCw className="h-4 w-4 animate-spin" /> EXTRACTING...</>
-                  ) : (
-                    <><Download className="h-4 w-4" /> GENERATE {exportFormat}</>
-                  )}
-                </button>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -669,11 +1066,11 @@ export default function ReportsCenter() {
                       onChange={(e) => setScheduleConfig({...scheduleConfig, reportType: e.target.value})}
                       className="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 font-mono"
                     >
-                      <option value="Attendance Logs">Attendance Logs</option>
-                      <option value="Daily Deployments">Daily Deployments</option>
-                      <option value="Live Operational Incidents">Live Operational Incidents</option>
-                      <option value="Shift Exchanges Log">Shift Exchanges Log</option>
-                      <option value="WTT Matrix Schedule">WTT Matrix Schedule</option>
+                      {reportConfig.map(r => (
+                        <option key={r.name} value={r.name} className="bg-slate-900 text-slate-200">
+                          {r.name} [{r.category}]
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -830,31 +1227,51 @@ export default function ReportsCenter() {
                 Fetching Stream Headers & Rows...
               </div>
             ) : previewData && previewData.length > 0 ? (
-              <div className="overflow-x-auto border border-slate-800 rounded-lg">
-                <table className="w-full text-left border-collapse text-[10px] font-mono">
-                  <thead>
-                    <tr className="bg-slate-950 border-b border-slate-800 text-slate-550 font-bold uppercase">
-                      {Object.keys(previewData[0]).filter(k => k !== 'id').map(key => (
-                        <th key={key} className="p-2 border-r border-slate-850">{key}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-850 text-slate-300">
-                    {previewData.map((row, idx) => (
-                      <tr key={row.id || idx} className="hover:bg-slate-950/40">
-                        {Object.keys(previewData[0]).filter(k => k !== 'id').map(key => {
-                          const val = row[key];
-                          const valStr = val && val.toDate ? val.toDate().toLocaleString() : typeof val === 'object' ? JSON.stringify(val) : String(val);
-                          return (
-                            <td key={key} className="p-2 border-r border-slate-850 truncate max-w-[150px]" title={valStr}>
-                              {valStr}
-                            </td>
-                          );
-                        })}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
+                  <span>Showing top {previewData.length} records in this collection stream</span>
+                  <span className="text-emerald-400 font-bold">Source: {previewReport.collection}</span>
+                </div>
+                <div className="overflow-x-auto border border-slate-800 rounded-lg">
+                  <table className="w-full text-left border-collapse text-[10px] font-mono">
+                    <thead>
+                      <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase">
+                        {Array.from(new Set(previewData.flatMap(r => Object.keys(r)))).filter(k => k !== 'id' && !k.startsWith('_')).map(key => (
+                          <th key={key} className="p-2 border-r border-slate-850 whitespace-nowrap">{key}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-850 text-slate-300">
+                      {previewData.map((row, idx) => {
+                        const cols = Array.from(new Set(previewData.flatMap(r => Object.keys(r)))).filter(k => k !== 'id' && !k.startsWith('_'));
+                        return (
+                          <tr key={row.id || idx} className="hover:bg-slate-950/50">
+                            {cols.map(key => {
+                              const val = row[key];
+                              let valStr = '--';
+                              if (val !== undefined && val !== null) {
+                                if (val.toDate && typeof val.toDate === 'function') {
+                                  valStr = val.toDate().toLocaleString();
+                                } else if (Array.isArray(val)) {
+                                  valStr = val.map(v => typeof v === 'object' ? JSON.stringify(v) : String(v)).join('; ');
+                                } else if (typeof val === 'object') {
+                                  valStr = Object.entries(val).map(([k, v]) => `${k}: ${v}`).join('; ');
+                                } else {
+                                  valStr = String(val);
+                                }
+                              }
+                              return (
+                                <td key={key} className="p-2 border-r border-slate-850 truncate max-w-[200px]" title={valStr}>
+                                  {valStr}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             ) : (
               <div className="text-center py-12 text-slate-500 text-xs italic uppercase">

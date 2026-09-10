@@ -361,13 +361,24 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
         case "Attendance Logs": collectionName = 'crew_live_attendance'; break;
         case "Delay Logs": case "Incident Reports": collectionName = 'wtt_live_incidents'; break;
         case "Crew Utilization": case "Dispatch Reports": collectionName = 'crew_daily_deployment'; dateField = 'lastUpdated'; break;
-        case "Shift Handover Reports": collectionName = 'shift_handover_notes'; break;
+        case "Shift Handover Reports": case "Shift Handover Notes": collectionName = 'shift_handover_notes'; break;
         case "Shift Exchange Reports": collectionName = 'shift_exchanges'; break;
-        case "Competency Reports": collectionName = 'competency_records'; dateField = 'expiryDate'; isDateString = true; break;
-        case "Training Reports": collectionName = 'staff_training'; break;
-        case "Asset Reports": collectionName = 'asset_transactions'; break;
+        case "Competency Reports": case "Master Crew Registry": collectionName = 'crewRegistry'; dateField = 'updatedAt'; break;
+        case "Training Reports": case "JMD Crew Registry": collectionName = 'jmd_crew_registry'; dateField = 'lastUpdated'; break;
+        case "Asset Reports": case "Rolling Stock Faults": collectionName = 'rolling_stock_faults'; break;
         case "Rake Registry Reports": collectionName = 'rake_registry'; dateField = 'registryDate'; isDateString = true; break;
         case "Leave Request Reports": collectionName = 'leave_requests'; break;
+        case "Safety Incidents": collectionName = 'safety_incidents'; break;
+        case "Daily Safety Checklists": collectionName = 'daily_safety_checklists'; break;
+        case "ALS Inspections": collectionName = 'alsCompletedInspection'; break;
+        case "Absent Book-Off Register": collectionName = 'absent_bookoff_register'; dateField = 'date'; isDateString = true; break;
+        case "Weekly Off Register": collectionName = 'weekly_off_register'; dateField = 'date'; isDateString = true; break;
+        case "Leave Balances": collectionName = 'leave_balances'; dateField = 'lastUpdated'; break;
+        case "Outstation Stepback Operations": collectionName = 'stepback_duties'; break;
+        case "Manual Overrides": collectionName = 'manual_overrides'; dateField = 'createdAt'; break;
+        case "Audit Logs": collectionName = 'auditLogs'; break;
+        case "Integrity Audit Logs": collectionName = 'integrity_audit_logs'; break;
+        case "Login History": collectionName = 'login_history'; break;
         default: return;
       }
 
