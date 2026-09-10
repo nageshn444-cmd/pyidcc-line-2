@@ -14,8 +14,10 @@ import { exportRosterToExcel } from '../../services/rosterExportService';
 import { rosterAutoClassifierService } from '../../services/RosterAutoClassifierService';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../firebase';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { formatDutyTypeLink, formatTo24HourTime } from '../../utils/timeHelpers';
 import RosterExplainerModal from './RosterExplainerModal';
+import OfficialBMRCLDutySheet from './OfficialBMRCLDutySheet';
 
 export default function GeneratorDraftConsole({
   targetDate,
@@ -42,6 +44,7 @@ export default function GeneratorDraftConsole({
   const [publishMessage, setPublishMessage] = useState('');
   const [lockedDuties, setLockedDuties] = useState({});
   const [showPrevDayComparison, setShowPrevDayComparison] = useState(false);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   const auth = useAuth();
   const currentUser = auth?.currentUser;
@@ -374,7 +377,8 @@ export default function GeneratorDraftConsole({
       trainingStaff,
       lrdDuties,
       traineeStaff,
-      qualityScore: currentPlan.overallScore
+      qualityScore: currentPlan.overallScore,
+      loggedInUserName
     });
   };
 
@@ -935,11 +939,11 @@ export default function GeneratorDraftConsole({
               </button>
 
               <button
-                onClick={() => window.print()}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-bold transition-all shadow-sm"
-                title="Print official BMRCL Control-Room Daily Duty Sheet"
+                onClick={() => setIsPrintModalOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-pink-600/20 hover:bg-pink-600/30 text-pink-300 border border-pink-500/40 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+                title="Print official BMRCL Control-Room Daily Duty Sheet (Exact Scanned Replica)"
               >
-                <Printer className="w-3.5 h-3.5 text-cyan-400" />
+                <Printer className="w-3.5 h-3.5 text-pink-400" />
                 Print Duty Sheet
               </button>
 
@@ -1647,523 +1651,26 @@ export default function GeneratorDraftConsole({
               </div>
             </div>
           ) : (
-            /* ──────────────── FULL STRUCTURED BMRCL EXCEL SHEET VIEW ──────────────── */
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl space-y-4 p-4">
-              {/* Excel Sheet Header Bar */}
-              <div className="p-4 bg-gradient-to-r from-emerald-950/60 via-slate-950 to-slate-900 border border-emerald-500/30 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-emerald-400">
-                    <FileSpreadsheet className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-black text-white flex items-center gap-2">
-                      BMRCL Line 2 — Daily Duty Roster Excel Sheet
-                      <span className="text-xs px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-full font-mono border border-emerald-500/30">
-                        {allAssignments.length} Total Records
-                      </span>
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Target Date: <strong className="text-slate-200 font-mono">{targetDate}</strong> · Schedule: <strong className="text-slate-200 font-mono">{dayType}</strong> · Plan: <strong className="text-slate-200">{currentPlan.strategyTitle}</strong>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleExportExcel}
-                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-emerald-600/30"
-                    title="Download complete Excel workbook"
-                  >
-                    <Download className="w-4 h-4" />
-                    Download .XLSX Sheet
-                  </button>
-                </div>
-              </div>
-
-              {/* Excel Category Navigation Strip */}
-              <div className="flex flex-wrap gap-2 text-[11px] font-mono font-bold">
-                <span className="px-2.5 py-1 bg-blue-500/15 text-blue-300 border border-blue-500/30 rounded-lg">
-                  🚆 1. Mainline ({runningDuties.length})
-                </span>
-                <span className="px-2.5 py-1 bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 rounded-lg">
-                  🎛️ 2. CC Desk ({ccDuties.length})
-                </span>
-                <span className="px-2.5 py-1 bg-purple-500/15 text-purple-300 border border-purple-500/30 rounded-lg">
-                  ⭐ 3. Special Duty ({specialDuties.length})
-                </span>
-                <span className="px-2.5 py-1 bg-slate-700/50 text-slate-300 border border-slate-600 rounded-lg">
-                  🔄 4. Reserve ({reservePool.length})
-                </span>
-                <span className="px-2.5 py-1 bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 rounded-lg">
-                  🏢 5. STBK ({stationStandbyDuties.length})
-                </span>
-                <span className="px-2.5 py-1 bg-slate-800 text-slate-400 border border-slate-700 rounded-lg">
-                  🔒 6. Rest/WO ({weekOffStaff.length})
-                </span>
-                <span className="px-2.5 py-1 bg-rose-500/15 text-rose-300 border border-rose-500/30 rounded-lg">
-                  🌸 7. Leaves/ML ({leaveStaff.length})
-                </span>
-                <span className="px-2.5 py-1 bg-pink-500/15 text-pink-300 border border-pink-500/30 rounded-lg">
-                  🎀 8. Pink Line 4 ({pinkLine4Staff.length})
-                </span>
-              </div>
-
-              {/* Master Table */}
-              <div className="overflow-x-auto max-h-[750px] overflow-y-auto rounded-xl border border-slate-800">
-                <table className="w-full text-left text-xs text-slate-300 border-collapse">
-                  <thead className="bg-slate-950 text-[11px] uppercase tracking-wider text-slate-400 font-bold font-mono sticky top-0 z-10 border-b border-slate-800">
-                    <tr>
-                      <th className="px-3 py-3 w-16 text-center">Duty No</th>
-                      <th className="px-3 py-3">Duty Link</th>
-                      <th className="px-3 py-3">Shift</th>
-                      <th className="px-3 py-3">Train Operator</th>
-                      <th className="px-3 py-3">Emp ID</th>
-                      <th className="px-3 py-3">Sign On</th>
-                      <th className="px-3 py-3">Sign Off</th>
-                      <th className="px-3 py-3">Location</th>
-                      <th className="px-3 py-3">Train No</th>
-                      <th className="px-3 py-3">Previous Day (GCC)</th>
-                      <th className="px-3 py-3">Category / Status</th>
-                      <th className="px-3 py-3">Notes / Profile</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60 font-sans">
-
-                    {/* ── SECTION 1: ACTIVE MAINLINE DRIVING DUTIES (#1 TO #77) ── */}
-                    <tr className="bg-blue-950/50 border-y border-blue-500/40">
-                      <td colSpan={12} className="py-2.5 px-4 text-xs font-mono text-blue-200 font-black">
-                        <div className="flex items-center justify-between">
-                          <span className="flex items-center gap-2">
-                            <Clock className="w-4 h-4 text-blue-400" />
-                            SECTION 1: ACTIVE MAINLINE DRIVING DUTIES (Sorted Duty #1 → #{runningDuties.length})
-                          </span>
-                          <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full font-mono border border-blue-500/30">
-                            {runningDuties.length} Assigned Mainline TOs
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                    {runningDuties.map((item, idx) => (
-                      <tr key={item.empId || idx} className="hover:bg-slate-800/40">
-                        <td className="px-3 py-2 font-mono font-bold text-center text-blue-400">{item.dutyNo || idx + 1}</td>
-                        <td className="px-3 py-2 font-mono font-bold text-white">{formatDutyTypeLink(item)}</td>
-                        <td className="px-3 py-2 font-mono text-slate-300">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
-                            item.shift === 'A' ? 'bg-emerald-500/20 text-emerald-300' :
-                            item.shift === 'B' ? 'bg-blue-500/20 text-blue-300' :
-                            item.shift === 'C' || item.shift === 'N' ? 'bg-purple-500/20 text-purple-300' : 'bg-slate-800 text-slate-300'
-                          }`}>
-                            {item.shift}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 font-bold text-white">{item.name}</td>
-                        <td className="px-3 py-2 font-mono text-cyan-300 font-bold">{item.empId}</td>
-                        <td className="px-3 py-2 font-mono text-slate-200">{item.sOnTime}</td>
-                        <td className="px-3 py-2 font-mono text-slate-200">{formatTo24HourTime(item.sOffTime, item.sOnTime, item.shift)}</td>
-                        <td className="px-3 py-2 text-slate-400 font-mono">{item.sOnLoc}</td>
-                        <td className="px-3 py-2 text-slate-400 font-mono">{item.trainNo || '—'}</td>
-                        <td className="px-3 py-2 font-mono">
-                          {item.previousDayDuty ? (
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-1 text-[10px]">
-                                <span className="font-bold text-slate-200">
-                                  {item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo}
-                                </span>
-                                <span className="text-slate-500">({item.previousDayDuty.shift})</span>
-                              </div>
-                              <div className="flex items-center gap-1 text-[9px]">
-                                <span className={`px-1 py-0.2 rounded font-bold border ${
-                                  item.previousDayDuty.isRestCompliant ? 'text-emerald-300 bg-emerald-950/60 border-emerald-500/40' : 'text-rose-300 bg-rose-950/60 border-rose-500/40'
-                                }`}>
-                                  ⏱ {item.previousDayDuty.restHoursFromPrev}h rest
-                                </span>
-                                <span className="text-slate-400 font-mono">{item.previousDayDuty.transition}</span>
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-slate-600 text-[10px]">—</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2">
-                          <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded text-[10px] font-bold font-mono">
-                            MAINLINE DRIVING
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 text-[11px] text-slate-400">{item.reason || 'Standard Mainline Run'}</td>
-                      </tr>
-                    ))}
-
-                    {/* ── SECTION 2: CREW CONTROLLERS (CC DESK) ── */}
-                    {ccDuties.length > 0 && (
-                      <>
-                        <tr className="bg-indigo-950/50 border-y border-indigo-500/40">
-                          <td colSpan={12} className="py-2.5 px-4 text-xs font-mono text-indigo-200 font-black">
-                            <div className="flex items-center justify-between">
-                              <span className="flex items-center gap-2">
-                                <Users className="w-4 h-4 text-indigo-400" />
-                                SECTION 2: CREW CONTROLLERS (CC DESK)
-                              </span>
-                              <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono border border-indigo-500/30">
-                                {ccDuties.length} Assigned Controllers
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                        {ccDuties.map((item, idx) => (
-                          <tr key={item.empId || idx} className="hover:bg-slate-800/40 bg-indigo-950/10">
-                            <td className="px-3 py-2 font-mono font-bold text-center text-indigo-400">CC</td>
-                            <td className="px-3 py-2 font-mono font-bold text-indigo-300">{item.assignedDutyCode || item.role || 'CC'}</td>
-                            <td className="px-3 py-2 font-mono text-slate-300">{item.shift || 'G'}</td>
-                            <td className="px-3 py-2 font-bold text-white">{item.name}</td>
-                            <td className="px-3 py-2 font-mono text-indigo-300 font-bold">{item.empId}</td>
-                            <td className="px-3 py-2 font-mono text-slate-300">{item.sOnTime || '07:00'}</td>
-                            <td className="px-3 py-2 font-mono text-slate-300">{formatTo24HourTime(item.sOffTime, item.sOnTime, item.shift) || '15:00'}</td>
-                            <td className="px-3 py-2 text-slate-400 font-mono">PYID</td>
-                            <td className="px-3 py-2 text-slate-500 font-mono">—</td>
-                            <td className="px-3 py-2 font-mono">
-                              {item.previousDayDuty ? (
-                                <span className="text-[10px] text-indigo-300 font-bold">
-                                  {item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo} ({item.previousDayDuty.shift})
-                                </span>
-                              ) : <span className="text-slate-600 text-[10px]">—</span>}
-                            </td>
-                            <td className="px-3 py-2">
-                              <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded text-[10px] font-bold font-mono">
-                                CREW CONTROLLER
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-[11px] text-indigo-300 font-mono">CC Desk Management</td>
-                          </tr>
-                        ))}
-                      </>
-                    )}
-
-                    {/* ── SECTION 3: SPECIAL DUTY & TEST TRACK ── */}
-                    {specialDuties.length > 0 && (
-                      <>
-                        <tr className="bg-purple-950/50 border-y border-purple-500/40">
-                          <td colSpan={12} className="py-2.5 px-4 text-xs font-mono text-purple-200 font-black">
-                            <div className="flex items-center justify-between">
-                              <span className="flex items-center gap-2">
-                                <Sparkles className="w-4 h-4 text-purple-400" />
-                                SECTION 3: SPECIAL DUTY &amp; TEST TRACK
-                              </span>
-                              <span className="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full font-mono border border-purple-500/30">
-                                {specialDuties.length} Assigned Staff
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                        {specialDuties.map((item, idx) => (
-                          <tr key={item.empId || idx} className="hover:bg-slate-800/40 bg-purple-950/10">
-                            <td className="px-3 py-2 font-mono font-bold text-center text-purple-400">SPEC</td>
-                            <td className="px-3 py-2 font-mono font-bold text-purple-300">{item.assignedDutyCode || 'SPECIAL_DUTY'}</td>
-                            <td className="px-3 py-2 font-mono text-slate-300">{item.shift || '—'}</td>
-                            <td className="px-3 py-2 font-bold text-white">{item.name}</td>
-                            <td className="px-3 py-2 font-mono text-purple-300 font-bold">{item.empId}</td>
-                            <td className="px-3 py-2 font-mono text-slate-300">{item.sOnTime || '—'}</td>
-                            <td className="px-3 py-2 font-mono text-slate-300">{formatTo24HourTime(item.sOffTime, item.sOnTime, item.shift) || '—'}</td>
-                            <td className="px-3 py-2 text-slate-400 font-mono">{item.sOnLoc || 'PYID'}</td>
-                            <td className="px-3 py-2 text-slate-500 font-mono">—</td>
-                            <td className="px-3 py-2 font-mono">
-                              {item.previousDayDuty ? (
-                                <span className="text-[10px] text-purple-300 font-bold">
-                                  {item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo} ({item.previousDayDuty.shift})
-                                </span>
-                              ) : <span className="text-slate-600 text-[10px]">—</span>}
-                            </td>
-                            <td className="px-3 py-2">
-                              <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-[10px] font-bold font-mono">
-                                SPECIAL DUTY
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-[11px] text-purple-300">{item.reason || 'Depot Standby / Test Track'}</td>
-                          </tr>
-                        ))}
-                      </>
-                    )}
-
-                    {/* ── SECTION 4: AVAILABLE RESERVE (8 CREW) ── */}
-                    {reservePool.length > 0 && (
-                      <>
-                        <tr className="bg-slate-800/80 border-y border-slate-600">
-                          <td colSpan={12} className="py-2.5 px-4 text-xs font-mono text-slate-200 font-black">
-                            <div className="flex items-center justify-between">
-                              <span className="flex items-center gap-2">
-                                🔄 SECTION 4: AVAILABLE RESERVE (Reserve Pool — Standby Crew)
-                              </span>
-                              <span className="text-[10px] bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full font-mono border border-slate-600">
-                                {reservePool.length} Available Crew
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                        {reservePool.map((item, idx) => (
-                          <tr key={item.empId || idx} className="hover:bg-slate-800/40 bg-slate-950/30">
-                            <td className="px-3 py-2 font-mono font-bold text-center text-slate-500">RSV</td>
-                            <td className="px-3 py-2 font-mono font-bold text-slate-300">AVAILABLE RESERVE</td>
-                            <td className="px-3 py-2 font-mono text-slate-400">STANDBY</td>
-                            <td className="px-3 py-2 font-bold text-slate-200">{item.name}</td>
-                            <td className="px-3 py-2 font-mono text-slate-400 font-bold">{item.empId}</td>
-                            <td className="px-3 py-2 font-mono text-slate-500">—</td>
-                            <td className="px-3 py-2 font-mono text-slate-500">—</td>
-                            <td className="px-3 py-2 text-slate-400 font-mono">PYID</td>
-                            <td className="px-3 py-2 text-slate-500 font-mono">—</td>
-                            <td className="px-3 py-2 font-mono">
-                              {item.previousDayDuty ? (
-                                <span className="text-[10px] text-slate-300 font-bold">
-                                  {item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo} ({item.previousDayDuty.shift})
-                                </span>
-                              ) : <span className="text-slate-600 text-[10px]">—</span>}
-                            </td>
-                            <td className="px-3 py-2">
-                              <span className="px-2 py-0.5 bg-slate-800 text-slate-400 rounded text-[10px] font-bold font-mono">
-                                RESERVE POOL
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-[11px] text-slate-500">
-                              {item.fixedWo ? `WO: ${item.fixedWo} · Active Reserve` : 'Available Reserve (No driving duty slot)'}
-                            </td>
-                          </tr>
-                        ))}
-                      </>
-                    )}
-
-                    {/* ── SECTION 5: STATION STANDBY (STBK — PRIORITY ORDERED) ── */}
-                    {stationStandbyDuties.length > 0 && (
-                      <>
-                        <tr className="bg-cyan-950/50 border-y border-cyan-500/40">
-                          <td colSpan={12} className="py-2.5 px-4 text-xs font-mono text-cyan-200 font-black">
-                            <div className="flex items-center justify-between">
-                              <span className="flex items-center gap-2">
-                                🏢 SECTION 5: STATION STANDBY (STBK — NGSA, PUTH, APTS, BIET, KGWA)
-                              </span>
-                              <span className="text-[10px] bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-full font-mono border border-cyan-500/30">
-                                {stationStandbyDuties.length} Operators Assigned (Shifts A &amp; B)
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                        {stationStandbyDuties.map((item, idx) => (
-                          <tr key={item.empId || idx} className="hover:bg-slate-800/40 bg-cyan-950/10">
-                            <td className="px-3 py-2 font-mono font-bold text-center text-cyan-400">STBK</td>
-                            <td className="px-3 py-2 font-mono font-bold text-cyan-300">{item.stbkStation} STBK ({item.stbkShift} Shift)</td>
-                            <td className="px-3 py-2 font-mono text-cyan-300 font-bold">
-                              {item.stbkShift === 'B' ? 'B (14:00–21:30)' : 'A (06:30–14:00)'}
-                            </td>
-                            <td className="px-3 py-2 font-bold text-white">{item.name}</td>
-                            <td className="px-3 py-2 font-mono text-cyan-300 font-bold">{item.empId}</td>
-                            <td className="px-3 py-2 font-mono text-slate-300">{item.stbkShift === 'B' ? '14:00' : '06:30'}</td>
-                            <td className="px-3 py-2 font-mono text-slate-300">{item.stbkShift === 'B' ? '21:30' : '14:00'}</td>
-                            <td className="px-3 py-2 text-cyan-300 font-mono font-bold">{item.stbkStation}</td>
-                            <td className="px-3 py-2 text-slate-500 font-mono">—</td>
-                            <td className="px-3 py-2 font-mono">
-                              {item.previousDayDuty ? (
-                                <span className="text-[10px] text-cyan-300 font-bold">
-                                  {item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo} ({item.previousDayDuty.shift})
-                                </span>
-                              ) : <span className="text-slate-600 text-[10px]">—</span>}
-                            </td>
-                            <td className="px-3 py-2">
-                              <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-300 rounded text-[10px] font-bold font-mono">
-                                STATION STANDBY
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-[11px] text-cyan-400/80 font-mono">
-                              Priority Standby at {item.stbkStation}
-                            </td>
-                          </tr>
-                        ))}
-                      </>
-                    )}
-
-                    {/* ── SECTION 6: WEEKLY OFF (REST / WO) ── */}
-                    {weekOffStaff.length > 0 && (
-                      <>
-                        <tr className="bg-slate-900 border-y border-slate-700">
-                          <td colSpan={12} className="py-2.5 px-4 text-xs font-mono text-slate-400 font-black">
-                            <div className="flex items-center justify-between">
-                              <span className="flex items-center gap-2">
-                                <Lock className="w-4 h-4 text-slate-500" />
-                                SECTION 6: WEEKLY OFF (REST / WO)
-                              </span>
-                              <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full font-mono border border-slate-700">
-                                {weekOffStaff.length} Rest Operators
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                        {weekOffStaff.map((item, idx) => (
-                          <tr key={item.empId || idx} className="hover:bg-slate-800/40 bg-slate-950/20">
-                            <td className="px-3 py-2 font-mono font-bold text-center text-slate-600">WO</td>
-                            <td className="px-3 py-2 font-mono font-bold text-slate-400">WEEK_OFF</td>
-                            <td className="px-3 py-2 font-mono text-slate-500">REST</td>
-                            <td className="px-3 py-2 font-bold text-slate-300">{item.name}</td>
-                            <td className="px-3 py-2 font-mono text-slate-500 font-bold">{item.empId}</td>
-                            <td className="px-3 py-2 font-mono text-slate-600">—</td>
-                            <td className="px-3 py-2 font-mono text-slate-600">—</td>
-                            <td className="px-3 py-2 text-slate-600 font-mono">—</td>
-                            <td className="px-3 py-2 text-slate-600 font-mono">—</td>
-                            <td className="px-3 py-2 font-mono">
-                              {item.previousDayDuty ? (
-                                <span className="text-[10px] text-slate-400 font-bold">
-                                  {item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo} ({item.previousDayDuty.shift})
-                                </span>
-                              ) : <span className="text-slate-600 text-[10px]">—</span>}
-                            </td>
-                            <td className="px-3 py-2">
-                              <span className="px-2 py-0.5 bg-slate-800 text-slate-400 rounded text-[10px] font-bold font-mono">
-                                REST
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-[11px] text-slate-500">{item.reason || 'Weekly Off'}</td>
-                          </tr>
-                        ))}
-                      </>
-                    )}
-
-                    {/* ── SECTION 7: LEAVES, MATERNITY (ML) & HPL / BOOK-OFF ── */}
-                    {leaveStaff.length > 0 && (
-                      <>
-                        <tr className="bg-rose-950/50 border-y border-rose-500/40">
-                          <td colSpan={12} className="py-2.5 px-4 text-xs font-mono text-rose-200 font-black">
-                            <div className="flex items-center justify-between">
-                              <span className="flex items-center gap-2">
-                                <HeartPulse className="w-4 h-4 text-rose-400" />
-                                SECTION 7: LEAVES, MATERNITY (ML) &amp; HPL / BOOK-OFF
-                              </span>
-                              <span className="text-[10px] bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-full font-mono border border-rose-500/30">
-                                {leaveStaff.length} On Leave
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                        {leaveStaff.map((item, idx) => {
-                          const lp = item.leavePeriod;
-                          return (
-                            <tr key={item.empId || idx} className="hover:bg-slate-800/40 bg-rose-950/10">
-                              <td className="px-3 py-2 font-mono font-bold text-center text-rose-400">LV</td>
-                              <td className="px-3 py-2 font-mono font-bold text-rose-300">{item.assignedDutyCode || item.assignmentSubType || 'LEAVE'}</td>
-                              <td className="px-3 py-2 font-mono text-rose-300">LEAVE</td>
-                              <td className="px-3 py-2 font-bold text-white">{item.name}</td>
-                              <td className="px-3 py-2 font-mono text-rose-300 font-bold">{item.empId}</td>
-                              <td className="px-3 py-2 font-mono text-slate-500">—</td>
-                              <td className="px-3 py-2 font-mono text-slate-500">—</td>
-                              <td className="px-3 py-2 text-slate-500 font-mono">—</td>
-                              <td className="px-3 py-2 text-slate-500 font-mono">—</td>
-                              <td className="px-3 py-2 font-mono">
-                                {item.previousDayDuty ? (
-                                  <span className="text-[10px] text-rose-300 font-bold">
-                                    {item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo} ({item.previousDayDuty.shift})
-                                  </span>
-                                ) : <span className="text-slate-600 text-[10px]">—</span>}
-                              </td>
-                              <td className="px-3 py-2">
-                                <span className="px-2 py-0.5 bg-rose-500/20 text-rose-300 rounded text-[10px] font-bold font-mono">
-                                  {item.status || 'LEAVE'}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2 text-[11px] text-rose-300">
-                                {lp && lp.fromDate ? `${lp.leaveType || 'Leave'}: ${lp.fromDate} → ${lp.toDate} (${lp.durationDays}d)` : (item.reason || 'Approved Leave')}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </>
-                    )}
-
-                    {/* ── SECTION 8: PINK LINE 4 STAFF ── */}
-                    {pinkLine4Staff.length > 0 && (
-                      <>
-                        <tr className="bg-pink-950/50 border-y border-pink-500/40">
-                          <td colSpan={12} className="py-2.5 px-4 text-xs font-mono text-pink-200 font-black">
-                            <div className="flex items-center justify-between">
-                              <span className="flex items-center gap-2">
-                                🌸 SECTION 8: PINK LINE 4 STAFF POOL
-                              </span>
-                              <span className="text-[10px] bg-pink-500/20 text-pink-300 px-2 py-0.5 rounded-full font-mono border border-pink-500/30">
-                                {pinkLine4Staff.length} Staff Members
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                        {pinkLine4Staff.map((item, idx) => (
-                          <tr key={item.empId || idx} className="hover:bg-slate-800/40 bg-pink-950/10">
-                            <td className="px-3 py-2 font-mono font-bold text-center text-pink-400">PINK</td>
-                            <td className="px-3 py-2 font-mono font-bold text-pink-300">PINK LINE 4</td>
-                            <td className="px-3 py-2 font-mono text-pink-300">—</td>
-                            <td className="px-3 py-2 font-bold text-white">{item.name}</td>
-                            <td className="px-3 py-2 font-mono text-pink-400 font-bold">{item.empId}</td>
-                            <td className="px-3 py-2 font-mono text-slate-500">—</td>
-                            <td className="px-3 py-2 font-mono text-slate-500">—</td>
-                            <td className="px-3 py-2 text-slate-500 font-mono">—</td>
-                            <td className="px-3 py-2 text-slate-500 font-mono">—</td>
-                            <td className="px-3 py-2 font-mono">
-                              {item.previousDayDuty ? (
-                                <span className="text-[10px] text-pink-300 font-bold">
-                                  {item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo} ({item.previousDayDuty.shift})
-                                </span>
-                              ) : <span className="text-slate-600 text-[10px]">—</span>}
-                            </td>
-                            <td className="px-3 py-2">
-                              <span className="px-2 py-0.5 bg-pink-500/20 text-pink-300 rounded text-[10px] font-bold font-mono">
-                                PINK_LINE_4
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-[11px] text-pink-300">{item.notes || 'Pink Line 4 Staff'}</td>
-                          </tr>
-                        ))}
-                      </>
-                    )}
-
-                    {/* ── SECTION 9: TRAINING, CRT & LRD ── */}
-                    {(trainingStaff.length > 0 || lrdDuties.length > 0) && (
-                      <>
-                        <tr className="bg-amber-950/50 border-y border-amber-500/40">
-                          <td colSpan={12} className="py-2.5 px-4 text-xs font-mono text-amber-200 font-black">
-                            <div className="flex items-center justify-between">
-                              <span className="flex items-center gap-2">
-                                🎓 SECTION 9: TRAINING, CRT &amp; LEARNING ROAD DUTY (LRD)
-                              </span>
-                              <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-mono border border-amber-500/30">
-                                {trainingStaff.length + lrdDuties.length} Staff
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                        {trainingStaff.concat(lrdDuties).map((item, idx) => (
-                          <tr key={item.empId || idx} className="hover:bg-slate-800/40 bg-amber-950/10">
-                            <td className="px-3 py-2 font-mono font-bold text-center text-amber-400">TRG</td>
-                            <td className="px-3 py-2 font-mono font-bold text-amber-300">{item.assignedDutyCode || item.assignmentSubType || 'TRAINING'}</td>
-                            <td className="px-3 py-2 font-mono text-amber-300">{item.shift || '07:00–15:00'}</td>
-                            <td className="px-3 py-2 font-bold text-white">{item.name}</td>
-                            <td className="px-3 py-2 font-mono text-amber-300 font-bold">{item.empId}</td>
-                            <td className="px-3 py-2 font-mono text-slate-300">{item.sOnTime || '07:00'}</td>
-                            <td className="px-3 py-2 font-mono text-slate-300">{formatTo24HourTime(item.sOffTime, item.sOnTime, item.shift) || '15:00'}</td>
-                            <td className="px-3 py-2 text-slate-400 font-mono">PYID</td>
-                            <td className="px-3 py-2 text-slate-500 font-mono">—</td>
-                            <td className="px-3 py-2 font-mono">
-                              {item.previousDayDuty ? (
-                                <span className="text-[10px] text-amber-300 font-bold">
-                                  {item.previousDayDuty.dutyCode || item.previousDayDuty.dutyNo} ({item.previousDayDuty.shift})
-                                </span>
-                              ) : <span className="text-slate-600 text-[10px]">—</span>}
-                            </td>
-                            <td className="px-3 py-2">
-                              <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded text-[10px] font-bold font-mono">
-                                TRAINING / LRD
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-[11px] text-amber-300">{item.reason || 'Training Refresher'}</td>
-                          </tr>
-                        ))}
-                      </>
-                    )}
-
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            /* ──────────────── OFFICIAL CONTROL-ROOM BMRCL EXCEL SHEET VIEW (EXACT IMAGE REPLICA) ──────────────── */
+            <OfficialBMRCLDutySheet
+              isModal={false}
+              targetDate={targetDate}
+              dayType={dayType}
+              runningDuties={runningDuties}
+              ccDuties={ccDuties}
+              stationStandbyDuties={stationStandbyDuties}
+              weekOffStaff={weekOffStaff}
+              leaveStaff={leaveStaff}
+              trainingStaff={trainingStaff}
+              pinkLine4Staff={pinkLine4Staff}
+              specialDuties={specialDuties}
+              traineeStaff={traineeStaff}
+              reservePool={reservePool}
+              loggedInUserName={loggedInUserName}
+              onPrint={() => window.print()}
+              onExportExcel={handleExportExcel}
+              onPublishRoster={handlePublishRoster}
+            />
           )}
 
           {/* ── 5. Enhanced Manpower Summary Strip ── */}
@@ -2482,6 +1989,30 @@ export default function GeneratorDraftConsole({
           employee={explainerData.employee}
           assignment={explainerData.assignment}
           explanation={explainerData.explanation}
+        />
+      )}
+
+      {/* ── Official BMRCL Line 2 Daily Duty Sheet Print & Export Modal (Exact Scanned Replica) ── */}
+      {isPrintModalOpen && (
+        <OfficialBMRCLDutySheet
+          isModal={true}
+          targetDate={targetDate}
+          dayType={dayType}
+          runningDuties={runningDuties}
+          ccDuties={ccDuties}
+          stationStandbyDuties={stationStandbyDuties}
+          weekOffStaff={weekOffStaff}
+          leaveStaff={leaveStaff}
+          trainingStaff={trainingStaff}
+          pinkLine4Staff={pinkLine4Staff}
+          specialDuties={specialDuties}
+          traineeStaff={traineeStaff}
+          reservePool={reservePool}
+          loggedInUserName={loggedInUserName}
+          onPrint={() => window.print()}
+          onExportExcel={handleExportExcel}
+          onPublishRoster={handlePublishRoster}
+          onClose={() => setIsPrintModalOpen(false)}
         />
       )}
     </div>
