@@ -2148,7 +2148,7 @@ export function isPdcTrip(str) {
 }
 
 // ─── Build an ACTIVE_RUN duty document from a changeover row ─────
-function buildActiveRunDuty(coRow, existingCurrentDuty) {
+function buildActiveRunDuty(coRow, existingCurrentDuty, operatorInfo) {
   // Night side maps to leg1 + leg2 (existing link roster fields)
   // Morning side maps to leg3 (takeover train) fields
 
@@ -2172,10 +2172,44 @@ function buildActiveRunDuty(coRow, existingCurrentDuty) {
   const mornKmsVal = isMornPdc ? 0 : coRow.mornKms || 0;
   const totalKmsVal = coRow.totalKms || (coRow.nightKms || 0) + mornKmsVal;
 
+  const empName =
+    operatorInfo?.empName ||
+    operatorInfo?.name ||
+    coRow.empName ||
+    coRow.name ||
+    existingCurrentDuty?.empName ||
+    existingCurrentDuty?.name ||
+    "--";
+
+  const empId =
+    operatorInfo?.empId ||
+    operatorInfo?.empNo ||
+    coRow.empId ||
+    coRow.empNo ||
+    existingCurrentDuty?.empId ||
+    existingCurrentDuty?.empNo ||
+    "--";
+
+  const status =
+    operatorInfo?.status ||
+    coRow.status ||
+    existingCurrentDuty?.status ||
+    "ACTIVE";
+
   return {
     // Identity
     scheduleType: "ACTIVE_RUN",
     dutyId: coRow.dutyNo,
+
+    // Active On-Duty Night Shift Train Operator from DISPATCH GATEWAY CORE
+    empName,
+    name: empName,
+    operatorName: empName,
+    empId,
+    empNo: empId,
+    status,
+    shift: "N",
+    isNight: true,
 
     // Sign On (from changeover night side)
     signOnTime: coRow.signOnTime,
@@ -2327,7 +2361,7 @@ export function getChangeoverMappings() {
 }
 
 // ─── Main export ─────────────────────────────────────────────────
-export const triggerChangeover = async (currentDay, nextDay) => {
+export const triggerChangeover = async (currentDay, nextDay, operatorAssignments = {}) => {
   const tableKey = getTableKey(currentDay, nextDay);
   const coTable = CHANGEOVER_TABLE[tableKey];
 
@@ -2365,22 +2399,69 @@ export const triggerChangeover = async (currentDay, nextDay) => {
   );
   const deleteBatch = writeBatch(db);
   activeSnap.docs.forEach((d) => deleteBatch.delete(d.ref));
+
+  // Also clean up any prior ACTIVE_RUN deployments in crew_daily_deployment
+  try {
+    const priorDeploySnap = await getDocs(
+      query(
+        collection(db, "crew_daily_deployment"),
+        where("scheduleType", "==", "ACTIVE_RUN"),
+      ),
+    );
+    priorDeploySnap.docs.forEach((d) => deleteBatch.delete(d.ref));
+  } catch (e) {
+    console.warn("Could not query prior ACTIVE_RUN deployments:", e);
+  }
   await deleteBatch.commit();
 
   // ── 3. Build new ACTIVE_RUN duties ──
   const writeBatchInst = writeBatch(db);
 
-  // (a) Night changeover duties — built from the Excel table
+  // (a) Night changeover duties — built from the Excel table with active Night Train Operator
   const changeoverDutyIds = new Set();
   Object.entries(coTable).forEach(([dutyNo, coRow]) => {
     changeoverDutyIds.add(dutyNo);
     const existingCurrentDuty = currentDutyMap[dutyNo];
+    const op =
+      operatorAssignments[dutyNo] ||
+      operatorAssignments[String(Number(dutyNo))] ||
+      operatorAssignments[String(dutyNo).padStart(2, "0")] ||
+      {};
+
     const finalDuty = buildActiveRunDuty(
       { ...coRow, dutyNo },
       existingCurrentDuty,
+      op,
     );
     const docId = `link_active_run_duty_${dutyNo}`;
     writeBatchInst.set(doc(db, "crew_final_links", docId), finalDuty);
+
+    // Sync ACTIVE_RUN with Night Shift Train Operator into crew_daily_deployment
+    const depDocId = `gcc_deploy_active_run_duty_${String(dutyNo).padStart(2, "0")}`;
+    writeBatchInst.set(
+      doc(db, "crew_daily_deployment", depDocId),
+      {
+        dutyId: String(dutyNo).padStart(2, "0"),
+        scheduleType: "ACTIVE_RUN",
+        dutyType: `NIGHT_CHANGEOVER_${dutyNo}`,
+        signOnTime: coRow.signOnTime,
+        signOffTime: coRow.signOffTime,
+        signOnLocation: coRow.signOnLocation,
+        signOffLocation: coRow.signOffLocation,
+        trainId: String(coRow.nightTrainNo),
+        empName: finalDuty.empName || "--",
+        name: finalDuty.empName || "--",
+        empId: finalDuty.empId || "--",
+        empNo: finalDuty.empId || "--",
+        status: finalDuty.status || "ACTIVE",
+        shift: "N",
+        isNight: true,
+        autoDeployed: true,
+        isLocked: true,
+        lastUpdated: serverTimestamp(),
+      },
+      { merge: true },
+    );
   });
 
   // (b) Day duties from current-day roster (not in the changeover table) — kept as-is
@@ -2420,7 +2501,7 @@ export const triggerChangeover = async (currentDay, nextDay) => {
     performedBy: "System Admin",
   });
 
-  return `ACTIVE_RUN (${currentDay} ➔ ${nextDay}) — ${Object.keys(coTable).length} night duties merged`;
+  return `ACTIVE_RUN (${currentDay} ➔ ${nextDay}) — ${Object.keys(coTable).length} night duties merged with DISPATCH GATEWAY CORE active operators`;
 };
 
 export const revertToNormalRoster = async () => {
@@ -2433,6 +2514,20 @@ export const revertToNormalRoster = async () => {
   );
   const deleteBatch = writeBatch(db);
   activeSnap.docs.forEach((d) => deleteBatch.delete(d.ref));
+
+  // Also delete ACTIVE_RUN from crew_daily_deployment
+  try {
+    const activeDeploySnap = await getDocs(
+      query(
+        collection(db, "crew_daily_deployment"),
+        where("scheduleType", "==", "ACTIVE_RUN"),
+      ),
+    );
+    activeDeploySnap.docs.forEach((d) => deleteBatch.delete(d.ref));
+  } catch (err) {
+    console.warn("Could not delete ACTIVE_RUN from crew_daily_deployment:", err);
+  }
+
   await deleteBatch.commit();
 
   // Reset active_roster_config

@@ -1,10 +1,4 @@
-import {
-  Download,
-  FileSpreadsheet,
-  Printer,
-  Send,
-  X
-} from "lucide-react";
+import { Download, FileSpreadsheet, Printer, Send, X } from "lucide-react";
 import { useMemo } from "react";
 import { formatTo24HourTime } from "../../utils/timeHelpers";
 
