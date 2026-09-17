@@ -48,9 +48,97 @@ export const swapOperatorsInConsoleData = (consoleData, op1Id, op1Name, op2Id, o
   swapInArray(updated.notReporting);
   swapInArray(updated.absents);
   swapInArray(updated.onDuty);
+  if (Array.isArray(updated.duties)) {
+    updated.duties.forEach(item => {
+      const currentEmp = String(item.empNo || item.empId || '').trim();
+      if (currentEmp === String(op1Id).trim()) {
+        item.empNo = String(op2Id).trim();
+        item.empId = String(op2Id).trim();
+        item.empName = op2Name;
+        item.name = op2Name;
+      } else if (currentEmp === String(op2Id).trim()) {
+        item.empNo = String(op1Id).trim();
+        item.empId = String(op1Id).trim();
+        item.empName = op1Name;
+        item.name = op1Name;
+      }
+    });
+  }
 
   if (updated.customRegisters && typeof updated.customRegisters === 'object') {
     Object.values(updated.customRegisters).forEach(arr => swapInArray(arr));
+  }
+
+  return updated;
+};
+
+export const rotateTripleOperatorsInConsoleData = (consoleData, op1Id, op1Name, op2Id, op2Name, op3Id, op3Name) => {
+  if (!consoleData) return consoleData;
+  const updated = JSON.parse(JSON.stringify(consoleData));
+
+  // Standard Cyclic Rotation:
+  // Op 1 (Duty 1) ➔ receives Duty 2: so position of Op 2 gets assigned Op 1
+  // Op 2 (Duty 2) ➔ receives Duty 3: so position of Op 3 gets assigned Op 2
+  // Op 3 (Duty 3) ➔ receives Duty 1: so position of Op 1 gets assigned Op 3
+  const rotateInArray = (arr) => {
+    if (!Array.isArray(arr)) return;
+    arr.forEach(item => {
+      const currentEmp = String(item.empNo || item.empId || '').trim();
+      if (currentEmp === String(op1Id).trim()) {
+        item.empNo = String(op3Id).trim();
+        if (item.empId !== undefined) item.empId = String(op3Id).trim();
+        item.name = op3Name;
+      } else if (currentEmp === String(op2Id).trim()) {
+        item.empNo = String(op1Id).trim();
+        if (item.empId !== undefined) item.empId = String(op1Id).trim();
+        item.name = op1Name;
+      } else if (currentEmp === String(op3Id).trim()) {
+        item.empNo = String(op2Id).trim();
+        if (item.empId !== undefined) item.empId = String(op2Id).trim();
+        item.name = op2Name;
+      }
+    });
+  };
+
+  rotateInArray(updated.coOperators);
+  rotateInArray(updated.controlDesks);
+  rotateInArray(updated.leaves);
+  rotateInArray(updated.standbys);
+  rotateInArray(updated.outstationStepbacks);
+  rotateInArray(updated.crtTraining);
+  rotateInArray(updated.bmrtiTraining);
+  rotateInArray(updated.weeklyOffs);
+  rotateInArray(updated.relievedOperators);
+  rotateInArray(updated.pmeOperators);
+  rotateInArray(updated.routeLearning);
+  rotateInArray(updated.notReporting);
+  rotateInArray(updated.absents);
+  rotateInArray(updated.onDuty);
+
+  if (Array.isArray(updated.duties)) {
+    updated.duties.forEach(item => {
+      const currentEmp = String(item.empNo || item.empId || '').trim();
+      if (currentEmp === String(op1Id).trim()) {
+        item.empNo = String(op3Id).trim();
+        item.empId = String(op3Id).trim();
+        item.empName = op3Name;
+        item.name = op3Name;
+      } else if (currentEmp === String(op2Id).trim()) {
+        item.empNo = String(op1Id).trim();
+        item.empId = String(op1Id).trim();
+        item.empName = op1Name;
+        item.name = op1Name;
+      } else if (currentEmp === String(op3Id).trim()) {
+        item.empNo = String(op2Id).trim();
+        item.empId = String(op2Id).trim();
+        item.empName = op2Name;
+        item.name = op2Name;
+      }
+    });
+  }
+
+  if (updated.customRegisters && typeof updated.customRegisters === 'object') {
+    Object.values(updated.customRegisters).forEach(arr => rotateInArray(arr));
   }
 
   return updated;
@@ -132,10 +220,14 @@ export class RosterService {
       return isNaN(num) ? s : `gcc_duty_${num}`;
     };
 
+    const isTriple = Boolean(ex.isTriple && ex.operator3Id);
+
     const duty1 = normalizeDutyId(ex.operator1Duty);
     const duty2 = normalizeDutyId(ex.operator2Duty);
+    const duty3 = isTriple ? normalizeDutyId(ex.operator3Duty) : '';
     const unnormDuty1 = isPureNumericDuty(ex.operator1Duty) ? String(parseInt(ex.operator1Duty, 10)) : String(ex.operator1Duty || '');
     const unnormDuty2 = isPureNumericDuty(ex.operator2Duty) ? String(parseInt(ex.operator2Duty, 10)) : String(ex.operator2Duty || '');
+    const unnormDuty3 = isTriple && isPureNumericDuty(ex.operator3Duty) ? String(parseInt(ex.operator3Duty, 10)) : String(ex.operator3Duty || '');
 
     // 1. Fetch matching deployments
     const q1 = query(collection(db, 'crew_daily_deployment'), where('dutyId', '==', duty1));
@@ -143,12 +235,20 @@ export class RosterService {
     const qu1 = query(collection(db, 'crew_daily_deployment'), where('dutyId', '==', unnormDuty1));
     const qu2 = query(collection(db, 'crew_daily_deployment'), where('dutyId', '==', unnormDuty2));
 
-    const [snap1, snap2, snapu1, snapu2] = await Promise.all([
-      getDocs(q1),
-      getDocs(q2),
-      getDocs(qu1),
-      getDocs(qu2)
-    ]);
+    const queries = [getDocs(q1), getDocs(q2), getDocs(qu1), getDocs(qu2)];
+    if (isTriple) {
+      const q3 = query(collection(db, 'crew_daily_deployment'), where('dutyId', '==', duty3));
+      const qu3 = query(collection(db, 'crew_daily_deployment'), where('dutyId', '==', unnormDuty3));
+      queries.push(getDocs(q3), getDocs(qu3));
+    }
+
+    const snapResults = await Promise.all(queries);
+    const snap1 = snapResults[0];
+    const snap2 = snapResults[1];
+    const snapu1 = snapResults[2];
+    const snapu2 = snapResults[3];
+    const snap3 = isTriple ? snapResults[4] : null;
+    const snapu3 = isTriple ? snapResults[5] : null;
 
     const refsToGet = [];
     const addedPaths = new Set();
@@ -159,10 +259,10 @@ export class RosterService {
       }
     };
 
-    [...snap1.docs, ...snap2.docs, ...snapu1.docs, ...snapu2.docs].forEach(docSnap => addRef(docSnap.ref));
+    [...snap1.docs, ...snap2.docs, ...snapu1.docs, ...snapu2.docs, ...(snap3 ? snap3.docs : []), ...(snapu3 ? snapu3.docs : [])].forEach(docSnap => addRef(docSnap.ref));
 
     let scheduleType = '';
-    const allSnaps = [...snap1.docs, ...snap2.docs, ...snapu1.docs, ...snapu2.docs];
+    const allSnaps = [...snap1.docs, ...snap2.docs, ...snapu1.docs, ...snapu2.docs, ...(snap3 ? snap3.docs : []), ...(snapu3 ? snapu3.docs : [])];
     if (allSnaps.length > 0) {
       scheduleType = allSnaps[0].data().scheduleType || '';
     }
@@ -173,6 +273,10 @@ export class RosterService {
       addRef(doc(db, 'crew_daily_deployment', `gcc_deploy_${sched}_duty_${unnormDuty1}`));
       addRef(doc(db, 'crew_daily_deployment', `gcc_deploy_${sched}_duty_${duty2}`));
       addRef(doc(db, 'crew_daily_deployment', `gcc_deploy_${sched}_duty_${unnormDuty2}`));
+      if (isTriple) {
+        addRef(doc(db, 'crew_daily_deployment', `gcc_deploy_${sched}_duty_${duty3}`));
+        addRef(doc(db, 'crew_daily_deployment', `gcc_deploy_${sched}_duty_${unnormDuty3}`));
+      }
     }
 
     const opDateTime = new Date().toISOString();
@@ -205,7 +309,22 @@ export class RosterService {
         remarks: finalRemarks
       });
 
-      const updatePayload1 = {
+      // Cyclic Rotation in Triple Mode:
+      // Op 1 (Duty 1) ➔ Duty 2 (Duty 2 gets Op 1)
+      // Op 2 (Duty 2) ➔ Duty 3 (Duty 3 gets Op 2)
+      // Op 3 (Duty 3) ➔ Duty 1 (Duty 1 gets Op 3)
+      const updatePayload1 = isTriple ? {
+        empId: String(ex.operator3Id || ''),
+        empName: String(ex.operator3Name || '').toUpperCase(),
+        remarks: `Triple Shift Exchanged with ${ex.operator3Name}`,
+        isExchanged: true,
+        originalEmpId: String(ex.operator1Id || ''),
+        originalEmpName: String(ex.operator1Name || '').toUpperCase(),
+        exchangeId: id,
+        approvedBy: `${userProfile?.employeeName || 'GCC/CC'}`,
+        approvedDateTime: opDateTime,
+        lastUpdated: serverTimestamp()
+      } : {
         empId: String(ex.operator2Id || ''),
         empName: String(ex.operator2Name || '').toUpperCase(),
         remarks: `Shift Exchanged with ${ex.operator1Name}`,
@@ -218,7 +337,18 @@ export class RosterService {
         lastUpdated: serverTimestamp()
       };
 
-      const updatePayload2 = {
+      const updatePayload2 = isTriple ? {
+        empId: String(ex.operator1Id || ''),
+        empName: String(ex.operator1Name || '').toUpperCase(),
+        remarks: `Triple Shift Exchanged with ${ex.operator1Name}`,
+        isExchanged: true,
+        originalEmpId: String(ex.operator2Id || ''),
+        originalEmpName: String(ex.operator2Name || '').toUpperCase(),
+        exchangeId: id,
+        approvedBy: `${userProfile?.employeeName || 'GCC/CC'}`,
+        approvedDateTime: opDateTime,
+        lastUpdated: serverTimestamp()
+      } : {
         empId: String(ex.operator1Id || ''),
         empName: String(ex.operator1Name || '').toUpperCase(),
         remarks: `Shift Exchanged with ${ex.operator2Name}`,
@@ -231,6 +361,19 @@ export class RosterService {
         lastUpdated: serverTimestamp()
       };
 
+      const updatePayload3 = isTriple ? {
+        empId: String(ex.operator2Id || ''),
+        empName: String(ex.operator2Name || '').toUpperCase(),
+        remarks: `Triple Shift Exchanged with ${ex.operator2Name}`,
+        isExchanged: true,
+        originalEmpId: String(ex.operator3Id || ''),
+        originalEmpName: String(ex.operator3Name || '').toUpperCase(),
+        exchangeId: id,
+        approvedBy: `${userProfile?.employeeName || 'GCC/CC'}`,
+        approvedDateTime: opDateTime,
+        lastUpdated: serverTimestamp()
+      } : null;
+
       deploymentDocs.forEach(snap => {
         const dData = snap.data();
         const normDId = normalizeDutyId(dData.dutyId);
@@ -238,6 +381,8 @@ export class RosterService {
           transaction.update(snap.ref, updatePayload1);
         } else if (normDId === duty2 || normDId === unnormDuty2) {
           transaction.update(snap.ref, updatePayload2);
+        } else if (isTriple && (normDId === duty3 || normDId === unnormDuty3)) {
+          transaction.update(snap.ref, updatePayload3);
         }
       });
 
@@ -257,6 +402,15 @@ export class RosterService {
           dutyId: duty2,
           ...updatePayload2
         }, { merge: true });
+
+        if (isTriple) {
+          const ref3 = doc(db, 'crew_daily_deployment', `gcc_deploy_${activeSched.toLowerCase()}_duty_${duty3}`);
+          transaction.set(ref3, {
+            scheduleType: activeSched,
+            dutyId: duty3,
+            ...updatePayload3
+          }, { merge: true });
+        }
       }
 
       const records = [
@@ -265,8 +419,8 @@ export class RosterService {
           dutyNumber: duty1,
           originalEmployeeId: ex.operator1Id,
           originalEmployeeName: ex.operator1Name,
-          currentEmployeeId: ex.operator2Id,
-          currentEmployeeName: ex.operator2Name,
+          currentEmployeeId: isTriple ? ex.operator3Id : ex.operator2Id,
+          currentEmployeeName: isTriple ? ex.operator3Name : ex.operator2Name,
           approvedBy: `${userProfile?.employeeName || 'GCC/CC'}`,
           approvedDateTime: opDateTime,
           status: "Operational",
@@ -286,21 +440,40 @@ export class RosterService {
         }
       ];
 
+      if (isTriple) {
+        records.push({
+          exchangeId: id,
+          dutyNumber: duty3,
+          originalEmployeeId: ex.operator3Id,
+          originalEmployeeName: ex.operator3Name,
+          currentEmployeeId: ex.operator2Id,
+          currentEmployeeName: ex.operator2Name,
+          approvedBy: `${userProfile?.employeeName || 'GCC/CC'}`,
+          approvedDateTime: opDateTime,
+          status: "Operational",
+          timestamp: serverTimestamp()
+        });
+      }
+
       for (const rec of records) {
         transaction.set(doc(db, "shift_exchanges_operational", `${id}_${rec.dutyNumber}`), rec);
       }
 
       const auditLogRef = doc(collection(db, 'auditLogs'));
       transaction.set(auditLogRef, {
-        action: 'SHIFT_EXCHANGE_APPROVED',
+        action: isTriple ? 'SHIFT_EXCHANGE_TRIPLE_APPROVED' : 'SHIFT_EXCHANGE_APPROVED',
         exchangeId: id,
         operator1Id: ex.operator1Id,
         operator2Id: ex.operator2Id,
+        operator3Id: isTriple ? ex.operator3Id : null,
+        isTriple,
         approvedBy: `${userProfile?.employeeName || 'GCC/CC'} (${userProfile?.role || 'Controller'})`,
         timestamp: serverTimestamp(),
-        oldDuty: `${duty1} ⇄ ${duty2}`,
-        newDuty: `${duty2} ⇄ ${duty1}`,
-        details: `Shift exchange APPROVED: ${ex.operator1Name} (Duty ${ex.operator1Duty}) ⇄ ${ex.operator2Name} (Duty ${ex.operator2Duty}). Remarks: ${finalRemarks}`
+        oldDuty: isTriple ? `${duty1} ➔ ${duty2} ➔ ${duty3}` : `${duty1} ⇄ ${duty2}`,
+        newDuty: isTriple ? `${duty2} ➔ ${duty3} ➔ ${duty1}` : `${duty2} ⇄ ${duty1}`,
+        details: isTriple
+          ? `Triple shift exchange APPROVED: Op 1 ${ex.operator1Name} (Duty ${ex.operator1Duty}) ➔ Duty ${ex.operator2Duty} | Op 2 ${ex.operator2Name} (Duty ${ex.operator2Duty}) ➔ Duty ${ex.operator3Duty} | Op 3 ${ex.operator3Name} (Duty ${ex.operator3Duty}) ➔ Duty ${ex.operator1Duty}. Remarks: ${finalRemarks}`
+          : `Shift exchange APPROVED: ${ex.operator1Name} (Duty ${ex.operator1Duty}) ⇄ ${ex.operator2Name} (Duty ${ex.operator2Duty}). Remarks: ${finalRemarks}`
       });
     });
 
@@ -315,19 +488,32 @@ export class RosterService {
     };
     await updateCount(ex.operator1Id, ex.operator1Name);
     await updateCount(ex.operator2Id, ex.operator2Name);
+    if (isTriple && ex.operator3Id) {
+      await updateCount(ex.operator3Id, ex.operator3Name);
+    }
 
     // 4. Synchronize swap across BMRCL Line 2 Peenya Depot Roster Desk Console
     try {
       const consoleDocSnap = await getDoc(doc(db, 'roster_desk_console', 'current'));
       if (consoleDocSnap.exists()) {
         const currentConsole = consoleDocSnap.data();
-        const updatedConsole = swapOperatorsInConsoleData(
-          currentConsole,
-          ex.operator1Id,
-          ex.operator1Name,
-          ex.operator2Id,
-          ex.operator2Name
-        );
+        const updatedConsole = isTriple
+          ? rotateTripleOperatorsInConsoleData(
+              currentConsole,
+              ex.operator1Id,
+              ex.operator1Name,
+              ex.operator2Id,
+              ex.operator2Name,
+              ex.operator3Id,
+              ex.operator3Name
+            )
+          : swapOperatorsInConsoleData(
+              currentConsole,
+              ex.operator1Id,
+              ex.operator1Name,
+              ex.operator2Id,
+              ex.operator2Name
+            );
         updatedConsole.lastUpdated = serverTimestamp();
         await setDoc(doc(db, 'roster_desk_console', 'current'), updatedConsole, { merge: true });
         await setDoc(doc(db, 'roster_desk_console', 'latest'), updatedConsole, { merge: true });

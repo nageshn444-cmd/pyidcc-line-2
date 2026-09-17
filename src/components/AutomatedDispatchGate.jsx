@@ -57,7 +57,7 @@ import {
   formatExcelTime,
   rosterAutoClassifierService,
 } from "../services/RosterAutoClassifierService";
-import { swapOperatorsInConsoleData } from "../services/RosterService";
+import { swapOperatorsInConsoleData, rotateTripleOperatorsInConsoleData } from "../services/RosterService";
 import RosterPublisherBoard from "./RosterPublisherBoard";
 
 // ── Duty ID Utilities (shared with Dashboard) ──
@@ -1896,7 +1896,10 @@ Rules:
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [swapDuty1, setSwapDuty1] = useState("");
   const [swapDuty2, setSwapDuty2] = useState("");
+  const [swapDuty3, setSwapDuty3] = useState("");
+  const [swapMode, setSwapMode] = useState("PAIR"); // "PAIR" (2 ops) or "TRIPLE" (3 ops)
   const [swapSearchQuery, setSwapSearchQuery] = useState("");
+  const [swapOperationType, setSwapOperationType] = useState("SWAP"); // "SWAP" or "EXCHANGE"
 
   const duplicateEmpIds = useMemo(() => {
     const counts = {};
@@ -2115,6 +2118,8 @@ Rules:
         id: `mainline_${d.dutyId}`,
         type: "MAINLINE",
         dutyId: d.dutyId,
+        docId: d.id,
+        rawDeployment: d,
         empId: String(d.empId || ""),
         empName: String(d.empName || ""),
         label: `Duty ${d.dutyId} - ${d.empName || "Vacant"} (${d.empId || "--"})`,
@@ -2226,62 +2231,251 @@ Rules:
   }, [allSwappableGroups, swapSearchQuery]);
 
   const handleExecuteSwap = async () => {
-    if (!swapDuty1 || !swapDuty2) {
-      alert("Please select both Duty IDs / Operators to swap.");
-      return;
-    }
-    if (swapDuty1 === swapDuty2) {
-      alert("Please select two different duties or operators to swap.");
-      return;
+    const isTriple = swapMode === "TRIPLE";
+
+    if (isTriple) {
+      if (!swapDuty1 || !swapDuty2 || !swapDuty3) {
+        alert("Please select all three Duty IDs / Operators for Triple Swap/Exchange.");
+        return;
+      }
+      if (
+        swapDuty1 === swapDuty2 ||
+        swapDuty2 === swapDuty3 ||
+        swapDuty1 === swapDuty3
+      ) {
+        alert("Please select three distinct duties or operators.");
+        return;
+      }
+    } else {
+      if (!swapDuty1 || !swapDuty2) {
+        alert("Please select both Duty IDs / Operators.");
+        return;
+      }
+      if (swapDuty1 === swapDuty2) {
+        alert("Please select two different duties or operators.");
+        return;
+      }
     }
 
     const item1 = findSwappableEntity(swapDuty1);
     const item2 = findSwappableEntity(swapDuty2);
+    const item3 = isTriple ? findSwappableEntity(swapDuty3) : null;
 
-    if (!item1 || !item2) {
-      alert("One or both Duty IDs / Operators not found in current deployment roster or console.");
+    if (!item1 || !item2 || (isTriple && !item3)) {
+      alert("One or more selected Duty IDs / Operators were not found in current deployment roster or console.");
       return;
     }
+
+    const isExchange = swapOperationType === "EXCHANGE";
+    const statusValue = isExchange ? "EXCHANGED" : "SWAPPED_BY_CC";
 
     try {
       const batch = writeBatch(db);
       let newConsoleData = { ...consoleData };
       let updatedConsole = false;
 
-      // 1. If item1 is Mainline:
-      if (item1.type === "MAINLINE") {
-        const docId1 = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${item1.dutyId}`;
-        batch.update(doc(db, "crew_daily_deployment", docId1), {
-          empName: item2.empName,
-          empId: item2.empId,
-          status: "SWAPPED_BY_CC",
-          remarks: `Swapped with ${item2.category} (${item2.empName || item2.dutyId})`,
+      const updateMainlineDeployment = (itemTarget, itemSource, notePrefix) => {
+        const payload = {
+          empName: itemSource.empName,
+          name: itemSource.empName,
+          operatorName: itemSource.empName,
+          empId: itemSource.empId,
+          empNo: itemSource.empId,
+          status: statusValue,
+          isSwapped: !isExchange,
+          swapped: !isExchange,
+          isExchanged: isExchange,
+          exchanged: isExchange,
+          swappedWith: itemSource.empName,
+          swappedDutyId: itemSource.dutyId,
+          originalEmpId: itemTarget.empId,
+          originalEmpName: itemTarget.empName,
+          remarks: isExchange
+            ? `${notePrefix || "Shift Exchanged"} with ${itemSource.category} (${itemSource.empName || itemSource.dutyId})`
+            : `${notePrefix || "Swapped"} with ${itemSource.category} (${itemSource.empName || itemSource.dutyId})`,
           lastUpdated: serverTimestamp(),
-        });
-      }
+        };
 
-      // 2. If item2 is Mainline:
-      if (item2.type === "MAINLINE") {
-        const docId2 = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${item2.dutyId}`;
-        batch.update(doc(db, "crew_daily_deployment", docId2), {
-          empName: item1.empName,
-          empId: item1.empId,
-          status: "SWAPPED_BY_CC",
-          remarks: `Swapped with ${item1.category} (${item1.empName || item1.dutyId})`,
-          lastUpdated: serverTimestamp(),
-        });
-      }
+        // 1. Target original Firestore docId if present
+        if (itemTarget.docId) {
+          batch.set(doc(db, "crew_daily_deployment", itemTarget.docId), payload, { merge: true });
+        }
 
-      // 3. If any item is from Roster Desk Console, swap operators across all console registers:
-      if (item1.type === "CONSOLE" || item2.type === "CONSOLE") {
-        newConsoleData = swapOperatorsInConsoleData(
-          newConsoleData,
-          item1.empId,
-          item1.empName,
-          item2.empId,
-          item2.empName
-        );
-        updatedConsole = true;
+        // 2. Also write standard IDs so both padded and unpadded and schedule-specific keys match
+        const normId = String(parseInt(itemTarget.dutyId, 10) || itemTarget.dutyId).trim();
+        const paddedId = normId.padStart(2, "0");
+        const sched = normalizeScheduleType(currentDayType).toLowerCase();
+
+        const possibleDocIds = new Set([
+          `gcc_deploy_${sched}_duty_${normId}`,
+          `gcc_deploy_${sched}_duty_${paddedId}`,
+          `gcc_deploy_active_run_duty_${paddedId}`,
+          `gcc_deploy_active_run_duty_${normId}`,
+        ]);
+
+        possibleDocIds.forEach((dId) => {
+          batch.set(doc(db, "crew_daily_deployment", dId), payload, { merge: true });
+        });
+      };
+
+      if (isTriple) {
+        // Standard Cyclic Rotation:
+        // Op 1 (Duty 1) ➔ Duty 2: Duty 2 gets Op 1
+        // Op 2 (Duty 2) ➔ Duty 3: Duty 3 gets Op 2
+        // Op 3 (Duty 3) ➔ Duty 1: Duty 1 gets Op 3
+        if (item1.type === "MAINLINE") {
+          updateMainlineDeployment(item1, item3, "Triple Swap Duty 1 ← Op 3");
+        }
+        if (item2.type === "MAINLINE") {
+          updateMainlineDeployment(item2, item1, "Triple Swap Duty 2 ← Op 1");
+        }
+        if (item3.type === "MAINLINE") {
+          updateMainlineDeployment(item3, item2, "Triple Swap Duty 3 ← Op 2");
+        }
+
+        if (
+          item1.type === "CONSOLE" ||
+          item2.type === "CONSOLE" ||
+          item3.type === "CONSOLE" ||
+          (item1.type === "MAINLINE" && item2.type === "MAINLINE" && item3.type === "MAINLINE" && Array.isArray(newConsoleData.duties))
+        ) {
+          newConsoleData = rotateTripleOperatorsInConsoleData(
+            newConsoleData,
+            item1.empId,
+            item1.empName,
+            item2.empId,
+            item2.empName,
+            item3.empId,
+            item3.empName
+          );
+          updatedConsole = true;
+        }
+
+        if (isExchange) {
+          const todayDateStr = new Date().toISOString().split("T")[0];
+          const exRef = doc(collection(db, "shift_exchanges"));
+          const exPayload = {
+            isTriple: true,
+            operator1Id: String(item1.empId || ""),
+            operator1Name: String(item1.empName || ""),
+            operator1Duty: String(item1.dutyId || ""),
+            operator2Id: String(item2.empId || ""),
+            operator2Name: String(item2.empName || ""),
+            operator2Duty: String(item2.dutyId || ""),
+            operator3Id: String(item3.empId || ""),
+            operator3Name: String(item3.empName || ""),
+            operator3Duty: String(item3.dutyId || ""),
+            exchangeDate: todayDateStr,
+            status: "APPROVED",
+            isOperational: true,
+            approvedBy: "DISPATCH GATEWAY CORE (CC/GCC)",
+            approvedAt: serverTimestamp(),
+            approvalTime: new Date().toISOString(),
+            remarks: `Triple exchange approved via DISPATCH GATEWAY CORE: Op 1 (${item1.empName}) ➔ Duty ${item2.dutyId} | Op 2 (${item2.empName}) ➔ Duty ${item3.dutyId} | Op 3 (${item3.empName}) ➔ Duty ${item1.dutyId}`,
+            createdAt: serverTimestamp(),
+          };
+          batch.set(exRef, exPayload);
+          batch.set(doc(db, "shift_exchanges_operational", `${exRef.id}_${item1.dutyId}`), { ...exPayload, dutyNumber: item1.dutyId });
+          batch.set(doc(db, "shift_exchanges_operational", `${exRef.id}_${item2.dutyId}`), { ...exPayload, dutyNumber: item2.dutyId });
+          batch.set(doc(db, "shift_exchanges_operational", `${exRef.id}_${item3.dutyId}`), { ...exPayload, dutyNumber: item3.dutyId });
+        }
+
+        try {
+          const auditRef = doc(collection(db, "auditLogs"));
+          batch.set(auditRef, {
+            action: isExchange ? "ROSTER_DESK_TRIPLE_EXCHANGE" : "ROSTER_DESK_TRIPLE_SWAP",
+            performedBy: "Crew Controller / GCC (DISPATCH GATEWAY CORE)",
+            timestamp: serverTimestamp(),
+            operationType: isExchange ? "TRIPLE_DUTY_EXCHANGE" : "TRIPLE_DUTY_SWAP",
+            isTriple: true,
+            duty1: item1.label,
+            duty2: item2.label,
+            duty3: item3.label,
+            operator1: `${item1.empName} (${item1.empId})`,
+            operator2: `${item2.empName} (${item2.empId})`,
+            operator3: `${item3.empName} (${item3.empId})`,
+            details: `${isExchange ? "Triple Exchange" : "Triple Swap"}: Op 1 [${item1.category}] ${item1.label} ➔ Duty ${item2.dutyId} | Op 2 [${item2.category}] ${item2.label} ➔ Duty ${item3.dutyId} | Op 3 [${item3.category}] ${item3.label} ➔ Duty ${item1.dutyId}`,
+          });
+        } catch (logErr) {
+          console.warn("Audit log error:", logErr);
+        }
+      } else {
+        // 1. If item1 is Mainline:
+        if (item1.type === "MAINLINE") {
+          updateMainlineDeployment(item1, item2);
+        }
+
+        // 2. If item2 is Mainline:
+        if (item2.type === "MAINLINE") {
+          updateMainlineDeployment(item2, item1);
+        }
+
+        // 3. If any item is from Roster Desk Console, swap operators across all console registers:
+        if (item1.type === "CONSOLE" || item2.type === "CONSOLE") {
+          newConsoleData = swapOperatorsInConsoleData(
+            newConsoleData,
+            item1.empId,
+            item1.empName,
+            item2.empId,
+            item2.empName
+          );
+          updatedConsole = true;
+        }
+
+        // 4. If both items are mainline duties, also update consoleData.duties if present
+        if (item1.type === "MAINLINE" && item2.type === "MAINLINE" && Array.isArray(newConsoleData.duties)) {
+          newConsoleData = swapOperatorsInConsoleData(
+            newConsoleData,
+            item1.empId,
+            item1.empName,
+            item2.empId,
+            item2.empName
+          );
+          updatedConsole = true;
+        }
+
+        // 5. If Duty Exchange, also record to shift_exchanges & shift_exchanges_operational
+        if (isExchange) {
+          const todayDateStr = new Date().toISOString().split("T")[0];
+          const exRef = doc(collection(db, "shift_exchanges"));
+          const exPayload = {
+            operator1Id: String(item1.empId || ""),
+            operator1Name: String(item1.empName || ""),
+            operator1Duty: String(item1.dutyId || ""),
+            operator2Id: String(item2.empId || ""),
+            operator2Name: String(item2.empName || ""),
+            operator2Duty: String(item2.dutyId || ""),
+            exchangeDate: todayDateStr,
+            status: "APPROVED",
+            isOperational: true,
+            approvedBy: "DISPATCH GATEWAY CORE (CC/GCC)",
+            approvedAt: serverTimestamp(),
+            approvalTime: new Date().toISOString(),
+            remarks: `Mutual exchange approved via DISPATCH GATEWAY CORE between Duty ${item1.dutyId} and Duty ${item2.dutyId}`,
+            createdAt: serverTimestamp(),
+          };
+          batch.set(exRef, exPayload);
+          batch.set(doc(db, "shift_exchanges_operational", `${exRef.id}_${item1.dutyId}`), { ...exPayload, dutyNumber: item1.dutyId });
+          batch.set(doc(db, "shift_exchanges_operational", `${exRef.id}_${item2.dutyId}`), { ...exPayload, dutyNumber: item2.dutyId });
+        }
+
+        // 6. Audit Log
+        try {
+          const auditRef = doc(collection(db, "auditLogs"));
+          batch.set(auditRef, {
+            action: isExchange ? "ROSTER_DESK_DUTY_EXCHANGE" : "ROSTER_DESK_DUTY_SWAP",
+            performedBy: "Crew Controller / GCC (DISPATCH GATEWAY CORE)",
+            timestamp: serverTimestamp(),
+            operationType: isExchange ? "DUTY_EXCHANGE" : "DUTY_SWAP",
+            duty1: item1.label,
+            duty2: item2.label,
+            operator1: `${item1.empName} (${item1.empId})`,
+            operator2: `${item2.empName} (${item2.empId})`,
+            details: `${isExchange ? "Exchanged" : "Swapped"}: [${item1.category}] ${item1.label} ↔ [${item2.category}] ${item2.label}`,
+          });
+        } catch (logErr) {
+          console.warn("Audit log error:", logErr);
+        }
       }
 
       if (updatedConsole) {
@@ -2298,34 +2492,24 @@ Rules:
         setConsoleData(newConsoleData);
       }
 
-      // Audit Log
-      try {
-        const auditRef = doc(collection(db, "auditLogs"));
-        batch.set(auditRef, {
-          action: "ROSTER_DESK_DUTY_SWAP",
-          performedBy: "Crew Controller / GCC",
-          timestamp: serverTimestamp(),
-          duty1: item1.label,
-          duty2: item2.label,
-          operator1: `${item1.empName} (${item1.empId})`,
-          operator2: `${item2.empName} (${item2.empId})`,
-          details: `Swapped: [${item1.category}] ${item1.label} ↔ [${item2.category}] ${item2.label}`,
-        });
-      } catch (logErr) {
-        console.warn("Audit log error:", logErr);
-      }
-
       await batch.commit();
 
-      alert(`✅ Swapped Successfully:\n${item1.label}\n↔\n${item2.label}`);
+      if (isTriple) {
+        alert(
+          `✅ ${isExchange ? "Triple Duty Exchange" : "Triple Duties Swap"} Completed Successfully:\n${item1.label} ➔ ${item2.label} ➔ ${item3.label} ➔ ${item1.label}`
+        );
+      } else {
+        alert(`✅ ${isExchange ? "Duty Exchanged" : "Duties Swapped"} Successfully:\n${item1.label}\n↔\n${item2.label}`);
+      }
       setShowSwapModal(false);
       setSwapDuty1("");
       setSwapDuty2("");
+      setSwapDuty3("");
       setSwapSearchQuery("");
       if (onImportComplete) onImportComplete();
     } catch (err) {
       console.error(err);
-      alert("Failed to swap duties: " + err.message);
+      alert(`Failed to ${isExchange ? "exchange" : "swap"} duties: ` + err.message);
     }
   };
 
@@ -3612,7 +3796,7 @@ Rules:
                 className="bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 text-xs font-bold font-mono px-3 py-1.5 rounded-lg transition flex items-center gap-1.5"
               >
                 <Repeat className="h-3.5 w-3.5" />
-                <span>SWAP DUTIES (CC/GCC/ALS)</span>
+                <span>SWAP / EXCHANGE DUTIES (CC/GCC/ALS)</span>
               </button>
 
               <button
@@ -6185,14 +6369,14 @@ Rules:
           </div>
         </div>
       )}
-      {/* Swap Duties Modal */}
+      {/* Swap / Exchange Duties Modal */}
       {showSwapModal && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-amber-500/40 rounded-xl p-6 max-w-xl w-full space-y-4 shadow-2xl">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <div>
-                <h3 className="text-sm font-black text-amber-400 flex items-center gap-2 uppercase tracking-wider">
-                  <Repeat className="h-4 w-4" /> SWAP DUTIES (CC/GCC/ALS)
+                <h3 className={`text-sm font-black flex items-center gap-2 uppercase tracking-wider ${swapOperationType === "EXCHANGE" ? "text-purple-400" : "text-amber-400"}`}>
+                  <Repeat className="h-4 w-4" /> {swapOperationType === "EXCHANGE" ? "DUTY EXCHANGE (SHIFT EXCHANGE)" : "SWAP DUTIES (CC/GCC/ALS)"}
                 </h3>
                 <div className="text-[10px] text-slate-400 font-mono mt-0.5">
                   BMRCL LINE 2 PEENYA DEPOT ROSTER DESK CONSOLE
@@ -6206,6 +6390,62 @@ Rules:
                 className="text-slate-400 hover:text-white font-bold text-sm"
               >
                 ✕
+              </button>
+            </div>
+
+            {/* Mode Switcher: 2-OPERATOR PAIR vs 3-OPERATOR TRIPLE */}
+            <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs font-mono">
+              <button
+                type="button"
+                onClick={() => setSwapMode("PAIR")}
+                className={`flex-1 py-1.5 rounded transition-all flex items-center justify-center gap-1.5 uppercase tracking-wider text-[11px] cursor-pointer ${
+                  swapMode === "PAIR"
+                    ? "bg-slate-800 text-slate-100 font-black border border-slate-700 shadow"
+                    : "text-slate-400 hover:text-slate-200 font-bold"
+                }`}
+              >
+                <Repeat className="h-3.5 w-3.5" />
+                2 Operators (Pair)
+              </button>
+              <button
+                type="button"
+                onClick={() => setSwapMode("TRIPLE")}
+                className={`flex-1 py-1.5 rounded transition-all flex items-center justify-center gap-1.5 uppercase tracking-wider text-[11px] cursor-pointer ${
+                  swapMode === "TRIPLE"
+                    ? "bg-emerald-600 text-white font-black border border-emerald-500 shadow"
+                    : "text-slate-400 hover:text-emerald-300 font-bold"
+                }`}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                3 Operators (Triple Swap)
+              </button>
+            </div>
+
+            {/* Operation Type Switcher: DUTY SWAP vs DUTY EXCHANGE */}
+            <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs font-mono">
+              <button
+                type="button"
+                onClick={() => setSwapOperationType("SWAP")}
+                className={`flex-1 py-1.5 rounded transition-all flex items-center justify-center gap-1.5 uppercase tracking-wider text-[11px] cursor-pointer ${
+                  swapOperationType === "SWAP"
+                    ? "bg-amber-500 text-slate-950 font-black shadow"
+                    : "text-slate-400 hover:text-amber-300 font-bold"
+                }`}
+              >
+                <Repeat className="h-3.5 w-3.5" />
+                {swapMode === "TRIPLE" ? "Triple Swap (CC / GCC)" : "Duty Swap (CC / GCC)"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSwapOperationType("EXCHANGE")}
+                className={`flex-1 py-1.5 rounded transition-all flex items-center justify-center gap-1.5 uppercase tracking-wider text-[11px] cursor-pointer ${
+                  swapOperationType === "EXCHANGE"
+                    ? "bg-purple-600 text-white font-black shadow"
+                    : "text-slate-400 hover:text-purple-300 font-bold"
+                }`}
+              >
+                <ArrowRight className="h-3.5 w-3.5" />
+                {swapMode === "TRIPLE" ? "Triple Exchange (Shift Exch)" : "Duty Exchange (Shift Exch)"}
               </button>
             </div>
 
@@ -6237,7 +6477,7 @@ Rules:
                   className="block text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1"
                   htmlFor="automateddispatchgat-i21"
                 >
-                  First Duty / Operator
+                  First Duty / Operator {swapMode === "TRIPLE" ? "(Operator 1 ➔ Takes Duty 2)" : ""}
                 </label>
                 <select
                   id="automateddispatchgat-i21"
@@ -6265,7 +6505,7 @@ Rules:
                   className="block text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1"
                   htmlFor="automateddispatchgat-i22"
                 >
-                  Second Duty / Operator
+                  Second Duty / Operator {swapMode === "TRIPLE" ? "(Operator 2 ➔ Takes Duty 3)" : ""}
                 </label>
                 <select
                   id="automateddispatchgat-i22"
@@ -6287,8 +6527,100 @@ Rules:
                 </select>
               </div>
 
-              {/* Visual Preview Card of Selected Operators */}
-              {(swapDuty1 || swapDuty2) && (
+              {/* Dropdown 3 (Triple Swap/Exchange only) */}
+              {swapMode === "TRIPLE" && (
+                <div>
+                  <label
+                    className="block text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1"
+                    htmlFor="automateddispatchgat-i23"
+                  >
+                    Third Duty / Operator (Operator 3 ➔ Takes Duty 1)
+                  </label>
+                  <select
+                    id="automateddispatchgat-i23"
+                    name="automateddispatchgat-i23"
+                    value={swapDuty3}
+                    onChange={(e) => setSwapDuty3(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-200 font-mono focus:border-amber-500"
+                  >
+                    <option value="">-- Select Operator 3 / Duty --</option>
+                    {filteredSwappableGroups.map((group) => (
+                      <optgroup key={group.categoryKey || group.groupLabel} label={group.groupLabel}>
+                        {group.items.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Visual Preview Card: Triple Rotation */}
+              {swapMode === "TRIPLE" && (swapDuty1 || swapDuty2 || swapDuty3) && (
+                <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2 text-xs">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 text-[10px] text-slate-400 font-mono">
+                    <span className="text-emerald-400 font-bold uppercase flex items-center gap-1">
+                      <RefreshCw className="h-3 w-3" /> Triple Cyclic Rotation (3 Duties):
+                    </span>
+                    <span className="text-slate-500">1 ➔ 2 ➔ 3 ➔ 1</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {/* Operator 1 */}
+                    <div className="bg-slate-900 border border-slate-800 rounded p-2">
+                      <div className="text-[10px] text-amber-400 font-bold uppercase tracking-wider truncate">
+                        {findSwappableEntity(swapDuty1)?.category || "Operator 1"}
+                      </div>
+                      <div className="font-bold text-slate-200 truncate mt-0.5">
+                        {findSwappableEntity(swapDuty1)?.empName || "--"}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono truncate">
+                        ID: #{findSwappableEntity(swapDuty1)?.empId || "--"} • Duty: {findSwappableEntity(swapDuty1)?.dutyId || "--"}
+                      </div>
+                      <div className="mt-1.5 pt-1 border-t border-slate-800 text-[9px] text-amber-300 font-bold flex items-center gap-1">
+                        ➔ Takes Duty: <span className="font-mono text-cyan-400 font-black">{findSwappableEntity(swapDuty2)?.dutyId || "Duty 2"}</span>
+                      </div>
+                    </div>
+
+                    {/* Operator 2 */}
+                    <div className="bg-slate-900 border border-slate-800 rounded p-2">
+                      <div className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider truncate">
+                        {findSwappableEntity(swapDuty2)?.category || "Operator 2"}
+                      </div>
+                      <div className="font-bold text-slate-200 truncate mt-0.5">
+                        {findSwappableEntity(swapDuty2)?.empName || "--"}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono truncate">
+                        ID: #{findSwappableEntity(swapDuty2)?.empId || "--"} • Duty: {findSwappableEntity(swapDuty2)?.dutyId || "--"}
+                      </div>
+                      <div className="mt-1.5 pt-1 border-t border-slate-800 text-[9px] text-cyan-300 font-bold flex items-center gap-1">
+                        ➔ Takes Duty: <span className="font-mono text-purple-400 font-black">{findSwappableEntity(swapDuty3)?.dutyId || "Duty 3"}</span>
+                      </div>
+                    </div>
+
+                    {/* Operator 3 */}
+                    <div className="bg-slate-900 border border-slate-800 rounded p-2">
+                      <div className="text-[10px] text-purple-400 font-bold uppercase tracking-wider truncate">
+                        {findSwappableEntity(swapDuty3)?.category || "Operator 3"}
+                      </div>
+                      <div className="font-bold text-slate-200 truncate mt-0.5">
+                        {findSwappableEntity(swapDuty3)?.empName || "--"}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono truncate">
+                        ID: #{findSwappableEntity(swapDuty3)?.empId || "--"} • Duty: {findSwappableEntity(swapDuty3)?.dutyId || "--"}
+                      </div>
+                      <div className="mt-1.5 pt-1 border-t border-slate-800 text-[9px] text-purple-300 font-bold flex items-center gap-1">
+                        ➔ Takes Duty: <span className="font-mono text-amber-400 font-black">{findSwappableEntity(swapDuty1)?.dutyId || "Duty 1"}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Pair Preview Card */}
+              {swapMode !== "TRIPLE" && (swapDuty1 || swapDuty2) && (
                 <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 grid grid-cols-1 sm:grid-cols-5 gap-2 items-center text-xs">
                   <div className="sm:col-span-2 bg-slate-900 border border-slate-800 rounded p-2 min-w-0">
                     <div className="text-[10px] text-amber-400 font-bold uppercase tracking-wider truncate">
@@ -6303,7 +6635,7 @@ Rules:
                   </div>
 
                   <div className="flex justify-center items-center py-1">
-                    <div className="p-1.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                    <div className={`p-1.5 rounded-full border ${swapOperationType === "EXCHANGE" ? "bg-purple-500/20 text-purple-400 border-purple-500/30" : "bg-amber-500/20 text-amber-400 border-amber-500/30"}`}>
                       <Repeat className="h-4 w-4" />
                     </div>
                   </div>
@@ -6335,10 +6667,20 @@ Rules:
               </button>
               <button
                 onClick={handleExecuteSwap}
-                disabled={!swapDuty1 || !swapDuty2 || swapDuty1 === swapDuty2}
-                className="px-4 py-1.5 rounded text-xs font-bold text-slate-955 bg-amber-400 hover:bg-amber-300 disabled:opacity-50 disabled:cursor-not-allowed font-black uppercase tracking-wider transition-all cursor-pointer"
+                disabled={
+                  swapMode === "TRIPLE"
+                    ? !swapDuty1 || !swapDuty2 || !swapDuty3 || swapDuty1 === swapDuty2 || swapDuty2 === swapDuty3 || swapDuty1 === swapDuty3
+                    : !swapDuty1 || !swapDuty2 || swapDuty1 === swapDuty2
+                }
+                className={`px-4 py-1.5 rounded text-xs font-black uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                  swapOperationType === "EXCHANGE"
+                    ? "bg-purple-600 hover:bg-purple-500 text-white"
+                    : "bg-amber-400 hover:bg-amber-300 text-slate-955"
+                }`}
               >
-                CONFIRM SWAP
+                {swapMode === "TRIPLE"
+                  ? (swapOperationType === "EXCHANGE" ? "CONFIRM TRIPLE EXCHANGE" : "CONFIRM TRIPLE SWAP")
+                  : (swapOperationType === "EXCHANGE" ? "CONFIRM EXCHANGE" : "CONFIRM SWAP")}
               </button>
             </div>
           </div>

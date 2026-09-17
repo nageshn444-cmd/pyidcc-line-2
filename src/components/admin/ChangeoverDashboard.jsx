@@ -116,6 +116,7 @@ export default function ChangeoverDashboard({ onRefresh }) {
     return null;
   });
   const [changeoverOverrides, setChangeoverOverrides] = useState({});
+  const [shiftExchanges, setShiftExchanges] = useState([]);
 
   // ── Search and Filter Controls ──
   const [searchQuery, setSearchQuery] = useState("");
@@ -177,11 +178,23 @@ export default function ChangeoverDashboard({ onRefresh }) {
       (err) => console.warn('changeover_mappings sync warning:', err)
     );
 
+    // 5. Real-time listener for DISPATCH GATEWAY CORE / Shift Exchanges
+    const unsubExchanges = onSnapshot(
+      collection(db, 'shift_exchanges'),
+      (snap) => {
+        if (!active) return;
+        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setShiftExchanges(docs);
+      },
+      (err) => console.warn('shift_exchanges sync warning:', err)
+    );
+
     return () => {
       active = false;
       unsubDeployments();
       unsubConsole();
       unsubMappings();
+      unsubExchanges();
     };
   }, []);
 
@@ -207,78 +220,120 @@ export default function ChangeoverDashboard({ onRefresh }) {
     const normTargetDuty = normalizeDutyNo(dutyNo);
     const targetSched = normalizeSched(targetDay);
 
-    // A. Search in liveDeployments (from crew_daily_deployment)
+    // 1. Check Approved Shift / Duty Exchanges matching this duty
+    const matchedExchange = (shiftExchanges || []).find((ex) => {
+      const isApproved = ex.status === 'APPROVED' || ex.status === 'Operational' || Boolean(ex.isOperational);
+      if (!isApproved) return false;
+      const exDate = ex.exchangeDate || ex.date;
+      const dateMatches = !targetDate || !exDate || exDate === targetDate;
+      if (!dateMatches) return false;
+      const d1 = normalizeDutyNo(ex.operator1Duty);
+      const d2 = normalizeDutyNo(ex.operator2Duty);
+      return d1 === normTargetDuty || d2 === normTargetDuty;
+    });
+
+    // 2. Search in liveDeployments (from crew_daily_deployment)
     const matchingDeployments = (liveDeployments || []).filter((d) => {
       const dNo = normalizeDutyNo(d.dutyId || d.dutyNo);
       if (dNo !== normTargetDuty) return false;
       const dSched = normalizeSched(d.scheduleType);
       const dDate = d.date || d.deploymentDate || d.rosterDate;
-      const schedMatches = !dSched || dSched === targetSched || (targetDate && dDate === targetDate);
+      const schedMatches =
+        !dSched ||
+        dSched === targetSched ||
+        dSched === "ACTIVE_RUN" ||
+        (targetDate && dDate === targetDate);
       return schedMatches;
     });
 
-    // Enforce Night Shift selection
-    let activeDep = matchingDeployments.find(isNightDutyRecord) || matchingDeployments[0];
+    // Prioritize deployments with special operational status (SWAP, EXCHANGE, RELIEF) and recent updates
+    const sortedDeployments = [...matchingDeployments].sort((a, b) => {
+      const aIsSpecial = (a.isSwapped || a.isExchanged || a.status === 'SWAPPED_BY_CC' || a.status === 'EXCHANGED' || a.status === 'RELIEF_DISPATCHED') ? 1 : 0;
+      const bIsSpecial = (b.isSwapped || b.isExchanged || b.status === 'SWAPPED_BY_CC' || b.status === 'EXCHANGED' || b.status === 'RELIEF_DISPATCHED') ? 1 : 0;
+      if (aIsSpecial !== bIsSpecial) return bIsSpecial - aIsSpecial;
+      const tA = a.lastUpdated?.toMillis?.() || (a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0);
+      const tB = b.lastUpdated?.toMillis?.() || (b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0);
+      return tB - tA;
+    });
 
-    // B. Fallback to roster_desk_console current duties
+    // Enforce Night Shift selection
+    let activeDep = sortedDeployments.find(isNightDutyRecord) || sortedDeployments[0];
+
+    // 3. Fallback to roster_desk_console current duties
     if (!activeDep && consoleData?.duties) {
       const matchingConsole = (consoleData.duties || []).filter((d) => {
         const dNo = normalizeDutyNo(d.dutyId || d.dutyNo);
-        if (dNo !== normTargetDuty) return false;
-        const dSched = normalizeSched(d.scheduleType);
-        return !dSched || dSched === targetSched;
+        return dNo === normTargetDuty;
       });
       activeDep = matchingConsole.find(isNightDutyRecord) || matchingConsole[0];
     }
 
-    // C. Extract Active On-Duty Operator Name and Shift Validation Status
-    if (activeDep) {
-      // Check if Algorithmic Shift Validation & Relief Engine dispatched relief
-      const isRelieved =
-        activeDep.status === "RELIEF_DISPATCHED" ||
-        Boolean(activeDep.resolvedByEmpName) ||
-        Boolean(activeDep.isRelief);
+    // 4. Extract Active On-Duty Operator Name and Shift Validation Status
+    const isRelieved =
+      activeDep?.status === "RELIEF_DISPATCHED" ||
+      Boolean(activeDep?.resolvedByEmpName) ||
+      Boolean(activeDep?.isRelief);
 
-      const activeName = isRelieved && activeDep.resolvedByEmpName
-        ? activeDep.resolvedByEmpName
-        : activeDep.empName || activeDep.name || activeDep.operatorName || "UNASSIGNED";
+    const isExchanged = Boolean(
+      matchedExchange ||
+      activeDep?.status === "EXCHANGED" ||
+      activeDep?.status === "EXCHANGED_DUTY" ||
+      activeDep?.status === "SHIFT_EXCHANGED" ||
+      Boolean(activeDep?.isExchanged) ||
+      Boolean(activeDep?.exchanged) ||
+      Boolean(activeDep?.exchangeId) ||
+      String(activeDep?.status || "").toUpperCase().includes("EXCHANGE") ||
+      String(activeDep?.remarks || "").toUpperCase().includes("EXCHANGE")
+    );
 
-      const activeEmpId = isRelieved && activeDep.resolvedByEmpId
-        ? activeDep.resolvedByEmpId
-        : activeDep.empId || activeDep.empNo || activeDep.employeeId || "--";
+    const isSwapped = Boolean(
+      activeDep?.status === "SWAPPED" ||
+      activeDep?.status === "SWAPPED_BY_CC" ||
+      Boolean(activeDep?.isSwapped) ||
+      Boolean(activeDep?.swapped) ||
+      String(activeDep?.status || "").toUpperCase().includes("SWAP") ||
+      String(activeDep?.remarks || "").toUpperCase().includes("SWAP")
+    );
 
-      const isExchanged = activeDep.status === "EXCHANGED" || Boolean(activeDep.isExchanged);
-      const isSwapped = activeDep.status === "SWAPPED" || Boolean(activeDep.isSwapped);
-      const isNR = activeDep.status === "NOT_REPORTING" || activeDep.status === "NR";
-      const isAB = activeDep.status === "ABSENT" || activeDep.status === "AB";
-      const isUnassigned = !activeName || activeName === "UNASSIGNED" || activeName === "--";
+    const isNR = activeDep?.status === "NOT_REPORTING" || activeDep?.status === "NR" || Boolean(activeDep?.isNotReporting);
+    const isAB = activeDep?.status === "ABSENT" || activeDep?.status === "AB" || Boolean(activeDep?.isAbsent);
 
-      return {
-        empName: isUnassigned ? "UNASSIGNED" : activeName,
-        empId: activeEmpId,
-        status: activeDep.status || (isUnassigned ? "PENDING" : "ACTIVE"),
-        isRelief: isRelieved,
-        isExchanged,
-        isSwapped,
-        isNR,
-        isAB,
-        isUnassigned,
-        trainId: activeDep.trainId || "--",
-        source: "DISPATCH_GATEWAY_CORE",
-      };
+    let activeName = "UNASSIGNED";
+    let activeEmpId = "--";
+
+    if (matchedExchange) {
+      const isOp1 = normTargetDuty === normalizeDutyNo(matchedExchange.operator1Duty);
+      activeName = isOp1 ? (matchedExchange.operator2Name || "UNASSIGNED") : (matchedExchange.operator1Name || "UNASSIGNED");
+      activeEmpId = isOp1 ? (matchedExchange.operator2Id || "--") : (matchedExchange.operator1Id || "--");
+    } else if (isRelieved && activeDep?.resolvedByEmpName) {
+      activeName = activeDep.resolvedByEmpName;
+      activeEmpId = activeDep.resolvedByEmpId || activeDep.empId || activeDep.empNo || "--";
+    } else if (activeDep) {
+      activeName = activeDep.empName || activeDep.name || activeDep.operatorName || "UNASSIGNED";
+      activeEmpId = activeDep.empId || activeDep.empNo || activeDep.employeeId || "--";
     }
 
+    const isUnassigned = !activeName || activeName === "UNASSIGNED" || activeName === "--";
+
+    const exchangedWithInfo = matchedExchange
+      ? (normTargetDuty === normalizeDutyNo(matchedExchange.operator1Duty) ? matchedExchange.operator1Name : matchedExchange.operator2Name)
+      : "";
+
     return {
-      empName: "UNASSIGNED",
-      empId: "--",
-      status: "PENDING",
-      isRelief: false,
-      isExchanged: false,
-      isSwapped: false,
-      isNR: false,
-      isAB: false,
-      isUnassigned: true,
-      trainId: "--",
+      empName: isUnassigned ? "UNASSIGNED" : activeName,
+      empId: activeEmpId,
+      status: activeDep?.status || (isExchanged ? "EXCHANGED" : isSwapped ? "SWAPPED_BY_CC" : (isUnassigned ? "PENDING" : "ACTIVE")),
+      isRelief: isRelieved,
+      isExchanged,
+      isSwapped,
+      isNR,
+      isAB,
+      isUnassigned,
+      trainId: activeDep?.trainId || "--",
+      remarks: activeDep?.remarks || (matchedExchange ? `Shift Exchanged with ${exchangedWithInfo}` : ""),
+      swappedWith: activeDep?.swappedWith || "",
+      swappedDutyId: activeDep?.swappedDutyId || "",
+      exchangedWith: exchangedWithInfo,
       source: "DISPATCH_GATEWAY_CORE",
     };
   };
@@ -302,7 +357,7 @@ export default function ChangeoverDashboard({ onRefresh }) {
           ...row,
         };
       });
-  }, [tableKey, changeoverOverrides, liveDeployments, consoleData, currentDay, currentDate]);
+  }, [tableKey, changeoverOverrides, liveDeployments, consoleData, shiftExchanges, currentDay, currentDate]);
 
   const hasData = previewRows.length > 0;
 
@@ -798,11 +853,29 @@ export default function ChangeoverDashboard({ onRefresh }) {
 
                             </div>
 
-                            {/* Emp ID */}
-                            <div className="flex items-center text-[9.5px]">
+                            {/* Emp ID and Swap/Exchange Details */}
+                            <div className="flex items-center gap-1.5 text-[9.5px] flex-wrap mt-0.5">
                               <span className="font-mono text-cyan-400 font-bold">
                                 {op.empId !== '--' ? `#${op.empId}` : 'ID: --'}
                               </span>
+
+                              {op.isSwapped && (op.swappedWith || op.swappedDutyId || op.remarks) && (
+                                <span
+                                  className="text-[8.5px] font-mono text-amber-300 font-bold bg-amber-950/60 border border-amber-500/40 px-1 py-0.2 rounded truncate max-w-[190px]"
+                                  title={op.remarks || `Swapped with ${op.swappedWith || op.swappedDutyId}`}
+                                >
+                                  {op.swappedDutyId ? `⇄ Duty #${op.swappedDutyId}` : (op.swappedWith ? `⇄ ${op.swappedWith}` : '⇄ Swapped')}
+                                </span>
+                              )}
+
+                              {op.isExchanged && (op.exchangedWith || op.remarks) && (
+                                <span
+                                  className="text-[8.5px] font-mono text-purple-300 font-bold bg-purple-950/60 border border-purple-500/40 px-1 py-0.2 rounded truncate max-w-[190px]"
+                                  title={op.remarks || `Exchanged with ${op.exchangedWith}`}
+                                >
+                                  {op.exchangedWith ? `⇄ ${op.exchangedWith}` : (op.remarks && op.remarks.includes("Exchanged with") ? op.remarks : '⇄ Exchanged')}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>

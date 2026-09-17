@@ -3,14 +3,14 @@ import { db } from '../firebase';
 import { collection, addDoc, query, orderBy, onSnapshot, updateDoc, doc, serverTimestamp, getDocs, where, setDoc, getDoc, runTransaction, writeBatch } from 'firebase/firestore';
 import { 
   Repeat, CheckCircle, Clock, UserCheck, X, Check, Trash2,
-  Cpu, FileSpreadsheet, Users, Search, ArrowRightLeft, ShieldCheck, UserCheck2, Briefcase
+  Cpu, FileSpreadsheet, Users, Search, ArrowRightLeft, ShieldCheck, UserCheck2, Briefcase, RefreshCw
 } from 'lucide-react';
 import { EMPLOYEE_MASTER_REGISTRY } from '../data/employeeProfileMaster';
 import { OFFICIAL_JMD_TD_REGISTRY } from '../data/jmdCrewMaster';
 import { normalizeCanonicalEmpId, OFFICIAL_PYID_ACTIVE_IDS } from '../utils/crewRegistryDataMerger';
 import { getCanonicalStaffName } from './dutyGenerator/CCWillingDeskModal';
 import { useAuth } from '../context/AuthContext';
-import { rosterService, swapOperatorsInConsoleData } from '../services/RosterService';
+import { rosterService, swapOperatorsInConsoleData, rotateTripleOperatorsInConsoleData } from '../services/RosterService';
 
 // Normalize duty ID: pad single digits to match Firestore doc ID format "01"
 const normalizeDutyId = (raw) => {
@@ -102,10 +102,13 @@ const BASE_DUTY_OPTIONS = [
 export default function ShiftExchange() {
   const { userProfile } = useAuth();
   const [exchanges, setExchanges] = useState([]);
+  const [exchangeMode, setExchangeMode] = useState('PAIR'); // 'PAIR' | 'TRIPLE'
   const [formData, setFormData] = useState({
     exchangeDate: '',
+    isTriple: false,
     operator1Search: '',
     operator2Search: '',
+    operator3Search: '',
     operator1Id: '',
     operator1Name: '',
     operator1Duty: '',
@@ -113,7 +116,11 @@ export default function ShiftExchange() {
     operator2Id: '',
     operator2Name: '',
     operator2Duty: '',
-    operator2Status: 'PRESENT'
+    operator2Status: 'PRESENT',
+    operator3Id: '',
+    operator3Name: '',
+    operator3Duty: '',
+    operator3Status: 'PRESENT'
   });
 
   const [crewList, setCrewList] = useState([]);
@@ -123,6 +130,7 @@ export default function ShiftExchange() {
   const [op2TypeFilter, setOp2TypeFilter] = useState('ALL'); // 'ALL' | 'BMRCL_TO' | 'JMD_TD' | 'DEPLOYED'
   const [op1Query, setOp1Query] = useState('');
   const [op2Query, setOp2Query] = useState('');
+  const [op3Query, setOp3Query] = useState('');
 
   // Live Roster Desk Console and Deployment states
   const [consoleData, setConsoleData] = useState(() => {
@@ -663,11 +671,12 @@ export default function ShiftExchange() {
     const set = new Set(BASE_DUTY_OPTIONS);
     if (formData.operator1Duty) set.add(formData.operator1Duty);
     if (formData.operator2Duty) set.add(formData.operator2Duty);
+    if (formData.operator3Duty) set.add(formData.operator3Duty);
     deployedCrewMap.forEach(d => {
       if (d.duty) set.add(d.duty);
     });
     return Array.from(set);
-  }, [formData.operator1Duty, formData.operator2Duty, deployedCrewMap]);
+  }, [formData.operator1Duty, formData.operator2Duty, formData.operator3Duty, deployedCrewMap]);
 
   // 6. Zero Manual Entry Selection Handlers
   const handleSelectOperator1 = (empId) => {
@@ -730,6 +739,36 @@ export default function ShiftExchange() {
     }
   };
 
+  const handleSelectOperator3 = (empId) => {
+    const sel = enrichedCrewList.find(c => String(c.id) === String(empId));
+    if (sel) {
+      const deployInfo = deployedCrewMap.get(String(empId));
+      const autoDuty = deployInfo?.duty || sel.deployedDuty || '';
+      const autoStatus = deployInfo?.status || sel.deployedStatus || 'PRESENT';
+      const autoDate = formData.exchangeDate || consoleData.date || new Date().toISOString().split('T')[0];
+
+      setFormData(prev => ({
+        ...prev,
+        operator3Id: sel.id,
+        operator3Name: sel.name,
+        operator3Search: `${sel.id} - ${sel.name}${autoDuty ? ` [${autoDuty}]` : ''}`,
+        operator3Duty: autoDuty || prev.operator3Duty,
+        operator3Status: autoStatus,
+        exchangeDate: autoDate
+      }));
+      setOp3Query(`${sel.id} - ${sel.name}`);
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        operator3Id: '',
+        operator3Name: '',
+        operator3Search: '',
+        operator3Duty: '',
+        operator3Status: 'PRESENT'
+      }));
+    }
+  };
+
   // 7. Filtered crew list with search (ID, name, duty)
   const filteredCrew1 = useMemo(() => {
     const q = op1Query.toLowerCase().trim();
@@ -772,6 +811,27 @@ export default function ShiftExchange() {
     }
     return list;
   }, [op2Query, formData.operator2Id, formData.operator2Name, enrichedCrewList]);
+
+  const filteredCrew3 = useMemo(() => {
+    const q = op3Query.toLowerCase().trim();
+    const isSelectedMatch = formData.operator3Id && `${formData.operator3Id} - ${formData.operator3Name}`.toLowerCase() === q;
+    
+    let list = enrichedCrewList;
+
+    if (q && !isSelectedMatch) {
+      list = enrichedCrewList.filter(c => 
+        String(c.id).toLowerCase().includes(q) || 
+        c.name.toLowerCase().includes(q) ||
+        (c.deployedDuty && c.deployedDuty.toLowerCase().includes(q))
+      );
+    }
+    
+    if (formData.operator3Id && !list.some(c => String(c.id) === String(formData.operator3Id))) {
+      const selectedObj = enrichedCrewList.find(c => String(c.id) === String(formData.operator3Id));
+      if (selectedObj) list = [selectedObj, ...list];
+    }
+    return list;
+  }, [op3Query, formData.operator3Id, formData.operator3Name, enrichedCrewList]);
 
   useEffect(() => {
     const q = query(collection(db, 'shift_exchanges'), orderBy('timestamp', 'desc'));
@@ -848,36 +908,73 @@ export default function ShiftExchange() {
   };
 
   const handleSubmitRequest = async () => {
-    if (!formData.exchangeDate || !formData.operator1Id || !formData.operator2Id) {
-      alert("Please fill in at least the Date and Employee IDs for both operators.");
-      return;
+    const isTriple = exchangeMode === 'TRIPLE';
+
+    if (isTriple) {
+      if (!formData.exchangeDate || !formData.operator1Id || !formData.operator2Id || !formData.operator3Id) {
+        alert("Please fill in the Date and select all three Operators for Triple Exchange.");
+        return;
+      }
+      if (
+        formData.operator1Id === formData.operator2Id ||
+        formData.operator2Id === formData.operator3Id ||
+        formData.operator1Id === formData.operator3Id
+      ) {
+        alert("Please select three distinct operators for Triple Exchange.");
+        return;
+      }
+    } else {
+      if (!formData.exchangeDate || !formData.operator1Id || !formData.operator2Id) {
+        alert("Please fill in at least the Date and Employee IDs for both operators.");
+        return;
+      }
+      if (formData.operator1Id === formData.operator2Id) {
+        alert("Please select two distinct operators for exchange.");
+        return;
+      }
     }
 
-    const exchangeRef = await addDoc(collection(db, 'shift_exchanges'), {
+    const exchangePayload = {
       ...formData,
+      isTriple,
       operator1Confirmed: true, // requester implicitly confirms
       operator2Confirmed: false,
-      status: 'Awaiting Second Operator Confirmation',
+      operator3Confirmed: isTriple ? false : true,
+      status: isTriple
+        ? 'Awaiting Second & Third Operator Confirmation'
+        : 'Awaiting Second Operator Confirmation',
       timestamp: serverTimestamp()
-    });
+    };
+
+    const exchangeRef = await addDoc(collection(db, 'shift_exchanges'), exchangePayload);
 
     await addDoc(collection(db, 'auditLogs'), {
-      action: "SHIFT_EXCHANGE_REQUESTED",
+      action: isTriple ? "SHIFT_EXCHANGE_TRIPLE_REQUESTED" : "SHIFT_EXCHANGE_REQUESTED",
       exchangeId: exchangeRef.id,
       operator1Id: formData.operator1Id,
       operator2Id: formData.operator2Id,
+      operator3Id: isTriple ? formData.operator3Id : null,
+      isTriple,
       performedBy: formData.operator1Id,
       performedByName: formData.operator1Name,
       timestamp: serverTimestamp(),
-      oldDuty: formData.operator1Duty,
-      newDuty: formData.operator2Duty,
-      details: `Shift exchange request created: Operator 1 (${formData.operator1Name}, Duty ${formData.operator1Duty}) and Operator 2 (${formData.operator2Name}, Duty ${formData.operator2Duty})`
+      oldDuty: isTriple
+        ? `${formData.operator1Duty} ➔ ${formData.operator2Duty} ➔ ${formData.operator3Duty}`
+        : formData.operator1Duty,
+      newDuty: isTriple
+        ? `${formData.operator2Duty} ➔ ${formData.operator3Duty} ➔ ${formData.operator1Duty}`
+        : formData.operator2Duty,
+      details: isTriple
+        ? `Triple shift exchange request created: Op 1 (${formData.operator1Name}, Duty ${formData.operator1Duty}) ➔ Duty ${formData.operator2Duty} | Op 2 (${formData.operator2Name}, Duty ${formData.operator2Duty}) ➔ Duty ${formData.operator3Duty} | Op 3 (${formData.operator3Name}, Duty ${formData.operator3Duty}) ➔ Duty ${formData.operator1Duty}`
+        : `Shift exchange request created: Operator 1 (${formData.operator1Name}, Duty ${formData.operator1Duty}) and Operator 2 (${formData.operator2Name}, Duty ${formData.operator2Duty})`
     });
 
     setFormData({
       exchangeDate: '',
+      isTriple: false,
       operator1Search: '',
       operator2Search: '',
+      operator3Search: '',
       operator1Id: '',
       operator1Name: '',
       operator1Duty: '',
@@ -885,21 +982,43 @@ export default function ShiftExchange() {
       operator2Id: '',
       operator2Name: '',
       operator2Duty: '',
-      operator2Status: 'PRESENT'
+      operator2Status: 'PRESENT',
+      operator3Id: '',
+      operator3Name: '',
+      operator3Duty: '',
+      operator3Status: 'PRESENT'
     });
     setOp1Query('');
     setOp2Query('');
+    setOp3Query('');
   };
 
   const handleConfirm = async (id, operatorNum) => {
     const ex = exchanges.find(e => e.id === id);
     if (!ex) return;
 
-    const field = operatorNum === 1 ? 'operator1Confirmed' : 'operator2Confirmed';
-    const timeField = operatorNum === 1 ? 'operator1ConfirmedAt' : 'operator2ConfirmedAt';
-    
-    const isOtherConfirmed = operatorNum === 1 ? ex.operator2Confirmed : ex.operator1Confirmed;
-    const newStatus = isOtherConfirmed ? 'Awaiting GCC Approval' : 'Awaiting Second Operator Confirmation';
+    let field = '';
+    let timeField = '';
+    if (operatorNum === 1) {
+      field = 'operator1Confirmed';
+      timeField = 'operator1ConfirmedAt';
+    } else if (operatorNum === 2) {
+      field = 'operator2Confirmed';
+      timeField = 'operator2ConfirmedAt';
+    } else if (operatorNum === 3) {
+      field = 'operator3Confirmed';
+      timeField = 'operator3ConfirmedAt';
+    }
+
+    const isTriple = Boolean(ex.isTriple);
+    const op1Conf = operatorNum === 1 ? true : Boolean(ex.operator1Confirmed);
+    const op2Conf = operatorNum === 2 ? true : Boolean(ex.operator2Confirmed);
+    const op3Conf = isTriple ? (operatorNum === 3 ? true : Boolean(ex.operator3Confirmed)) : true;
+
+    const allConfirmed = op1Conf && op2Conf && op3Conf;
+    const newStatus = allConfirmed
+      ? 'Awaiting GCC Approval'
+      : (isTriple ? 'Awaiting Operator Confirmations' : 'Awaiting Second Operator Confirmation');
 
     await updateDoc(doc(db, 'shift_exchanges', id), {
       [field]: true,
@@ -907,17 +1026,19 @@ export default function ShiftExchange() {
       status: newStatus
     });
 
+    const opName = operatorNum === 1 ? ex.operator1Name : (operatorNum === 2 ? ex.operator2Name : ex.operator3Name);
+    const opId = operatorNum === 1 ? ex.operator1Id : (operatorNum === 2 ? ex.operator2Id : ex.operator3Id);
+
     await addDoc(collection(db, 'auditLogs'), {
       action: "SHIFT_EXCHANGE_CONFIRMED",
       exchangeId: id,
       operator1Id: ex.operator1Id,
       operator2Id: ex.operator2Id,
-      performedBy: operatorNum === 1 ? ex.operator1Id : ex.operator2Id,
-      performedByName: operatorNum === 1 ? ex.operator1Name : ex.operator2Name,
+      operator3Id: ex.operator3Id || null,
+      performedBy: opId,
+      performedByName: opName,
       timestamp: serverTimestamp(),
-      oldDuty: operatorNum === 1 ? ex.operator1Duty : ex.operator2Duty,
-      newDuty: operatorNum === 1 ? ex.operator2Duty : ex.operator1Duty,
-      details: `Operator ${operatorNum} (${operatorNum === 1 ? ex.operator1Name : ex.operator2Name}) confirmed shift exchange request`
+      details: `Operator ${operatorNum} (${opName}) confirmed shift exchange request`
     });
   };
 
@@ -925,9 +1046,10 @@ export default function ShiftExchange() {
   const validateSafetyRules = (ex) => {
     const op1 = enrichedCrewList.find(c => String(c.id) === String(ex.operator1Id)) || crewList.find(c => String(c.id) === String(ex.operator1Id));
     const op2 = enrichedCrewList.find(c => String(c.id) === String(ex.operator2Id)) || crewList.find(c => String(c.id) === String(ex.operator2Id));
+    const op3 = ex.isTriple ? (enrichedCrewList.find(c => String(c.id) === String(ex.operator3Id)) || crewList.find(c => String(c.id) === String(ex.operator3Id))) : null;
     
-    if (!op1 || !op2) {
-      return { valid: false, errors: ["One or both operators not found in the Crew Registry."] };
+    if (!op1 || !op2 || (ex.isTriple && !op3)) {
+      return { valid: false, errors: ["One or more operators not found in the Crew Registry."] };
     }
     
     const errors = [];
@@ -958,27 +1080,28 @@ export default function ShiftExchange() {
     const op2RoleOk = isOpRoleValid(op2);
     if (!op1RoleOk) errors.push(`Operator 1 (${op1.name}) is not certified as a Train Operator/Train Driver/Station Controller.`);
     if (!op2RoleOk) errors.push(`Operator 2 (${op2.name}) is not certified as a Train Operator/Train Driver/Station Controller.`);
+    if (op3 && !isOpRoleValid(op3)) errors.push(`Operator 3 (${op3.name}) is not certified as a Train Operator/Train Driver/Station Controller.`);
     
     // 2. Competency Validity
+    const targetDate = new Date(ex.exchangeDate);
     if (op1.competencyExpiry) {
       const exp = new Date(op1.competencyExpiry);
-      const targetDate = new Date(ex.exchangeDate);
       if (exp < targetDate) errors.push(`Operator 1 (${op1.name}) Competency Cert has expired or will be expired by target date.`);
     }
     if (op2.competencyExpiry) {
       const exp = new Date(op2.competencyExpiry);
-      const targetDate = new Date(ex.exchangeDate);
       if (exp < targetDate) errors.push(`Operator 2 (${op2.name}) Competency Cert has expired or will be expired by target date.`);
+    }
+    if (op3 && op3.competencyExpiry) {
+      const exp = new Date(op3.competencyExpiry);
+      if (exp < targetDate) errors.push(`Operator 3 (${op3.name}) Competency Cert has expired or will be expired by target date.`);
     }
 
     // 3. Medical Validity (Mock Check)
     const mockMedicalExpiry = "2027-04-18";
-    if (new Date(mockMedicalExpiry) < new Date(ex.exchangeDate)) {
-      errors.push("Medical certificate has expired for one or both operators.");
+    if (new Date(mockMedicalExpiry) < targetDate) {
+      errors.push("Medical certificate has expired for one or more operators.");
     }
-    
-    // 4. Fatigue Check (Mock Check based on duty length)
-    // Shift Rules: A minimum rest interval of 11 hours is mandatory.
     
     return {
       valid: errors.length === 0,
@@ -1032,10 +1155,13 @@ export default function ShiftExchange() {
       return;
     }
 
+    const isTriple = Boolean(ex.isTriple && ex.operator3Id);
     const duty1 = normalizeDutyId(ex.operator1Duty);
     const duty2 = normalizeDutyId(ex.operator2Duty);
+    const duty3 = isTriple ? normalizeDutyId(ex.operator3Duty) : '';
     const unnormDuty1 = String(parseInt(ex.operator1Duty, 10));
     const unnormDuty2 = String(parseInt(ex.operator2Duty, 10));
+    const unnormDuty3 = isTriple ? String(parseInt(ex.operator3Duty, 10)) : '';
 
     try {
       // Query existing deployments by dutyId
@@ -1044,13 +1170,15 @@ export default function ShiftExchange() {
       const qu1 = query(collection(db, 'crew_daily_deployment'), where('dutyId', '==', unnormDuty1));
       const qu2 = query(collection(db, 'crew_daily_deployment'), where('dutyId', '==', unnormDuty2));
 
-      const [snap1, snap2, snapu1, snapu2] = await Promise.all([
-        getDocs(q1),
-        getDocs(q2),
-        getDocs(qu1),
-        getDocs(qu2)
-      ]);
+      const queries = [getDocs(q1), getDocs(q2), getDocs(qu1), getDocs(qu2)];
+      if (isTriple) {
+        queries.push(
+          getDocs(query(collection(db, 'crew_daily_deployment'), where('dutyId', '==', duty3))),
+          getDocs(query(collection(db, 'crew_daily_deployment'), where('dutyId', '==', unnormDuty3)))
+        );
+      }
 
+      const snapResults = await Promise.all(queries);
       const refsToGet = [];
       const addedPaths = new Set();
       const addRef = (ref) => {
@@ -1060,12 +1188,14 @@ export default function ShiftExchange() {
         }
       };
 
-      [...snap1.docs, ...snap2.docs, ...snapu1.docs, ...snapu2.docs].forEach(docSnap => addRef(docSnap.ref));
+      snapResults.forEach(snap => {
+        snap.docs.forEach(docSnap => addRef(docSnap.ref));
+      });
 
       let scheduleType = '';
-      const allSnaps = [...snap1.docs, ...snap2.docs, ...snapu1.docs, ...snapu2.docs];
-      if (allSnaps.length > 0) {
-        scheduleType = allSnaps[0].data().scheduleType || '';
+      const allDocs = snapResults.flatMap(s => s.docs);
+      if (allDocs.length > 0) {
+        scheduleType = allDocs[0].data().scheduleType || '';
       }
 
       const scheds = scheduleType ? [scheduleType.toLowerCase()] : ['weekday', 'monday', 'saturday', 'sunday'];
@@ -1074,6 +1204,10 @@ export default function ShiftExchange() {
         addRef(doc(db, 'crew_daily_deployment', `gcc_deploy_${sched}_duty_${unnormDuty1}`));
         addRef(doc(db, 'crew_daily_deployment', `gcc_deploy_${sched}_duty_${duty2}`));
         addRef(doc(db, 'crew_daily_deployment', `gcc_deploy_${sched}_duty_${unnormDuty2}`));
+        if (isTriple) {
+          addRef(doc(db, 'crew_daily_deployment', `gcc_deploy_${sched}_duty_${duty3}`));
+          addRef(doc(db, 'crew_daily_deployment', `gcc_deploy_${sched}_duty_${unnormDuty3}`));
+        }
       }
 
       await runTransaction(db, async (transaction) => {
@@ -1120,6 +1254,19 @@ export default function ShiftExchange() {
           lastUpdated: serverTimestamp()
         };
 
+        const updatePayload3 = isTriple ? {
+          empId: String(ex.operator3Id || ''),
+          empName: String(ex.operator3Name || '').toUpperCase(),
+          remarks: "Roster Reset (Exchange Reversed)",
+          isExchanged: false,
+          originalEmpId: "",
+          originalEmpName: "",
+          exchangeId: "",
+          approvedBy: "",
+          approvedDateTime: "",
+          lastUpdated: serverTimestamp()
+        } : null;
+
         deploymentDocs.forEach(snap => {
           const dData = snap.data();
           const normDId = normalizeDutyId(dData.dutyId);
@@ -1127,12 +1274,17 @@ export default function ShiftExchange() {
             transaction.update(snap.ref, updatePayload1);
           } else if (normDId === duty2 || normDId === unnormDuty2) {
             transaction.update(snap.ref, updatePayload2);
+          } else if (isTriple && (normDId === duty3 || normDId === unnormDuty3)) {
+            transaction.update(snap.ref, updatePayload3);
           }
         });
 
         // D. Delete operational entries
         transaction.delete(doc(db, "shift_exchanges_operational", `${id}_${duty1}`));
         transaction.delete(doc(db, "shift_exchanges_operational", `${id}_${duty2}`));
+        if (isTriple) {
+          transaction.delete(doc(db, "shift_exchanges_operational", `${id}_${duty3}`));
+        }
 
         // E. Set status to Cancelled
         transaction.update(exRef, {
@@ -1143,14 +1295,14 @@ export default function ShiftExchange() {
         // F. Audit Log
         const auditLogRef = doc(collection(db, 'auditLogs'));
         transaction.set(auditLogRef, {
-          action: 'SHIFT_EXCHANGE_REVERSED',
+          action: isTriple ? 'SHIFT_EXCHANGE_TRIPLE_REVERSED' : 'SHIFT_EXCHANGE_REVERSED',
           exchangeId: id,
-          dutyNumber: `${duty1}, ${duty2}`,
-          originalOperator: `${ex.operator2Name}, ${ex.operator1Name}`,
-          newOperator: `${ex.operator1Name}, ${ex.operator2Name}`,
+          dutyNumber: isTriple ? `${duty1}, ${duty2}, ${duty3}` : `${duty1}, ${duty2}`,
           approvedBy: `${userProfile?.employeeName || 'GCC/CC'}`,
           timestamp: serverTimestamp(),
-          details: `Shift exchange reversed and duties restored: ${ex.operator1Name} (Duty ${duty1}) and ${ex.operator2Name} (Duty ${duty2})`
+          details: isTriple
+            ? `Triple shift exchange reversed: ${ex.operator1Name} (Duty ${duty1}), ${ex.operator2Name} (Duty ${duty2}), and ${ex.operator3Name} (Duty ${duty3}) restored.`
+            : `Shift exchange reversed and duties restored: ${ex.operator1Name} (Duty ${duty1}) and ${ex.operator2Name} (Duty ${duty2})`
         });
       });
 
@@ -1159,13 +1311,23 @@ export default function ShiftExchange() {
         const consoleDocSnap = await getDoc(doc(db, 'roster_desk_console', 'current'));
         if (consoleDocSnap.exists()) {
           const currentConsole = consoleDocSnap.data();
-          const restoredConsole = swapOperatorsInConsoleData(
-            currentConsole,
-            ex.operator2Id,
-            ex.operator2Name,
-            ex.operator1Id,
-            ex.operator1Name
-          );
+          const restoredConsole = isTriple
+            ? rotateTripleOperatorsInConsoleData(
+                currentConsole,
+                ex.operator1Id,
+                ex.operator1Name,
+                ex.operator3Id,
+                ex.operator3Name,
+                ex.operator2Id,
+                ex.operator2Name
+              )
+            : swapOperatorsInConsoleData(
+                currentConsole,
+                ex.operator2Id,
+                ex.operator2Name,
+                ex.operator1Id,
+                ex.operator1Name
+              );
           restoredConsole.lastUpdated = serverTimestamp();
           await setDoc(doc(db, 'roster_desk_console', 'current'), restoredConsole, { merge: true });
           await setDoc(doc(db, 'roster_desk_console', 'latest'), restoredConsole, { merge: true });
@@ -1451,6 +1613,16 @@ export default function ShiftExchange() {
                         >
                           + Op 2
                         </button>
+                        {exchangeMode === 'TRIPLE' && (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectOperator3(empId)}
+                            className="bg-purple-500/20 hover:bg-purple-500/40 text-purple-300 border border-purple-500/40 text-[9px] font-bold px-2 py-0.5 rounded transition uppercase cursor-pointer"
+                            title="Set as Operator 3 (Triple Swap)"
+                          >
+                            + Op 3
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -1484,7 +1656,55 @@ export default function ShiftExchange() {
           </div>
         </div>
 
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+        {/* EXCHANGE MODE SWITCHER: PAIR vs TRIPLE */}
+        <div className="flex flex-wrap items-center gap-2 mb-4 bg-slate-950 p-1.5 rounded-lg border border-slate-800 w-fit">
+          <button
+            type="button"
+            onClick={() => {
+              setExchangeMode('PAIR');
+              setFormData(prev => ({ ...prev, isTriple: false }));
+            }}
+            className={`px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              exchangeMode === 'PAIR'
+                ? 'bg-emerald-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <ArrowRightLeft size={13} /> 2-Operator Mutual Exchange
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setExchangeMode('TRIPLE');
+              setFormData(prev => ({ ...prev, isTriple: true }));
+            }}
+            className={`px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              exchangeMode === 'TRIPLE'
+                ? 'bg-purple-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <RefreshCw size={13} /> 3-Operator Triple Exchange (Cyclic)
+          </button>
+        </div>
+
+        {exchangeMode === 'TRIPLE' && (
+          <div className="mb-4 p-3 bg-purple-950/40 border border-purple-500/30 rounded-lg text-xs space-y-1">
+            <div className="font-bold text-purple-300 flex items-center gap-1.5">
+              <RefreshCw size={14} className="text-purple-400 animate-spin-slow" />
+              3-Way Cyclic Rotation Logic (Triple Exchange)
+            </div>
+            <div className="text-[11px] text-purple-200/90 font-mono flex flex-wrap gap-2 pt-0.5">
+              <span>Op 1 ({formData.operator1Duty || 'Duty 1'}) ➔ Takes <strong className="text-cyan-300">{formData.operator2Duty || 'Duty 2'}</strong></span>
+              <span>•</span>
+              <span>Op 2 ({formData.operator2Duty || 'Duty 2'}) ➔ Takes <strong className="text-purple-300">{formData.operator3Duty || 'Duty 3'}</strong></span>
+              <span>•</span>
+              <span>Op 3 ({formData.operator3Duty || 'Duty 3'}) ➔ Takes <strong className="text-amber-300">{formData.operator1Duty || 'Duty 1'}</strong></span>
+            </div>
+          </div>
+        )}
+
+        <div className={`grid grid-cols-1 ${exchangeMode === 'TRIPLE' ? 'lg:grid-cols-3' : 'md:grid-cols-2'} gap-6`}>
           {/* Operator 1 (Requester) */}
           <div className='bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-3'>
             <div className="flex justify-between items-center border-b border-slate-800 pb-1">
@@ -1602,6 +1822,67 @@ export default function ShiftExchange() {
               </select>
             </div>
           </div>
+
+          {/* Operator 3 (Triple Target) */}
+          {exchangeMode === 'TRIPLE' && (
+            <div className='bg-slate-950 p-4 rounded-lg border border-purple-500/30 space-y-3'>
+              <div className="flex justify-between items-center border-b border-slate-800 pb-1">
+                <h4 className='text-purple-400 font-semibold text-xs tracking-wider'>OPERATOR 3 (TRIPLE TARGET)</h4>
+                {formData.operator3Duty && (
+                  <span className="text-[10px] bg-purple-500/10 text-purple-300 px-2 py-0.5 rounded border border-purple-500/30 font-bold font-mono">
+                    {formData.operator3Duty}
+                  </span>
+                )}
+              </div>
+              
+              <div>
+                <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l3-search">Search Operator ID / Name</label>
+                <div className="relative">
+                  <input id="shiftexchange-i3-search" name="shiftexchange-i3-search" 
+                    type="text"
+                    placeholder="Type to filter by ID, name, or duty..."
+                    value={op3Query}
+                    onChange={(e) => setOp3Query(e.target.value)}
+                    className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-purple-500 focus:outline-none mb-2 pl-7 font-mono'
+                  />
+                  <Search className="h-3.5 w-3.5 text-slate-500 absolute left-2 top-2 pointer-events-none" />
+                </div>
+                <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l3-select">Select Operator ({filteredCrew3.length} Available)</label>
+                <select id="shiftexchange-i3-select" name="shiftexchange-i3-select" 
+                  value={formData.operator3Id}
+                  onChange={(e) => handleSelectOperator3(e.target.value)}
+                  className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-purple-500 focus:outline-none font-mono'
+                >
+                  <option value="">-- Select Operator ({filteredCrew3.length} Available) --</option>
+                  {filteredCrew3.map(crew => (
+                    <option key={`op3-select-${crew.id}`} value={crew.id}>
+                      {crew.id} - {crew.name}{crew.deployedDuty ? ` [${crew.deployedDuty}]` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className='block text-[10px] text-slate-500' htmlFor="shiftexchange-l3-status">Status</label>
+                  <span className="text-[9px] text-emerald-400 font-mono">AUTO-DETECTED</span>
+                </div>
+                <select name="operator3Status" value={formData.operator3Status || 'PRESENT'} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-purple-500 focus:outline-none font-mono'>
+                  {STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className='block text-[10px] text-slate-500' htmlFor="shiftexchange-l3-duty">Current Duty Number</label>
+                  <span className="text-[9px] text-cyan-400 font-mono">ZERO MANUAL ENTRY</span>
+                </div>
+                <select name="operator3Duty" value={formData.operator3Duty} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-purple-500 focus:outline-none font-mono'>
+                  <option value="" disabled>Select Duty</option>
+                  {dynamicDutyOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className='mt-4 flex flex-col sm:flex-row items-end sm:items-center justify-between gap-4'>
@@ -1633,16 +1914,17 @@ export default function ShiftExchange() {
           <table className='w-full text-left text-xs'>
             <thead className='bg-slate-900 border-b-2 border-slate-800 text-slate-400 uppercase tracking-wider'>
               <tr>
-                <th className='p-3 w-28'>Date</th>
+                <th className='p-3 w-28'>Date / Type</th>
                 <th className='p-3 border-r border-slate-800/50 bg-slate-900/50'>Operator 1 (Requester)</th>
                 <th className='p-3 border-r border-slate-800/50 bg-slate-900/50'>Operator 2 (Target)</th>
+                <th className='p-3 border-r border-slate-800/50 bg-slate-900/50'>Operator 3 (Triple Swap)</th>
                 <th className='p-3 text-center'>Status</th>
                 <th className='p-3 text-center'>Crew Controller Action</th>
               </tr>
             </thead>
             <tbody className='divide-y divide-slate-800/50'>
               {exchanges.length === 0 && (
-                <tr><td colSpan="5" className='p-6 text-center text-slate-500 italic'>No shift exchange requests found.</td></tr>
+                <tr><td colSpan="6" className='p-6 text-center text-slate-500 italic'>No shift exchange requests found.</td></tr>
               )}
               {exchanges.map((ex) => {
                 const canApprove = ex.status === 'Awaiting GCC Approval';
@@ -1652,7 +1934,11 @@ export default function ShiftExchange() {
                 let statusBadge = null;
                 switch (ex.status) {
                   case 'Awaiting Second Operator Confirmation':
-                    statusBadge = <span className='text-yellow-500 font-bold uppercase tracking-wider text-[10px]'>AWAITING 2ND OP CONFIRM</span>;
+                    statusBadge = (
+                      <span className='text-yellow-500 font-bold uppercase tracking-wider text-[10px]'>
+                        {ex.isTriple ? 'AWAITING OPERATOR CONFIRM' : 'AWAITING 2ND OP CONFIRM'}
+                      </span>
+                    );
                     break;
                   case 'Awaiting GCC Approval':
                     statusBadge = <span className='text-orange-400 font-bold uppercase tracking-wider text-[10px] animate-pulse'>AWAITING GCC APPROVAL</span>;
@@ -1676,7 +1962,18 @@ export default function ShiftExchange() {
 
                 return (
                   <tr key={ex.id} className='hover:bg-slate-800/20 bg-slate-950/40 transition-colors border-b border-slate-850'>
-                    <td className='p-3 text-emerald-400 font-semibold'>{ex.exchangeDate}</td>
+                    <td className='p-3 text-emerald-400 font-semibold'>
+                      <div className="font-mono">{ex.exchangeDate}</div>
+                      {ex.isTriple ? (
+                        <span className="inline-flex items-center gap-1 mt-1 bg-purple-950/80 text-purple-300 border border-purple-500/40 text-[9px] px-1.5 py-0.5 rounded font-bold font-mono">
+                          <RefreshCw size={9} /> TRIPLE (3-WAY)
+                        </span>
+                      ) : (
+                        <span className="inline-block mt-1 bg-slate-800 text-slate-400 text-[9px] px-1.5 py-0.5 rounded font-mono">
+                          PAIR (2-WAY)
+                        </span>
+                      )}
+                    </td>
                     
                     {/* Operator 1 Block */}
                     <td className='p-3 border-r border-slate-800/50'>
@@ -1687,7 +1984,7 @@ export default function ShiftExchange() {
                           <span className='text-emerald-500 flex items-center gap-1 text-[10px] font-bold mt-1'><CheckCircle size={10}/> CONFIRMED</span>
                         ) : (
                           (ex.status === 'Awaiting Second Operator Confirmation' || ex.status === 'Pending') && (
-                            <button onClick={() => handleConfirm(ex.id, 1)} className='mt-1 bg-amber-900/40 border border-amber-700 hover:bg-amber-800/60 text-amber-400 text-[10px] py-1 px-2 rounded w-max transition-colors'>
+                            <button onClick={() => handleConfirm(ex.id, 1)} className='mt-1 bg-amber-900/40 border border-amber-700 hover:bg-amber-800/60 text-amber-400 text-[10px] py-1 px-2 rounded w-max transition-colors cursor-pointer'>
                               CONFIRM REQUEST
                             </button>
                           )
@@ -1704,12 +2001,35 @@ export default function ShiftExchange() {
                           <span className='text-emerald-500 flex items-center gap-1 text-[10px] font-bold mt-1'><CheckCircle size={10}/> CONFIRMED</span>
                         ) : (
                           (ex.status === 'Awaiting Second Operator Confirmation' || ex.status === 'Pending') && (
-                            <button onClick={() => handleConfirm(ex.id, 2)} className='mt-1 bg-cyan-900/40 border border-cyan-700 hover:bg-cyan-800/60 text-cyan-400 text-[10px] py-1 px-2 rounded w-max transition-colors'>
+                            <button onClick={() => handleConfirm(ex.id, 2)} className='mt-1 bg-cyan-900/40 border border-cyan-700 hover:bg-cyan-800/60 text-cyan-400 text-[10px] py-1 px-2 rounded w-max transition-colors cursor-pointer'>
                               CONFIRM REQUEST
                             </button>
                           )
                         )}
                       </div>
+                    </td>
+
+                    {/* Operator 3 Block */}
+                    <td className='p-3 border-r border-slate-800/50'>
+                      {ex.isTriple ? (
+                        <div className='flex flex-col gap-1'>
+                          <span className='text-purple-400 font-bold'>{ex.operator3Name || ex.operator3Id}</span>
+                          <span className='text-slate-500 text-[10px]'>Duty: {ex.operator3Duty || '--'} | Status: {ex.operator3Status || 'PRESENT'}</span>
+                          {ex.operator3Confirmed ? (
+                            <span className='text-emerald-500 flex items-center gap-1 text-[10px] font-bold mt-1'><CheckCircle size={10}/> CONFIRMED</span>
+                          ) : (
+                            (ex.status === 'Awaiting Second Operator Confirmation' || ex.status === 'Pending') && (
+                              <button onClick={() => handleConfirm(ex.id, 3)} className='mt-1 bg-purple-900/40 border border-purple-700 hover:bg-purple-800/60 text-purple-400 text-[10px] py-1 px-2 rounded w-max transition-colors cursor-pointer'>
+                                CONFIRM REQUEST
+                              </button>
+                            )
+                          )}
+                        </div>
+                      ) : (
+                        <div className='text-slate-600 italic text-[11px] py-2'>
+                          N/A (Pair Exchange)
+                        </div>
+                      )}
                     </td>
 
                     <td className='p-3 text-center'>
@@ -1722,13 +2042,13 @@ export default function ShiftExchange() {
                           <div className='flex gap-1.5 justify-center'>
                             <button 
                               onClick={() => handleAuthorize(ex.id)} 
-                              className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black px-2.5 py-1.5 rounded text-[10px] tracking-wider uppercase transition-colors shadow-sm flex items-center gap-0.5"
+                              className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black px-2.5 py-1.5 rounded text-[10px] tracking-wider uppercase transition-colors shadow-sm flex items-center gap-0.5 cursor-pointer"
                             >
                               <Check size={10}/> Approve
                             </button>
                             <button 
                               onClick={() => handleReject(ex.id)} 
-                              className="bg-rose-950 border border-rose-500 hover:bg-rose-900 text-rose-300 font-bold px-2.5 py-1.5 rounded text-[10px] tracking-wider uppercase transition-colors shadow-sm flex items-center gap-0.5"
+                              className="bg-rose-950 border border-rose-500 hover:bg-rose-900 text-rose-300 font-bold px-2.5 py-1.5 rounded text-[10px] tracking-wider uppercase transition-colors shadow-sm flex items-center gap-0.5 cursor-pointer"
                             >
                               <X size={10}/> Reject
                             </button>
@@ -1736,7 +2056,7 @@ export default function ShiftExchange() {
                           {showCancel && (
                             <button 
                               onClick={() => handleCancel(ex.id)}
-                              className="text-slate-500 hover:text-slate-400 font-bold text-[9px] uppercase tracking-wider"
+                              className="text-slate-500 hover:text-slate-400 font-bold text-[9px] uppercase tracking-wider cursor-pointer"
                             >
                               Cancel Request
                             </button>
@@ -1744,11 +2064,17 @@ export default function ShiftExchange() {
                         </div>
                       ) : (ex.status === 'Awaiting Second Operator Confirmation') ? (
                         <div className='flex flex-col items-center gap-1.5'>
-                          <span className='text-[10px] text-slate-500 font-bold uppercase'>Awaiting Op 2</span>
+                          <span className='text-[10px] text-slate-500 font-bold uppercase'>
+                            {ex.isTriple 
+                              ? ((!ex.operator2Confirmed && !ex.operator3Confirmed) 
+                                  ? 'Awaiting Op 2 & 3' 
+                                  : (!ex.operator2Confirmed ? 'Awaiting Op 2' : 'Awaiting Op 3'))
+                              : 'Awaiting Op 2'}
+                          </span>
                           {showCancel && (
                             <button 
                               onClick={() => handleCancel(ex.id)}
-                              className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 px-2 py-1 rounded text-[9px] uppercase tracking-wider font-bold"
+                              className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 px-2 py-1 rounded text-[9px] uppercase tracking-wider font-bold cursor-pointer"
                             >
                               Cancel
                             </button>
@@ -1758,7 +2084,7 @@ export default function ShiftExchange() {
                         <div className='flex flex-col items-center gap-1.5'>
                           <button 
                             onClick={() => handleReverseExchange(ex.id)} 
-                            className="bg-rose-950 border border-rose-500 hover:bg-rose-900 text-rose-300 font-bold px-3 py-1.5 rounded text-[10px] tracking-wider uppercase transition-colors shadow-sm flex items-center gap-0.5"
+                            className="bg-rose-950 border border-rose-500 hover:bg-rose-900 text-rose-300 font-bold px-3 py-1.5 rounded text-[10px] tracking-wider uppercase transition-colors shadow-sm flex items-center gap-0.5 cursor-pointer"
                           >
                             Reverse Exchange
                           </button>

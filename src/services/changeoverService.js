@@ -2208,6 +2208,25 @@ function buildActiveRunDuty(coRow, existingCurrentDuty, operatorInfo) {
     empId,
     empNo: empId,
     status,
+    isSwapped: Boolean(
+      operatorInfo?.isSwapped ||
+      existingCurrentDuty?.isSwapped ||
+      status === "SWAPPED_BY_CC" ||
+      status === "SWAPPED"
+    ),
+    isExchanged: Boolean(
+      operatorInfo?.isExchanged ||
+      existingCurrentDuty?.isExchanged ||
+      status === "EXCHANGED"
+    ),
+    swappedWith:
+      operatorInfo?.swappedWith ||
+      existingCurrentDuty?.swappedWith ||
+      null,
+    swappedDutyId:
+      operatorInfo?.swappedDutyId ||
+      existingCurrentDuty?.swappedDutyId ||
+      null,
     shift: "N",
     isNight: true,
 
@@ -2260,11 +2279,13 @@ function buildActiveRunDuty(coRow, existingCurrentDuty, operatorInfo) {
     leg4Km: 0,
     totalKm: totalKmsVal,
 
-    // Calculated hours
+    // Calculated hours & swap/exchange remarks
     remarks:
-      totalDrivingSec > 0
+      operatorInfo?.remarks ||
+      existingCurrentDuty?.remarks ||
+      (totalDrivingSec > 0
         ? toTimeStr(totalDrivingSec)
-        : coRow.drivingHrs || "--",
+        : coRow.drivingHrs || "--"),
     totalHours: workSec > 0 ? toTimeStr(workSec) : coRow.dutyHrs || "--",
 
     // Preserve existing cell formatting from the base link roster
@@ -2437,31 +2458,47 @@ export const triggerChangeover = async (currentDay, nextDay, operatorAssignments
     writeBatchInst.set(doc(db, "crew_final_links", docId), finalDuty);
 
     // Sync ACTIVE_RUN with Night Shift Train Operator into crew_daily_deployment
+    const depPayload = {
+      dutyId: String(dutyNo).padStart(2, "0"),
+      scheduleType: "ACTIVE_RUN",
+      dutyType: `NIGHT_CHANGEOVER_${dutyNo}`,
+      signOnTime: coRow.signOnTime,
+      signOffTime: coRow.signOffTime,
+      signOnLocation: coRow.signOnLocation,
+      signOffLocation: coRow.signOffLocation,
+      trainId: String(coRow.nightTrainNo),
+      empName: finalDuty.empName || "--",
+      name: finalDuty.empName || "--",
+      empId: finalDuty.empId || "--",
+      empNo: finalDuty.empId || "--",
+      status: finalDuty.status || "ACTIVE",
+      isSwapped: Boolean(finalDuty.isSwapped),
+      isExchanged: Boolean(finalDuty.isExchanged),
+      swappedWith: finalDuty.swappedWith || null,
+      swappedDutyId: finalDuty.swappedDutyId || null,
+      remarks: finalDuty.remarks || null,
+      shift: "N",
+      isNight: true,
+      autoDeployed: true,
+      isLocked: true,
+      lastUpdated: serverTimestamp(),
+    };
+
     const depDocId = `gcc_deploy_active_run_duty_${String(dutyNo).padStart(2, "0")}`;
     writeBatchInst.set(
       doc(db, "crew_daily_deployment", depDocId),
-      {
-        dutyId: String(dutyNo).padStart(2, "0"),
-        scheduleType: "ACTIVE_RUN",
-        dutyType: `NIGHT_CHANGEOVER_${dutyNo}`,
-        signOnTime: coRow.signOnTime,
-        signOffTime: coRow.signOffTime,
-        signOnLocation: coRow.signOnLocation,
-        signOffLocation: coRow.signOffLocation,
-        trainId: String(coRow.nightTrainNo),
-        empName: finalDuty.empName || "--",
-        name: finalDuty.empName || "--",
-        empId: finalDuty.empId || "--",
-        empNo: finalDuty.empId || "--",
-        status: finalDuty.status || "ACTIVE",
-        shift: "N",
-        isNight: true,
-        autoDeployed: true,
-        isLocked: true,
-        lastUpdated: serverTimestamp(),
-      },
+      depPayload,
       { merge: true },
     );
+
+    const unpaddedDepDocId = `gcc_deploy_active_run_duty_${String(Number(dutyNo))}`;
+    if (unpaddedDepDocId !== depDocId) {
+      writeBatchInst.set(
+        doc(db, "crew_daily_deployment", unpaddedDepDocId),
+        depPayload,
+        { merge: true },
+      );
+    }
   });
 
   // (b) Day duties from current-day roster (not in the changeover table) — kept as-is
