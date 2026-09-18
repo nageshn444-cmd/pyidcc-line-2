@@ -685,6 +685,7 @@ export const rosterAutoClassifierService = {
       date: dateStr,
       dayType,
       sheetName: sanitized.sheetName || 'Roster Sheet',
+      duties: sanitized.duties || [],
       controlDesks: sanitized.controlDesks || [],
       coOperators: sanitized.coOperators || [],
       leaves: sanitized.leaves || [],

@@ -12,12 +12,15 @@ import {
 import { 
   STATION_CHAINAGE, 
   STATION_ORDER, 
+  ATS_STATION_SEQUENCE,
   getTripEndpoints, 
   timeToMinutes, 
   minutesToTime 
 } from '../utils/kpiEngine';
+import { getStationName } from '../utils/stationHelpers';
 import { EMPLOYEE_MASTER_REGISTRY } from '../data/employeeProfileMaster';
 import { WTT_MASTER_REGISTRY } from '../data/wttMasterRegistry';
+import { buildWeekdayLiveTrainTrackingMap, WEEKDAY_RELIEF_ID_CHART } from '../data/weekdayReliefIdChartRegistry';
 
 export default function LiveTrainPositionTracker({ 
   liveTrainTrackingMap: propLiveTrainTrackingMap = {}, 
@@ -57,6 +60,38 @@ export default function LiveTrainPositionTracker({
     if (day === 1) return 'MONDAY';
     return 'WEEKDAY';
   });
+
+  // Canonical station sequence for UP line (Official ALSTOM IATS / ATS System View with all 34 stations South APTD ➔ North BIET)
+  const CANONICAL_UP_STATIONS = useMemo(() => {
+    return ATS_STATION_SEQUENCE;
+  }, []);
+
+  // Map any station code or alias to its 0-33 schematic position in ATS_STATION_SEQUENCE
+  const getAtsStationIndex = useCallback((code) => {
+    if (!code) return 0;
+    const clean = String(code).toUpperCase().trim();
+    const direct = ATS_STATION_SEQUENCE.indexOf(clean);
+    if (direct !== -1) return direct;
+    if (clean.includes('APTD') || clean.includes('APTS_BE')) return 0;
+    if (clean.includes('APTS')) return 1;
+    if (clean.includes('PNYD') || clean.includes('NGSA_BE') || clean.includes('NGSA_PT') || clean.includes('DEPOT')) return 30;
+    if (clean.includes('BIET')) return 33;
+    const targetChain = stationChainageDB[clean] ?? STATION_CHAINAGE[clean];
+    if (targetChain !== undefined) {
+      let closest = 0;
+      let minD = Infinity;
+      ATS_STATION_SEQUENCE.forEach((st, idx) => {
+        const c = stationChainageDB[st] ?? STATION_CHAINAGE[st] ?? 0;
+        const d = Math.abs(c - targetChain);
+        if (d < minD) {
+          minD = d;
+          closest = idx;
+        }
+      });
+      return closest;
+    }
+    return 0;
+  }, [stationChainageDB]);
 
   // Extract static trips from WTT Master Registry as reliable schedule coverage
   const staticWttTrips = useMemo(() => {
@@ -492,73 +527,78 @@ export default function LiveTrainPositionTracker({
 
     const allDeployments = [...activeDeployments, ...aiOnlyDeployments];
 
-    // 2. Build train timeline map
-    const trainTimelineMap = {};
-    allDeployments.forEach(operator => {
-      const processLeg = (tid, startStr, endStr) => {
-        const cleanTid = String(tid || '').trim();
-        if (!cleanTid || cleanTid === '--' || cleanTid === '-') return;
-        const startSec = timeToSecondsNormalized(startStr);
-        let endSec = timeToSecondsNormalized(endStr);
-        if (startSec >= 999999) return;
-        if (endSec >= 999999) endSec = startSec + (4 * 3600); // 4 hour fallback driving turn
+    // 2. Build train timeline map & compute tracking
+    let calculatedTracking = {};
 
-        if (!trainTimelineMap[cleanTid]) trainTimelineMap[cleanTid] = [];
+    if (currentSchedule === 'WEEKDAY') {
+      // Authoritative Weekday calculation using Master Reliever ID Chart dated 03/Sep/2026 (BIET-APTS)
+      calculatedTracking = buildWeekdayLiveTrainTrackingMap(allDeployments, evalSecs);
+    } else {
+      const trainTimelineMap = {};
+      allDeployments.forEach(operator => {
+        const processLeg = (tid, startStr, endStr) => {
+          const cleanTid = String(tid || '').trim();
+          if (!cleanTid || cleanTid === '--' || cleanTid === '-') return;
+          const startSec = timeToSecondsNormalized(startStr);
+          let endSec = timeToSecondsNormalized(endStr);
+          if (startSec >= 999999) return;
+          if (endSec >= 999999) endSec = startSec + (4 * 3600); // 4 hour fallback driving turn
 
-        trainTimelineMap[cleanTid].push({
-          dutyId: operator.dutyId,
-          empName: operator.empName,
-          empId: operator.empId,
-          startSec,
-          endSec,
-          startStr,
-          endStr: (endStr && endStr !== '--') ? endStr : minutesToTime(Math.round(endSec / 60)),
-          isExchanged: operator.isExchanged,
-          originalEmpName: operator.originalEmpName,
-          originalEmpId: operator.originalEmpId
-        });
-      };
+          if (!trainTimelineMap[cleanTid]) trainTimelineMap[cleanTid] = [];
 
-      if (operator.rawLegs) {
-        processLeg(operator.rawLegs.l1Train, operator.rawLegs.l1Start, operator.rawLegs.l1End);
-        processLeg(operator.rawLegs.l2Train, operator.rawLegs.l2Start, operator.rawLegs.l2End);
-        processLeg(operator.rawLegs.l3Train, operator.rawLegs.l3Start, operator.rawLegs.l3End);
-        processLeg(operator.rawLegs.l4Train, operator.rawLegs.l4Start, operator.rawLegs.l4End);
-      }
-    });
+          trainTimelineMap[cleanTid].push({
+            dutyId: operator.dutyId,
+            empName: operator.empName,
+            empId: operator.empId,
+            startSec,
+            endSec,
+            startStr,
+            endStr: (endStr && endStr !== '--') ? endStr : minutesToTime(Math.round(endSec / 60)),
+            isExchanged: operator.isExchanged,
+            originalEmpName: operator.originalEmpName,
+            originalEmpId: operator.originalEmpId
+          });
+        };
 
-    // 3. Compute current, previous, and nextReliver for each train
-    const calculatedTracking = {};
-    Object.keys(trainTimelineMap).forEach(tid => {
-      const timeline = trainTimelineMap[tid].sort((a, b) => a.startSec - b.startSec);
-      const current = timeline.find(c => evalSecs >= c.startSec && evalSecs <= c.endSec) || null;
-      const finished = timeline.filter(c => c.endSec < evalSecs);
-      const previous = finished.length > 0 ? finished[finished.length - 1] : null;
+        if (operator.rawLegs) {
+          processLeg(operator.rawLegs.l1Train, operator.rawLegs.l1Start, operator.rawLegs.l1End);
+          processLeg(operator.rawLegs.l2Train, operator.rawLegs.l2Start, operator.rawLegs.l2End);
+          processLeg(operator.rawLegs.l3Train, operator.rawLegs.l3Start, operator.rawLegs.l3End);
+          processLeg(operator.rawLegs.l4Train, operator.rawLegs.l4Start, operator.rawLegs.l4End);
+        }
+      });
 
-      // Find the immediate upcoming next operator on this train who is distinct from current operator
-      let nextReliver = null;
-      if (current) {
-        const futureLegs = timeline.filter(c => c.startSec >= current.endSec - 300);
-        const distinctReliever = futureLegs.find(c => 
-          (c.dutyId !== current.dutyId || c.empId !== current.empId || c.empName !== current.empName) &&
-          c.empName && c.empName !== '--' && !c.empName.toLowerCase().includes('unassigned') && !c.empName.startsWith('Train Operator')
-        );
-        nextReliver = distinctReliever || null;
-      } else {
-        nextReliver = timeline.find(c => 
-          c.startSec > evalSecs && 
-          c.empName && c.empName !== '--' && 
-          !c.empName.toLowerCase().includes('unassigned') && 
-          !c.empName.startsWith('Train Operator')
-        ) || null;
-      }
+      Object.keys(trainTimelineMap).forEach(tid => {
+        const timeline = trainTimelineMap[tid].sort((a, b) => a.startSec - b.startSec);
+        const current = timeline.find(c => evalSecs >= c.startSec && evalSecs <= c.endSec) || null;
+        const finished = timeline.filter(c => c.endSec < evalSecs);
+        const previous = finished.length > 0 ? finished[finished.length - 1] : null;
 
-      calculatedTracking[tid] = {
-        current,
-        previous,
-        nextReliver
-      };
-    });
+        // Find the immediate upcoming next operator on this train who is distinct from current operator
+        let nextReliver = null;
+        if (current) {
+          const futureLegs = timeline.filter(c => c.startSec >= current.endSec - 300);
+          const distinctReliever = futureLegs.find(c => 
+            (c.dutyId !== current.dutyId || c.empId !== current.empId || c.empName !== current.empName) &&
+            c.empName && c.empName !== '--' && !c.empName.toLowerCase().includes('unassigned') && !c.empName.startsWith('Train Operator')
+          );
+          nextReliver = distinctReliever || null;
+        } else {
+          nextReliver = timeline.find(c => 
+            c.startSec > evalSecs && 
+            c.empName && c.empName !== '--' && 
+            !c.empName.toLowerCase().includes('unassigned') && 
+            !c.empName.startsWith('Train Operator')
+          ) || null;
+        }
+
+        calculatedTracking[tid] = {
+          current,
+          previous,
+          nextReliver
+        };
+      });
+    }
 
     // 4. Seamlessly integrate LIVE RELIEF TRACKING data for active day
     if (propLiveTrainTrackingMap && Object.keys(propLiveTrainTrackingMap).length > 0) {
@@ -815,7 +855,11 @@ export default function LiveTrainPositionTracker({
         const shouldAnnounceReliever = isTripCompletingIn3Mins && isVerifiedReliever;
         const hasReliever = shouldAnnounceReliever;
 
-        const pctLine = (currentChainage - activeChainages.BIET) / (activeChainages.APTS - activeChainages.BIET);
+        // Accurate schematic train positioning aligned to 34 ATS stations
+        const prevIdx = getAtsStationIndex(prevSt.station);
+        const nextIdx = getAtsStationIndex(nextSt.station);
+        const interpIdx = prevIdx + pct * (nextIdx - prevIdx);
+        const pctLine = Math.max(0, Math.min(1, interpIdx / (ATS_STATION_SEQUENCE.length - 1)));
 
         const trainObj = {
           rowId: row.id,
@@ -945,7 +989,8 @@ export default function LiveTrainPositionTracker({
         ? stabRef.stations[stabRef.stations.length - 1].station
         : stabRef.stations[0].station;
       const stabChain = activeChainages[stabStation] ?? 0;
-      const stabPctLine = (stabChain - (activeChainages.BIET ?? -9.227)) / ((activeChainages.APTS ?? 23.833) - (activeChainages.BIET ?? -9.227));
+      const stabIdx = getAtsStationIndex(stabStation);
+      const stabPctLine = Math.max(0, Math.min(1, stabIdx / (ATS_STATION_SEQUENCE.length - 1)));
       const stabStart = activeChainages[stabRef.stations[0].station] ?? 0;
       const stabEnd = activeChainages[stabRef.stations[stabRef.stations.length - 1].station] ?? 0;
       const stabDir = stabStart > stabEnd ? 'UP' : 'DOWN';
@@ -1202,14 +1247,15 @@ export default function LiveTrainPositionTracker({
       </div>
 
       {/* ── Official Chainage Alignment representation (Green Line) ── */}
-      <div className="bg-slate-950 border border-slate-850 p-6 rounded-2xl relative overflow-x-auto mb-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 border-b border-slate-850 pb-2">
+      <div className="bg-slate-950 border border-slate-850 p-5 rounded-2xl relative mb-6 shadow-xl">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 border-b border-slate-850 pb-3">
           <div className="flex flex-wrap items-center gap-2">
-            <h4 className="text-[10px] text-slate-400 uppercase tracking-widest font-black">
+            <h4 className="text-xs text-slate-300 uppercase tracking-wider font-black flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               Official Chainage Alignment representation (Green Line)
             </h4>
             <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[8px] font-black uppercase tracking-wider">
-              {activeSchedule} SCHEDULE • LIVE RELIEF TRACKING SYNCED
+              {activeSchedule} SCHEDULE • 34 STATIONS SYNCED
             </span>
             {isLiveClock && (
               <span className="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 text-[8px] font-black uppercase tracking-wider flex items-center gap-1">
@@ -1219,78 +1265,100 @@ export default function LiveTrainPositionTracker({
             )}
           </div>
           <div className="flex gap-4 text-[9px] font-mono font-bold">
-            <span className="flex items-center gap-1 text-emerald-400">
+            <span className="flex items-center gap-1.5 text-emerald-400 bg-emerald-950/60 px-2.5 py-1 rounded-md border border-emerald-800/60 shadow-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              UP TRACK (APTS ➔ BIET)
+              UP TRACK (APTD ➔ BIET) ➔ ➔ ➔
             </span>
-            <span className="flex items-center gap-1 text-cyan-400">
+            <span className="flex items-center gap-1.5 text-cyan-400 bg-cyan-950/60 px-2.5 py-1 rounded-md border border-cyan-800/60 shadow-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></span>
-              DOWN TRACK (BIET ➔ APTS)
+              ⬅ ⬅ ⬅ DOWN TRACK (BIET ➔ APTD)
             </span>
           </div>
         </div>
         
-        {/* Track Graphic Container */}
-        <div className="w-[1700px] h-[220px] relative select-none py-10">
-          
-          {/* UP Track Line (Emerald) */}
-          <div className="absolute top-[40px] left-[4%] right-[4%] h-1 bg-emerald-950/60 rounded-full border-t border-emerald-800/40"></div>
-          
-          {/* DOWN Track Line (Cyan) */}
-          <div className="absolute top-[130px] left-[4%] right-[4%] h-1 bg-cyan-950/60 rounded-full border-t border-cyan-800/40"></div>
-
-          {/* Station grid alignment lines & tick marks */}
-          {STATION_ORDER.map((station) => {
-            const chainages = Object.keys(stationChainageDB).length > 0 ? stationChainageDB : STATION_CHAINAGE;
-            const posPct = (chainages[station] - chainages.BIET) / (chainages.APTS - chainages.BIET);
-            const leftPos = `${4 + posPct * 92}%`;
-            const isPyidStation = station === 'PYID';
+        {/* Track Graphic Viewport: Dedicated horizontal scroll container */}
+        <div className="w-full overflow-x-auto rounded-xl bg-slate-900/50 border border-slate-850/80 p-4 scrollbar-thin scrollbar-thumb-slate-700">
+          <div className="w-[2600px] h-[240px] relative select-none">
             
-            return (
-              <div 
-                key={station} 
-                className="absolute top-0 bottom-0 -translate-x-1/2 flex flex-col items-center group cursor-help z-10"
-                style={{ left: leftPos, height: '180px' }}
-              >
-                {/* Station label rotated at -45 degrees */}
-                <div className={`absolute -top-3 text-[9px] font-bold font-mono group-hover:text-slate-100 transition-colors transform -rotate-45 origin-bottom-left whitespace-nowrap pl-1 ${
-                  isPyidStation ? 'text-amber-400 font-black scale-110' : 'text-slate-400'
-                }`}>
-                  {station} {isPyidStation ? '📍' : ''}
+            {/* Left track endpoint badges */}
+            <div className="absolute left-1 top-[45px] -translate-y-1/2 text-[9px] font-mono font-black text-emerald-400 bg-emerald-950/90 px-2 py-0.5 rounded border border-emerald-800/60 z-20">
+              UP ➔
+            </div>
+            <div className="absolute left-1 top-[145px] -translate-y-1/2 text-[9px] font-mono font-black text-cyan-400 bg-cyan-950/90 px-2 py-0.5 rounded border border-cyan-800/60 z-20">
+              ⬅ DN
+            </div>
+
+            {/* Right track endpoint badges */}
+            <div className="absolute right-1 top-[45px] -translate-y-1/2 text-[9px] font-mono font-black text-emerald-400 bg-emerald-950/90 px-2 py-0.5 rounded border border-emerald-800/60 z-20">
+              ➔ UP
+            </div>
+            <div className="absolute right-1 top-[145px] -translate-y-1/2 text-[9px] font-mono font-black text-cyan-400 bg-cyan-950/90 px-2 py-0.5 rounded border border-cyan-800/60 z-20">
+              DN ⬅
+            </div>
+
+            {/* UP Track Line (Emerald) */}
+            <div className="absolute top-[45px] left-[3.5%] right-[3.5%] h-1.5 bg-emerald-950/80 rounded-full border-t border-emerald-700/60 shadow-[0_0_10px_rgba(16,185,129,0.2)]"></div>
+            
+            {/* DOWN Track Line (Cyan) */}
+            <div className="absolute top-[145px] left-[3.5%] right-[3.5%] h-1.5 bg-cyan-950/80 rounded-full border-t border-cyan-700/60 shadow-[0_0_10px_rgba(6,182,212,0.2)]"></div>
+
+            {/* Station grid alignment lines & tick marks: 34 Canonical Stations (Left APTD ➔ Right BIET) */}
+            {CANONICAL_UP_STATIONS.map((station, idx) => {
+              const chainages = Object.keys(stationChainageDB).length > 0 ? stationChainageDB : STATION_CHAINAGE;
+              const leftPos = `${3.5 + (idx / (CANONICAL_UP_STATIONS.length - 1)) * 93}%`;
+              const isPyidStation = station === 'PYID';
+              
+              return (
+                <div 
+                  key={station} 
+                  className="absolute top-0 bottom-0 -translate-x-1/2 flex flex-col items-center group cursor-help z-10"
+                  style={{ left: leftPos, height: '220px' }}
+                >
+                  {/* Vertical dashed alignment marker connecting UP and DOWN tracks */}
+                  <div className={`absolute top-5 bottom-6 w-0.5 border-l border-dashed transition-colors ${
+                    isPyidStation ? 'border-amber-500/80 w-1' : 'border-slate-800/60 group-hover:border-cyan-500/30'
+                  }`}></div>
+
+                  {/* UP track tick */}
+                  <div className={`absolute top-[45px] -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-slate-950 border-2 flex items-center justify-center transition-colors shadow ${
+                    isPyidStation ? 'border-amber-400 bg-amber-950' : 'border-slate-700 group-hover:border-emerald-400 group-hover:bg-slate-900'
+                  }`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${isPyidStation ? 'bg-amber-400 animate-ping' : 'bg-emerald-500/40 group-hover:bg-emerald-400'}`}></span>
+                  </div>
+
+                  {/* Station Name Badge strictly IN BETWEEN UP and DOWN tracks (Proper Alstom ATS View) */}
+                  <div 
+                    className={`absolute top-[95px] -translate-y-1/2 px-2 py-0.5 rounded text-[8.5px] font-bold font-mono whitespace-nowrap z-20 border shadow-md flex items-center gap-1 transition-transform group-hover:scale-110 ${
+                      isPyidStation 
+                        ? 'bg-amber-950/95 text-amber-300 border-amber-400 font-black shadow-[0_0_12px_rgba(245,158,11,0.6)] ring-1 ring-amber-400/80' 
+                        : 'bg-slate-900/95 text-slate-200 border-slate-700 group-hover:border-cyan-400 group-hover:text-white'
+                    }`}
+                    title={`${getStationName(station)} (${chainages[station]?.toFixed(3)} km)`}
+                  >
+                    <span>{station}</span>
+                    {isPyidStation && <span className="text-[7px]">📍</span>}
+                  </div>
+
+                  {/* DOWN track tick */}
+                  <div className={`absolute top-[145px] -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-slate-950 border-2 flex items-center justify-center transition-colors shadow ${
+                    isPyidStation ? 'border-amber-400 bg-amber-950' : 'border-slate-700 group-hover:border-cyan-400 group-hover:bg-slate-900'
+                  }`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${isPyidStation ? 'bg-amber-400 animate-ping' : 'bg-cyan-500/40 group-hover:bg-cyan-400'}`}></span>
+                  </div>
+
+                  {/* Chainage display at bottom */}
+                  <div className="absolute bottom-[6px] text-[7.5px] text-slate-500 font-mono tracking-wide group-hover:text-slate-300 transition-colors">
+                    {chainages[station]?.toFixed(3)}
+                  </div>
                 </div>
+              );
+            })}
 
-                {/* Vertical dashed alignment marker */}
-                <div className={`absolute top-4 bottom-6 w-0.5 border-l border-dashed transition-colors ${
-                  isPyidStation ? 'border-amber-500/80 w-1' : 'border-slate-800/60 group-hover:border-cyan-500/30'
-                }`}></div>
-
-                {/* UP track tick */}
-                <div className={`absolute top-[40px] -translate-y-1/2 h-3 w-3 rounded-full bg-slate-950 border-2 flex items-center justify-center transition-colors shadow ${
-                  isPyidStation ? 'border-amber-400 bg-amber-950' : 'border-slate-700 group-hover:border-emerald-400 group-hover:bg-slate-900'
-                }`}>
-                  <span className={`h-1 w-1 rounded-full ${isPyidStation ? 'bg-amber-400 animate-ping' : 'bg-emerald-500/20 group-hover:bg-emerald-400'}`}></span>
-                </div>
-
-                {/* DOWN track tick */}
-                <div className={`absolute top-[130px] -translate-y-1/2 h-3 w-3 rounded-full bg-slate-950 border-2 flex items-center justify-center transition-colors shadow ${
-                  isPyidStation ? 'border-amber-400 bg-amber-950' : 'border-slate-700 group-hover:border-cyan-400 group-hover:bg-slate-900'
-                }`}>
-                  <span className={`h-1 w-1 rounded-full ${isPyidStation ? 'bg-amber-400 animate-ping' : 'bg-cyan-500/20 group-hover:bg-cyan-400'}`}></span>
-                </div>
-
-                {/* Chainage display */}
-                <div className="absolute bottom-0 text-[7px] text-slate-600 font-mono tracking-wide group-hover:text-slate-300 transition-colors">
-                  {chainages[station]?.toFixed(3)}
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Dynamic train markers moving on the tracks with DISTINCT ACTIVE OPERATOR NAME */}
-          {liveTrainPositions.map((train, idx) => {
-            const leftPos = `${Math.max(0, Math.min(100, 4 + train.pctLine * 92))}%`;
-            const isUp = train.direction === 'UP';
-            const topOffset = isUp ? '40px' : '130px';
+            {/* Dynamic train markers moving on the tracks with DISTINCT ACTIVE OPERATOR NAME */}
+            {liveTrainPositions.map((train, idx) => {
+              const leftPos = `${Math.max(0, Math.min(100, 3.5 + train.pctLine * 93))}%`;
+              const isUp = train.direction === 'UP';
+              const topOffset = isUp ? '45px' : '145px';
 
             // Visual differentiation: stabling trains = muted grey/amber, active = vivid emerald/cyan
             const themeColorClass = train.isStabling
@@ -1305,13 +1373,24 @@ export default function LiveTrainPositionTracker({
                 className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group z-20 transition-all duration-[300ms]"
                 style={{ left: leftPos, top: topOffset }}
               >
-                {/* Glowing train badge */}
+                {/* Glowing train badge with directional arrow */}
                 <div
                   onClick={() => setSelectedTrain(train)}
                   className={`${themeColorClass} text-[9px] px-2 py-1 rounded-md border flex items-center gap-1 cursor-pointer hover:scale-105 transition-transform`}
                 >
-                  <Train size={9} className={isUp ? 'rotate-180 transition-transform' : ''} />
-                  T{train.trainId}
+                  {isUp ? (
+                    <>
+                      <Train size={9} className="shrink-0" />
+                      <span>T{train.trainId}</span>
+                      <span className="text-[8px] font-black text-slate-950 ml-0.5">➔</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-[8px] font-black text-slate-950 mr-0.5">⬅</span>
+                      <span>T{train.trainId}</span>
+                      <Train size={9} className="shrink-0" />
+                    </>
+                  )}
                   {train.isStabling && <span className="text-[7px] text-amber-400 font-mono ml-0.5">STBL</span>}
                 </div>
 
@@ -1374,6 +1453,7 @@ export default function LiveTrainPositionTracker({
           })}
         </div>
       </div>
+    </div>
 
       {/* ── Line-2 Station Relief & Changeover Alert Center (PYID, KGWA, PUTH) ── */}
       <div className="mb-6 bg-slate-950 border border-slate-800 rounded-xl p-4">

@@ -20,7 +20,9 @@ export function timeStringToMinutes(tStr) {
 
 /**
  * Calculates continuous rest hours between previous day sign-off and next day sign-on.
- * H2: Min 12h rest, wrap-aware across midnight.
+ * H2: Min 12h rest for normal shifts; wrap-aware across midnight.
+ * For previous night duties (ending Day D morning), rest on Day D is nextMins - prevMins;
+ * if nextMins < prevMins (e.g. 06:00 proposed on Day D vs 06:30 sign-off), rest is 0h (overlap).
  */
 export function calculateRestHours(prevSignOffStr, nextSignOnStr, isPreviousDutyNight = false) {
   if (!prevSignOffStr || !nextSignOnStr) return 16.0; // Assume full rest if no previous record
@@ -30,14 +32,16 @@ export function calculateRestHours(prevSignOffStr, nextSignOnStr, isPreviousDuty
 
   let restMins = 0;
   if (isPreviousDutyNight || prevMins <= 7 * 60) {
-    // Previous duty finished in the morning (e.g. 06:30)
-    if (nextMins >= prevMins) {
-      restMins = nextMins - prevMins;
+    // Previous duty finished in the morning of Day D (e.g. 06:30)
+    if (nextMins < prevMins) {
+      // Proposed duty starts BEFORE or AT previous night duty sign-off on Day D! Absolute overlap
+      restMins = 0;
     } else {
-      restMins = (24 * 60 - prevMins) + nextMins;
+      // Proposed duty starts later on Day D (e.g. 14:30) -> gap is difference on Day D
+      restMins = nextMins - prevMins;
     }
   } else {
-    // Normal previous day afternoon/evening sign-off to next day sign-on
+    // Normal previous day afternoon/evening sign-off (Day D-1) to next day sign-on (Day D)
     if (nextMins < prevMins) {
       restMins = (24 * 60 - prevMins) + nextMins;
     } else {
@@ -46,6 +50,49 @@ export function calculateRestHours(prevSignOffStr, nextSignOnStr, isPreviousDuty
   }
 
   return Math.round((restMins / 60) * 10) / 10;
+}
+
+/**
+ * Determines if a duty belongs to 1st Shift (A-shift / Morning duties).
+ * Covers mainline A-band, PRO 1 (Pilot Relief), OR 1, Station Standby A, CC1, and morning standby (< 12:00 sign-on).
+ */
+export function isFirstShiftDuty(duty) {
+  if (!duty) return false;
+  if (duty.shift === 'A') return true;
+  const num = parseInt(duty.dutyNo, 10);
+  if (duty.shift === 'PRO' && num === 1) return true;
+  if (duty.shift === 'STBY' && num === 2) return true;
+  if (duty.tag === '1Stbk-A' || duty.stbkShift === 'A' || duty.slotCode === 'CC1') return true;
+  const dutyCodeStr = String(duty.dutyCode || '').toUpperCase();
+  if (dutyCodeStr.includes('PRO1') || dutyCodeStr.includes('OR1') || (dutyCodeStr.startsWith('A') && !dutyCodeStr.startsWith('AP') && !dutyCodeStr.startsWith('AU'))) {
+    return true;
+  }
+  if (duty.sOnTime && duty.sOnTime !== '—') {
+    const mins = timeStringToMinutes(duty.sOnTime);
+    // Morning sign-on between 04:00 and 11:59
+    if (mins >= 4 * 60 && mins < 12 * 60) return true;
+  }
+  return false;
+}
+
+/**
+ * Determines if a duty belongs to 2nd Shift (B-shift / Afternoon duties).
+ * Covers mainline B-band, PRO 2, OR 2, Station Standby B, CC2, and afternoon duties (12:00–19:59 sign-on).
+ */
+export function isSecondShiftDuty(duty) {
+  if (!duty) return false;
+  if (duty.shift === 'B') return true;
+  const num = parseInt(duty.dutyNo, 10);
+  if (duty.tag === '1Stbk-B' || duty.stbkShift === 'B' || duty.slotCode === 'CC2') return true;
+  const dutyCodeStr = String(duty.dutyCode || '').toUpperCase();
+  if (dutyCodeStr.includes('PRO2') || dutyCodeStr.includes('OR2') || (dutyCodeStr.startsWith('B') && !dutyCodeStr.startsWith('BM') && !dutyCodeStr.startsWith('BO'))) {
+    return true;
+  }
+  if (duty.sOnTime && duty.sOnTime !== '—') {
+    const mins = timeStringToMinutes(duty.sOnTime);
+    if (mins >= 12 * 60 && mins < 20 * 60) return true;
+  }
+  return false;
 }
 
 /**
@@ -108,20 +155,28 @@ export function validateDutyAssignment({
     }
   }
 
-  // ── H2: MINIMUM 12-HOUR REST RULE ──
+  // ── H2: MINIMUM REST & SHIFT TRANSITION GATES ──
   if (previousDuty && !isProposedWO && !isProposedLeave && previousDuty.sOffTime) {
     const isPrevNight = previousDuty.isNight || previousDuty.shift === 'N' || String(previousDuty.dutyCode).startsWith('N');
     const restHours = calculateRestHours(previousDuty.sOffTime, proposedDuty.sOnTime, isPrevNight);
 
-    if (restHours < 12.0) {
-      errors.push(`H2: Rest violation (${restHours}h < 12h) between previous sign-off (${previousDuty.sOffTime}) and next sign-on (${proposedDuty.sOnTime}).`);
-    } else if (restHours < 14.0) {
-      warnings.push(`Rest is ${restHours}h (Recommended: >=14h).`);
+    // Rule 1: Night shift to A-shift / 1st Shift (including PRO 1, OR 1, morning standby) is strictly prohibited!
+    if (isPrevNight && (proposedDuty.shift === 'A' || isFirstShiftDuty(proposedDuty))) {
+      errors.push(`H2: Night shift to A-shift / 1st Shift (${proposedDuty.dutyCode || proposedDuty.dutyNo || proposedDuty.shift} · ${proposedDuty.sOnTime}) is strictly prohibited. PRO 1 and all A-shift duties are barred after night shift.`);
     }
 
-    // Prohibit Night -> A Shift next morning
-    if (isPrevNight && proposedDuty.shift === 'A') {
-      errors.push(`H2: Night shift to 1st Shift (A-shift) transition is strictly prohibited.`);
+    // Rule 2: Minimum 8 hours gap from Night shift without fail for ANY subsequent duty (including PRO 1, B-shift, etc.)
+    if (isPrevNight) {
+      if (restHours < 8.0) {
+        errors.push(`H2: Mandatory 8-hour gap violation (${restHours}h < 8.0h) from previous Night sign-off (${previousDuty.sOffTime}) to duty (${proposedDuty.dutyCode || proposedDuty.dutyNo || proposedDuty.shift}) sign-on (${proposedDuty.sOnTime}). Must follow 8 hours gap from night shift without fail.`);
+      }
+    } else {
+      // Standard rest between consecutive day shifts requires minimum 12.0 hours
+      if (restHours < 12.0) {
+        errors.push(`H2: Rest violation (${restHours}h < 12.0h) between previous sign-off (${previousDuty.sOffTime}) and next sign-on (${proposedDuty.sOnTime}).`);
+      } else if (restHours < 14.0) {
+        warnings.push(`Rest is ${restHours}h (Recommended: >=14h).`);
+      }
     }
   }
 

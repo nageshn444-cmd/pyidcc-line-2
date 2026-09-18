@@ -8,7 +8,7 @@
  */
 
 import { OFFICIAL_CC_STAFF } from '../data/ccRosterRegistry.js';
-import { calculateRestHours } from './dutyConstraintEngine.js';
+import { calculateRestHours, isFirstShiftDuty, isSecondShiftDuty } from './dutyConstraintEngine.js';
 import { DAY_TYPE_PROFILES } from '../data/dayTypeProfiles.js';
 
 export function validateCompleteRoster({
@@ -170,12 +170,32 @@ export function validateCompleteRoster({
   buckets.ACTIVE_DUTY.forEach(a => {
     if (!a.empId) return;
     const hist = historicalData[a.empId];
-    if (hist && hist.recentDuties && hist.recentDuties.length > 0) {
-      const prevDuty = hist.recentDuties[hist.recentDuties.length - 1];
-      if (prevDuty && prevDuty.sOffTime && a.sOnTime) {
-        const isPrevNight = prevDuty.isNight || prevDuty.shift === 'N' || String(prevDuty.dutyCode).startsWith('N');
-        const rest = calculateRestHours(prevDuty.sOffTime, a.sOnTime, isPrevNight);
+    const prevDuty = a.previousDayDuty || (hist?.recentDuties && hist.recentDuties.length > 0 ? hist.recentDuties[hist.recentDuties.length - 1] : null);
+    if (prevDuty && prevDuty.sOffTime && a.sOnTime && a.sOnTime !== '—') {
+      const isPrevNight = prevDuty.isNight || prevDuty.shift === 'N' || String(prevDuty.dutyCode).startsWith('N');
+      const rest = calculateRestHours(prevDuty.sOffTime, a.sOnTime, isPrevNight);
 
+      // RULE 1: Night shift to A-shift / 1st Shift (including PRO 1) is strictly prohibited
+      if (isPrevNight && (a.shift === 'A' || isFirstShiftDuty(a))) {
+        hardViolations.push({
+          assertion: 'H2_NIGHT_TO_FIRST_SHIFT_VIOLATION',
+          empId: a.empId,
+          name: a.name,
+          message: `Hard Violation H2: Operator ${a.name} (#${a.empId}) was on Night duty (${prevDuty.dutyCode || prevDuty.dutyNo}) on D-1, but assigned to 1st Shift / A-shift (${a.dutyCode || a.dutyNo} · ${a.sOnTime}). Night to A-shift / PRO 1 is strictly prohibited.`
+        });
+      }
+
+      // RULE 2: Minimum 8 hours gap from Night shift without fail for ANY subsequent duty
+      if (isPrevNight) {
+        if (rest < 8.0) {
+          hardViolations.push({
+            assertion: 'H2_NIGHT_GAP_VIOLATION',
+            empId: a.empId,
+            name: a.name,
+            message: `Hard Violation H2: Insufficient gap (${rest}h < 8.0h) for Operator ${a.name} (#${a.empId}) from previous Night sign-off (${prevDuty.sOffTime}) to duty (${a.dutyCode || a.dutyNo}) sign-on (${a.sOnTime}). Must follow 8 hours gap from night shift without fail.`
+          });
+        }
+      } else {
         if (rest < 12.0) {
           warnings.push({
             assertion: 'REST_AUDIT_H2',

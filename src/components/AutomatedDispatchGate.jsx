@@ -1338,6 +1338,7 @@ export default function AutomatedDispatchGate({
     setIsSavingToFirebase(true);
     try {
       const consoleObj = {
+        duties: stagedRoster.duties || [],
         controlDesks: stagedRoster.controlDesks || [],
         coOperators: stagedRoster.coOperators || [],
         leaves: stagedRoster.leaves || [],

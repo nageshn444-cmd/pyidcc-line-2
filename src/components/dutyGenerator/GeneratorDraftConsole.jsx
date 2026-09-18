@@ -75,7 +75,10 @@ export default function GeneratorDraftConsole({
   const lastGenKeyRef = React.useRef('');
   const isGeneratingRef = React.useRef(false);
 
-  const genTriggerKey = `${targetDate}_${dayType}_${crewList.length}_${activeRequests.length}_${Object.keys(woOverrides).length}`;
+  const prevRosterFingerprint = previousDayGCCRoster 
+    ? `${previousDayGCCRoster.date || ''}_${previousDayGCCRoster.sheetName || ''}_${(previousDayGCCRoster.duties || []).length}_${(previousDayGCCRoster.weeklyOffs || []).length}` 
+    : 'no_prev';
+  const genTriggerKey = `${targetDate}_${dayType}_${crewList.length}_${activeRequests.length}_${Object.keys(woOverrides).length}_${prevRosterFingerprint}_${liveDeployments.length}`;
 
   // Auto-generate on initial mount or when key parameters change
   useEffect(() => {
@@ -268,7 +271,7 @@ export default function GeneratorDraftConsole({
       proposedDuty: targetDuty,
       targetDate,
       dayOfWeek: 'Wednesday',
-      previousDuty: null,
+      previousDuty: editItem?.previousDayDuty || null,
       historicalStats: HISTORICAL_ROSTER_INTELLIGENCE[emp?.empId],
       activeRequests,
       woOverrides
@@ -542,28 +545,31 @@ export default function GeneratorDraftConsole({
       </div>
 
       {/* ── GCC Previous Day Reference Roster Status Card ── */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/30 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-lg">
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-emerald-500/30 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-lg">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center flex-shrink-0">
-            <FileSpreadsheet className="w-5 h-5 text-indigo-400" />
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center flex-shrink-0">
+            <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-black text-white tracking-wide uppercase flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                GCC Previous Day Reference Active
+                EXCEL DAILY ROSTER PATH LINK AUTO-READER &amp; CLASSIFIER SYNC
+              </span>
+              <span className="text-[10px] px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full font-mono font-black">
+                ZERO MANUAL ENTRY ENGINE ACTIVE
               </span>
               <span className="text-[10px] px-2.5 py-0.5 bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 rounded-full font-mono font-bold">
-                {previousDayGCCMeta?.sheetName || previousDayGCCRoster?.sheetName || 'EXCEL AUTO-DEPLOYED ROSTER'}
+                {previousDayGCCMeta?.sheetName || previousDayGCCRoster?.sheetName || 'PREVIOUS DAY DEPLOYED ROSTER'}
               </span>
               {(previousDayGCCMeta?.dateStr || previousDayGCCRoster?.date) && (
-                <span className="text-[10px] px-2 py-0.5 bg-slate-800 text-slate-300 border border-slate-700 rounded-full font-mono">
-                  Date: {previousDayGCCMeta?.dateStr || previousDayGCCRoster?.date}
+                <span className="text-[10px] px-2 py-0.5 bg-slate-800 text-slate-300 border border-slate-700 rounded-full font-mono font-bold">
+                  Reference Date (D-1): {previousDayGCCMeta?.dateStr || previousDayGCCRoster?.date}
                 </span>
               )}
             </div>
             <p className="text-[11px] text-slate-400 mt-1">
-              Deployed from <strong className="text-cyan-300 font-mono">DISPATCH GATEWAY CORE (ZERO MANUAL ENTRY ENGINE)</strong> · Validating statutory 12h/16h turnaround rest &amp; anti-consecutive link diversity
+              Auto-generating next day duties from previous day roster: <strong className="text-emerald-300">A ➔ A+1</strong>, <strong className="text-amber-300">B ➔ B+1</strong>, <strong className="text-indigo-300">Night Block Continuity</strong>, and <strong className="text-cyan-300">Strict Weekly Off (WO) Enforcement</strong>.
             </p>
           </div>
         </div>
@@ -1091,6 +1097,7 @@ export default function GeneratorDraftConsole({
                         <th className="px-4 py-3">Location</th>
                         <th className="px-4 py-3 font-bold text-slate-200">Train Operator</th>
                         <th className="px-4 py-3 font-mono">Emp No</th>
+                        <th className="px-4 py-3 min-w-[120px]">D-1 Duty</th>
                         <th className="px-4 py-3">Sign Off</th>
                         <th className="px-4 py-3">Off Loc</th>
                         <th className="px-4 py-3 text-right">Actions</th>
@@ -1161,9 +1168,39 @@ export default function GeneratorDraftConsole({
                                     </span>
                                   )}
                                 </div>
+                                {item.reason && (
+                                  <div className="text-[9px] text-slate-500 truncate max-w-xs font-mono" title={item.reason}>
+                                    {item.reason}
+                                  </div>
+                                )}
                               </td>
                               <td className="px-4 py-3 font-mono text-slate-400 font-bold tabular-nums">
                                 #{item.empId || '—'}
+                              </td>
+                              <td className="px-4 py-3 font-mono">
+                                {item.previousDayDuty ? (
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="text-[10px] font-bold text-slate-200">
+                                      {item.previousDayDuty.dutyCode || (item.previousDayDuty.dutyNo ? `Duty ${item.previousDayDuty.dutyNo}` : '—')}
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                      <span className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded ${
+                                        item.previousDayDuty.shift === 'N' 
+                                          ? (item.previousDayDuty.isRestCompliant ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40')
+                                          : 'text-emerald-400'
+                                      }`}>
+                                        {item.previousDayDuty.transition}
+                                      </span>
+                                      {item.previousDayDuty.shift === 'N' && item.previousDayDuty.restHoursFromPrev && (
+                                        <span className="text-[8px] font-mono px-1 py-0.2 bg-slate-800 text-slate-300 rounded">
+                                          {item.previousDayDuty.restHoursFromPrev}h rest
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-[10px] text-slate-600 font-mono italic">Resumed / New</span>
+                                )}
                               </td>
                               <td className="px-4 py-3 font-mono text-slate-300 tabular-nums">
                                 {formatTo24HourTime(item.sOffTime, item.sOnTime, item.shift)}

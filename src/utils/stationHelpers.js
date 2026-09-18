@@ -8,9 +8,11 @@ export const STATION_ORDER_LIST = [
 ];
 
 export const STATION_NAMES = {
+  "APTD": "Anjanapura Depot",
   "BIET": "Madavara", 
   "JIDL": "Chikkabidarakallu", 
   "MNJN": "Manjunathanagar", 
+  "PNYD": "Peenya Depot",
   "NGSA": "Nagasandra",
   "DSH": "Dasarahalli", 
   "JLHL": "Jalahalli", 

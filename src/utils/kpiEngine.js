@@ -2,10 +2,19 @@
 
 // Station Order along Line-2 (Green Line) - all passenger stations and buffers in order of chainage
 export const STATION_ORDER = [
-  "BIET_BE", "BIET", "JIDL", "MNJN", "NGSA_PT", "NGSA_BE", "NGSA", "DSH", "JLHL", "PYID", "PEYA", "YPI", "YPM",
+  "BIET_BE", "BIET", "JIDL", "MNJN", "PNYD", "NGSA_PT", "NGSA_BE", "NGSA", "DSH", "JLHL", "PYID", "PEYA", "YPI", "YPM",
   "SSFY", "MHLI", "MHLI_PT", "RJNR", "KVPR", "SPRU", "SPGD", "KGWA", "CKPE", "KRMT", "NLC", "NLC_PT",
   "LBGH", "SECE", "JYN", "RVR", "BSNK", "JPN", "PUTH", "PUTH_BE", "APRC", "KLPK", "VJRH",
-  "TGTP", "APTS", "APTS_BE"
+  "TGTP", "APTS", "APTD", "APTS_BE"
+];
+
+// Official ALSTOM IATS / ATS System View Canonical Station Sequence (South APTD -> North BIET)
+export const ATS_STATION_SEQUENCE = [
+  "APTD", "APTS", "TGTP", "VJRH", "KLPK", "APRC", "PUTH", "JPN",
+  "BSNK", "RVR", "JYN", "SECE", "LBGH", "NLC", "KRMT", "CKPE",
+  "KGWA", "SPGD", "SPRU", "KVPR", "RJNR", "MHLI", "SSFY", "YPM",
+  "YPI", "PEYA", "PYID", "JLHL", "DSH", "NGSA", "PNYD", "MNJN",
+  "JIDL", "BIET"
 ];
 
 // Station Chainage Master values (Distance in KM from YPM)
@@ -15,6 +24,7 @@ export const STATION_CHAINAGE = {
   "JIDL": -7.504,
   "JDHL": -7.504, // Alias to support both references
   "MNJN": -6.753,
+  "PNYD": -6.500, // Peenya Depot transfer connection (Alstom IATS code)
   "NGSA_PT": -6.528,
   "NGSA_BE": -6.500,
   "NGSA": -6.088,
@@ -49,6 +59,7 @@ export const STATION_CHAINAGE = {
   "VJRH": 21.395,
   "TGTP": 22.395,
   "APTS": 23.833,
+  "APTD": 24.170, // Anjanapura Depot (Alstom IATS code)
   "APTS_BE": 24.170,
   "DEPOT": -1.720
 };
