@@ -1,0 +1,7 @@
+{
+  "functionUrl": "https://asia-south1-pyidline2crew-41022.cloudfunctions.net/syncRosterFromAgent",
+  "agentToken": "PASTE_THE_SAME_SECRET_USED_IN_FIREBASE",
+  "rosterRoot": "E:\\1) Rosters",
+  "pollSeconds": 60,
+  "agentId": "PYIDCC-GCC-01"
+}
