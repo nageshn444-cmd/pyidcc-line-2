@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { PREDEFINED_TRIPS } from '../../data/kmcalc/masterStations';
 import { PRELOADED_DUTIES } from '../../data/kmcalc/preloadedDuties';
-import { calculateDistance, parseCSVToDuties, enhanceRosterDuties } from '../../utils/kmCalculator';
+import { calculateDistance, parseCSVToDuties, enhanceRosterDuties, calculateKmConfidence } from '../../utils/kmCalculator';
 import { 
   Plus, 
   Trash2, 
@@ -111,6 +111,7 @@ export default function RouteCalculator({
   const fileInputRef = useRef(null);
 
   const [isCleared, setIsCleared] = useState(false);
+  const [rosterViewMode, setRosterViewMode] = useState('table'); // 'table' | 'cards' | 'chart' | 'export'
 
   // Track Map Responsive View Engine States (Mobile / Laptop)
   const [trackViewMode, setTrackViewMode] = useState('FIT'); // 'FIT' | 'SCROLL'
@@ -153,6 +154,18 @@ export default function RouteCalculator({
       fileInputRef.current.value = '';
     }
     if (externalSetDuties) externalSetDuties([]);
+  };
+
+  const handleBatchRecalculate = () => {
+    if (!savedUpload) return;
+    const hasOverrides = Object.keys(manualOverrides).length > 0;
+    if (hasOverrides) {
+      if (!window.confirm('This will clear all manual KM overrides and re-run full WTT calculation for all duties. Proceed?')) return;
+      setManualOverrides({});
+      try { localStorage.removeItem('bmrcl_link_roster_manual_overrides'); } catch(e) {}
+    }
+    // Force activeDuties recompute by touching savedUpload identity
+    setSavedUpload(prev => prev ? { ...prev, _recalcAt: Date.now() } : null);
   };
 
   const handleLoadSampleRoster = () => {
@@ -290,6 +303,43 @@ export default function RouteCalculator({
       };
     });
   }, [savedUpload, timetableSchedule, manualOverrides]);
+
+  // Filtered duties (search applied)
+  const filteredActiveDuties = React.useMemo(() => {
+    if (!activeDuties.length) return [];
+    if (!rosterSearch) return activeDuties;
+    const q = rosterSearch.toLowerCase();
+    return activeDuties.filter(d =>
+      String(d.dutyNo).toLowerCase().includes(q) ||
+      String(d.signOnLocation || '').toLowerCase().includes(q) ||
+      String(d.dutyType || '').toLowerCase().includes(q) ||
+      (d.trips || []).some(t => String(t.trainNo || '').toLowerCase().includes(q))
+    );
+  }, [activeDuties, rosterSearch]);
+
+  // Aggregate roster analytics
+  const rosterStats = React.useMemo(() => {
+    if (!activeDuties.length) return null;
+    const totalKm = activeDuties.reduce((sum, d) => sum + (d.kms || 0), 0);
+    const validatedCount = activeDuties.filter(d => d.validationResult === 'VALIDATED').length;
+    const manualReviewCount = activeDuties.filter(d => d.validationResult === 'MANUAL REVIEW').length;
+    const nonRunningCount = activeDuties.filter(d => (d.kms || 0) === 0).length;
+    const nightDutyCount = activeDuties.filter(d => d.isNight).length;
+    const sorted = [...activeDuties].filter(d => (d.kms || 0) > 0).sort((a, b) => b.kms - a.kms);
+    return {
+      totalDuties: activeDuties.length,
+      totalKm: parseFloat(totalKm.toFixed(1)),
+      avgKm: activeDuties.length > 0 ? parseFloat((totalKm / activeDuties.length).toFixed(1)) : 0,
+      validatedCount,
+      manualReviewCount,
+      nonRunningCount,
+      nightDutyCount,
+      maxKmDuty: sorted[0] || null,
+      minKmDuty: sorted[sorted.length - 1] || null,
+      validatedPct: Math.round((validatedCount / activeDuties.length) * 100),
+      manualPct: Math.round((manualReviewCount / activeDuties.length) * 100),
+    };
+  }, [activeDuties]);
 
   const handleScheduleChange = (newSched) => {
     setTimetableSchedule(newSched);
@@ -736,24 +786,98 @@ export default function RouteCalculator({
   };
 
   const handleExportRosterExcel = () => {
-    const exportData = activeDuties.map(d => ({
-      "Duty No": d.dutyNo,
-      "Sign On Time": d.sOnTime,
-      "Sign On Location": d.signOnLocation,
-      "Leg 1 KM": d.trips?.[0]?.calculatedKms || 0,
-      "Leg 2 KM": d.trips?.[1]?.calculatedKms || 0,
-      "Leg 3 KM": d.trips?.[2]?.calculatedKms || 0,
-      "Leg 4 KM": d.trips?.[3]?.calculatedKms || 0,
-      "Total Duty KM": d.kms || 0,
-      "Sign Off Time": d.sOffTime,
-      "Sign Off Location": d.signOffLocation,
-      "Duty Type": d.dutyType || 'Standard'
+    if (!activeDuties || activeDuties.length === 0) return;
+
+    const getPath = (t) => {
+      if (!t) return '--';
+      return t.customPathStr ||
+        (t.intermediateStations?.length > 0
+          ? t.intermediateStations.join(' → ')
+          : (t.boardingStation
+              ? `${t.boardingStation} → ${t.alightingStation}`
+              : (t.takeoverLocation ? `${t.takeoverLocation} → ${t.handoverLocation}` : '--')));
+    };
+
+    // Sheet 1: Duty Summary
+    const sheet1Data = activeDuties.map(d => ({
+      'Duty No': d.dutyNo,
+      'Sign On Time': d.sOnTime || '--',
+      'Sign On Location': d.signOnLocation || '--',
+      'Sign Off Time': d.sOffTime || '--',
+      'Sign Off Location': d.signOffLocation || '--',
+      'Leg 1 Route': getPath(d.trips?.[0]),
+      'Leg 1 KM': d.trips?.[0]?.calculatedKms || 0,
+      'Leg 2 Route': getPath(d.trips?.[1]),
+      'Leg 2 KM': d.trips?.[1]?.calculatedKms || 0,
+      'Leg 3 Route': getPath(d.trips?.[2]),
+      'Leg 3 KM': d.trips?.[2]?.calculatedKms || 0,
+      'Leg 4 Route': getPath(d.trips?.[3]),
+      'Leg 4 KM': d.trips?.[3]?.calculatedKms || 0,
+      'Night KM': d.nightKms || 0,
+      'Morn KM': d.mornKms || 0,
+      'Total KM': d.kms || 0,
+      'Validation': d.validationResult || '--',
+      'KM Confidence': calculateKmConfidence(d),
+      'Night Duty': d.isNight ? 'YES' : 'NO',
+      'Manually Edited': d.isManuallyEdited ? 'YES' : 'NO',
+      'Duty Type': d.dutyType || 'Standard',
     }));
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
+    // Sheet 2: Trip Detail Audit (per-leg, per-duty)
+    const sheet2Data = [];
+    activeDuties.forEach(d => {
+      (d.trips || []).forEach((t, tIdx) => {
+        sheet2Data.push({
+          'Duty No': d.dutyNo,
+          'Leg No': tIdx + 1,
+          'Train No': t.trainNo || '--',
+          'Boarding Station': t.takeoverLocation || '--',
+          'Boarding Time': t.timeFrm || '--',
+          'Alighting Station': t.handoverLocation || '--',
+          'Alighting Time': t.timeTo || '--',
+          'Calculated KM': t.calculatedKms || 0,
+          'WTT Match Depth': t.wttMatchDepth || '--',
+          'Match Source': t.matchSource || '--',
+          'Status': t.status || '--',
+          'Direction': t.direction || '--',
+          'Short Loop': t.isShortLoop ? 'YES' : 'NO',
+          'DN Line': t.isDnLine ? 'YES' : 'NO',
+          'Counselling': t.isCounselling ? 'YES' : 'NO',
+          'Segment Count': (t.segments || []).length,
+          'Intermediate Path': (t.intermediateStations || []).join(' → ') || '--',
+        });
+      });
+    });
+
+    // Sheet 3: KM Statistics Summary
+    const sheet3Data = [];
+    if (rosterStats) {
+      sheet3Data.push(
+        { 'Metric': 'Total Duties', 'Value': rosterStats.totalDuties },
+        { 'Metric': 'Total KM (Roster)', 'Value': rosterStats.totalKm },
+        { 'Metric': 'Average KM / Duty', 'Value': rosterStats.avgKm },
+        { 'Metric': 'Validated Duties', 'Value': rosterStats.validatedCount },
+        { 'Metric': 'Validated %', 'Value': `${rosterStats.validatedPct}%` },
+        { 'Metric': 'Manual Review Duties', 'Value': rosterStats.manualReviewCount },
+        { 'Metric': 'Manual Review %', 'Value': `${rosterStats.manualPct}%` },
+        { 'Metric': 'Non-Running Duties', 'Value': rosterStats.nonRunningCount },
+        { 'Metric': 'Night/Changeover Duties', 'Value': rosterStats.nightDutyCount },
+        { 'Metric': 'Max KM Duty', 'Value': rosterStats.maxKmDuty ? `Duty #${rosterStats.maxKmDuty.dutyNo} (${rosterStats.maxKmDuty.kms} KM)` : '--' },
+        { 'Metric': 'Min KM Duty (Non-Zero)', 'Value': rosterStats.minKmDuty ? `Duty #${rosterStats.minKmDuty.dutyNo} (${rosterStats.minKmDuty.kms} KM)` : '--' },
+        { 'Metric': 'Timetable Schedule', 'Value': timetableSchedule },
+        { 'Metric': 'Roster File', 'Value': savedUpload?.fileName || '--' },
+        { 'Metric': 'Export Date', 'Value': new Date().toISOString().split('T')[0] },
+      );
+    }
+
+    const ws1 = XLSX.utils.json_to_sheet(sheet1Data);
+    const ws2 = XLSX.utils.json_to_sheet(sheet2Data);
+    const ws3 = XLSX.utils.json_to_sheet(sheet3Data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Link Roster Leg KM");
-    XLSX.writeFile(wb, `BMRCL_Link_Roster_Leg_KM_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws1, 'Duty Summary');
+    XLSX.utils.book_append_sheet(wb, ws2, 'Trip Detail Audit');
+    XLSX.utils.book_append_sheet(wb, ws3, 'KM Statistics');
+    XLSX.writeFile(wb, `BMRCL_Link_Roster_KM_${timetableSchedule}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   const handleResetPreloadedDuties = () => {
@@ -805,8 +929,10 @@ export default function RouteCalculator({
     const to = selectedSequence[i + 1];
     if (from && to) {
       const dist = calculateDistance(from, to);
-      const fromStn = stations.find(s => s.code === from);
-      const toStn = stations.find(s => s.code === to);
+      const effectiveFrom = from === 'BIET' ? 'BIET_BE' : from === 'APTS' ? 'APTS_BE' : from;
+      const effectiveTo = to === 'BIET' ? 'BIET_BE' : to === 'APTS' ? 'APTS_BE' : to;
+      const fromStn = stations.find(s => s.code === effectiveFrom) || stations.find(s => s.code === from);
+      const toStn = stations.find(s => s.code === effectiveTo) || stations.find(s => s.code === to);
       
       let direction = 'Stationary';
       if (fromStn && toStn) {
@@ -817,7 +943,7 @@ export default function RouteCalculator({
         }
       }
 
-      segments.push({ from, to, distance: dist, direction });
+      segments.push({ from, to, distance: dist, direction, effectiveFrom, effectiveTo });
       totalDistance += dist;
     }
   }
@@ -870,49 +996,41 @@ export default function RouteCalculator({
 
       {activeTab === 'rosterCalc' ? (
         <div className="space-y-3.5" id="roster-upload-calculator-panel">
-          {/* Header Controls & Upload Card matching pyidline2crew-41022.web.app */}
+
+          {/* ────── UPLOAD CONTROL CARD ────── */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-md space-y-4">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-slate-800 pb-3">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-emerald-950 border border-emerald-700/80 rounded-lg text-emerald-400 font-extrabold font-mono text-sm tracking-wider shadow-sm">
-                  KM
-                </div>
+                <div className="p-2.5 bg-emerald-950 border border-emerald-700/80 rounded-lg text-emerald-400 font-extrabold font-mono text-sm tracking-wider shadow-sm">KM</div>
                 <div>
-                  <h3 className="text-xs font-extrabold text-slate-100 uppercase tracking-wider font-mono">
-                    LINK ROSTER LEG KILOMETER CALCULATOR
-                  </h3>
-                  <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                    Upload a Weekday/Monday/Sunday Link Roster Excel file to calculate Leg 1-4 and Total Kilometer summaries.
-                  </p>
+                  <h3 className="text-xs font-extrabold text-slate-100 uppercase tracking-wider font-mono">LINK ROSTER LEG KILOMETER CALCULATOR</h3>
+                  <p className="text-[10px] text-slate-400 font-mono mt-0.5">Upload a Weekday/Monday/Sunday Link Roster Excel file to calculate Leg 1–4 and Total Kilometer summaries with WTT timetable matching.</p>
                 </div>
               </div>
-
-              {/* Timetable Selector & Export Control */}
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded px-2.5 py-1">
                   <span className="text-[9px] font-bold font-mono text-slate-400 uppercase tracking-wider">TIMETABLE:</span>
-                  <select
-                    value={timetableSchedule}
-                    onChange={e => handleScheduleChange(e.target.value)}
-                    className="bg-transparent text-emerald-400 font-bold text-[10px] font-mono focus:outline-none cursor-pointer"
-                  >
+                  <select value={timetableSchedule} onChange={e => handleScheduleChange(e.target.value)} className="bg-transparent text-emerald-400 font-bold text-[10px] font-mono focus:outline-none cursor-pointer">
                     <option value="WEEKDAY" className="bg-slate-900 text-slate-200">Weekday WTT</option>
                     <option value="MONDAY" className="bg-slate-900 text-slate-200">Monday WTT</option>
                     <option value="SATURDAY" className="bg-slate-900 text-slate-200">Saturday WTT</option>
                     <option value="SUNDAY" className="bg-slate-900 text-slate-200">Sunday WTT</option>
                   </select>
                 </div>
-                <button
-                  onClick={handleExportRosterExcel}
-                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-mono font-bold flex items-center gap-1.5 shadow-sm transition-colors uppercase tracking-wider"
-                >
+                {savedUpload && (
+                  <button onClick={handleBatchRecalculate} className="px-3 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded text-[10px] font-mono font-bold flex items-center gap-1.5 transition-colors uppercase tracking-wider">
+                    <RotateCcw className="w-3 h-3 text-emerald-400" />
+                    Re-Calculate All
+                  </button>
+                )}
+                <button onClick={handleExportRosterExcel} className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-mono font-bold flex items-center gap-1.5 shadow-sm transition-colors uppercase tracking-wider">
                   <Download className="w-3.5 h-3.5" />
                   DOWNLOAD EXCEL REPORT
                 </button>
               </div>
             </div>
 
-            {/* Active Uploaded Roster Notification Banner */}
+            {/* Active Roster Banner */}
             {savedUpload && (
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-emerald-950/70 border border-emerald-700/80 rounded-xl p-3.5 gap-3 shadow-md font-mono">
                 <div className="flex items-center gap-3">
@@ -922,121 +1040,134 @@ export default function RouteCalculator({
                   <div>
                     <div className="text-[10px] font-bold uppercase text-emerald-400 tracking-wider flex items-center gap-2">
                       <span>Uploaded Link Roster Saved & Active</span>
-                      <span className="text-[9px] bg-emerald-900 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-700 font-mono">
-                        {savedUpload.dayType}
-                      </span>
+                      <span className="text-[9px] bg-emerald-900 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-700 font-mono">{savedUpload.dayType}</span>
                     </div>
                     <div className="text-xs font-bold text-slate-100 flex items-center gap-2 mt-0.5">
                       <span>{savedUpload.fileName}</span>
-                      <span className="text-[10px] text-emerald-300 font-normal">({activeDuties.length} Duties Saved)</span>
+                      <span className="text-[10px] text-emerald-300 font-normal">({activeDuties.length} Duties Active)</span>
                     </div>
                   </div>
                 </div>
-
                 <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 rounded text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors w-full sm:w-auto"
-                  >
+                  <button onClick={() => fileInputRef.current?.click()} className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 rounded text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors w-full sm:w-auto">
                     <Upload className="w-3.5 h-3.5 text-emerald-400" />
                     Upload Different Roster
                   </button>
-                  <button
-                    onClick={handleClearUploadedRoster}
-                    id="btn-clear-uploaded-link-roster-banner"
-                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm w-full sm:w-auto"
-                    title="Clear uploaded roster file and reset calculations"
-                  >
+                  <button onClick={handleClearUploadedRoster} id="btn-clear-uploaded-link-roster-banner" className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm w-full sm:w-auto" title="Clear uploaded roster file and reset calculations">
                     <Trash2 className="w-3.5 h-3.5" />
-                    Clear Uploaded Link Roster
+                    Clear Roster
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Dotted Drag & Drop Box matching pyidline2crew-41022.web.app */}
-            <div 
+            {/* Drop Zone */}
+            <div
               onClick={() => fileInputRef.current?.click()}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`border-2 border-dashed rounded-xl p-8 text-center flex flex-col items-center justify-center cursor-pointer transition-all ${
-                isDragging 
-                  ? 'border-emerald-500 bg-emerald-500/10' 
-                  : 'border-slate-800 hover:border-emerald-500/50 bg-slate-950/40 hover:bg-slate-950/70'
-              }`}
+              className={`border-2 border-dashed rounded-xl p-8 text-center flex flex-col items-center justify-center cursor-pointer transition-all ${isDragging ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-800 hover:border-emerald-500/50 bg-slate-950/40 hover:bg-slate-950/70'}`}
             >
-              <input 
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileUpload}
-                accept=".csv,.xlsx,.xls"
-                className="hidden"
-                id="roster-file-input"
-              />
+              <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv,.xlsx,.xls" className="hidden" id="roster-file-input" />
               <UploadCloud className="w-10 h-10 text-emerald-400 mb-2 animate-pulse" />
               <h4 className="text-xs font-bold text-slate-200 font-mono tracking-tight">
                 {savedUpload ? `Click or drop to replace current Link Roster (${savedUpload.fileName})` : `Drag & Drop your Link Roster excel sheet, or click to browse`}
               </h4>
-              <p className="text-[10px] text-slate-500 font-mono mt-1">
-                Supports standard WEEKDAY, Monday/Wednesday/Sunday Link Roster layout (.xlsx)
-              </p>
+              <p className="text-[10px] text-slate-500 font-mono mt-1">Supports standard WEEKDAY, Monday/Wednesday/Sunday Link Roster layout (.xlsx)</p>
             </div>
           </div>
 
-          {/* Table Container Header matching pyidline2crew-41022.web.app */}
-          <div className="bg-slate-900 border border-slate-800 rounded p-4 shadow-md space-y-3">
-              <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-800">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xs font-extrabold text-slate-200 uppercase tracking-wider font-mono">
-                    CALCULATED LINK DUTIES
-                  </h3>
-                  <span className="text-[9px] font-bold font-mono px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800 rounded uppercase">
-                    {activeDuties.length} DUTIES
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <div className="relative w-64">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-slate-400">
-                      <Search className="w-3 h-3" />
-                    </span>
-                    <input
-                      type="text"
-                      value={rosterSearch}
-                      onChange={e => setRosterSearch(e.target.value)}
-                      placeholder="Search duty number..."
-                      className="w-full pl-7 pr-2 py-1 bg-slate-950 border border-slate-800 rounded text-slate-200 text-[10px] font-mono focus:outline-none focus:border-emerald-500"
-                    />
+          {/* ────── ROSTER STATS TELEMETRY BAR ────── */}
+          {activeDuties.length > 0 && rosterStats && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+              {[
+                { label: 'Total Duties', value: rosterStats.totalDuties, color: 'text-slate-100', unit: '' },
+                { label: 'Total KM', value: rosterStats.totalKm, color: 'text-emerald-400', unit: ' KM' },
+                { label: 'Avg KM / Duty', value: rosterStats.avgKm, color: 'text-cyan-400', unit: ' KM' },
+                { label: 'WTT Validated', value: `${rosterStats.validatedPct}%`, color: 'text-emerald-300', unit: ` (${rosterStats.validatedCount})` },
+                { label: 'Manual Review', value: `${rosterStats.manualPct}%`, color: 'text-amber-400', unit: ` (${rosterStats.manualReviewCount})` },
+                { label: 'Night Duties', value: rosterStats.nightDutyCount, color: 'text-indigo-400', unit: '' },
+                { label: 'Max KM Duty', value: rosterStats.maxKmDuty ? `#${rosterStats.maxKmDuty.dutyNo}` : '--', color: 'text-rose-400', unit: rosterStats.maxKmDuty ? ` ${rosterStats.maxKmDuty.kms}km` : '' },
+                { label: 'Min KM Duty', value: rosterStats.minKmDuty ? `#${rosterStats.minKmDuty.dutyNo}` : '--', color: 'text-slate-400', unit: rosterStats.minKmDuty ? ` ${rosterStats.minKmDuty.kms}km` : '' },
+              ].map((stat, i) => (
+                <div key={i} className="bg-slate-900 border border-slate-800 rounded-lg p-3 flex flex-col gap-0.5">
+                  <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider">{stat.label}</span>
+                  <div className="flex items-baseline gap-0.5 flex-wrap">
+                    <span className={`text-sm font-black font-mono ${stat.color}`}>{stat.value}</span>
+                    {stat.unit && <span className="text-[9px] text-slate-500 font-mono">{stat.unit}</span>}
                   </div>
-                  {activeDuties.length > 0 && (
-                    <button
-                      onClick={handleClearUploadedRoster}
-                      className="px-2.5 py-1 bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 hover:text-rose-200 rounded text-[10px] font-bold font-mono transition-colors flex items-center gap-1 shrink-0 uppercase"
-                      title="Clear all calculated data and start fresh for next uploaded roster"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      Clear Data
-                    </button>
-                  )}
                 </div>
+              ))}
+            </div>
+          )}
+
+          {/* ────── MAIN ANALYSIS PANEL ────── */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-md space-y-3">
+
+            {/* Panel Header with View Mode Switcher */}
+            <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-extrabold text-slate-200 uppercase tracking-wider font-mono">CALCULATED LINK DUTIES</h3>
+                <span className="text-[9px] font-bold font-mono px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800 rounded uppercase">{activeDuties.length} DUTIES</span>
+                {rosterStats && rosterStats.validatedPct > 0 && (
+                  <span className="hidden lg:inline text-[9px] font-mono text-slate-400">
+                    <span className="text-emerald-300 font-bold">{rosterStats.validatedPct}%</span> WTT-Matched
+                  </span>
+                )}
               </div>
 
-              {/* Table Grid matching pyidline2crew-41022.web.app columns */}
-              <div className="overflow-x-auto border border-slate-850 rounded custom-scrollbar">
+              {/* View Mode Switcher */}
+              <div className="flex items-center gap-0.5 bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-[9px] font-mono font-bold">
+                {[
+                  { id: 'table', label: '⊞ Table' },
+                  { id: 'cards', label: '⊟ Cards' },
+                  { id: 'chart', label: '▦ Chart' },
+                  { id: 'export', label: '↓ Export Preview' },
+                ].map(v => (
+                  <button
+                    key={v.id}
+                    onClick={() => setRosterViewMode(v.id)}
+                    className={`px-2.5 py-1 rounded transition-all uppercase tracking-wider whitespace-nowrap ${rosterViewMode === v.id ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                  >
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Search + Clear */}
+              <div className="flex items-center gap-2">
+                <div className="relative w-48">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-slate-400">
+                    <Search className="w-3 h-3" />
+                  </span>
+                  <input type="text" value={rosterSearch} onChange={e => setRosterSearch(e.target.value)} placeholder="Search duty number..." className="w-full pl-7 pr-2 py-1 bg-slate-950 border border-slate-800 rounded text-slate-200 text-[10px] font-mono focus:outline-none focus:border-emerald-500" />
+                </div>
+                {activeDuties.length > 0 && (
+                  <button onClick={handleClearUploadedRoster} className="px-2.5 py-1 bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 hover:text-rose-200 rounded text-[10px] font-bold font-mono transition-colors flex items-center gap-1 shrink-0 uppercase">
+                    <Trash2 className="w-3 h-3" />
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* ───── TABLE VIEW ───── */}
+            {rosterViewMode === 'table' && (
+              <div className="overflow-auto max-h-[700px] border border-slate-800/50 rounded custom-scrollbar">
                 <table className="w-full text-left text-[10px] border-collapse font-mono">
-                  <thead className="bg-slate-950 text-slate-400 uppercase tracking-wider text-[9px]">
+                  <thead className="sticky top-0 z-10 bg-slate-950 text-slate-400 uppercase tracking-wider text-[9px] shadow-sm">
                     <tr>
-                      <th className="px-3 py-2 border-b border-slate-800 w-16 text-center">DUTY #</th>
+                      <th className="px-3 py-2 border-b border-slate-800 w-20 text-center">DUTY #</th>
                       <th className="px-3 py-2 border-b border-slate-800">LEG 1 ROUTE (KM)</th>
                       <th className="px-3 py-2 border-b border-slate-800">LEG 2 ROUTE (KM)</th>
                       <th className="px-3 py-2 border-b border-slate-800">LEG 3 ROUTE (KM)</th>
                       <th className="px-3 py-2 border-b border-slate-800">LEG 4 ROUTE (KM)</th>
-                      <th className="px-3 py-2 border-b border-slate-800 text-right text-emerald-400 font-bold w-24">TOTAL KM</th>
-                      <th className="px-3 py-2 border-b border-slate-800 text-center w-24">ACTIONS</th>
+                      <th className="px-3 py-2 border-b border-slate-800 text-emerald-400 w-28">TOTAL KM</th>
+                      <th className="px-3 py-2 border-b border-slate-800 text-center w-28">STATUS / EDIT</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-850">
+                  <tbody className="divide-y divide-slate-800/40">
                     {activeDuties.length === 0 ? (
                       <tr>
                         <td colSpan="7" className="py-12 text-center">
@@ -1045,25 +1176,15 @@ export default function RouteCalculator({
                               <FileSpreadsheet className="w-8 h-8 text-emerald-500" />
                             </div>
                             <div>
-                              <h4 className="text-xs font-bold text-slate-200 font-mono uppercase tracking-wider">
-                                NO LINK ROSTER UPLOADED
-                              </h4>
-                              <p className="text-[10px] text-slate-400 font-mono mt-1 max-w-md mx-auto">
-                                Upload a Weekday/Monday/Sunday Link Roster Excel file to calculate Leg 1-4 and Total Kilometer summaries.
-                              </p>
+                              <h4 className="text-xs font-bold text-slate-200 font-mono uppercase tracking-wider">NO LINK ROSTER UPLOADED</h4>
+                              <p className="text-[10px] text-slate-400 font-mono mt-1 max-w-md mx-auto">Upload a Weekday/Monday/Sunday Link Roster Excel file to calculate Leg 1-4 and Total Kilometer summaries.</p>
                             </div>
                             <div className="flex items-center gap-3 pt-2">
-                              <button
-                                onClick={() => fileInputRef.current?.click()}
-                                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-mono font-bold flex items-center gap-2 transition-colors shadow-md uppercase tracking-wider"
-                              >
+                              <button onClick={() => fileInputRef.current?.click()} className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-mono font-bold flex items-center gap-2 transition-colors shadow-md uppercase tracking-wider">
                                 <Upload className="w-4 h-4" />
                                 Upload Link Roster Excel
                               </button>
-                              <button
-                                onClick={handleLoadSampleRoster}
-                                className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs font-mono font-semibold flex items-center gap-2 transition-colors border border-slate-700"
-                              >
+                              <button onClick={handleLoadSampleRoster} className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs font-mono font-semibold flex items-center gap-2 transition-colors border border-slate-700">
                                 Load Benchmark Link Roster
                               </button>
                             </div>
@@ -1071,45 +1192,45 @@ export default function RouteCalculator({
                         </td>
                       </tr>
                     ) : (
-                    activeDuties
-                      .filter(d => {
-                        if (!rosterSearch) return true;
-                        const q = rosterSearch.toLowerCase();
-                        return (
-                          String(d.dutyNo).toLowerCase().includes(q) ||
-                          String(d.signOnLocation).toLowerCase().includes(q) ||
-                          String(d.dutyType || '').toLowerCase().includes(q) ||
-                          (d.trips || []).some(t => String(t.trainNo || '').toLowerCase().includes(q))
-                        );
-                      })
-                      .map((duty, idx) => {
+                      filteredActiveDuties.map((duty, idx) => {
                         const isExpanded = expandedDutyNo === duty.dutyNo;
                         const isEditing = editingDutyNo === duty.dutyNo;
                         const leg1 = duty.trips?.[0];
                         const leg2 = duty.trips?.[1];
                         const leg3 = duty.trips?.[2];
                         const leg4 = duty.trips?.[3];
+                        const confidence = calculateKmConfidence(duty);
+                        const confColor = confidence === 'HIGH' ? 'text-emerald-400 bg-emerald-950 border-emerald-800' : confidence === 'MED' ? 'text-amber-400 bg-amber-950/40 border-amber-800' : 'text-rose-400 bg-rose-950/30 border-rose-800';
+                        const valColor = duty.validationResult === 'VALIDATED' ? 'text-emerald-400' : duty.validationResult === 'MANUAL REVIEW' ? 'text-amber-400' : 'text-slate-500';
+                        const maxLegKm = Math.max(leg1?.calculatedKms || 0, leg2?.calculatedKms || 0, leg3?.calculatedKms || 0, leg4?.calculatedKms || 0, 1);
 
-                        const formatRouteKmCell = (trip, legNum) => {
+                        const formatRouteKmCell = (trip) => {
                           if (!trip || trip.isCounselling || (trip.calculatedKms === 0 && !trip.boardingStation && !trip.customPathStr)) {
-                            return <span className="text-slate-500 font-mono">-- (0 KM)</span>;
+                            return <span className="text-slate-600 font-mono">-- (0 KM)</span>;
                           }
                           const kms = trip.calculatedKms || 0;
-                          let pathStr = trip.customPathStr || "";
+                          let pathStr = trip.customPathStr || '';
                           if (!pathStr) {
                             if (trip.intermediateStations && trip.intermediateStations.length > 0) {
-                              pathStr = trip.intermediateStations.join(" → ");
+                              pathStr = trip.intermediateStations.join(' → ');
                             } else if (trip.boardingStation && trip.alightingStation) {
                               pathStr = `${trip.boardingStation} → ${trip.alightingStation}`;
                             } else {
                               pathStr = `${trip.takeoverLocation || 'PYID'} → ${trip.handoverLocation || 'PYID'}`;
                             }
                           }
-
+                          const barPct = kms > 0 ? Math.max(5, Math.min(100, (kms / maxLegKm) * 100)) : 0;
                           return (
-                            <div className="text-[10px] font-mono leading-relaxed truncate max-w-xs" title={`${pathStr} (${kms} KM)`}>
-                              <span className="text-slate-300">{pathStr}</span>{' '}
-                              <span className="text-cyan-400 font-bold">({kms} KM)</span>
+                            <div className="space-y-0.5">
+                              <div className="text-[10px] font-mono leading-relaxed truncate max-w-xs" title={`${pathStr} (${kms} KM)`}>
+                                <span className="text-slate-300">{pathStr}</span>{' '}
+                                <span className="text-cyan-400 font-bold">({kms} KM)</span>
+                              </div>
+                              {kms > 0 && (
+                                <div className="h-0.5 rounded-full bg-slate-800 overflow-hidden">
+                                  <div className="h-full bg-gradient-to-r from-emerald-500/70 to-cyan-500/70 rounded-full" style={{ width: `${barPct}%` }} />
+                                </div>
+                              )}
                             </div>
                           );
                         };
@@ -1117,120 +1238,41 @@ export default function RouteCalculator({
                         if (isEditing) {
                           return (
                             <tr key={duty.id || `edit-duty-${duty.dutyNo}`} className="bg-emerald-950/40 border-l-4 border-emerald-500">
-                              <td className="px-2 py-2 text-center text-slate-100 font-bold border-r border-slate-850">
-                                {duty.dutyNo}
-                              </td>
-                              {/* Leg 1 Edit Inputs */}
-                              <td className="px-2 py-1.5 border-r border-slate-850">
+                              <td className="px-2 py-2 text-center text-slate-100 font-bold border-r border-slate-800">{duty.dutyNo}</td>
+                              <td className="px-2 py-1.5 border-r border-slate-800">
                                 <div className="space-y-1 font-mono">
-                                  <input
-                                    type="text"
-                                    value={editFormData.leg1Path || ''}
-                                    onChange={e => setEditFormData({ ...editFormData, leg1Path: e.target.value })}
-                                    placeholder="e.g. KGWA → PYID"
-                                    className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200"
-                                  />
-                                  <div className="flex items-center justify-between text-[9px]">
-                                    <span className="text-slate-400">Leg 1 KM:</span>
-                                    <input
-                                      type="number"
-                                      value={editFormData.leg1Km}
-                                      onChange={e => setEditFormData({ ...editFormData, leg1Km: e.target.value })}
-                                      className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right"
-                                    />
-                                  </div>
+                                  <input type="text" value={editFormData.leg1Path || ''} onChange={e => setEditFormData({ ...editFormData, leg1Path: e.target.value })} placeholder="e.g. KGWA → PYID" className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200" />
+                                  <div className="flex items-center justify-between text-[9px]"><span className="text-slate-400">Leg 1 KM:</span><input type="number" value={editFormData.leg1Km} onChange={e => setEditFormData({ ...editFormData, leg1Km: e.target.value })} className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right" /></div>
                                 </div>
                               </td>
-                              {/* Leg 2 Edit Inputs */}
-                              <td className="px-2 py-1.5 border-r border-slate-850">
+                              <td className="px-2 py-1.5 border-r border-slate-800">
                                 <div className="space-y-1 font-mono">
-                                  <input
-                                    type="text"
-                                    value={editFormData.leg2Path || ''}
-                                    onChange={e => setEditFormData({ ...editFormData, leg2Path: e.target.value })}
-                                    placeholder="e.g. PYID → BIET"
-                                    className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200"
-                                  />
-                                  <div className="flex items-center justify-between text-[9px]">
-                                    <span className="text-slate-400">Leg 2 KM:</span>
-                                    <input
-                                      type="number"
-                                      value={editFormData.leg2Km}
-                                      onChange={e => setEditFormData({ ...editFormData, leg2Km: e.target.value })}
-                                      className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right"
-                                    />
-                                  </div>
+                                  <input type="text" value={editFormData.leg2Path || ''} onChange={e => setEditFormData({ ...editFormData, leg2Path: e.target.value })} placeholder="e.g. PYID → BIET" className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200" />
+                                  <div className="flex items-center justify-between text-[9px]"><span className="text-slate-400">Leg 2 KM:</span><input type="number" value={editFormData.leg2Km} onChange={e => setEditFormData({ ...editFormData, leg2Km: e.target.value })} className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right" /></div>
                                 </div>
                               </td>
-                              {/* Leg 3 Edit Inputs */}
-                              <td className="px-2 py-1.5 border-r border-slate-850">
+                              <td className="px-2 py-1.5 border-r border-slate-800">
                                 <div className="space-y-1 font-mono">
-                                  <input
-                                    type="text"
-                                    value={editFormData.leg3Path || ''}
-                                    onChange={e => setEditFormData({ ...editFormData, leg3Path: e.target.value })}
-                                    placeholder="e.g. BIET → APTS"
-                                    className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200"
-                                  />
-                                  <div className="flex items-center justify-between text-[9px]">
-                                    <span className="text-slate-400">Leg 3 KM:</span>
-                                    <input
-                                      type="number"
-                                      value={editFormData.leg3Km}
-                                      onChange={e => setEditFormData({ ...editFormData, leg3Km: e.target.value })}
-                                      className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right"
-                                    />
-                                  </div>
+                                  <input type="text" value={editFormData.leg3Path || ''} onChange={e => setEditFormData({ ...editFormData, leg3Path: e.target.value })} placeholder="e.g. BIET → APTS" className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200" />
+                                  <div className="flex items-center justify-between text-[9px]"><span className="text-slate-400">Leg 3 KM:</span><input type="number" value={editFormData.leg3Km} onChange={e => setEditFormData({ ...editFormData, leg3Km: e.target.value })} className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right" /></div>
                                 </div>
                               </td>
-                              {/* Leg 4 Edit Inputs */}
-                              <td className="px-2 py-1.5 border-r border-slate-850">
+                              <td className="px-2 py-1.5 border-r border-slate-800">
                                 <div className="space-y-1 font-mono">
-                                  <input
-                                    type="text"
-                                    value={editFormData.leg4Path || ''}
-                                    onChange={e => setEditFormData({ ...editFormData, leg4Path: e.target.value })}
-                                    placeholder="e.g. --"
-                                    className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200"
-                                  />
-                                  <div className="flex items-center justify-between text-[9px]">
-                                    <span className="text-slate-400">Leg 4 KM:</span>
-                                    <input
-                                      type="number"
-                                      value={editFormData.leg4Km}
-                                      onChange={e => setEditFormData({ ...editFormData, leg4Km: e.target.value })}
-                                      className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right"
-                                    />
-                                  </div>
+                                  <input type="text" value={editFormData.leg4Path || ''} onChange={e => setEditFormData({ ...editFormData, leg4Path: e.target.value })} placeholder="e.g. --" className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200" />
+                                  <div className="flex items-center justify-between text-[9px]"><span className="text-slate-400">Leg 4 KM:</span><input type="number" value={editFormData.leg4Km} onChange={e => setEditFormData({ ...editFormData, leg4Km: e.target.value })} className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right" /></div>
                                 </div>
                               </td>
-                              {/* Total KM Edit Input */}
-                              <td className="px-2 py-1.5 border-r border-slate-850 text-right">
+                              <td className="px-2 py-1.5 border-r border-slate-800 text-right">
                                 <div className="space-y-1 font-mono text-right">
                                   <span className="text-[9px] text-slate-400 block">Total KM:</span>
-                                  <input
-                                    type="number"
-                                    value={editFormData.totalKm}
-                                    onChange={e => setEditFormData({ ...editFormData, totalKm: e.target.value })}
-                                    className="w-20 bg-slate-950 border border-emerald-600 rounded px-1.5 py-1 text-xs text-emerald-400 font-extrabold text-right"
-                                  />
+                                  <input type="number" value={editFormData.totalKm} onChange={e => setEditFormData({ ...editFormData, totalKm: e.target.value })} className="w-20 bg-slate-950 border border-emerald-600 rounded px-1.5 py-1 text-xs text-emerald-400 font-extrabold text-right" />
                                 </div>
                               </td>
-                              {/* Edit Action Buttons */}
                               <td className="px-2 py-2 text-center">
                                 <div className="flex flex-col gap-1">
-                                  <button
-                                    onClick={() => handleSaveEditDuty(duty.dutyNo)}
-                                    className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[9px] font-bold uppercase transition-colors"
-                                  >
-                                    Save
-                                  </button>
-                                  <button
-                                    onClick={() => setEditingDutyNo(null)}
-                                    className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[9px] font-medium transition-colors"
-                                  >
-                                    Cancel
-                                  </button>
+                                  <button onClick={() => handleSaveEditDuty(duty.dutyNo)} className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[9px] font-bold uppercase transition-colors">Save</button>
+                                  <button onClick={() => setEditingDutyNo(null)} className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[9px] font-medium transition-colors">Cancel</button>
                                 </div>
                               </td>
                             </tr>
@@ -1239,160 +1281,311 @@ export default function RouteCalculator({
 
                         return (
                           <React.Fragment key={duty.id || `duty-${duty.dutyNo || 'row'}-${idx}`}>
-                            <tr 
-                              className={`hover:bg-slate-850/60 transition-colors ${isExpanded ? 'bg-slate-950/80' : ''} ${duty.isManuallyEdited ? 'border-l-2 border-amber-400' : ''}`}
-                            >
-                              <td 
-                                onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)}
-                                className="px-3 py-2 text-slate-100 font-bold text-center border-r border-slate-850 cursor-pointer"
-                              >
-                                <div className="flex items-center justify-center gap-1">
-                                  <span>{duty.dutyNo}</span>
-                                  {duty.isManuallyEdited && (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Manually edited duty" />
-                                  )}
+                            <tr className={`hover:bg-slate-800/30 transition-colors ${isExpanded ? 'bg-slate-950/80' : ''} ${duty.isManuallyEdited ? 'border-l-2 border-amber-400' : duty.isNight ? 'border-l-2 border-indigo-500/50' : ''}`}>
+                              <td onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)} className="px-3 py-2 text-slate-100 font-bold text-center border-r border-slate-800 cursor-pointer">
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <div className="flex items-center gap-1">
+                                    <span>{duty.dutyNo}</span>
+                                    {duty.isManuallyEdited && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Manually edited" />}
+                                    {duty.isNight && <span className="text-[9px]" title="Night/Changeover Duty">🌙</span>}
+                                  </div>
+                                  <span className="text-[8px] text-slate-500 font-normal">{duty.sOnTime || '--'}</span>
                                 </div>
                               </td>
-                              <td 
-                                onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)}
-                                className="px-3 py-2 text-slate-300 border-r border-slate-850 cursor-pointer"
-                              >
-                                {formatRouteKmCell(leg1, 1)}
-                              </td>
-                              <td 
-                                onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)}
-                                className="px-3 py-2 text-slate-300 border-r border-slate-850 cursor-pointer"
-                              >
-                                {formatRouteKmCell(leg2, 2)}
-                              </td>
-                              <td 
-                                onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)}
-                                className="px-3 py-2 text-slate-300 border-r border-slate-850 cursor-pointer"
-                              >
-                                {formatRouteKmCell(leg3, 3)}
-                              </td>
-                              <td 
-                                onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)}
-                                className="px-3 py-2 text-slate-300 border-r border-slate-850 cursor-pointer"
-                              >
-                                {formatRouteKmCell(leg4, 4)}
-                              </td>
-                              <td 
-                                onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)}
-                                className="px-3 py-2 text-right text-xs font-black text-emerald-400 cursor-pointer"
-                              >
-                                {duty.kms} KM
+                              <td onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)} className="px-3 py-2 text-slate-300 border-r border-slate-800 cursor-pointer">{formatRouteKmCell(leg1)}</td>
+                              <td onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)} className="px-3 py-2 text-slate-300 border-r border-slate-800 cursor-pointer">{formatRouteKmCell(leg2)}</td>
+                              <td onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)} className="px-3 py-2 text-slate-300 border-r border-slate-800 cursor-pointer">{formatRouteKmCell(leg3)}</td>
+                              <td onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)} className="px-3 py-2 text-slate-300 border-r border-slate-800 cursor-pointer">{formatRouteKmCell(leg4)}</td>
+                              <td onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)} className="px-3 py-2 cursor-pointer">
+                                <div className="flex flex-col items-end gap-0.5">
+                                  <span className="text-xs font-black text-emerald-400">{duty.kms} KM</span>
+                                  <span className={`text-[8px] font-bold px-1.5 rounded border font-mono uppercase ${confColor}`}>{confidence}</span>
+                                </div>
                               </td>
                               <td className="px-2 py-2 text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  <button
-                                    onClick={() => handleStartEditDuty(duty)}
-                                    className="px-2 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-700 text-slate-300 hover:text-emerald-300 rounded text-[9px] font-bold transition-colors uppercase"
-                                    title="Manually edit leg routes and kilometers"
-                                  >
-                                    Edit
-                                  </button>
-                                  {duty.isManuallyEdited && (
-                                    <button
-                                      onClick={() => handleResetDutyOverride(duty.dutyNo)}
-                                      className="px-1.5 py-1 bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 rounded text-[9px] transition-colors"
-                                      title="Reset to WTT calculated values"
-                                    >
-                                      Reset
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-
-                          {/* Expanded Trips / Segments Breakdown */}
-                          {isExpanded && (
-                            <tr className="bg-slate-950/70">
-                              <td colSpan={6} className="p-3 border-t border-slate-850">
-                                <div className="space-y-2">
-                                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono flex items-center justify-between">
-                                    <div className="flex items-center gap-1.5">
-                                      <FileText className="w-3.5 h-3.5 text-emerald-400" />
-                                      Trip Segments Breakdown for Duty {duty.dutyNo}:
-                                    </div>
-                                    {duty.dutyNo === "4" && (
-                                      <span className="text-[9px] text-emerald-400 font-bold bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800">
-                                        Leg 1: Depot → PYID (Rd3) → PUTH BE → PYID (UP) (44 KM)
-                                      </span>
+                                <div className="flex flex-col items-center gap-1">
+                                  <span className={`text-[8px] font-bold uppercase font-mono ${valColor}`}>
+                                    {duty.validationResult === 'VALIDATED' ? '✓ OK' : duty.validationResult === 'MANUAL REVIEW' ? '⚠ REV' : '— NR'}
+                                  </span>
+                                  <div className="flex items-center gap-1">
+                                    <button onClick={() => handleStartEditDuty(duty)} className="px-2 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-700 text-slate-300 hover:text-emerald-300 rounded text-[9px] font-bold transition-colors uppercase">Edit</button>
+                                    {duty.isManuallyEdited && (
+                                      <button onClick={() => handleResetDutyOverride(duty.dutyNo)} className="px-1.5 py-1 bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 rounded text-[9px] transition-colors" title="Reset to WTT values">↺</button>
                                     )}
                                   </div>
-                                  
-                                  {duty.trips && duty.trips.length > 0 ? (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                      {duty.trips.map((trip, tIdx) => {
-                                        const isShort = trip.isShortLoop || trip.isUnderlined;
-                                        const isDn = trip.isDnLine || trip.isBoldedTime;
-                                        const isCouns = trip.isCounselling;
-
-                                        return (
-                                          <div key={tIdx} className="bg-slate-900 border border-slate-800 rounded p-2 text-[10px] font-mono space-y-1">
-                                            <div className="flex justify-between items-center text-slate-200 border-b border-slate-800 pb-1 flex-wrap gap-1">
-                                              <div className="flex items-center gap-1.5">
-                                                <span className={`font-bold ${isShort ? 'underline decoration-emerald-400 decoration-2 text-emerald-300' : 'text-cyan-400'}`}>
-                                                  Trip {tIdx + 1}: Train {trip.trainNo}
-                                                </span>
-                                                {isShort && (
-                                                  <span className="px-1.5 py-0.2 bg-emerald-950 text-emerald-400 border border-emerald-800 rounded text-[8px] uppercase">
-                                                    Short Loop
-                                                  </span>
-                                                )}
-                                                {isCouns && (
-                                                  <span className="px-1.5 py-0.2 bg-slate-800 text-slate-400 border border-slate-700 rounded text-[8px] uppercase">
-                                                    Counselling Excluded (0 KM)
-                                                  </span>
-                                                )}
-                                              </div>
-                                              <span className="text-emerald-400 font-bold">{trip.calculatedKms || 0} KM</span>
-                                            </div>
-                                            <div className="text-slate-400 flex justify-between flex-wrap gap-1">
-                                              <span>
-                                                Board: {trip.takeoverLocation}{' '}
-                                                <span className={isDn ? 'font-black text-amber-300 underline' : ''}>
-                                                  ({trip.timeFrm || '--'})
-                                                </span>
-                                                {isDn && (
-                                                  <span className="ml-1 px-1 py-0.2 bg-amber-950 text-amber-300 border border-amber-800 rounded text-[8px] uppercase">
-                                                    DN Line
-                                                  </span>
-                                                )}
-                                              </span>
-                                              <span>
-                                                Deboard: {trip.handoverLocation}{' '}
-                                                <span className={isDn ? 'font-black text-amber-300 underline' : ''}>
-                                                  ({trip.timeTo || '--'})
-                                                </span>
-                                              </span>
-                                            </div>
-                                            {trip.segments && trip.segments.length > 0 && (
-                                              <div className="text-[9px] text-slate-500 pt-0.5">
-                                                Segments: {trip.segments.map(s => `${s.fromStationCode}→${s.toStationCode} (${s.calculatedKms}km)`).join(', ')}
-                                              </div>
-                                            )}
-                                          </div>
-                                        )
-                                      })}
-                                    </div>
-                                  ) : (
-                                    <div className="text-[10px] text-slate-500 italic">No train trips recorded for this duty (Standby / PRO).</div>
-                                  )}
                                 </div>
                               </td>
                             </tr>
-                          )}
-                        </React.Fragment>
-                      )
-                    })
+
+                            {/* Expanded Trip Detail */}
+                            {isExpanded && (
+                              <tr className="bg-slate-950/70">
+                                <td colSpan={7} className="p-3 border-t border-slate-800">
+                                  <div className="space-y-2">
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono flex items-center justify-between flex-wrap gap-2">
+                                      <div className="flex items-center gap-1.5">
+                                        <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                                        Duty {duty.dutyNo} · {duty.sOnTime || '--'} → {duty.sOffTime || '--'} @ {duty.signOnLocation || 'PYID'}
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <span className={`text-[8px] font-bold px-2 py-0.5 rounded border font-mono uppercase ${confColor}`}>Confidence: {confidence}</span>
+                                        <span className={`text-[8px] font-bold uppercase font-mono ${valColor}`}>{duty.validationResult}</span>
+                                      </div>
+                                    </div>
+                                    {duty.trips && duty.trips.length > 0 ? (
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                        {duty.trips.map((trip, tIdx) => {
+                                          const isShort = trip.isShortLoop || trip.isUnderlined;
+                                          const isDn = trip.isDnLine || trip.isBoldedTime;
+                                          const isCouns = trip.isCounselling;
+                                          const md = trip.wttMatchDepth;
+                                          const mdBadge = md === 'EXACT_WTT'
+                                            ? { label: 'WTT Match', cls: 'bg-emerald-950 text-emerald-400 border-emerald-800' }
+                                            : md === 'CHAINAGE_FALLBACK'
+                                            ? { label: 'Chainage', cls: 'bg-cyan-950 text-cyan-400 border-cyan-800' }
+                                            : md === 'NON_RUNNING'
+                                            ? { label: 'Non-Running', cls: 'bg-slate-800 text-slate-400 border-slate-700' }
+                                            : { label: 'Unmatched', cls: 'bg-rose-950 text-rose-400 border-rose-800' };
+                                          return (
+                                            <div key={tIdx} className="bg-slate-900 border border-slate-800 rounded p-2 text-[10px] font-mono space-y-1">
+                                              <div className="flex justify-between items-center border-b border-slate-800 pb-1 flex-wrap gap-1">
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                  <span className={`font-bold ${isShort ? 'underline decoration-emerald-400 decoration-2 text-emerald-300' : 'text-cyan-400'}`}>Leg {tIdx + 1}: Tr{trip.trainNo}</span>
+                                                  {isShort && <span className="px-1 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800 rounded text-[8px] uppercase">Short</span>}
+                                                  {isDn && <span className="px-1 py-0.5 bg-amber-950 text-amber-400 border border-amber-800 rounded text-[8px] uppercase">DN</span>}
+                                                  {isCouns && <span className="px-1 py-0.5 bg-slate-800 text-slate-400 border border-slate-700 rounded text-[8px] uppercase">Counselling</span>}
+                                                  <span className={`px-1 py-0.5 rounded border text-[8px] uppercase font-bold ${mdBadge.cls}`}>{mdBadge.label}</span>
+                                                </div>
+                                                <span className="text-emerald-400 font-bold">{trip.calculatedKms || 0} KM</span>
+                                              </div>
+                                              <div className="grid grid-cols-2 gap-x-3 text-slate-400">
+                                                <span>Board: <span className={isDn ? 'text-amber-300 font-bold' : 'text-slate-200'}>{trip.takeoverLocation} <span className="text-slate-500">({trip.timeFrm || '--'})</span></span></span>
+                                                <span>Deboard: <span className={isDn ? 'text-amber-300 font-bold' : 'text-slate-200'}>{trip.handoverLocation} <span className="text-slate-500">({trip.timeTo || '--'})</span></span></span>
+                                              </div>
+                                              {trip.segments && trip.segments.length > 0 && (
+                                                <div className="text-[9px] text-slate-600 pt-0.5 truncate">
+                                                  Segments: {trip.segments.map(s => `${s.fromStationCode}→${s.toStationCode}(${s.calculatedKms}km)`).join(', ')}
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    ) : (
+                                      <div className="text-[10px] text-slate-500 italic">No train trips recorded for this duty (Standby / PRO).</div>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })
                     )}
                   </tbody>
-              </table>
-            </div>
+                </table>
+              </div>
+            )}
+
+            {/* ───── CARDS VIEW ───── */}
+            {rosterViewMode === 'cards' && (
+              <div>
+                {activeDuties.length === 0 ? (
+                  <div className="py-12 text-center text-slate-500 font-mono text-xs">No duties loaded. Upload a Link Roster to begin.</div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {filteredActiveDuties.map((duty, idx) => {
+                      const confidence = calculateKmConfidence(duty);
+                      const confColor = confidence === 'HIGH' ? 'text-emerald-400' : confidence === 'MED' ? 'text-amber-400' : 'text-rose-400';
+                      const cardBorder = duty.validationResult === 'VALIDATED' ? 'border-emerald-900/40' : duty.validationResult === 'MANUAL REVIEW' ? 'border-amber-900/40' : 'border-slate-800';
+                      const maxLegKm = Math.max(duty.trips?.[0]?.calculatedKms || 0, duty.trips?.[1]?.calculatedKms || 0, duty.trips?.[2]?.calculatedKms || 0, duty.trips?.[3]?.calculatedKms || 0, 1);
+                      return (
+                        <div key={`card-${duty.dutyNo}-${idx}`} className={`rounded-xl border ${cardBorder} bg-slate-900/80 p-3.5 space-y-2.5 font-mono transition-all hover:border-emerald-700/50 hover:shadow-lg hover:shadow-emerald-950/20`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg font-black text-slate-100">#{duty.dutyNo}</span>
+                              {duty.isNight && <span className="text-xs">🌙</span>}
+                              {duty.isManuallyEdited && <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" title="Manually edited" />}
+                            </div>
+                            <div className="flex flex-col items-end">
+                              <span className="text-xl font-black text-emerald-400">{duty.kms}</span>
+                              <span className="text-[8px] text-slate-500 uppercase">KM Total</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[9px]">
+                            <span className="text-slate-200 font-bold">{duty.sOnTime || '--'}</span>
+                            <span className="flex-1 border-t border-dashed border-slate-700" />
+                            <span className="text-slate-200 font-bold">{duty.sOffTime || '--'}</span>
+                          </div>
+                          <div className="text-[9px] text-slate-500 truncate">@ {duty.signOnLocation || '--'} → {duty.signOffLocation || '--'}</div>
+                          <div className="space-y-1.5">
+                            {[0, 1, 2, 3].map(li => {
+                              const trip = duty.trips?.[li];
+                              if (!trip) return null;
+                              const kms = trip.calculatedKms || 0;
+                              const bw = kms > 0 ? Math.max(5, Math.min(100, (kms / maxLegKm) * 100)) : 0;
+                              return (
+                                <div key={li} className="space-y-0.5">
+                                  <div className="flex justify-between text-[9px]">
+                                    <span className="text-slate-500">Leg {li + 1} · Tr{trip.trainNo || '--'}</span>
+                                    <span className={kms > 0 ? 'text-cyan-400 font-bold' : 'text-slate-600'}>{kms > 0 ? `${kms} km` : '--'}</span>
+                                  </div>
+                                  <div className="h-1 rounded-full bg-slate-800 overflow-hidden">
+                                    <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500" style={{ width: `${bw}%` }} />
+                                  </div>
+                                </div>
+                              );
+                            }).filter(Boolean)}
+                          </div>
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-800/60">
+                            <span className={`text-[8px] font-bold uppercase ${confColor}`}>{confidence} Conf.</span>
+                            <span className={`text-[8px] font-bold uppercase ${duty.validationResult === 'VALIDATED' ? 'text-emerald-400' : duty.validationResult === 'MANUAL REVIEW' ? 'text-amber-400' : 'text-slate-500'}`}>{duty.validationResult || 'UNKNOWN'}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ───── KM DISTRIBUTION CHART ───── */}
+            {rosterViewMode === 'chart' && (
+              <div className="space-y-2">
+                {activeDuties.length === 0 ? (
+                  <div className="py-12 text-center text-slate-500 font-mono text-xs">No duties loaded. Upload a Link Roster to begin.</div>
+                ) : (() => {
+                  const chartDuties = filteredActiveDuties.slice(0, 80);
+                  const maxKm = Math.max(...chartDuties.map(d => d.kms || 0), 1);
+                  const avgKm = rosterStats?.avgKm || 0;
+                  const W = 900, H = 210, PL = 38, PR = 10, PT = 12, PB = 32;
+                  const innerW = W - PL - PR;
+                  const innerH = H - PT - PB;
+                  const gap = innerW / (chartDuties.length + 1);
+                  const barW = Math.max(5, Math.min(18, gap - 2));
+                  const avgLineY = PT + innerH - (avgKm / maxKm) * innerH;
+                  return (
+                    <div>
+                      <div className="text-[10px] font-mono text-slate-400 mb-2 flex flex-wrap items-center gap-4">
+                        <span className="flex items-center gap-1.5"><span className="w-3 h-2 inline-block rounded-sm bg-emerald-500 opacity-80" />VALIDATED</span>
+                        <span className="flex items-center gap-1.5"><span className="w-3 h-2 inline-block rounded-sm bg-amber-500 opacity-80" />MANUAL REVIEW</span>
+                        <span className="flex items-center gap-1.5"><span className="w-3 h-2 inline-block rounded-sm bg-slate-600 opacity-80" />NON-RUNNING</span>
+                        <span className="flex items-center gap-1.5 ml-2"><span className="inline-block w-5 border-t-2 border-dashed border-cyan-400" />Avg: {avgKm} KM</span>
+                      </div>
+                      <div className="overflow-x-auto custom-scrollbar">
+                        <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[500px] bg-slate-950/60 rounded-xl border border-slate-800" style={{ height: '210px' }}>
+                          {[0, 0.25, 0.5, 0.75, 1].map(frac => {
+                            const y = PT + innerH - frac * innerH;
+                            return (
+                              <g key={frac}>
+                                <line x1={PL} y1={y} x2={W - PR} y2={y} stroke="#1e293b" strokeWidth="1" strokeDasharray="4 4" />
+                                <text x={PL - 3} y={y + 3} textAnchor="end" fill="#64748b" style={{ fontSize: '7px', fontFamily: 'monospace' }}>{Math.round(frac * maxKm)}</text>
+                              </g>
+                            );
+                          })}
+                          <line x1={PL} y1={avgLineY} x2={W - PR} y2={avgLineY} stroke="#22d3ee" strokeWidth="1.5" strokeDasharray="6 3" opacity="0.7" />
+                          <text x={W - PR - 2} y={avgLineY - 2} textAnchor="end" fill="#22d3ee" style={{ fontSize: '7px', fontFamily: 'monospace' }}>avg {avgKm}</text>
+                          {chartDuties.map((duty, i) => {
+                            const x = PL + (i + 1) * gap - barW / 2;
+                            const bh = Math.max(2, (duty.kms / maxKm) * innerH);
+                            const y = PT + innerH - bh;
+                            const fill = duty.validationResult === 'VALIDATED' ? '#10b981' : duty.validationResult === 'MANUAL REVIEW' ? '#f59e0b' : '#475569';
+                            return (
+                              <g key={i}>
+                                <rect x={x} y={y} width={barW} height={bh} fill={fill} opacity="0.85" rx="1.5">
+                                  <title>Duty #{duty.dutyNo}: {duty.kms} KM ({duty.validationResult || 'N/A'})</title>
+                                </rect>
+                                {barW >= 8 && i % Math.max(1, Math.floor(chartDuties.length / 20)) === 0 && (
+                                  <text x={x + barW / 2} y={H - PB + 10} textAnchor="middle" fill="#64748b" style={{ fontSize: '6px', fontFamily: 'monospace' }}>{duty.dutyNo}</text>
+                                )}
+                              </g>
+                            );
+                          })}
+                          <line x1={PL} y1={PT} x2={PL} y2={PT + innerH} stroke="#334155" strokeWidth="1" />
+                          <line x1={PL} y1={PT + innerH} x2={W - PR} y2={PT + innerH} stroke="#334155" strokeWidth="1" />
+                          <text x={12} y={H / 2} textAnchor="middle" fill="#475569" transform={`rotate(-90, 12, ${H / 2})`} style={{ fontSize: '7px', fontFamily: 'monospace' }}>KM</text>
+                        </svg>
+                      </div>
+                      {chartDuties.length < filteredActiveDuties.length && (
+                        <p className="text-[9px] text-slate-500 font-mono text-center mt-1">Showing first 80 of {filteredActiveDuties.length} duties. Use search to filter.</p>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* ───── EXPORT PREVIEW ───── */}
+            {rosterViewMode === 'export' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                    Export Preview — <span className="text-emerald-400 font-bold">{filteredActiveDuties.length} duties</span> · 3-Sheet Excel
+                  </div>
+                  <button onClick={handleExportRosterExcel} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-mono font-bold flex items-center gap-1.5 shadow-sm transition-colors uppercase tracking-wider">
+                    <Download className="w-3.5 h-3.5" />
+                    Download Excel (3-Sheet Report)
+                  </button>
+                </div>
+                <div className="overflow-auto max-h-[600px] border border-slate-800 rounded custom-scrollbar">
+                  <table className="w-full text-left text-[9px] border-collapse font-mono whitespace-nowrap">
+                    <thead className="sticky top-0 z-10 bg-slate-950 text-slate-400 uppercase tracking-wider text-[9px] shadow-sm">
+                      <tr>
+                        {['Duty #', 'Sign On', 'Location', 'Sign Off', 'Location', 'L1 Route', 'L1 KM', 'L2 Route', 'L2 KM', 'L3 Route', 'L3 KM', 'L4 Route', 'L4 KM', 'Total KM', 'Status', 'Confidence'].map((col, i) => (
+                          <th key={i} className="px-2 py-1.5 border-b border-slate-800 font-bold">{col}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/40">
+                      {filteredActiveDuties.length === 0 ? (
+                        <tr><td colSpan={16} className="px-3 py-8 text-center text-slate-500 font-mono">No duties loaded.</td></tr>
+                      ) : filteredActiveDuties.map((duty, idx) => {
+                        const conf = calculateKmConfidence(duty);
+                        const l1 = duty.trips?.[0]; const l2 = duty.trips?.[1]; const l3 = duty.trips?.[2]; const l4 = duty.trips?.[3];
+                        const gp = (t) => {
+                          if (!t) return '--';
+                          return (t.customPathStr || (t.intermediateStations?.length > 0 ? t.intermediateStations.slice(0, 3).join('→') + (t.intermediateStations.length > 3 ? '…' : '') : (t.boardingStation ? `${t.boardingStation}→${t.alightingStation}` : '--')));
+                        };
+                        return (
+                          <tr key={idx} className="hover:bg-slate-900/40">
+                            <td className="px-2 py-1.5 text-slate-100 font-bold border-r border-slate-800/50">{duty.dutyNo}</td>
+                            <td className="px-2 py-1.5 text-slate-300 border-r border-slate-800/50">{duty.sOnTime || '--'}</td>
+                            <td className="px-2 py-1.5 text-slate-400 border-r border-slate-800/50">{duty.signOnLocation || '--'}</td>
+                            <td className="px-2 py-1.5 text-slate-300 border-r border-slate-800/50">{duty.sOffTime || '--'}</td>
+                            <td className="px-2 py-1.5 text-slate-400 border-r border-slate-800/50">{duty.signOffLocation || '--'}</td>
+                            <td className="px-2 py-1.5 text-slate-400 border-r border-slate-800/50 max-w-[120px] truncate">{gp(l1)}</td>
+                            <td className="px-2 py-1.5 text-cyan-400 font-bold border-r border-slate-800/50">{l1?.calculatedKms || 0}</td>
+                            <td className="px-2 py-1.5 text-slate-400 border-r border-slate-800/50 max-w-[120px] truncate">{gp(l2)}</td>
+                            <td className="px-2 py-1.5 text-cyan-400 font-bold border-r border-slate-800/50">{l2?.calculatedKms || 0}</td>
+                            <td className="px-2 py-1.5 text-slate-400 border-r border-slate-800/50 max-w-[120px] truncate">{gp(l3)}</td>
+                            <td className="px-2 py-1.5 text-cyan-400 font-bold border-r border-slate-800/50">{l3?.calculatedKms || 0}</td>
+                            <td className="px-2 py-1.5 text-slate-400 border-r border-slate-800/50 max-w-[120px] truncate">{gp(l4)}</td>
+                            <td className="px-2 py-1.5 text-cyan-400 font-bold border-r border-slate-800/50">{l4?.calculatedKms || 0}</td>
+                            <td className="px-2 py-1.5 text-emerald-400 font-black border-r border-slate-800/50">{duty.kms}</td>
+                            <td className={`px-2 py-1.5 font-bold border-r border-slate-800/50 ${duty.validationResult === 'VALIDATED' ? 'text-emerald-400' : duty.validationResult === 'MANUAL REVIEW' ? 'text-amber-400' : 'text-slate-500'}`}>{duty.validationResult}</td>
+                            <td className={`px-2 py-1.5 font-bold ${conf === 'HIGH' ? 'text-emerald-400' : conf === 'MED' ? 'text-amber-400' : 'text-rose-400'}`}>{conf}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[9px] text-slate-500 font-mono text-center">Showing all {filteredActiveDuties.length} calculated duties. Scroll down to inspect full roster or download the 3-Sheet Excel report.</p>
+                <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-[9px] font-mono text-slate-500">
+                  <div className="font-bold text-slate-400 mb-2 uppercase tracking-wider text-[10px]">Excel Export — 3-Sheet Audit Report:</div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div><span className="text-emerald-400 font-bold">Sheet 1 — Duty Summary:</span> All {activeDuties.length} duties with Leg 1-4 Route + KM, Total KM, Sign-On/Off, Night KM, Morn KM, Validation, Confidence</div>
+                    <div><span className="text-cyan-400 font-bold">Sheet 2 — Trip Detail Audit:</span> Per-leg WTT match source (EXACT_WTT / CHAINAGE_FALLBACK / UNMATCHED), boarding/alighting stations, time windows, segment count</div>
+                    <div><span className="text-indigo-400 font-bold">Sheet 3 — KM Statistics:</span> Total KM, avg, validated %, night duty count, max/min KM duty, timetable schedule</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
+
+
       ) : activeTab === 'custom' ? (
         <div className="space-y-3.5">
           {/* Interactive Serpentine Grid Map Card */}
@@ -1879,8 +2072,8 @@ export default function RouteCalculator({
                 {/* Segments list */}
                 <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
                   {segments.map((seg, idx) => {
-                    const fromStn = stations.find(s => s.code === seg.from);
-                    const toStn = stations.find(s => s.code === seg.to);
+                    const fromStn = stations.find(s => s.code === (seg.effectiveFrom || seg.from)) || stations.find(s => s.code === seg.from);
+                    const toStn = stations.find(s => s.code === (seg.effectiveTo || seg.to)) || stations.find(s => s.code === seg.to);
 
                     return (
                       <div key={idx} className="bg-slate-955 rounded p-2.5 border border-slate-850 flex justify-between items-center text-[11px] font-mono">

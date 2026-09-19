@@ -47,7 +47,7 @@ export const MASTER_STATIONS = [
 ];
 
 export const PREDEFINED_TRIPS = [
-  { description: 'PYID Up - BIET BE - APTS BE - PYID Up', actualKms: 67.46, roundedKms: 68 },
+  { description: 'PYID Up - BIET BE - APTS BE - PYID Up', actualKms: 67.46, roundedKms: 67 },
   { description: 'PYID Up - BIET BE - PUTH BE - PYID Up', actualKms: 55.62, roundedKms: 56 },
   { description: 'PYID Up - NGSA BE - PUTH BE - PYID Up', actualKms: 49.50, roundedKms: 50 },
   { description: 'PYID Dn/Rd3 - APTS BE - PYID Up', actualKms: 54.38, roundedKms: 55 },
@@ -76,5 +76,16 @@ export const PREDEFINED_TRIPS = [
   { description: 'BIET BE - PUTH Pf', actualKms: 27.34, roundedKms: 28 },
   { description: 'BIET BE - KGWA Pf', actualKms: 17.12, roundedKms: 17 },
   { description: 'APTS BE - NLC Pf', actualKms: 13.76, roundedKms: 14 },
-  { description: 'NGSA BE - PUTH BE', actualKms: 24.75, roundedKms: 25 }
+  { description: 'NGSA BE - PUTH BE', actualKms: 24.75, roundedKms: 25 },
+  { description: 'DEPOT - RVR TB - PYID (Turn Back)', actualKms: 33.10, roundedKms: 33 },
+  { description: 'PYID - RVR TB - PYID (Turn Back)', actualKms: 34.40, roundedKms: 34 },
+  { description: 'NGSA PKT - RVR TB - PYID (Turn Back)', actualKms: 37.908, roundedKms: 38 },
+  { description: 'NGSA BE - RVR TB - PYID (Turn Back)', actualKms: 37.880, roundedKms: 38 },
+  { description: 'BIET BE - RVR TB - PYID (Turn Back)', actualKms: 40.940, roundedKms: 41 },
+  { description: 'DEPOT - RVR (Southbound)', actualKms: 15.90, roundedKms: 16 },
+  { description: 'PYID - RVR (Southbound)', actualKms: 17.20, roundedKms: 17 },
+  { description: 'RVR - PYID (Northbound)', actualKms: 17.20, roundedKms: 17 },
+  { description: 'RVR - DEPOT (Northbound)', actualKms: 15.90, roundedKms: 16 },
+  { description: 'BIET BE - RVR (Southbound)', actualKms: 23.74, roundedKms: 24 },
+  { description: 'RVR - APTS BE (Southbound)', actualKms: 9.99, roundedKms: 10 }
 ];

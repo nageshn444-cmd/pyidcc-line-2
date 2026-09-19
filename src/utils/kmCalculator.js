@@ -42,12 +42,16 @@ export function normalizeStationCode(rawCode) {
 
   // Pocket tracks & Buffer Ends
   if (c === "BIETBE" || c === "BIETBUFFEREND" || c.includes("BIETBE")) return "BIET_BE";
-  if (c === "NGSABE" || c === "NGSABUFFEREND" || c.includes("NGSABE")) return "NGSA_BE";
-  // NPKT / NGSA PKT / NGSAPKT → NGSA_PT (pocket track)
-  if (c === "NGSAPT" || c === "NGSAPKT" || c === "NPKT" || c === "NGSAPOCKET" ||
-      c.includes("NGSAPT") || c.includes("NGSAPOCKET") || c.includes("NPKT")) return "NGSA_PT";
-  if (c === "NLCPT" || c === "NLCPKT" || c.includes("NLCPOCKET")) return "NLC_PT";
-  if (c === "MHLIPT" || c === "MHLIPKT" || c.includes("MHLIPOCKET")) return "MHLI_PT";
+  if (c === "NGSABE" || c === "NGBE" || c === "NGSABUFFEREND" || c.includes("NGSABE") || (c.includes("NG") && c.includes("BE"))) return "NGSA_BE";
+  // NPKT / NG PKT / NGPKT / NGSA PKT / NGSAPKT → NGSA_PT (pocket track)
+  if (
+    c === "NGSAPT" || c === "NGSAPKT" || c === "NPKT" || c === "NGSAPOCKET" ||
+    c === "NGPKT" || c === "NGPT" || c.includes("NGPKT") || c.includes("NGPT") ||
+    c.includes("NGSAPT") || c.includes("NGSAPOCKET") || c.includes("NPKT") ||
+    (c.includes("NG") && (c.includes("PKT") || c.includes("POCKET") || c.includes("PT")))
+  ) return "NGSA_PT";
+  if (c === "NLCPT" || c === "NLCPKT" || c.includes("NLCPOCKET") || (c.includes("NLC") && c.includes("PKT"))) return "NLC_PT";
+  if (c === "MHLIPT" || c === "MHLIPKT" || c.includes("MHLIPOCKET") || (c.includes("MHLI") && c.includes("PKT"))) return "MHLI_PT";
   if (c === "PUTHBE" || c === "PUTHBUFFEREND" || c.includes("PUTHBE")) return "PUTH_BE";
   if (c === "APTSBE" || c === "APTSBUFFEREND" || c.includes("APTSBE")) return "APTS_BE";
 
@@ -113,8 +117,56 @@ export function calculateDistance(fromStationCode, toStationCode) {
     return 13.08;
   }
 
-  const normFrom = normalizeStationCode(fromStationCode);
-  const normTo = normalizeStationCode(toStationCode);
+  // Operational Turn Back (TB / REV) destinations e.g. "RVR TB", "KGWA TB", "PUTH TB"
+  // Turn back travels from start station to the turn station, reverses, and returns to PYID crew base.
+  // E.g. DEPOT (-1.720 KM) to RVR TB (+14.180 KM) -> DEPOT to RVR (15.900 KM) + RVR to PYID (17.200 KM) = 33.100 KM
+  // E.g. PYID (-3.020 KM) to RVR TB (+14.180 KM) -> PYID to RVR (17.200 KM) + RVR to PYID (17.200 KM) = 34.400 KM
+  const isTurnBackTo = /\b(TB|T\/B|T\.B|TURN\s*BACK|TURNBACK|REV|REVERSING)\b/i.test(rawToStr) ||
+                       /[-_ ]TB$/i.test(rawToStr) ||
+                       /\(TB\)/i.test(rawToStr);
+
+  if (isTurnBackTo) {
+    let cleanToStr = rawToStr
+      .replace(/\b(TB|T\/B|T\.B|TURN\s*BACK|TURNBACK|REV|REVERSING)\b/gi, "")
+      .replace(/[-_()]/g, " ")
+      .trim();
+    let turnNorm = normalizeStationCode(cleanToStr);
+    if (!turnNorm || turnNorm === "DEPOT") {
+      if (rawToStr.includes("RVR")) turnNorm = "RVR";
+      else if (rawToStr.includes("KGWA")) turnNorm = "KGWA";
+      else if (rawToStr.includes("PUTH")) turnNorm = "PUTH";
+      else if (rawToStr.includes("SPGD")) turnNorm = "SPGD";
+      else if (rawToStr.includes("NLC")) turnNorm = "NLC";
+      else if (rawToStr.includes("NGSA")) turnNorm = "NGSA";
+    }
+
+    if (turnNorm) {
+      let normFrom = normalizeStationCode(fromStationCode);
+      if (normFrom === "BIET") normFrom = "BIET_BE";
+      if (normFrom === "APTS") normFrom = "APTS_BE";
+
+      const fromStn = MASTER_STATIONS.find((s) => s.code.toUpperCase() === normFrom);
+      const turnStn = MASTER_STATIONS.find((s) => s.code.toUpperCase() === turnNorm);
+      const pyidStn = MASTER_STATIONS.find((s) => s.code.toUpperCase() === "PYID");
+
+      if (fromStn && turnStn && pyidStn) {
+        const dist1 = Math.abs(turnStn.chainage - fromStn.chainage);
+        const dist2 = Math.abs(pyidStn.chainage - turnStn.chainage);
+        return parseFloat((dist1 + dist2).toFixed(3));
+      }
+    }
+  }
+
+  let normFrom = normalizeStationCode(fromStationCode);
+  let normTo = normalizeStationCode(toStationCode);
+
+  // Terminal stations: Trains reverse / cab change over is conducted at Buffer Ends
+  // BIET terminal -> BIET_BE (-9.560 KM)
+  // APTS terminal -> APTS_BE (24.170 KM)
+  if (normFrom === "BIET") normFrom = "BIET_BE";
+  if (normTo === "BIET") normTo = "BIET_BE";
+  if (normFrom === "APTS") normFrom = "APTS_BE";
+  if (normTo === "APTS") normTo = "APTS_BE";
 
   if (!normFrom || !normTo || normFrom === normTo) {
     return 0;
@@ -128,7 +180,7 @@ export function calculateDistance(fromStationCode, toStationCode) {
   }
 
   const diff = Math.abs(toStn.chainage - fromStn.chainage);
-  return parseFloat(diff.toFixed(2));
+  return parseFloat(diff.toFixed(3));
 }
 
 /**
@@ -158,10 +210,11 @@ export function calculateSequenceDistance(stationCodes) {
     }
   }
 
+  const exactVal = parseFloat(totalExact.toFixed(3));
   return {
     segments,
-    totalExact: parseFloat(totalExact.toFixed(3)),
-    totalRounded: Math.round(totalExact),
+    totalExact: exactVal,
+    totalRounded: Math.round(exactVal),
   };
 }
 
@@ -208,19 +261,15 @@ const LINE2_STATION_ORDER = [
   "BIET",
   "JDHL",
   "MNJN",
-  "NGSA_BE",
-  "NGSA_PT",
   "NGSA",
   "DSH",
   "JLHL",
   "PYID",
   "PEYA",
-  "DEPOT",
   "YPI",
   "YPM",
   "SSFY",
   "MHLI",
-  "MHLI_PT",
   "RJNR",
   "KVPR",
   "SPRU",
@@ -229,7 +278,6 @@ const LINE2_STATION_ORDER = [
   "CKPE",
   "KRMT",
   "NLC",
-  "NLC_PT",
   "LBGH",
   "SECE",
   "JYN",
@@ -237,7 +285,6 @@ const LINE2_STATION_ORDER = [
   "BSNK",
   "JPN",
   "PUTH",
-  "PUTH_BE",
   "APRC",
   "KLPK",
   "VJRH",
@@ -249,11 +296,25 @@ const LINE2_STATION_ORDER = [
 export function expandStationPath(stnList) {
   if (!stnList || stnList.length < 2) return stnList || [];
 
+  const resolveMainlineCode = (raw) => {
+    const n = normalizeStationCode(raw);
+    if (n === "BIET") return "BIET_BE";
+    if (n === "APTS") return "APTS_BE";
+    if (n === "DEPOT") return "PYID";
+    if (n === "NGSA_PT" || n === "NGSA_BE") return "NGSA";
+    if (n === "MHLI_PT") return "MHLI";
+    if (n === "NLC_PT") return "NLC";
+    if (n === "PUTH_BE") return "PUTH";
+    return n;
+  };
+
   const expanded = [stnList[0]];
 
   for (let i = 0; i < stnList.length - 1; i++) {
-    const s1 = normalizeStationCode(stnList[i]);
-    const s2 = normalizeStationCode(stnList[i + 1]);
+    const orig1 = stnList[i];
+    const orig2 = stnList[i + 1];
+    const s1 = resolveMainlineCode(orig1);
+    const s2 = resolveMainlineCode(orig2);
 
     if (!s1 || !s2 || s1 === s2) continue;
 
@@ -266,7 +327,7 @@ export function expandStationPath(stnList) {
         expanded.push(LINE2_STATION_ORDER[k]);
       }
     }
-    expanded.push(s2);
+    expanded.push(orig2);
   }
   return expanded;
 }
@@ -336,6 +397,7 @@ export function calculateLegKmsFromWTT(
     return {
       calculatedKms: 0,
       status: "NON RUNNING",
+      matchSource: "NON_RUNNING",
       trainNo: rawTrain || "N/A",
       direction: "N/A",
       boardingStation: "N/A",
@@ -361,8 +423,61 @@ export function calculateLegKmsFromWTT(
   const normFromStn = normalizeStationCode(takeoverLocation);
   const normToStn = normalizeStationCode(handoverLocation);
   let directKm = 0;
-  if (normFromStn && normToStn && normFromStn !== normToStn) {
+  if (takeoverLocation && handoverLocation) {
+    directKm = calculateDistance(takeoverLocation, handoverLocation);
+  } else if (normFromStn && normToStn && normFromStn !== normToStn) {
     directKm = calculateDistance(normFromStn, normToStn);
+  }
+
+  // ── SPECIAL HANDLING: TURN BACK (TB / TURN BACK / REV) ──────────────────
+  // Operational Turn Back trips (e.g. RVR TB, KGWA TB, PUTH TB, etc.)
+  // When a leg specifies a turn-back at a station (such as RVR TB):
+  // 1. Outbound leg: boardingStation -> turnBackStation (e.g. DEPOT -> RVR = 15.900 KM)
+  // 2. Return leg: turnBackStation -> PYID (e.g. RVR -> PYID = 17.200 KM)
+  // Total distance = 15.900 + 17.200 = 33.100 KM
+  const isTurnBackHand = /\b(TB|T\/B|T\.B|TURN\s*BACK|TURNBACK|REV|REVERSING)\b/i.test(handLower) ||
+                         /[-_ ]TB$/i.test(handLower.trim()) ||
+                         /\(TB\)/i.test(handLower) ||
+                         trainLower.includes("tb") ||
+                         trainLower.includes("turn back");
+
+  if (isTurnBackHand) {
+    const isRvr = handLower.includes("rvr") || handLower.includes("r.v.") || handLower.includes("rvroad") ||
+                  trainLower.includes("rvr");
+
+    let turnStationCode = "RVR";
+    if (!isRvr) {
+      const cleanTurn = handLower
+        .replace(/\b(TB|T\/B|T\.B|TURN\s*BACK|TURNBACK|REV|REVERSING)\b/gi, "")
+        .replace(/[-_()]/g, " ")
+        .trim();
+      turnStationCode = normalizeStationCode(cleanTurn) || "RVR";
+    }
+
+    const fromNorm = normalizeStationCode(takeoverLocation) || "DEPOT";
+    const dist1 = calculateDistance(fromNorm, turnStationCode);
+    const dist2 = calculateDistance(turnStationCode, "PYID");
+    const totalKm = parseFloat((dist1 + dist2).toFixed(3));
+
+    if (totalKm > 0) {
+      return {
+        calculatedKms: totalKm,
+        status: "MATCHED",
+        matchSource: "SPECIAL",
+        trainNo: searchTid || rawTrain,
+        direction: "DN / UP",
+        boardingStation: takeoverLocation || fromNorm,
+        boardingTime: depTimeStr || "N/A",
+        alightingStation: `${handoverLocation || turnStationCode + " TB"} (via PYID Return)`,
+        alightingTime: arrTimeStr || "N/A",
+        intermediateStations: [fromNorm, turnStationCode, "PYID"],
+        segments: [
+          { fromStationCode: fromNorm, toStationCode: turnStationCode, calculatedKms: dist1 },
+          { fromStationCode: turnStationCode, toStationCode: "PYID", calculatedKms: dist2 },
+        ],
+        notes: `${turnStationCode} TB (Turn Back): ${fromNorm} → ${turnStationCode} (${dist1} KM) → PYID (${dist2} KM) = ${totalKm} KM`,
+      };
+    }
   }
 
   // 1. Search WTT for Train ID + Schedule Type FIRST if departure and arrival times are valid
@@ -405,9 +520,11 @@ export function calculateLegKmsFromWTT(
           ) {
             const secs = timeStringToSeconds(timeVal);
             if (secs > 0) {
+              const normSt = normalizeStationCode(stCode);
+              const effectiveSt = normSt === "BIET" ? "BIET_BE" : normSt === "APTS" ? "APTS_BE" : normSt;
               if (secs >= depSecs - 1800 && secs <= arrSecs + 1800) {
                 trainTimeline.push({
-                  station: normalizeStationCode(stCode),
+                  station: effectiveSt,
                   timeStr: String(timeVal).trim(),
                   secs: secs,
                   tripId: trip.id,
@@ -416,7 +533,7 @@ export function calculateLegKmsFromWTT(
               }
               if (isOvernight && (secs + 86400) >= depSecs - 1800 && (secs + 86400) <= arrSecs + 1800) {
                 trainTimeline.push({
-                  station: normalizeStationCode(stCode),
+                  station: effectiveSt,
                   timeStr: String(timeVal).trim(),
                   secs: secs + 86400,
                   tripId: trip.id,
@@ -464,17 +581,18 @@ export function calculateLegKmsFromWTT(
       let pathStops = trainTimeline.slice(startIdx, endIdx + 1).map((s) => s.station);
       pathStops = expandStationPath(pathStops);
       const seqResult = calculateSequenceDistance(pathStops);
-      let finalKms = seqResult.totalRounded || 0;
+      let finalKms = seqResult.totalExact > 0 ? parseFloat(seqResult.totalExact.toFixed(2)) : (seqResult.totalRounded || 0);
 
       if (finalKms > 85) {
         const directDist = calculateDistance(bStop.station, aStop.station);
-        finalKms = (typeof directDist === "number" && directDist > 0) ? Math.round(directDist) : 35;
+        finalKms = (typeof directDist === "number" && directDist > 0) ? parseFloat(directDist.toFixed(2)) : 35;
       }
 
       if (finalKms > 0) {
         return {
           calculatedKms: finalKms,
           status: "MATCHED",
+          matchSource: "WTT",
           trainNo: searchTid,
           direction: bStop.dir,
           boardingStation: `${bStop.station} ${hasStartDn ? "Dn" : "Up"}`,
@@ -512,6 +630,7 @@ export function calculateLegKmsFromWTT(
     return {
       calculatedKms: finalKm,
       status: "MATCHED",
+      matchSource: "SPECIAL",
       trainNo: searchTid || rawTrain,
       direction: "UP",
       boardingStation: takeoverLocation || fromNorm,
@@ -530,6 +649,7 @@ export function calculateLegKmsFromWTT(
     return {
       calculatedKms: PDHO_FIXED_KM,
       status: "MATCHED",
+      matchSource: "SPECIAL",
       trainNo: searchTid || rawTrain,
       direction: "DN",
       boardingStation: takeoverLocation || fromNorm,
@@ -544,10 +664,11 @@ export function calculateLegKmsFromWTT(
 
   // 5. High-Precision Direct Chainage Fallback for Valid Running Train
   if (directKm > 0) {
-    const finalKm = Math.round(directKm);
+    const finalKm = directKm % 1 === 0 ? Math.round(directKm) : parseFloat(directKm.toFixed(3));
     return {
       calculatedKms: finalKm,
       status: "MATCHED",
+      matchSource: "CHAINAGE",
       trainNo: searchTid,
       direction: hasStartDn || hasEndDn ? "DOWN" : "UP",
       boardingStation: takeoverLocation || normFromStn,
@@ -568,6 +689,7 @@ export function calculateLegKmsFromWTT(
   return {
     calculatedKms: 0,
     status: "UNMATCHED WTT",
+    matchSource: "UNMATCHED",
     trainNo: searchTid,
     direction: "UNKNOWN",
     boardingStation: "UNMATCHED",
@@ -714,7 +836,7 @@ export function parseCSVToDuties(csvText) {
         if (!val) return;
         if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(val)) {
           timeCells.push(val);
-        } else if (/(PYID|KGWA|PUTH|DEPOT|DEPO|DPO|DHO|NLC|APTS|RJNR|YPM|NGSA|BIET|RD3)/i.test(val)) {
+        } else if (/(PYID|KGWA|PUTH|DEPOT|DEPO|DPO|DHO|NLC|APTS|RJNR|YPM|NGSA|BIET|RD3|RVR|MHLI|SPGD|CKPE|KRMT|LBGH|SECE|JYN|BSNK|JPN|APRC|KLPK|VJRH|TGTP|PEYA|YPI|SSFY|KVPR|SPRU|JDHL|MNJN|DSH|JLHL|TB|PKT|PT|POCKET|NG)/i.test(val)) {
           locationCells.push(val);
         } else if (/^(\d{3}|pro\s*\d*|rd3\s*stby|stby)$/i.test(val)) {
           trainCells.push(val);
@@ -992,6 +1114,12 @@ export function enhanceRosterDuties(duties, scheduleType = "WEEKDAY") {
         legNumber: trip.legNumber || idx + 1,
         calculatedKms: legKms,
         status: wttResult.status || "UNMATCHED WTT",
+        matchSource: wttResult.matchSource || "UNMATCHED",
+        wttMatchDepth: wttResult.matchSource === "WTT" ? "EXACT_WTT"
+          : wttResult.matchSource === "SPECIAL" ? "EXACT_WTT"
+          : wttResult.matchSource === "CHAINAGE" ? "CHAINAGE_FALLBACK"
+          : wttResult.matchSource === "NON_RUNNING" ? "NON_RUNNING"
+          : "UNMATCHED",
         direction: wttResult.direction || "N/A",
         boardingStation: wttResult.boardingStation || trip.takeoverLocation || "N/A",
         boardingTime: wttResult.boardingTime || trip.timeFrm || "N/A",
@@ -1102,11 +1230,13 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
     if (fromLower.includes("bdho") || toLower.includes("bdho")) return 6;
     // PDHO (train handed over to depot from PYID UP-depot after completion of all trips) = 2 km
     if (fromLower.includes("pdho") || toLower.includes("pdho")) return 2;
-    // DEPOT-RD3 / DPO-RD3 = 2 km (only for pure depot positioning, NOT for active driving runs like Dpo-Rd3/No PDC)
+    // DEPOT-RD3 / DPO-RD3 = 2 km (only for pure depot positioning, NOT for active driving runs like Dpo-Rd3/No PDC or line service)
     const isNoPdcLocation = fromLower.includes("no pdc") || fromLower.includes("nopdc") || fromLower.includes("no-pdc") || fromLower.includes("no_pdc") ||
                             toLower.includes("no pdc") || toLower.includes("nopdc") || toLower.includes("no-pdc") || toLower.includes("no_pdc");
 
-    if (!isNoPdcLocation && (fromLower.includes("dpo-rd3") || toLower.includes("dpo-rd3") || fromLower.includes("depot-rd3") || toLower.includes("depot-rd3"))) return 2;
+    const isPureDepotRd3 = ((fromLower.includes("dpo") || fromLower.includes("depot")) && (toLower.includes("rd3") || toLower.includes("rd-3"))) ||
+                           ((fromLower.includes("rd3") || fromLower.includes("rd-3")) && (toLower.includes("dpo") || toLower.includes("depot")));
+    if (!isNoPdcLocation && isPureDepotRd3) return 2;
 
     // 3. WTT TIMETABLE SEARCH
     const wttRes = calculateLegKmsFromWTT(rawTrain, fromLoc, toLoc, depTime, arrTime, normSchedule);
@@ -1212,3 +1342,31 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
   return { leg1Km, leg2Km, leg3Km, leg4Km, totalKm };
 }
 
+/**
+ * Calculates KM confidence score for a roster duty based on WTT match depth.
+ * HIGH = all running legs matched via WTT timetable.
+ * MED  = at least half of running legs matched via WTT.
+ * LOW  = majority unmatched, all chainage-fallback, or manual override.
+ * @param {object} duty
+ * @returns {'HIGH' | 'MED' | 'LOW'}
+ */
+export function calculateKmConfidence(duty) {
+  if (!duty) return 'LOW';
+  if (duty.isManuallyEdited) return 'MED';
+  if (!duty.trips || duty.trips.length === 0) return 'LOW';
+
+  const runningTrips = duty.trips.filter(t =>
+    t.status !== 'NON RUNNING' && (t.calculatedKms || 0) > 0
+  );
+
+  if (runningTrips.length === 0) return 'LOW';
+
+  const wttMatched = runningTrips.filter(t =>
+    t.wttMatchDepth === 'EXACT_WTT'
+  ).length;
+
+  const ratio = wttMatched / runningTrips.length;
+  if (ratio >= 1.0) return 'HIGH';
+  if (ratio >= 0.5) return 'MED';
+  return 'LOW';
+}

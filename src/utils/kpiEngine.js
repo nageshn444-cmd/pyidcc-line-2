@@ -110,10 +110,14 @@ export function calculateStationDistance(fromSt, toSt) {
     }
     
     if (c === 'BIETBE' || c === 'BIETBUFFEREND') return 'BIET_BE';
-    if (c === 'NGSABE' || c === 'NGSABUFFEREND') return 'NGSA_BE';
-    if (c === 'NGSAPT' || c === 'NGSAPKT' || c === 'NPKT' || c.includes('NPKT') || c === 'NGSAPOCKET') return 'NGSA_PT';
-    if (c === 'NLCPT' || c === 'NLCPKT' || c === 'NLCPOCKET') return 'NLC_PT';
-    if (c === 'MHLIPT' || c === 'MHLIPKT' || c === 'MHLIPOCKET') return 'MHLI_PT';
+    if (c === 'NGSABE' || c === 'NGBE' || c === 'NGSABUFFEREND' || (c.includes('NG') && c.includes('BE'))) return 'NGSA_BE';
+    if (
+      c === 'NGSAPT' || c === 'NGSAPKT' || c === 'NPKT' || c === 'NGSAPOCKET' ||
+      c === 'NGPKT' || c === 'NGPT' || c.includes('NGPKT') || c.includes('NGPT') ||
+      c.includes('NPKT') || (c.includes('NG') && (c.includes('PKT') || c.includes('POCKET') || c.includes('PT')))
+    ) return 'NGSA_PT';
+    if (c === 'NLCPT' || c === 'NLCPKT' || c.includes('NLCPOCKET') || (c.includes('NLC') && c.includes('PKT'))) return 'NLC_PT';
+    if (c === 'MHLIPT' || c === 'MHLIPKT' || c.includes('MHLIPOCKET') || (c.includes('MHLI') && c.includes('PKT'))) return 'MHLI_PT';
     if (c === 'PUTHBE' || c === 'PUTHBUFFEREND') return 'PUTH_BE';
     if (c === 'APTSBE' || c === 'APTSBUFFEREND') return 'APTS_BE';
     
@@ -126,12 +130,49 @@ export function calculateStationDistance(fromSt, toSt) {
     return String(code || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
   };
 
-  const fromNorm = normalize(fromSt);
-  const toNorm = normalize(toSt);
+  const rawToStr = String(toSt || '').trim().toUpperCase();
+  const isTurnBackTo = /\b(TB|T\/B|T\.B|TURN\s*BACK|TURNBACK|REV|REVERSING)\b/i.test(rawToStr) ||
+                       /[-_ ]TB$/i.test(rawToStr) ||
+                       /\(TB\)/i.test(rawToStr);
+
+  if (isTurnBackTo) {
+    let cleanToStr = rawToStr
+      .replace(/\b(TB|T\/B|T\.B|TURN\s*BACK|TURNBACK|REV|REVERSING)\b/gi, "")
+      .replace(/[-_()]/g, " ")
+      .trim();
+    let turnNorm = normalize(cleanToStr);
+    if (!turnNorm || turnNorm === "DEPOT") {
+      if (rawToStr.includes("RVR")) turnNorm = "RVR";
+      else if (rawToStr.includes("KGWA")) turnNorm = "KGWA";
+      else if (rawToStr.includes("PUTH")) turnNorm = "PUTH";
+      else if (rawToStr.includes("SPGD")) turnNorm = "SPGD";
+      else if (rawToStr.includes("NLC")) turnNorm = "NLC";
+      else if (rawToStr.includes("NGSA")) turnNorm = "NGSA";
+    }
+
+    if (turnNorm) {
+      let normFrom = normalize(fromSt);
+      if (normFrom === "BIET") normFrom = "BIET_BE";
+      if (normFrom === "APTS") normFrom = "APTS_BE";
+      const fromVal = STATION_CHAINAGE[normFrom];
+      const turnVal = STATION_CHAINAGE[turnNorm];
+      const pyidVal = STATION_CHAINAGE["PYID"];
+      if (fromVal !== undefined && turnVal !== undefined && pyidVal !== undefined) {
+        return parseFloat((Math.abs(turnVal - fromVal) + Math.abs(pyidVal - turnVal)).toFixed(3));
+      }
+    }
+  }
+
+  let fromNorm = normalize(fromSt);
+  let toNorm = normalize(toSt);
+  if (fromNorm === 'BIET') fromNorm = 'BIET_BE';
+  if (toNorm === 'BIET') toNorm = 'BIET_BE';
+  if (fromNorm === 'APTS') fromNorm = 'APTS_BE';
+  if (toNorm === 'APTS') toNorm = 'APTS_BE';
   const fromVal = STATION_CHAINAGE[fromNorm];
   const toVal = STATION_CHAINAGE[toNorm];
   if (fromVal === undefined || toVal === undefined) return 0;
-  return Math.abs(toVal - fromVal);
+  return parseFloat(Math.abs(toVal - fromVal).toFixed(3));
 }
 
 // Helper: Determine endpoints (start/end stations) and direction of a WTT trip
