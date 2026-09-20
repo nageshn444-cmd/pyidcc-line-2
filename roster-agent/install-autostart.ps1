@@ -11,8 +11,9 @@ Copy-Item $sourceConfig (Join-Path $AgentHome 'config.json') -Force
 $taskName = 'PYIDCC GCC Roster Auto Deploy'
 $ps = (Get-Command powershell.exe).Source
 $agentPath = Join-Path $AgentHome 'agent.ps1'
-schtasks.exe /Create /TN $taskName /TR ('"' + $ps + '" -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $agentPath + '"') /SC ONLOGON /RL LIMITED /F | Out-Null
-Write-Host 'PYIDCC roster automation installed.' -ForegroundColor Green
+$action = '"' + $ps + '" -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $agentPath + '"'
+schtasks.exe /Create /TN $taskName /TR $action /SC DAILY /ST 06:00 /RL LIMITED /F | Out-Null
+Write-Host 'PYIDCC GCC roster automation installed for 06:00 daily.' -ForegroundColor Green
 Write-Host ('Task: ' + $taskName)
 Write-Host ('State/log: ' + $AgentHome)
-Write-Host ('Start now: schtasks.exe /Run /TN "' + $taskName + '"')
+Write-Host ('Run a manual test now: schtasks.exe /Run /TN "' + $taskName + '"')
