@@ -41,7 +41,7 @@ import {
   UserX,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { useOperationalEngine } from "../context/OperationalEngine";
 import { BMRCL_CREW_REGISTRY } from "../data/bmrclCrewRegistry";
@@ -1201,6 +1201,12 @@ export default function AutomatedDispatchGate({
   const [excelPathInput, setExcelPathInput] = useState("");
   const [selectedRosterFile, setSelectedRosterFile] = useState(null);
   const [isInspectingPath, setIsInspectingPath] = useState(false);
+  // GCC local Excel bridge connection state
+  const [gccBridgeStatus, setGccBridgeStatus] = useState("CHECKING");
+  const [gccBridgeFileName, setGccBridgeFileName] = useState("");
+  const [gccBridgeLastModified, setGccBridgeLastModified] = useState("");
+  const gccBridgeSignatureRef = useRef("");
+
 
   // Staging & Confirmation Engine States
   const [stagedRoster, setStagedRoster] = useState(null);
@@ -1401,6 +1407,100 @@ export default function AutomatedDispatchGate({
     }
   };
 
+
+  // Automatically pull the GCC workbook from the local Windows bridge and
+  // feed it into the EXISTING roster file processing pipeline.
+  // This does not parse/classify the workbook itself.
+  const loadGccRosterFromLocalBridge = async () => {
+    const bridgeBase = "http://127.0.0.1:17845";
+
+    try {
+      const statusResponse = await fetch(`${bridgeBase}/status`, {
+        cache: "no-store",
+      });
+
+      if (!statusResponse.ok) {
+        throw new Error(`Bridge status HTTP ${statusResponse.status}`);
+      }
+
+      const status = await statusResponse.json();
+
+      if (!status.fileExists) {
+        setGccBridgeStatus("CONNECTED_NO_FILE");
+        setGccBridgeFileName("");
+        return;
+      }
+
+      setGccBridgeStatus("CONNECTED");
+      setGccBridgeFileName(status.fileName || "");
+      setGccBridgeLastModified(status.lastModified || "");
+
+      const signature = [
+        status.fileName || "",
+        status.size || "",
+        status.lastModified || "",
+      ].join("|");
+
+      // Do not repeatedly reprocess the same workbook.
+      if (gccBridgeSignatureRef.current === signature) return;
+
+      const fileResponse = await fetch(`${bridgeBase}/file`, {
+        cache: "no-store",
+      });
+
+      if (!fileResponse.ok) {
+        throw new Error(`Bridge file HTTP ${fileResponse.status}`);
+      }
+
+      const blob = await fileResponse.blob();
+      const fileName =
+        fileResponse.headers.get("X-PYIDCC-File-Name") ||
+        status.fileName ||
+        "GCC_Roster.xlsb";
+      const lastModifiedHeader =
+        fileResponse.headers.get("X-PYIDCC-Last-Modified") ||
+        status.lastModified;
+
+      const file = new File([blob], fileName, {
+        type:
+          blob.type ||
+          "application/vnd.ms-excel.sheet.binary.macroEnabled.12",
+        lastModified: lastModifiedHeader
+          ? new Date(lastModifiedHeader).getTime()
+          : Date.now(),
+      });
+
+      gccBridgeSignatureRef.current = signature;
+      setSelectedRosterFile(file);
+      setExcelPathInput(fileName);
+
+      // IMPORTANT: use the existing Browse-file processing function.
+      await processFileAndDeploy(file);
+    } catch (error) {
+      // The bridge may simply be offline when the web app is opened elsewhere.
+      // Keep manual Browse File fully functional.
+      setGccBridgeStatus("OFFLINE");
+      console.debug("PYIDCC GCC local bridge unavailable:", error);
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkBridge = async () => {
+      if (cancelled) return;
+      await loadGccRosterFromLocalBridge();
+    };
+
+    checkBridge();
+    const timer = window.setInterval(checkBridge, 30000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+  
   const handleDiscardStagingDraft = () => {
     setStagedRoster(null);
     setIsRosterConfirmed(false);
