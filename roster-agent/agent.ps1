@@ -12,7 +12,15 @@ $url=[string]$c.functionUrl;$token=[string]$c.agentToken;$poll=[int]$c.pollSecon
 function Schedule([datetime]$d){switch([int]$d.DayOfWeek){0{'SUNDAY'}1{'MONDAY'}6{'SATURDAY'}default{'WEEKDAY'}}}
 function Sheets([datetime]$d){$dd=$d.Day;$mm=$d.Month;@("$dd.$mm","$dd-$mm",($dd.ToString()+'_'+$mm.ToString()),("$dd."+('{0:D2}' -f $mm)),("$dd-"+('{0:D2}' -f $mm)),($dd.ToString()+'_'+('{0:D2}' -f $mm)),("{0:D2}.{1:D2}" -f $dd,$mm),("{0:D2}-{1:D2}" -f $dd,$mm),("{0:D2}_{1:D2}" -f $dd,$mm))|Select-Object -Unique}
 function DateTokens([datetime]$d){$m1=$d.ToString('MMM',[Globalization.CultureInfo]::InvariantCulture);$m2=$d.ToString('MMMM',[Globalization.CultureInfo]::InvariantCulture);@($d.Day.ToString()+' '+$m1+'_'+$d.Year,$d.Day.ToString()+' '+$m2+'_'+$d.Year,$d.Day.ToString()+' '+$m1+' '+$d.Year,$d.Day.ToString()+'-'+$d.Month+'-'+$d.Year,$d.Day.ToString()+'_'+$d.Month+'_'+$d.Year,("{0:D2}-{1:D2}-{2:D4}" -f $d.Day,$d.Month,$d.Year),("{0:D2}_{1:D2}_{2:D4}" -f $d.Day,$d.Month,$d.Year))}
-function CandidateFiles($yearRoot,[datetime]$date){if(-not(Test-Path $yearRoot)){return @()};$all=@(Get-ChildItem $yearRoot -Recurse -File -ErrorAction SilentlyContinue|Where-Object{$_.Extension -match '^\.(xlsb|xlsx|xls)$' -and $_.Name -match '(?i)roster'});$tokens=@(DateTokens $date);$exact=@();foreach($f in $all){$base=[IO.Path]::GetFileNameWithoutExtension($f.Name);foreach($t in $tokens){if($base -match [regex]::Escape($t)){$exact+=$f;break}}};@($exact|Sort-Object LastWriteTime -Descending)}
+function CandidateFiles($yearRoot,[datetime]$date){
+ if(-not(Test-Path $yearRoot)){return @()}
+ # Do not require today's date in the filename. GCC workbooks can be named for the
+ # roster creation date while containing multiple daily sheets such as "20.9".
+ # ReadRoster() is the authoritative date check.
+ $all=@(Get-ChildItem $yearRoot -Recurse -File -ErrorAction SilentlyContinue|
+   Where-Object{$_.Extension -match '^\.(xlsb|xlsx|xls)$' -and $_.Name -match '(?i)roster'})
+ @($all|Sort-Object LastWriteTime -Descending)
+}
 function ReadRoster($path,[datetime]$date){
  $excel=$null;$wb=$null
  try{
