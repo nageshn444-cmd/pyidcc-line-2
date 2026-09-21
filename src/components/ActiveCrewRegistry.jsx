@@ -1309,7 +1309,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
 
           {/* Import/Export */}
           {canWrite && (
-            <label className="bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-200 font-bold px-3 py-2 rounded flex items-center gap-1.5 cursor-pointer transition-colors" htmlFor="activecrewregistry-l1">
+            <label className="bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-200 font-bold px-3 py-2 rounded flex items-center gap-1.5 cursor-pointer transition-colors" htmlFor="activecrewregistry-i1">
               <UploadCloud size={14} className="text-emerald-400" /> Import
               <input id="activecrewregistry-i1" name="activecrewregistry-i1" 
                 type="file" 
@@ -1387,7 +1387,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
       {showAdvancedSearch && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
           <div className="space-y-1">
-            <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-l2">Employee ID</label>
+            <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-i2">Employee ID</label>
             <input id="activecrewregistry-i2" name="activecrewregistry-i2"
               type="text"
               placeholder="Filter by ID..."
@@ -1397,7 +1397,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
             />
           </div>
           <div className="space-y-1">
-            <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-l3">Employee Name</label>
+            <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-i3">Employee Name</label>
             <input id="activecrewregistry-i3" name="activecrewregistry-i3"
               type="text"
               placeholder="Filter by Name..."
@@ -1407,7 +1407,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
             />
           </div>
           <div className="space-y-1">
-            <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-l4">Designation</label>
+            <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-i4">Designation</label>
             <select id="activecrewregistry-i4" name="activecrewregistry-i4"
               value={filters.designation}
               onChange={e => setFilters({ ...filters, designation: e.target.value })}
@@ -1420,7 +1420,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-l5">Depot</label>
+            <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-i5">Depot</label>
             <select id="activecrewregistry-i5" name="activecrewregistry-i5"
               value={filters.depot}
               onChange={e => setFilters({ ...filters, depot: e.target.value })}
@@ -1432,7 +1432,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-l6">Department</label>
+            <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-i6">Department</label>
             <select id="activecrewregistry-i6" name="activecrewregistry-i6"
               value={filters.department}
               onChange={e => setFilters({ ...filters, department: e.target.value })}
@@ -1445,7 +1445,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-l7">Operational Crew (Status)</label>
+            <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-i7">Operational Crew (Status)</label>
             <select id="activecrewregistry-i7" name="activecrewregistry-i7"
               value={filters.operationalCrew}
               onChange={e => setFilters({ ...filters, operationalCrew: e.target.value })}
@@ -1457,31 +1457,33 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-l8">Medical Validity</label>
+            <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-i8">Medical Validity</label>
             <select id="activecrewregistry-i8" name="activecrewregistry-i8"
-              value={filters.medical}
-              onChange={e => setFilters({ ...filters, medical: e.target.value })}
+              value={filters.medicalValidity}
+              onChange={e => setFilters({ ...filters, medicalValidity: e.target.value })}
               className="w-full bg-slate-950 border border-slate-850 rounded p-2 text-slate-300"
             >
-              <option value="ALL">ALL MEDICAL RECORDS</option>
-              <option value="VALID">VALID ONLY</option>
-              <option value="EXPIRED">EXPIRED ONLY</option>
+              <option value="ALL">ALL MEDICAL STATUSES</option>
+              <option value="VALID">VALID MEDICAL ONLY</option>
+              <option value="EXPIRING_SOON">EXPIRING WITHIN 30 DAYS</option>
+              <option value="EXPIRED">EXPIRED OVERDUE</option>
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-l9">Competency Validity</label>
+            <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-i9">Competency Validity</label>
             <select id="activecrewregistry-i9" name="activecrewregistry-i9"
-              value={filters.competency}
-              onChange={e => setFilters({ ...filters, competency: e.target.value })}
+              value={filters.competencyValidity}
+              onChange={e => setFilters({ ...filters, competencyValidity: e.target.value })}
               className="w-full bg-slate-950 border border-slate-850 rounded p-2 text-slate-300"
             >
-              <option value="ALL">ALL COMPETENCY RECORDS</option>
-              <option value="VALID">VALID ONLY</option>
-              <option value="EXPIRED">EXPIRED ONLY</option>
+              <option value="ALL">ALL COMPETENCY STATUSES</option>
+              <option value="VALID">VALID COMPETENCY ONLY</option>
+              <option value="EXPIRING_SOON">EXPIRING WITHIN 30 DAYS</option>
+              <option value="EXPIRED">EXPIRED OVERDUE</option>
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-l10">Roster Archive View</label>
+            <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-i10">Record Status</label>
             <select id="activecrewregistry-i10" name="activecrewregistry-i10"
               value={filters.deleted}
               onChange={e => setFilters({ ...filters, deleted: e.target.value })}
@@ -1493,7 +1495,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-l11">User Account Access</label>
+            <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-i11">User Account Access</label>
             <select id="activecrewregistry-i11" name="activecrewregistry-i11"
               value={filters.activeUser}
               onChange={e => setFilters({ ...filters, activeUser: e.target.value })}
@@ -1517,7 +1519,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
             <div className="space-y-1">
-              <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-l12">Select Operations Command</label>
+              <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-i12">Select Operations Command</label>
               <select id="activecrewregistry-i12" name="activecrewregistry-i12"
                 value={bulkFields.action}
                 onChange={e => setBulkFields({ ...bulkFields, action: e.target.value })}
@@ -1539,7 +1541,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
 
             {bulkFields.action === 'UPDATE_DEPOT' && (
               <div className="space-y-1">
-                <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-l13">Depot Destination</label>
+                <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-i13">Depot Destination</label>
                 <select id="activecrewregistry-i13" name="activecrewregistry-i13"
                   value={bulkFields.depot}
                   onChange={e => setBulkFields({ ...bulkFields, depot: e.target.value })}
@@ -1554,7 +1556,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
 
             {bulkFields.action === 'UPDATE_ROLE' && (
               <div className="space-y-1">
-                <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-l14">Role Destination</label>
+                <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-i14">Role Destination</label>
                 <select id="activecrewregistry-i14" name="activecrewregistry-i14"
                   value={bulkFields.role}
                   onChange={e => setBulkFields({ ...bulkFields, role: e.target.value })}
@@ -1571,7 +1573,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
 
             {bulkFields.action === 'UPDATE_DESIGNATION' && (
               <div className="space-y-1">
-                <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-l15">Designation Destination</label>
+                <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-i15">Designation Destination</label>
                 <select id="activecrewregistry-i15" name="activecrewregistry-i15"
                   value={bulkFields.designation}
                   onChange={e => setBulkFields({ ...bulkFields, designation: e.target.value })}
@@ -1587,7 +1589,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
 
             {bulkFields.action === 'UPDATE_DEPARTMENT' && (
               <div className="space-y-1">
-                <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-l16">Department Name</label>
+                <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-i16">Department Name</label>
                 <input id="activecrewregistry-i16" name="activecrewregistry-i16"
                   type="text"
                   placeholder="e.g. Operations"
@@ -1600,7 +1602,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
 
             {bulkFields.action === 'UPDATE_MOBILE' && (
               <div className="space-y-1">
-                <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-l17">New Mobile Number (10 digits)</label>
+                <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-i17">New Mobile Number (10 digits)</label>
                 <input id="activecrewregistry-i17" name="activecrewregistry-i17"
                   type="text"
                   placeholder="e.g. 9110238017"
@@ -1613,7 +1615,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
 
             {bulkFields.action === 'UPDATE_EMAIL' && (
               <div className="space-y-1">
-                <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-l18">New Email Address</label>
+                <label className="text-slate-500 font-bold block" htmlFor="activecrewregistry-i18">New Email Address</label>
                 <input id="activecrewregistry-i18" name="activecrewregistry-i18"
                   type="email"
                   placeholder="e.g. mail@domain.com"
@@ -1899,7 +1901,10 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                       className={`hover:bg-slate-950/40 transition-colors ${emp.deleted ? 'bg-rose-950/5 opacity-55' : emp.operationalCrew !== 'YES' ? 'opacity-55' : ''}`}
                     >
                       <td className="p-3 text-center">
-                        <input id="activecrewregistry-i21" name="activecrewregistry-i21"
+                        <input
+                          id={`crew-select-${emp.employeeId || empIdx}`}
+                          name={`crew_select_${emp.employeeId || empIdx}`}
+                          aria-label={`Select employee ${emp.employeeName}`}
                           type="checkbox"
                           checked={isSelected}
                           onChange={e => {
@@ -1910,12 +1915,15 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                         />
                       </td>
                       <td className="p-3 text-center">
-                        <input id="activecrewregistry-i22" name="activecrewregistry-i22"
+                        <input
+                          id={`crew-operational-${emp.employeeId || empIdx}`}
+                          name={`crew_operational_${emp.employeeId || empIdx}`}
+                          aria-label={`Toggle operational status for ${emp.employeeName}`}
                           type="checkbox"
                           checked={emp.operationalCrew === 'YES'}
                           onChange={e => toggleActiveCheckbox(emp, e.target.checked)}
                           disabled={!canWrite || emp.deleted}
-                          className="rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-500 h-4.5 w-4.5 cursor-pointer disabled:opacity-40"
+                          className="rounded border-slate-700 bg-slate-955 text-emerald-500 focus:ring-emerald-500 h-4.5 w-4.5 cursor-pointer disabled:opacity-40"
                         />
                       </td>
                       <td className="p-3 font-bold text-cyan-400">#{emp.employeeId}</td>
@@ -2111,7 +2119,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
               {modalTab === 'personal' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-l19">Employee ID (digits only)*</label>
+                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-i24">Employee ID (digits only)*</label>
                     <input id="activecrewregistry-i24" name="activecrewregistry-i24"
                       type="text"
                       required
@@ -2123,7 +2131,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-l20">Employee Name*</label>
+                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-i25">Employee Name*</label>
                     <input id="activecrewregistry-i25" name="activecrewregistry-i25"
                       type="text"
                       required
@@ -2135,7 +2143,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-l21">Mobile Contact Number*</label>
+                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-i26">Mobile Contact Number*</label>
                     <input id="activecrewregistry-i26" name="activecrewregistry-i26"
                       type="text"
                       required
@@ -2147,7 +2155,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-l22">Email Address</label>
+                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-i27">Email Address</label>
                     <input id="activecrewregistry-i27" name="activecrewregistry-i27"
                       type="email"
                       disabled={isFieldDisabled('email')}
@@ -2158,7 +2166,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-l23">Blood Group</label>
+                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-i28">Blood Group</label>
                     <select id="activecrewregistry-i28" name="activecrewregistry-i28"
                       value={formFields.bloodGroup}
                       disabled={isFieldDisabled('bloodGroup')}
@@ -2171,7 +2179,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-l24">Emergency Contact Number</label>
+                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-i29">Emergency Contact Number</label>
                     <input id="activecrewregistry-i29" name="activecrewregistry-i29"
                       type="text"
                       disabled={isFieldDisabled('emergencyContact')}
@@ -2182,7 +2190,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                     />
                   </div>
                   <div className="space-y-1 md:col-span-2">
-                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-l25">Photo Asset Link URL</label>
+                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-i30">Photo Asset Link URL</label>
                     <input id="activecrewregistry-i30" name="activecrewregistry-i30"
                       type="text"
                       disabled={isFieldDisabled('photo')}
@@ -2199,7 +2207,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
               {modalTab === 'operational' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-l26">Designation*</label>
+                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-i31">Designation*</label>
                     <select id="activecrewregistry-i31" name="activecrewregistry-i31"
                       value={formFields.designation}
                       disabled={isFieldDisabled('designation')}
@@ -2212,7 +2220,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-l27">Depot*</label>
+                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-i32">Depot*</label>
                     <select id="activecrewregistry-i32" name="activecrewregistry-i32"
                       value={formFields.depot}
                       disabled={isFieldDisabled('depot')}
@@ -2224,7 +2232,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-l28">Department*</label>
+                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-i33">Department*</label>
                     <input id="activecrewregistry-i33" name="activecrewregistry-i33"
                       type="text"
                       required
@@ -2236,7 +2244,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-l29">Badge Number Reference</label>
+                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-i34">Badge Number Reference</label>
                     <input id="activecrewregistry-i34" name="activecrewregistry-i34"
                       type="text"
                       disabled={isFieldDisabled('badgeNumber')}
@@ -2247,7 +2255,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-l30">Competency Certificate No</label>
+                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-i35">Competency Certificate No</label>
                     <input id="activecrewregistry-i35" name="activecrewregistry-i35"
                       type="text"
                       disabled={isFieldDisabled('competencyNumber')}
@@ -2258,7 +2266,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-l31">Competency Validity Date</label>
+                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-i36">Competency Validity Date</label>
                     <input id="activecrewregistry-i36" name="activecrewregistry-i36"
                       type="date"
                       disabled={isFieldDisabled('competencyValidTill')}
@@ -2268,7 +2276,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-l32">Medical Validity Date</label>
+                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-i37">Medical Validity Date</label>
                     <input id="activecrewregistry-i37" name="activecrewregistry-i37"
                       type="date"
                       disabled={isFieldDisabled('medicalValidTill')}
@@ -2278,7 +2286,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-l33">Date of Joining (DOJ)</label>
+                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-i38">Date of Joining (DOJ)</label>
                     <input id="activecrewregistry-i38" name="activecrewregistry-i38"
                       type="date"
                       disabled={isFieldDisabled('doj')}
@@ -2288,7 +2296,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-l34">Retirement Date</label>
+                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-i39">Retirement Date</label>
                     <input id="activecrewregistry-i39" name="activecrewregistry-i39"
                       type="date"
                       disabled={isFieldDisabled('retirementDate')}
@@ -2317,7 +2325,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
               {modalTab === 'system' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-l35">Roster Log Status</label>
+                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-i41">Roster Log Status</label>
                     <select id="activecrewregistry-i41" name="activecrewregistry-i41"
                       value={formFields.currentStatus}
                       disabled={isFieldDisabled('currentStatus')}
@@ -2334,7 +2342,7 @@ export default function ActiveCrewRegistry({ userRole = 'SUPER_ADMIN', currentUs
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-l36">Internal Audit Remarks</label>
+                    <label className="text-slate-400 font-bold block" htmlFor="activecrewregistry-i42">Internal Audit Remarks</label>
                     <input id="activecrewregistry-i42" name="activecrewregistry-i42"
                       type="text"
                       disabled={isFieldDisabled('remarks')}

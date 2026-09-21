@@ -67,7 +67,7 @@ export default function ResetPassword() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5" htmlFor="resetpassword-l1">New Password</label>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5" htmlFor="resetpassword-i1">New Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
               <input id="resetpassword-i1" name="resetpassword-i1"
@@ -89,7 +89,7 @@ export default function ResetPassword() {
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5" htmlFor="resetpassword-l2">Confirm New Password</label>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5" htmlFor="resetpassword-i2">Confirm New Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
               <input id="resetpassword-i2" name="resetpassword-i2"

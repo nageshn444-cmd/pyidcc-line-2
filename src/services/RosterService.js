@@ -48,6 +48,7 @@ export const swapOperatorsInConsoleData = (consoleData, op1Id, op1Name, op2Id, o
   swapInArray(updated.notReporting);
   swapInArray(updated.absents);
   swapInArray(updated.onDuty);
+  swapInArray(updated.bookedOff);
   if (Array.isArray(updated.duties)) {
     updated.duties.forEach(item => {
       const currentEmp = String(item.empNo || item.empId || '').trim();
@@ -114,6 +115,7 @@ export const rotateTripleOperatorsInConsoleData = (consoleData, op1Id, op1Name, 
   rotateInArray(updated.notReporting);
   rotateInArray(updated.absents);
   rotateInArray(updated.onDuty);
+  rotateInArray(updated.bookedOff);
 
   if (Array.isArray(updated.duties)) {
     updated.duties.forEach(item => {
@@ -139,6 +141,96 @@ export const rotateTripleOperatorsInConsoleData = (consoleData, op1Id, op1Name, 
 
   if (updated.customRegisters && typeof updated.customRegisters === 'object') {
     Object.values(updated.customRegisters).forEach(arr => rotateInArray(arr));
+  }
+
+  return updated;
+};
+
+export const transferOperatorInConsoleData = (consoleData, opId, opName, sourceCat, targetCat, targetMeta = {}) => {
+  if (!consoleData) return consoleData;
+  const updated = JSON.parse(JSON.stringify(consoleData));
+  const idStr = String(opId || '').trim();
+  const nameStr = String(opName || '').trim();
+
+  // Helper to remove from an array
+  const removeFromArray = (arr) => {
+    if (!Array.isArray(arr)) return arr || [];
+    return arr.filter(item => {
+      const curId = String(item.empNo || item.empId || '').trim();
+      const curName = String(item.name || item.empName || '').trim();
+      if (idStr && curId === idStr) return false;
+      if (!idStr && nameStr && curName.toLowerCase() === nameStr.toLowerCase()) return false;
+      return true;
+    });
+  };
+
+  const catKeyMap = {
+    standby: 'standbys',
+    standbys: 'standbys',
+    stepback: 'outstationStepbacks',
+    outstationStepbacks: 'outstationStepbacks',
+    stbk: 'outstationStepbacks',
+    cc: 'controlDesks',
+    controlDesks: 'controlDesks',
+    od: 'onDuty',
+    or: 'onDuty',
+    onDuty: 'onDuty',
+    wo: 'weeklyOffs',
+    weeklyOff: 'weeklyOffs',
+    weeklyOffs: 'weeklyOffs',
+    leave: 'leaves',
+    leaves: 'leaves',
+    crt: 'crtTraining',
+    crtTraining: 'crtTraining',
+    bmrti: 'bmrtiTraining',
+    bmrtiTraining: 'bmrtiTraining',
+    rel: 'relievedOperators',
+    relievedOperators: 'relievedOperators',
+    pme: 'pmeOperators',
+    pmeOperators: 'pmeOperators',
+    lrd: 'routeLearning',
+    routeLearning: 'routeLearning',
+    nr: 'notReporting',
+    notReporting: 'notReporting',
+    ab: 'absents',
+    absents: 'absents',
+    bo: 'bookedOff',
+    bookedOff: 'bookedOff',
+    coOperators: 'coOperators',
+    coop: 'coOperators',
+  };
+
+  const srcKey = catKeyMap[String(sourceCat || '').toLowerCase()] || sourceCat;
+  const tgtKey = catKeyMap[String(targetCat || '').toLowerCase()] || targetCat;
+
+  // 1. Remove from source array if in consoleData
+  if (srcKey && Array.isArray(updated[srcKey])) {
+    updated[srcKey] = removeFromArray(updated[srcKey]);
+  } else if (updated.customRegisters && updated.customRegisters[sourceCat]) {
+    updated.customRegisters[sourceCat] = removeFromArray(updated.customRegisters[sourceCat]);
+  }
+
+  // 2. Add to target array if target is in consoleData
+  if (tgtKey && tgtKey !== 'mainline' && tgtKey !== 'MAINLINE') {
+    const newItem = {
+      empNo: idStr,
+      empId: idStr,
+      name: nameStr,
+      duty: targetMeta.duty || targetMeta.dutyId || String(targetCat).toUpperCase(),
+      code: targetMeta.code || String(targetCat).toUpperCase(),
+      time: targetMeta.time || targetMeta.shift || '09:00 - 17:00',
+      station: targetMeta.station || 'PUTH',
+      info: targetMeta.info || targetMeta.remarks || '',
+      ...targetMeta,
+    };
+
+    if (Array.isArray(updated[tgtKey])) {
+      updated[tgtKey].push(newItem);
+    } else if (updated.customRegisters && updated.customRegisters[targetCat]) {
+      updated.customRegisters[targetCat].push(newItem);
+    } else {
+      updated[tgtKey] = [newItem];
+    }
   }
 
   return updated;

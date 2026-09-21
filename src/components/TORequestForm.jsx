@@ -151,7 +151,7 @@ export default function TORequestForm() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
-            <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider" htmlFor="torequestform-l1">Leave Category</label>
+            <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider" htmlFor="torequestform-i1">Leave Category</label>
             <select id="torequestform-i1" name="torequestform-i1" 
               value={leaveData.leaveType}
               onChange={(e) => {
@@ -182,7 +182,7 @@ export default function TORequestForm() {
 
           {['ML', 'CCL', 'OL', 'SCL', 'CO'].includes(leaveData.leaveType) && (
             <div className="col-span-2">
-              <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider" htmlFor="torequestform-l2">Sub Category</label>
+              <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider" htmlFor="torequestform-i2">Sub Category</label>
               <select id="torequestform-i2" name="torequestform-i2"
                 value={leaveData.subCategory}
                 onChange={(e) => setLeaveData({...leaveData, subCategory: e.target.value})}
@@ -230,7 +230,7 @@ export default function TORequestForm() {
 
           {leaveData.leaveType === 'ML' && (
             <div className="col-span-2">
-              <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider flex items-center gap-1" htmlFor="torequestform-l3">
+              <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider flex items-center gap-1" htmlFor="torequestform-i3">
                 <UploadCloud size={14} /> Upload Medical Certificate (Simulated)
               </label>
               <input id="torequestform-i3" name="torequestform-i3" 
@@ -255,7 +255,7 @@ export default function TORequestForm() {
             <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2"> Roster conflict params (for simulations)</span>
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <label className="block text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-1" htmlFor="torequestform-l4">ML Usage Count</label>
+                <label className="block text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-1" htmlFor="torequestform-i4">ML Usage Count</label>
                 <input id="torequestform-i4" name="torequestform-i4" 
                   type="number" 
                   min="0"
@@ -265,7 +265,7 @@ export default function TORequestForm() {
                 />
               </div>
               <div>
-                <label className="block text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-1" htmlFor="torequestform-l5">Leave Balance</label>
+                <label className="block text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-1" htmlFor="torequestform-i5">Leave Balance</label>
                 <input id="torequestform-i5" name="torequestform-i5" 
                   type="number" 
                   min="0"
@@ -275,7 +275,7 @@ export default function TORequestForm() {
                 />
               </div>
               <div>
-                <label className="block text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-1" htmlFor="torequestform-l6">Availed this year</label>
+                <label className="block text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-1" htmlFor="torequestform-i6">Availed this year</label>
                 <input id="torequestform-i6" name="torequestform-i6" 
                   type="number" 
                   min="0"
@@ -288,7 +288,7 @@ export default function TORequestForm() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider" htmlFor="torequestform-l7">Start Date</label>
+            <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider" htmlFor="torequestform-i7">Start Date</label>
             <input id="torequestform-i7" name="torequestform-i7" 
               type="date" 
               required
@@ -300,7 +300,7 @@ export default function TORequestForm() {
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider" htmlFor="torequestform-l8">End Date</label>
+            <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider" htmlFor="torequestform-i8">End Date</label>
             <input id="torequestform-i8" name="torequestform-i8" 
               type="date" 
               required
@@ -314,7 +314,7 @@ export default function TORequestForm() {
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider" htmlFor="torequestform-l9">Reason for Leave</label>
+          <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider" htmlFor="torequestform-i9">Reason for Leave</label>
           <textarea id="torequestform-i9" name="torequestform-i9" 
             required
             rows="2"

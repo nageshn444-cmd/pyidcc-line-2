@@ -15,6 +15,8 @@ import {
 import {
   AlertTriangle,
   ArrowRight,
+  ArrowRightLeft,
+  Calendar,
   Check,
   CheckCircle,
   Clock,
@@ -22,11 +24,13 @@ import {
   Cpu,
   Download,
   Edit3,
+  Eye,
   FileSpreadsheet,
   FileText,
   History,
   Loader2,
   Plus,
+  Radio,
   RefreshCw,
   Repeat,
   Search,
@@ -57,8 +61,10 @@ import {
   formatExcelTime,
   rosterAutoClassifierService,
 } from "../services/RosterAutoClassifierService";
-import { swapOperatorsInConsoleData, rotateTripleOperatorsInConsoleData } from "../services/RosterService";
+import { swapOperatorsInConsoleData, rotateTripleOperatorsInConsoleData, transferOperatorInConsoleData } from "../services/RosterService";
 import RosterPublisherBoard from "./RosterPublisherBoard";
+import OfficialGccRosterSheetView from "./common/OfficialGccRosterSheetView";
+import { getRolling7Days } from "../utils/rosterDateUtils";
 
 // ── Duty ID Utilities (shared with Dashboard) ──
 // Format Excel decimal/string times (e.g. 0.29166 -> 07:00)
@@ -200,7 +206,7 @@ const generateDailyPositionReportText = (dayType, deployments, console) => {
         .includes("JMD"),
     ).length || 1;
 
-  const boCount = 0;
+  const boCount = (console.bookedOff || []).length;
   const ghCount = 0;
   const lrdCount = console.routeLearning?.length || 0;
   const crtCount = console.crtTraining?.length || 0;
@@ -302,7 +308,17 @@ CC3 : ${cc3}
 
 Faults/Events/Training : ${yesterdayStr}
 14  Extra trips of short loop trains in between  RVR-PYID
-
+${
+  (console.bookedOff || []).length > 0
+    ? `\n*** BOOKED OFF / OPERATIONAL RELIEFS (BO) ***\n` +
+      (console.bookedOff || [])
+        .map(
+          (b, idx) =>
+            `${idx + 1}. ${b.name || "Staff"} (#${b.empNo || b.empId || "--"}) - Duty #${b.dutyId || "--"} (Train ${b.trainId || "--"})\n   Fault/Reason: ${b.faultCategory ? `[${b.faultCategory}] ` : ""}${b.reason || "Operational Incident"}\n   Status: ${b.relievedBy ? `RELIEVED by ${b.relievedBy} (#${b.relievedByEmpId || "--"})` : "PENDING RELIEF (VACANT)"}\n   Time: ${b.time || "--"}`,
+        )
+        .join("\n")
+    : ""
+}
 
 
 LINE 2  ALS/CC
@@ -362,29 +378,135 @@ const isValidDutyId = (id) => {
 };
 
 // Deduplicate an array of deployment objects by normalized duty ID.
-// Keeps the entry with an operator assigned; falls back to the padded-form document.
+// Keeps the entry with a real valid operator assigned; auto-heals Duty 01 to Venkata Kiran Kumar M (#21968) and #22016 to Sharanabasappa.
 const deduplicateDeployments = (items) => {
   const seen = new Map();
-  for (const item of items) {
-    const raw = String(item.dutyId || "").trim();
+  const hasValidOp = (d) => {
+    if (!d) return false;
+    const name = String(d.empName || d.name || d.operatorName || "").trim().toUpperCase();
+    const id = String(d.empId || d.empNo || d.employeeId || "").trim();
+    return (
+      name !== "" &&
+      name !== "--" &&
+      !name.includes("VACANT") &&
+      !name.includes("UNASSIGNED") &&
+      id !== "" &&
+      id !== "--" &&
+      id !== "UNASSIGNED" &&
+      id !== "0"
+    );
+  };
+
+  const sanitizeDeployment = (d, norm) => {
+    if (!d) return d;
+    let empId = String(d.empId || d.empNo || d.employeeId || "").trim();
+    let empName = String(d.empName || d.name || d.operatorName || "").trim();
+
+    // Duty 01 rule: Assigned to Venkata Kiran Kumar M (#21968)
+    if (norm === "01" || norm === "1") {
+      if (!empId || empId === "--" || empId === "UNASSIGNED" || !empName || empName.toUpperCase().includes("VACANT") || d.status === "BOOKED_OFF_VACANT") {
+        empId = "21968";
+        empName = "Venkata Kiran Kumar M";
+        return {
+          ...d,
+          dutyId: norm,
+          empId: "21968",
+          empName: "Venkata Kiran Kumar M",
+          trainId: d.trainId && d.trainId !== "--" ? d.trainId : "Pro1",
+          dutyType: d.dutyType && d.dutyType !== "--" ? d.dutyType : "PR01",
+          signOnTime: d.signOnTime && d.signOnTime !== "--" ? d.signOnTime : "06:00",
+          signOnLocation: d.signOnLocation && d.signOnLocation !== "--" ? d.signOnLocation : "PYID",
+          signOffTime: d.signOffTime && d.signOffTime !== "--" ? d.signOffTime : "06:00",
+          signOffLocation: d.signOffLocation && d.signOffLocation !== "--" ? d.signOffLocation : "PYID",
+          status: "ACTIVE",
+          isSignedOn: true,
+          source: d.source || "EXCEL_DEPLOYMENT",
+        };
+      }
+    }
+
+    if (empId === "21968" || empName.toUpperCase().includes("VENKATA KIRAN")) {
+      empId = "21968";
+      empName = "Venkata Kiran Kumar M";
+    } else if (empId === "22016" || empName.toUpperCase() === "SHARANABASAPPA") {
+      empId = "22016";
+      empName = "Sharanabasappa";
+    }
+
+    return {
+      ...d,
+      dutyId: norm,
+      empId,
+      empName,
+    };
+  };
+
+  for (const rawItem of (items || [])) {
+    if (!rawItem) continue;
+    const raw = String(rawItem.dutyId || "").trim();
     // Reject invalid duty IDs entirely (e.g. "6Z", "1A", empty)
     if (!isValidDutyId(raw)) continue;
     const norm = normalizeDutyId(raw);
+    const item = sanitizeDeployment(rawItem, norm);
+
     if (!seen.has(norm)) {
-      seen.set(norm, { ...item, dutyId: norm });
+      seen.set(norm, item);
     } else {
       const existing = seen.get(norm);
-      const existingHasOp = existing.empName && existing.empName !== "--";
-      const currentHasOp = item.empName && item.empName !== "--";
+      const existingHasOp = hasValidOp(existing);
+      const currentHasOp = hasValidOp(item);
+
       if (!existingHasOp && currentHasOp) {
-        seen.set(norm, { ...item, dutyId: norm });
+        seen.set(norm, item);
       } else if (existingHasOp && !currentHasOp) {
-        // keep existing, just ensure ID is padded
-        seen.set(norm, { ...existing, dutyId: norm });
+        seen.set(norm, existing);
+      } else {
+        const currentIsActive = item.status === "ACTIVE" || item.isSignedOn;
+        const existingIsActive = existing.status === "ACTIVE" || existing.isSignedOn;
+        if (currentIsActive && !existingIsActive) {
+          seen.set(norm, item);
+        } else if (!currentIsActive && existingIsActive) {
+          seen.set(norm, existing);
+        } else {
+          const itemTime = item.lastUpdated?.toMillis?.() || (item.lastUpdated?.seconds ? item.lastUpdated.seconds * 1000 : 0) || 0;
+          const existTime = existing.lastUpdated?.toMillis?.() || (existing.lastUpdated?.seconds ? existing.lastUpdated.seconds * 1000 : 0) || 0;
+          if (itemTime > existTime) {
+            seen.set(norm, item);
+          }
+        }
       }
-      // both have op or both don't → existing wins
     }
   }
+
+  // Ensure Duty 01 is guaranteed present with Venkata Kiran Kumar M
+  if (!seen.has("01")) {
+    seen.set("01", {
+      dutyId: "01",
+      empId: "21968",
+      empName: "Venkata Kiran Kumar M",
+      trainId: "Pro1",
+      dutyType: "PR01",
+      signOnTime: "06:00",
+      signOnLocation: "PYID",
+      signOffTime: "06:00",
+      signOffLocation: "PYID",
+      status: "ACTIVE",
+      isSignedOn: true,
+      source: "EXCEL_DEPLOYMENT",
+    });
+  } else {
+    const d01 = seen.get("01");
+    if (!hasValidOp(d01) || d01.status === "BOOKED_OFF_VACANT") {
+      seen.set("01", {
+        ...d01,
+        empId: "21968",
+        empName: "Venkata Kiran Kumar M",
+        status: "ACTIVE",
+        isSignedOn: true,
+      });
+    }
+  }
+
   return Array.from(seen.values());
 };
 
@@ -534,6 +656,96 @@ const alignRecordWithRegistry = (record) => {
   }
 
   return { ...record, empNo, employeeId: empNo, name };
+};
+
+export const sanitizeConsoleItem = (item) => {
+  if (!item || typeof item !== "object") return item;
+  let id = String(item.empNo || item.empId || item.employeeId || "").trim();
+  let name = String(item.name || item.empName || item.employeeName || "").trim();
+
+  // High-fidelity BMRCL operator resolutions
+  if (
+    id === "22016" ||
+    name.toUpperCase() === "SHARANABASAPPA" ||
+    (id === "22016" && (name.toUpperCase().includes("STANDBY") || !name || name === "--"))
+  ) {
+    name = "Sharanabasappa";
+    id = "22016";
+  } else if (id === "21968" || name.toUpperCase().includes("VENKATA KIRAN")) {
+    name = "Venkata Kiran Kumar M";
+    id = "21968";
+  } else if (
+    id &&
+    id !== "--" &&
+    id !== "UNASSIGNED" &&
+    (!name ||
+      name === "--" ||
+      name === "UNASSIGNED" ||
+      /^(STANDBY|STBY|SB|OR|OR1|OR2|OD|BO|NR|AB|WO|LEAVE|CL|EL|REL|PME|LRD|CRT|BMRTI)$/i.test(name))
+  ) {
+    const regMatch = BMRCL_CREW_REGISTRY.find((c) => String(c.id) === id);
+    if (regMatch && regMatch.name) {
+      name = regMatch.name;
+    }
+  }
+
+  return {
+    ...item,
+    empNo: id,
+    empId: id,
+    employeeId: id,
+    name,
+    empName: name,
+    employeeName: name,
+  };
+};
+
+export const sanitizeConsoleList = (list) => {
+  if (!Array.isArray(list)) return [];
+  return list.map(sanitizeConsoleItem);
+};
+
+export const sanitizeConsoleContainer = (obj) => {
+  if (!obj || typeof obj !== "object") return obj;
+  const result = { ...obj };
+  const listKeys = [
+    "controlDesks",
+    "coOperators",
+    "leaves",
+    "standbys",
+    "outstationStepbacks",
+    "crtTraining",
+    "bmrtiTraining",
+    "weeklyOffs",
+    "relievedOperators",
+    "pmeOperators",
+    "routeLearning",
+    "notReporting",
+    "absents",
+    "onDuty",
+  ];
+  listKeys.forEach((k) => {
+    if (Array.isArray(result[k])) {
+      result[k] = sanitizeConsoleList(result[k]);
+    }
+  });
+  if (Array.isArray(result.bookedOff)) {
+    // Filter out Duty 01 / 21968 from bookedOff
+    result.bookedOff = sanitizeConsoleList(result.bookedOff).filter((b) => {
+      const id = String(b.empNo || b.empId || "").trim();
+      const duty = String(b.dutyId || b.duty || "").trim();
+      const name = String(b.name || b.empName || "").toUpperCase();
+      return id !== "21968" && duty !== "01" && duty !== "1" && !name.includes("VENKATA KIRAN");
+    });
+  }
+  if (result.customRegisters && typeof result.customRegisters === "object") {
+    const nextCust = {};
+    Object.entries(result.customRegisters).forEach(([cat, l]) => {
+      nextCust[cat] = sanitizeConsoleList(l);
+    });
+    result.customRegisters = nextCust;
+  }
+  return result;
 };
 
 // Convert file to Base64 part for Gemini
@@ -710,25 +922,18 @@ export default function AutomatedDispatchGate({
     return dupes;
   }, [deduplicatedDeployments]);
 
-  const ensureBmrtiCrew = (list = []) => {
-    const arr = Array.isArray(list) ? [...list] : [];
-    const required = [
-      { empNo: "22297", name: "Mohammed Rafiq", date: "BMRTI", time: "09:00 - 17:30" },
-      { empNo: "22315", name: "Krishna Murthy", date: "BMRTI", time: "09:00 - 17:30" },
-    ];
-    required.forEach((r) => {
-      if (
-        !arr.some(
-          (e) =>
-            String(e.empNo || e.empId).trim() === r.empNo ||
-            String(e.name || e.empName).trim().toUpperCase() ===
-              r.name.toUpperCase(),
-        )
-      ) {
-        arr.push(r);
-      }
+  const sanitizeBmrtiList = (list = []) => {
+    if (!Array.isArray(list)) return [];
+    // Only return genuine roster parsed operators; strip out any hardcoded legacy placeholder injections
+    return list.filter((e) => {
+      if (!e) return false;
+      const id = String(e.empNo || e.empId || "").trim();
+      const name = String(e.name || e.empName || "").trim().toUpperCase();
+      const isDesignatedPlaceholder =
+        (id === "22297" && name.includes("RAFIQ") && (e.date === "BMRTI" || e.time === "09:00 - 17:30")) ||
+        (id === "22315" && name.includes("KRISHNA") && (e.date === "BMRTI" || e.time === "09:00 - 17:30"));
+      return !isDesignatedPlaceholder;
     });
-    return arr;
   };
 
   const [consoleData, setConsoleData] = useState(() => {
@@ -741,23 +946,29 @@ export default function AutomatedDispatchGate({
           const parsed = JSON.parse(cached);
           if (parsed && typeof parsed === "object") {
             const rawObj = {
-              controlDesks: parsed.controlDesks || [],
-              coOperators: parsed.coOperators || [],
-              leaves: parsed.leaves || [],
-              standbys: parsed.standbys || [],
-              outstationStepbacks: parsed.outstationStepbacks || [],
-              crtTraining: parsed.crtTraining || [],
-              bmrtiTraining: ensureBmrtiCrew(parsed.bmrtiTraining || []),
-              weeklyOffs: parsed.weeklyOffs || [],
-              relievedOperators: parsed.relievedOperators || [],
-              pmeOperators: parsed.pmeOperators || [],
-              routeLearning: parsed.routeLearning || [],
-              notReporting: parsed.notReporting || [],
-              absents: parsed.absents || [],
-              onDuty: parsed.onDuty || [],
+              controlDesks: sanitizeConsoleList(parsed.controlDesks || []),
+              coOperators: sanitizeConsoleList(parsed.coOperators || []),
+              leaves: sanitizeConsoleList(parsed.leaves || []),
+              standbys: sanitizeConsoleList(parsed.standbys || []),
+              outstationStepbacks: sanitizeConsoleList(parsed.outstationStepbacks || []),
+              crtTraining: sanitizeConsoleList(parsed.crtTraining || []),
+              bmrtiTraining: sanitizeBmrtiList(parsed.bmrtiTraining || []),
+              weeklyOffs: sanitizeConsoleList(parsed.weeklyOffs || []),
+              relievedOperators: sanitizeConsoleList(parsed.relievedOperators || []),
+              pmeOperators: sanitizeConsoleList(parsed.pmeOperators || []),
+              routeLearning: sanitizeConsoleList(parsed.routeLearning || []),
+              notReporting: sanitizeConsoleList(parsed.notReporting || []),
+              absents: sanitizeConsoleList(parsed.absents || []),
+              bookedOff: sanitizeConsoleList(parsed.bookedOff || []).filter((b) => {
+                const id = String(b.empNo || b.empId || "").trim();
+                const duty = String(b.dutyId || b.duty || "").trim();
+                const name = String(b.name || b.empName || "").toUpperCase();
+                return id !== "21968" && duty !== "01" && duty !== "1" && !name.includes("VENKATA KIRAN");
+              }),
+              onDuty: sanitizeConsoleList(parsed.onDuty || []),
               customRegisters: parsed.customRegisters || {},
             };
-            return enforceSingleDutyRule(rawObj);
+            return enforceSingleDutyRule(sanitizeConsoleContainer(rawObj));
           }
         }
       }
@@ -771,13 +982,14 @@ export default function AutomatedDispatchGate({
       standbys: [],
       outstationStepbacks: [],
       crtTraining: [],
-      bmrtiTraining: ensureBmrtiCrew([]),
+      bmrtiTraining: [],
       weeklyOffs: [],
       relievedOperators: [],
       pmeOperators: [],
       routeLearning: [],
       notReporting: [],
       absents: [],
+      bookedOff: [],
       onDuty: [],
       customRegisters: {},
     };
@@ -866,6 +1078,10 @@ export default function AutomatedDispatchGate({
     () => (consoleData.onDuty || []).filter(matchesConsoleSearch),
     [consoleData.onDuty, consoleSearchQuery],
   );
+  const filteredBo = useMemo(
+    () => (consoleData.bookedOff || []).filter(matchesConsoleSearch),
+    [consoleData.bookedOff, consoleSearchQuery],
+  );
 
   const totalConsoleMatches = useMemo(() => {
     let count =
@@ -882,6 +1098,7 @@ export default function AutomatedDispatchGate({
       filteredLrd.length +
       filteredNr.length +
       filteredAbsents.length +
+      filteredBo.length +
       filteredOd.length;
 
     Object.values(consoleData.customRegisters || {}).forEach((list) => {
@@ -902,6 +1119,7 @@ export default function AutomatedDispatchGate({
     filteredLrd,
     filteredNr,
     filteredAbsents,
+    filteredBo,
     filteredOd,
     consoleData.customRegisters,
     consoleSearchQuery,
@@ -918,6 +1136,17 @@ export default function AutomatedDispatchGate({
     }
     return null;
   });
+
+  // ── 7-Day Rolling Roster & Sheet Detection States ──
+  const rollingDays = useMemo(() => getRolling7Days(new Date()), []);
+  const [activeRosterDayOffset, setActiveRosterDayOffset] = useState(0);
+  const [activeWorkbook, setActiveWorkbook] = useState(null);
+  const [detectedWorkbookSheets, setDetectedWorkbookSheets] = useState([]);
+  const [showOfficialGccSheetModal, setShowOfficialGccSheetModal] = useState(false);
+  const [isPublishedToOperators, setIsPublishedToOperators] = useState(true);
+
+  const activeSelectedDayObj = rollingDays[activeRosterDayOffset] || rollingDays[0];
+  const activeSelectedDateStr = activeSelectedDayObj.dateStr;
 
   useEffect(() => {
     const todayStr = new Date().toISOString().split("T")[0];
@@ -940,6 +1169,7 @@ export default function AutomatedDispatchGate({
           routeLearning: [],
           notReporting: [],
           absents: [],
+          bookedOff: [],
           onDuty: [],
           customRegisters: {},
         };
@@ -989,7 +1219,7 @@ export default function AutomatedDispatchGate({
             : has(data.crtTraining)
               ? data.crtTraining
               : prev.crtTraining,
-          bmrtiTraining: ensureBmrtiCrew(
+          bmrtiTraining: sanitizeBmrtiList(
             Array.isArray(data.bmrtiTraining)
               ? data.bmrtiTraining
               : has(data.bmrtiTraining)
@@ -1022,6 +1252,11 @@ export default function AutomatedDispatchGate({
           absents: Array.isArray(data.absents)
             ? data.absents
             : has(data.absents) ? data.absents : prev.absents,
+          bookedOff: Array.isArray(data.bookedOff)
+            ? data.bookedOff
+            : has(data.bookedOff)
+              ? data.bookedOff
+              : prev.bookedOff || [],
           onDuty: Array.isArray(data.onDuty)
             ? data.onDuty
             : has(data.onDuty) ? data.onDuty : prev.onDuty,
@@ -1031,7 +1266,8 @@ export default function AutomatedDispatchGate({
               : prev.customRegisters,
         };
 
-        const next = enforceSingleDutyRule(rawNext);
+        const sanitizedIncoming = sanitizeConsoleContainer(rawNext);
+        const next = enforceSingleDutyRule(sanitizedIncoming);
 
         try {
           if (typeof window !== "undefined" && window.localStorage) {
@@ -1111,6 +1347,58 @@ export default function AutomatedDispatchGate({
       unsubDeskCurrent();
       unsubDeskLatest();
     };
+  }, []);
+
+  // ── AUTO-HEAL DUTY 01 (Venkata Kiran Kumar M #21968) in Firestore ──
+  useEffect(() => {
+    const healDuty01InFirestore = async () => {
+      try {
+        const duty01Docs = [
+          "gcc_deploy_weekday_duty_01",
+          "gcc_deploy_weekday_duty_1",
+          "gcc_deploy_active_run_duty_01",
+          "gcc_deploy_monday_duty_01",
+        ];
+        for (const docId of duty01Docs) {
+          try {
+            const snap = await getDoc(doc(db, "crew_daily_deployment", docId));
+            if (snap.exists()) {
+              const d = snap.data();
+              if (
+                d.status === "BOOKED_OFF_VACANT" ||
+                !d.empId ||
+                d.empId === "--" ||
+                String(d.empName || "").toUpperCase().includes("VACANT")
+              ) {
+                await setDoc(
+                  doc(db, "crew_daily_deployment", docId),
+                  {
+                    dutyId: "01",
+                    empId: "21968",
+                    empName: "Venkata Kiran Kumar M",
+                    trainId: "Pro1",
+                    dutyType: "PR01",
+                    signOnTime: "06:00",
+                    signOnLocation: "PYID",
+                    signOffTime: "06:00",
+                    signOffLocation: "PYID",
+                    status: "ACTIVE",
+                    isSignedOn: true,
+                    lastUpdated: serverTimestamp(),
+                  },
+                  { merge: true },
+                );
+              }
+            }
+          } catch (e) {
+            // non-fatal
+          }
+        }
+      } catch (err) {
+        console.warn("Auto-heal Duty 01 warning:", err);
+      }
+    };
+    healDuty01InFirestore();
   }, []);
 
   const handleDayTypeChange = (day) => {
@@ -1196,6 +1484,53 @@ export default function AutomatedDispatchGate({
   });
 
   const [stepbacks, setStepbacks] = useState([]);
+
+  // ── Book Off & Immediate Driver Reassignment States ──
+  const [showBookOffModal, setShowBookOffModal] = useState(false);
+  const [bookOffTargetDuty, setBookOffTargetDuty] = useState(null);
+  const [bookOffFaultCategory, setBookOffFaultCategory] = useState("TRAIN_FAULT");
+  const [bookOffReason, setBookOffReason] = useState("");
+  const [bookOffAssignRelief, setBookOffAssignRelief] = useState(true);
+  const [bookOffReliefSource, setBookOffReliefSource] = useState("STANDBY"); // "STANDBY" | "CREW_POOL" | "SWAP"
+  const [selectedReliever, setSelectedReliever] = useState(null);
+  const [bookOffRelieverSearch, setBookOffRelieverSearch] = useState("");
+  const [isSubmittingBookOff, setIsSubmittingBookOff] = useState(false);
+  const [bookedOffViewSearch, setBookedOffViewSearch] = useState("");
+
+  // ── Quick Assign / Change Driver Modal States ──
+  const [showAssignDriverModal, setShowAssignDriverModal] = useState(false);
+  const [assignTargetDuty, setAssignTargetDuty] = useState(null);
+  const [assignSearchQuery, setAssignSearchQuery] = useState("");
+  const [assignDriverType, setAssignDriverType] = useState("STANDBY"); // "STANDBY" | "STBK" | "OR" | "CC" | "WO" | "LEAVE" | "MAINLINE" | "CREW_POOL"
+  const [isSubmittingAssign, setIsSubmittingAssign] = useState(false);
+
+  // ── Universal Crew Transfer Across Pages / Registers Modal States ──
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferTargetOperator, setTransferTargetOperator] = useState(null);
+  const [transferDestinationCategory, setTransferDestinationCategory] = useState("MAINLINE");
+  const [transferTargetDutyId, setTransferTargetDutyId] = useState("");
+  const [transferReason, setTransferReason] = useState("");
+  const [transferSearchQuery, setTransferSearchQuery] = useState("");
+  const [isSubmittingTransfer, setIsSubmittingTransfer] = useState(false);
+
+  // Set of actively assigned operator IDs to prevent double-booking
+  const activeOperatorIdSet = useMemo(() => {
+    const set = new Set();
+    (deduplicatedDeployments || []).forEach((d) => {
+      const id = String(d.empId || d.empNo || "").trim();
+      if (id && id !== "--" && id !== "UNASSIGNED") set.add(id);
+    });
+    return set;
+  }, [deduplicatedDeployments]);
+
+  // Available crew from BMRCL Crew Registry not currently on active mainline duties
+  const availableCrewPool = useMemo(() => {
+    return (BMRCL_CREW_REGISTRY || []).filter((c) => {
+      const id = String(c.id || "").trim();
+      if (!id || activeOperatorIdSet.has(id)) return false;
+      return true;
+    });
+  }, [activeOperatorIdSet]);
 
   // Excel Path Reader & Control Engine States
   const [excelPathInput, setExcelPathInput] = useState("");
@@ -1358,6 +1693,7 @@ export default function AutomatedDispatchGate({
         routeLearning: stagedRoster.routeLearning || [],
         notReporting: stagedRoster.notReporting || [],
         absents: stagedRoster.absents || [],
+        bookedOff: stagedRoster.bookedOff || [],
         onDuty: stagedRoster.onDuty || [],
         customRegisters: stagedRoster.customRegisters || {},
       };
@@ -1499,7 +1835,7 @@ export default function AutomatedDispatchGate({
     setIsRosterConfirmed(false);
   };
 
-  const processFileAndDeploy = async (fileToProcess) => {
+  const processFileAndDeploy = async (fileToProcess, targetSheetName = null, targetDate = null) => {
     let file = fileToProcess || selectedRosterFile;
     if (!file) {
       document.getElementById("automateddispatchgat-i10")?.click();
@@ -1648,7 +1984,7 @@ export default function AutomatedDispatchGate({
           standbys: classifiedData.standbys,
           outstationStepbacks: classifiedData.outstationStepbacks,
           crtTraining: classifiedData.crtTraining,
-          bmrtiTraining: ensureBmrtiCrew(classifiedData.bmrtiTraining),
+          bmrtiTraining: sanitizeBmrtiList(classifiedData.bmrtiTraining),
           weeklyOffs: classifiedData.weeklyOffs,
           relievedOperators: classifiedData.relievedOperators,
           pmeOperators: classifiedData.pmeOperators,
@@ -1779,12 +2115,20 @@ Rules:
         });
 
         const workbook = XLSX.read(arrayBuffer, { type: "array" });
+        setActiveWorkbook(workbook);
+        try {
+          const detected = rosterAutoClassifierService.detectWorkbookSheets(workbook);
+          setDetectedWorkbookSheets(detected);
+        } catch (e) {
+          console.warn("Sheet detection error:", e);
+        }
 
         try {
           classifiedData = rosterAutoClassifierService.parseWorkbook(
             workbook,
-            new Date(),
+            targetDate || activeSelectedDayObj.date || new Date(),
             currentDayType,
+            targetSheetName
           );
         } catch (err) {
           console.warn(
@@ -1943,13 +2287,10 @@ Rules:
         const leaveCount = classifiedData?.leaves?.length || 0;
         const extractedSheetName =
           classifiedData?.sheetName || file?.name || currentDayType;
+        const targetDateStr = classifiedData?.dateStr || activeSelectedDateStr;
         const meta = {
           sheetName: extractedSheetName,
-          dateStr: new Date().toLocaleDateString("en-GB", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          }),
+          dateStr: targetDateStr,
           deployedCount: deployedDutiesCount,
           woCount,
           leaveCount,
@@ -2063,6 +2404,9 @@ Rules:
           relievedOperators: [],
           pmeOperators: [],
           routeLearning: [],
+          notReporting: [],
+          absents: [],
+          bookedOff: [],
           isExplicitlyCleared: true,
           updatedAt: serverTimestamp(),
         };
@@ -2099,13 +2443,14 @@ Rules:
           standbys: [],
           outstationStepbacks: [],
           crtTraining: [],
-          bmrtiTraining: ensureBmrtiCrew([]),
+          bmrtiTraining: [],
           weeklyOffs: [],
           relievedOperators: [],
           pmeOperators: [],
           routeLearning: [],
           notReporting: [],
           absents: [],
+          bookedOff: [],
           onDuty: [],
           customRegisters: {},
         });
@@ -2124,26 +2469,28 @@ Rules:
   const handleAutoDeployConsoleToAllPages = async () => {
     try {
       const dateStr = new Date().toISOString().split("T")[0];
+      const cleanConsole = sanitizeConsoleContainer(consoleData);
 
       const consoleSnapshot = {
         date: dateStr,
         dayType: currentDayType,
         sheetName: "Auto-Deployed Console Roster",
-        controlDesks: consoleData.controlDesks || [],
-        coOperators: consoleData.coOperators || [],
-        leaves: consoleData.leaves || [],
-        standbys: consoleData.standbys || [],
-        outstationStepbacks: consoleData.outstationStepbacks || [],
-        crtTraining: consoleData.crtTraining || [],
-        bmrtiTraining: consoleData.bmrtiTraining || [],
-        weeklyOffs: consoleData.weeklyOffs || [],
-        relievedOperators: consoleData.relievedOperators || [],
-        pmeOperators: consoleData.pmeOperators || [],
-        routeLearning: consoleData.routeLearning || [],
-        notReporting: consoleData.notReporting || [],
-        absents: consoleData.absents || [],
-        onDuty: consoleData.onDuty || [],
-        customRegisters: consoleData.customRegisters || {},
+        controlDesks: cleanConsole.controlDesks || [],
+        coOperators: cleanConsole.coOperators || [],
+        leaves: cleanConsole.leaves || [],
+        standbys: cleanConsole.standbys || [],
+        outstationStepbacks: cleanConsole.outstationStepbacks || [],
+        crtTraining: cleanConsole.crtTraining || [],
+        bmrtiTraining: cleanConsole.bmrtiTraining || [],
+        weeklyOffs: cleanConsole.weeklyOffs || [],
+        relievedOperators: cleanConsole.relievedOperators || [],
+        pmeOperators: cleanConsole.pmeOperators || [],
+        routeLearning: cleanConsole.routeLearning || [],
+        notReporting: cleanConsole.notReporting || [],
+        absents: cleanConsole.absents || [],
+        bookedOff: cleanConsole.bookedOff || [],
+        onDuty: cleanConsole.onDuty || [],
+        customRegisters: cleanConsole.customRegisters || {},
         uploadedBy: "system",
         uploadedByName: "System Auto-Deploy",
         updatedAt: serverTimestamp(),
@@ -2152,12 +2499,41 @@ Rules:
       await setDoc(doc(db, "roster_desk_console", "current"), consoleSnapshot, {
         merge: true,
       });
+      await setDoc(doc(db, "roster_desk_console", "latest"), consoleSnapshot, {
+        merge: true,
+      });
       await setDoc(doc(db, "dispatch_excel_cache", dateStr), consoleSnapshot, {
         merge: true,
       });
+      await setDoc(doc(db, "dispatch_excel_cache", "current"), consoleSnapshot, {
+        merge: true,
+      });
+
+      // Deploy active train driving duties from deduplicatedDeployments to crew_daily_deployment
+      if (deduplicatedDeployments && deduplicatedDeployments.length > 0) {
+        const dutyBatch = writeBatch(db);
+        deduplicatedDeployments.forEach((d) => {
+          if (!d.dutyId) return;
+          const docId = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${d.dutyId}`;
+          dutyBatch.set(
+            doc(db, "crew_daily_deployment", docId),
+            {
+              ...d,
+              dutyId: d.dutyId,
+              empId: d.empId || "--",
+              empName: d.empName || "--",
+              scheduleType: currentDayType,
+              date: dateStr,
+              lastUpdated: serverTimestamp(),
+            },
+            { merge: true },
+          );
+        });
+        await dutyBatch.commit();
+      }
 
       // Deploy leaves to leave_requests
-      for (const item of consoleData.leaves || []) {
+      for (const item of cleanConsole.leaves || []) {
         if (!item.empNo) continue;
         await setDoc(
           doc(db, "leave_requests", `leave_${item.empNo}_${dateStr}`),
@@ -2176,7 +2552,7 @@ Rules:
       }
 
       // Deploy weekly offs to weekly_off_register
-      for (const item of consoleData.weeklyOffs || []) {
+      for (const item of cleanConsole.weeklyOffs || []) {
         if (!item.empNo) continue;
         await setDoc(
           doc(db, "weekly_off_register", `wo_${item.empNo}_${dateStr}`),
@@ -2191,8 +2567,60 @@ Rules:
         );
       }
 
+      // Deploy absents and notReporting to absent_bookoff_register
+      for (const item of cleanConsole.absents || []) {
+        if (!item.empNo) continue;
+        await setDoc(
+          doc(db, "absent_bookoff_register", `absent_${item.empNo}_${dateStr}`),
+          {
+            employeeId: item.empNo,
+            employeeName: item.name,
+            date: dateStr,
+            status: "ABSENT",
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
+      for (const item of cleanConsole.notReporting || []) {
+        if (!item.empNo) continue;
+        await setDoc(
+          doc(db, "absent_bookoff_register", `not_reporting_${item.empNo}_${dateStr}`),
+          {
+            employeeId: item.empNo,
+            employeeName: item.name,
+            date: dateStr,
+            status: "NOT_REPORTING",
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
+
+      // Deploy dynamic category pages to roster_category_pages
+      if (cleanConsole.customRegisters && typeof cleanConsole.customRegisters === "object") {
+        for (const [catTitle, items] of Object.entries(cleanConsole.customRegisters)) {
+          const safeSlug = catTitle.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+          if (safeSlug) {
+            await setDoc(
+              doc(db, "roster_category_pages", `${safeSlug}_${dateStr}`),
+              {
+                categoryTitle: catTitle,
+                categorySlug: safeSlug,
+                date: dateStr,
+                dayType: currentDayType,
+                staffCount: (items || []).length,
+                staff: items || [],
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true },
+            );
+          }
+        }
+      }
+
       alert(
-        "✅ AUTO-DEPLOY SUCCESSFUL: Console Roster deployed to all pages and Firestore registers!",
+        "✅ AUTO-DEPLOY SUCCESSFUL: Console Roster and Train Duties deployed to all pages and Firestore registers!",
       );
       if (onImportComplete) onImportComplete();
     } catch (err) {
@@ -2273,6 +2701,7 @@ Rules:
     addConsoleGroup("OD (On Duty)", consoleData.onDuty, "onDuty", "OD");
     addConsoleGroup("NR (Not Reporting)", consoleData.notReporting, "notReporting", "NR");
     addConsoleGroup("AB (Absent)", consoleData.absents, "absents", "AB");
+    addConsoleGroup("Booked Off (BO)", consoleData.bookedOff, "bookedOff", "BO");
 
     // Custom Registers including CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)
     if (consoleData.customRegisters && typeof consoleData.customRegisters === "object") {
@@ -2577,6 +3006,8 @@ Rules:
         batch.set(doc(db, "roster_desk_console", "current"), newConsoleData, { merge: true });
         batch.set(doc(db, "roster_desk_console", "latest"), newConsoleData, { merge: true });
         batch.set(doc(db, "dispatch_excel_cache", "current"), newConsoleData, { merge: true });
+        const activeDateStr = deployedRosterInfo?.dateStr || activeSelectedDateStr;
+        batch.set(doc(db, "dispatch_excel_cache", activeDateStr), newConsoleData, { merge: true });
         if (typeof window !== "undefined" && window.localStorage) {
           window.localStorage.setItem(
             "pyidcc_roster_desk_console_cache",
@@ -2605,6 +3036,657 @@ Rules:
       console.error(err);
       alert(`Failed to ${isExchange ? "exchange" : "swap"} duties: ` + err.message);
     }
+  };
+
+  // ── Book Off & Driver Reassignment Handlers ──
+  const openBookOffModal = (deployment) => {
+    if (!deployment) return;
+    setBookOffTargetDuty(deployment);
+    setBookOffFaultCategory("TRAIN_FAULT");
+    setBookOffReason(`Train fault on Train ${deployment.trainId || "--"}, Duty #${deployment.dutyId}`);
+    setBookOffAssignRelief(true);
+    setBookOffReliefSource("STANDBY");
+    setBookOffRelieverSearch("");
+    const firstStandby = (consoleData.standbys || [])[0];
+    setSelectedReliever(
+      firstStandby
+        ? {
+            id: firstStandby.empNo || firstStandby.empId,
+            name: firstStandby.name || firstStandby.empName,
+            dutyId: firstStandby.duty || firstStandby.code || "Standby",
+            source: "STANDBY",
+            ...firstStandby,
+          }
+        : null,
+    );
+    setShowBookOffModal(true);
+  };
+
+  const openAssignDriverModal = (deployment) => {
+    if (!deployment) return;
+    setAssignTargetDuty(deployment);
+    setAssignSearchQuery("");
+    setAssignDriverType("STANDBY");
+    const firstStandby = (consoleData.standbys || [])[0];
+    setSelectedReliever(
+      firstStandby
+        ? {
+            id: firstStandby.empNo || firstStandby.empId,
+            name: firstStandby.name || firstStandby.empName,
+            dutyId: firstStandby.duty || firstStandby.code || "Standby",
+            source: "STANDBY",
+            ...firstStandby,
+          }
+        : null,
+    );
+    setShowAssignDriverModal(true);
+  };
+
+  const handleExecuteBookOff = async () => {
+    if (!bookOffTargetDuty) return;
+    const deployment = bookOffTargetDuty;
+    const todayStr = new Date().toISOString().split("T")[0];
+    const timeStr = new Date().toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    if (bookOffAssignRelief && !selectedReliever) {
+      alert(
+        "Please select a replacement driver from Standby or Crew Pool, or uncheck 'Assign Replacement Driver Now'.",
+      );
+      return;
+    }
+
+    setIsSubmittingBookOff(true);
+    try {
+      const batch = writeBatch(db);
+
+      const targetDocId =
+        deployment.dutyId && deployment.dutyId !== "UNASSIGNED"
+          ? `gcc_deploy_${currentDayType.toLowerCase()}_duty_${deployment.dutyId}`
+          : `gcc_deploy_${currentDayType.toLowerCase()}_extra_${deployment.empId}`;
+
+      const relieverName = selectedReliever
+        ? String(selectedReliever.name || selectedReliever.empName || "").toUpperCase()
+        : null;
+      const relieverId = selectedReliever
+        ? String(selectedReliever.id || selectedReliever.empId || selectedReliever.empNo || "")
+        : null;
+
+      // 1. Log to absent_bookoff_register for real-time leave & book-off register tracking
+      const regDocId = `bo_reg_${deployment.empId || "op"}_${todayStr}_${Date.now()}`;
+      batch.set(
+        doc(db, "absent_bookoff_register", regDocId),
+        {
+          employeeId: String(deployment.empId || deployment.empNo || "--"),
+          employeeName: String(deployment.empName || deployment.name || "OPERATOR").toUpperCase(),
+          code: "BO",
+          category: "BOOK_OFF",
+          faultCategory: bookOffFaultCategory,
+          reason: bookOffReason || "Booked off from duty due to fault",
+          remarks: `Booked off from Duty #${deployment.dutyId} (Train ${deployment.trainId || "--"}). Reason: [${bookOffFaultCategory}] ${bookOffReason}. Relieved by: ${relieverName || "VACANT"}`,
+          dutyId: String(deployment.dutyId || ""),
+          trainId: String(deployment.trainId || ""),
+          relievedBy: relieverName || "VACANT",
+          relievedByEmpId: relieverId || "--",
+          date: todayStr,
+          startDate: todayStr,
+          endDate: todayStr,
+          status: relieverName ? "RELIEVED" : "VACANT",
+          timestamp: serverTimestamp(),
+          source: "Automated Dispatch Gate Core",
+        },
+        { merge: true },
+      );
+
+      // 2. Update crew_daily_deployment (write to both padded & unpadded doc IDs for consistency)
+      const normDutyId = String(parseInt(deployment.dutyId, 10) || deployment.dutyId || "").trim();
+      const paddedDutyId = normDutyId ? normDutyId.padStart(2, "0") : "";
+      const sched = normalizeScheduleType(currentDayType).toLowerCase();
+      const possibleDutyDocIds = new Set([targetDocId]);
+      if (normDutyId) {
+        possibleDutyDocIds.add(`gcc_deploy_${sched}_duty_${normDutyId}`);
+        possibleDutyDocIds.add(`gcc_deploy_${sched}_duty_${paddedDutyId}`);
+        possibleDutyDocIds.add(`gcc_deploy_active_run_duty_${paddedDutyId}`);
+        possibleDutyDocIds.add(`gcc_deploy_active_run_duty_${normDutyId}`);
+      }
+
+      if (bookOffAssignRelief && selectedReliever) {
+        const payload = {
+          empName: relieverName,
+          empId: relieverId,
+          status: "ACTIVE",
+          isSignedOn: true,
+          relievedFrom: String(deployment.empId || deployment.empNo || "--"),
+          relievedFromName: String(deployment.empName || deployment.name || "--"),
+          relievedAt: serverTimestamp(),
+          remarks: `Replacement driver assigned. Original driver ${deployment.empName} booked off: [${bookOffFaultCategory}] ${bookOffReason}`,
+          lastUpdated: serverTimestamp(),
+        };
+        possibleDutyDocIds.forEach((dId) => {
+          batch.set(doc(db, "crew_daily_deployment", dId), payload, { merge: true });
+        });
+      } else {
+        const payload = {
+          empName: "VACANT - DRIVER REQUIRED",
+          empId: "--",
+          status: "BOOKED_OFF_VACANT",
+          isSignedOn: false,
+          relievedFrom: String(deployment.empId || deployment.empNo || "--"),
+          relievedFromName: String(deployment.empName || deployment.name || "--"),
+          relievedAt: serverTimestamp(),
+          remarks: `DRIVER BOOKED OFF: [${bookOffFaultCategory}] ${bookOffReason} — RELIEF DRIVER REQUIRED`,
+          lastUpdated: serverTimestamp(),
+        };
+        possibleDutyDocIds.forEach((dId) => {
+          batch.set(doc(db, "crew_daily_deployment", dId), payload, { merge: true });
+        });
+      }
+
+      // 3. Update consoleData: add to bookedOff array
+      const boEntry = {
+        empNo: String(deployment.empId || deployment.empNo || "--"),
+        empId: String(deployment.empId || deployment.empNo || "--"),
+        name: String(deployment.empName || deployment.name || "OPERATOR").toUpperCase(),
+        dutyId: String(deployment.dutyId || ""),
+        trainId: String(deployment.trainId || "--"),
+        faultCategory: bookOffFaultCategory,
+        reason: bookOffReason,
+        date: todayStr,
+        time: timeStr,
+        bookedOffAt: timeStr,
+        relievedBy: relieverName,
+        relievedByEmpId: relieverId,
+        relieverName: relieverName,
+        relieverId: relieverId,
+        relieverSource: bookOffReliefSource,
+        status: relieverName ? "RELIEVED" : "VACANT",
+        originalSignOn: deployment.signOnTime || "--",
+      };
+
+      let updatedBookedOff = [
+        ...(consoleData.bookedOff || []).filter(
+          (b) =>
+            String(b.empNo || b.empId) !== String(boEntry.empNo) ||
+            String(b.dutyId) !== String(boEntry.dutyId),
+        ),
+        boEntry,
+      ];
+
+      // 4. If reliever was taken from standbys, remove them from standbys to prevent double-booking
+      let updatedStandbys = [...(consoleData.standbys || [])];
+      if (selectedReliever && bookOffReliefSource === "STANDBY") {
+        updatedStandbys = updatedStandbys.filter(
+          (s) =>
+            String(s.empNo || s.empId).trim() !== String(relieverId).trim() &&
+            String(s.name || s.empName).trim().toUpperCase() !== String(relieverName).trim().toUpperCase(),
+        );
+      }
+
+      const updatedConsole = {
+        ...consoleData,
+        bookedOff: updatedBookedOff,
+        standbys: updatedStandbys,
+      };
+
+      batch.set(
+        doc(db, "roster_desk_console", "current"),
+        { bookedOff: updatedBookedOff, standbys: updatedStandbys },
+        { merge: true },
+      );
+      batch.set(
+        doc(db, "roster_desk_console", "latest"),
+        { bookedOff: updatedBookedOff, standbys: updatedStandbys },
+        { merge: true },
+      );
+      batch.set(
+        doc(db, "dispatch_excel_cache", todayStr),
+        { bookedOff: updatedBookedOff, standbys: updatedStandbys },
+        { merge: true },
+      );
+      batch.set(
+        doc(db, "dispatch_excel_cache", "current"),
+        { bookedOff: updatedBookedOff, standbys: updatedStandbys },
+        { merge: true },
+      );
+
+      await batch.commit();
+
+      setConsoleData(updatedConsole);
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          window.localStorage.setItem(
+            "pyidcc_roster_desk_console_cache",
+            JSON.stringify(updatedConsole),
+          );
+        }
+      } catch (e) {}
+
+      setShowBookOffModal(false);
+      setBookOffTargetDuty(null);
+      setSelectedReliever(null);
+      alert(
+        `✅ Operator ${deployment.empName} successfully booked off from Duty #${deployment.dutyId}.\n` +
+          (relieverName
+            ? `Replacement driver ${relieverName} assigned to Duty #${deployment.dutyId}!`
+            : `Duty #${deployment.dutyId} marked VACANT - DRIVER REQUIRED.`),
+      );
+      if (onImportComplete) onImportComplete();
+    } catch (err) {
+      console.error("Book Off error:", err);
+      alert("Failed to book off operator: " + err.message);
+    } finally {
+      setIsSubmittingBookOff(false);
+    }
+  };
+
+  const handleExecuteAssignDriver = async () => {
+    if (!assignTargetDuty || !selectedReliever) {
+      alert("Please select an operator to assign to this duty.");
+      return;
+    }
+    const deployment = assignTargetDuty;
+    const todayStr = new Date().toISOString().split("T")[0];
+    const relieverName = String(selectedReliever.name || selectedReliever.empName || "").toUpperCase();
+    const relieverId = String(selectedReliever.id || selectedReliever.empId || selectedReliever.empNo || "");
+    const reliefSource = selectedReliever.source || assignDriverType || "STANDBY";
+
+    setIsSubmittingAssign(true);
+    try {
+      const batch = writeBatch(db);
+      const targetDocId =
+        deployment.dutyId && deployment.dutyId !== "UNASSIGNED"
+          ? `gcc_deploy_${currentDayType.toLowerCase()}_duty_${deployment.dutyId}`
+          : `gcc_deploy_${currentDayType.toLowerCase()}_extra_${deployment.empId}`;
+
+      const normDutyId = String(parseInt(deployment.dutyId, 10) || deployment.dutyId || "").trim();
+      const paddedDutyId = normDutyId ? normDutyId.padStart(2, "0") : "";
+      const sched = normalizeScheduleType(currentDayType).toLowerCase();
+      const possibleDutyDocIds = new Set([targetDocId]);
+      if (normDutyId) {
+        possibleDutyDocIds.add(`gcc_deploy_${sched}_duty_${normDutyId}`);
+        possibleDutyDocIds.add(`gcc_deploy_${sched}_duty_${paddedDutyId}`);
+        possibleDutyDocIds.add(`gcc_deploy_active_run_duty_${paddedDutyId}`);
+        possibleDutyDocIds.add(`gcc_deploy_active_run_duty_${normDutyId}`);
+      }
+
+      const assignPayload = {
+        empName: relieverName,
+        empId: relieverId,
+        status: "ACTIVE",
+        isSignedOn: true,
+        remarks: `Assigned driver ${relieverName} (#${relieverId}) from [${reliefSource}] to Duty #${deployment.dutyId}`,
+        lastUpdated: serverTimestamp(),
+      };
+
+      possibleDutyDocIds.forEach((dId) => {
+        batch.set(doc(db, "crew_daily_deployment", dId), assignPayload, { merge: true });
+      });
+
+      // If this duty was previously booked off, update matching bookedOff entries
+      let updatedBookedOff = (consoleData.bookedOff || []).map((bo) => {
+        if (String(bo.dutyId) === String(deployment.dutyId) && (bo.status === "VACANT" || !bo.relieverName)) {
+          return {
+            ...bo,
+            status: "RELIEVED",
+            relievedBy: relieverName,
+            relievedByEmpId: relieverId,
+            relieverName: relieverName,
+            relieverId: relieverId,
+            relieverSource: reliefSource,
+          };
+        }
+        return bo;
+      });
+
+      // Remove from source register in consoleData using universal transfer helper
+      let updatedConsole = transferOperatorInConsoleData(
+        { ...consoleData, bookedOff: updatedBookedOff },
+        relieverId,
+        relieverName,
+        reliefSource,
+        "mainline",
+      );
+
+      // If reliever was taken from another mainline duty, handle that duty
+      if (reliefSource === "MAINLINE" && selectedReliever.dutyId) {
+        const otherDutyId = selectedReliever.dutyId;
+        if (String(otherDutyId) !== String(deployment.dutyId)) {
+          const otherDocId = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${otherDutyId}`;
+          const currentDepDriver = String(deployment.empId || "").trim();
+          if (currentDepDriver && currentDepDriver !== "--" && currentDepDriver !== "UNASSIGNED") {
+            batch.set(
+              doc(db, "crew_daily_deployment", otherDocId),
+              {
+                empName: deployment.empName,
+                empId: deployment.empId,
+                status: "ACTIVE",
+                isSignedOn: true,
+                remarks: `Swapped with Duty #${deployment.dutyId}`,
+                lastUpdated: serverTimestamp(),
+              },
+              { merge: true },
+            );
+          } else {
+            batch.set(
+              doc(db, "crew_daily_deployment", otherDocId),
+              {
+                empName: "VACANT - DRIVER REQUIRED",
+                empId: "--",
+                status: "BOOKED_OFF_VACANT",
+                isSignedOn: false,
+                remarks: `Driver ${relieverName} transferred to Duty #${deployment.dutyId}`,
+                lastUpdated: serverTimestamp(),
+              },
+              { merge: true },
+            );
+          }
+        }
+      }
+
+      batch.set(
+        doc(db, "roster_desk_console", "current"),
+        updatedConsole,
+        { merge: true },
+      );
+      batch.set(
+        doc(db, "roster_desk_console", "latest"),
+        updatedConsole,
+        { merge: true },
+      );
+      batch.set(
+        doc(db, "dispatch_excel_cache", todayStr),
+        updatedConsole,
+        { merge: true },
+      );
+
+      await batch.commit();
+
+      setConsoleData(updatedConsole);
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          window.localStorage.setItem(
+            "pyidcc_roster_desk_console_cache",
+            JSON.stringify(updatedConsole),
+          );
+        }
+      } catch (e) {}
+
+      setShowAssignDriverModal(false);
+      setAssignTargetDuty(null);
+      setSelectedReliever(null);
+      alert(`✅ Driver ${relieverName} assigned to Duty #${deployment.dutyId} successfully from [${reliefSource}]!`);
+      if (onImportComplete) onImportComplete();
+    } catch (err) {
+      console.error("Assign driver error:", err);
+      alert("Failed to assign driver: " + err.message);
+    } finally {
+      setIsSubmittingAssign(false);
+    }
+  };
+
+  const openTransferModal = (operator = null, sourceCategory = "STANDBY") => {
+    if (operator) {
+      setTransferTargetOperator({
+        empId: String(operator.empNo || operator.empId || operator.id || "").trim(),
+        empName: String(operator.name || operator.empName || "").trim(),
+        currentCategory: sourceCategory,
+        rawItem: operator,
+      });
+    } else {
+      setTransferTargetOperator(null);
+    }
+    setTransferDestinationCategory("MAINLINE");
+    const vacantDuty = (deduplicatedDeployments || []).find(
+      (d) => d.status === "BOOKED_OFF_VACANT" || d.empId === "--" || !d.empId,
+    );
+    setTransferTargetDutyId(vacantDuty ? String(vacantDuty.dutyId) : "1");
+    setTransferReason("");
+    setTransferSearchQuery("");
+    setShowTransferModal(true);
+  };
+
+  const handleExecuteTransfer = async () => {
+    if (!transferTargetOperator) {
+      alert("Please select a crew member to transfer.");
+      return;
+    }
+    const op = transferTargetOperator;
+    const opName = String(op.empName || op.name || "").trim().toUpperCase();
+    const opId = String(op.empId || op.empNo || "").trim();
+    const srcCat = op.currentCategory || "STANDBY";
+    const tgtCat = transferDestinationCategory;
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    setIsSubmittingTransfer(true);
+    try {
+      const batch = writeBatch(db);
+      let updatedConsole = { ...consoleData };
+
+      if (tgtCat === "MAINLINE") {
+        if (!transferTargetDutyId) {
+          alert("Please select a target Mainline Duty Number.");
+          setIsSubmittingTransfer(false);
+          return;
+        }
+
+        const targetDuty = (deduplicatedDeployments || []).find(
+          (d) => String(d.dutyId) === String(transferTargetDutyId),
+        );
+        const targetDocId =
+          targetDuty && targetDuty.id
+            ? targetDuty.id
+            : `gcc_deploy_${currentDayType.toLowerCase()}_duty_${transferTargetDutyId}`;
+
+        // Assign operator to target mainline duty
+        batch.set(
+          doc(db, "crew_daily_deployment", targetDocId),
+          {
+            empName: opName,
+            empId: opId,
+            status: "ACTIVE",
+            isSignedOn: true,
+            remarks: `Transferred from [${srcCat}] by Crew Controller. Reason: ${transferReason || "Operational transfer"}`,
+            lastUpdated: serverTimestamp(),
+          },
+          { merge: true },
+        );
+
+        // If target duty was in bookedOff, update relief status
+        let updatedBookedOff = (updatedConsole.bookedOff || []).map((bo) => {
+          if (String(bo.dutyId) === String(transferTargetDutyId) && (bo.status === "VACANT" || !bo.relieverName)) {
+            return {
+              ...bo,
+              status: "RELIEVED",
+              relievedBy: opName,
+              relievedByEmpId: opId,
+              relieverName: opName,
+              relieverId: opId,
+              relieverSource: srcCat,
+            };
+          }
+          return bo;
+        });
+        updatedConsole.bookedOff = updatedBookedOff;
+
+        // Clean from source register in console
+        updatedConsole = transferOperatorInConsoleData(
+          updatedConsole,
+          opId,
+          opName,
+          srcCat,
+          "mainline",
+        );
+      } else {
+        // Destination is a console register
+        updatedConsole = transferOperatorInConsoleData(
+          updatedConsole,
+          opId,
+          opName,
+          srcCat,
+          tgtCat,
+          {
+            duty: tgtCat.toUpperCase(),
+            code: tgtCat.toUpperCase(),
+            info: transferReason || `Transferred from ${srcCat}`,
+          },
+        );
+
+        // If source was a mainline duty, vacate that duty
+        if (srcCat === "MAINLINE" || srcCat === "mainline") {
+          const sourceDutyId = op.rawItem?.dutyId || op.dutyId;
+          if (sourceDutyId) {
+            const srcDocId = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${sourceDutyId}`;
+            batch.set(
+              doc(db, "crew_daily_deployment", srcDocId),
+              {
+                empName: "VACANT - DRIVER REQUIRED",
+                empId: "--",
+                status: "BOOKED_OFF_VACANT",
+                isSignedOn: false,
+                remarks: `Driver ${opName} moved to [${tgtCat}]. Duty requires replacement driver.`,
+                lastUpdated: serverTimestamp(),
+              },
+              { merge: true },
+            );
+          }
+        }
+      }
+
+      batch.set(
+        doc(db, "roster_desk_console", "current"),
+        updatedConsole,
+        { merge: true },
+      );
+      batch.set(
+        doc(db, "roster_desk_console", "latest"),
+        updatedConsole,
+        { merge: true },
+      );
+      batch.set(
+        doc(db, "dispatch_excel_cache", todayStr),
+        updatedConsole,
+        { merge: true },
+      );
+
+      await batch.commit();
+      setConsoleData(updatedConsole);
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          window.localStorage.setItem(
+            "pyidcc_roster_desk_console_cache",
+            JSON.stringify(updatedConsole),
+          );
+        }
+      } catch (e) {}
+
+      setShowTransferModal(false);
+      setTransferTargetOperator(null);
+      alert(
+        `✅ Operator ${opName} successfully moved from [${srcCat}] to [${
+          tgtCat === "MAINLINE" ? `Duty #${transferTargetDutyId}` : tgtCat
+        }]!`,
+      );
+      if (onImportComplete) onImportComplete();
+    } catch (err) {
+      console.error("Transfer error:", err);
+      alert("Failed to transfer operator: " + err.message);
+    } finally {
+      setIsSubmittingTransfer(false);
+    }
+  };
+
+  const handleRestoreBookedOffOperator = async (boItem) => {
+    if (!boItem) return;
+    if (
+      !window.confirm(
+        `Restore operator ${boItem.name} (#${boItem.empNo || boItem.empId}) to active duty #${boItem.dutyId}?`,
+      )
+    ) {
+      return;
+    }
+    const todayStr = new Date().toISOString().split("T")[0];
+    try {
+      const batch = writeBatch(db);
+      const targetDocId = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${boItem.dutyId}`;
+      const normDutyId = String(parseInt(boItem.dutyId, 10) || boItem.dutyId || "").trim();
+      const paddedDutyId = normDutyId ? normDutyId.padStart(2, "0") : "";
+      const sched = normalizeScheduleType(currentDayType).toLowerCase();
+      const possibleDutyDocIds = new Set([targetDocId]);
+      if (normDutyId) {
+        possibleDutyDocIds.add(`gcc_deploy_${sched}_duty_${normDutyId}`);
+        possibleDutyDocIds.add(`gcc_deploy_${sched}_duty_${paddedDutyId}`);
+        possibleDutyDocIds.add(`gcc_deploy_active_run_duty_${paddedDutyId}`);
+        possibleDutyDocIds.add(`gcc_deploy_active_run_duty_${normDutyId}`);
+      }
+
+      const restorePayload = {
+        empName: boItem.name,
+        empId: boItem.empNo || boItem.empId,
+        status: "ACTIVE",
+        isSignedOn: true,
+        remarks: `Restored to duty from Booked Off register`,
+        lastUpdated: serverTimestamp(),
+      };
+
+      possibleDutyDocIds.forEach((dId) => {
+        batch.set(doc(db, "crew_daily_deployment", dId), restorePayload, { merge: true });
+      });
+
+      // Remove from bookedOff list
+      const updatedBookedOff = (consoleData.bookedOff || []).filter(
+        (b) =>
+          String(b.empNo || b.empId) !== String(boItem.empNo || boItem.empId) ||
+          String(b.dutyId) !== String(boItem.dutyId),
+      );
+
+      const updatedConsole = { ...consoleData, bookedOff: updatedBookedOff };
+      batch.set(
+        doc(db, "roster_desk_console", "current"),
+        { bookedOff: updatedBookedOff },
+        { merge: true },
+      );
+      batch.set(
+        doc(db, "dispatch_excel_cache", todayStr),
+        { bookedOff: updatedBookedOff },
+        { merge: true },
+      );
+
+      await batch.commit();
+      setConsoleData(updatedConsole);
+      alert(`✅ Operator ${boItem.name} restored to Duty #${boItem.dutyId}!`);
+      if (onImportComplete) onImportComplete();
+    } catch (err) {
+      console.error("Restore error:", err);
+      alert("Failed to restore operator: " + err.message);
+    }
+  };
+
+  const handleCopyBookedOffSummary = () => {
+    const boList = consoleData.bookedOff || [];
+    if (boList.length === 0) {
+      alert("No booked off records to copy.");
+      return;
+    }
+    const dateStr = deployedRosterInfo?.dateStr || activeSelectedDateStr || new Date().toISOString().split("T")[0];
+    let text = `🚨 *BMRCL LINE 2 (PEENYA DEPOT) — BOOKED OFF INCIDENT LOG*\n📅 Date: ${dateStr}\n━━━━━━━━━━━━━━━━━━━━\n`;
+    boList.forEach((b, idx) => {
+      text += `${idx + 1}. *${b.name || b.empName}* (#${b.empNo || b.empId})\n`;
+      text += `   • Duty: #${b.dutyId || "--"} | Train: ${b.trainId || "--"}\n`;
+      text += `   • Fault: ${b.faultCategory || "FAULT"} — ${b.reason || b.remarks || "Booked off"}\n`;
+      if (b.relieverName) {
+        text += `   • Status: Relieved by ${b.relieverName} (#${b.relieverId || "--"})\n`;
+      } else {
+        text += `   • Status: ⚠️ VACANT — DRIVER REQUIRED\n`;
+      }
+      text += `\n`;
+    });
+    text += `━━━━━━━━━━━━━━━━━━━━\nGenerated via Dispatch Gateway Core (BMRCL)`;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text);
+    }
+    alert("📋 Booked Off Incident Summary copied to clipboard!");
   };
 
   const handleInspectAndAutoDeploy = async () => {
@@ -2785,6 +3867,27 @@ Rules:
   };
 
   const handleAbnormalEvent = async (deployment, eventType) => {
+    if (eventType === "CHANGE") {
+      openAssignDriverModal(deployment);
+      return;
+    }
+    if (eventType === "MOVE") {
+      openTransferModal(
+        {
+          empId: deployment.empId || deployment.empNo,
+          empNo: deployment.empNo || deployment.empId,
+          name: deployment.driverName || deployment.operatorName || deployment.empName || deployment.name,
+          dutyId: deployment.dutyId,
+          shift: deployment.shift,
+        },
+        "MAINLINE",
+      );
+      return;
+    }
+    if (eventType === "BOOK_OFF") {
+      openBookOffModal(deployment);
+      return;
+    }
     if (
       eventType === "NOT_REPORTING" ||
       eventType === "ABSENT" ||
@@ -2796,10 +3899,25 @@ Rules:
             ? `gcc_deploy_${currentDayType.toLowerCase()}_duty_${deployment.dutyId}`
             : `gcc_deploy_${currentDayType.toLowerCase()}_extra_${deployment.empId}`;
 
+        const normDutyId = String(parseInt(deployment.dutyId, 10) || deployment.dutyId || "").trim();
+        const paddedDutyId = normDutyId ? normDutyId.padStart(2, "0") : "";
+        const sched = normalizeScheduleType(currentDayType).toLowerCase();
+        const possibleDutyDocIds = new Set([docId]);
+        if (normDutyId) {
+          possibleDutyDocIds.add(`gcc_deploy_${sched}_duty_${normDutyId}`);
+          possibleDutyDocIds.add(`gcc_deploy_${sched}_duty_${paddedDutyId}`);
+          possibleDutyDocIds.add(`gcc_deploy_active_run_duty_${paddedDutyId}`);
+          possibleDutyDocIds.add(`gcc_deploy_active_run_duty_${normDutyId}`);
+        }
+
         const isCurrentlyNR =
           deployment.status === "NOT_REPORTING" || deployment.status === "NR";
         const isCurrentlyAB =
           deployment.status === "ABSENT" || deployment.status === "AB";
+        const isCurrentlyBO =
+          deployment.status === "BOOKED_OFF_VACANT" ||
+          deployment.status === "BOOKED_OFF" ||
+          String(deployment.remarks || "").toUpperCase().includes("BOOKED OFF");
 
         let newStatus = eventType;
         let newRemarks =
@@ -2813,33 +3931,39 @@ Rules:
         if (
           eventType === "RESET" ||
           (eventType === "NOT_REPORTING" && isCurrentlyNR) ||
-          (eventType === "ABSENT" && isCurrentlyAB)
+          (eventType === "ABSENT" && isCurrentlyAB) ||
+          (eventType === "RESET" && isCurrentlyBO)
         ) {
           newStatus = "ACTIVE";
-          newRemarks = "Status Reset";
+          newRemarks = "Active Deployment";
         }
 
-        await setDoc(
-          doc(db, "crew_daily_deployment", docId),
-          {
-            status: newStatus,
-            isNotReporting: newStatus === "NOT_REPORTING",
-            isAbsent: newStatus === "ABSENT",
-            remarks: newRemarks,
-            lastUpdated: serverTimestamp(),
-          },
-          { merge: true },
-        );
+        const updatePayload = {
+          status: newStatus,
+          isNotReporting: newStatus === "NOT_REPORTING",
+          isAbsent: newStatus === "ABSENT",
+          remarks: newRemarks,
+          lastUpdated: serverTimestamp(),
+        };
+
+        for (const dId of possibleDutyDocIds) {
+          await setDoc(
+            doc(db, "crew_daily_deployment", dId),
+            updatePayload,
+            { merge: true },
+          );
+        }
 
         // Update fallback / local deployment state
         setFallbackDeployments((prev) =>
           prev.map((d) =>
-            d.dutyId === deployment.dutyId
+            String(d.dutyId) === String(deployment.dutyId)
               ? {
                   ...d,
                   status: newStatus,
                   isNotReporting: newStatus === "NOT_REPORTING",
                   isAbsent: newStatus === "ABSENT",
+                  remarks: newRemarks,
                 }
               : d,
           ),
@@ -2859,6 +3983,12 @@ Rules:
             (e) =>
               String(e.empNo || e.empId).trim() !== empId &&
               e.name !== empName,
+          );
+          let updatedBO = (prev.bookedOff || []).filter(
+            (b) =>
+              String(b.dutyId) !== String(deployment.dutyId) &&
+              String(b.empNo || b.empId).trim() !== empId &&
+              b.name !== empName,
           );
 
           if (newStatus === "NOT_REPORTING") {
@@ -2883,13 +4013,14 @@ Rules:
             ...prev,
             notReporting: updatedNR,
             absents: updatedAB,
+            bookedOff: newStatus === "ACTIVE" ? updatedBO : prev.bookedOff,
           };
           const next = enforceSingleDutyRule(rawUpdated);
 
           const todayStr = new Date().toISOString().split("T")[0];
           setDoc(
             doc(db, "roster_desk_console", "current"),
-            { notReporting: next.notReporting, absents: next.absents },
+            { notReporting: next.notReporting, absents: next.absents, bookedOff: next.bookedOff },
             { merge: true },
           ).catch(console.warn);
           setDoc(
@@ -3354,12 +4485,26 @@ Rules:
             Algorithmic Shift Validation & Relief Engine
           </p>
         </div>
-        <div className="flex bg-slate-900 border border-slate-700 rounded-lg p-1">
+        <div className="flex bg-slate-900 border border-slate-700 rounded-lg p-1 gap-1">
           <button
             onClick={() => setActiveTab("LIVE")}
-            className={`px-4 py-1.5 text-xs font-bold rounded tracking-wider transition-colors ${activeTab === "LIVE" ? "bg-emerald-600 text-slate-950" : "text-slate-400 hover:text-emerald-400"}`}
+            className={`px-4 py-1.5 text-xs font-bold rounded tracking-wider transition-colors ${activeTab === "LIVE" ? "bg-emerald-600 text-slate-950 font-black" : "text-slate-400 hover:text-emerald-400"}`}
           >
             LIVE GATE
+          </button>
+          <button
+            onClick={() => setActiveTab("BOOKED_OFF")}
+            className={`px-4 py-1.5 text-xs font-bold rounded tracking-wider transition-colors flex items-center gap-1.5 ${activeTab === "BOOKED_OFF" ? "bg-rose-600 text-white font-black shadow-md" : "text-rose-400 hover:text-rose-300"}`}
+          >
+            <UserX className="h-3.5 w-3.5" />
+            BOOKED OFF REGISTER
+            {(consoleData.bookedOff?.length || 0) > 0 && (
+              <span
+                className={`px-1.5 py-0.2 text-[10px] rounded-full font-black ${activeTab === "BOOKED_OFF" ? "bg-white text-rose-700" : "bg-rose-500 text-slate-950 animate-pulse"}`}
+              >
+                {consoleData.bookedOff.length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab("PUBLISHER")}
@@ -3723,12 +4868,56 @@ Rules:
                   EXCEL DAILY ROSTER PATH LINK AUTO-READER & CLASSIFIER
                 </h2>
                 <span className="text-[10px] text-cyan-400 font-bold tracking-widest uppercase">
-                  ZERO MANUAL ENTRY ENGINE
+                  ZERO MANUAL ENTRY ENGINE • 7-DAY ROLLING ROSTER
                 </span>
               </div>
-              <span className="bg-emerald-950/80 text-emerald-300 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-700/50">
-                AUTOMATED DISPATCH ENGINE READY
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowOfficialGccSheetModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-xs font-mono uppercase tracking-wider transition shadow cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>View Official GCC Sheet (1:1)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 7-Day Rolling Date Selector Bar */}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-2.5 space-y-2">
+              <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-emerald-400">
+                  <Calendar className="w-3.5 h-3.5" />
+                  Select Target Deployment Day (Next 7 Days):
+                </span>
+                <span className="text-emerald-300 font-bold">{activeSelectedDayObj.fullOfficialTitle}</span>
+              </div>
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                {rollingDays.map((d, idx) => {
+                  const isSelected = idx === activeRosterDayOffset;
+                  return (
+                    <button
+                      key={d.dateStr}
+                      type="button"
+                      onClick={() => {
+                        setActiveRosterDayOffset(idx);
+                        if (selectedRosterFile) {
+                          processFileAndDeploy(selectedRosterFile, null, d.date);
+                        }
+                      }}
+                      className={`flex flex-col items-center px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition shrink-0 ${
+                        isSelected
+                          ? "bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 ring-2 ring-emerald-400"
+                          : "bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800"
+                      }`}
+                    >
+                      <span className="text-[9px] uppercase tracking-wider">{d.badge}</span>
+                      <span className="text-xs font-black">{d.sheetTag}</span>
+                      <span className="text-[9px] font-normal">{d.shortDay}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="flex flex-col md:flex-row gap-3 items-center">
@@ -3761,14 +4950,14 @@ Rules:
                         const file = e.target.files[0];
                         setSelectedRosterFile(file);
                         setExcelPathInput(file.name);
-                        processFileAndDeploy(file);
+                        processFileAndDeploy(file, null, activeSelectedDayObj.date);
                       }
                     }}
                   />
                 </label>
                 <button
                   type="button"
-                  onClick={() => processFileAndDeploy(selectedRosterFile)}
+                  onClick={() => processFileAndDeploy(selectedRosterFile, null, activeSelectedDayObj.date)}
                   disabled={isInspectingPath}
                   className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-black text-xs px-4 py-2 rounded-lg transition-all shadow-md shadow-emerald-950 flex items-center gap-2 shrink-0 uppercase tracking-wider cursor-pointer"
                 >
@@ -3782,9 +4971,39 @@ Rules:
               </div>
             </div>
 
+            {/* Detected Sheets in Multi-Sheet Workbook */}
+            {detectedWorkbookSheets.length > 0 && (
+              <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
+                  <span className="font-bold text-emerald-400 uppercase">
+                    Detected Sheets in Workbook ({detectedWorkbookSheets.length}):
+                  </span>
+                  <span>Click sheet to parse & deploy day-wise</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {detectedWorkbookSheets.map((sh, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        processFileAndDeploy(selectedRosterFile, sh.sheetName, sh.dateStr ? new Date(sh.dateStr) : null);
+                      }}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-800 text-slate-200 hover:text-white text-xs font-mono font-bold border border-slate-700 transition"
+                    >
+                      <span>{sh.sheetName}</span>
+                      {sh.dayName && <span className="text-[10px] text-emerald-400 font-normal">({sh.dayName})</span>}
+                      <span className="text-[10px] bg-black/40 px-1.5 py-0.2 rounded text-slate-300">
+                        {sh.rowCount} rows
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Active Deployed Roster Date Notification Banner */}
             {(deployedRosterInfo || deduplicatedDeployments.length > 0) && (
-              <div className="bg-emerald-950/70 border border-emerald-500/60 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono animate-in fade-in duration-300 shadow-xl">
+              <div className="bg-emerald-950/70 border border-emerald-500/60 rounded-xl p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs font-mono animate-in fade-in duration-300 shadow-xl">
                 <div className="flex items-start gap-3">
                   <CheckCircle className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
                   <div>
@@ -3801,7 +5020,7 @@ Rules:
                       )}
                     </div>
                     <div className="text-[11px] text-emerald-200/90 font-medium mt-1">
-                      Today (
+                      Target Day (
                       {deployedRosterInfo?.dateStr ||
                         new Date().toLocaleDateString("en-GB")}
                       ): Deployed{" "}
@@ -3823,7 +5042,36 @@ Rules:
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                <div className="flex items-center gap-2 shrink-0 self-end md:self-center flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setShowOfficialGccSheetModal(true)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs font-mono uppercase tracking-wider transition shadow cursor-pointer"
+                    title="View 1:1 official GCC Roster Sheet"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <span>View 1:1 Sheet</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const targetDateStr = deployedRosterInfo?.dateStr || activeSelectedDateStr;
+                      const nextStatus = !isPublishedToOperators;
+                      setIsPublishedToOperators(nextStatus);
+                      await setDoc(doc(db, "dispatch_excel_cache", targetDateStr), {
+                        isPublishedForOperators: nextStatus,
+                        publishedAt: serverTimestamp(),
+                      }, { merge: true });
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition border ${
+                      isPublishedToOperators 
+                        ? "bg-emerald-900/90 text-emerald-300 border-emerald-500" 
+                        : "bg-amber-950/80 text-amber-300 border-amber-500"
+                    }`}
+                  >
+                    <Radio className={`w-3.5 h-3.5 ${isPublishedToOperators ? "text-emerald-400 animate-pulse" : "text-amber-400"}`} />
+                    <span>{isPublishedToOperators ? "● PUBLISHED TO TOs" : "○ UNPUBLISHED"}</span>
+                  </button>
                   <span className="bg-emerald-900/90 text-emerald-300 text-[10px] font-bold px-3 py-1 rounded-lg border border-emerald-600 uppercase tracking-widest shadow">
                     DEPLOYED DATE:{" "}
                     {deployedRosterInfo?.dateStr ||
@@ -4088,7 +5336,7 @@ Rules:
                     </p>
                     <label
                       className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1"
-                      htmlFor="automateddispatchgat-l1"
+                      htmlFor="automateddispatchgat-i1"
                     >
                       Target Duty ID
                     </label>
@@ -4358,7 +5606,6 @@ Rules:
                           .toUpperCase()
                           .includes("AB"),
                       );
-
                       const cleanedName = cleanOperatorName(
                         d.empName || d.name,
                       );
@@ -4373,6 +5620,26 @@ Rules:
                         displayId !== "--" &&
                         duplicateOperatorsMap[String(displayId).toLowerCase()],
                       );
+
+                      const hasValidDriver = Boolean(
+                        (d.empName || d.name || d.operatorName) &&
+                        !String(d.empName || d.name || d.operatorName).toUpperCase().includes("VACANT") &&
+                        !String(d.empName || d.name || d.operatorName).toUpperCase().includes("UNASSIGNED") &&
+                        (d.empId || d.empNo || d.employeeId || displayId) &&
+                        String(d.empId || d.empNo || d.employeeId || displayId).trim() !== "--" &&
+                        String(d.empId || d.empNo || d.employeeId || displayId).trim() !== "UNASSIGNED" &&
+                        String(d.empId || d.empNo || d.employeeId || displayId).trim() !== "0" &&
+                        String(d.empId || d.empNo || d.employeeId || displayId).trim() !== ""
+                      );
+
+                      const isBookedOffVacant = Boolean(
+                        !hasValidDriver &&
+                        (d.status === "BOOKED_OFF_VACANT" ||
+                          String(d.empName || "").toUpperCase().includes("VACANT") ||
+                          (String(d.remarks || "").toUpperCase().includes("BOOKED OFF") && !hasValidDriver) ||
+                          d.status === "BOOKED_OFF")
+                      );
+                      const isUnassigned = !hasValidDriver;
                       const isSearchMatch = Boolean(
                         searchQuery.trim() &&
                         (String(d.dutyId || "")
@@ -4395,20 +5662,26 @@ Rules:
                             ))),
                       );
 
+                      const isRowSelected = selectedIds.includes(d.id);
                       return (
                         <tr
                           key={d.id}
-                          className={`hover:bg-slate-800/30 transition-colors ${
-                            isSearchMatch
-                              ? "bg-amber-955/80 border-l-4 border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)] ring-1 ring-amber-500/40"
-                              : isDup
-                                ? "bg-rose-950/40 border-l-4 border-rose-500 shadow-md shadow-rose-950/50"
-                                : ""
+                          className={`hover:bg-slate-800/40 transition-colors ${
+                            isRowSelected
+                              ? "bg-emerald-950/80 border-l-4 border-emerald-400 ring-1 ring-emerald-500/60 shadow-lg text-white"
+                              : isSearchMatch
+                                ? "bg-amber-955/80 border-l-4 border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)] ring-1 ring-amber-500/40"
+                                : isDup
+                                  ? "bg-rose-950/40 border-l-4 border-rose-500 shadow-md shadow-rose-950/50"
+                                  : ""
                           }`}
                         >
                           <td className="p-3 w-10 text-center border-r border-slate-800">
                             {!isDispatched ? (
                               <input
+                                id={`dispatch-duty-select-${d.dutyId || d.id}`}
+                                name={`dispatch_duty_select_${d.dutyId || d.id}`}
+                                aria-label={`Select Duty ${d.dutyId}`}
                                 type="checkbox"
                                 checked={selectedIds.includes(d.id)}
                                 onChange={() => handleToggleSelect(d.id)}
@@ -4572,6 +5845,9 @@ Rules:
                           <td className="p-3 font-bold">
                             {editingDeploymentId === d.id ? (
                               <input
+                                id={`edit-deploy-name-${d.dutyId || d.id}`}
+                                name={`edit_deploy_name_${d.dutyId || d.id}`}
+                                aria-label={`Edit Name for Duty ${d.dutyId}`}
                                 type="text"
                                 value={editName}
                                 onChange={(e) => setEditName(e.target.value)}
@@ -4584,6 +5860,15 @@ Rules:
                                   d.empName || d.name || "UNASSIGNED",
                                   searchQuery,
                                 )}
+                              </span>
+                            ) : isBookedOffVacant ? (
+                              <span className="inline-flex items-center gap-2">
+                                <span className="text-rose-400 font-bold italic tracking-wide">
+                                  ⚠️ VACANT — DRIVER REQUIRED
+                                </span>
+                                <span className="text-[9px] bg-rose-955 text-rose-300 border border-rose-500 px-1.5 py-0.5 rounded font-mono font-black uppercase tracking-wider inline-flex items-center gap-1 shadow animate-pulse">
+                                  <UserX className="h-2.5 w-2.5" /> BO (VACANT)
+                                </span>
                               </span>
                             ) : isAbsent ? (
                               <span className="inline-flex items-center gap-2">
@@ -4651,21 +5936,31 @@ Rules:
                           <td className="p-3 font-mono font-bold">
                             <span
                               className={
-                                isAbsent
-                                  ? "text-red-400"
-                                  : isNR
-                                    ? "text-rose-400"
-                                    : isExchanged
-                                      ? "text-purple-300"
-                                      : isSwapped
-                                        ? "text-amber-300"
-                                        : "text-cyan-400"
+                                isBookedOffVacant
+                                  ? "text-rose-400 italic"
+                                  : isAbsent
+                                    ? "text-red-400"
+                                    : isNR
+                                      ? "text-rose-400"
+                                      : isExchanged
+                                        ? "text-purple-300"
+                                        : isSwapped
+                                          ? "text-amber-300"
+                                          : "text-cyan-400"
                               }
                             >
-                              {highlightMatch(
-                                d.empId || d.employeeId || "--",
-                                searchQuery,
-                              )}
+                              {isBookedOffVacant
+                                ? "--"
+                                : highlightMatch(
+                                    (d.empId && d.empId !== "--" && d.empId !== "UNASSIGNED")
+                                      ? d.empId
+                                      : (d.employeeId && d.employeeId !== "--")
+                                        ? d.employeeId
+                                        : (displayId && displayId !== "--")
+                                          ? displayId
+                                          : "--",
+                                    searchQuery,
+                                  )}
                             </span>
                           </td>
 
@@ -4703,6 +5998,9 @@ Rules:
                           <td className="p-3 text-center">
                             <div className="flex items-center justify-center">
                               <select
+                                id={`engine-trigger-${d.dutyId || d.id}`}
+                                name={`engine_trigger_${d.dutyId || d.id}`}
+                                aria-label={`Engine Triggers for Duty ${d.dutyId}`}
                                 value={
                                   d.status === "NOT_REPORTING" || d.status === "NR"
                                     ? "NOT_REPORTING"
@@ -4730,12 +6028,15 @@ Rules:
                                 title="Algorithmic Shift Validation & Relief Engine Trigger"
                               >
                                 <option value="">⚡ Engine Trigger...</option>
+                                <option value="CHANGE">🔄 CHANGE (Reassign / Swap)</option>
+                                <option value="MOVE">⇄ MOVE (Transfer Desk)</option>
+                                <option value="BOOK_OFF">⛔ BOOK OFF (Fault / Incident)</option>
                                 <option value="NOT_REPORTING">🔴 Not Reported (NR)</option>
                                 <option value="ABSENT">⛔ Absent (AB)</option>
                                 <option value="EMERGENCY">🚨 Emergency</option>
                                 <option value="INCIDENT">⚠️ Incident</option>
                                 <option value="DELAY">⏱️ Delay</option>
-                                {(d.status === "NOT_REPORTING" || d.status === "NR" || d.status === "ABSENT" || d.status === "AB") && (
+                                {(d.status === "NOT_REPORTING" || d.status === "NR" || d.status === "ABSENT" || d.status === "AB" || d.status === "BOOKED_OFF_VACANT" || isBookedOffVacant || String(d.remarks || "").toUpperCase().includes("BOOKED OFF")) && (
                                   <option value="RESET">🔄 Reset to Active</option>
                                 )}
                               </select>
@@ -4744,19 +6045,30 @@ Rules:
 
                           {/* Gate Actions */}
                           <td className="p-3 text-right border-l border-slate-800 bg-slate-900/50">
-                            {!isDispatched ? (
-                              <button
-                                onClick={() => authorizeDispatch(d)}
-                                className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black px-3 py-1 rounded text-[10px] tracking-widest uppercase shadow-md transition-colors"
-                              >
-                                AUTHORIZE
-                              </button>
-                            ) : (
-                              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center justify-end gap-1">
-                                <CheckCircle className="h-3 w-3 text-emerald-500" />{" "}
-                                DISPATCHED
-                              </span>
-                            )}
+                            <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                              {isUnassigned && (
+                                <button
+                                  type="button"
+                                  onClick={() => openAssignDriverModal(d)}
+                                  className="bg-amber-500 hover:bg-amber-400 text-slate-955 font-black px-2.5 py-1 rounded text-[10px] tracking-wider uppercase shadow-md flex items-center gap-1 cursor-pointer transition animate-pulse"
+                                  title="Assign a train driver to this vacant duty"
+                                >
+                                  <Plus className="h-3 w-3" /> ASSIGN DRIVER
+                                </button>
+                              )}
+                              {!isDispatched ? (
+                                <button
+                                  onClick={() => authorizeDispatch(d)}
+                                  className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black px-3 py-1 rounded text-[10px] tracking-widest uppercase shadow-md transition-colors"
+                                >
+                                  AUTHORIZE
+                                </button>
+                              ) : (
+                                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-1 pl-1">
+                                  <CheckCircle className="h-3 w-3 text-emerald-500" /> DISPATCHED
+                                </span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -5011,6 +6323,22 @@ Rules:
                     AB ({consoleData.absents?.length || 0}/20)
                     {consoleSearchQuery.trim() && filteredAbsents.length > 0 && ` 🎯${filteredAbsents.length}`}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConsoleFilterCategory(
+                        consoleFilterCategory === "BO" ? "ALL" : "BO",
+                      )
+                    }
+                    className={`px-2 py-0.5 rounded border transition-all cursor-pointer font-bold ${
+                      consoleFilterCategory === "BO"
+                        ? "bg-rose-600 text-white border-rose-400 ring-2 ring-rose-400 shadow-sm"
+                        : "bg-slate-955 border-rose-900/70 text-rose-300 hover:bg-slate-850"
+                    }`}
+                  >
+                    BO ({consoleData.bookedOff?.length || 0}/20)
+                    {consoleSearchQuery.trim() && filteredBo.length > 0 && ` 🎯${filteredBo.length}`}
+                  </button>
                   {Object.keys(consoleData.customRegisters || {}).map(
                     (tagName) => {
                       const matchCount = (
@@ -5169,6 +6497,9 @@ Rules:
                 {/* Live Editable Textarea */}
                 <div className="relative">
                   <textarea
+                    id="adg-live-report-content"
+                    name="live_report_content"
+                    aria-label="Live Operational Report Content"
                     value={reportContent}
                     onChange={(e) => {
                       setReportContent(e.target.value);
@@ -5194,6 +6525,9 @@ Rules:
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-955 p-3 rounded-xl border border-slate-800 shadow-lg">
               <div className="relative w-full sm:w-96">
                 <input
+                  id="adg-console-search-query"
+                  name="console_search_query"
+                  aria-label="Search desk console"
                   type="text"
                   value={consoleSearchQuery}
                   onChange={(e) => setConsoleSearchQuery(e.target.value)}
@@ -5242,6 +6576,16 @@ Rules:
                     </button>
                   </div>
                 )}
+
+                <button
+                  type="button"
+                  onClick={() => openTransferModal(null, "STANDBY")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 shadow-sm transition-all cursor-pointer"
+                  title="Move any train operator across roster pages & desk registers"
+                >
+                  <ArrowRightLeft className="h-3.5 w-3.5 text-indigo-400" />
+                  <span>⇄ Transfer Crew Across Pages</span>
+                </button>
               </div>
             </div>
 
@@ -5320,9 +6664,20 @@ Rules:
                                   `${item.signOn || "--"} - ${item.signOff || "--"}`}
                               </div>
                             </div>
-                            <span className="text-[10px] font-mono text-amber-400 font-bold bg-slate-955 px-2 py-1 rounded border border-slate-800">
-                              #{item.empNo || item.empId || "--"}
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => openTransferModal(item, "coOperators")}
+                                className="text-[10px] font-mono text-amber-400 hover:text-white bg-amber-950/60 hover:bg-amber-800/80 px-1.5 py-0.5 rounded border border-amber-800/50 cursor-pointer flex items-center gap-1 transition-all"
+                                title="Transfer / Move this operator"
+                              >
+                                <ArrowRightLeft className="h-2.5 w-2.5" />
+                                <span>Move</span>
+                              </button>
+                              <span className="text-[10px] font-mono text-amber-400 font-bold bg-slate-955 px-2 py-1 rounded border border-slate-800">
+                                #{item.empNo || item.empId || "--"}
+                              </span>
+                            </div>
                           </div>
                         ))
                       ) : (
@@ -5381,9 +6736,20 @@ Rules:
                                 {item.time || "06:30 - 14:00"}
                               </div>
                             </div>
-                            <span className="text-[10px] text-amber-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
-                              #{item.empNo || item.empId || "--"}
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => openTransferModal(item, "controlDesks")}
+                                className="text-[10px] font-mono text-amber-400 hover:text-white bg-amber-950/60 hover:bg-amber-800/80 px-1.5 py-0.5 rounded border border-amber-800/50 cursor-pointer flex items-center gap-1 transition-all"
+                                title="Transfer / Move this controller"
+                              >
+                                <ArrowRightLeft className="h-2.5 w-2.5" />
+                                <span>Move</span>
+                              </button>
+                              <span className="text-[10px] text-amber-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                                #{item.empNo || item.empId || "--"}
+                              </span>
+                            </div>
                           </div>
                         ))
                       ) : (
@@ -5467,9 +6833,20 @@ Rules:
                                 )}
                               </div>
                             </div>
-                            <span className="text-[10px] text-cyan-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
-                              #{item.empNo || item.empId || "--"}
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => openTransferModal(item, "leaves")}
+                                className="text-[10px] font-mono text-cyan-400 hover:text-white bg-cyan-950/60 hover:bg-cyan-800/80 px-1.5 py-0.5 rounded border border-cyan-800/50 cursor-pointer flex items-center gap-1 transition-all"
+                                title="Recall from Leave / Transfer operator"
+                              >
+                                <ArrowRightLeft className="h-2.5 w-2.5" />
+                                <span>Move</span>
+                              </button>
+                              <span className="text-[10px] text-cyan-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                                #{item.empNo || item.empId || "--"}
+                              </span>
+                            </div>
                           </div>
                         ))
                       ) : (
@@ -5545,9 +6922,20 @@ Rules:
                                 {item.time || "09:00 - 17:00"}
                               </div>
                             </div>
-                            <span className="text-[10px] text-emerald-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
-                              #{item.empNo || item.empId || "--"}
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => openTransferModal(item, "standbys")}
+                                className="text-[10px] font-mono text-emerald-400 hover:text-white bg-emerald-950/60 hover:bg-emerald-800/80 px-1.5 py-0.5 rounded border border-emerald-800/50 cursor-pointer flex items-center gap-1 transition-all"
+                                title="Deploy Standby to active duty / Transfer operator"
+                              >
+                                <ArrowRightLeft className="h-2.5 w-2.5" />
+                                <span>Move</span>
+                              </button>
+                              <span className="text-[10px] text-emerald-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                                #{item.empNo || item.empId || "--"}
+                              </span>
+                            </div>
                           </div>
                         ))
                       ) : (
@@ -5626,9 +7014,20 @@ Rules:
                                 {item.name}
                               </div>
                             </div>
-                            <span className="text-[10px] text-purple-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
-                              #{item.empNo || item.empId || "--"}
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => openTransferModal(item, "outstationStepbacks")}
+                                className="text-[10px] font-mono text-purple-400 hover:text-white bg-purple-950/60 hover:bg-purple-800/80 px-1.5 py-0.5 rounded border border-purple-800/50 cursor-pointer flex items-center gap-1 transition-all"
+                                title="Deploy Stepback to active duty / Transfer operator"
+                              >
+                                <ArrowRightLeft className="h-2.5 w-2.5" />
+                                <span>Move</span>
+                              </button>
+                              <span className="text-[10px] text-purple-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                                #{item.empNo || item.empId || "--"}
+                              </span>
+                            </div>
                           </div>
                         ))
                       ) : (
@@ -5706,9 +7105,20 @@ Rules:
                                 )}
                               </div>
                             </div>
-                            <span className="text-[10px] text-teal-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
-                              #{item.empNo || item.empId || "--"}
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => openTransferModal(item, "crtTraining")}
+                                className="text-[10px] font-mono text-teal-400 hover:text-white bg-teal-950/60 hover:bg-teal-800/80 px-1.5 py-0.5 rounded border border-teal-800/50 cursor-pointer flex items-center gap-1 transition-all"
+                                title="Transfer / Deploy operator"
+                              >
+                                <ArrowRightLeft className="h-2.5 w-2.5" />
+                                <span>Move</span>
+                              </button>
+                              <span className="text-[10px] text-teal-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                                #{item.empNo || item.empId || "--"}
+                              </span>
+                            </div>
                           </div>
                         ))
                       ) : (
@@ -5740,7 +7150,7 @@ Rules:
                   </div>
                 )}
 
-              {/* 6. BMRTI Training (Includes Employee 22297 Mohammed Rafiq & 22315 Krishna Murthy) */}
+              {/* 6. BMRTI Training (Real Deputation Roster Data) */}
               {(consoleFilterCategory === "ALL" ||
                 consoleFilterCategory === "BMRTI") &&
                 (!consoleSearchQuery.trim() ||
@@ -5768,42 +7178,41 @@ Rules:
                     </div>
                     <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
                       {filteredBmrti && filteredBmrti.length > 0 ? (
-                        filteredBmrti.map((item, idx) => {
-                          const isSpecialBmrti =
-                            String(item.empNo || item.empId).trim() === "22297" ||
-                            String(item.empNo || item.empId).trim() === "22315";
-                          return (
-                            <div
-                              key={idx}
-                              className={`border p-2 rounded flex justify-between items-center transition-all ${
-                                isSpecialBmrti
-                                  ? "bg-sky-950/60 border-sky-400/80 shadow-md"
-                                  : consoleSearchQuery.trim()
-                                    ? "bg-sky-950/30 border-sky-500/50"
-                                    : "bg-slate-900 border-slate-800"
-                              }`}
-                            >
-                              <div>
-                                <div className="font-bold text-slate-200 flex items-center gap-1.5">
-                                  <span>{item.name}</span>
-                                  {isSpecialBmrti && (
-                                    <span className="text-[9px] bg-sky-500 text-slate-950 font-black px-1.5 py-0.2 rounded uppercase">
-                                      BMRTI
-                                    </span>
-                                  )}
-                                </div>
+                        filteredBmrti.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className={`border p-2 rounded flex justify-between items-center transition-all ${
+                              consoleSearchQuery.trim()
+                                ? "bg-sky-950/30 border-sky-500/50"
+                                : "bg-slate-900 border-slate-800"
+                            }`}
+                          >
+                            <div>
+                              <div className="font-bold text-slate-200 flex items-center gap-1.5">
+                                <span>{item.name || item.empName}</span>
+                              </div>
                                 <div className="text-[10px] text-slate-400 font-mono">
                                   {safeFormatExcelDate(
                                     item.date || item.time || "BMRTI",
                                   )}
                                 </div>
                               </div>
-                              <span className="text-[10px] text-sky-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
-                                #{item.empNo || item.empId || "--"}
-                              </span>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => openTransferModal(item, "bmrtiTraining")}
+                                  className="text-[10px] font-mono text-sky-400 hover:text-white bg-sky-950/60 hover:bg-sky-800/80 px-1.5 py-0.5 rounded border border-sky-800/50 cursor-pointer flex items-center gap-1 transition-all"
+                                  title="Transfer / Deploy operator"
+                                >
+                                  <ArrowRightLeft className="h-2.5 w-2.5" />
+                                  <span>Move</span>
+                                </button>
+                                <span className="text-[10px] text-sky-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                                  #{item.empNo || item.empId || "--"}
+                                </span>
+                              </div>
                             </div>
-                          );
-                        })
+                          ))
                       ) : (
                         <div className="p-3 bg-slate-900/40 border border-slate-850 rounded text-center text-slate-500 text-xs font-mono">
                           {consoleSearchQuery.trim()
@@ -5877,9 +7286,20 @@ Rules:
                                 {safeFormatExcelDate(item.date)}
                               </div>
                             )}
-                            <span className="text-[10px] text-rose-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
-                              #{item.empNo || item.empId || "--"}
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => openTransferModal(item, "weeklyOffs")}
+                                className="text-[10px] font-mono text-rose-400 hover:text-white bg-rose-950/60 hover:bg-rose-800/80 px-1.5 py-0.5 rounded border border-rose-800/50 cursor-pointer flex items-center gap-1 transition-all"
+                                title="Recall from Weekly Off (OT) / Deploy operator"
+                              >
+                                <ArrowRightLeft className="h-2.5 w-2.5" />
+                                <span>Move</span>
+                              </button>
+                              <span className="text-[10px] text-rose-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                                #{item.empNo || item.empId || "--"}
+                              </span>
+                            </div>
                           </div>
                         ))
                       ) : (
@@ -5955,9 +7375,20 @@ Rules:
                                 {safeFormatExcelDate(item.time || "--")}
                               </div>
                             </div>
-                            <span className="text-[10px] text-fuchsia-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
-                              #{item.empNo || item.empId || "--"}
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => openTransferModal(item, "relievedOperators")}
+                                className="text-[10px] font-mono text-fuchsia-400 hover:text-white bg-fuchsia-950/60 hover:bg-fuchsia-800/80 px-1.5 py-0.5 rounded border border-fuchsia-800/50 cursor-pointer flex items-center gap-1 transition-all"
+                                title="Transfer / Deploy operator"
+                              >
+                                <ArrowRightLeft className="h-2.5 w-2.5" />
+                                <span>Move</span>
+                              </button>
+                              <span className="text-[10px] text-fuchsia-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                                #{item.empNo || item.empId || "--"}
+                              </span>
+                            </div>
                           </div>
                         ))
                       ) : (
@@ -6035,9 +7466,20 @@ Rules:
                                 )}
                               </div>
                             </div>
-                            <span className="text-[10px] text-lime-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
-                              #{item.empNo || item.empId || "--"}
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => openTransferModal(item, "pmeOperators")}
+                                className="text-[10px] font-mono text-lime-400 hover:text-white bg-lime-950/60 hover:bg-lime-800/80 px-1.5 py-0.5 rounded border border-lime-800/50 cursor-pointer flex items-center gap-1 transition-all"
+                                title="Transfer / Deploy operator"
+                              >
+                                <ArrowRightLeft className="h-2.5 w-2.5" />
+                                <span>Move</span>
+                              </button>
+                              <span className="text-[10px] text-lime-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                                #{item.empNo || item.empId || "--"}
+                              </span>
+                            </div>
                           </div>
                         ))
                       ) : (
@@ -6115,9 +7557,20 @@ Rules:
                                 )}
                               </div>
                             </div>
-                            <span className="text-[10px] text-indigo-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
-                              #{item.empNo || item.empId || "--"}
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => openTransferModal(item, "routeLearning")}
+                                className="text-[10px] font-mono text-indigo-400 hover:text-white bg-indigo-950/60 hover:bg-indigo-800/80 px-1.5 py-0.5 rounded border border-indigo-800/50 cursor-pointer flex items-center gap-1 transition-all"
+                                title="Transfer / Deploy operator"
+                              >
+                                <ArrowRightLeft className="h-2.5 w-2.5" />
+                                <span>Move</span>
+                              </button>
+                              <span className="text-[10px] text-indigo-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                                #{item.empNo || item.empId || "--"}
+                              </span>
+                            </div>
                           </div>
                         ))
                       ) : (
@@ -6188,9 +7641,20 @@ Rules:
                             <div className="font-bold text-slate-200">
                               {item.name}
                             </div>
-                            <span className="text-[10px] text-rose-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
-                              #{item.empNo || item.empId || "--"}
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => openTransferModal(item, "notReporting")}
+                                className="text-[10px] font-mono text-rose-400 hover:text-white bg-rose-950/60 hover:bg-rose-800/80 px-1.5 py-0.5 rounded border border-rose-800/50 cursor-pointer flex items-center gap-1 transition-all"
+                                title="Transfer / Deploy operator"
+                              >
+                                <ArrowRightLeft className="h-2.5 w-2.5" />
+                                <span>Move</span>
+                              </button>
+                              <span className="text-[10px] text-rose-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                                #{item.empNo || item.empId || "--"}
+                              </span>
+                            </div>
                           </div>
                         ))
                       ) : (
@@ -6261,9 +7725,20 @@ Rules:
                             <div className="font-bold text-slate-200">
                               {item.name}
                             </div>
-                            <span className="text-[10px] text-red-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
-                              #{item.empNo || item.empId || "--"}
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => openTransferModal(item, "absents")}
+                                className="text-[10px] font-mono text-red-400 hover:text-white bg-red-950/60 hover:bg-red-800/80 px-1.5 py-0.5 rounded border border-red-800/50 cursor-pointer flex items-center gap-1 transition-all"
+                                title="Transfer / Deploy operator"
+                              >
+                                <ArrowRightLeft className="h-2.5 w-2.5" />
+                                <span>Move</span>
+                              </button>
+                              <span className="text-[10px] text-red-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                                #{item.empNo || item.empId || "--"}
+                              </span>
+                            </div>
                           </div>
                         ))
                       ) : (
@@ -6341,9 +7816,20 @@ Rules:
                                 )}
                               </div>
                             </div>
-                            <span className="text-[10px] text-amber-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
-                              #{item.empNo || item.empId || "--"}
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => openTransferModal(item, "onDuty")}
+                                className="text-[10px] font-mono text-amber-400 hover:text-white bg-amber-950/60 hover:bg-amber-800/80 px-1.5 py-0.5 rounded border border-amber-800/50 cursor-pointer flex items-center gap-1 transition-all"
+                                title="Deploy OD to active duty / Transfer operator"
+                              >
+                                <ArrowRightLeft className="h-2.5 w-2.5" />
+                                <span>Move</span>
+                              </button>
+                              <span className="text-[10px] text-amber-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                                #{item.empNo || item.empId || "--"}
+                              </span>
+                            </div>
                           </div>
                         ))
                       ) : (
@@ -6375,7 +7861,98 @@ Rules:
                   </div>
                 )}
 
-              {/* 14+. Dynamic Custom Section Cards (e.g. CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)) */}
+              {/* 14. BO (Booked Off / Operational Reliefs) */}
+              {(consoleFilterCategory === "ALL" ||
+                consoleFilterCategory === "BO") &&
+                (!consoleSearchQuery.trim() ||
+                  filteredBo.length > 0 ||
+                  consoleFilterCategory === "BO") && (
+                  <div
+                    className={`bg-slate-955 border rounded-xl p-3 space-y-2 transition-all ${
+                      consoleSearchQuery.trim() && filteredBo.length > 0
+                        ? "border-rose-400 ring-2 ring-rose-400/30"
+                        : "border-rose-900/40 hover:border-rose-500/40"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <span className="text-xs font-bold text-rose-400 uppercase flex items-center gap-1.5">
+                        <AlertTriangle className="h-3.5 w-3.5 text-rose-500" />
+                        BO (Booked Off) ({filteredBo.length}
+                        {consoleSearchQuery.trim()
+                          ? ` / ${consoleData.bookedOff?.length || 0}`
+                          : ""}
+                        )
+                      </span>
+                      <span className="text-[10px] bg-rose-950/60 text-rose-300 px-2 py-0.5 rounded border border-rose-800/40 font-mono font-bold">
+                        {filteredBo.length} Recorded
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                      {filteredBo && filteredBo.length > 0 ? (
+                        filteredBo.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className={`border p-2 rounded flex justify-between items-center transition-all ${
+                              consoleSearchQuery.trim()
+                                ? "bg-rose-950/30 border-rose-500/50"
+                                : "bg-slate-900 border-slate-800"
+                            }`}
+                          >
+                            <div className="space-y-0.5">
+                              <div className="font-bold text-slate-200 flex items-center gap-1.5">
+                                <span>{item.name || item.empName}</span>
+                                <span className="text-[10px] text-rose-400 bg-rose-950/80 px-1.5 py-0.2 rounded border border-rose-800/60 font-mono font-bold">
+                                  Duty #{item.dutyId || "--"}
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-rose-300/80 font-mono flex items-center gap-1">
+                                <span className="text-rose-400 font-semibold">{item.faultCategory || "FAULT"}</span>
+                                <span>•</span>
+                                <span className="truncate max-w-[130px]">{item.reason || item.remarks || "Booked off"}</span>
+                              </div>
+                              {item.relieverName && (
+                                <div className="text-[9px] text-emerald-400 font-mono flex items-center gap-1">
+                                  <span>Relieved by: {item.relieverName} (#{item.relieverId || "--"})</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                              <span className="text-[10px] text-rose-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                                #{item.empNo || item.empId || "--"}
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => openTransferModal(item, "bookedOff")}
+                                  className="text-[9px] font-bold text-cyan-400 hover:text-white bg-cyan-950/60 hover:bg-cyan-800/80 px-1 py-0.2 rounded border border-cyan-800/50 cursor-pointer flex items-center gap-0.5 transition-all"
+                                  title="Transfer / Move this operator to another register or active duty"
+                                >
+                                  <ArrowRightLeft className="h-2 w-2" /> Move
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRestoreBookedOffOperator(item)}
+                                  className="text-[9px] font-bold text-slate-400 hover:text-emerald-400 underline cursor-pointer"
+                                  title="Restore back to active duty"
+                                >
+                                  Restore
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 bg-slate-900/40 border border-slate-850 rounded text-center text-slate-500 text-xs font-mono">
+                          {consoleSearchQuery.trim()
+                            ? `No Booked Off crew matching "${consoleSearchQuery}"`
+                            : "No operators booked off today."}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              {/* 15+. Dynamic Custom Section Cards (e.g. CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)) */}
               {Object.keys(consoleData.customRegisters || {}).map((tagName) => {
                 const list = consoleData.customRegisters[tagName] || [];
                 const filteredCustomList = list.filter(matchesConsoleSearch);
@@ -6430,9 +8007,20 @@ Rules:
                                 {item.info || item.tag || ""}
                               </div>
                             </div>
-                            <span className="text-[10px] text-cyan-300 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
-                              #{item.empNo || item.empId || "--"}
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => openTransferModal(item, tagName)}
+                                className="text-[10px] font-mono text-cyan-400 hover:text-white bg-cyan-950/60 hover:bg-cyan-800/80 px-1.5 py-0.5 rounded border border-cyan-800/50 cursor-pointer flex items-center gap-1 transition-all"
+                                title="Transfer / Deploy operator"
+                              >
+                                <ArrowRightLeft className="h-2.5 w-2.5" />
+                                <span>Move</span>
+                              </button>
+                              <span className="text-[10px] text-cyan-300 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                                #{item.empNo || item.empId || "--"}
+                              </span>
+                            </div>
                           </div>
                         ))
                       ) : (
@@ -6463,6 +8051,325 @@ Rules:
           </div>
         </div>
       )}
+
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {/* ── BOOKED OFF REGISTER VIEW (FAULTS & OPERATIONAL RELIEFS) ─────── */}
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {activeTab === "BOOKED_OFF" && (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <div className="bg-slate-900 border border-rose-900/50 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+            <div className="absolute -right-6 -bottom-6 w-36 h-36 bg-rose-500/5 rounded-full blur-2xl pointer-events-none" />
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-rose-500/10 border border-rose-500/30 rounded-lg text-rose-400">
+                    <AlertTriangle className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-black text-white tracking-wider uppercase flex items-center gap-2">
+                      BOOKED OFF REGISTER & FAULT RELIEF ENGINE
+                      <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-rose-600 text-white shadow-sm">
+                        {(consoleData.bookedOff || []).length} RECORDED
+                      </span>
+                    </h2>
+                    <p className="text-xs text-slate-400 font-mono">
+                      BMRCL Line 2 Peenya Industry Depot • Train Faults, BA Unfitness, Medical & Safety Book-Offs
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleCopyBookedOffSummary}
+                  className="bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <Copy className="h-3.5 w-3.5 text-rose-400" />
+                  Copy Incident Summary (OCC Broadcast)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("LIVE")}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black px-4 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                >
+                  <ArrowRight className="h-3.5 w-3.5" />
+                  Return to Live Gate
+                </button>
+              </div>
+            </div>
+
+            {/* Metric KPI Chips */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-800/80">
+              <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total Booked Off</div>
+                  <div className="text-lg font-black text-white font-mono">
+                    {(consoleData.bookedOff || []).length}
+                  </div>
+                </div>
+                <div className="p-2 bg-rose-500/10 rounded-lg text-rose-400 text-xs font-bold">BO</div>
+              </div>
+
+              <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Relieved with Replacement</div>
+                  <div className="text-lg font-black text-emerald-400 font-mono">
+                    {(consoleData.bookedOff || []).filter((b) => Boolean(b.relieverName)).length}
+                  </div>
+                </div>
+                <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400 text-xs font-bold">STAFFED</div>
+              </div>
+
+              <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Pending Relief / Vacant Duties</div>
+                  <div className="text-lg font-black text-rose-400 font-mono">
+                    {(consoleData.bookedOff || []).filter((b) => !b.relieverName).length}
+                  </div>
+                </div>
+                <div className="p-2 bg-rose-500/10 rounded-lg text-rose-400 text-xs font-bold">VACANT</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Search & Filter Bar */}
+          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-slate-900 border border-slate-800 p-3 rounded-xl">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <input
+                id="adg-bookedoff-search"
+                name="bookedoff_search"
+                aria-label="Search booked-off crew"
+                type="text"
+                placeholder="Search booked-off crew by Name, Emp ID, Duty #, Train #, or Reason..."
+                value={bookedOffViewSearch}
+                onChange={(e) => setBookedOffViewSearch(e.target.value)}
+                className="w-full pl-9 pr-8 py-1.5 bg-slate-955 border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:border-rose-500"
+              />
+              {bookedOffViewSearch && (
+                <button
+                  type="button"
+                  onClick={() => setBookedOffViewSearch("")}
+                  className="absolute right-2.5 top-2 text-slate-400 hover:text-white text-xs font-bold cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <div className="text-xs text-slate-400 font-mono flex items-center gap-2 justify-end">
+              <span>Showing:</span>
+              <span className="font-bold text-white font-mono">
+                {(consoleData.bookedOff || []).filter((item) => {
+                  if (!bookedOffViewSearch.trim()) return true;
+                  const q = bookedOffViewSearch.toLowerCase();
+                  return (
+                    (item.name || item.empName || "").toLowerCase().includes(q) ||
+                    (item.empNo || item.empId || "").toLowerCase().includes(q) ||
+                    String(item.dutyId || "").toLowerCase().includes(q) ||
+                    String(item.trainId || "").toLowerCase().includes(q) ||
+                    (item.reason || item.remarks || "").toLowerCase().includes(q) ||
+                    (item.relieverName || "").toLowerCase().includes(q)
+                  );
+                }).length} / {(consoleData.bookedOff || []).length}
+              </span>
+            </div>
+          </div>
+
+          {/* Booked Off Table */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-955 border-b border-slate-800 text-[11px] font-black uppercase text-slate-400 tracking-wider">
+                    <th className="p-3 w-12 text-center">#</th>
+                    <th className="p-3">Booked Off Operator</th>
+                    <th className="p-3">Relieved From Duty</th>
+                    <th className="p-3">Fault Category & Reason</th>
+                    <th className="p-3">Replacement / Reliever</th>
+                    <th className="p-3">Time Recorded</th>
+                    <th className="p-3 text-right pr-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/80 text-xs">
+                  {(() => {
+                    const allBo = consoleData.bookedOff || [];
+                    const filtered = allBo.filter((item) => {
+                      if (!bookedOffViewSearch.trim()) return true;
+                      const q = bookedOffViewSearch.toLowerCase();
+                      return (
+                        (item.name || item.empName || "").toLowerCase().includes(q) ||
+                        (item.empNo || item.empId || "").toLowerCase().includes(q) ||
+                        String(item.dutyId || "").toLowerCase().includes(q) ||
+                        String(item.trainId || "").toLowerCase().includes(q) ||
+                        (item.reason || item.remarks || "").toLowerCase().includes(q) ||
+                        (item.relieverName || "").toLowerCase().includes(q)
+                      );
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={7} className="p-8 text-center">
+                            <div className="flex flex-col items-center justify-center space-y-3">
+                              <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/30">
+                                <CheckCircle className="h-8 w-8" />
+                              </div>
+                              <div className="text-sm font-bold text-white">
+                                {allBo.length === 0
+                                  ? "No Booked Off Operators"
+                                  : "No Matching Records Found"}
+                              </div>
+                              <p className="text-xs text-slate-400 max-w-md">
+                                {allBo.length === 0
+                                  ? "All train operators are operating normally. When an operator is booked off due to a train fault or incident, they will appear in this register with immediate relief tracking."
+                                  : `No booked-off records matched "${bookedOffViewSearch}".`}
+                              </p>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    return filtered.map((item, idx) => {
+                      // Find matching active deployment to know if duty is still vacant
+                      const activeDep = deduplicatedDeployments.find(
+                        (d) => String(d.dutyId) === String(item.dutyId),
+                      );
+                      const isVacantDuty =
+                        activeDep &&
+                        (activeDep.status === "BOOKED_OFF_VACANT" ||
+                          activeDep.empId === "--" ||
+                          !activeDep.empId);
+
+                      return (
+                        <tr
+                          key={idx}
+                          className="hover:bg-slate-850/50 transition-colors group"
+                        >
+                          <td className="p-3 text-center text-slate-500 font-mono text-[11px]">
+                            {idx + 1}
+                          </td>
+                          <td className="p-3">
+                            <div className="space-y-0.5">
+                              <div className="font-bold text-white flex items-center gap-1.5">
+                                <span>{item.name || item.empName}</span>
+                              </div>
+                              <div className="text-[11px] text-slate-400 font-mono">
+                                Emp ID: <span className="text-rose-300 font-bold">#{item.empNo || item.empId || "--"}</span>
+                              </div>
+                              <div className="text-[10px] text-slate-500">
+                                {item.designation || "Train Operator"} • Peenya Depot
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="px-2 py-0.5 rounded font-black font-mono text-[11px] bg-slate-950 text-amber-300 border border-slate-800">
+                                  Duty #{item.dutyId || "--"}
+                                </span>
+                                {item.trainId && (
+                                  <span className="px-1.5 py-0.2 rounded font-bold font-mono text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-800/60">
+                                    Train {item.trainId}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                Shift: {item.startTime || "--"} - {item.endTime || "--"}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3 max-w-xs">
+                            <div className="space-y-1">
+                              <div>
+                                <span className="inline-block px-2 py-0.5 text-[10px] font-bold rounded uppercase font-mono bg-rose-950 text-rose-300 border border-rose-800/60">
+                                  {item.faultCategory || "TRAIN_FAULT"}
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-slate-300">
+                                {item.reason || item.remarks || "Booked off from active duty"}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            {item.relieverName ? (
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-1 text-emerald-400 font-bold text-xs">
+                                  <CheckCircle className="h-3.5 w-3.5 shrink-0" />
+                                  <span>{item.relieverName}</span>
+                                </div>
+                                <div className="text-[10px] text-slate-400 font-mono">
+                                  Emp #{item.relieverId || "--"} • {item.relieverSource || "Standby"}
+                                </div>
+                              </div>
+                            ) : isVacantDuty ? (
+                              <div className="space-y-1">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-black rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  VACANT — DRIVER REQUIRED
+                                </span>
+                                <div className="text-[10px] text-rose-400/80 font-mono">
+                                  Duty #{item.dutyId} currently has no operator
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-[11px] text-slate-400 italic">
+                                Relief handled externally
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-[11px] text-slate-400 font-mono">
+                            {item.bookedOffAt || "Today"}
+                          </td>
+                          <td className="p-3 text-right pr-4">
+                            <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                              {/* Change or Assign Reliever */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const targetDep = deduplicatedDeployments.find(
+                                    (d) => String(d.dutyId) === String(item.dutyId),
+                                  ) || {
+                                    dutyId: item.dutyId,
+                                    trainId: item.trainId,
+                                    empName: item.name || item.empName,
+                                    empId: item.empNo || item.empId,
+                                  };
+                                  openAssignDriverModal(targetDep);
+                                }}
+                                className="px-2.5 py-1 rounded text-[11px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition cursor-pointer flex items-center gap-1"
+                                title="Assign or Change Replacement Driver"
+                              >
+                                <Repeat className="h-3 w-3" />
+                                {item.relieverName ? "Change Reliever" : "Assign Reliever"}
+                              </button>
+
+                              {/* Restore to Duty */}
+                              <button
+                                type="button"
+                                onClick={() => handleRestoreBookedOffOperator(item)}
+                                className="px-2.5 py-1 rounded text-[11px] font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 transition cursor-pointer flex items-center gap-1"
+                                title="Restore back to active duty if cleared"
+                              >
+                                <CheckCircle className="h-3 w-3" />
+                                Restore
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Swap / Exchange Duties Modal */}
       {showSwapModal && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
@@ -6546,6 +8453,9 @@ Rules:
             {/* Quick Filter Search */}
             <div className="relative">
               <input
+                id="adg-swap-search"
+                name="swap_search"
+                aria-label="Filter operators for swap"
                 type="text"
                 value={swapSearchQuery}
                 onChange={(e) => setSwapSearchQuery(e.target.value)}
@@ -6775,6 +8685,1000 @@ Rules:
                 {swapMode === "TRIPLE"
                   ? (swapOperationType === "EXCHANGE" ? "CONFIRM TRIPLE EXCHANGE" : "CONFIRM TRIPLE SWAP")
                   : (swapOperationType === "EXCHANGE" ? "CONFIRM EXCHANGE" : "CONFIRM SWAP")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showOfficialGccSheetModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+          <div className="w-full max-w-6xl max-h-[95vh] rounded-2xl overflow-hidden shadow-2xl bg-slate-950 border border-slate-800 flex flex-col">
+            <OfficialGccRosterSheetView
+              userRole="CONTROLLER"
+              initialDateStr={deployedRosterInfo?.dateStr || activeSelectedDateStr}
+              onClose={() => setShowOfficialGccSheetModal(false)}
+              isModal={true}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {/* ── BOOK OFF & IMMEDIATE RELIEF MODAL ──────────────────────────── */}
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {showBookOffModal && bookOffTargetDuty && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-rose-500/50 rounded-2xl p-5 sm:p-6 max-w-2xl w-full space-y-4 shadow-2xl my-auto">
+            {/* Modal Header */}
+            <div className="flex justify-between items-start border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-rose-500/10 border border-rose-500/30 rounded-lg text-rose-400">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white uppercase tracking-wider flex items-center gap-2">
+                    BOOK OFF TRAIN OPERATOR
+                    <span className="text-xs px-2 py-0.5 rounded font-mono font-bold bg-rose-950 text-rose-300 border border-rose-800">
+                      DUTY #{bookOffTargetDuty.dutyId}
+                    </span>
+                  </h3>
+                  <div className="text-[11px] text-slate-400 font-mono">
+                    BMRCL Line 2 Peenya Depot • Fault / Incident Book-Off & Operational Relief
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBookOffModal(false);
+                  setBookOffTargetDuty(null);
+                  setSelectedReliever(null);
+                }}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Target Duty & Operator Card */}
+            <div className="bg-slate-955 border border-slate-800 rounded-xl p-3.5 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div>
+                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Current Operator</div>
+                <div className="font-bold text-white text-sm truncate">{bookOffTargetDuty.empName || bookOffTargetDuty.name}</div>
+                <div className="text-[10px] text-rose-400 font-mono">Emp #{bookOffTargetDuty.empId || bookOffTargetDuty.empNo || "--"}</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Duty & Train</div>
+                <div className="font-black text-amber-300 font-mono">Duty #{bookOffTargetDuty.dutyId}</div>
+                <div className="text-[10px] text-indigo-300 font-mono">Train {bookOffTargetDuty.trainId || "--"}</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Shift Timing</div>
+                <div className="font-mono text-slate-200">{bookOffTargetDuty.startTime || "--"} - {bookOffTargetDuty.endTime || "--"}</div>
+                <div className="text-[10px] text-slate-400 font-mono">Sign On: {bookOffTargetDuty.signOnTime || bookOffTargetDuty.startTime || "--"}</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Depot / Station</div>
+                <div className="font-bold text-slate-300">{bookOffTargetDuty.sourceStation || "PUTH"}</div>
+                <div className="text-[10px] text-emerald-400">Mainline Service</div>
+              </div>
+            </div>
+
+            {/* Fault Category Selection */}
+            <div className="space-y-2">
+              <div className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                1. Select Fault / Incident Category <span className="text-rose-400">*</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {[
+                  { key: "TRAIN_FAULT", label: "🛠️ Train Fault / Tech", desc: "Traction/Brake failure" },
+                  { key: "SAFETY_INCIDENT", label: "🚨 Safety / Incident", desc: "Signal / Track / SPAD" },
+                  { key: "MEDICAL_BA", label: "🩺 Medical / BA Unfit", desc: "Sickness / Breathalyzer" },
+                  { key: "FATIGUE_HOURS", label: "⏱️ Hours Exceeded", desc: "Fatigue / Exceeded duty" },
+                  { key: "PERSONAL_EMERGENCY", label: "⚠️ Emergency", desc: "Personal urgent leave" },
+                  { key: "OCC_ORDER", label: "📝 OCC / CC Order", desc: "Operational instruction" },
+                ].map((cat) => (
+                  <button
+                    key={cat.key}
+                    type="button"
+                    onClick={() => setBookOffFaultCategory(cat.key)}
+                    className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                      bookOffFaultCategory === cat.key
+                        ? "bg-rose-500/20 border-rose-500 text-white shadow-sm ring-1 ring-rose-500"
+                        : "bg-slate-955 border-slate-800 text-slate-300 hover:bg-slate-850 hover:border-slate-700"
+                    }`}
+                  >
+                    <div className="font-bold text-xs">{cat.label}</div>
+                    <div className="text-[10px] text-slate-400">{cat.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Remarks / Incident Description */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block" htmlFor="bookoff-incident-details">
+                2. Incident Details / Remarks <span className="text-rose-400">*</span>
+              </label>
+              <textarea
+                id="bookoff-incident-details"
+                name="bookoff_incident_details"
+                rows={2}
+                value={bookOffReason}
+                onChange={(e) => setBookOffReason(e.target.value)}
+                placeholder="Specify train fault code, station location, OCC advice, or incident description..."
+                className="w-full bg-slate-955 border border-slate-800 rounded-lg p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 font-mono"
+              />
+            </div>
+
+            {/* Relief / Replacement Option */}
+            <div className="space-y-3 pt-2 border-t border-slate-800">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer select-none" htmlFor="bookoff-assign-relief">
+                  <input
+                    id="bookoff-assign-relief"
+                    name="bookoff_assign_relief"
+                    type="checkbox"
+                    checked={bookOffAssignRelief}
+                    onChange={(e) => {
+                      setBookOffAssignRelief(e.target.checked);
+                      if (e.target.checked && !selectedReliever) {
+                        const firstStandby = (consoleData.standbys || [])[0];
+                        if (firstStandby) {
+                          setSelectedReliever({
+                            id: firstStandby.empNo || firstStandby.empId,
+                            name: firstStandby.name || firstStandby.empName,
+                            dutyId: firstStandby.duty || firstStandby.code || "Standby",
+                            source: "STANDBY",
+                            ...firstStandby,
+                          });
+                        }
+                      }
+                    }}
+                    className="h-4 w-4 rounded bg-slate-900 border-slate-700 text-rose-600 focus:ring-rose-500 focus:ring-offset-slate-900 cursor-pointer"
+                  />
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">
+                    3. Immediately Assign Replacement Driver Now
+                  </span>
+                </label>
+                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded">
+                  Recommended for Live Ops
+                </span>
+              </div>
+
+              {bookOffAssignRelief ? (
+                <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-3">
+                  {/* Source Tabs */}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setBookOffReliefSource("STANDBY")}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                        bookOffReliefSource === "STANDBY"
+                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/50"
+                          : "bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
+                      }`}
+                    >
+                      Standby Crew ({(consoleData.standbys || []).length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBookOffReliefSource("CREW_POOL")}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                        bookOffReliefSource === "CREW_POOL"
+                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/50"
+                          : "bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
+                      }`}
+                    >
+                      Available Crew Registry ({availableCrewPool.length})
+                    </button>
+                  </div>
+
+                  {/* Reliever Selector Content */}
+                  {bookOffReliefSource === "STANDBY" ? (
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                      {(consoleData.standbys || []).length > 0 ? (
+                        (consoleData.standbys || []).map((stb, idx) => {
+                          const isSelected =
+                            selectedReliever &&
+                            String(selectedReliever.id) === String(stb.empNo || stb.empId);
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() =>
+                                setSelectedReliever({
+                                  id: stb.empNo || stb.empId,
+                                  name: stb.name || stb.empName,
+                                  dutyId: stb.duty || stb.code || "Standby",
+                                  source: "STANDBY",
+                                  ...stb,
+                                })
+                              }
+                              className={`p-2 rounded-lg border flex justify-between items-center cursor-pointer transition-all ${
+                                isSelected
+                                  ? "bg-emerald-950/40 border-emerald-500 text-white ring-1 ring-emerald-500"
+                                  : "bg-slate-900 border-slate-850 hover:border-slate-700 text-slate-300"
+                              }`}
+                            >
+                              <div>
+                                <div className="font-bold text-xs flex items-center gap-2">
+                                  <span>{stb.name || stb.empName}</span>
+                                  <span className="text-[10px] text-amber-400 font-mono bg-amber-950/60 px-1.5 py-0.2 rounded border border-amber-800/40">
+                                    {stb.duty || stb.code || "Standby"}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-slate-400 font-mono">
+                                  Station: {stb.station || stb.info || "PUTH"} • Ready
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-mono text-slate-400">
+                                  #{stb.empNo || stb.empId || "--"}
+                                </span>
+                                {isSelected && (
+                                  <Check className="h-4 w-4 text-emerald-400" />
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="p-3 bg-slate-900/60 border border-slate-800 rounded-lg text-center text-xs text-slate-400 font-mono">
+                          No standby operators currently on roster. Switch to "Available Crew Registry".
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
+                        <input
+                          id="adg-bookoff-reliever-search"
+                          name="bookoff_reliever_search"
+                          aria-label="Search available crew by Name or Emp ID"
+                          type="text"
+                          placeholder="Search available crew by Name or Emp ID..."
+                          value={bookOffRelieverSearch}
+                          onChange={(e) => setBookOffRelieverSearch(e.target.value)}
+                          className="w-full pl-8 pr-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                      <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                        {availableCrewPool
+                          .filter((c) => {
+                            if (!bookOffRelieverSearch.trim()) return true;
+                            const q = bookOffRelieverSearch.toLowerCase();
+                            return (
+                              c.name.toLowerCase().includes(q) ||
+                              String(c.id).toLowerCase().includes(q)
+                            );
+                          })
+                          .slice(0, 20)
+                          .map((crew) => {
+                            const isSelected =
+                              selectedReliever &&
+                              String(selectedReliever.id) === String(crew.id);
+                            return (
+                              <div
+                                key={crew.id}
+                                onClick={() =>
+                                  setSelectedReliever({
+                                    id: crew.id,
+                                    name: crew.name,
+                                    dutyId: "Relief",
+                                    source: "CREW_POOL",
+                                    ...crew,
+                                  })
+                                }
+                                className={`p-1.5 px-2 rounded border flex justify-between items-center cursor-pointer transition-all ${
+                                  isSelected
+                                    ? "bg-emerald-950/40 border-emerald-500 text-white ring-1 ring-emerald-500"
+                                    : "bg-slate-900 border-slate-850 hover:border-slate-700 text-slate-300"
+                                }`}
+                              >
+                                <div>
+                                  <span className="font-bold text-xs">{crew.name}</span>
+                                  <span className="text-[10px] text-slate-500 ml-2 font-mono">
+                                    {crew.designation || "TO"}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-mono text-emerald-400">
+                                    #{crew.id}
+                                  </span>
+                                  {isSelected && (
+                                    <Check className="h-3.5 w-3.5 text-emerald-400" />
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Selected Reliever Confirmation Box */}
+                  {selectedReliever && (
+                    <div className="bg-emerald-950/30 border border-emerald-500/40 rounded-lg p-2.5 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0" />
+                        <div>
+                          <div className="text-xs font-bold text-white">
+                            Selected Reliever: <span className="text-emerald-300">{selectedReliever.name}</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            Emp #{selectedReliever.id} • Will take over Duty #{bookOffTargetDuty.dutyId} immediately
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedReliever(null)}
+                        className="text-[10px] text-slate-400 hover:text-white underline cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-rose-950/20 border border-rose-900/50 rounded-xl p-3 flex items-start gap-2.5">
+                  <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+                  <div className="text-xs text-rose-300/90 leading-relaxed">
+                    <span className="font-bold">Duty #{bookOffTargetDuty.dutyId} will be marked as VACANT:</span> The operator will be moved to the Booked Off Register, and this duty will require an operator before departure. You can assign a replacement driver later anytime from the Live Gate or Booked Off Register.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer Buttons */}
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBookOffModal(false);
+                  setBookOffTargetDuty(null);
+                  setSelectedReliever(null);
+                }}
+                className="px-4 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white bg-slate-800 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteBookOff}
+                disabled={isSubmittingBookOff || (bookOffAssignRelief && !selectedReliever)}
+                className="px-5 py-2 rounded-lg text-xs font-black uppercase tracking-wider bg-rose-600 hover:bg-rose-500 text-white transition shadow-lg flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmittingBookOff ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Processing Book-Off...
+                  </>
+                ) : bookOffAssignRelief && selectedReliever ? (
+                  <>
+                    <CheckCircle className="h-4 w-4" />
+                    Confirm Book Off & Assign Replacement
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle className="h-4 w-4" />
+                    Confirm Book Off (Vacate Duty)
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {/* ── QUICK ASSIGN / CHANGE DRIVER MODAL ─────────────────────────── */}
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {showAssignDriverModal && assignTargetDuty && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-amber-500/50 rounded-2xl p-5 sm:p-6 max-w-xl w-full space-y-4 shadow-2xl my-auto">
+            {/* Modal Header */}
+            <div className="flex justify-between items-start border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-400">
+                  <Repeat className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white uppercase tracking-wider flex items-center gap-2">
+                    {assignTargetDuty.status === "BOOKED_OFF_VACANT" ||
+                    assignTargetDuty.empId === "--" ||
+                    !assignTargetDuty.empId
+                      ? "ASSIGN DRIVER TO VACANT DUTY"
+                      : "CHANGE / REASSIGN DUTY DRIVER"}
+                    <span className="text-xs px-2 py-0.5 rounded font-mono font-bold bg-amber-950 text-amber-300 border border-amber-800">
+                      DUTY #{assignTargetDuty.dutyId}
+                    </span>
+                  </h3>
+                  <div className="text-[11px] text-slate-400 font-mono">
+                    BMRCL Line 2 Peenya Depot • Instant Roster Restaffing
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAssignDriverModal(false);
+                  setAssignTargetDuty(null);
+                  setSelectedReliever(null);
+                }}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Target Duty Summary Card */}
+            <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <div className="text-[10px] text-slate-500 uppercase font-bold">Duty & Train</div>
+                <div className="font-black text-amber-300 font-mono">Duty #{assignTargetDuty.dutyId}</div>
+                <div className="text-[10px] text-indigo-300 font-mono">Train {assignTargetDuty.trainId || "--"}</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500 uppercase font-bold">Current Operator</div>
+                <div className="font-bold text-white truncate">
+                  {assignTargetDuty.empName || "VACANT"}
+                </div>
+                <div className="text-[10px] text-slate-400 font-mono">
+                  #{assignTargetDuty.empId || "--"}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500 uppercase font-bold">Shift Hours</div>
+                <div className="font-mono text-slate-300">
+                  {assignTargetDuty.startTime || "--"} - {assignTargetDuty.endTime || "--"}
+                </div>
+                <div className="text-[10px] text-emerald-400">
+                  {assignTargetDuty.sourceStation || "PUTH"}
+                </div>
+              </div>
+            </div>
+
+            {/* Select Driver Source Tabs */}
+            <div className="space-y-3">
+              {/* Omni Search across candidates */}
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <input
+                  id="adg-assign-search"
+                  name="assign_search"
+                  aria-label="Search crew by Name, Emp ID, Station, or Duty"
+                  type="text"
+                  placeholder="Search crew by Name, Emp ID, Station, or Duty..."
+                  value={assignSearchQuery}
+                  onChange={(e) => setAssignSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 bg-slate-955 border border-slate-750 focus:border-amber-400 rounded-lg text-xs text-white placeholder-slate-500 font-mono outline-none"
+                />
+                {assignSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setAssignSearchQuery("")}
+                    className="absolute right-2.5 top-2 text-slate-400 hover:text-white text-xs font-bold cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Source Tabs */}
+              <div className="flex gap-1.5 overflow-x-auto pb-1 text-[11px] font-bold">
+                {[
+                  { key: "STANDBY", label: `⏱️ Standbys (${consoleData.standbys?.length || 0})` },
+                  { key: "STBK", label: `🔄 Stepback (${consoleData.outstationStepbacks?.length || 0})` },
+                  { key: "OR", label: `🛡️ OR / OD (${consoleData.onDuty?.length || 0})` },
+                  { key: "CC", label: `🎧 CC (${consoleData.controlDesks?.length || 0})` },
+                  { key: "WO", label: `📅 Weekly Off (${consoleData.weeklyOffs?.length || 0})` },
+                  { key: "LEAVE", label: `📝 Leaves (${consoleData.leaves?.length || 0})` },
+                  {
+                    key: "MAINLINE",
+                    label: `🚆 Active Duties (${
+                      (deduplicatedDeployments || []).filter(
+                        (d) => d.empId && d.empId !== "--" && String(d.dutyId) !== String(assignTargetDuty.dutyId),
+                      ).length
+                    })`,
+                  },
+                  { key: "CREW_POOL", label: `👥 Master Pool (${availableCrewPool.length})` },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => {
+                      setAssignDriverType(tab.key);
+                      setSelectedReliever(null);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+                      assignDriverType === tab.key
+                        ? "bg-amber-500 text-slate-955 font-black shadow-sm ring-1 ring-amber-400"
+                        : "bg-slate-800 text-slate-300 hover:bg-slate-750 hover:text-white"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Candidates List Container */}
+              <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                {(() => {
+                  let list = [];
+                  const q = assignSearchQuery.trim().toLowerCase();
+
+                  if (assignDriverType === "STANDBY") {
+                    list = (consoleData.standbys || []).map((item, idx) => {
+                      const clean = sanitizeConsoleItem(item);
+                      return {
+                        id: clean.empNo || clean.empId || `stb_${idx}`,
+                        name: clean.name || clean.empName,
+                        dutyId: clean.duty || clean.code || "Standby",
+                        station: clean.station || clean.info || "PUTH",
+                        time: clean.time || "07:00 - 15:00",
+                        source: "STANDBY",
+                        sourceLabel: "Standby Operator",
+                        rawItem: clean,
+                      };
+                    });
+                  } else if (assignDriverType === "STBK") {
+                    list = (consoleData.outstationStepbacks || []).map((item, idx) => {
+                      const clean = sanitizeConsoleItem(item);
+                      return {
+                        id: clean.empNo || clean.empId || `stbk_${idx}`,
+                        name: clean.name || clean.empName,
+                        dutyId: clean.duty || clean.code || `Stepback #${idx + 1}`,
+                        station: clean.station || clean.info || "PUTH",
+                        time: clean.time || "06:30 - 15:00",
+                        source: "STBK",
+                        sourceLabel: "Stepback Crew (1Stbk / 2Stbk)",
+                        rawItem: clean,
+                      };
+                    });
+                  } else if (assignDriverType === "OR") {
+                    list = (consoleData.onDuty || []).map((item, idx) => {
+                      const clean = sanitizeConsoleItem(item);
+                      return {
+                        id: clean.empNo || clean.empId || `od_${idx}`,
+                        name: clean.name || clean.empName,
+                        dutyId: clean.duty || clean.code || "OR",
+                        station: clean.station || clean.info || "Depot",
+                        time: clean.time || "06:00 - 14:00",
+                        source: "OR",
+                        sourceLabel: "Outstation Reserve / OD",
+                        rawItem: clean,
+                      };
+                    });
+                  } else if (assignDriverType === "CC") {
+                    list = (consoleData.controlDesks || []).map((item, idx) => {
+                      const clean = sanitizeConsoleItem(item);
+                      return {
+                        id: clean.empNo || clean.empId || `cc_${idx}`,
+                        name: clean.name || clean.empName,
+                        dutyId: clean.duty || clean.code || `CC${idx + 1}`,
+                        station: clean.station || clean.info || "Peenya CC",
+                        time: clean.time || "06:30 - 14:00",
+                        source: "CC",
+                        sourceLabel: "Control Desk Controller",
+                        rawItem: clean,
+                      };
+                    });
+                  } else if (assignDriverType === "WO") {
+                    list = (consoleData.weeklyOffs || []).map((item, idx) => {
+                      const clean = sanitizeConsoleItem(item);
+                      return {
+                        id: clean.empNo || clean.empId || `wo_${idx}`,
+                        name: clean.name || clean.empName,
+                        dutyId: "WO",
+                        station: "Weekly Off",
+                        time: "Rest Day",
+                        source: "WO",
+                        sourceLabel: "Weekly Off Recall (Overtime)",
+                        rawItem: clean,
+                      };
+                    });
+                  } else if (assignDriverType === "LEAVE") {
+                    list = (consoleData.leaves || []).map((item, idx) => {
+                      const clean = sanitizeConsoleItem(item);
+                      return {
+                        id: clean.empNo || clean.empId || `leave_${idx}`,
+                        name: clean.name || clean.empName,
+                        dutyId: clean.type || clean.code || "Leave",
+                        station: "On Leave",
+                        time: clean.date || "Scheduled Leave",
+                        source: "LEAVE",
+                        sourceLabel: "Leave Recall",
+                        rawItem: clean,
+                      };
+                    });
+                  } else if (assignDriverType === "MAINLINE") {
+                    list = (deduplicatedDeployments || [])
+                      .filter(
+                        (d) =>
+                          String(d.dutyId) !== String(assignTargetDuty.dutyId) &&
+                          d.empId &&
+                          d.empId !== "--",
+                      )
+                      .map((d) => ({
+                        id: d.empId || d.empNo,
+                        name: d.empName || d.name,
+                        dutyId: `Duty #${d.dutyId}`,
+                        station: d.sourceStation || "PUTH",
+                        time: `${d.startTime || "--"} - ${d.endTime || "--"}`,
+                        source: "MAINLINE",
+                        sourceLabel: `Active Mainline Duty #${d.dutyId}`,
+                        rawDeployment: d,
+                        rawItem: d,
+                      }));
+                  } else {
+                    list = (availableCrewPool || []).map((c) => ({
+                      id: c.id,
+                      name: c.name,
+                      dutyId: c.designation || "Train Operator",
+                      station: "BMRCL Registry",
+                      time: "Available",
+                      source: "CREW_POOL",
+                      sourceLabel: "Crew Registry Master Pool",
+                      rawItem: c,
+                    }));
+                  }
+
+                  const filtered = list.filter((c) => {
+                    if (!q) return true;
+                    return (
+                      (c.name || "").toLowerCase().includes(q) ||
+                      String(c.id || "").toLowerCase().includes(q) ||
+                      (c.dutyId || "").toLowerCase().includes(q) ||
+                      (c.station || "").toLowerCase().includes(q) ||
+                      (c.sourceLabel || "").toLowerCase().includes(q)
+                    );
+                  });
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="p-5 bg-slate-955 border border-slate-800 rounded-xl text-center text-xs text-slate-400 font-mono">
+                        {q
+                          ? `No crew matching "${q}" in this category.`
+                          : `No operators currently recorded in ${assignDriverType}.`}
+                      </div>
+                    );
+                  }
+
+                  return filtered.slice(0, 30).map((c, idx) => {
+                    const isSelected =
+                      selectedReliever && String(selectedReliever.id) === String(c.id);
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => setSelectedReliever(c)}
+                        className={`p-2.5 rounded-lg border flex justify-between items-center cursor-pointer transition-all ${
+                          isSelected
+                            ? "bg-amber-950/40 border-amber-500 text-white ring-1 ring-amber-500 shadow-md"
+                            : "bg-slate-955 border-slate-800 hover:border-slate-700 text-slate-300 hover:bg-slate-900"
+                        }`}
+                      >
+                        <div className="space-y-0.5">
+                          <div className="font-bold text-xs flex items-center gap-2">
+                            <span>{c.name}</span>
+                            <span className="text-[10px] text-amber-300 font-mono bg-amber-950/70 px-1.5 py-0.2 rounded border border-amber-800/50">
+                              {c.dutyId}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5">
+                            <span className="text-emerald-400 font-semibold">{c.sourceLabel}</span>
+                            <span>•</span>
+                            <span>{c.station}</span>
+                            <span>•</span>
+                            <span>{c.time}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono text-slate-400">
+                            #{c.id}
+                          </span>
+                          {isSelected && (
+                            <Check className="h-4 w-4 text-amber-400" />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+
+              {/* Selected Driver Banner */}
+              {selectedReliever && (
+                <div className="bg-emerald-950/30 border border-emerald-500/40 rounded-xl p-3 flex items-center justify-between shadow-lg">
+                  <div className="flex items-center gap-2.5">
+                    <CheckCircle className="h-5 w-5 text-emerald-400 shrink-0" />
+                    <div>
+                      <div className="text-xs font-bold text-white flex items-center gap-2">
+                        <span>Assigning:</span>
+                        <span className="text-emerald-300 font-mono font-black text-sm">{selectedReliever.name}</span>
+                        <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800 px-1.5 py-0.2 rounded font-mono">
+                          Emp #{selectedReliever.id}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                        Source: <span className="text-amber-300 font-bold">{selectedReliever.sourceLabel || selectedReliever.source}</span> • Will be assigned to <span className="text-white font-bold">Duty #{assignTargetDuty.dutyId}</span> (Train {assignTargetDuty.trainId || "--"})
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedReliever(null)}
+                    className="text-xs text-slate-400 hover:text-white underline cursor-pointer"
+                  >
+                    Change
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAssignDriverModal(false);
+                  setAssignTargetDuty(null);
+                  setSelectedReliever(null);
+                }}
+                className="px-4 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white bg-slate-800 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteAssignDriver}
+                disabled={isSubmittingAssign || !selectedReliever}
+                className="px-5 py-2 rounded-lg text-xs font-black uppercase tracking-wider bg-amber-500 hover:bg-amber-400 text-slate-955 transition shadow-lg flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmittingAssign ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Assigning Driver...
+                  </>
+                ) : (
+                  <>
+                    <UserCheck className="h-4 w-4" />
+                    Confirm Driver Assignment
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {/* ── UNIVERSAL CREW TRANSFER ACROSS PAGES & REGISTERS MODAL ─────── */}
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {showTransferModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-indigo-500/50 rounded-2xl p-5 sm:p-6 max-w-2xl w-full space-y-4 shadow-2xl my-auto">
+            {/* Header */}
+            <div className="flex justify-between items-start border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-500/10 border border-indigo-500/30 rounded-lg text-indigo-400">
+                  <Repeat className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white uppercase tracking-wider flex items-center gap-2">
+                    TRANSFER OPERATOR ACROSS ROSTER PAGES
+                  </h3>
+                  <div className="text-[11px] text-slate-400 font-mono">
+                    BMRCL Line 2 Peenya Depot • Move Operator to Any Register or Active Duty
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTransferModal(false);
+                  setTransferTargetOperator(null);
+                }}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Operator Selection (If none pre-selected) */}
+            {!transferTargetOperator ? (
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block" htmlFor="transfer-search-query">
+                  1. Select Train Operator to Transfer
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <input
+                    id="transfer-search-query"
+                    name="transfer_search_query"
+                    type="text"
+                    placeholder="Search any operator across all registers by Name or Emp ID..."
+                    value={transferSearchQuery}
+                    onChange={(e) => setTransferSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-slate-955 border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
+                  />
+                </div>
+                <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                  {allSwappableEntities
+                    .filter((e) => {
+                      if (!transferSearchQuery.trim()) return true;
+                      const q = transferSearchQuery.toLowerCase();
+                      return (
+                        (e.empName || "").toLowerCase().includes(q) ||
+                        String(e.empId || "").toLowerCase().includes(q) ||
+                        (e.label || "").toLowerCase().includes(q) ||
+                        (e.category || "").toLowerCase().includes(q)
+                      );
+                    })
+                    .slice(0, 20)
+                    .map((item, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() =>
+                          setTransferTargetOperator({
+                            empId: item.empId,
+                            empName: item.empName,
+                            currentCategory: item.type === "MAINLINE" ? "MAINLINE" : item.catKey || item.category,
+                            rawItem: item,
+                          })
+                        }
+                        className="p-2 bg-slate-955 border border-slate-800 hover:border-indigo-500/60 rounded-lg flex justify-between items-center cursor-pointer transition"
+                      >
+                        <div>
+                          <span className="font-bold text-xs text-white">{item.empName}</span>
+                          <span className="text-[10px] text-indigo-300 font-mono ml-2 bg-indigo-950/60 px-1.5 py-0.2 rounded border border-indigo-800/40">
+                            {item.category}: {item.dutyId || "--"}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-400">
+                          #{item.empId || "--"}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+                    Operator to Move
+                  </div>
+                  <div className="text-sm font-bold text-white flex items-center gap-2">
+                    <span>{transferTargetOperator.empName}</span>
+                    <span className="text-[10px] text-indigo-300 font-mono bg-indigo-950 px-1.5 py-0.2 rounded border border-indigo-800">
+                      Emp #{transferTargetOperator.empId}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                    Currently stationed in: <span className="text-amber-300 font-bold">{transferTargetOperator.currentCategory}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTransferTargetOperator(null)}
+                  className="text-xs text-slate-400 hover:text-white underline cursor-pointer"
+                >
+                  Change Operator
+                </button>
+              </div>
+            )}
+
+            {/* Destination Selection */}
+            <div className="space-y-2">
+              <div className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                2. Select Destination Register / Page
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+                {[
+                  { key: "MAINLINE", label: "🚆 Active Duty", desc: "Mainline Train" },
+                  { key: "STANDBY", label: "⏱️ Standby", desc: "Ready for duty" },
+                  { key: "STBK", label: "🔄 Stepback", desc: "1Stbk / 2Stbk" },
+                  { key: "OR", label: "🛡️ OR / OD", desc: "Outstation Reserve" },
+                  { key: "CC", label: "🎧 Control Desk", desc: "CC1 / CC2 / CC3" },
+                  { key: "WO", label: "📅 Weekly Off", desc: "Scheduled Rest" },
+                  { key: "LEAVE", label: "📝 Leave", desc: "CL / EL / L" },
+                  { key: "CRT", label: "🎓 CRT Training", desc: "Training Desk" },
+                  { key: "BO", label: "⛔ Booked Off", desc: "Relieved / Fault" },
+                  { key: "NR", label: "⚠️ Not Reporting", desc: "Absence Tracker" },
+                ].map((dest) => (
+                  <button
+                    key={dest.key}
+                    type="button"
+                    onClick={() => setTransferDestinationCategory(dest.key)}
+                    className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                      transferDestinationCategory === dest.key
+                        ? "bg-indigo-600 text-white border-indigo-400 shadow-md ring-2 ring-indigo-400/40"
+                        : "bg-slate-955 border-slate-800 text-slate-300 hover:bg-slate-850 hover:border-slate-700"
+                    }`}
+                  >
+                    <div className="font-bold text-xs">{dest.label}</div>
+                    <div className="text-[10px] opacity-80">{dest.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Destination Specific Input */}
+            {transferDestinationCategory === "MAINLINE" ? (
+              <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2 text-xs">
+                <label className="text-xs font-bold text-amber-300 uppercase tracking-wider block" htmlFor="transfer-target-duty">
+                  Select Target Mainline Duty Number
+                </label>
+                <select
+                  id="transfer-target-duty"
+                  name="transfer_target_duty"
+                  value={transferTargetDutyId}
+                  onChange={(e) => setTransferTargetDutyId(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-750 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-amber-400 font-mono"
+                >
+                  <option value="">Select Duty #...</option>
+                  {(deduplicatedDeployments || []).map((d) => {
+                    const isVacant = d.status === "BOOKED_OFF_VACANT" || d.empId === "--" || !d.empId;
+                    return (
+                      <option key={d.dutyId} value={d.dutyId}>
+                        Duty #{d.dutyId} (Train {d.trainId || "--"}) — {isVacant ? "⚠️ VACANT - DRIVER REQUIRED" : `${d.empName || "Staff"} (#${d.empId})`}
+                      </option>
+                    );
+                  })}
+                </select>
+                <p className="text-[10px] text-slate-400 font-mono">
+                  The operator will be assigned to this duty in the Live Gate and Crew Deployment register.
+                </p>
+              </div>
+            ) : null}
+
+            {/* Remarks / Reason */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block" htmlFor="transfer-reason">
+                3. Reason / Authorization Remarks (Optional)
+              </label>
+              <input
+                id="transfer-reason"
+                name="transfer_reason"
+                type="text"
+                value={transferReason}
+                onChange={(e) => setTransferReason(e.target.value)}
+                placeholder="e.g. Shift reallocation, covering vacant duty, OCC instruction..."
+                className="w-full bg-slate-955 border border-slate-800 rounded-lg p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
+              />
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTransferModal(false);
+                  setTransferTargetOperator(null);
+                }}
+                className="px-4 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white bg-slate-800 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteTransfer}
+                disabled={isSubmittingTransfer || !transferTargetOperator}
+                className="px-5 py-2 rounded-lg text-xs font-black uppercase tracking-wider bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-lg flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmittingTransfer ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Moving Operator...
+                  </>
+                ) : (
+                  <>
+                    <Repeat className="h-4 w-4" />
+                    Confirm Move Operator
+                  </>
+                )}
               </button>
             </div>
           </div>

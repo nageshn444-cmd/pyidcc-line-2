@@ -82,7 +82,7 @@ export default function DutyHistoryIntelligence({
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col h-[700px]">
           <div className="relative mb-3">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
+            <input id="dutyhistoryintelligence-input-1" name="dutyhistoryintelligence_input_1"
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}

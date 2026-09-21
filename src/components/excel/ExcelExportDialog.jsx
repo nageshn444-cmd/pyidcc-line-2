@@ -38,8 +38,8 @@ export default function ExcelExportDialog({
 
         {/* Filename Input */}
         <div className="mb-4">
-          <label className="block text-slate-400 mb-1 font-semibold">File Name:</label>
-          <input
+          <label htmlFor="excelexportdialog-fld-1" className="block text-slate-400 mb-1 font-semibold">File Name:</label>
+          <input id="excelexportdialog-fld-1" name="excelexportdialog_fld_1"
             type="text"
             value={fileName}
             onChange={(e) => setFileName(e.target.value)}

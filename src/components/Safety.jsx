@@ -29,8 +29,8 @@ export default function Safety() {
     <div className='bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-xl'>
       <h2 className='text-rose-500 font-bold mb-4 flex items-center gap-2'><ShieldAlert /> Safety Incidents & Audits</h2>
       <div className='grid grid-cols-1 md:grid-cols-3 gap-2 mb-4'>
-        <input className='bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200' placeholder='Location (e.g. PYID)' value={newIncident.location} onChange={(e) => setNewIncident({...newIncident, location: e.target.value})} />
-        <input className='bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200' placeholder='Incident Description' value={newIncident.description} onChange={(e) => setNewIncident({...newIncident, description: e.target.value})} />
+        <input id="safety-input-1" name="safety_input_1" className='bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200' placeholder='Location (e.g. PYID)' value={newIncident.location} onChange={(e) => setNewIncident({...newIncident, location: e.target.value})} />
+        <input id="safety-input-2" name="safety_input_2" className='bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200' placeholder='Incident Description' value={newIncident.description} onChange={(e) => setNewIncident({...newIncident, description: e.target.value})} />
         <button onClick={addIncident} className='bg-rose-600 hover:bg-rose-500 text-white font-bold rounded flex items-center justify-center gap-2'><Plus size={16}/> REPORT</button>
       </div>
       <div className='space-y-2'>

@@ -25,6 +25,7 @@ import { EMPLOYEE_MASTER_REGISTRY } from '../data/employeeProfileMaster';
 import { WTT_MASTER_REGISTRY } from '../data/wttMasterRegistry';
 import { buildWeekdayLiveTrainTrackingMap, WEEKDAY_RELIEF_ID_CHART } from '../data/weekdayReliefIdChartRegistry';
 import AlstomAtsSystemView from './kmcalc/AlstomAtsSystemView';
+import { generate4DigitTrainId, formatParticularTrainId } from '../utils/trainIdResolver';
 
 export default function LiveTrainPositionTracker({ 
   liveTrainTrackingMap: propLiveTrainTrackingMap = {}, 
@@ -872,9 +873,31 @@ export default function LiveTrainPositionTracker({
         const interpIdx = prevIdx + pct * (nextIdx - prevIdx);
         const pctLine = Math.max(0, Math.min(1, interpIdx / (ATS_STATION_SEQUENCE.length - 1)));
 
+        // Resolve 4-Digit Train ID from origin, destination, direction and particular unit
+        const originSt = stations[0].station;
+        const destSt = stations[stations.length - 1].station;
+        const currentTripObj = {
+          tripId: trip.id || `${tId}_${originSt}_${destSt}`,
+          originStationId: originSt,
+          destinationStationId: destSt,
+          direction: direction === 'UP' ? 'UP' : 'DN',
+          dayType: activeSchedule
+        };
+        const idResult = generate4DigitTrainId(tId, currentTripObj);
+
         const trainObj = {
           rowId: row.id,
-          trainId: tId,
+          trainId: idResult.computedTrainId || tId,
+          legacyTrainId: tId,
+          particularTrainId: idResult.particularTrainIdStr || formatParticularTrainId(tId) || tId,
+          destinationId: idResult.destinationId,
+          computedTrainId: idResult.computedTrainId,
+          trainIdStatus: idResult.status,
+          displayTrainId: idResult.computedTrainId ?? (
+            idResult.status === 'WTT_MATCH_PENDING' ? `T-${idResult.particularTrainIdStr || tId} (PENDING)` : 'DATA_ERR'
+          ),
+          originStation: originSt,
+          destinationStation: destSt,
           operatorName: operatorInfo.name,
           operatorId: operatorInfo.id,
           dutyNo: operatorInfo.dutyNo,
@@ -1010,9 +1033,17 @@ export default function LiveTrainPositionTracker({
       const liveTracking = propLiveTrainTrackingMap?.[tId] || {};
       const currentOp = tracking.current || liveTracking.current || null;
 
+      const idResult = generate4DigitTrainId(tId, null);
+      const particularIdStr = idResult.particularTrainIdStr || formatParticularTrainId(tId) || tId;
+
       positions.push({
         rowId: `stbl_${tId}`,
         trainId: tId,
+        particularTrainId: particularIdStr,
+        destinationId: null,
+        computedTrainId: null,
+        trainIdStatus: idResult.status,
+        displayTrainId: `T-${particularIdStr} (STABLED)`,
         operatorName: currentOp?.empName && currentOp.empName !== '--' ? currentOp.empName : `Train Operator ${tId}`,
         operatorId: currentOp?.empId || '--',
         dutyNo: currentOp?.dutyId || '--',
@@ -2046,7 +2077,7 @@ export default function LiveTrainPositionTracker({
             {/* Search Input */}
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500" />
-              <input
+              <input id="livetrainpositiontracker-input-1" name="livetrainpositiontracker_input_1"
                 type="text"
                 value={tableSearchQuery}
                 onChange={(e) => setTableSearchQuery(e.target.value)}
@@ -2262,7 +2293,7 @@ export default function LiveTrainPositionTracker({
               <ArrowUpDown size={11} />
               <span>Sort:</span>
             </div>
-            <select
+            <select id="livetrainpositiontracker-select-2" name="livetrainpositiontracker_select_2"
               value={fleetSortBy}
               onChange={(e) => setFleetSortBy(e.target.value)}
               className="bg-slate-950 border border-slate-750 text-slate-200 text-[10px] rounded px-2 py-1 focus:outline-none focus:border-cyan-500 font-mono"
@@ -2537,7 +2568,21 @@ export default function LiveTrainPositionTracker({
                       onClick={() => setSelectedTrain(t)}
                     >
                       <td className="py-2.5 px-3 font-black text-cyan-300 text-xs">
-                        T{t.trainId}
+                        {t.computedTrainId ? (
+                          <div className="flex flex-col">
+                            <span className="text-emerald-400 font-black text-sm tracking-wide">{t.computedTrainId}</span>
+                            <span className="text-[8px] text-slate-500 font-normal">Unit {t.particularTrainId || t.legacyTrainId || t.trainId}</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col">
+                            <span className="text-cyan-300 font-black text-sm">T{t.legacyTrainId || t.trainId}</span>
+                            {t.trainIdStatus && t.trainIdStatus !== 'VALID' && (
+                              <span className="text-[7.5px] text-amber-400 font-bold uppercase">
+                                {t.trainIdStatus === 'WTT_MATCH_PENDING' ? 'WTT PENDING' : 'DATA ERR'}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="py-2.5 px-2">
                         <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${
@@ -2650,7 +2695,14 @@ export default function LiveTrainPositionTracker({
                       className="bg-slate-950 border border-slate-850 p-3 rounded-xl hover:border-emerald-500/40 transition cursor-pointer font-mono"
                     >
                       <div className="flex justify-between items-center mb-1">
-                        <strong className="text-emerald-400 font-black text-sm">TRAIN {t.trainId}</strong>
+                        <div>
+                          <strong className="text-emerald-400 font-black text-sm">
+                            TRAIN {t.computedTrainId || t.trainId}
+                          </strong>
+                          {t.particularTrainId && t.computedTrainId && (
+                            <span className="text-[8.5px] text-slate-400 font-normal ml-1.5">(Unit {t.particularTrainId})</span>
+                          )}
+                        </div>
                         <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">
                           {t.chainage >= 0 ? `+${t.chainage.toFixed(3)}` : t.chainage.toFixed(3)} KM
                         </span>
@@ -2690,7 +2742,14 @@ export default function LiveTrainPositionTracker({
                       className="bg-slate-950 border border-slate-850 p-3 rounded-xl hover:border-cyan-500/40 transition cursor-pointer font-mono"
                     >
                       <div className="flex justify-between items-center mb-1">
-                        <strong className="text-cyan-400 font-black text-sm">TRAIN {t.trainId}</strong>
+                        <div>
+                          <strong className="text-cyan-400 font-black text-sm">
+                            TRAIN {t.computedTrainId || t.trainId}
+                          </strong>
+                          {t.particularTrainId && t.computedTrainId && (
+                            <span className="text-[8.5px] text-slate-400 font-normal ml-1.5">(Unit {t.particularTrainId})</span>
+                          )}
+                        </div>
                         <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-700">
                           {t.chainage >= 0 ? `+${t.chainage.toFixed(3)}` : t.chainage.toFixed(3)} KM
                         </span>

@@ -746,7 +746,7 @@ export default function UserControlCenter() {
 
           <div className="grid grid-cols-2 gap-2 text-[9px] text-slate-400">
             <div>
-              <label className="block mb-1 font-bold uppercase" htmlFor="usercontrolcenter-l1">Designation</label>
+              <label className="block mb-1 font-bold uppercase" htmlFor="usercontrolcenter-i2">Designation</label>
               <select id="usercontrolcenter-i2" name="usercontrolcenter-i2" 
                 value={filterDesignation}
                 onChange={(e) => setFilterDesignation(e.target.value)}
@@ -762,7 +762,7 @@ export default function UserControlCenter() {
               </select>
             </div>
             <div>
-              <label className="block mb-1 font-bold uppercase" htmlFor="usercontrolcenter-l2">Depot</label>
+              <label className="block mb-1 font-bold uppercase" htmlFor="usercontrolcenter-i3">Depot</label>
               <select id="usercontrolcenter-i3" name="usercontrolcenter-i3" 
                 value={filterDepot}
                 onChange={(e) => setFilterDepot(e.target.value)}
@@ -776,7 +776,7 @@ export default function UserControlCenter() {
 
           <div className="grid grid-cols-2 gap-2 text-[9px] text-slate-400">
             <div>
-              <label className="block mb-1 font-bold uppercase" htmlFor="usercontrolcenter-l3">Assigned Role</label>
+              <label className="block mb-1 font-bold uppercase" htmlFor="usercontrolcenter-i4">Assigned Role</label>
               <select id="usercontrolcenter-i4" name="usercontrolcenter-i4" 
                 value={filterRole}
                 onChange={(e) => setFilterRole(e.target.value)}
@@ -792,7 +792,7 @@ export default function UserControlCenter() {
               </select>
             </div>
             <div>
-              <label className="block mb-1 font-bold uppercase" htmlFor="usercontrolcenter-l4">Status</label>
+              <label className="block mb-1 font-bold uppercase" htmlFor="usercontrolcenter-i5">Status</label>
               <select id="usercontrolcenter-i5" name="usercontrolcenter-i5" 
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
@@ -837,7 +837,7 @@ export default function UserControlCenter() {
                   }`}
                 >
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <input id="usercontrolcenter-i6" name="usercontrolcenter-i6" 
+                    <input id={`usercontrol-select-${emp.employeeId}`} name={`usercontrol_select_${emp.employeeId}`} aria-label={`Select crew ${emp.employeeName}`} 
                       type="checkbox"
                       checked={selectedEmpIds.includes(emp.employeeId)}
                       onChange={(e) => handleCheckboxToggle(e, emp.employeeId)}

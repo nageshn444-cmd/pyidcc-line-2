@@ -398,7 +398,7 @@ export default function ChangeoverLink() {
                     const val = (rawVal !== undefined && rawVal !== '' && rawVal !== '--') ? rawVal : computedFallback;
                     return (
                       <td className={`p-1 border-b border-slate-800 ${bg}`}>
-                        <input
+                        <input name="changeoverlink_input_1"
                           type="text"
                           value={val === '--' ? '' : val}
                           placeholder="--"

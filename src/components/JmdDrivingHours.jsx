@@ -1307,7 +1307,7 @@ export default function JmdDrivingHours() {
             <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider">
               Select Operator:
             </span>
-            <select
+            <select id="jmddrivinghours-select-1" name="jmddrivinghours_select_1"
               value={selectedOperatorId}
               onChange={(e) => setSelectedOperatorId(e.target.value)}
               className="bg-slate-955 border border-slate-700 text-xs rounded px-3 py-1.5 focus:outline-none text-cyan-300 font-bold cursor-pointer"
@@ -1323,7 +1323,7 @@ export default function JmdDrivingHours() {
           {/* Month Dropdown (Default Current Month) */}
           <div className="flex items-center gap-2 border-r border-slate-800 pr-3">
             <Calendar className="h-4 w-4 text-cyan-400" />
-            <select
+            <select id="jmddrivinghours-select-2" name="jmddrivinghours_select_2"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="bg-slate-955 border border-slate-700 text-xs rounded px-2.5 py-1 focus:outline-none text-slate-300 font-bold"
@@ -1341,7 +1341,7 @@ export default function JmdDrivingHours() {
               <option value="11">November (30 Days)</option>
               <option value="12">December (31 Days)</option>
             </select>
-            <select
+            <select id="jmddrivinghours-select-3" name="jmddrivinghours_select_3"
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
               className="bg-slate-955 border border-slate-700 text-xs rounded px-2.5 py-1 focus:outline-none text-slate-300 font-bold"
@@ -1464,10 +1464,10 @@ export default function JmdDrivingHours() {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-955/80 p-3.5 rounded-lg border border-slate-800 items-end">
               <div>
-                <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
+                <label htmlFor="jmddrivinghours-fld-4" className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
                   Select GH Date
                 </label>
-                <input
+                <input id="jmddrivinghours-fld-4" name="jmddrivinghours_fld_4"
                   type="date"
                   value={ghDateInput}
                   onChange={(e) => setGhDateInput(e.target.value)}
@@ -1476,10 +1476,10 @@ export default function JmdDrivingHours() {
               </div>
 
               <div>
-                <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
+                <label htmlFor="jmddrivinghours-fld-6" className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
                   Override Schedule Type
                 </label>
-                <select
+                <select id="jmddrivinghours-fld-6" name="jmddrivinghours_fld_6"
                   value={ghOverrideSchedule}
                   onChange={(e) => setGhOverrideSchedule(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-xs text-slate-200 font-bold focus:outline-none focus:border-amber-400 font-mono cursor-pointer"
@@ -1535,7 +1535,7 @@ export default function JmdDrivingHours() {
           <div className="flex flex-wrap justify-between items-center gap-3 bg-slate-900/40 p-3 rounded-xl border border-slate-800">
             <div className="relative w-full sm:w-72">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-              <input
+              <input id="jmddrivinghours-input-8" name="jmddrivinghours_input_8"
                 type="text"
                 placeholder="Search Duty, Date, Status..."
                 value={searchQuery}
@@ -1548,7 +1548,7 @@ export default function JmdDrivingHours() {
               <span className="text-[10px] text-slate-400 font-bold uppercase">
                 Status Filter:
               </span>
-              <select
+              <select id="jmddrivinghours-select-9" name="jmddrivinghours_select_9"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
                 className="bg-slate-955 border border-slate-700 text-xs rounded px-3 py-1.5 focus:outline-none text-slate-200 font-bold"
@@ -1612,7 +1612,7 @@ export default function JmdDrivingHours() {
                           </span>
                         </td>
                         <td className="p-3">
-                          <select
+                          <select name="jmddrivinghours_select_10"
                             value={r.dayType}
                             onChange={(e) =>
                               handleOverrideDayTypeForDate(
@@ -1661,7 +1661,7 @@ export default function JmdDrivingHours() {
                         </td>
                         <td className="p-3 font-bold">
                           <div className="flex items-center gap-1.5">
-                            <select
+                            <select name="jmddrivinghours_select_11"
                               value={
                                 (r.dutyTokens || []).length > 1
                                   ? "MULTI"
@@ -2025,7 +2025,7 @@ export default function JmdDrivingHours() {
             {/* Search Input */}
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-500" />
-              <input
+              <input id="jmddrivinghours-input-12" name="jmddrivinghours_input_12"
                 type="text"
                 placeholder="Filter duty number or leave code..."
                 value={pickerSearch}

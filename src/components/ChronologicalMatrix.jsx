@@ -341,9 +341,10 @@ export default function ChronologicalMatrix({
                   // IF IN EDIT MODE
                   if (isEditMode) {
                     const editBg = stationName === 'PYID' ? 'bg-emerald-900/40' : 'bg-slate-950';
+                    const cellKey = `${row.id || rowIdx}-${direction}-${stationName || 'tid'}`;
                     return (
-                      <td key={`edit-${row.id || rowIdx}-${direction}-${stationName || 'tid'}`} className={`p-0 border border-slate-800 ${editBg} ${isTidField ? 'bg-slate-950 sticky left-0 z-20 border-r-2' : ''}`}>
-                        <input id="chronologicalmatrix-i1" name="chronologicalmatrix-i1"
+                      <td key={`edit-${cellKey}`} className={`p-0 border border-slate-800 ${editBg} ${isTidField ? 'bg-slate-950 sticky left-0 z-20 border-r-2' : ''}`}>
+                        <input id={`wtt-cell-${cellKey}`} name={`wtt_cell_${cellKey}`} aria-label={`WTT ${direction} ${stationName || 'tid'} Row ${rowIdx + 1}`}
                           type="text"
                           value={baseValue === '--' ? '' : baseValue}
                           onChange={(e) => handleLocalCellChange(rowIdx, direction, stationName, isTidField, e.target.value)}
@@ -360,9 +361,10 @@ export default function ChronologicalMatrix({
                   const isEditing = editingCell.rowId === row.id && editingCell.direction === direction && editingCell.station === stationName && editingCell.isTid === isTidField;
 
                   if (isEditing) {
+                    const singleEditKey = `${row.id}-${direction}-${stationName || 'tid'}`;
                     return (
-                      <td key={`edit-single-${row.id}-${direction}-${stationName}`} className="p-0.5 bg-slate-950 z-50">
-                        <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={() => handleWttCellSave(row, direction, stationName, isTidField)} className="w-full bg-slate-950 text-emerald-400 text-center focus:outline-none" autoFocus />
+                      <td key={`edit-single-${singleEditKey}`} className="p-0.5 bg-slate-950 z-50">
+                        <input id={`wtt-edit-${singleEditKey}`} name={`wtt_edit_${singleEditKey}`} aria-label={`Edit ${direction} ${stationName || 'tid'}`} type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={() => handleWttCellSave(row, direction, stationName, isTidField)} className="w-full bg-slate-950 text-emerald-400 text-center focus:outline-none" autoFocus />
                       </td>
                     );
                   }

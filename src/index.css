@@ -191,7 +191,7 @@
 .theme-bmrcl {
   --app-bg: #E5E7EB;
   --panel-bg: #FFFFFF;
-  --panel-bg-solid: #1E3A8A;
+  --panel-bg-solid: #FFFFFF;
   --sidebar-bg: #1E3A8A;
   --header-bg: rgba(30, 58, 138, 0.85);
   --text-main: #1F2937;
@@ -202,8 +202,8 @@
   --accent-color: #16A34A;
   --accent-glow: rgba(22, 163, 74, 0.2);
   --accent-text: #ffffff;
-  --hover-bg: rgba(22, 163, 74, 0.05);
-  --selected-bg: rgba(22, 163, 74, 0.1);
+  --hover-bg: rgba(30, 58, 138, 0.05);
+  --selected-bg: rgba(30, 58, 138, 0.1);
   --card-shadow: 0 4px 16px rgba(30, 58, 138, 0.06);
   --success-color: #16A34A;
   --warning-color: #EAB308;

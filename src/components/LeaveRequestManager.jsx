@@ -1035,7 +1035,7 @@ export default function LeaveRequestManager({ userRole }) {
                   
                   <form onSubmit={handleSaveLeaveWindow} className="space-y-4 text-xs font-bold uppercase">
                     <div className="space-y-2">
-                      <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="leaverequestmanager-l1">Target Month / Period</label>
+                      <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="leaverequestmanager-i2">Target Month / Period</label>
                       <input id="leaverequestmanager-i2" name="leaverequestmanager-i2"
                         type="text"
                         placeholder="e.g. AUGUST 2026"
@@ -1048,7 +1048,7 @@ export default function LeaveRequestManager({ userRole }) {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="leaverequestmanager-l2">Start Date (Open From)</label>
+                        <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="leaverequestmanager-i3">Start Date (Open From)</label>
                         <input id="leaverequestmanager-i3" name="leaverequestmanager-i3"
                           type="date"
                           value={openStartDate}
@@ -1058,7 +1058,7 @@ export default function LeaveRequestManager({ userRole }) {
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="leaverequestmanager-l3">End Date (Open To)</label>
+                        <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="leaverequestmanager-i4">End Date (Open To)</label>
                         <input id="leaverequestmanager-i4" name="leaverequestmanager-i4"
                           type="date"
                           value={openEndDate}
@@ -1070,7 +1070,7 @@ export default function LeaveRequestManager({ userRole }) {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="leaverequestmanager-l4">Window Status</label>
+                      <label className="text-[10px] text-slate-500 tracking-wider" htmlFor="leaverequestmanager-i5">Window Status</label>
                       <select id="leaverequestmanager-i5" name="leaverequestmanager-i5"
                         value={openIsOpen ? 'true' : 'false'}
                         onChange={(e) => setOpenIsOpen(e.target.value === 'true')}
@@ -1149,8 +1149,8 @@ export default function LeaveRequestManager({ userRole }) {
                           <div className="lg:col-span-3 bg-slate-900 p-4 rounded-xl border border-emerald-500/30 space-y-3">
                             <div className="grid grid-cols-2 gap-3 text-xs font-bold">
                               <div>
-                                <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="leaverequestmanager-l5">Start Date</label>
-                                <input id="leaverequestmanager-i6" name="leaverequestmanager-i6" 
+                                <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor={`leave-req-start-${req.id}`}>Start Date</label>
+                                <input id={`leave-req-start-${req.id}`} name={`leave_req_start_${req.id}`} 
                                   type="date"
                                   min={windowConfig?.startDate || ''}
                                   max={windowConfig?.endDate || ''}
@@ -1160,8 +1160,8 @@ export default function LeaveRequestManager({ userRole }) {
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="leaverequestmanager-l6">End Date</label>
-                                <input id="leaverequestmanager-i7" name="leaverequestmanager-i7" 
+                                <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor={`leave-req-end-${req.id}`}>End Date</label>
+                                <input id={`leave-req-end-${req.id}`} name={`leave_req_end_${req.id}`} 
                                   type="date"
                                   min={editRequestForm.startDate || windowConfig?.startDate || ''}
                                   max={windowConfig?.endDate || ''}
@@ -1171,8 +1171,8 @@ export default function LeaveRequestManager({ userRole }) {
                                 />
                               </div>
                               <div className="col-span-2">
-                                <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="leaverequestmanager-l7">Leave Type</label>
-                                <select id="leaverequestmanager-i8" name="leaverequestmanager-i8"
+                                <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor={`leave-req-type-${req.id}`}>Leave Type</label>
+                                <select id={`leave-req-type-${req.id}`} name={`leave_req_type_${req.id}`}
                                   value={editRequestForm.leaveType}
                                   onChange={(e) => setEditRequestForm({ ...editRequestForm, leaveType: e.target.value })}
                                   className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs"
@@ -1191,8 +1191,8 @@ export default function LeaveRequestManager({ userRole }) {
                                 </select>
                               </div>
                               <div className="col-span-2">
-                                <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="leaverequestmanager-l8">Reason for Leave</label>
-                                <textarea id="leaverequestmanager-i9" name="leaverequestmanager-i9"
+                                <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor={`leave-req-reason-${req.id}`}>Reason for Leave</label>
+                                <textarea id={`leave-req-reason-${req.id}`} name={`leave_req_reason_${req.id}`}
                                   value={editRequestForm.reason}
                                   onChange={(e) => setEditRequestForm({ ...editRequestForm, reason: e.target.value })}
                                   className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-slate-200"
@@ -1277,7 +1277,7 @@ export default function LeaveRequestManager({ userRole }) {
               <form onSubmit={handleAddBlackout} className="space-y-3 text-[11px] font-bold uppercase">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[9px] text-slate-500" htmlFor="leaverequestmanager-l9">Start Date</label>
+                    <label className="text-[9px] text-slate-500" htmlFor="leaverequestmanager-i17">Start Date</label>
                     <input id="leaverequestmanager-i17" name="leaverequestmanager-i17" 
                       type="date" 
                       required 
@@ -1287,7 +1287,7 @@ export default function LeaveRequestManager({ userRole }) {
                     />
                   </div>
                   <div>
-                    <label className="text-[9px] text-slate-500" htmlFor="leaverequestmanager-l10">End Date</label>
+                    <label className="text-[9px] text-slate-500" htmlFor="leaverequestmanager-i18">End Date</label>
                     <input id="leaverequestmanager-i18" name="leaverequestmanager-i18" 
                       type="date" 
                       value={newBlackout.endDate}
@@ -1297,7 +1297,7 @@ export default function LeaveRequestManager({ userRole }) {
                   </div>
                 </div>
                 <div>
-                  <label className="text-[9px] text-slate-500" htmlFor="leaverequestmanager-l11">Event Name</label>
+                  <label className="text-[9px] text-slate-500" htmlFor="leaverequestmanager-i19">Event Name</label>
                   <input id="leaverequestmanager-i19" name="leaverequestmanager-i19" 
                     type="text" 
                     placeholder="e.g. FESTIVAL RUSH"

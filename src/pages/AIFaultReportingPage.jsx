@@ -464,8 +464,8 @@ Respond ONLY with the JSON object.
           {/* Reporter Identification Fields */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
             <div>
-              <label className="block text-[10px] text-slate-400 uppercase mb-1">Reporter Name</label>
-              <input
+              <label htmlFor="aifaultreportingpage-fld-1" className="block text-[10px] text-slate-400 uppercase mb-1">Reporter Name</label>
+              <input id="aifaultreportingpage-fld-1" name="aifaultreportingpage_fld_1"
                 type="text"
                 value={reporterName}
                 onChange={(e) => setReporterName(e.target.value)}
@@ -474,8 +474,8 @@ Respond ONLY with the JSON object.
               />
             </div>
             <div>
-              <label className="block text-[10px] text-slate-400 uppercase mb-1">Employee ID / Designation</label>
-              <input
+              <label htmlFor="aifaultreportingpage-fld-3" className="block text-[10px] text-slate-400 uppercase mb-1">Employee ID / Designation</label>
+              <input id="aifaultreportingpage-fld-3" name="aifaultreportingpage_fld_3"
                 type="text"
                 value={reporterId}
                 onChange={(e) => setReporterId(e.target.value)}
@@ -484,7 +484,7 @@ Respond ONLY with the JSON object.
               />
             </div>
             <div>
-              <label className="block text-[10px] text-slate-400 uppercase mb-1">Shift Operational Desk</label>
+              <div className="block text-[10px] text-slate-400 uppercase mb-1">Shift Operational Desk</div>
               <div className="p-2 bg-slate-950 border border-slate-800 rounded text-slate-300 flex items-center justify-between">
                 <span>Peenya Depot Line 2 OCC</span>
                 <span className="text-[10px] text-emerald-400 font-bold">ONLINE</span>
@@ -513,19 +513,19 @@ Respond ONLY with the JSON object.
             {/* Row 1: Train ID & Direction */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[11px] text-slate-300 font-bold mb-1 flex items-center gap-1">
+                <div className="block text-[11px] text-slate-300 font-bold mb-1 flex items-center gap-1">
                   <Train className="h-3.5 w-3.5 text-cyan-400" />
                   <span>Train ID (Required)</span>
-                </label>
+                </div>
                 <div className="flex gap-2">
-                  <input
+                  <input id="aifaultreportingpage-input-5" name="aifaultreportingpage_input_5"
                     type="text"
                     value={trainId}
                     onChange={(e) => setTrainId(e.target.value)}
                     placeholder="e.g. 204 or R-12"
                     className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-cyan-300 font-bold font-mono focus:border-cyan-500 focus:outline-none"
                   />
-                  <select
+                  <select id="aifaultreportingpage-select-6" name="aifaultreportingpage_select_6"
                     value={trainId}
                     onChange={(e) => setTrainId(e.target.value)}
                     className="bg-slate-950 border border-slate-700 rounded px-2 text-xs text-slate-400 font-mono cursor-pointer"
@@ -540,10 +540,10 @@ Respond ONLY with the JSON object.
               </div>
 
               <div>
-                <label className="block text-[11px] text-slate-300 font-bold mb-1 flex items-center gap-1">
+                <div className="block text-[11px] text-slate-300 font-bold mb-1 flex items-center gap-1">
                   <MapPin className="h-3.5 w-3.5 text-amber-400" />
                   <span>Track Direction (UP / DN)</span>
-                </label>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -577,10 +577,10 @@ Respond ONLY with the JSON object.
             {/* Row 2: Location Selector & Specific Section */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[11px] text-slate-300 font-bold mb-1">
+                <label htmlFor="aifaultreportingpage-fld-7" className="block text-[11px] text-slate-300 font-bold mb-1">
                   Primary Station Location
                 </label>
-                <select
+                <select id="aifaultreportingpage-fld-7" name="aifaultreportingpage_fld_7"
                   value={stationLocation}
                   onChange={(e) => setStationLocation(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
@@ -595,10 +595,10 @@ Respond ONLY with the JSON object.
               </div>
 
               <div>
-                <label className="block text-[11px] text-slate-300 font-bold mb-1">
+                <label htmlFor="aifaultreportingpage-fld-9" className="block text-[11px] text-slate-300 font-bold mb-1">
                   Specific Location (Section / Platform / Chainage)
                 </label>
-                <input
+                <input id="aifaultreportingpage-fld-9" name="aifaultreportingpage_fld_9"
                   type="text"
                   value={specificLocation}
                   onChange={(e) => setSpecificLocation(e.target.value)}
@@ -611,10 +611,10 @@ Respond ONLY with the JSON object.
             {/* Row 3: Fault Category & Severity */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-2">
-                <label className="block text-[11px] text-slate-300 font-bold mb-1">
+                <label htmlFor="aifaultreportingpage-fld-11" className="block text-[11px] text-slate-300 font-bold mb-1">
                   Type of Faults / Incident / Events
                 </label>
-                <select
+                <select id="aifaultreportingpage-fld-11" name="aifaultreportingpage_fld_11"
                   value={faultType}
                   onChange={(e) => setFaultType(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
@@ -626,10 +626,10 @@ Respond ONLY with the JSON object.
               </div>
 
               <div>
-                <label className="block text-[11px] text-slate-300 font-bold mb-1">
+                <label htmlFor="aifaultreportingpage-fld-13" className="block text-[11px] text-slate-300 font-bold mb-1">
                   Severity Rating
                 </label>
-                <select
+                <select id="aifaultreportingpage-fld-13" name="aifaultreportingpage_fld_13"
                   value={severity}
                   onChange={(e) => setSeverity(e.target.value)}
                   className={`w-full bg-slate-950 border rounded p-2 text-xs font-bold font-mono focus:outline-none ${
@@ -650,14 +650,14 @@ Respond ONLY with the JSON object.
             {/* Row 4: Raw Description Text Area */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label className="block text-[11px] text-slate-300 font-bold">
+                <div className="block text-[11px] text-slate-300 font-bold">
                   Describing Faults (Raw Message / Narrative)
-                </label>
+                </div>
                 <span className="text-[10px] text-slate-500">
                   {rawDescription.length} characters entered
                 </span>
               </div>
-              <textarea
+              <textarea id="aifaultreportingpage-textarea-15" name="aifaultreportingpage_textarea_15"
                 rows={4}
                 value={rawDescription}
                 onChange={(e) => setRawDescription(e.target.value)}
@@ -929,7 +929,7 @@ Respond ONLY with the JSON object.
 
             {/* Table Filters */}
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <input
+              <input id="aifaultreportingpage-input-16" name="aifaultreportingpage_input_16"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -937,7 +937,7 @@ Respond ONLY with the JSON object.
                 className="bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none"
               />
 
-              <select
+              <select id="aifaultreportingpage-select-17" name="aifaultreportingpage_select_17"
                 value={filterRole}
                 onChange={(e) => setFilterRole(e.target.value)}
                 className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-300 focus:outline-none"
@@ -948,7 +948,7 @@ Respond ONLY with the JSON object.
                 <option value="TRAIN OPERATOR">Train Operator</option>
               </select>
 
-              <select
+              <select id="aifaultreportingpage-select-18" name="aifaultreportingpage_select_18"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
                 className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-300 focus:outline-none"

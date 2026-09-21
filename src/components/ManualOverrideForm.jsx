@@ -313,7 +313,7 @@ export default function ManualOverrideForm() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 sm:col-span-1">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-l1">Date</label>
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-i5">Date</label>
               <input id="manualoverrideform-i5" 
                 type="date" 
                 name="date"
@@ -325,7 +325,7 @@ export default function ManualOverrideForm() {
             </div>
             
             <div className="col-span-2 sm:col-span-1">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-l2">Train ID</label>
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-i6">Train ID</label>
               <select id="manualoverrideform-i6" 
                 name="trainId"
                 value={formData.trainId}
@@ -339,7 +339,7 @@ export default function ManualOverrideForm() {
             </div>
 
             <div className="col-span-1">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1" htmlFor="manualoverrideform-l3"><Clock className="w-3 h-3"/> From Time</label>
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1" htmlFor="manualoverrideform-i7"><Clock className="w-3 h-3"/> From Time</label>
               <input id="manualoverrideform-i7" 
                 type="time"
                 name="fromTime"
@@ -351,7 +351,7 @@ export default function ManualOverrideForm() {
             </div>
 
             <div className="col-span-1">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1" htmlFor="manualoverrideform-l4"><Clock className="w-3 h-3"/> To Time</label>
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1" htmlFor="manualoverrideform-i8"><Clock className="w-3 h-3"/> To Time</label>
               <input id="manualoverrideform-i8" 
                 type="time"
                 name="toTime"
@@ -363,7 +363,7 @@ export default function ManualOverrideForm() {
             </div>
 
             <div className="col-span-2">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-l5">Train Operator</label>
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-i9">Train Operator</label>
               <select id="manualoverrideform-i9" 
                 name="operatorId"
                 value={formData.operatorId}
@@ -379,7 +379,7 @@ export default function ManualOverrideForm() {
             </div>
 
             <div className="col-span-1">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-l6">Station Name</label>
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-i10">Station Name</label>
               <input id="manualoverrideform-i10" 
                 type="text" 
                 name="stationName"
@@ -392,7 +392,7 @@ export default function ManualOverrideForm() {
             </div>
 
             <div className="col-span-1">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-l7">Direction</label>
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-i11">Direction</label>
               <select id="manualoverrideform-i11" 
                 name="direction"
                 value={formData.direction}
@@ -407,7 +407,7 @@ export default function ManualOverrideForm() {
             </div>
 
             <div className="col-span-1">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-l8">Boarding Loc</label>
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-i12">Boarding Loc</label>
               <input id="manualoverrideform-i12" 
                 type="text" 
                 name="boardingLocation"
@@ -420,7 +420,7 @@ export default function ManualOverrideForm() {
             </div>
 
             <div className="col-span-1">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-l9">Deboard Loc</label>
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-i13">Deboard Loc</label>
               <input id="manualoverrideform-i13" 
                 type="text" 
                 name="deboardingLocation"
@@ -433,7 +433,7 @@ export default function ManualOverrideForm() {
             </div>
 
             <div className="col-span-2">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-l10">Override Reason</label>
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-i14">Override Reason</label>
               <select id="manualoverrideform-i14" 
                 name="reason"
                 value={formData.reason}
@@ -448,7 +448,7 @@ export default function ManualOverrideForm() {
 
             {formData.reason === 'OTHER' && (
               <div className="col-span-2">
-                <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-l11">Specify Other Reason</label>
+                <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-i15">Specify Other Reason</label>
                 <input id="manualoverrideform-i15" 
                   type="text" 
                   name="otherReason"
@@ -462,7 +462,7 @@ export default function ManualOverrideForm() {
             )}
 
             <div className="col-span-2">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-l12">Remarks</label>
+              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1" htmlFor="manualoverrideform-i16">Remarks</label>
               <textarea id="manualoverrideform-i16" 
                 name="remarks"
                 value={formData.remarks}

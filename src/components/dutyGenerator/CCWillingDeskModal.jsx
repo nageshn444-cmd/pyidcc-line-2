@@ -443,7 +443,7 @@ export default function CCWillingDeskModal({
         <div className="p-4 bg-slate-950/30 border-b border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="relative w-full sm:w-80">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
+            <input id="ccwillingdeskmodal-input-1" name="ccwillingdeskmodal_input_1"
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -622,10 +622,10 @@ export default function CCWillingDeskModal({
 
             <form onSubmit={handleSaveEdit} className="space-y-4 mt-4 text-xs">
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
+                <label htmlFor="ccwillingdeskmodal-fld-2" className="text-xs font-bold text-slate-300 block mb-1">
                   Employee ID (Emp ID) *
                 </label>
-                <input
+                <input id="ccwillingdeskmodal-fld-2" name="ccwillingdeskmodal_fld_2"
                   type="text"
                   value={editEmpId}
                   onChange={(e) => setEditEmpId(e.target.value)}
@@ -636,10 +636,10 @@ export default function CCWillingDeskModal({
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
+                <label htmlFor="ccwillingdeskmodal-fld-4" className="text-xs font-bold text-slate-300 block mb-1">
                   Staff / Operator Name *
                 </label>
-                <input
+                <input id="ccwillingdeskmodal-fld-4" name="ccwillingdeskmodal_fld_4"
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
@@ -651,10 +651,10 @@ export default function CCWillingDeskModal({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="ccwillingdeskmodal-fld-6" className="text-xs font-bold text-slate-300 block mb-1">
                     Gender
                   </label>
-                  <select
+                  <select id="ccwillingdeskmodal-fld-6" name="ccwillingdeskmodal_fld_6"
                     value={editGender}
                     onChange={(e) => setEditGender(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
@@ -665,10 +665,10 @@ export default function CCWillingDeskModal({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="ccwillingdeskmodal-fld-8" className="text-xs font-bold text-slate-300 block mb-1">
                     Fixed Weekly Off (WO)
                   </label>
-                  <select
+                  <select id="ccwillingdeskmodal-fld-8" name="ccwillingdeskmodal_fld_8"
                     value={editFixedWo}
                     onChange={(e) => setEditFixedWo(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
@@ -685,10 +685,10 @@ export default function CCWillingDeskModal({
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
+                <label htmlFor="ccwillingdeskmodal-fld-10" className="text-xs font-bold text-slate-300 block mb-1">
                   Role / Track / Designation
                 </label>
-                <input
+                <input id="ccwillingdeskmodal-fld-10" name="ccwillingdeskmodal_fld_10"
                   type="text"
                   value={editRoleDisplay}
                   onChange={(e) => setEditRoleDisplay(e.target.value)}
@@ -697,10 +697,10 @@ export default function CCWillingDeskModal({
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
+                <label htmlFor="ccwillingdeskmodal-fld-12" className="text-xs font-bold text-slate-300 block mb-1">
                   Contact Phone Number (Optional)
                 </label>
-                <input
+                <input id="ccwillingdeskmodal-fld-12" name="ccwillingdeskmodal_fld_12"
                   type="text"
                   value={editPhone}
                   onChange={(e) => setEditPhone(e.target.value)}
@@ -714,7 +714,7 @@ export default function CCWillingDeskModal({
                   <span className="font-bold text-white block">CC-Willing Relief Pool</span>
                   <span className="text-[10px] text-slate-400">Available to provide relief on CC Desk</span>
                 </div>
-                <input
+                <input id="ccwillingdeskmodal-input-14" name="ccwillingdeskmodal_input_14"
                   type="checkbox"
                   checked={editCcWilling}
                   onChange={(e) => setEditCcWilling(e.target.checked)}
@@ -766,10 +766,10 @@ export default function CCWillingDeskModal({
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
+                <label htmlFor="ccwillingdeskmodal-fld-15" className="text-xs font-bold text-slate-300 block mb-1">
                   Relieve Reason (if relieving to SC)
                 </label>
-                <select
+                <select id="ccwillingdeskmodal-fld-15" name="ccwillingdeskmodal_fld_15"
                   value={relieveReason}
                   onChange={(e) => setRelieveReason(e.target.value)}
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
@@ -833,10 +833,10 @@ export default function CCWillingDeskModal({
 
             <form onSubmit={handleSaveAddEmployee} className="space-y-4 mt-4 text-xs">
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
+                <label htmlFor="ccwillingdeskmodal-fld-17" className="text-xs font-bold text-slate-300 block mb-1">
                   Employee ID (Emp ID) *
                 </label>
-                <input
+                <input id="ccwillingdeskmodal-fld-17" name="ccwillingdeskmodal_fld_17"
                   type="text"
                   value={newEmpId}
                   onChange={(e) => setNewEmpId(e.target.value)}
@@ -847,10 +847,10 @@ export default function CCWillingDeskModal({
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
+                <label htmlFor="ccwillingdeskmodal-fld-19" className="text-xs font-bold text-slate-300 block mb-1">
                   Staff / Operator Name *
                 </label>
-                <input
+                <input id="ccwillingdeskmodal-fld-19" name="ccwillingdeskmodal_fld_19"
                   type="text"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
@@ -862,10 +862,10 @@ export default function CCWillingDeskModal({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="ccwillingdeskmodal-fld-21" className="text-xs font-bold text-slate-300 block mb-1">
                     Gender
                   </label>
-                  <select
+                  <select id="ccwillingdeskmodal-fld-21" name="ccwillingdeskmodal_fld_21"
                     value={newGender}
                     onChange={(e) => setNewGender(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
@@ -876,10 +876,10 @@ export default function CCWillingDeskModal({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="ccwillingdeskmodal-fld-23" className="text-xs font-bold text-slate-300 block mb-1">
                     Fixed Weekly Off (WO)
                   </label>
-                  <select
+                  <select id="ccwillingdeskmodal-fld-23" name="ccwillingdeskmodal_fld_23"
                     value={newFixedWo}
                     onChange={(e) => setNewFixedWo(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
@@ -896,10 +896,10 @@ export default function CCWillingDeskModal({
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
+                <label htmlFor="ccwillingdeskmodal-fld-25" className="text-xs font-bold text-slate-300 block mb-1">
                   Role / Track
                 </label>
-                <select
+                <select id="ccwillingdeskmodal-fld-25" name="ccwillingdeskmodal_fld_25"
                   value={newRole}
                   onChange={(e) => setNewRole(e.target.value)}
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
@@ -915,7 +915,7 @@ export default function CCWillingDeskModal({
                   <span className="font-bold text-white block">CC-Willing Relief Pool</span>
                   <span className="text-[10px] text-slate-400">Available to provide relief on CC Desk</span>
                 </div>
-                <input
+                <input id="ccwillingdeskmodal-input-27" name="ccwillingdeskmodal_input_27"
                   type="checkbox"
                   checked={newCcWilling}
                   onChange={(e) => setNewCcWilling(e.target.checked)}

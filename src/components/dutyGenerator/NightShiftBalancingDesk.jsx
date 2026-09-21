@@ -103,7 +103,7 @@ export default function NightShiftBalancingDesk({
             <span className="text-[10px] uppercase font-bold text-slate-400 block">Night Gap Rule</span>
             <span className="text-xs text-slate-200 font-semibold">{nightRecurrenceGap} Days Minimum</span>
           </div>
-          <input
+          <input id="nightshiftbalancingdesk-input-1" name="nightshiftbalancingdesk_input_1"
             type="range"
             min="14"
             max="30"
@@ -126,8 +126,8 @@ export default function NightShiftBalancingDesk({
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
-            <label className="text-xs text-slate-300 font-bold block mb-1">Operator A (Day Duty)</label>
-            <select
+            <label htmlFor="nightshiftbalancingdesk-fld-2" className="text-xs text-slate-300 font-bold block mb-1">Operator A (Day Duty)</label>
+            <select id="nightshiftbalancingdesk-fld-2" name="nightshiftbalancingdesk_fld_2"
               value={opAId}
               onChange={(e) => setOpAId(e.target.value)}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
@@ -140,8 +140,8 @@ export default function NightShiftBalancingDesk({
           </div>
 
           <div>
-            <label className="text-xs text-slate-300 font-bold block mb-1">Operator B (Night Duty)</label>
-            <select
+            <label htmlFor="nightshiftbalancingdesk-fld-4" className="text-xs text-slate-300 font-bold block mb-1">Operator B (Night Duty)</label>
+            <select id="nightshiftbalancingdesk-fld-4" name="nightshiftbalancingdesk_fld_4"
               value={opBId}
               onChange={(e) => setOpBId(e.target.value)}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
@@ -197,7 +197,7 @@ export default function NightShiftBalancingDesk({
         <div className="p-4 bg-slate-950/70 border-b border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="relative w-full sm:w-72">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
+            <input id="nightshiftbalancingdesk-input-6" name="nightshiftbalancingdesk_input_6"
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}

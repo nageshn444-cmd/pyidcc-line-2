@@ -703,7 +703,7 @@ Format the response strictly as a single JSON object.`;
         {/* Controls Configuration */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-950/40 p-4 rounded-lg border border-slate-800/80">
           <div className="space-y-1.5">
-            <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest flex items-center gap-1.5" htmlFor="gccrosteruploader-l1">
+            <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest flex items-center gap-1.5" htmlFor="gccrosteruploader-i2">
               <Calendar className="h-3.5 w-3.5 text-slate-400" /> Target Ingestion Date
             </label>
             <input id="gccrosteruploader-i2" name="gccrosteruploader-i2"
@@ -714,7 +714,7 @@ Format the response strictly as a single JSON object.`;
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest flex items-center gap-1.5" htmlFor="gccrosteruploader-l2">
+            <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest flex items-center gap-1.5" htmlFor="gccrosteruploader-i3">
               <ShieldAlert className="h-3.5 w-3.5 text-slate-400" /> Schedule Roster Profile
             </label>
             <select id="gccrosteruploader-i3" name="gccrosteruploader-i3"

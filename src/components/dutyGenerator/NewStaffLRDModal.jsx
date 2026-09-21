@@ -221,10 +221,10 @@ export default function NewStaffLRDModal({
             <form onSubmit={handleCreateNewStaff} className="space-y-4 font-sans text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="newstafflrdmodal-fld-1" className="text-xs font-bold text-slate-300 block mb-1">
                     Employee ID (Emp No)
                   </label>
-                  <input
+                  <input id="newstafflrdmodal-fld-1" name="newstafflrdmodal_fld_1"
                     type="number"
                     value={empId}
                     onChange={(e) => setEmpId(e.target.value)}
@@ -235,10 +235,10 @@ export default function NewStaffLRDModal({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="newstafflrdmodal-fld-3" className="text-xs font-bold text-slate-300 block mb-1">
                     Full Name (Train Operator)
                   </label>
-                  <input
+                  <input id="newstafflrdmodal-fld-3" name="newstafflrdmodal_fld_3"
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -251,10 +251,10 @@ export default function NewStaffLRDModal({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="newstafflrdmodal-fld-5" className="text-xs font-bold text-slate-300 block mb-1">
                     Gender
                   </label>
-                  <select
+                  <select id="newstafflrdmodal-fld-5" name="newstafflrdmodal_fld_5"
                     value={gender}
                     onChange={(e) => setGender(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
@@ -265,10 +265,10 @@ export default function NewStaffLRDModal({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="newstafflrdmodal-fld-7" className="text-xs font-bold text-slate-300 block mb-1">
                     Assigned Week-Off Day
                   </label>
-                  <select
+                  <select id="newstafflrdmodal-fld-7" name="newstafflrdmodal_fld_7"
                     value={fixedWo}
                     onChange={(e) => setFixedWo(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
@@ -281,10 +281,10 @@ export default function NewStaffLRDModal({
               </div>
 
               <div>
-                <label className="text-xs font-bold text-amber-300 block mb-1">
+                <label htmlFor="newstafflrdmodal-fld-9" className="text-xs font-bold text-amber-300 block mb-1">
                   Absence / Availability Period (Determines Mandatory LRD Days)
                 </label>
-                <select
+                <select id="newstafflrdmodal-fld-9" name="newstafflrdmodal_fld_9"
                   value={absenceDuration}
                   onChange={(e) => setAbsenceDuration(e.target.value)}
                   className="w-full bg-slate-950 border border-amber-500/50 rounded-xl px-3 py-2 text-xs text-amber-200 font-bold"
@@ -297,10 +297,10 @@ export default function NewStaffLRDModal({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="newstafflrdmodal-fld-11" className="text-xs font-bold text-slate-300 block mb-1">
                     Authorizing Crew Controller Signature
                   </label>
-                  <input
+                  <input id="newstafflrdmodal-fld-11" name="newstafflrdmodal_fld_11"
                     type="text"
                     value={controllerSignature}
                     onChange={(e) => setControllerSignature(e.target.value)}
@@ -310,10 +310,10 @@ export default function NewStaffLRDModal({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="newstafflrdmodal-fld-13" className="text-xs font-bold text-slate-300 block mb-1">
                     Induction Remarks / Depot Order Ref
                   </label>
-                  <input
+                  <input id="newstafflrdmodal-fld-13" name="newstafflrdmodal_fld_13"
                     type="text"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
@@ -332,8 +332,8 @@ export default function NewStaffLRDModal({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">Date of Reporting to PYID CC</label>
-                    <input
+                    <label htmlFor="newstafflrdmodal-fld-15" className="text-xs font-bold text-slate-300 block mb-1">Date of Reporting to PYID CC</label>
+                    <input id="newstafflrdmodal-fld-15" name="newstafflrdmodal_fld_15"
                       type="date"
                       value={reportDate}
                       onChange={e => setReportDate(e.target.value)}
@@ -347,7 +347,7 @@ export default function NewStaffLRDModal({
                         ? 'bg-emerald-900/30 border-emerald-500/60'
                         : 'bg-slate-950 border-slate-700 hover:border-emerald-500/40'
                     }`}>
-                      <input
+                      <input id="newstafflrdmodal-input-17" name="newstafflrdmodal_input_17"
                         type="checkbox"
                         checked={reportedToPYID}
                         onChange={e => setReportedToPYID(e.target.checked)}

@@ -733,7 +733,7 @@ export default function ReportsCenter() {
           </span>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="space-y-1">
-              <label className="text-[9px] text-slate-550 uppercase font-black" htmlFor="reportscenter-l1">Employee ID Filter</label>
+              <label className="text-[9px] text-slate-550 uppercase font-black" htmlFor="reportscenter-i3">Employee ID Filter</label>
               <input id="reportscenter-i3" name="reportscenter-i3" 
                 type="text" 
                 placeholder="e.g. 22464" 
@@ -743,7 +743,7 @@ export default function ReportsCenter() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[9px] text-slate-550 uppercase font-black" htmlFor="reportscenter-l2">Location Filter</label>
+              <label className="text-[9px] text-slate-550 uppercase font-black" htmlFor="reportscenter-i4">Location Filter</label>
               <input id="reportscenter-i4" name="reportscenter-i4" 
                 type="text" 
                 placeholder="e.g. PYID" 
@@ -753,7 +753,7 @@ export default function ReportsCenter() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[9px] text-slate-550 uppercase font-black" htmlFor="reportscenter-l3">Train ID Filter</label>
+              <label className="text-[9px] text-slate-550 uppercase font-black" htmlFor="reportscenter-i5">Train ID Filter</label>
               <input id="reportscenter-i5" name="reportscenter-i5" 
                 type="text" 
                 placeholder="e.g. 204" 
@@ -804,7 +804,7 @@ export default function ReportsCenter() {
             <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
               <div className="relative w-full sm:w-64">
                 <Search size={14} className="absolute left-3 top-2.5 text-slate-500" />
-                <input
+                <input id="reportscenter-input-1" name="reportscenter_input_1"
                   type="text"
                   placeholder="Search 28 reports..."
                   value={searchQuery}
@@ -1060,7 +1060,7 @@ export default function ReportsCenter() {
                 </h3>
                 <form onSubmit={handleScheduleReport} className="space-y-4">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1" htmlFor="reportscenter-l4">Target Report</label>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1" htmlFor="reportscenter-i7">Target Report</label>
                     <select id="reportscenter-i7" name="reportscenter-i7" 
                       value={scheduleConfig.reportType}
                       onChange={(e) => setScheduleConfig({...scheduleConfig, reportType: e.target.value})}
@@ -1076,7 +1076,7 @@ export default function ReportsCenter() {
                   <div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1" htmlFor="reportscenter-l5">Frequency</label>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1" htmlFor="reportscenter-i8">Frequency</label>
                         <select id="reportscenter-i8" name="reportscenter-i8" 
                           value={scheduleConfig.frequency}
                           onChange={(e) => setScheduleConfig({...scheduleConfig, frequency: e.target.value})}
@@ -1088,7 +1088,7 @@ export default function ReportsCenter() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1" htmlFor="reportscenter-l6">Dispatch Time</label>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1" htmlFor="reportscenter-i9">Dispatch Time</label>
                         <input id="reportscenter-i9" name="reportscenter-i9" 
                           type="time" 
                           value={scheduleConfig.time}
@@ -1099,7 +1099,7 @@ export default function ReportsCenter() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1" htmlFor="reportscenter-l7">Recipient Email</label>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1" htmlFor="reportscenter-i10">Recipient Email</label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
                       <input id="reportscenter-i10" name="reportscenter-i10" 

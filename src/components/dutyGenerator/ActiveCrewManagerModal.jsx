@@ -571,7 +571,7 @@ export default function ActiveCrewManagerModal({
         <div className="p-4 bg-slate-950/30 border-b border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="relative w-full sm:w-80">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
+            <input id="activecrewmanagermodal-input-1" name="activecrewmanagermodal_input_1"
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -585,7 +585,7 @@ export default function ActiveCrewManagerModal({
             <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700/80 rounded-xl px-2.5 py-1">
               <Calendar className="w-3.5 h-3.5 text-emerald-400" />
               <span className="text-[11px] font-bold text-slate-300">WO:</span>
-              <select
+              <select id="activecrewmanagermodal-select-2" name="activecrewmanagermodal_select_2"
                 value={selectedDayFilter}
                 onChange={(e) => setSelectedDayFilter(e.target.value)}
                 className="bg-slate-950 border border-slate-750 text-emerald-300 font-mono font-bold text-xs rounded-lg px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
@@ -679,7 +679,7 @@ export default function ActiveCrewManagerModal({
                   <Calendar className="w-3.5 h-3.5 text-emerald-400" />
                   Set WO:
                 </span>
-                <select
+                <select id="activecrewmanagermodal-select-3" name="activecrewmanagermodal_select_3"
                   value={bulkTargetWo}
                   onChange={(e) => setBulkTargetWo(e.target.value)}
                   className="bg-slate-900 border border-slate-700 text-emerald-300 text-xs font-mono font-bold rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
@@ -735,7 +735,7 @@ export default function ActiveCrewManagerModal({
             <thead className="bg-slate-950 text-[11px] uppercase tracking-wider text-slate-400 font-bold font-mono sticky top-0 z-10">
               <tr>
                 <th className="px-4 py-3 w-10">
-                  <input
+                  <input id="activecrewmanagermodal-input-4" name="activecrewmanagermodal_input_4"
                     type="checkbox"
                     checked={filteredCrew.length > 0 && filteredCrew.every(e => selectedEmpIds.has(e.empId))}
                     onChange={handleSelectAllVisible}
@@ -779,7 +779,7 @@ export default function ActiveCrewManagerModal({
                   return (
                     <tr key={emp.empId} className={`hover:bg-slate-800/40 transition-colors ${isSelected ? 'bg-emerald-950/30' : ''}`}>
                       <td className="px-4 py-3">
-                        <input
+                        <input name="activecrewmanagermodal_input_5"
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => handleToggleSelect(emp.empId)}
@@ -820,7 +820,7 @@ export default function ActiveCrewManagerModal({
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <div className="relative inline-block">
-                            <select
+                            <select name="activecrewmanagermodal_select_6"
                               value={emp.fixedWo || 'Sunday'}
                               onChange={(e) => handleUpdateFixedWo(emp.empId, e.target.value)}
                               className="bg-slate-950/90 hover:bg-slate-900 border border-emerald-500/40 hover:border-emerald-400 focus:border-emerald-400 text-emerald-300 font-mono font-bold text-xs rounded-xl pl-2.5 pr-6 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer transition-all shadow-sm appearance-none"
@@ -1065,10 +1065,10 @@ export default function ActiveCrewManagerModal({
 
               <form onSubmit={handleConfirmRelieve} className="space-y-4 mt-4 text-xs">
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="activecrewmanagermodal-fld-7" className="text-xs font-bold text-slate-300 block mb-1">
                     Relieve / Transfer Reason *
                   </label>
-                  <select
+                  <select id="activecrewmanagermodal-fld-7" name="activecrewmanagermodal_fld_7"
                     value={relieveReason}
                     onChange={(e) => setRelieveReason(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
@@ -1083,10 +1083,10 @@ export default function ActiveCrewManagerModal({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="activecrewmanagermodal-fld-9" className="text-xs font-bold text-slate-300 block mb-1">
                     Operational Remarks / Office Order Ref
                   </label>
-                  <input
+                  <input id="activecrewmanagermodal-fld-9" name="activecrewmanagermodal_fld_9"
                     type="text"
                     value={relieveNotes}
                     onChange={(e) => setRelieveNotes(e.target.value)}
@@ -1138,10 +1138,10 @@ export default function ActiveCrewManagerModal({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="activecrewmanagermodal-fld-11" className="text-xs font-bold text-slate-300 block mb-1">
                     Relieve / Transfer Reason *
                   </label>
-                  <select
+                  <select id="activecrewmanagermodal-fld-11" name="activecrewmanagermodal_fld_11"
                     value={bulkRelieveReason}
                     onChange={(e) => setBulkRelieveReason(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
@@ -1156,10 +1156,10 @@ export default function ActiveCrewManagerModal({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="activecrewmanagermodal-fld-13" className="text-xs font-bold text-slate-300 block mb-1">
                     Operational Remarks / Office Order Ref
                   </label>
-                  <input
+                  <input id="activecrewmanagermodal-fld-13" name="activecrewmanagermodal_fld_13"
                     type="text"
                     value={bulkRelieveNotes}
                     onChange={(e) => setBulkRelieveNotes(e.target.value)}
@@ -1207,10 +1207,10 @@ export default function ActiveCrewManagerModal({
 
               <form onSubmit={handleSaveMaternity} className="space-y-4 mt-4 text-xs">
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="activecrewmanagermodal-fld-15" className="text-xs font-bold text-slate-300 block mb-1">
                     Leave Commencement Date
                   </label>
-                  <input
+                  <input id="activecrewmanagermodal-fld-15" name="activecrewmanagermodal_fld_15"
                     type="date"
                     value={mlStartDate}
                     onChange={(e) => setMlStartDate(e.target.value)}
@@ -1232,10 +1232,10 @@ export default function ActiveCrewManagerModal({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="activecrewmanagermodal-fld-17" className="text-xs font-bold text-slate-300 block mb-1">
                     Post-Maternity Extension (Optional)
                   </label>
-                  <select
+                  <select id="activecrewmanagermodal-fld-17" name="activecrewmanagermodal_fld_17"
                     value={mlExtensionType}
                     onChange={(e) => setMlExtensionType(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
@@ -1248,10 +1248,10 @@ export default function ActiveCrewManagerModal({
 
                 {mlExtensionType !== 'NONE' && (
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="activecrewmanagermodal-fld-19" className="text-xs font-bold text-slate-300 block mb-1">
                       Extension Duration (Days)
                     </label>
-                    <input
+                    <input id="activecrewmanagermodal-fld-19" name="activecrewmanagermodal_fld_19"
                       type="number"
                       min="5"
                       max="90"
@@ -1303,10 +1303,10 @@ export default function ActiveCrewManagerModal({
               <form onSubmit={handleAddNewTO} className="space-y-3 mt-4 text-xs">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="activecrewmanagermodal-fld-21" className="text-xs font-bold text-slate-300 block mb-1">
                       Employee ID *
                     </label>
-                    <input
+                    <input id="activecrewmanagermodal-fld-21" name="activecrewmanagermodal_fld_21"
                       type="text"
                       required
                       value={newEmpId}
@@ -1316,10 +1316,10 @@ export default function ActiveCrewManagerModal({
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="activecrewmanagermodal-fld-23" className="text-xs font-bold text-slate-300 block mb-1">
                       Full Name *
                     </label>
-                    <input
+                    <input id="activecrewmanagermodal-fld-23" name="activecrewmanagermodal_fld_23"
                       type="text"
                       required
                       value={newName}
@@ -1332,10 +1332,10 @@ export default function ActiveCrewManagerModal({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="activecrewmanagermodal-fld-25" className="text-xs font-bold text-slate-300 block mb-1">
                       Gender
                     </label>
-                    <select
+                    <select id="activecrewmanagermodal-fld-25" name="activecrewmanagermodal_fld_25"
                       value={newGender}
                       onChange={(e) => setNewGender(e.target.value)}
                       className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
@@ -1345,10 +1345,10 @@ export default function ActiveCrewManagerModal({
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="activecrewmanagermodal-fld-27" className="text-xs font-bold text-slate-300 block mb-1">
                       Fixed Weekly Off Day
                     </label>
-                    <select
+                    <select id="activecrewmanagermodal-fld-27" name="activecrewmanagermodal_fld_27"
                       value={newFixedWo}
                       onChange={(e) => setNewFixedWo(e.target.value)}
                       className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
@@ -1362,10 +1362,10 @@ export default function ActiveCrewManagerModal({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="activecrewmanagermodal-fld-29" className="text-xs font-bold text-slate-300 block mb-1">
                       Profile / Category
                     </label>
-                    <select
+                    <select id="activecrewmanagermodal-fld-29" name="activecrewmanagermodal_fld_29"
                       value={newProfile}
                       onChange={(e) => setNewProfile(e.target.value)}
                       className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
@@ -1376,10 +1376,10 @@ export default function ActiveCrewManagerModal({
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="activecrewmanagermodal-fld-31" className="text-xs font-bold text-slate-300 block mb-1">
                       Boarding / Base Depot
                     </label>
-                    <input
+                    <input id="activecrewmanagermodal-fld-31" name="activecrewmanagermodal_fld_31"
                       type="text"
                       value={newStation}
                       onChange={(e) => setNewStation(e.target.value)}
@@ -1390,10 +1390,10 @@ export default function ActiveCrewManagerModal({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="activecrewmanagermodal-fld-33" className="text-xs font-bold text-slate-300 block mb-1">
                     Reporting Notes / Remarks
                   </label>
-                  <input
+                  <input id="activecrewmanagermodal-fld-33" name="activecrewmanagermodal_fld_33"
                     type="text"
                     value={newNotes}
                     onChange={(e) => setNewNotes(e.target.value)}
@@ -1449,10 +1449,10 @@ export default function ActiveCrewManagerModal({
               <form onSubmit={handleSaveEditProfile} className="space-y-3 mt-4 text-xs">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="activecrewmanagermodal-fld-35" className="text-xs font-bold text-slate-300 block mb-1">
                       Designation
                     </label>
-                    <select
+                    <select id="activecrewmanagermodal-fld-35" name="activecrewmanagermodal_fld_35"
                       value={editDesignation}
                       onChange={(e) => setEditDesignation(e.target.value)}
                       className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
@@ -1467,10 +1467,10 @@ export default function ActiveCrewManagerModal({
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="activecrewmanagermodal-fld-37" className="text-xs font-bold text-slate-300 block mb-1">
                       Depot / Base Station
                     </label>
-                    <input
+                    <input id="activecrewmanagermodal-fld-37" name="activecrewmanagermodal_fld_37"
                       type="text"
                       value={editDepot}
                       onChange={(e) => setEditDepot(e.target.value)}
@@ -1482,10 +1482,10 @@ export default function ActiveCrewManagerModal({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="activecrewmanagermodal-fld-39" className="text-xs font-bold text-slate-300 block mb-1">
                       Mobile / Contact No
                     </label>
-                    <input
+                    <input id="activecrewmanagermodal-fld-39" name="activecrewmanagermodal_fld_39"
                       type="text"
                       value={editPhone}
                       onChange={(e) => setEditPhone(e.target.value)}
@@ -1494,10 +1494,10 @@ export default function ActiveCrewManagerModal({
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="activecrewmanagermodal-fld-41" className="text-xs font-bold text-slate-300 block mb-1">
                       Blood Group
                     </label>
-                    <select
+                    <select id="activecrewmanagermodal-fld-41" name="activecrewmanagermodal_fld_41"
                       value={editBloodGroup}
                       onChange={(e) => setEditBloodGroup(e.target.value)}
                       className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
@@ -1512,10 +1512,10 @@ export default function ActiveCrewManagerModal({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="activecrewmanagermodal-fld-43" className="text-xs font-bold text-slate-300 block mb-1">
                       Competency Valid Till
                     </label>
-                    <input
+                    <input id="activecrewmanagermodal-fld-43" name="activecrewmanagermodal_fld_43"
                       type="date"
                       value={editCompetencyDate}
                       onChange={(e) => setEditCompetencyDate(e.target.value)}
@@ -1523,10 +1523,10 @@ export default function ActiveCrewManagerModal({
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="activecrewmanagermodal-fld-45" className="text-xs font-bold text-slate-300 block mb-1">
                       Medical Valid Till
                     </label>
-                    <input
+                    <input id="activecrewmanagermodal-fld-45" name="activecrewmanagermodal_fld_45"
                       type="date"
                       value={editMedicalDate}
                       onChange={(e) => setEditMedicalDate(e.target.value)}
@@ -1538,10 +1538,10 @@ export default function ActiveCrewManagerModal({
                 {/* Fixed Week-Off Day Field */}
                 <div className="p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-xl">
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                    <div className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
                       <Calendar className="w-4 h-4 text-emerald-400" />
                       Fixed Week-Off Day (WO)
-                    </label>
+                    </div>
                     <button
                       type="button"
                       onClick={() => setEditFixedWo(currentDayOfWeek)}
@@ -1551,7 +1551,7 @@ export default function ActiveCrewManagerModal({
                       Use Current Day ({currentDayOfWeek})
                     </button>
                   </div>
-                  <select
+                  <select id="activecrewmanagermodal-select-47" name="activecrewmanagermodal_select_47"
                     value={editFixedWo}
                     onChange={(e) => setEditFixedWo(e.target.value)}
                     className="w-full bg-slate-900 border border-emerald-500/40 rounded-lg px-3 py-2 text-emerald-300 font-mono font-bold text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"

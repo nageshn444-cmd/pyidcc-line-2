@@ -495,7 +495,7 @@ export default function ExcelGrid({
                   }}
                 >
                   {isCellEditing ? (
-                    <input
+                    <input name="excelgrid_input_1"
                       ref={inputRef}
                       type="text"
                       value={editValue}

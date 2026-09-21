@@ -1717,7 +1717,7 @@ export default function ShiftExchange() {
             </div>
             
             <div>
-              <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l1">Search Operator ID / Name</label>
+              <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-i1">Search Operator ID / Name</label>
               <div className="relative">
                 <input id="shiftexchange-i1" name="shiftexchange-i1" 
                   type="text"
@@ -1728,7 +1728,7 @@ export default function ShiftExchange() {
                 />
                 <Search className="h-3.5 w-3.5 text-slate-500 absolute left-2 top-2 pointer-events-none" />
               </div>
-              <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l2">Select Operator ({filteredCrew1.length} Available)</label>
+              <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-i2">Select Operator ({filteredCrew1.length} Available)</label>
               <select id="shiftexchange-i2" name="shiftexchange-i2" 
                 value={formData.operator1Id}
                 onChange={(e) => handleSelectOperator1(e.target.value)}
@@ -1744,20 +1744,20 @@ export default function ShiftExchange() {
             </div>
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label className='block text-[10px] text-slate-500' htmlFor="shiftexchange-l3">Status</label>
+                <label className='block text-[10px] text-slate-500' htmlFor="shiftexchange-op1-status">Status</label>
                 <span className="text-[9px] text-emerald-400 font-mono">AUTO-DETECTED</span>
               </div>
-              <select name="operator1Status" value={formData.operator1Status || 'PRESENT'} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-amber-500 focus:outline-none font-mono'>
+              <select id="shiftexchange-op1-status" name="operator1Status" value={formData.operator1Status || 'PRESENT'} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-amber-500 focus:outline-none font-mono'>
                 {STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
             </div>
 
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label className='block text-[10px] text-slate-500' htmlFor="shiftexchange-l4">Current Duty Number</label>
+                <label className='block text-[10px] text-slate-500' htmlFor="shiftexchange-op1-duty">Current Duty Number</label>
                 <span className="text-[9px] text-cyan-400 font-mono">ZERO MANUAL ENTRY</span>
               </div>
-              <select name="operator1Duty" value={formData.operator1Duty} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-amber-500 focus:outline-none font-mono'>
+              <select id="shiftexchange-op1-duty" name="operator1Duty" value={formData.operator1Duty} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-amber-500 focus:outline-none font-mono'>
                 <option value="" disabled>Select Duty</option>
                 {dynamicDutyOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
@@ -1765,7 +1765,7 @@ export default function ShiftExchange() {
           </div>
 
           {/* Operator 2 (Target) */}
-          <div className='bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-3'>
+          <div className='bg-slate-950 p-4 rounded-lg border border-cyan-500/30 space-y-3'>
             <div className="flex justify-between items-center border-b border-slate-800 pb-1">
               <h4 className='text-cyan-400 font-semibold text-xs tracking-wider'>OPERATOR 2 (TARGET)</h4>
               {formData.operator2Duty && (
@@ -1776,7 +1776,7 @@ export default function ShiftExchange() {
             </div>
             
             <div>
-              <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l5">Search Operator ID / Name</label>
+              <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-i3">Search Operator ID / Name</label>
               <div className="relative">
                 <input id="shiftexchange-i3" name="shiftexchange-i3" 
                   type="text"
@@ -1787,7 +1787,7 @@ export default function ShiftExchange() {
                 />
                 <Search className="h-3.5 w-3.5 text-slate-500 absolute left-2 top-2 pointer-events-none" />
               </div>
-              <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l6">Select Operator ({filteredCrew2.length} Available)</label>
+              <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-i4">Select Operator ({filteredCrew2.length} Available)</label>
               <select id="shiftexchange-i4" name="shiftexchange-i4" 
                 value={formData.operator2Id}
                 onChange={(e) => handleSelectOperator2(e.target.value)}
@@ -1803,20 +1803,20 @@ export default function ShiftExchange() {
             </div>
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label className='block text-[10px] text-slate-500' htmlFor="shiftexchange-l7">Status</label>
+                <label className='block text-[10px] text-slate-500' htmlFor="shiftexchange-op2-status">Status</label>
                 <span className="text-[9px] text-emerald-400 font-mono">AUTO-DETECTED</span>
               </div>
-              <select name="operator2Status" value={formData.operator2Status || 'PRESENT'} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none font-mono'>
+              <select id="shiftexchange-op2-status" name="operator2Status" value={formData.operator2Status || 'PRESENT'} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none font-mono'>
                 {STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
             </div>
 
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label className='block text-[10px] text-slate-500' htmlFor="shiftexchange-l8">Current Duty Number</label>
+                <label className='block text-[10px] text-slate-500' htmlFor="shiftexchange-op2-duty">Current Duty Number</label>
                 <span className="text-[9px] text-cyan-400 font-mono">ZERO MANUAL ENTRY</span>
               </div>
-              <select name="operator2Duty" value={formData.operator2Duty} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none font-mono'>
+              <select id="shiftexchange-op2-duty" name="operator2Duty" value={formData.operator2Duty} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none font-mono'>
                 <option value="" disabled>Select Duty</option>
                 {dynamicDutyOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
@@ -1836,7 +1836,7 @@ export default function ShiftExchange() {
               </div>
               
               <div>
-                <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l3-search">Search Operator ID / Name</label>
+                <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-i3-search">Search Operator ID / Name</label>
                 <div className="relative">
                   <input id="shiftexchange-i3-search" name="shiftexchange-i3-search" 
                     type="text"
@@ -1847,7 +1847,7 @@ export default function ShiftExchange() {
                   />
                   <Search className="h-3.5 w-3.5 text-slate-500 absolute left-2 top-2 pointer-events-none" />
                 </div>
-                <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l3-select">Select Operator ({filteredCrew3.length} Available)</label>
+                <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-i3-select">Select Operator ({filteredCrew3.length} Available)</label>
                 <select id="shiftexchange-i3-select" name="shiftexchange-i3-select" 
                   value={formData.operator3Id}
                   onChange={(e) => handleSelectOperator3(e.target.value)}
@@ -1863,20 +1863,20 @@ export default function ShiftExchange() {
               </div>
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className='block text-[10px] text-slate-500' htmlFor="shiftexchange-l3-status">Status</label>
+                  <label className='block text-[10px] text-slate-500' htmlFor="shiftexchange-op3-status">Status</label>
                   <span className="text-[9px] text-emerald-400 font-mono">AUTO-DETECTED</span>
                 </div>
-                <select name="operator3Status" value={formData.operator3Status || 'PRESENT'} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-purple-500 focus:outline-none font-mono'>
+                <select id="shiftexchange-op3-status" name="operator3Status" value={formData.operator3Status || 'PRESENT'} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-purple-500 focus:outline-none font-mono'>
                   {STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
               </div>
 
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className='block text-[10px] text-slate-500' htmlFor="shiftexchange-l3-duty">Current Duty Number</label>
+                  <label className='block text-[10px] text-slate-500' htmlFor="shiftexchange-op3-duty">Current Duty Number</label>
                   <span className="text-[9px] text-cyan-400 font-mono">ZERO MANUAL ENTRY</span>
                 </div>
-                <select name="operator3Duty" value={formData.operator3Duty} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-purple-500 focus:outline-none font-mono'>
+                <select id="shiftexchange-op3-duty" name="operator3Duty" value={formData.operator3Duty} onChange={handleInputChange} className='w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-slate-200 focus:border-purple-500 focus:outline-none font-mono'>
                   <option value="" disabled>Select Duty</option>
                   {dynamicDutyOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
@@ -1887,8 +1887,8 @@ export default function ShiftExchange() {
 
         <div className='mt-4 flex flex-col sm:flex-row items-end sm:items-center justify-between gap-4'>
           <div className='w-full sm:w-1/3'>
-            <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-l9">Target Date for Exchange</label>
-            <input type="date" name="exchangeDate" value={formData.exchangeDate} onChange={handleInputChange} className='w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none font-mono' />
+            <label className='block text-[10px] text-slate-500 mb-1' htmlFor="shiftexchange-exchange-date">Target Date for Exchange</label>
+            <input id="shiftexchange-exchange-date" type="date" name="exchangeDate" value={formData.exchangeDate} onChange={handleInputChange} className='w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none font-mono' />
           </div>
           <button onClick={handleSubmitRequest} className='w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 px-6 py-2 rounded text-white font-bold text-xs shadow-md transition-colors cursor-pointer flex items-center justify-center gap-1.5'>
             <ArrowRightLeft className="h-4 w-4" />

@@ -69,7 +69,7 @@ export default function ExcelImportDialog({
             Option 1: Upload Excel or CSV File
           </span>
 
-          <input
+          <input id="excelimportdialog-input-1" name="excelimportdialog_input_1"
             type="file"
             ref={fileInputRef}
             onChange={handleFileSelect}
@@ -157,7 +157,7 @@ export default function ExcelImportDialog({
                   <Train className="w-4 h-4" /> WTT Timetable
                 </div>
                 <div className="mb-2">
-                  <select
+                  <select id="excelimportdialog-select-2" name="excelimportdialog_select_2"
                     value={wttDay}
                     onChange={(e) => setWttDay(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-750 rounded px-2 py-1 text-[11px] text-white"

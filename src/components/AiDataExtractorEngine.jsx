@@ -1609,10 +1609,10 @@ function EditModal({ record, index, onSave, onCancel }) {
         <div className="p-5 grid grid-cols-2 gap-3 text-xs uppercase font-bold">
           {EDIT_FIELDS.map(({ key, label, placeholder, color }) => (
             <div key={key} className="col-span-1 space-y-1 relative">
-              <label className="text-[8px] tracking-widest text-slate-500" htmlFor="aidataextractorengin-l1">{label}</label>
+              <label className="text-[8px] tracking-widest text-slate-500" htmlFor={`extractor-edit-${key}`}>{label}</label>
               {key === 'name' ? (
                 <>
-                  <input id="aidataextractorengin-i5" name="aidataextractorengin-i5"
+                  <input id={`extractor-edit-${key}`} name={`extractor_edit_${key}`}
                     type="text"
                     value={form.name || ''}
                     onChange={(e) => handleNameChange(e.target.value)}
@@ -1635,7 +1635,7 @@ function EditModal({ record, index, onSave, onCancel }) {
                   )}
                 </>
               ) : (
-                <input id="aidataextractorengin-i6" name="aidataextractorengin-i6"
+                <input id={`extractor-edit-${key}`} name={`extractor_edit_${key}`}
                   type="text"
                   value={form[key] || ''}
                   onChange={(e) => handleChange(key, e.target.value)}

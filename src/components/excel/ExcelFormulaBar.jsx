@@ -42,7 +42,7 @@ export default function ExcelFormulaBar({
       </span>
 
       {/* Formula Input Bar */}
-      <input
+      <input id="excelformulabar-input-1" name="excelformulabar_input_1"
         type="text"
         value={formulaValue}
         onChange={(e) => onChange(e.target.value)}

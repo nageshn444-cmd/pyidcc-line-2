@@ -797,13 +797,20 @@ export default function AlstomAtsSystemView({
                   {/* Train number text with direction / location arrow */}
                   <text x={trX} y={trY + 4} fill="#ffffff" fontSize="9.5" fontWeight="900" textAnchor="middle">
                     {trY >= DEPOT_Y1 
-                      ? (train.isStabling ? `T${train.trainId} [SBL]` : `T${train.trainId} ➔ PYID`) 
+                      ? (train.isStabling ? `T${train.particularTrainId || train.trainId} [SBL]` : `T${train.particularTrainId || train.trainId} ➔ PYID`) 
                       : trY === RD3_Y 
-                      ? `T${train.trainId} (RD-3)` 
+                      ? `T${train.particularTrainId || train.trainId} (RD-3)` 
                       : (train.statusText.includes('BUFFER') || train.statusText.includes('CHANGEOVER'))
-                      ? `T${train.trainId} (REV)`
+                      ? `T${train.particularTrainId || train.trainId} (REV)`
+                      : train.computedTrainId
+                      ? (isUp ? `${train.computedTrainId} ➔` : `⬅ ${train.computedTrainId}`)
                       : (isUp ? `T${train.trainId} ➔` : `⬅ T${train.trainId}`)}
                   </text>
+
+                  {/* Enriched detail tooltip */}
+                  <title>
+                    {`Train ID: ${train.computedTrainId || train.displayTrainId || 'Pending'}\nUnit: ${train.particularTrainId || train.trainId}\nDestination Code: ${train.destinationId || 'N/A'}\nStatus: ${train.trainIdStatus || 'UNKNOWN'}\nLocation: ${train.currentStation || 'Line-2'}\nOperator: ${train.operatorName || '--'}`}
+                  </title>
 
                   {/* Directional Headlight beam (only active when moving on main line) */}
                   {train.speedKmH > 0 && trY <= DN_Y && (

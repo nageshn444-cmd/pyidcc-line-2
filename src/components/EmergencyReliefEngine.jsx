@@ -1269,7 +1269,7 @@ export default function EmergencyReliefEngine() {
               <div className="space-y-2">
                 <label
                   className="text-[10px] text-slate-500 tracking-wider"
-                  htmlFor="emergencyreliefengin-l1"
+                  htmlFor="emergencyreliefengin-i1"
                 >
                   Select Incident Event
                 </label>
@@ -1292,7 +1292,7 @@ export default function EmergencyReliefEngine() {
               <div className="space-y-2">
                 <label
                   className="text-[10px] text-slate-500 tracking-wider"
-                  htmlFor="emergencyreliefengin-l2"
+                  htmlFor="emergencyreliefengin-i2"
                 >
                   Select Target Train & Duty
                 </label>
@@ -1346,7 +1346,7 @@ export default function EmergencyReliefEngine() {
               <div className="space-y-2">
                 <label
                   className="text-[10px] text-slate-500 tracking-wider"
-                  htmlFor="emergencyreliefengin-l3"
+                  htmlFor="emergencyreliefengin-i3"
                 >
                   Incident Station / Location
                 </label>
@@ -1367,10 +1367,10 @@ export default function EmergencyReliefEngine() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] text-slate-500 tracking-wider">
+                <label htmlFor="emergencyreliefengine-fld-1" className="text-[10px] text-slate-500 tracking-wider">
                   Technical Delay Duration (Minutes)
                 </label>
-                <input
+                <input id="emergencyreliefengine-fld-1" name="emergencyreliefengine_fld_1"
                   type="number"
                   min="5"
                   max="120"
@@ -1970,7 +1970,7 @@ export default function EmergencyReliefEngine() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <select
+              <select id="emergencyreliefengine-select-3" name="emergencyreliefengine_select_3"
                 value={batchIncidentType}
                 onChange={(e) => setBatchIncidentType(e.target.value)}
                 disabled={isTrainOperator}
@@ -1983,7 +1983,7 @@ export default function EmergencyReliefEngine() {
                 ))}
               </select>
 
-              <select
+              <select id="emergencyreliefengine-select-4" name="emergencyreliefengine_select_4"
                 value={selectedLocation}
                 onChange={(e) => setSelectedLocation(e.target.value)}
                 disabled={isTrainOperator}

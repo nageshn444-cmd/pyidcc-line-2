@@ -265,7 +265,7 @@ export default function CategoryRules() {
 
                     {/* Destination Pool Routing */}
                     <td className="p-3">
-                      <select
+                      <select name="categoryrules_select_1"
                         value={rule.destinationPool}
                         onChange={(e) => handlePoolChange(cat, e.target.value)}
                         className="bg-slate-950 border border-slate-850 rounded px-2 py-1 text-slate-300 text-[10px] focus:outline-none focus:border-emerald-500/50"
@@ -307,8 +307,8 @@ export default function CategoryRules() {
         <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4 items-end">
           
           <div className="space-y-1">
-            <label className="text-[9px] font-bold text-slate-450 uppercase tracking-wide">Category Name/Code</label>
-            <input
+            <label htmlFor="categoryrules-fld-2" className="text-[9px] font-bold text-slate-450 uppercase tracking-wide">Category Name/Code</label>
+            <input id="categoryrules-fld-2" name="categoryrules_fld_2"
               type="text"
               value={newCatName}
               onChange={(e) => setNewCatName(e.target.value)}
@@ -318,7 +318,7 @@ export default function CategoryRules() {
           </div>
 
           <div className="space-y-1 text-center">
-            <label className="text-[9px] font-bold text-slate-450 uppercase tracking-wide block mb-1">Available for Relief</label>
+            <div className="text-[9px] font-bold text-slate-450 uppercase tracking-wide block mb-1">Available for Relief</div>
             <button
               onClick={() => setNewCatRule(p => ({ ...p, availableForRelief: !p.availableForRelief }))}
               className={`w-full py-1.5 rounded text-[10px] font-bold uppercase transition ${
@@ -332,7 +332,7 @@ export default function CategoryRules() {
           </div>
 
           <div className="space-y-1 text-center">
-            <label className="text-[9px] font-bold text-slate-450 uppercase tracking-wide block mb-1">Counts as Active Crew</label>
+            <div className="text-[9px] font-bold text-slate-450 uppercase tracking-wide block mb-1">Counts as Active Crew</div>
             <button
               onClick={() => setNewCatRule(p => ({ ...p, countsAsActiveCrew: !p.countsAsActiveCrew }))}
               className={`w-full py-1.5 rounded text-[10px] font-bold uppercase transition ${
@@ -346,7 +346,7 @@ export default function CategoryRules() {
           </div>
 
           <div className="space-y-1 text-center">
-            <label className="text-[9px] font-bold text-slate-450 uppercase tracking-wide block mb-1">Visible in Extra Pool</label>
+            <div className="text-[9px] font-bold text-slate-450 uppercase tracking-wide block mb-1">Visible in Extra Pool</div>
             <button
               onClick={() => setNewCatRule(p => ({ ...p, visibleInExtraPool: !p.visibleInExtraPool }))}
               className={`w-full py-1.5 rounded text-[10px] font-bold uppercase transition ${
@@ -360,8 +360,8 @@ export default function CategoryRules() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-[9px] font-bold text-slate-450 uppercase tracking-wide">Destination Pool</label>
-            <select
+            <label htmlFor="categoryrules-fld-4" className="text-[9px] font-bold text-slate-450 uppercase tracking-wide">Destination Pool</label>
+            <select id="categoryrules-fld-4" name="categoryrules_fld_4"
               value={newCatRule.destinationPool}
               onChange={(e) => setNewCatRule(p => ({ ...p, destinationPool: e.target.value }))}
               className="w-full bg-slate-950 border border-slate-850 rounded px-2 py-1.5 text-xs text-slate-350 focus:outline-none focus:border-emerald-500/50"

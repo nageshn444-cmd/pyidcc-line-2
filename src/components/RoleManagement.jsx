@@ -137,7 +137,7 @@ export default function RoleManagement() {
                           {isSuper ? (
                             <span className="text-emerald-500 font-black uppercase text-[10px] tracking-wider">Full</span>
                           ) : (
-                            <select id="rolemanagement-i1" name="rolemanagement-i1" 
+                            <select id={`role-perm-${role.id}-${mod.toLowerCase().replace(/[^a-z0-9]/g, '-')}`} name={`role_perm_${role.id}_${mod.toLowerCase().replace(/[^a-z0-9]/g, '_')}`} aria-label={`Permission for ${role.roleName} in ${mod}`}
                               value={currentVal}
                               onChange={(e) => handlePermissionChange(role.id, mod, e.target.value)}
                               disabled={saving}

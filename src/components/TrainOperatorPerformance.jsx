@@ -237,7 +237,7 @@ export default function TrainOperatorPerformance() {
         {/* Dynamic Filter Section */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 flex-1">
           <div>
-            <label className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1" htmlFor="trainoperatorperform-l1">Select Train Operator</label>
+            <label className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1" htmlFor="trainoperatorperform-i1">Select Train Operator</label>
             <select id="trainoperatorperform-i1" name="trainoperatorperform-i1" 
               value={selectedEmpId}
               onChange={(e) => setSelectedEmpId(e.target.value)}
@@ -249,7 +249,7 @@ export default function TrainOperatorPerformance() {
             </select>
           </div>
           <div>
-            <label className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1" htmlFor="trainoperatorperform-l2">Operational Month</label>
+            <label className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1" htmlFor="trainoperatorperform-i2">Operational Month</label>
             <select id="trainoperatorperform-i2" name="trainoperatorperform-i2" 
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(Number(e.target.value))}
@@ -261,7 +261,7 @@ export default function TrainOperatorPerformance() {
             </select>
           </div>
           <div>
-            <label className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1" htmlFor="trainoperatorperform-l3">Operational Year</label>
+            <label className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1" htmlFor="trainoperatorperform-i3">Operational Year</label>
             <select id="trainoperatorperform-i3" name="trainoperatorperform-i3" 
               value={selectedYear}
               onChange={(e) => setSelectedYear(Number(e.target.value))}
@@ -272,7 +272,7 @@ export default function TrainOperatorPerformance() {
             </select>
           </div>
           <div>
-            <label className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1" htmlFor="trainoperatorperform-l4">Depot / Designation Filter</label>
+            <label className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1" htmlFor="trainoperatorperform-i4">Depot / Designation Filter</label>
             <select id="trainoperatorperform-i4" name="trainoperatorperform-i4" 
               value={filterDesignation}
               onChange={(e) => setFilterDesignation(e.target.value)}

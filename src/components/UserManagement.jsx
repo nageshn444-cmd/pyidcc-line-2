@@ -946,11 +946,11 @@ export default function UserManagement() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5" htmlFor="usermanagement-l1">Select Role</label>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5" htmlFor="usermanagement-i4">Select Role</label>
               <select id="usermanagement-i4" name="usermanagement-i4" 
                 value={newRole}
                 onChange={(e) => setNewRole(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 focus:outline-none"
+                className="w-full bg-slate-955 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 focus:outline-none"
               >
                 <option value="SUPER_ADMIN">SUPER ADMIN</option>
                 <option value="ADMIN_Station_Superintendent">STATION SUPERINTENDENT (ADMIN)</option>
@@ -994,7 +994,7 @@ export default function UserManagement() {
 
             <div className="space-y-3">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 font-mono" htmlFor="usermanagement-l2">Select Rejection Reason</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 font-mono" htmlFor="usermanagement-i5">Select Rejection Reason</label>
                 <select id="usermanagement-i5" name="usermanagement-i5" 
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
@@ -1011,7 +1011,7 @@ export default function UserManagement() {
 
               {rejectionReason === 'Others' && (
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 font-mono" htmlFor="usermanagement-l3">Custom Reason</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 font-mono" htmlFor="usermanagement-i6">Custom Reason</label>
                   <input id="usermanagement-i6" name="usermanagement-i6"
                     type="text"
                     required
@@ -1069,95 +1069,102 @@ export default function UserManagement() {
                     <span className="text-xs font-black text-slate-200 uppercase tracking-wide block">{modName} Module</span>
                     
                     <div className="flex flex-wrap gap-4 pt-1">
-                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-350 cursor-pointer" htmlFor="usermanagement-l4">
-                        <input id="usermanagement-i7" name="usermanagement-i7" 
-                          type="checkbox" 
-                          checked={viewVal}
-                          onChange={(e) => {
-                            setSelectedUserPerms(prev => ({
-                              ...prev,
-                              [modName]: {
-                                ...prev[modName],
-                                View: e.target.checked
-                              }
-                            }));
-                          }}
-                          className="rounded border-slate-750 bg-slate-900 text-cyan-500 focus:ring-cyan-500 h-4.5 w-4.5"
-                        />
-                        View
-                      </label>
+                      {(() => {
+                        const safeKey = modName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+                        return (
+                          <>
+                            <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-350 cursor-pointer" htmlFor={`perm-view-${safeKey}`}>
+                              <input id={`perm-view-${safeKey}`} name={`perm_view_${safeKey}`} 
+                                type="checkbox" 
+                                checked={viewVal}
+                                onChange={(e) => {
+                                  setSelectedUserPerms(prev => ({
+                                    ...prev,
+                                    [modName]: {
+                                      ...prev[modName],
+                                      View: e.target.checked
+                                    }
+                                  }));
+                                }}
+                                className="rounded border-slate-750 bg-slate-900 text-cyan-500 focus:ring-cyan-500 h-4.5 w-4.5"
+                              />
+                              View
+                            </label>
 
-                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-350 cursor-pointer" htmlFor="usermanagement-l5">
-                        <input id="usermanagement-i8" name="usermanagement-i8" 
-                          type="checkbox" 
-                          checked={editVal}
-                          onChange={(e) => {
-                            setSelectedUserPerms(prev => ({
-                              ...prev,
-                              [modName]: {
-                                ...prev[modName],
-                                Edit: e.target.checked
-                              }
-                            }));
-                          }}
-                          className="rounded border-slate-750 bg-slate-900 text-cyan-500 focus:ring-cyan-500 h-4.5 w-4.5"
-                        />
-                        Edit
-                      </label>
+                            <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-350 cursor-pointer" htmlFor={`perm-edit-${safeKey}`}>
+                              <input id={`perm-edit-${safeKey}`} name={`perm_edit_${safeKey}`} 
+                                type="checkbox" 
+                                checked={editVal}
+                                onChange={(e) => {
+                                  setSelectedUserPerms(prev => ({
+                                    ...prev,
+                                    [modName]: {
+                                      ...prev[modName],
+                                      Edit: e.target.checked
+                                    }
+                                  }));
+                                }}
+                                className="rounded border-slate-750 bg-slate-900 text-cyan-500 focus:ring-cyan-500 h-4.5 w-4.5"
+                              />
+                              Edit
+                            </label>
 
-                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-350 cursor-pointer" htmlFor="usermanagement-l6">
-                        <input id="usermanagement-i9" name="usermanagement-i9" 
-                          type="checkbox" 
-                          checked={createVal}
-                          onChange={(e) => {
-                            setSelectedUserPerms(prev => ({
-                              ...prev,
-                              [modName]: {
-                                ...prev[modName],
-                                Create: e.target.checked
-                              }
-                            }));
-                          }}
-                          className="rounded border-slate-750 bg-slate-900 text-cyan-500 focus:ring-cyan-500 h-4.5 w-4.5"
-                        />
-                        Create
-                      </label>
+                            <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-350 cursor-pointer" htmlFor={`perm-create-${safeKey}`}>
+                              <input id={`perm-create-${safeKey}`} name={`perm_create_${safeKey}`} 
+                                type="checkbox" 
+                                checked={createVal}
+                                onChange={(e) => {
+                                  setSelectedUserPerms(prev => ({
+                                    ...prev,
+                                    [modName]: {
+                                      ...prev[modName],
+                                      Create: e.target.checked
+                                    }
+                                  }));
+                                }}
+                                className="rounded border-slate-750 bg-slate-900 text-cyan-500 focus:ring-cyan-500 h-4.5 w-4.5"
+                              />
+                              Create
+                            </label>
 
-                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-350 cursor-pointer" htmlFor="usermanagement-l7">
-                        <input id="usermanagement-i10" name="usermanagement-i10" 
-                          type="checkbox" 
-                          checked={approveVal}
-                          onChange={(e) => {
-                            setSelectedUserPerms(prev => ({
-                              ...prev,
-                              [modName]: {
-                                ...prev[modName],
-                                Approve: e.target.checked
-                              }
-                            }));
-                          }}
-                          className="rounded border-slate-750 bg-slate-900 text-cyan-500 focus:ring-cyan-500 h-4.5 w-4.5"
-                        />
-                        Approve
-                      </label>
+                            <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-350 cursor-pointer" htmlFor={`perm-approve-${safeKey}`}>
+                              <input id={`perm-approve-${safeKey}`} name={`perm_approve_${safeKey}`} 
+                                type="checkbox" 
+                                checked={approveVal}
+                                onChange={(e) => {
+                                  setSelectedUserPerms(prev => ({
+                                    ...prev,
+                                    [modName]: {
+                                      ...prev[modName],
+                                      Approve: e.target.checked
+                                    }
+                                  }));
+                                }}
+                                className="rounded border-slate-750 bg-slate-900 text-cyan-500 focus:ring-cyan-500 h-4.5 w-4.5"
+                              />
+                              Approve
+                            </label>
 
-                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-350 cursor-pointer" htmlFor="usermanagement-l8">
-                        <input id="usermanagement-i11" name="usermanagement-i11" 
-                          type="checkbox" 
-                          checked={deleteVal}
-                          onChange={(e) => {
-                            setSelectedUserPerms(prev => ({
-                              ...prev,
-                              [modName]: {
-                                ...prev[modName],
-                                Delete: e.target.checked
-                              }
-                            }));
-                          }}
-                          className="rounded border-slate-750 bg-slate-900 text-cyan-500 focus:ring-cyan-500 h-4.5 w-4.5"
-                        />
-                        Delete
-                      </label>
+                            <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-350 cursor-pointer" htmlFor={`perm-delete-${safeKey}`}>
+                              <input id={`perm-delete-${safeKey}`} name={`perm_delete_${safeKey}`} 
+                                type="checkbox" 
+                                checked={deleteVal}
+                                onChange={(e) => {
+                                  setSelectedUserPerms(prev => ({
+                                    ...prev,
+                                    [modName]: {
+                                      ...prev[modName],
+                                      Delete: e.target.checked
+                                    }
+                                  }));
+                                }}
+                                className="rounded border-slate-750 bg-slate-900 text-cyan-500 focus:ring-cyan-500 h-4.5 w-4.5"
+                              />
+                              Delete
+                            </label>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 );

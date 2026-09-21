@@ -182,7 +182,7 @@ export default function WhatIfSimulator({
             {/* From Date & Time */}
             <div className="flex items-center gap-1.5 bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-800">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider w-9">From:</span>
-              <input
+              <input id="whatifsimulator-input-1" name="whatifsimulator_input_1"
                 type="date"
                 value={fromDate}
                 onChange={(e) => {
@@ -193,7 +193,7 @@ export default function WhatIfSimulator({
                 className="bg-transparent border-0 text-white font-mono text-xs font-bold focus:ring-0 focus:outline-none cursor-pointer flex-1"
               />
               <Clock className="w-3.5 h-3.5 text-slate-500 ml-0.5 shrink-0" />
-              <input
+              <input id="whatifsimulator-input-2" name="whatifsimulator_input_2"
                 type="time"
                 value={fromTime}
                 onChange={(e) => setFromTime(e.target.value)}
@@ -204,7 +204,7 @@ export default function WhatIfSimulator({
             {/* To Date & Time */}
             <div className="flex items-center gap-1.5 bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-800">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider w-9">To:</span>
-              <input
+              <input id="whatifsimulator-input-3" name="whatifsimulator_input_3"
                 type="date"
                 value={toDate}
                 min={fromDate}
@@ -212,7 +212,7 @@ export default function WhatIfSimulator({
                 className="bg-transparent border-0 text-white font-mono text-xs font-bold focus:ring-0 focus:outline-none cursor-pointer flex-1"
               />
               <Clock className="w-3.5 h-3.5 text-slate-500 ml-0.5 shrink-0" />
-              <input
+              <input id="whatifsimulator-input-4" name="whatifsimulator_input_4"
                 type="time"
                 value={toTime}
                 onChange={(e) => setToTime(e.target.value)}
@@ -227,11 +227,11 @@ export default function WhatIfSimulator({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* 1. Simulated Emergency Leaves */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-          <label className="text-xs font-bold text-slate-300 block mb-1">
+          <div className="text-xs font-bold text-slate-300 block mb-1">
             Simulated Emergency Leaves
-          </label>
+          </div>
           <div className="flex items-center gap-3 mt-2">
-            <input
+            <input id="whatifsimulator-input-5" name="whatifsimulator_input_5"
               type="range"
               min="0"
               max="15"
@@ -246,11 +246,11 @@ export default function WhatIfSimulator({
 
         {/* 2. Extra Night Operators */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-          <label className="text-xs font-bold text-slate-300 block mb-1">
+          <div className="text-xs font-bold text-slate-300 block mb-1">
             Extra Night Operators Needed
-          </label>
+          </div>
           <div className="flex items-center gap-3 mt-2">
-            <input
+            <input id="whatifsimulator-input-6" name="whatifsimulator_input_6"
               type="range"
               min="0"
               max="8"
@@ -265,11 +265,11 @@ export default function WhatIfSimulator({
 
         {/* 3. Test Track Crew */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-          <label className="text-xs font-bold text-slate-300 block mb-1">
+          <div className="text-xs font-bold text-slate-300 block mb-1">
             Test Track Crew Requirement
-          </label>
+          </div>
           <div className="flex items-center gap-3 mt-2">
-            <input
+            <input id="whatifsimulator-input-7" name="whatifsimulator_input_7"
               type="range"
               min="0"
               max="6"
@@ -284,11 +284,11 @@ export default function WhatIfSimulator({
 
         {/* 4. Training / CRT Slots */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-          <label className="text-xs font-bold text-slate-300 block mb-1">
+          <div className="text-xs font-bold text-slate-300 block mb-1">
             Simulated Training / CRT Slots
-          </label>
+          </div>
           <div className="flex items-center gap-3 mt-2">
-            <input
+            <input id="whatifsimulator-input-8" name="whatifsimulator_input_8"
               type="range"
               min="0"
               max="10"

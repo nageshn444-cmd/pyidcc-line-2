@@ -755,7 +755,7 @@ export default function LeaveBookOffManager() {
 
           <form onSubmit={handleAddManualEntry} className="space-y-4 text-xs font-bold uppercase">
             <div className="space-y-1.5">
-              <label className="text-[10px] text-slate-400 tracking-wider" htmlFor="leavebookoffmanager-l1">Employee ID</label>
+              <label className="text-[10px] text-slate-400 tracking-wider" htmlFor="leavebookoffmanager-i2">Employee ID</label>
               <input id="leavebookoffmanager-i2" name="leavebookoffmanager-i2"
                 type="text"
                 list="crew-employees-leave"
@@ -768,7 +768,7 @@ export default function LeaveBookOffManager() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] text-slate-400 tracking-wider" htmlFor="leavebookoffmanager-l2">Operator Name</label>
+              <label className="text-[10px] text-slate-400 tracking-wider" htmlFor="leavebookoffmanager-i3">Operator Name</label>
               <input id="leavebookoffmanager-i3" name="leavebookoffmanager-i3"
                 type="text"
                 placeholder="e.g. SANTHOSH KUMAR A T"
@@ -780,7 +780,7 @@ export default function LeaveBookOffManager() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] text-slate-400 tracking-wider" htmlFor="leavebookoffmanager-l3">Category / Code</label>
+              <label className="text-[10px] text-slate-400 tracking-wider" htmlFor="leavebookoffmanager-i4">Category / Code</label>
               <select id="leavebookoffmanager-i4" name="leavebookoffmanager-i4"
                 value={newEntry.code}
                 onChange={(e) => setNewEntry({ ...newEntry, code: e.target.value })}
@@ -794,7 +794,7 @@ export default function LeaveBookOffManager() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-[10px] text-slate-400 tracking-wider" htmlFor="leavebookoffmanager-l4">Start Date</label>
+                <label className="text-[10px] text-slate-400 tracking-wider" htmlFor="leavebookoffmanager-i5">Start Date</label>
                 <input id="leavebookoffmanager-i5" name="leavebookoffmanager-i5"
                   type="date"
                   value={newEntry.startDate}
@@ -804,7 +804,7 @@ export default function LeaveBookOffManager() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] text-slate-400 tracking-wider" htmlFor="leavebookoffmanager-l5">End Date</label>
+                <label className="text-[10px] text-slate-400 tracking-wider" htmlFor="leavebookoffmanager-i6">End Date</label>
                 <input id="leavebookoffmanager-i6" name="leavebookoffmanager-i6"
                   type="date"
                   value={newEntry.endDate}
@@ -816,7 +816,7 @@ export default function LeaveBookOffManager() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] text-slate-400 tracking-wider" htmlFor="leavebookoffmanager-l6">Reason / Remarks</label>
+              <label className="text-[10px] text-slate-400 tracking-wider" htmlFor="leavebookoffmanager-i7">Reason / Remarks</label>
               <input id="leavebookoffmanager-i7" name="leavebookoffmanager-i7"
                 type="text"
                 placeholder="e.g. Personal Leave / Not Reported"
@@ -893,7 +893,10 @@ export default function LeaveBookOffManager() {
                         <td className="py-2.5 px-3 font-bold text-rose-400">#{row.employeeId}</td>
                         <td className="py-2.5 px-3 font-bold">
                           {isEditing ? (
-                            <input id="leavebookoffmanager-i9" name="leavebookoffmanager-i9"
+                            <input
+                              id={`leavebookoff-empname-${row.id || idx}`}
+                              name={`leavebookoff_empname_${row.id || idx}`}
+                              aria-label={`Edit Employee Name for ${row.employeeName}`}
                               type="text"
                               value={editForm.empName}
                               onChange={(e) => setEditForm({ ...editForm, empName: e.target.value })}
@@ -905,7 +908,10 @@ export default function LeaveBookOffManager() {
                         </td>
                         <td className="py-2.5 px-3">
                           {isEditing ? (
-                            <select id="leavebookoffmanager-i10" name="leavebookoffmanager-i10"
+                            <select
+                              id={`leavebookoff-code-${row.id || idx}`}
+                              name={`leavebookoff_code_${row.id || idx}`}
+                              aria-label={`Edit Leave Code for ${row.employeeName}`}
                               value={editForm.code}
                               onChange={(e) => setEditForm({ ...editForm, code: e.target.value })}
                               className="bg-slate-950 border border-slate-700 text-xs rounded px-1.5 py-0.5"
@@ -930,7 +936,10 @@ export default function LeaveBookOffManager() {
                         </td>
                         <td className="py-2.5 px-3 text-slate-400 text-[11px] truncate max-w-[180px]">
                           {isEditing ? (
-                            <input id="leavebookoffmanager-i11" name="leavebookoffmanager-i11"
+                            <input
+                              id={`leavebookoff-reason-${row.id || idx}`}
+                              name={`leavebookoff_reason_${row.id || idx}`}
+                              aria-label={`Edit Reason for ${row.employeeName}`}
                               type="text"
                               value={editForm.reason}
                               onChange={(e) => setEditForm({ ...editForm, reason: e.target.value })}

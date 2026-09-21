@@ -272,7 +272,7 @@ export default function ThemeSettings() {
               <Sliders className="h-3.5 w-3.5" /> Eye Shield Filters
             </h4>
             <div className="space-y-2 bg-slate-900 border border-slate-800 rounded-lg p-2 flex flex-col justify-center">
-              <label className="flex items-center gap-2 cursor-pointer select-none" htmlFor="themesettings-l1">
+              <label className="flex items-center gap-2 cursor-pointer select-none" htmlFor="themesettings-i5">
                 <input id="themesettings-i5" name="themesettings-i5" 
                   type="checkbox"
                   checked={accessibility.blueLightReduction}
@@ -281,7 +281,7 @@ export default function ThemeSettings() {
                 />
                 <span className="text-[10.5px] uppercase font-bold text-blue-450">Reduce Blue Light</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer select-none" htmlFor="themesettings-l2">
+              <label className="flex items-center gap-2 cursor-pointer select-none" htmlFor="themesettings-i6">
                 <input id="themesettings-i6" name="themesettings-i6" 
                   type="checkbox"
                   checked={accessibility.highContrast}
@@ -341,7 +341,7 @@ export default function ThemeSettings() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest" htmlFor="themesettings-l3">Visual Preference Profile Import</label>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest" htmlFor="themesettings-i8">Visual Preference Profile Import</label>
             <textarea id="themesettings-i8" name="themesettings-i8"
               rows={4}
               placeholder='Paste visual config JSON payload here...'
@@ -368,7 +368,7 @@ export default function ThemeSettings() {
 
           <div className="flex flex-col justify-between space-y-2">
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest" htmlFor="themesettings-l4">Active Profile Export</label>
+              <div className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Active Profile Export</div>
               <div className="p-3 bg-slate-900 border border-slate-800 rounded-lg text-[10.5px] text-slate-450 font-mono select-all overflow-x-auto whitespace-pre">
 {`{
   "theme": "${rawTheme}",

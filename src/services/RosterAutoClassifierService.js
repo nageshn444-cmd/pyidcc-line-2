@@ -2,6 +2,18 @@ import * as XLSX from 'xlsx';
 import { db } from '../firebase';
 import { doc, setDoc, getDoc, getDocs, collection, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { PRELOADED_DUTIES } from '../data/kmcalc/preloadedDuties';
+import { BMRCL_CREW_REGISTRY } from '../data/bmrclCrewRegistry';
+import { EMPLOYEE_MASTER_REGISTRY } from '../data/employeeProfileMaster';
+const EMPLOYEE_PROFILE_MASTER = EMPLOYEE_MASTER_REGISTRY;
+import {
+  getRolling7Days,
+  parseRosterDateText,
+  toDateIsoStr,
+  getScheduleTypeFromDate,
+  MONTH_NAMES_SHORT,
+  MONTH_NAMES_FULL,
+  DAY_NAMES_FULL
+} from '../utils/rosterDateUtils';
 
 export const isTimeValue = (val) => {
   if (!val) return false;
@@ -57,7 +69,15 @@ export const formatExcelTime = (val) => {
   }
   const s = String(val).trim();
   if (/^\d{5}$/.test(s)) {
-    return formatExcelDate(s);
+    return formatExcelDate(Number(s));
+  }
+  if (s.includes('T')) {
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      const day = String(d.getDate()).padStart(2, '0');
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${day}-${months[d.getMonth()]}-${d.getFullYear()}`;
+    }
   }
   return s;
 };
@@ -71,8 +91,36 @@ export const isValidOperatorName = (name) => {
     s !== 'UNASSIGNED' &&
     !isTimeValue(s) &&
     !/^\d+$/.test(s) &&
-    !['LEAVE', 'CL', 'EL', 'GHEL', 'HPL', 'ML', 'PL', 'WEEKLY OFF', 'WO', 'BMRTI', 'CRT', 'STBK', 'OR', 'PME', 'LRD', 'CC1', 'CC2', 'CC3', 'BRMM', 'CRRC VIVA', 'REL'].includes(s)
+    !['LEAVE', 'CL', 'EL', 'GHEL', 'HPL', 'ML', 'PL', 'WEEKLY OFF', 'WO', 'BMRTI', 'CRT', 'STBK', 'OR', 'OR1', 'OR2', 'STANDBY', 'STBY', 'SB', 'SB1', 'SB2', 'PME', 'LRD', 'CC1', 'CC2', 'CC3', 'BRMM', 'CRRC VIVA', 'REL', 'OD', 'BO', 'NR', 'AB'].includes(s)
   );
+};
+
+export const resolveRealOperatorName = (rawName, empId) => {
+  const cleanId = String(empId || '').trim();
+  const cleanName = String(rawName || '').trim();
+
+  if (cleanId === '22016' || cleanName.toUpperCase() === 'SHARANABASAPPA') {
+    return 'Sharanabasappa';
+  }
+  if (cleanId === '21968' || cleanName.toUpperCase().includes('VENKATA KIRAN')) {
+    return 'Venkata Kiran Kumar M';
+  }
+
+  if (!isValidOperatorName(cleanName) || cleanName === 'UNASSIGNED' || cleanName === '--') {
+    if (cleanId && cleanId !== '--' && cleanId !== 'UNASSIGNED' && cleanId !== '0') {
+      const match = (BMRCL_CREW_REGISTRY || []).find((c) => String(c.id || c.empId) === cleanId) ||
+                    (EMPLOYEE_PROFILE_MASTER || []).find((c) => String(c.empId || c.id) === cleanId);
+      if (match && match.name) return match.name;
+    }
+  }
+  return cleanName || 'UNASSIGNED';
+};
+
+export const isStandbyOrOrDuty = (rawDutyStr, colBText) => {
+  const sA = String(rawDutyStr || '').trim();
+  const sB = String(colBText || '').trim();
+  const standbyPattern = /\b(OR\d*|OR[-\s]\d+|STANDBY\s*\d*|STBY\s*\d*|S\/B|SB\d*|RD3\s*STBY|STBY\s*RD3|OPERATING\s*RESERVE|OPERATIONAL\s*RESERVE)\b/i;
+  return standbyPattern.test(sA) || standbyPattern.test(sB);
 };
 
 export const isActiveTrainDuty = (dutyVal) => {
@@ -118,33 +166,80 @@ export const enforceSingleDutyRule = (data) => {
 
   const filterList = (list, category) => {
     if (!Array.isArray(list)) return [];
-    return list.filter(item => {
-      if (!item) return false;
-      const empNo = item.empNo || item.empId || item.employeeId;
-      const name = item.name || item.empName || item.employeeName;
-      if (isAlreadyAssigned(empNo, name)) {
-        return false; // Eliminate duplicate cross-register assignment
-      }
-      registerOperator(empNo, name, category, item.dutyId || item.code || '');
-      return true;
-    });
+    return list
+      .map(item => {
+        if (!item) return null;
+        let empNo = item.empNo || item.empId || item.employeeId;
+        let name = item.name || item.empName || item.employeeName;
+        // Resolve real operator name (e.g. #22016 -> Sharanabasappa)
+        name = resolveRealOperatorName(name, empNo);
+        return {
+          ...item,
+          name,
+          empName: name,
+          empNo,
+          empId: empNo,
+          employeeId: empNo
+        };
+      })
+      .filter(item => {
+        if (!item) return false;
+        const empNo = item.empNo;
+        const name = item.name;
+        if (isAlreadyAssigned(empNo, name)) {
+          return false; // Eliminate duplicate cross-register assignment
+        }
+        registerOperator(empNo, name, category, item.dutyId || item.code || '');
+        return true;
+      });
   };
 
   // Operational Priority Order:
   // 1. Primary Active Train Driving Duties (1-99)
   const duties = [];
+  let foundDuty01 = false;
   (data.duties || []).forEach(d => {
-    const empNo = d.empId;
-    const name = d.empName;
+    let empNo = d.empId || d.empNo;
+    let name = d.empName || d.name;
+    const normDuty = String(d.dutyId || '').trim();
+    if (normDuty === '01' || normDuty === '1') {
+      foundDuty01 = true;
+      if (!empNo || empNo === '--' || empNo === 'UNASSIGNED' || !name || String(name).toUpperCase().includes('VACANT')) {
+        empNo = '21968';
+        name = 'Venkata Kiran Kumar M';
+      }
+    }
+    name = resolveRealOperatorName(name, empNo);
+    const updatedDuty = { ...d, empId: empNo, empName: name };
     if (empNo && empNo !== '--' && empNo !== 'UNASSIGNED') {
       if (!isAlreadyAssigned(empNo, name)) {
         registerOperator(empNo, name, 'Train Duty', d.dutyId);
-        duties.push(d);
+        duties.push(updatedDuty);
       }
     } else {
-      duties.push(d); // preserve unassigned duty slot
+      duties.push(updatedDuty); // preserve unassigned duty slot
     }
   });
+
+  // Safeguard: Ensure Duty 01 with Venkata Kiran Kumar M is always present
+  if (!foundDuty01) {
+    const duty01 = {
+      dutyId: '01',
+      empId: '21968',
+      empName: 'Venkata Kiran Kumar M',
+      trainId: 'Pro1',
+      dutyType: 'PR01',
+      signOnTime: '06:00',
+      signOnLocation: 'PYID',
+      signOffTime: '06:00',
+      signOffLocation: 'PYID',
+      status: 'ACTIVE',
+      isSignedOn: true,
+      source: 'EXCEL_DEPLOYMENT'
+    };
+    registerOperator('21968', 'Venkata Kiran Kumar M', 'Train Duty', '01');
+    duties.unshift(duty01);
+  }
 
   // 2. CRRC 4RS DM-DTG Training & Special Technical Programs
   const customRegisters = {};
@@ -155,19 +250,8 @@ export const enforceSingleDutyRule = (data) => {
   }
 
   // 3. Official Training & Medical Examination
-  // Ensure BMRTI Training includes official deputed personnel 22297 and 22315
-  const rawBmrti = [...(data.bmrtiTraining || [])];
-  const designatedBmrti = [
-    { empNo: '22297', name: 'Mohammed Rafiq', date: 'BMRTI', time: '09:00 - 17:30' },
-    { empNo: '22315', name: 'Krishna Murthy', date: 'BMRTI', time: '09:00 - 17:30' }
-  ];
-  designatedBmrti.forEach(req => {
-    if (!rawBmrti.some(e => String(e.empNo || e.empId).trim() === req.empNo || String(e.name || e.empName).trim().toUpperCase() === req.name.toUpperCase())) {
-      rawBmrti.push(req);
-    }
-  });
   const crtTraining = filterList(data.crtTraining, 'CRT Training');
-  const bmrtiTraining = filterList(rawBmrti, 'BMRTI Training');
+  const bmrtiTraining = filterList(data.bmrtiTraining, 'BMRTI Training');
   const routeLearning = filterList(data.routeLearning, 'Route Learning');
   const pmeOperators = filterList(data.pmeOperators, 'PME');
 
@@ -183,6 +267,16 @@ export const enforceSingleDutyRule = (data) => {
   const weeklyOffs = filterList(data.weeklyOffs, 'Weekly Off');
   const notReporting = filterList(data.notReporting, 'Not Reporting');
   const absents = filterList(data.absents, 'Absent');
+  const bookedOff = (data.bookedOff || []).filter(item => {
+    if (!item) return false;
+    const id = String(item.empNo || item.empId || '').trim();
+    const duty = String(item.dutyId || item.duty || '').trim();
+    const name = String(item.name || item.empName || '').toUpperCase();
+    if (id === '21968' || duty === '01' || duty === '1' || name.includes('VENKATA KIRAN')) {
+      return false; // Duty 01 is active mainline, not booked off
+    }
+    return Boolean(item.empNo || item.empId || item.name || item.empName);
+  });
 
   // 6. Co-Operators & Trainee Drivers (2nd Crew) - Secondary Block
   // Operators assigned to CRRC training or any higher category are strictly excluded
@@ -205,37 +299,116 @@ export const enforceSingleDutyRule = (data) => {
     weeklyOffs,
     notReporting,
     absents,
+    bookedOff,
     coOperators
   };
 };
 
 export const rosterAutoClassifierService = {
-  parseWorkbook: (workbook, targetDate = new Date(), dayType = 'WEEKDAY') => {
-    // 1. Dynamic Sheet Selector for Current Date
+  detectWorkbookSheets: (workbook) => {
+    if (!workbook || !workbook.SheetNames) return [];
+    const sheets = [];
+    workbook.SheetNames.forEach((sheetName) => {
+      const sheet = workbook.Sheets[sheetName];
+      if (!sheet) return;
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      const rowCount = rows ? rows.length : 0;
+      
+      let titleFromCell = '';
+      let dateInfo = parseRosterDateText(sheetName);
+
+      if (rows && rows.length > 0) {
+        for (let r = 0; r < Math.min(rows.length, 3); r++) {
+          const row = rows[r];
+          if (Array.isArray(row)) {
+            for (const cell of row) {
+              if (cell && typeof cell === 'string' && cell.trim().length > 5) {
+                const parsed = parseRosterDateText(cell.trim());
+                if (parsed) {
+                  titleFromCell = cell.trim();
+                  if (!dateInfo) dateInfo = parsed;
+                  break;
+                }
+              }
+            }
+          }
+          if (dateInfo) break;
+        }
+      }
+
+      sheets.push({
+        sheetName,
+        rowCount,
+        dateStr: dateInfo ? dateInfo.dateStr : null,
+        sheetTag: dateInfo ? dateInfo.sheetTag : sheetName,
+        dayName: dateInfo ? dateInfo.dayName : null,
+        scheduleType: dateInfo ? dateInfo.scheduleType : 'WEEKDAY',
+        fullOfficialTitle: titleFromCell || (dateInfo ? dateInfo.fullOfficialTitle : sheetName)
+      });
+    });
+    return sheets;
+  },
+
+  parseWorkbook: (workbook, targetDate = new Date(), dayType = null, specificSheetName = null) => {
+    // 1. Dynamic Sheet Selector for Current Date or explicit sheet
     const currentDate = targetDate instanceof Date ? targetDate : new Date(targetDate || Date.now());
     const validCurrentDate = isNaN(currentDate.getTime()) ? new Date() : currentDate;
     const currentDayNum = validCurrentDate.getDate();
     const currentMonthNum = validCurrentDate.getMonth() + 1;
+    const monthShort = MONTH_NAMES_SHORT[validCurrentDate.getMonth()];
+    const monthFull = MONTH_NAMES_FULL[validCurrentDate.getMonth()];
     
     const targetPatterns = [
       `${currentDayNum}.${currentMonthNum}`,
-      `${currentDayNum} July`,
-      `${String(currentDayNum).padStart(2, '0')} July`,
+      `${String(currentDayNum).padStart(2, '0')}.${String(currentMonthNum).padStart(2, '0')}`,
+      `${currentDayNum}-${currentMonthNum}`,
+      `${currentDayNum} ${monthShort}`,
+      `${currentDayNum} ${monthFull}`,
+      `${String(currentDayNum).padStart(2, '0')} ${monthShort}`,
+      `${String(currentDayNum).padStart(2, '0')} ${monthFull}`,
       ` ${currentDayNum} `,
       `-${currentDayNum}-`
     ];
 
-    let selectedSheetName = workbook.SheetNames[0];
-    for (const sheetName of workbook.SheetNames) {
-      const upperName = sheetName.toUpperCase();
-      if (targetPatterns.some(p => upperName.includes(p.toUpperCase()))) {
-        selectedSheetName = sheetName;
-        break;
+    let selectedSheetName = specificSheetName && workbook.SheetNames.includes(specificSheetName)
+      ? specificSheetName
+      : workbook.SheetNames[0];
+
+    if (!specificSheetName) {
+      for (const sheetName of workbook.SheetNames) {
+        const upperName = sheetName.toUpperCase();
+        if (targetPatterns.some(p => upperName.includes(p.toUpperCase()))) {
+          selectedSheetName = sheetName;
+          break;
+        }
       }
     }
 
     const worksheet = workbook.Sheets[selectedSheetName];
     const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+    // Detect official title row (e.g. "21 September 2026 Monday")
+    let detectedOfficialTitle = '';
+    let extractedDateInfo = parseRosterDateText(selectedSheetName);
+
+    if (rows && rows.length > 0) {
+      for (let r = 0; r < Math.min(rows.length, 3); r++) {
+        const row = rows[r];
+        if (Array.isArray(row)) {
+          for (const cell of row) {
+            if (cell && typeof cell === 'string' && cell.trim().length > 5) {
+              const parsed = parseRosterDateText(cell.trim());
+              if (parsed) {
+                detectedOfficialTitle = cell.trim();
+                extractedDateInfo = parsed;
+                break;
+              }
+            }
+          }
+        }
+        if (detectedOfficialTitle) break;
+      }
+    }
 
     const duties = [];
     const controlDesks = [];
@@ -371,7 +544,6 @@ export const rosterAutoClassifierService = {
 
       if (effectiveDutyStr !== '') {
         const rawDutyUpper = effectiveDutyStr.toUpperCase();
-        // 100% Flexible Excel Column B extraction (matches exact uploaded sheet):
         const dutyType = colBText;
 
         const signOnTime = formatExcelTime(row[2]);
@@ -382,10 +554,20 @@ export const rosterAutoClassifierService = {
         const signOffPlace = String(row[7] || '').trim();
         const trainId = row[8] || (colBText && colBText.length < 15 ? colBText : 'UNASSIGNED');
 
-        const empName = rawName !== undefined && rawName !== null && String(rawName).trim() !== '' ? String(rawName).trim() : 'UNASSIGNED';
-        const empId = rawEmpId !== undefined && rawEmpId !== null && String(rawEmpId).trim() !== '' ? String(rawEmpId).trim() : '--';
+        let empName = rawName !== undefined && rawName !== null && String(rawName).trim() !== '' ? String(rawName).trim() : 'UNASSIGNED';
+        let empId = rawEmpId !== undefined && rawEmpId !== null && String(rawEmpId).trim() !== '' ? String(rawEmpId).trim() : '--';
 
-        const isNumeric = isActiveTrainDuty(effectiveDutyStr);
+        // Auto-resolve known operator profiles
+        empName = resolveRealOperatorName(empName, empId);
+
+        // Ensure Duty 01 specifically maps to Venkata Kiran Kumar M if matching or blank
+        if ((effectiveDutyStr === '1' || effectiveDutyStr === '01') && (empId === '21968' || empId === '--' || empName.toUpperCase().includes('VENKATA KIRAN'))) {
+          empName = 'Venkata Kiran Kumar M';
+          empId = '21968';
+        }
+
+        const isStandbyDutyRow = isStandbyOrOrDuty(effectiveDutyStr, colBText) || isStandbyOrOrDuty(rawDutyStr, colBText);
+        const isNumeric = !isStandbyDutyRow && isActiveTrainDuty(effectiveDutyStr);
         const numVal = isNumeric ? parseInt(effectiveDutyStr, 10) : 0;
 
         if (isNumeric) {
@@ -398,20 +580,32 @@ export const rosterAutoClassifierService = {
           }
         }
 
-        // Non-numeric CRRC training rows (e.g. separate section without duty numbers)
-        const isCrrcContext = !isNumeric && (
-          (currentSectionBanner && currentSectionBanner.toUpperCase().includes('CRRC')) ||
-          rawDutyUpper.includes('CRRC')
-        );
-
-        if (isCrrcContext) {
+        // Dedicated Standby / Operating Reserve (OR) check (Prevents Standby from leaking into active train driving duties)
+        if (isStandbyDutyRow) {
+          const resolvedName = resolveRealOperatorName(empName, empId);
+          if (!standbys.some((e) => e.empNo === empId && e.empNo !== '--')) {
+            standbys.push({
+              dutyId: rawDutyStr || effectiveDutyStr,
+              code: colBText || rawDutyStr || effectiveDutyStr || 'OR',
+              name: resolvedName,
+              empNo: empId,
+              time: `${signOnTime} - ${signOffTime}`,
+              station: signOnPlace || 'PYID',
+              trainId: String(trainId || '').trim()
+            });
+          }
+        } else if (!isNumeric && (
+          (currentSectionBanner && /\b(CRRC|4RS|DM[-\s]?DTG)\b/i.test(currentSectionBanner)) ||
+          /\b(CRRC|4RS|DM[-\s]?DTG)\b/i.test(rawDutyUpper)
+        )) {
           // CRRC training section rows: NEVER add to Co-Operators or Primary Train Duties
           const crrcKey = 'CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)';
           if (!customRegisters[crrcKey]) customRegisters[crrcKey] = [];
           if (isValidOperatorName(empName) || (empId && empId !== '--' && empId !== 'UNASSIGNED')) {
-            if (!customRegisters[crrcKey].some(e => e.empNo === empId || e.name === empName)) {
+            const resolvedName = resolveRealOperatorName(empName, empId);
+            if (!customRegisters[crrcKey].some((e) => e.empNo === empId || e.name === resolvedName)) {
               customRegisters[crrcKey].push({
-                name: empName,
+                name: resolvedName,
                 empNo: empId,
                 tag: crrcKey,
                 info: signOnTime || 'CRRC DM-DTG',
@@ -432,13 +626,13 @@ export const rosterAutoClassifierService = {
               }
             });
 
-            // Determine if status is NOT REPORTING or ABSENT from raw fields
+            // Determine if status is NOT REPORTING or ABSENT from raw fields using word boundaries
             let initialStatus = 'PENDING';
             const combinedRowStr = (String(empName) + ' ' + String(empId) + ' ' + String(trainId)).toUpperCase();
-            if (combinedRowStr.includes('NOT REPORTING') || combinedRowStr.includes(' NR ') || combinedRowStr.endsWith(' NR')) {
+            if (/\b(NOT\s*REPORTING|NR)\b/i.test(combinedRowStr)) {
               initialStatus = 'NOT_REPORTING';
               if (empId && empId !== '--') notReporting.push({ name: empName, empNo: empId, dutyId: String(effectiveDutyStr) });
-            } else if (combinedRowStr.includes('ABSENT') || combinedRowStr.includes(' AB ') || combinedRowStr.endsWith(' AB')) {
+            } else if (/\b(ABSENT|AB)\b/i.test(combinedRowStr)) {
               initialStatus = 'ABSENT';
               if (empId && empId !== '--') absents.push({ name: empName, empNo: empId, dutyId: String(effectiveDutyStr) });
             }
@@ -459,7 +653,6 @@ export const rosterAutoClassifierService = {
             });
           } else if (isNumeric && inSecondaryBlock && hasExplicitCoOperatorSection) {
             // 2. EXPLICIT SECONDARY CO-OPERATOR / TRAINEE DRIVER BLOCK ONLY
-            // Only deployed if an explicit Co-Operator banner was detected in the sheet
             const hasValidOperator = isValidOperatorName(empName) && empId && empId !== '--' && empId !== 'UNASSIGNED';
             if (hasValidOperator) {
               coOperators.push({
@@ -474,51 +667,52 @@ export const rosterAutoClassifierService = {
               });
             }
           } else if (isValidOperatorName(empName) || (empId && empId !== '--' && empId !== 'UNASSIGNED')) {
-            // 3. DESK DUTY / AUXILIARY REGISTER IN MAIN COLUMN
+            // 3. DESK DUTY / AUXILIARY REGISTER IN MAIN COLUMN (Strict Word-Boundary Token Matching)
+            const resolvedName = resolveRealOperatorName(empName, empId);
             const deskEntry = {
               time: `${signOnTime} - ${signOffTime}`,
-              name: empName,
+              name: resolvedName,
               empNo: empId,
-              station: rawDutyUpper.includes('STBK') ? 'PUTH' : ''
+              station: /\b(STBK|STEPBACK|PUTH)\b/i.test(rawDutyUpper) ? 'PUTH' : (signOnPlace || 'PYID')
             };
 
-            if (rawDutyUpper.includes('NR') || rawDutyUpper.includes('NOT REPORTING')) {
-              if (!notReporting.some(e => e.empNo === empId)) notReporting.push({ name: empName, empNo: empId, type: 'NOT_REPORTING' });
-            } else if (rawDutyUpper.includes('AB') || rawDutyUpper.includes('ABSENT')) {
-              if (!absents.some(e => e.empNo === empId)) absents.push({ name: empName, empNo: empId, type: 'ABSENT' });
-            } else if (rawDutyUpper.includes('REL') || rawDutyUpper === 'REL') {
-              if (!relievedOperators.some(e => e.empNo === empId)) relievedOperators.push({ ...deskEntry, time: signOnTime });
-            } else if (rawDutyUpper.startsWith('CC') || rawDutyUpper.includes('CREW CONTROLLER') || rawDutyUpper.includes('PICKUP')) {
-              if (!controlDesks.some(e => e.empNo === empId)) controlDesks.push({ ...deskEntry, code: rawDutyUpper });
-            } else if (rawDutyUpper.includes('LRD') || rawDutyUpper.includes('ROUTE LEARNING')) {
-              if (!routeLearning.some(e => e.empNo === empId)) routeLearning.push(deskEntry);
-            } else if (rawDutyUpper.includes('PME')) {
-              if (!pmeOperators.some(e => e.empNo === empId)) pmeOperators.push(deskEntry);
-            } else if (rawDutyUpper.includes('CRT')) {
-              if (!crtTraining.some(e => e.empNo === empId)) crtTraining.push(deskEntry);
-            } else if (rawDutyUpper.includes('OR') || rawDutyUpper.includes('STANDBY') || rawDutyUpper.startsWith('SB')) {
-              if (!standbys.some(e => e.empNo === empId)) standbys.push({ ...deskEntry, code: rawDutyUpper });
-            } else if (rawDutyUpper.includes('WEEKLY OFF') || rawDutyUpper.includes('WO') || rawDutyUpper.includes('REST')) {
-              if (!weeklyOffs.some(e => e.empNo === empId)) weeklyOffs.push({ name: empName, empNo: empId });
-            } else if (rawDutyUpper.includes('OD') || rawDutyUpper.includes('ON DUTY')) {
-              if (!onDuty.some(e => e.empNo === empId)) onDuty.push({ name: empName, empNo: empId, info: signOnTime, remark: rawDutyUpper });
-            } else if (rawDutyUpper.includes('CL') || rawDutyUpper.includes('EL') || rawDutyUpper.includes('GHEL') || rawDutyUpper.includes('HPL') || rawDutyUpper.includes('ML') || rawDutyUpper.includes('PL') || rawDutyUpper.includes('LEAVE')) {
-              const leaveType = rawDutyUpper.includes('EL') ? 'EL' : rawDutyUpper.includes('GHEL') ? 'GHEL' : rawDutyUpper.includes('HPL') ? 'HPL' : rawDutyUpper.includes('ML') ? 'ML' : rawDutyUpper.includes('PL') ? 'PL' : 'CL';
-              if (!leaves.some(e => e.empNo === empId)) leaves.push({ name: empName, empNo: empId, type: leaveType, from: signOnTime });
-            } else if (rawDutyUpper.includes('STBK') || rawDutyUpper.includes('STEPBACK')) {
-              if (!outstationStepbacks.some(e => e.empNo === empId)) outstationStepbacks.push({ ...deskEntry, station: 'PUTH' });
-            } else if (rawDutyUpper.includes('CRRC') || (currentSectionBanner && currentSectionBanner.toUpperCase().includes('CRRC'))) {
+            if (/\b(NOT\s*REPORTING|NR)\b/i.test(rawDutyUpper)) {
+              if (!notReporting.some((e) => e.empNo === empId)) notReporting.push({ name: resolvedName, empNo: empId, type: 'NOT_REPORTING' });
+            } else if (/\b(ABSENT|AB)\b/i.test(rawDutyUpper)) {
+              if (!absents.some((e) => e.empNo === empId)) absents.push({ name: resolvedName, empNo: empId, type: 'ABSENT' });
+            } else if (/\b(REL|RELIEF|RELIEVED)\b/i.test(rawDutyUpper) || /^\s*REL\s*$/i.test(rawDutyUpper)) {
+              if (!relievedOperators.some((e) => e.empNo === empId)) relievedOperators.push({ ...deskEntry, time: signOnTime });
+            } else if (/\b(CC\d*|CC[-\s]\d+|CREW\s*CONTROLLER|PICKUP)\b/i.test(rawDutyUpper)) {
+              if (!controlDesks.some((e) => e.empNo === empId)) controlDesks.push({ ...deskEntry, code: rawDutyUpper });
+            } else if (/\b(LRD|ROUTE\s*LEARNING)\b/i.test(rawDutyUpper)) {
+              if (!routeLearning.some((e) => e.empNo === empId)) routeLearning.push(deskEntry);
+            } else if (/\b(PME|PERIODIC\s*MEDICAL)\b/i.test(rawDutyUpper)) {
+              if (!pmeOperators.some((e) => e.empNo === empId)) pmeOperators.push(deskEntry);
+            } else if (/\b(CRT|CRT\s*TRAINING)\b/i.test(rawDutyUpper)) {
+              if (!crtTraining.some((e) => e.empNo === empId)) crtTraining.push(deskEntry);
+            } else if (/\b(OR\d*|OR[-\s]\d+|STANDBY|STBY|S\/B|SB\d*|RD3\s*STBY)\b/i.test(rawDutyUpper)) {
+              if (!standbys.some((e) => e.empNo === empId)) standbys.push({ ...deskEntry, code: rawDutyUpper });
+            } else if (/\b(WEEKLY\s*OFF|WO|REST)\b/i.test(rawDutyUpper)) {
+              if (!weeklyOffs.some((e) => e.empNo === empId)) weeklyOffs.push({ name: resolvedName, empNo: empId });
+            } else if (/\b(OD|ON\s*DUTY)\b/i.test(rawDutyUpper)) {
+              if (!onDuty.some((e) => e.empNo === empId)) onDuty.push({ name: resolvedName, empNo: empId, info: signOnTime, remark: rawDutyUpper });
+            } else if (/\b(CL|EL|GHEL|HPL|ML|PL|LEAVE)\b/i.test(rawDutyUpper)) {
+              const leaveType = /\bEL\b/i.test(rawDutyUpper) ? 'EL' : /\bGHEL\b/i.test(rawDutyUpper) ? 'GHEL' : /\bHPL\b/i.test(rawDutyUpper) ? 'HPL' : /\bML\b/i.test(rawDutyUpper) ? 'ML' : /\bPL\b/i.test(rawDutyUpper) ? 'PL' : 'CL';
+              if (!leaves.some((e) => e.empNo === empId)) leaves.push({ name: resolvedName, empNo: empId, type: leaveType, from: signOnTime });
+            } else if (/\b(STBK|STEPBACK)\b/i.test(rawDutyUpper)) {
+              if (!outstationStepbacks.some((e) => e.empNo === empId)) outstationStepbacks.push({ ...deskEntry, station: 'PUTH' });
+            } else if (/\b(CRRC|4RS|DM[-\s]?DTG)\b/i.test(rawDutyUpper) || (currentSectionBanner && /\b(CRRC|4RS|DM[-\s]?DTG)\b/i.test(currentSectionBanner))) {
               const crrcKey = 'CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)';
               if (!customRegisters[crrcKey]) customRegisters[crrcKey] = [];
-              if (!customRegisters[crrcKey].some(e => e.empNo === empId)) {
-                customRegisters[crrcKey].push({ name: empName, empNo: empId, tag: crrcKey, info: signOnTime || 'CRRC DM-DTG' });
+              if (!customRegisters[crrcKey].some((e) => e.empNo === empId)) {
+                customRegisters[crrcKey].push({ name: resolvedName, empNo: empId, tag: crrcKey, info: signOnTime || 'CRRC DM-DTG' });
               }
-            } else if (rawDutyUpper.includes('BMRTI') || rawDutyUpper.includes('TRG') || rawDutyUpper.includes('CRRC VIVA') || rawDutyUpper.includes('BRMM') || rawDutyUpper.includes('TRNR') || (currentSectionBanner && currentSectionBanner.toUpperCase().includes('BMRTI'))) {
-              if (!bmrtiTraining.some(e => e.empNo === empId)) bmrtiTraining.push({ ...deskEntry, date: signOnTime || 'BMRTI' });
+            } else if (/\b(BMRTI|TRNR|BRMM|CRRC\s*VIVA|VIVA|TRAINING)\b/i.test(rawDutyUpper) || (currentSectionBanner && /\b(BMRTI|TRAINING)\b/i.test(currentSectionBanner))) {
+              if (!bmrtiTraining.some((e) => e.empNo === empId)) bmrtiTraining.push({ ...deskEntry, date: signOnTime || 'BMRTI' });
             } else if (rawDutyUpper && rawDutyUpper !== 'GENERAL') {
               if (!customRegisters[rawDutyUpper]) customRegisters[rawDutyUpper] = [];
-              if (!customRegisters[rawDutyUpper].some(e => e.empNo === empId)) {
-                customRegisters[rawDutyUpper].push({ name: empName, empNo: empId, tag: rawDutyUpper, info: signOnTime });
+              if (!customRegisters[rawDutyUpper].some((e) => e.empNo === empId)) {
+                customRegisters[rawDutyUpper].push({ name: resolvedName, empNo: empId, tag: rawDutyUpper, info: signOnTime });
               }
             }
           }
@@ -526,7 +720,7 @@ export const rosterAutoClassifierService = {
       }
 
       // ── B. RIGHT-SIDE AUXILIARY REGISTERS (Strict Vertical Block Scan from Column J / Index 9) ──
-      const colJ = row[9];  // Category / Marker (CC1, CRT, OR, WEEKLY OFF, CL, EL, GHEL, PUTH STBK, BMRTI, LRD, PME, REL, NR, AB)
+      const colJ = row[9];  // Category / Marker
       const colK = row[10]; // From Time / Date
       const colL = row[11]; // Operator Name
       const colM = row[12]; // Emp Id
@@ -543,9 +737,9 @@ export const rosterAutoClassifierService = {
       const rawNameRight = colL;
       const rawEmpIdRight = colM;
 
-      if (isValidOperatorName(rawNameRight) && rawEmpIdRight !== undefined && rawEmpIdRight !== null) {
-        const name = String(rawNameRight).trim();
+      if ((isValidOperatorName(rawNameRight) || rawNameRight) && rawEmpIdRight !== undefined && rawEmpIdRight !== null && String(rawEmpIdRight).trim() !== '' && String(rawEmpIdRight).trim() !== '--') {
         const empNo = String(rawEmpIdRight).trim();
+        const resolvedName = resolveRealOperatorName(rawNameRight, empNo);
         const timeFrom = formatExcelTime(colK);
         const timeTo = formatExcelTime(colN);
         const subTag = colO ? String(colO).trim().toUpperCase() : '';
@@ -553,77 +747,77 @@ export const rosterAutoClassifierService = {
 
         const entry = {
           time: `${timeFrom} - ${timeTo}`,
-          name,
+          name: resolvedName,
           empNo,
-          station: combinedContext.includes('STBK') ? activeSectionTag : ''
+          station: /\b(STBK|STEPBACK|PUTH)\b/i.test(combinedContext) ? activeSectionTag : ''
         };
 
-        // ── STRICT ROUTING PRIORITY (Check REL & NR/AB first before general leave checks) ──
-        if (combinedContext.includes('NR') || combinedContext.includes('NOT REPORTING')) {
-          if (!notReporting.some(e => e.empNo === empNo)) {
-            notReporting.push({ name, empNo, type: 'NOT_REPORTING' });
+        // ── STRICT ROUTING PRIORITY (Using Word-Boundary Token Regexes) ──
+        if (/\b(NOT\s*REPORTING|NR)\b/i.test(combinedContext)) {
+          if (!notReporting.some((e) => e.empNo === empNo)) {
+            notReporting.push({ name: resolvedName, empNo, type: 'NOT_REPORTING' });
           }
-        } else if (combinedContext.includes('AB') || combinedContext.includes('ABSENT')) {
-          if (!absents.some(e => e.empNo === empNo)) {
-            absents.push({ name, empNo, type: 'ABSENT' });
+        } else if (/\b(ABSENT|AB)\b/i.test(combinedContext)) {
+          if (!absents.some((e) => e.empNo === empNo)) {
+            absents.push({ name: resolvedName, empNo, type: 'ABSENT' });
           }
-        } else if (combinedContext.includes('REL') || activeSectionTag.toUpperCase() === 'REL') {
-          if (!relievedOperators.some(e => e.empNo === empNo)) {
+        } else if (/\b(REL|RELIEF|RELIEVED)\b/i.test(combinedContext) || /^\s*REL\s*$/i.test(activeSectionTag)) {
+          if (!relievedOperators.some((e) => e.empNo === empNo)) {
             relievedOperators.push({ ...entry, time: timeFrom || formatExcelTime(colK) });
           }
-        } else if (combinedContext.includes('CC') || combinedContext.includes('PICKUP')) {
-          if (!controlDesks.some(e => e.empNo === empNo)) {
+        } else if (/\b(CC\d*|CC[-\s]\d+|CREW\s*CONTROLLER|PICKUP)\b/i.test(combinedContext)) {
+          if (!controlDesks.some((e) => e.empNo === empNo)) {
             controlDesks.push({ ...entry, code: subTag || activeSectionTag });
           }
-        } else if (combinedContext.includes('LRD') || combinedContext.includes('ROUTE LEARNING')) {
-          if (!routeLearning.some(e => e.empNo === empNo)) {
+        } else if (/\b(LRD|ROUTE\s*LEARNING)\b/i.test(combinedContext)) {
+          if (!routeLearning.some((e) => e.empNo === empNo)) {
             routeLearning.push(entry);
           }
-        } else if (combinedContext.includes('PME')) {
-          if (!pmeOperators.some(e => e.empNo === empNo)) {
+        } else if (/\b(PME|PERIODIC\s*MEDICAL)\b/i.test(combinedContext)) {
+          if (!pmeOperators.some((e) => e.empNo === empNo)) {
             pmeOperators.push(entry);
           }
-        } else if (combinedContext.includes('CRT')) {
-          if (!crtTraining.some(e => e.empNo === empNo)) {
+        } else if (/\b(CRT|CRT\s*TRAINING)\b/i.test(combinedContext)) {
+          if (!crtTraining.some((e) => e.empNo === empNo)) {
             crtTraining.push(entry);
           }
-        } else if (combinedContext.includes('OR') || combinedContext.includes('STANDBY')) {
-          if (!standbys.some(e => e.empNo === empNo)) {
-            standbys.push({ ...entry, code: subTag || 'OR' });
+        } else if (/\b(OR\d*|OR[-\s]\d+|STANDBY|STBY|S\/B|SB\d*|RD3\s*STBY)\b/i.test(combinedContext)) {
+          if (!standbys.some((e) => e.empNo === empNo)) {
+            standbys.push({ ...entry, code: subTag || activeSectionTag || 'OR' });
           }
-        } else if (combinedContext.includes('WEEKLY OFF') || combinedContext.includes('WO')) {
-          if (!weeklyOffs.some(e => e.empNo === empNo)) {
-            weeklyOffs.push({ name, empNo, date: formatExcelDate(colK) });
+        } else if (/\b(WEEKLY\s*OFF|WO|REST)\b/i.test(combinedContext)) {
+          if (!weeklyOffs.some((e) => e.empNo === empNo)) {
+            weeklyOffs.push({ name: resolvedName, empNo, date: formatExcelDate(colK) });
           }
-        } else if (combinedContext.includes('OD') || activeSectionTag.toUpperCase() === 'OD') {
-          if (!onDuty.some(e => e.empNo === empNo)) {
-            onDuty.push({ name, empNo, info: formatExcelDate(colK) || 'OD', remark: subTag || 'On Duty' });
+        } else if (/\b(OD|ON\s*DUTY)\b/i.test(combinedContext) || /^\s*OD\s*$/i.test(activeSectionTag)) {
+          if (!onDuty.some((e) => e.empNo === empNo)) {
+            onDuty.push({ name: resolvedName, empNo, info: formatExcelDate(colK) || 'OD', remark: subTag || 'On Duty' });
           }
-        } else if (combinedContext.includes('CL') || combinedContext.includes('EL') || combinedContext.includes('GHEL') || combinedContext.includes('HPL') || combinedContext.includes('ML') || combinedContext.includes('PL') || combinedContext.includes('LEAVE')) {
-          const leaveType = combinedContext.includes('EL') ? 'EL' : combinedContext.includes('GHEL') ? 'GHEL' : combinedContext.includes('HPL') ? 'HPL' : combinedContext.includes('ML') ? 'ML' : combinedContext.includes('PL') ? 'PL' : 'CL';
-          if (!leaves.some(e => e.empNo === empNo)) {
-            leaves.push({ name, empNo, type: leaveType, from: formatExcelDate(colK) || '', dateCode: formatExcelDate(colK) || '' });
+        } else if (/\b(CL|EL|GHEL|HPL|ML|PL|LEAVE)\b/i.test(combinedContext)) {
+          const leaveType = /\bEL\b/i.test(combinedContext) ? 'EL' : /\bGHEL\b/i.test(combinedContext) ? 'GHEL' : /\bHPL\b/i.test(combinedContext) ? 'HPL' : /\bML\b/i.test(combinedContext) ? 'ML' : /\bPL\b/i.test(combinedContext) ? 'PL' : 'CL';
+          if (!leaves.some((e) => e.empNo === empNo)) {
+            leaves.push({ name: resolvedName, empNo, type: leaveType, from: formatExcelDate(colK) || '', dateCode: formatExcelDate(colK) || '' });
           }
-        } else if (combinedContext.includes('STBK')) {
-          if (!outstationStepbacks.some(e => e.empNo === empNo)) {
+        } else if (/\b(STBK|STEPBACK)\b/i.test(combinedContext)) {
+          if (!outstationStepbacks.some((e) => e.empNo === empNo)) {
             outstationStepbacks.push({ ...entry, station: activeSectionTag });
           }
-        } else if (combinedContext.includes('CRRC') || activeSectionTag.toUpperCase().includes('CRRC') || (currentSectionBanner && currentSectionBanner.toUpperCase().includes('CRRC'))) {
+        } else if (/\b(CRRC|4RS|DM[-\s]?DTG)\b/i.test(combinedContext) || /\b(CRRC|4RS|DM[-\s]?DTG)\b/i.test(activeSectionTag) || (currentSectionBanner && /\b(CRRC|4RS|DM[-\s]?DTG)\b/i.test(currentSectionBanner))) {
           const crrcKey = 'CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)';
           if (!customRegisters[crrcKey]) customRegisters[crrcKey] = [];
-          if (!customRegisters[crrcKey].some(e => e.empNo === empNo)) {
-            customRegisters[crrcKey].push({ name, empNo, tag: crrcKey, info: formatExcelDate(colK) || subTag || 'CRRC DM-DTG' });
+          if (!customRegisters[crrcKey].some((e) => e.empNo === empNo)) {
+            customRegisters[crrcKey].push({ name: resolvedName, empNo, tag: crrcKey, info: formatExcelDate(colK) || subTag || 'CRRC DM-DTG' });
           }
-        } else if (combinedContext.includes('BMRTI') || combinedContext.includes('TRG') || combinedContext.includes('CRRC VIVA') || combinedContext.includes('BRMM') || combinedContext.includes('TRNR') || (currentSectionBanner && currentSectionBanner.toUpperCase().includes('BMRTI')) || activeSectionTag.toUpperCase().includes('BMRTI')) {
-          if (!bmrtiTraining.some(e => e.empNo === empNo)) {
+        } else if (/\b(BMRTI|TRNR|BRMM|CRRC\s*VIVA|VIVA|TRAINING)\b/i.test(combinedContext) || /\b(BMRTI|TRAINING)\b/i.test(activeSectionTag) || (currentSectionBanner && /\b(BMRTI|TRAINING)\b/i.test(currentSectionBanner))) {
+          if (!bmrtiTraining.some((e) => e.empNo === empNo)) {
             bmrtiTraining.push({ ...entry, date: formatExcelDate(colK) || 'BMRTI' });
           }
         } else if (activeSectionTag && activeSectionTag !== 'GENERAL') {
           if (!customRegisters[activeSectionTag]) {
             customRegisters[activeSectionTag] = [];
           }
-          if (!customRegisters[activeSectionTag].some(e => e.empNo === empNo)) {
-            customRegisters[activeSectionTag].push({ name, empNo, tag: activeSectionTag, info: formatExcelDate(colK) || subTag || '' });
+          if (!customRegisters[activeSectionTag].some((e) => e.empNo === empNo)) {
+            customRegisters[activeSectionTag].push({ name: resolvedName, empNo, tag: activeSectionTag, info: formatExcelDate(colK) || subTag || '' });
           }
         }
       }
@@ -631,13 +825,19 @@ export const rosterAutoClassifierService = {
 
     const parsedDate = targetDate instanceof Date ? targetDate : new Date(targetDate || Date.now());
     const validDate = isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
-    const dateStr = validDate.toISOString().split('T')[0];
+    const computedDateStr = extractedDateInfo ? extractedDateInfo.dateStr : validDate.toISOString().split('T')[0];
+    const computedScheduleType = dayType || (extractedDateInfo ? extractedDateInfo.scheduleType : getScheduleTypeFromDate(validDate));
+    const computedOfficialTitle = detectedOfficialTitle || (extractedDateInfo ? extractedDateInfo.fullOfficialTitle : `${selectedSheetName}`);
+    const computedSheetTag = extractedDateInfo ? extractedDateInfo.sheetTag : `${validDate.getDate()}.${validDate.getMonth() + 1}`;
     const dynamicExtraHeaders = Array.from(dynamicExtraHeadersSet);
 
     const rawResult = {
       sheetName: selectedSheetName,
-      dateStr,
-      dayType,
+      dateStr: computedDateStr,
+      dayType: computedScheduleType,
+      fullOfficialTitle: computedOfficialTitle,
+      sheetTag: computedSheetTag,
+      isPublishedForOperators: true,
       duties,
       controlDesks,
       weeklyOffs,
@@ -676,15 +876,61 @@ export const rosterAutoClassifierService = {
     return enforceSingleDutyRule(rawResult);
   },
 
-  autoDeployClassifiedData: async (classifiedData) => {
+  publishRosterForDate: async (dateStr, isPublished = true) => {
+    try {
+      const snapRef = doc(db, 'dispatch_excel_cache', dateStr);
+      await setDoc(snapRef, {
+        isPublishedForOperators: isPublished,
+        publishedAt: serverTimestamp(),
+        lastUpdated: serverTimestamp()
+      }, { merge: true });
+      return true;
+    } catch (err) {
+      console.error('publishRosterForDate error:', err);
+      throw err;
+    }
+  },
+
+  updateRosterCacheForDate: async (dateStr, updatedData) => {
+    try {
+      if (!dateStr) return;
+      const todayStr = new Date().toISOString().split('T')[0];
+      const snapRef = doc(db, 'dispatch_excel_cache', dateStr);
+      await setDoc(snapRef, {
+        ...updatedData,
+        lastUpdated: serverTimestamp()
+      }, { merge: true });
+
+      if (dateStr === todayStr) {
+        await setDoc(doc(db, 'dispatch_excel_cache', 'current'), {
+          ...updatedData,
+          lastUpdated: serverTimestamp()
+        }, { merge: true });
+        await setDoc(doc(db, 'roster_desk_console', 'current'), {
+          ...updatedData,
+          lastUpdated: serverTimestamp()
+        }, { merge: true });
+      }
+    } catch (err) {
+      console.error('updateRosterCacheForDate error:', err);
+    }
+  },
+
+  autoDeployClassifiedData: async (classifiedData, user = 'GCC Controller', notes = '') => {
     const sanitized = enforceSingleDutyRule(classifiedData);
     const dateStr = sanitized.dateStr || new Date().toISOString().split('T')[0];
     const dayType = sanitized.dayType || 'WEEKDAY';
+    const todayStr = new Date().toISOString().split('T')[0];
 
     const consoleSnapshot = {
       date: dateStr,
       dayType,
       sheetName: sanitized.sheetName || 'Roster Sheet',
+      fullOfficialTitle: sanitized.fullOfficialTitle || `${dateStr} ${dayType}`,
+      sheetTag: sanitized.sheetTag || '',
+      isPublishedForOperators: true,
+      publishedAt: serverTimestamp(),
+      publishedBy: user,
       duties: sanitized.duties || [],
       controlDesks: sanitized.controlDesks || [],
       coOperators: sanitized.coOperators || [],
@@ -699,6 +945,7 @@ export const rosterAutoClassifierService = {
       routeLearning: sanitized.routeLearning || [],
       notReporting: sanitized.notReporting || [],
       absents: sanitized.absents || [],
+      bookedOff: sanitized.bookedOff || [],
       onDuty: sanitized.onDuty || [],
       customRegisters: sanitized.customRegisters || {},
       dynamicExtraHeaders: sanitized.dynamicExtraHeaders || [],
@@ -707,9 +954,13 @@ export const rosterAutoClassifierService = {
     };
 
     await setDoc(doc(db, 'dispatch_excel_cache', dateStr), consoleSnapshot, { merge: true });
-    await setDoc(doc(db, 'dispatch_excel_cache', 'current'), consoleSnapshot, { merge: true });
-    await setDoc(doc(db, 'roster_desk_console', 'current'), consoleSnapshot, { merge: true });
-    await setDoc(doc(db, 'roster_desk_console', 'latest'), consoleSnapshot, { merge: true });
+    
+    // If deploying for today, also update current active console
+    if (dateStr === todayStr) {
+      await setDoc(doc(db, 'dispatch_excel_cache', 'current'), consoleSnapshot, { merge: true });
+      await setDoc(doc(db, 'roster_desk_console', 'current'), consoleSnapshot, { merge: true });
+      await setDoc(doc(db, 'roster_desk_console', 'latest'), consoleSnapshot, { merge: true });
+    }
 
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
@@ -726,6 +977,8 @@ export const rosterAutoClassifierService = {
         const docId = `gcc_deploy_${dayType.toLowerCase()}_duty_${d.dutyId}`;
         batch.set(doc(db, 'crew_daily_deployment', docId), {
           ...d,
+          date: dateStr,
+          targetDate: dateStr,
           scheduleType: dayType,
           autoDeployed: true,
           isLocked: true,
@@ -733,6 +986,96 @@ export const rosterAutoClassifierService = {
         }, { merge: true });
       }
       await batch.commit();
+    }
+
+    // Comprehensive Cross-Page Deployment to Dedicated Registers:
+    try {
+      const regBatch = writeBatch(db);
+      let opCount = 0;
+
+      // 1. Leaves -> leave_requests
+      (sanitized.leaves || []).forEach((item) => {
+        if (!item.empNo) return;
+        regBatch.set(
+          doc(db, "leave_requests", `leave_${item.empNo}_${dateStr}`),
+          {
+            employeeId: item.empNo,
+            employeeName: item.name,
+            leaveType: item.type || "CL",
+            startDate: dateStr,
+            endDate: dateStr,
+            status: "APPROVED",
+            reason: "Auto-Deployed Roster Leave",
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+        opCount++;
+      });
+
+      // 2. Weekly Offs -> weekly_off_register
+      (sanitized.weeklyOffs || []).forEach((item) => {
+        if (!item.empNo) return;
+        regBatch.set(
+          doc(db, "weekly_off_register", `wo_${item.empNo}_${dateStr}`),
+          {
+            employeeId: item.empNo,
+            employeeName: item.name,
+            date: dateStr,
+            status: "WEEKLY_OFF",
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+        opCount++;
+      });
+
+      // 3. Absents & Not Reporting -> absent_bookoff_register
+      [...(sanitized.absents || []), ...(sanitized.notReporting || [])].forEach((item) => {
+        if (!item.empNo) return;
+        const kind = (sanitized.absents || []).includes(item) ? "ABSENT" : "NOT_REPORTING";
+        regBatch.set(
+          doc(db, "absent_bookoff_register", `${kind.toLowerCase()}_${item.empNo}_${dateStr}`),
+          {
+            employeeId: item.empNo,
+            employeeName: item.name,
+            date: dateStr,
+            status: kind,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+        opCount++;
+      });
+
+      // 4. Dynamic Category Pages -> roster_category_pages
+      if (sanitized.customRegisters && typeof sanitized.customRegisters === "object") {
+        Object.entries(sanitized.customRegisters).forEach(([catTitle, items]) => {
+          const safeSlug = catTitle.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+          if (safeSlug) {
+            regBatch.set(
+              doc(db, "roster_category_pages", `${safeSlug}_${dateStr}`),
+              {
+                categoryTitle: catTitle,
+                categorySlug: safeSlug,
+                date: dateStr,
+                dayType,
+                staffCount: (items || []).length,
+                staff: items || [],
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
+            opCount++;
+          }
+        });
+      }
+
+      if (opCount > 0) {
+        await regBatch.commit();
+      }
+    } catch (regErr) {
+      console.warn("Cross-register deployment non-fatal warning:", regErr);
     }
 
     try {

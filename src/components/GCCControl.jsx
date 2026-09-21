@@ -57,16 +57,16 @@ export default function GCCControl() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
         <div>
-          <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider" htmlFor="gcccontrol-l1">Target Month</label>
-          <input type="month" value={config.targetMonth || ''} onChange={(e) => setConfig({...config, targetMonth: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500" />
+          <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider" htmlFor="gcccontrol-i1">Target Month</label>
+          <input id="gcccontrol-i1" name="targetMonth" type="month" value={config.targetMonth || ''} onChange={(e) => setConfig({...config, targetMonth: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500" />
         </div>
         <div>
-          <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider" htmlFor="gcccontrol-l2">Start Date</label>
-          <input type="date" value={config.startDate || ''} onChange={(e) => setConfig({...config, startDate: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500" />
+          <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider" htmlFor="gcccontrol-i2">Start Date</label>
+          <input id="gcccontrol-i2" name="startDate" type="date" value={config.startDate || ''} onChange={(e) => setConfig({...config, startDate: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500" />
         </div>
         <div>
-          <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider" htmlFor="gcccontrol-l3">End Date</label>
-          <input type="date" value={config.endDate || ''} onChange={(e) => setConfig({...config, endDate: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500" />
+          <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider" htmlFor="gcccontrol-i3">End Date</label>
+          <input id="gcccontrol-i3" name="endDate" type="date" value={config.endDate || ''} onChange={(e) => setConfig({...config, endDate: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500" />
         </div>
         
         <div className="flex gap-2">

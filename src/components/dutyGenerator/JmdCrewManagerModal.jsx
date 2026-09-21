@@ -479,7 +479,7 @@ export default function JmdCrewManagerModal({
         <div className="p-4 bg-slate-950/40 border-b border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="relative w-full sm:w-80">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
+            <input id="jmdcrewmanagermodal-input-1" name="jmdcrewmanagermodal_input_1"
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -555,7 +555,7 @@ export default function JmdCrewManagerModal({
             <thead className="bg-slate-950 text-[11px] uppercase tracking-wider text-slate-400 font-bold font-mono sticky top-0 z-10">
               <tr>
                 <th className="px-4 py-3 w-10">
-                  <input
+                  <input id="jmdcrewmanagermodal-input-2" name="jmdcrewmanagermodal_input_2"
                     type="checkbox"
                     checked={filteredCrew.length > 0 && filteredCrew.every(e => selectedEmpIds.has(String(e.empId)))}
                     onChange={handleSelectAllVisible}
@@ -588,7 +588,7 @@ export default function JmdCrewManagerModal({
                   return (
                     <tr key={emp.empId} className={`hover:bg-slate-800/40 transition-colors ${isSelected ? 'bg-amber-950/30' : ''}`}>
                       <td className="px-4 py-3">
-                        <input
+                        <input name="jmdcrewmanagermodal_input_3"
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => handleToggleSelect(emp.empId)}
@@ -627,7 +627,7 @@ export default function JmdCrewManagerModal({
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <div className="relative inline-block">
-                            <select
+                            <select name="jmdcrewmanagermodal_select_4"
                               value={emp.fixedWo || 'Sunday'}
                               onChange={(e) => handleUpdateFixedWo(emp.empId, e.target.value)}
                               className="bg-slate-950/90 hover:bg-slate-900 border border-amber-500/40 hover:border-amber-400 focus:border-amber-400 text-amber-300 font-mono font-bold text-xs rounded-xl pl-2.5 pr-6 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-400 cursor-pointer transition-all shadow-sm appearance-none"
@@ -862,10 +862,10 @@ export default function JmdCrewManagerModal({
               <form onSubmit={handleSaveEdit} className="space-y-3 mt-4 text-xs">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="jmdcrewmanagermodal-fld-5" className="text-xs font-bold text-slate-300 block mb-1">
                       Designation
                     </label>
-                    <input
+                    <input id="jmdcrewmanagermodal-fld-5" name="jmdcrewmanagermodal_fld_5"
                       type="text"
                       value={editDesignation}
                       onChange={(e) => setEditDesignation(e.target.value)}
@@ -873,10 +873,10 @@ export default function JmdCrewManagerModal({
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="jmdcrewmanagermodal-fld-7" className="text-xs font-bold text-slate-300 block mb-1">
                       Fixed Weekly Off
                     </label>
-                    <select
+                    <select id="jmdcrewmanagermodal-fld-7" name="jmdcrewmanagermodal_fld_7"
                       value={editFixedWo}
                       onChange={(e) => setEditFixedWo(e.target.value)}
                       className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
@@ -890,10 +890,10 @@ export default function JmdCrewManagerModal({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="jmdcrewmanagermodal-fld-9" className="text-xs font-bold text-slate-300 block mb-1">
                       Contact Phone
                     </label>
-                    <input
+                    <input id="jmdcrewmanagermodal-fld-9" name="jmdcrewmanagermodal_fld_9"
                       type="text"
                       value={editPhone}
                       onChange={(e) => setEditPhone(e.target.value)}
@@ -901,10 +901,10 @@ export default function JmdCrewManagerModal({
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="jmdcrewmanagermodal-fld-11" className="text-xs font-bold text-slate-300 block mb-1">
                       Blood Group
                     </label>
-                    <input
+                    <input id="jmdcrewmanagermodal-fld-11" name="jmdcrewmanagermodal_fld_11"
                       type="text"
                       value={editBloodGroup}
                       onChange={(e) => setEditBloodGroup(e.target.value)}
@@ -914,10 +914,10 @@ export default function JmdCrewManagerModal({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="jmdcrewmanagermodal-fld-13" className="text-xs font-bold text-slate-300 block mb-1">
                     Driver Notes / Contract Details
                   </label>
-                  <input
+                  <input id="jmdcrewmanagermodal-fld-13" name="jmdcrewmanagermodal_fld_13"
                     type="text"
                     value={editNotes}
                     onChange={(e) => setEditNotes(e.target.value)}
@@ -973,10 +973,10 @@ export default function JmdCrewManagerModal({
               <form onSubmit={handleAddJmdTD} className="space-y-3 mt-4 text-xs">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="jmdcrewmanagermodal-fld-15" className="text-xs font-bold text-slate-300 block mb-1">
                       JMD Emp ID (8-Series) *
                     </label>
-                    <input
+                    <input id="jmdcrewmanagermodal-fld-15" name="jmdcrewmanagermodal_fld_15"
                       type="text"
                       value={newEmpId}
                       onChange={(e) => setNewEmpId(e.target.value)}
@@ -986,10 +986,10 @@ export default function JmdCrewManagerModal({
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="jmdcrewmanagermodal-fld-17" className="text-xs font-bold text-slate-300 block mb-1">
                       Driver Full Name *
                     </label>
-                    <input
+                    <input id="jmdcrewmanagermodal-fld-17" name="jmdcrewmanagermodal_fld_17"
                       type="text"
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
@@ -1002,10 +1002,10 @@ export default function JmdCrewManagerModal({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="jmdcrewmanagermodal-fld-19" className="text-xs font-bold text-slate-300 block mb-1">
                       Gender
                     </label>
-                    <select
+                    <select id="jmdcrewmanagermodal-fld-19" name="jmdcrewmanagermodal_fld_19"
                       value={newGender}
                       onChange={(e) => setNewGender(e.target.value)}
                       className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
@@ -1015,10 +1015,10 @@ export default function JmdCrewManagerModal({
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="jmdcrewmanagermodal-fld-21" className="text-xs font-bold text-slate-300 block mb-1">
                       Fixed Weekly Off
                     </label>
-                    <select
+                    <select id="jmdcrewmanagermodal-fld-21" name="jmdcrewmanagermodal_fld_21"
                       value={newFixedWo}
                       onChange={(e) => setNewFixedWo(e.target.value)}
                       className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
@@ -1032,10 +1032,10 @@ export default function JmdCrewManagerModal({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="jmdcrewmanagermodal-fld-23" className="text-xs font-bold text-slate-300 block mb-1">
                       Contact Phone
                     </label>
-                    <input
+                    <input id="jmdcrewmanagermodal-fld-23" name="jmdcrewmanagermodal_fld_23"
                       type="text"
                       value={newPhone}
                       onChange={(e) => setNewPhone(e.target.value)}
@@ -1044,10 +1044,10 @@ export default function JmdCrewManagerModal({
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="jmdcrewmanagermodal-fld-25" className="text-xs font-bold text-slate-300 block mb-1">
                       Blood Group
                     </label>
-                    <input
+                    <input id="jmdcrewmanagermodal-fld-25" name="jmdcrewmanagermodal_fld_25"
                       type="text"
                       value={newBloodGroup}
                       onChange={(e) => setNewBloodGroup(e.target.value)}
@@ -1058,10 +1058,10 @@ export default function JmdCrewManagerModal({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="jmdcrewmanagermodal-fld-27" className="text-xs font-bold text-slate-300 block mb-1">
                     Onboarding Remarks
                   </label>
-                  <input
+                  <input id="jmdcrewmanagermodal-fld-27" name="jmdcrewmanagermodal_fld_27"
                     type="text"
                     value={newNotes}
                     onChange={(e) => setNewNotes(e.target.value)}

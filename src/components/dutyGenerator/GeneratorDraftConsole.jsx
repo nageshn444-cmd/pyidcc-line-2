@@ -1055,7 +1055,7 @@ export default function GeneratorDraftConsole({
                     {/* Search */}
                     <div className="relative">
                       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
-                      <input
+                      <input id="generatordraftconsole-input-1" name="generatordraftconsole_input_1"
                         type="text"
                         placeholder="Search name / ID / duty..."
                         value={searchQuery}
@@ -1852,8 +1852,8 @@ export default function GeneratorDraftConsole({
 
             <form onSubmit={handleSaveEdit} className="space-y-4">
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">Select Proposed Duty</label>
-                <select
+                <label htmlFor="generatordraftconsole-fld-2" className="text-xs font-bold text-slate-300 block mb-1">Select Proposed Duty</label>
+                <select id="generatordraftconsole-fld-2" name="generatordraftconsole_fld_2"
                   value={newDutyCode}
                   onChange={(e) => handleSelectNewDuty(e.target.value)}
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
@@ -1897,8 +1897,8 @@ export default function GeneratorDraftConsole({
               {/* Audit Logging Details */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div>
-                  <label className="text-[11px] font-bold text-slate-300 block mb-1">Authorizing Controller</label>
-                  <input
+                  <label htmlFor="generatordraftconsole-fld-4" className="text-[11px] font-bold text-slate-300 block mb-1">Authorizing Controller</label>
+                  <input id="generatordraftconsole-fld-4" name="generatordraftconsole_fld_4"
                     type="text"
                     value={changedBy}
                     onChange={e => setChangedBy(e.target.value)}
@@ -1907,8 +1907,8 @@ export default function GeneratorDraftConsole({
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-bold text-slate-300 block mb-1">Override Reason / Audit Note</label>
-                  <input
+                  <label htmlFor="generatordraftconsole-fld-6" className="text-[11px] font-bold text-slate-300 block mb-1">Override Reason / Audit Note</label>
+                  <input id="generatordraftconsole-fld-6" name="generatordraftconsole_fld_6"
                     type="text"
                     value={overrideReason}
                     onChange={e => setOverrideReason(e.target.value)}
@@ -1921,7 +1921,7 @@ export default function GeneratorDraftConsole({
 
               {editValidation && !editValidation.valid && (
                 <label className="flex items-center gap-2 p-2.5 bg-rose-950/40 border border-rose-500/40 rounded-xl cursor-pointer">
-                  <input
+                  <input id="generatordraftconsole-input-8" name="generatordraftconsole_input_8"
                     type="checkbox"
                     checked={isForceOverride}
                     onChange={e => setIsForceOverride(e.target.checked)}

@@ -901,7 +901,7 @@ export default function DailyDutyGeneratorSuite() {
                 <Calendar className="w-4 h-4 text-blue-400 flex-shrink-0" />
                 <div className="flex flex-col">
                   <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Operating Date</span>
-                  <input 
+                  <input id="dailydutygeneratorsuite-input-1" name="dailydutygeneratorsuite_input_1" 
                     type="date" 
                     value={targetDate}
                     onChange={(e) => {
@@ -916,7 +916,7 @@ export default function DailyDutyGeneratorSuite() {
                 <div className="w-px h-8 bg-slate-700" />
                 <div className="flex flex-col">
                   <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Schedule Type</span>
-                  <select
+                  <select id="dailydutygeneratorsuite-select-2" name="dailydutygeneratorsuite_select_2"
                     value={dayType}
                     onChange={(e) => setDayType(e.target.value)}
                     className="bg-transparent border-0 text-emerald-400 text-xs font-mono font-black focus:outline-none cursor-pointer"

@@ -6430,3 +6430,6 @@ export const EMPLOYEE_MASTER_REGISTRY = [
     "ccWilling": false
   }
 ];
+
+export const EMPLOYEE_PROFILE_MASTER = EMPLOYEE_MASTER_REGISTRY;
+export default EMPLOYEE_MASTER_REGISTRY;

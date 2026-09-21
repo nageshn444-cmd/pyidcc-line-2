@@ -387,7 +387,7 @@ export default function WeekOffControlManager({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-800">
           <div className="flex items-center gap-2 text-xs">
             <span className="text-slate-400 font-bold">Roster Cycle Policy:</span>
-            <select
+            <select id="weekoffcontrolmanager-select-1" name="weekoffcontrolmanager_select_1"
               value={revisionCycle}
               onChange={(e) => {
                 setRevisionCycle(e.target.value);
@@ -459,7 +459,7 @@ export default function WeekOffControlManager({
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900 p-4 rounded-2xl border border-slate-800">
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
+          <input id="weekoffcontrolmanager-input-2" name="weekoffcontrolmanager_input_2"
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -578,7 +578,7 @@ export default function WeekOffControlManager({
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <select
+                      <select name="weekoffcontrolmanager_select_3"
                         value={currentDay}
                         onChange={(e) => handleInlineDayChange(emp.empId, e.target.value)}
                         className="bg-slate-950 border border-slate-700 text-white text-xs font-bold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -651,10 +651,10 @@ export default function WeekOffControlManager({
 
             <form onSubmit={handleConfirmSingleShuffle} className="space-y-4">
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
+                <label htmlFor="weekoffcontrolmanager-fld-4" className="text-xs font-bold text-slate-300 block mb-1">
                   Target Week-Off Day
                 </label>
-                <select
+                <select id="weekoffcontrolmanager-fld-4" name="weekoffcontrolmanager_fld_4"
                   value={targetWoDay}
                   onChange={(e) => setTargetWoDay(e.target.value)}
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
@@ -666,10 +666,10 @@ export default function WeekOffControlManager({
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
+                <label htmlFor="weekoffcontrolmanager-fld-6" className="text-xs font-bold text-slate-300 block mb-1">
                   Reason for Revision / Shuffle
                 </label>
-                <input
+                <input id="weekoffcontrolmanager-fld-6" name="weekoffcontrolmanager_fld_6"
                   type="text"
                   value={shuffleReason}
                   onChange={(e) => setShuffleReason(e.target.value)}
@@ -680,10 +680,10 @@ export default function WeekOffControlManager({
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
+                <label htmlFor="weekoffcontrolmanager-fld-8" className="text-xs font-bold text-slate-300 block mb-1">
                   Crew Controller Name
                 </label>
-                <input
+                <input id="weekoffcontrolmanager-fld-8" name="weekoffcontrolmanager_fld_8"
                   type="text"
                   value={controllerName}
                   onChange={(e) => setControllerName(e.target.value)}
@@ -726,10 +726,10 @@ export default function WeekOffControlManager({
 
             <form onSubmit={handleConfirmMutualSwap} className="space-y-4">
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
+                <label htmlFor="weekoffcontrolmanager-fld-10" className="text-xs font-bold text-slate-300 block mb-1">
                   First Operator (Operator A)
                 </label>
-                <select
+                <select id="weekoffcontrolmanager-fld-10" name="weekoffcontrolmanager_fld_10"
                   value={swapOp1Id}
                   onChange={(e) => setSwapOp1Id(e.target.value)}
                   required
@@ -745,10 +745,10 @@ export default function WeekOffControlManager({
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
+                <label htmlFor="weekoffcontrolmanager-fld-12" className="text-xs font-bold text-slate-300 block mb-1">
                   Second Operator (Operator B)
                 </label>
-                <select
+                <select id="weekoffcontrolmanager-fld-12" name="weekoffcontrolmanager_fld_12"
                   value={swapOp2Id}
                   onChange={(e) => setSwapOp2Id(e.target.value)}
                   required

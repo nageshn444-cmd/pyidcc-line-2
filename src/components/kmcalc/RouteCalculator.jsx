@@ -1010,7 +1010,7 @@ export default function RouteCalculator({
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded px-2.5 py-1">
                   <span className="text-[9px] font-bold font-mono text-slate-400 uppercase tracking-wider">TIMETABLE:</span>
-                  <select value={timetableSchedule} onChange={e => handleScheduleChange(e.target.value)} className="bg-transparent text-emerald-400 font-bold text-[10px] font-mono focus:outline-none cursor-pointer">
+                  <select id="routecalculator-select-1" name="routecalculator_select_1" value={timetableSchedule} onChange={e => handleScheduleChange(e.target.value)} className="bg-transparent text-emerald-400 font-bold text-[10px] font-mono focus:outline-none cursor-pointer">
                     <option value="WEEKDAY" className="bg-slate-900 text-slate-200">Weekday WTT</option>
                     <option value="MONDAY" className="bg-slate-900 text-slate-200">Monday WTT</option>
                     <option value="SATURDAY" className="bg-slate-900 text-slate-200">Saturday WTT</option>
@@ -1141,7 +1141,7 @@ export default function RouteCalculator({
                   <span className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-slate-400">
                     <Search className="w-3 h-3" />
                   </span>
-                  <input type="text" value={rosterSearch} onChange={e => setRosterSearch(e.target.value)} placeholder="Search duty number..." className="w-full pl-7 pr-2 py-1 bg-slate-950 border border-slate-800 rounded text-slate-200 text-[10px] font-mono focus:outline-none focus:border-emerald-500" />
+                  <input id="routecalculator-input-2" name="routecalculator_input_2" type="text" value={rosterSearch} onChange={e => setRosterSearch(e.target.value)} placeholder="Search duty number..." className="w-full pl-7 pr-2 py-1 bg-slate-950 border border-slate-800 rounded text-slate-200 text-[10px] font-mono focus:outline-none focus:border-emerald-500" />
                 </div>
                 {activeDuties.length > 0 && (
                   <button onClick={handleClearUploadedRoster} className="px-2.5 py-1 bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 hover:text-rose-200 rounded text-[10px] font-bold font-mono transition-colors flex items-center gap-1 shrink-0 uppercase">
@@ -1241,32 +1241,32 @@ export default function RouteCalculator({
                               <td className="px-2 py-2 text-center text-slate-100 font-bold border-r border-slate-800">{duty.dutyNo}</td>
                               <td className="px-2 py-1.5 border-r border-slate-800">
                                 <div className="space-y-1 font-mono">
-                                  <input type="text" value={editFormData.leg1Path || ''} onChange={e => setEditFormData({ ...editFormData, leg1Path: e.target.value })} placeholder="e.g. KGWA → PYID" className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200" />
-                                  <div className="flex items-center justify-between text-[9px]"><span className="text-slate-400">Leg 1 KM:</span><input type="number" value={editFormData.leg1Km} onChange={e => setEditFormData({ ...editFormData, leg1Km: e.target.value })} className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right" /></div>
+                                  <input name="routecalculator_input_3" type="text" value={editFormData.leg1Path || ''} onChange={e => setEditFormData({ ...editFormData, leg1Path: e.target.value })} placeholder="e.g. KGWA → PYID" className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200" />
+                                  <div className="flex items-center justify-between text-[9px]"><span className="text-slate-400">Leg 1 KM:</span><input name="routecalculator_input_4" type="number" value={editFormData.leg1Km} onChange={e => setEditFormData({ ...editFormData, leg1Km: e.target.value })} className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right" /></div>
                                 </div>
                               </td>
                               <td className="px-2 py-1.5 border-r border-slate-800">
                                 <div className="space-y-1 font-mono">
-                                  <input type="text" value={editFormData.leg2Path || ''} onChange={e => setEditFormData({ ...editFormData, leg2Path: e.target.value })} placeholder="e.g. PYID → BIET" className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200" />
-                                  <div className="flex items-center justify-between text-[9px]"><span className="text-slate-400">Leg 2 KM:</span><input type="number" value={editFormData.leg2Km} onChange={e => setEditFormData({ ...editFormData, leg2Km: e.target.value })} className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right" /></div>
+                                  <input name="routecalculator_input_5" type="text" value={editFormData.leg2Path || ''} onChange={e => setEditFormData({ ...editFormData, leg2Path: e.target.value })} placeholder="e.g. PYID → BIET" className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200" />
+                                  <div className="flex items-center justify-between text-[9px]"><span className="text-slate-400">Leg 2 KM:</span><input name="routecalculator_input_6" type="number" value={editFormData.leg2Km} onChange={e => setEditFormData({ ...editFormData, leg2Km: e.target.value })} className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right" /></div>
                                 </div>
                               </td>
                               <td className="px-2 py-1.5 border-r border-slate-800">
                                 <div className="space-y-1 font-mono">
-                                  <input type="text" value={editFormData.leg3Path || ''} onChange={e => setEditFormData({ ...editFormData, leg3Path: e.target.value })} placeholder="e.g. BIET → APTS" className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200" />
-                                  <div className="flex items-center justify-between text-[9px]"><span className="text-slate-400">Leg 3 KM:</span><input type="number" value={editFormData.leg3Km} onChange={e => setEditFormData({ ...editFormData, leg3Km: e.target.value })} className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right" /></div>
+                                  <input name="routecalculator_input_7" type="text" value={editFormData.leg3Path || ''} onChange={e => setEditFormData({ ...editFormData, leg3Path: e.target.value })} placeholder="e.g. BIET → APTS" className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200" />
+                                  <div className="flex items-center justify-between text-[9px]"><span className="text-slate-400">Leg 3 KM:</span><input name="routecalculator_input_8" type="number" value={editFormData.leg3Km} onChange={e => setEditFormData({ ...editFormData, leg3Km: e.target.value })} className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right" /></div>
                                 </div>
                               </td>
                               <td className="px-2 py-1.5 border-r border-slate-800">
                                 <div className="space-y-1 font-mono">
-                                  <input type="text" value={editFormData.leg4Path || ''} onChange={e => setEditFormData({ ...editFormData, leg4Path: e.target.value })} placeholder="e.g. --" className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200" />
-                                  <div className="flex items-center justify-between text-[9px]"><span className="text-slate-400">Leg 4 KM:</span><input type="number" value={editFormData.leg4Km} onChange={e => setEditFormData({ ...editFormData, leg4Km: e.target.value })} className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right" /></div>
+                                  <input name="routecalculator_input_9" type="text" value={editFormData.leg4Path || ''} onChange={e => setEditFormData({ ...editFormData, leg4Path: e.target.value })} placeholder="e.g. --" className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200" />
+                                  <div className="flex items-center justify-between text-[9px]"><span className="text-slate-400">Leg 4 KM:</span><input name="routecalculator_input_10" type="number" value={editFormData.leg4Km} onChange={e => setEditFormData({ ...editFormData, leg4Km: e.target.value })} className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right" /></div>
                                 </div>
                               </td>
                               <td className="px-2 py-1.5 border-r border-slate-800 text-right">
                                 <div className="space-y-1 font-mono text-right">
                                   <span className="text-[9px] text-slate-400 block">Total KM:</span>
-                                  <input type="number" value={editFormData.totalKm} onChange={e => setEditFormData({ ...editFormData, totalKm: e.target.value })} className="w-20 bg-slate-950 border border-emerald-600 rounded px-1.5 py-1 text-xs text-emerald-400 font-extrabold text-right" />
+                                  <input name="routecalculator_input_11" type="number" value={editFormData.totalKm} onChange={e => setEditFormData({ ...editFormData, totalKm: e.target.value })} className="w-20 bg-slate-950 border border-emerald-600 rounded px-1.5 py-1 text-xs text-emerald-400 font-extrabold text-right" />
                                 </div>
                               </td>
                               <td className="px-2 py-2 text-center">

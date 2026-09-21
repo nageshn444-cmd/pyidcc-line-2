@@ -44,8 +44,8 @@ export default function RollingStockFaultLog() {
         </Link>
       </div>
       <div className='grid grid-cols-1 md:grid-cols-3 gap-2 mb-4'>
-        <input className='bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200' placeholder='Train ID' value={newFault.trainId} onChange={(e) => setNewFault({...newFault, trainId: e.target.value})} />
-        <input className='bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200' placeholder='Description' value={newFault.description} onChange={(e) => setNewFault({...newFault, description: e.target.value})} />
+        <input id="rollingstockfaultlog-input-1" name="rollingstockfaultlog_input_1" className='bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200' placeholder='Train ID' value={newFault.trainId} onChange={(e) => setNewFault({...newFault, trainId: e.target.value})} />
+        <input id="rollingstockfaultlog-input-2" name="rollingstockfaultlog_input_2" className='bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200' placeholder='Description' value={newFault.description} onChange={(e) => setNewFault({...newFault, description: e.target.value})} />
         <button onClick={addFault} className='bg-rose-600 hover:bg-rose-500 text-white font-bold rounded text-sm'>LOG FAULT</button>
       </div>
       <div className='space-y-2'>

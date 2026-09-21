@@ -38,9 +38,9 @@ export default function ExcelFindReplace({
         {/* Inputs */}
         <div className="space-y-3">
           <div>
-            <label className="block text-slate-400 mb-1 font-semibold">Find what:</label>
+            <div className="block text-slate-400 mb-1 font-semibold">Find what:</div>
             <div className="relative">
-              <input
+              <input id="excelfindreplace-input-1" name="excelfindreplace_input_1"
                 type="text"
                 autoFocus
                 value={findText}
@@ -57,8 +57,8 @@ export default function ExcelFindReplace({
           </div>
 
           <div>
-            <label className="block text-slate-400 mb-1 font-semibold">Replace with:</label>
-            <input
+            <label htmlFor="excelfindreplace-fld-2" className="block text-slate-400 mb-1 font-semibold">Replace with:</label>
+            <input id="excelfindreplace-fld-2" name="excelfindreplace_fld_2"
               type="text"
               value={replaceText}
               onChange={(e) => setReplaceText(e.target.value)}
@@ -70,7 +70,7 @@ export default function ExcelFindReplace({
           {/* Options */}
           <div className="flex items-center justify-between pt-1 text-[11px] text-slate-400">
             <label className="flex items-center gap-2 cursor-pointer">
-              <input
+              <input id="excelfindreplace-input-4" name="excelfindreplace_input_4"
                 type="checkbox"
                 checked={matchCase}
                 onChange={(e) => setMatchCase(e.target.checked)}
@@ -81,7 +81,7 @@ export default function ExcelFindReplace({
 
             <div className="flex items-center gap-1">
               <span>Within:</span>
-              <select
+              <select id="excelfindreplace-select-5" name="excelfindreplace_select_5"
                 value={scope}
                 onChange={(e) => setScope(e.target.value)}
                 className="bg-slate-950 border border-slate-750 rounded px-2 py-0.5 text-white"

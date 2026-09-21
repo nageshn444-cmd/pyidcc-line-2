@@ -471,7 +471,7 @@ export default function RelievedCrewManagerModal({
         <div className="p-4 bg-slate-950/40 border-b border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="relative w-full sm:w-80">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
+            <input id="relievedcrewmanagermodal-input-1" name="relievedcrewmanagermodal_input_1"
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -640,7 +640,7 @@ export default function RelievedCrewManagerModal({
             <thead className="bg-slate-950 text-[11px] uppercase tracking-wider text-slate-400 font-bold font-mono sticky top-0 z-10">
               <tr>
                 <th className="px-4 py-3 w-10">
-                  <input
+                  <input id="relievedcrewmanagermodal-input-2" name="relievedcrewmanagermodal_input_2"
                     type="checkbox"
                     checked={filteredCrew.length > 0 && filteredCrew.every(e => selectedEmpIds.has(String(e.empId)))}
                     onChange={handleSelectAllVisible}
@@ -673,7 +673,7 @@ export default function RelievedCrewManagerModal({
                   return (
                     <tr key={emp.empId} className={`hover:bg-slate-800/40 transition-colors ${isSelected ? 'bg-indigo-950/30' : ''}`}>
                       <td className="px-4 py-3">
-                        <input
+                        <input name="relievedcrewmanagermodal_input_3"
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => handleToggleSelect(emp.empId)}
@@ -796,10 +796,10 @@ export default function RelievedCrewManagerModal({
 
               <form onSubmit={handleSaveEditProfile} className="space-y-3 mt-4 text-xs">
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="relievedcrewmanagermodal-fld-4" className="text-xs font-bold text-slate-300 block mb-1">
                     Assignment / Transfer Reason
                   </label>
-                  <select
+                  <select id="relievedcrewmanagermodal-fld-4" name="relievedcrewmanagermodal_fld_4"
                     value={editRelieveReason}
                     onChange={(e) => setEditRelieveReason(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
@@ -815,10 +815,10 @@ export default function RelievedCrewManagerModal({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="relievedcrewmanagermodal-fld-6" className="text-xs font-bold text-slate-300 block mb-1">
                     Order Notes / Remarks
                   </label>
-                  <input
+                  <input id="relievedcrewmanagermodal-fld-6" name="relievedcrewmanagermodal_fld_6"
                     type="text"
                     value={editRelieveNotes}
                     onChange={(e) => setEditRelieveNotes(e.target.value)}
@@ -829,10 +829,10 @@ export default function RelievedCrewManagerModal({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="relievedcrewmanagermodal-fld-8" className="text-xs font-bold text-slate-300 block mb-1">
                       Designation
                     </label>
-                    <select
+                    <select id="relievedcrewmanagermodal-fld-8" name="relievedcrewmanagermodal_fld_8"
                       value={editDesignation}
                       onChange={(e) => setEditDesignation(e.target.value)}
                       className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
@@ -844,10 +844,10 @@ export default function RelievedCrewManagerModal({
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                    <label htmlFor="relievedcrewmanagermodal-fld-10" className="text-xs font-bold text-slate-300 block mb-1">
                       Contact Phone
                     </label>
-                    <input
+                    <input id="relievedcrewmanagermodal-fld-10" name="relievedcrewmanagermodal_fld_10"
                       type="text"
                       value={editPhone}
                       onChange={(e) => setEditPhone(e.target.value)}
@@ -903,10 +903,10 @@ export default function RelievedCrewManagerModal({
 
               <form onSubmit={handleConfirmQuickRelieve} className="space-y-3 mt-4 text-xs">
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="relievedcrewmanagermodal-fld-12" className="text-xs font-bold text-slate-300 block mb-1">
                     Relieve / Transfer Reason
                   </label>
-                  <select
+                  <select id="relievedcrewmanagermodal-fld-12" name="relievedcrewmanagermodal_fld_12"
                     value={quickRelieveReason}
                     onChange={(e) => setQuickRelieveReason(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white"
@@ -921,10 +921,10 @@ export default function RelievedCrewManagerModal({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="relievedcrewmanagermodal-fld-14" className="text-xs font-bold text-slate-300 block mb-1">
                     Order Remarks
                   </label>
-                  <input
+                  <input id="relievedcrewmanagermodal-fld-14" name="relievedcrewmanagermodal_fld_14"
                     type="text"
                     value={quickRelieveNotes}
                     onChange={(e) => setQuickRelieveNotes(e.target.value)}

@@ -51,7 +51,7 @@ export default function ExcelSheetTabs({
               onDoubleClick={() => startRename(s)}
             >
               {isRenaming ? (
-                <input
+                <input name="excelsheettabs_input_1"
                   type="text"
                   value={tempName}
                   autoFocus

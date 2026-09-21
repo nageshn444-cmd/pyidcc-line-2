@@ -1326,7 +1326,7 @@ export default function SuperAdminLayout({
                         if (isEditing) {
                           return (
                             <th key={hdr.key} className={`py-1 px-1 ${borderClass} ${widthClass} bg-slate-950`}>
-                              <input id="superadminlayout-i9" name="superadminlayout-i9" 
+                              <input id={`superadmin-hdr-${hdr.key || idx}`} name={`superadmin_hdr_${hdr.key || idx}`} aria-label={`Header ${hdr.label || idx}`}
                                 type="text" 
                                 value={editHeaderValue} 
                                 onChange={(e) => setEditHeaderValue(e.target.value)} 
@@ -1394,7 +1394,7 @@ export default function SuperAdminLayout({
                             return (
                               <td key={fieldName} className="p-1 border-r border-slate-800/40 bg-slate-950">
                                 <div className="flex items-center gap-1">
-                                  <input id="superadminlayout-i10" name="superadminlayout-i10"
+                                  <input id={`superadmin-cell-${duty.id}-${fieldName}`} name={`superadmin_cell_${duty.id}_${fieldName}`} aria-label={`Cell ${duty.dutyId || duty.id} ${fieldName}`}
                                     type="text"
                                     value={editValue}
                                     onChange={(e) => setEditValue(e.target.value)}
@@ -1490,7 +1490,7 @@ export default function SuperAdminLayout({
                           <tr key={duty.id} className={`${rowBgClass} ${selectedRowIds.includes(duty.id) ? 'bg-amber-500/5' : ''} hover:bg-slate-850/20 border-b border-slate-800/40 transition-colors`}>
                             {!isTrainOperator && (
                               <td className="py-2 border-r border-slate-800 text-center font-bold flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                                <input id="superadminlayout-i11" name="superadminlayout-i11"
+                                <input id={`superadmin-row-${duty.id}`} name={`superadmin_row_${duty.id}`} aria-label={`Select row ${duty.dutyId || duty.id}`}
                                   type="checkbox"
                                   checked={selectedRowIds.includes(duty.id)}
                                   onChange={() => handleToggleSelectRow(duty.id)}
@@ -1834,7 +1834,7 @@ export default function SuperAdminLayout({
 
             <div className="space-y-3">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5" htmlFor="superadminlayout-l1">Select Reason</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5" htmlFor="superadminlayout-i12">Select Reason</label>
                 <select id="superadminlayout-i12" name="superadminlayout-i12" 
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
@@ -1851,7 +1851,7 @@ export default function SuperAdminLayout({
 
               {rejectionReason === 'Others' && (
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5" htmlFor="superadminlayout-l2">Custom Reason</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5" htmlFor="superadminlayout-i13">Custom Reason</label>
                   <input id="superadminlayout-i13" name="superadminlayout-i13"
                     type="text"
                     required

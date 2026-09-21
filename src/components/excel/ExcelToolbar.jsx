@@ -74,7 +74,7 @@ export default function ExcelToolbar({
               XL
             </div>
             {isRenaming ? (
-              <input
+              <input id="exceltoolbar-input-1" name="exceltoolbar_input_1"
                 type="text"
                 value={tempName}
                 autoFocus
@@ -353,7 +353,7 @@ export default function ExcelToolbar({
         <div className="h-4 w-px bg-slate-800 mx-1" />
 
         {/* Number Formats Selector */}
-        <select
+        <select id="exceltoolbar-select-2" name="exceltoolbar_select_2"
           value={activeFormat.numberFormat || 'GENERAL'}
           onChange={(e) => onSetNumberFormat(e.target.value)}
           className="bg-slate-900 border border-slate-750 text-slate-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-500"

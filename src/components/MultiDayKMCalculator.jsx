@@ -949,10 +949,10 @@ export default function MultiDayKMCalculator({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-955/80 p-4 rounded-lg border border-slate-800">
           <div>
-            <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">
+            <label htmlFor="multidaykmcalculator-fld-1" className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">
               Select Train Operator for Roster Sync
             </label>
-            <select
+            <select id="multidaykmcalculator-fld-1" name="multidaykmcalculator_fld_1"
               value={selectedOperatorEmpId}
               onChange={(e) => setSelectedOperatorEmpId(e.target.value)}
               className="w-full bg-slate-900 border border-cyan-600/50 rounded px-3 py-2 text-xs text-cyan-300 font-bold shadow-inner cursor-pointer"
@@ -1009,10 +1009,10 @@ export default function MultiDayKMCalculator({
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-955/80 p-3.5 rounded-lg border border-slate-800 items-end">
           <div>
-            <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
+            <label htmlFor="multidaykmcalculator-fld-3" className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
               Select GH Date
             </label>
-            <input
+            <input id="multidaykmcalculator-fld-3" name="multidaykmcalculator_fld_3"
               type="date"
               value={ghDateInput}
               onChange={(e) => setGhDateInput(e.target.value)}
@@ -1021,10 +1021,10 @@ export default function MultiDayKMCalculator({
           </div>
 
           <div>
-            <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
+            <label htmlFor="multidaykmcalculator-fld-5" className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
               Override Schedule Type
             </label>
-            <select
+            <select id="multidaykmcalculator-fld-5" name="multidaykmcalculator_fld_5"
               value={ghOverrideSchedule}
               onChange={(e) => setGhOverrideSchedule(e.target.value)}
               className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-xs text-slate-200 font-bold focus:outline-none focus:border-amber-400 font-mono cursor-pointer"
@@ -1116,10 +1116,10 @@ export default function MultiDayKMCalculator({
         <div className="space-y-3 bg-slate-955/60 p-4 rounded-lg border border-slate-800">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
             <div>
-              <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
+              <label htmlFor="multidaykmcalculator-fld-7" className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
                 Select Month (Auto 1-31)
               </label>
-              <input
+              <input id="multidaykmcalculator-fld-7" name="multidaykmcalculator_fld_7"
                 type="month"
                 value={selectedMonthStr}
                 onChange={(e) => {
@@ -1134,10 +1134,10 @@ export default function MultiDayKMCalculator({
             </div>
 
             <div>
-              <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
+              <label htmlFor="multidaykmcalculator-fld-9" className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
                 From Date
               </label>
-              <input
+              <input id="multidaykmcalculator-fld-9" name="multidaykmcalculator_fld_9"
                 type="date"
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
@@ -1146,10 +1146,10 @@ export default function MultiDayKMCalculator({
             </div>
 
             <div>
-              <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
+              <label htmlFor="multidaykmcalculator-fld-11" className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
                 To Date (Capped to 31 Days)
               </label>
-              <input
+              <input id="multidaykmcalculator-fld-11" name="multidaykmcalculator_fld_11"
                 type="date"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
@@ -1282,7 +1282,7 @@ export default function MultiDayKMCalculator({
                       }`}
                     >
                       <td className="px-2 py-2 text-center">
-                        <input
+                        <input name="multidaykmcalculator_input_13"
                           type="checkbox"
                           className="rounded accent-emerald-500 h-3.5 w-3.5 cursor-pointer"
                         />
@@ -1297,7 +1297,7 @@ export default function MultiDayKMCalculator({
                       </td>
                       <td className="px-3 py-2 font-bold text-slate-100 text-xs">
                         <div className="flex items-center gap-1.5">
-                          <select
+                          <select name="multidaykmcalculator_select_14"
                             value={r.dutyNo}
                             onChange={(e) =>
                               handleAssignDutyForDate(r.dateStr, e.target.value)
@@ -1320,7 +1320,7 @@ export default function MultiDayKMCalculator({
                             </optgroup>
                           </select>
 
-                          <input
+                          <input name="multidaykmcalculator_input_15"
                             type="text"
                             placeholder="Manual"
                             value={r.dutyNo}
@@ -1339,7 +1339,7 @@ export default function MultiDayKMCalculator({
                           </Badge>
                         ) : (
                           <div className="flex items-center gap-1.5">
-                            <select
+                            <select name="multidaykmcalculator_select_16"
                               value={r.schedType}
                               onChange={(e) =>
                                 handleUpdateDayConfig(
@@ -1395,7 +1395,7 @@ export default function MultiDayKMCalculator({
                               className="flex items-center gap-1 cursor-pointer"
                               title="Check to manually override and force enable/disable night changeover link logic for this row"
                             >
-                              <input
+                              <input name="multidaykmcalculator_input_17"
                                 type="checkbox"
                                 checked={
                                   currentConfig.isChangeover !== undefined

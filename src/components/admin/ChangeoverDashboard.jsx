@@ -527,17 +527,17 @@ export default function ChangeoverDashboard({ onRefresh }) {
           
           {/* Current Night Date & Roster */}
           <div className="lg:col-span-5 space-y-1.5">
-            <label className="flex items-center gap-1.5 text-[9.5px] text-slate-400 font-bold uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 text-[9.5px] text-slate-400 font-bold uppercase tracking-wider">
               <Moon className="h-3 w-3 text-blue-400" /> Current Night Date & Roster (Source Schedule)
-            </label>
+            </div>
             <div className="flex gap-2">
-              <input
+              <input id="changeoverdashboard-input-1" name="changeoverdashboard_input_1"
                 type="date"
                 value={currentDate}
                 onChange={(e) => handleCurrentDateChange(e.target.value)}
                 className="w-1/2 bg-slate-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
               />
-              <select
+              <select id="changeoverdashboard-select-2" name="changeoverdashboard_select_2"
                 value={currentDay}
                 onChange={(e) => setCurrentDay(e.target.value)}
                 className="w-1/2 bg-slate-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-bold"
@@ -551,17 +551,17 @@ export default function ChangeoverDashboard({ onRefresh }) {
 
           {/* Tomorrow Target Morning Date & Roster */}
           <div className="lg:col-span-5 space-y-1.5">
-            <label className="flex items-center gap-1.5 text-[9.5px] text-slate-400 font-bold uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 text-[9.5px] text-slate-400 font-bold uppercase tracking-wider">
               <Sun className="h-3 w-3 text-amber-400" /> Tomorrow — Target Morning Date & Roster
-            </label>
+            </div>
             <div className="flex gap-2">
-              <input
+              <input id="changeoverdashboard-input-3" name="changeoverdashboard_input_3"
                 type="date"
                 value={nextDate}
                 onChange={(e) => handleNextDateChange(e.target.value)}
                 className="w-1/2 bg-slate-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
               />
-              <select
+              <select id="changeoverdashboard-select-4" name="changeoverdashboard_select_4"
                 value={nextDay}
                 onChange={(e) => setNextDay(e.target.value)}
                 className="w-1/2 bg-slate-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-bold"
@@ -674,7 +674,7 @@ export default function ChangeoverDashboard({ onRefresh }) {
           {/* Quick Search */}
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-500" />
-            <input
+            <input id="changeoverdashboard-input-5" name="changeoverdashboard_input_5"
               type="text"
               placeholder="Search by Duty #, Operator Name, ID, Train..."
               value={searchQuery}

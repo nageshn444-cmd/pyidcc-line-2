@@ -607,7 +607,7 @@ export default function NextDayRequirementsCenter({
             {/* Search Input */}
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
+              <input id="nextdayrequirementscenter-input-1" name="nextdayrequirementscenter_input_1"
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
@@ -1128,10 +1128,10 @@ export default function NextDayRequirementsCenter({
               {/* ── 1. Operator Selection ── */}
               {modalType !== 'EXTRA_MANPOWER' && (
                 <div>
-                  <label className="font-bold text-slate-300 block mb-1">
+                  <label htmlFor="nextdayrequirementscenter-fld-2" className="font-bold text-slate-300 block mb-1">
                     {modalType === 'MATERNITY_LEAVE' ? 'Select Female Train Operator (ML)' : 'Select Train Operator'}
                   </label>
-                  <select
+                  <select id="nextdayrequirementscenter-fld-2" name="nextdayrequirementscenter_fld_2"
                     value={selectedEmpId}
                     onChange={e => setSelectedEmpId(e.target.value)}
                     required
@@ -1151,8 +1151,8 @@ export default function NextDayRequirementsCenter({
               {modalType === 'ACTIVE_DUTY' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="font-bold text-teal-300 block mb-1">Designated Duty Number</label>
-                    <input
+                    <label htmlFor="nextdayrequirementscenter-fld-4" className="font-bold text-teal-300 block mb-1">Designated Duty Number</label>
+                    <input id="nextdayrequirementscenter-fld-4" name="nextdayrequirementscenter_fld_4"
                       type="text"
                       value={dutyNumber}
                       onChange={e => setDutyNumber(e.target.value)}
@@ -1162,8 +1162,8 @@ export default function NextDayRequirementsCenter({
                     />
                   </div>
                   <div>
-                    <label className="font-bold text-teal-300 block mb-1">Shift Category</label>
-                    <select
+                    <label htmlFor="nextdayrequirementscenter-fld-6" className="font-bold text-teal-300 block mb-1">Shift Category</label>
+                    <select id="nextdayrequirementscenter-fld-6" name="nextdayrequirementscenter_fld_6"
                       value={preferredShift}
                       onChange={e => setPreferredShift(e.target.value)}
                       className="w-full bg-slate-800 border border-teal-500/40 rounded-xl px-3 py-2 text-xs text-white font-bold"
@@ -1180,8 +1180,8 @@ export default function NextDayRequirementsCenter({
               {/* ── 3. Training Category Selection ── */}
               {modalType === 'TRAINING' && (
                 <div>
-                  <label className="font-bold text-indigo-300 block mb-1">Training Subject / Module</label>
-                  <select
+                  <label htmlFor="nextdayrequirementscenter-fld-8" className="font-bold text-indigo-300 block mb-1">Training Subject / Module</label>
+                  <select id="nextdayrequirementscenter-fld-8" name="nextdayrequirementscenter_fld_8"
                     value={trainingCategory}
                     onChange={e => setTrainingCategory(e.target.value)}
                     className="w-full bg-slate-800 border border-indigo-500/40 rounded-xl px-3 py-2 text-xs text-white font-bold"
@@ -1201,8 +1201,8 @@ export default function NextDayRequirementsCenter({
               {modalType === 'CRT' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="font-bold text-cyan-300 block mb-1">CRT Assessment Module</label>
-                    <select
+                    <label htmlFor="nextdayrequirementscenter-fld-10" className="font-bold text-cyan-300 block mb-1">CRT Assessment Module</label>
+                    <select id="nextdayrequirementscenter-fld-10" name="nextdayrequirementscenter_fld_10"
                       value={crtModule}
                       onChange={e => setCrtModule(e.target.value)}
                       className="w-full bg-slate-800 border border-cyan-500/40 rounded-xl px-3 py-2 text-xs text-white"
@@ -1215,8 +1215,8 @@ export default function NextDayRequirementsCenter({
                     </select>
                   </div>
                   <div>
-                    <label className="font-bold text-cyan-300 block mb-1">Validity Extension</label>
-                    <select
+                    <label htmlFor="nextdayrequirementscenter-fld-12" className="font-bold text-cyan-300 block mb-1">Validity Extension</label>
+                    <select id="nextdayrequirementscenter-fld-12" name="nextdayrequirementscenter_fld_12"
                       value={crtValidity}
                       onChange={e => setCrtValidity(e.target.value)}
                       className="w-full bg-slate-800 border border-cyan-500/40 rounded-xl px-3 py-2 text-xs text-white"
@@ -1232,8 +1232,8 @@ export default function NextDayRequirementsCenter({
               {/* ── 5. Book-Off Reason Categories ── */}
               {modalType === 'BOOK_OFF' && (
                 <div>
-                  <label className="font-bold text-orange-300 block mb-1">Book-Off Reason Category</label>
-                  <select
+                  <label htmlFor="nextdayrequirementscenter-fld-14" className="font-bold text-orange-300 block mb-1">Book-Off Reason Category</label>
+                  <select id="nextdayrequirementscenter-fld-14" name="nextdayrequirementscenter_fld_14"
                     value={bookOffReasonType}
                     onChange={e => setBookOffReasonType(e.target.value)}
                     className="w-full bg-slate-800 border border-orange-500/40 rounded-xl px-3 py-2 text-xs text-white font-bold"
@@ -1250,8 +1250,8 @@ export default function NextDayRequirementsCenter({
               {modalType === 'NIGHT_EXCHANGE' && (
                 <div className="space-y-3">
                   <div>
-                    <label className="font-bold text-slate-300 block mb-1">Exchange With (Second Operator B)</label>
-                    <select
+                    <label htmlFor="nextdayrequirementscenter-fld-16" className="font-bold text-slate-300 block mb-1">Exchange With (Second Operator B)</label>
+                    <select id="nextdayrequirementscenter-fld-16" name="nextdayrequirementscenter_fld_16"
                       value={selectedEmpId2}
                       onChange={e => setSelectedEmpId2(e.target.value)}
                       required
@@ -1266,8 +1266,8 @@ export default function NextDayRequirementsCenter({
                     </select>
                   </div>
                   <div>
-                    <label className="font-bold text-slate-300 block mb-1">Exchange Scope</label>
-                    <select
+                    <label htmlFor="nextdayrequirementscenter-fld-18" className="font-bold text-slate-300 block mb-1">Exchange Scope</label>
+                    <select id="nextdayrequirementscenter-fld-18" name="nextdayrequirementscenter_fld_18"
                       value={exchangeType}
                       onChange={e => setExchangeType(e.target.value)}
                       className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
@@ -1285,8 +1285,8 @@ export default function NextDayRequirementsCenter({
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="font-bold text-amber-300 block mb-1">Operator Count</label>
-                      <input
+                      <label htmlFor="nextdayrequirementscenter-fld-20" className="font-bold text-amber-300 block mb-1">Operator Count</label>
+                      <input id="nextdayrequirementscenter-fld-20" name="nextdayrequirementscenter_fld_20"
                         type="number"
                         min="1"
                         max="25"
@@ -1297,8 +1297,8 @@ export default function NextDayRequirementsCenter({
                       />
                     </div>
                     <div>
-                      <label className="font-bold text-amber-300 block mb-1">Duty Type Required</label>
-                      <select
+                      <label htmlFor="nextdayrequirementscenter-fld-22" className="font-bold text-amber-300 block mb-1">Duty Type Required</label>
+                      <select id="nextdayrequirementscenter-fld-22" name="nextdayrequirementscenter_fld_22"
                         value={extraDutyType}
                         onChange={e => setExtraDutyType(e.target.value)}
                         className="w-full bg-slate-800 border border-amber-500/40 rounded-xl px-3 py-2 text-xs text-white font-bold"
@@ -1313,8 +1313,8 @@ export default function NextDayRequirementsCenter({
                     </div>
                   </div>
                   <div>
-                    <label className="font-bold text-amber-300 block mb-1">Depot / Station Sector</label>
-                    <select
+                    <label htmlFor="nextdayrequirementscenter-fld-24" className="font-bold text-amber-300 block mb-1">Depot / Station Sector</label>
+                    <select id="nextdayrequirementscenter-fld-24" name="nextdayrequirementscenter_fld_24"
                       value={stationSector}
                       onChange={e => setStationSector(e.target.value)}
                       className="w-full bg-slate-800 border border-amber-500/40 rounded-xl px-3 py-2 text-xs text-white font-bold"
@@ -1332,8 +1332,8 @@ export default function NextDayRequirementsCenter({
               {/* ── 8. Leave Types (CL, EL, HPL, ML, MS, GHEL, CO, SPECIAL) ── */}
               {modalType === 'LEAVE' && (
                 <div>
-                  <label className="font-bold text-rose-300 block mb-1">Leave Type (BMRCL Service Rules)</label>
-                  <select
+                  <label htmlFor="nextdayrequirementscenter-fld-26" className="font-bold text-rose-300 block mb-1">Leave Type (BMRCL Service Rules)</label>
+                  <select id="nextdayrequirementscenter-fld-26" name="nextdayrequirementscenter_fld_26"
                     value={leaveType}
                     onChange={e => setLeaveType(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
@@ -1354,7 +1354,7 @@ export default function NextDayRequirementsCenter({
               {modalType === 'SHIFT_REQUEST' && (
                 <div className="space-y-3">
                   <div>
-                    <label className="font-bold text-emerald-300 block mb-1">Requested Shift Family</label>
+                    <div className="font-bold text-emerald-300 block mb-1">Requested Shift Family</div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {[
                         { id: 'A', label: '☀️ A Shift', sub: '06:00–14:00', color: 'emerald' },
@@ -1379,8 +1379,8 @@ export default function NextDayRequirementsCenter({
                     </div>
                   </div>
                   <div>
-                    <label className="font-bold text-slate-300 block mb-1">Preferred Specific Duty No. (Optional)</label>
-                    <input
+                    <label htmlFor="nextdayrequirementscenter-fld-28" className="font-bold text-slate-300 block mb-1">Preferred Specific Duty No. (Optional)</label>
+                    <input id="nextdayrequirementscenter-fld-28" name="nextdayrequirementscenter_fld_28"
                       type="text"
                       value={dutyNumber}
                       onChange={e => setDutyNumber(e.target.value)}
@@ -1395,8 +1395,8 @@ export default function NextDayRequirementsCenter({
               {modalType === 'TEST_TRACK' && (
                 <div className="space-y-3">
                   <div>
-                    <label className="font-bold text-purple-300 block mb-1">Testing Type / Protocol</label>
-                    <select
+                    <label htmlFor="nextdayrequirementscenter-fld-30" className="font-bold text-purple-300 block mb-1">Testing Type / Protocol</label>
+                    <select id="nextdayrequirementscenter-fld-30" name="nextdayrequirementscenter_fld_30"
                       value={testingType}
                       onChange={e => setTestingType(e.target.value)}
                       className="w-full bg-slate-800 border border-purple-500/40 rounded-xl px-3 py-2 text-xs text-white font-bold"
@@ -1410,8 +1410,8 @@ export default function NextDayRequirementsCenter({
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="font-bold text-purple-300 block mb-1">Competency Required</label>
-                      <select
+                      <label htmlFor="nextdayrequirementscenter-fld-32" className="font-bold text-purple-300 block mb-1">Competency Required</label>
+                      <select id="nextdayrequirementscenter-fld-32" name="nextdayrequirementscenter_fld_32"
                         value={competencyRequired}
                         onChange={e => setCompetencyRequired(e.target.value)}
                         className="w-full bg-slate-800 border border-purple-500/40 rounded-xl px-3 py-2 text-xs text-white"
@@ -1422,8 +1422,8 @@ export default function NextDayRequirementsCenter({
                       </select>
                     </div>
                     <div>
-                      <label className="font-bold text-purple-300 block mb-1">Operator Count</label>
-                      <input
+                      <label htmlFor="nextdayrequirementscenter-fld-34" className="font-bold text-purple-300 block mb-1">Operator Count</label>
+                      <input id="nextdayrequirementscenter-fld-34" name="nextdayrequirementscenter_fld_34"
                         type="number"
                         min="1"
                         max="6"
@@ -1440,8 +1440,8 @@ export default function NextDayRequirementsCenter({
               {/* ── 11. Maternity Leave Extended Status ── */}
               {modalType === 'MATERNITY_LEAVE' && (
                 <div>
-                  <label className="font-bold text-pink-300 block mb-1">Maternity Extended Status Tracker</label>
-                  <select
+                  <label htmlFor="nextdayrequirementscenter-fld-36" className="font-bold text-pink-300 block mb-1">Maternity Extended Status Tracker</label>
+                  <select id="nextdayrequirementscenter-fld-36" name="nextdayrequirementscenter_fld_36"
                     value={mlExtendedStatus}
                     onChange={e => setMlExtendedStatus(e.target.value)}
                     className="w-full bg-slate-800 border border-pink-500/40 rounded-xl px-3 py-2 text-xs text-white"
@@ -1457,8 +1457,8 @@ export default function NextDayRequirementsCenter({
               {/* ── 12. Special Duty Restriction Type ── */}
               {modalType === 'SPECIAL_DUTY' && (
                 <div>
-                  <label className="font-bold text-fuchsia-300 block mb-1">Restriction Profile</label>
-                  <select
+                  <label htmlFor="nextdayrequirementscenter-fld-38" className="font-bold text-fuchsia-300 block mb-1">Restriction Profile</label>
+                  <select id="nextdayrequirementscenter-fld-38" name="nextdayrequirementscenter_fld_38"
                     value={restrictionType}
                     onChange={e => setRestrictionType(e.target.value)}
                     className="w-full bg-slate-800 border border-fuchsia-500/40 rounded-xl px-3 py-2 text-xs text-white font-bold"
@@ -1475,10 +1475,10 @@ export default function NextDayRequirementsCenter({
               {/* ── 12.5. Other Duty Title Field ── */}
               {modalType === 'OTHER_DUTY' && (
                 <div>
-                  <label className="font-bold text-purple-300 block mb-1">
+                  <label htmlFor="nextdayrequirementscenter-fld-40" className="font-bold text-purple-300 block mb-1">
                     Duty Title / Name <span className="text-rose-400">*</span>
                   </label>
-                  <input
+                  <input id="nextdayrequirementscenter-fld-40" name="nextdayrequirementscenter_fld_40"
                     type="text"
                     value={dutyTitle}
                     onChange={e => setDutyTitle(e.target.value)}
@@ -1505,8 +1505,8 @@ export default function NextDayRequirementsCenter({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[11px] font-bold text-slate-300 block mb-1">Start Date</label>
-                    <input
+                    <label htmlFor="nextdayrequirementscenter-fld-42" className="text-[11px] font-bold text-slate-300 block mb-1">Start Date</label>
+                    <input id="nextdayrequirementscenter-fld-42" name="nextdayrequirementscenter_fld_42"
                       type="date"
                       value={reqFromDate}
                       onChange={e => {
@@ -1518,8 +1518,8 @@ export default function NextDayRequirementsCenter({
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold text-slate-300 block mb-1">End Date</label>
-                    <input
+                    <label htmlFor="nextdayrequirementscenter-fld-44" className="text-[11px] font-bold text-slate-300 block mb-1">End Date</label>
+                    <input id="nextdayrequirementscenter-fld-44" name="nextdayrequirementscenter_fld_44"
                       type="date"
                       value={reqToDate}
                       min={reqFromDate}
@@ -1539,8 +1539,8 @@ export default function NextDayRequirementsCenter({
               {/* ── 14. Topic / Subject ── */}
               {modalType !== 'LEAVE' && modalType !== 'SHIFT_REQUEST' && modalType !== 'ACTIVE_DUTY' && modalType !== 'OTHER_DUTY' && (
                 <div>
-                  <label className="font-bold text-slate-300 block mb-1">Topic / Subject</label>
-                  <input
+                  <label htmlFor="nextdayrequirementscenter-fld-46" className="font-bold text-slate-300 block mb-1">Topic / Subject</label>
+                  <input id="nextdayrequirementscenter-fld-46" name="nextdayrequirementscenter_fld_46"
                     type="text"
                     value={topic}
                     onChange={e => setTopic(e.target.value)}
@@ -1554,13 +1554,13 @@ export default function NextDayRequirementsCenter({
               {modalType !== 'LEAVE' && modalType !== 'SHIFT_REQUEST' && modalType !== 'MATERNITY_LEAVE' && modalType !== 'BOOK_OFF' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="font-bold text-slate-300 block mb-1">Daily Start / Reporting Time</label>
-                    <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)}
+                    <label htmlFor="nextdayrequirementscenter-fld-48" className="font-bold text-slate-300 block mb-1">Daily Start / Reporting Time</label>
+                    <input id="nextdayrequirementscenter-fld-48" name="nextdayrequirementscenter_fld_48" type="time" value={startTime} onChange={e => setStartTime(e.target.value)}
                       className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white" />
                   </div>
                   <div>
-                    <label className="font-bold text-slate-300 block mb-1">Daily End / Sign-off Time</label>
-                    <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)}
+                    <label htmlFor="nextdayrequirementscenter-fld-50" className="font-bold text-slate-300 block mb-1">Daily End / Sign-off Time</label>
+                    <input id="nextdayrequirementscenter-fld-50" name="nextdayrequirementscenter_fld_50" type="time" value={endTime} onChange={e => setEndTime(e.target.value)}
                       className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white" />
                   </div>
                 </div>
@@ -1570,20 +1570,20 @@ export default function NextDayRequirementsCenter({
               <div className="grid grid-cols-2 gap-3">
                 {modalType !== 'LEAVE' && modalType !== 'MATERNITY_LEAVE' && modalType !== 'BOOK_OFF' && modalType !== 'SHIFT_REQUEST' ? (
                   <div>
-                    <label className="font-bold text-slate-300 block mb-1">Location / Depot</label>
-                    <input type="text" value={location} onChange={e => setLocation(e.target.value)}
+                    <label htmlFor="nextdayrequirementscenter-fld-52" className="font-bold text-slate-300 block mb-1">Location / Depot</label>
+                    <input id="nextdayrequirementscenter-fld-52" name="nextdayrequirementscenter_fld_52" type="text" value={location} onChange={e => setLocation(e.target.value)}
                       className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white" />
                   </div>
                 ) : (
                   <div>
-                    <label className="font-bold text-slate-300 block mb-1">Depot / Base</label>
-                    <input type="text" value="PYID" disabled
+                    <label htmlFor="nextdayrequirementscenter-fld-54" className="font-bold text-slate-300 block mb-1">Depot / Base</label>
+                    <input id="nextdayrequirementscenter-fld-54" name="nextdayrequirementscenter_fld_54" type="text" value="PYID" disabled
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-400 font-mono" />
                   </div>
                 )}
                 <div>
-                  <label className="font-bold text-slate-300 block mb-1">Priority</label>
-                  <select value={priority} onChange={e => setPriority(e.target.value)}
+                  <label htmlFor="nextdayrequirementscenter-fld-56" className="font-bold text-slate-300 block mb-1">Priority</label>
+                  <select id="nextdayrequirementscenter-fld-56" name="nextdayrequirementscenter_fld_56" value={priority} onChange={e => setPriority(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
                     <option value="CRITICAL">CRITICAL (Must Satisfy)</option>
                     <option value="HIGH">HIGH Priority</option>
@@ -1594,8 +1594,8 @@ export default function NextDayRequirementsCenter({
 
               {/* ── 17. Reason / Notes ── */}
               <div>
-                <label className="font-bold text-slate-300 block mb-1">Operational Notes / Reason</label>
-                <textarea value={reason} onChange={e => setReason(e.target.value)} rows="2"
+                <label htmlFor="nextdayrequirementscenter-fld-58" className="font-bold text-slate-300 block mb-1">Operational Notes / Reason</label>
+                <textarea id="nextdayrequirementscenter-fld-58" name="nextdayrequirementscenter_fld_58" value={reason} onChange={e => setReason(e.target.value)} rows="2"
                   placeholder="Enter reason or instruction for crew controller audit log..."
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
                 />
