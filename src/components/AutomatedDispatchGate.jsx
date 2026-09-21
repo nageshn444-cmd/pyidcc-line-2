@@ -4883,93 +4883,196 @@ Rules:
               </div>
             </div>
 
-            {/* 7-Day Rolling Date Selector Bar */}
-            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-2.5 space-y-2">
-              <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
-                <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-emerald-400">
+            {/* ── Step 1 — Target Deployment Day Selector ── */}
+            <div className="bg-slate-950/80 border border-slate-700 rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 bg-slate-900 border-b border-slate-800">
+                <span className="flex items-center gap-1.5 font-black uppercase tracking-wider text-emerald-400 text-[10px]">
                   <Calendar className="w-3.5 h-3.5" />
-                  Select Target Deployment Day (Next 7 Days):
+                  Step 1 — Select Target Deployment Day
                 </span>
-                <span className="text-emerald-300 font-bold">{activeSelectedDayObj.fullOfficialTitle}</span>
+                <span className="text-[10px] text-slate-400 font-mono hidden sm:block">
+                  {activeSelectedDayObj.fullOfficialTitle}
+                </span>
               </div>
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+
+              {/* Day Pills Row */}
+              <div className="flex items-stretch overflow-x-auto border-b border-slate-800 scrollbar-none">
                 {rollingDays.map((d, idx) => {
                   const isSelected = idx === activeRosterDayOffset;
+                  const typeStyles = {
+                    SUNDAY:  { sel: 'bg-orange-600 text-white shadow-lg shadow-orange-950/60 ring-2 ring-orange-400', idle: 'bg-slate-950 text-slate-400 hover:bg-orange-950/30 hover:text-orange-300', badge: 'text-orange-400 bg-orange-950/60 border-orange-700/40' },
+                    SATURDAY:{ sel: 'bg-violet-600 text-white shadow-lg shadow-violet-950/60 ring-2 ring-violet-400', idle: 'bg-slate-950 text-slate-400 hover:bg-violet-950/30 hover:text-violet-300', badge: 'text-violet-400 bg-violet-950/60 border-violet-700/40' },
+                    MONDAY:  { sel: 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/60 ring-2 ring-emerald-400', idle: 'bg-slate-950 text-slate-400 hover:bg-emerald-950/30 hover:text-emerald-300', badge: 'text-emerald-400 bg-emerald-950/60 border-emerald-700/40' },
+                    WEEKDAY: { sel: 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/60 ring-2 ring-emerald-400', idle: 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white', badge: 'text-cyan-400 bg-cyan-950/60 border-cyan-700/40' },
+                  };
+                  const ts = typeStyles[d.scheduleType] || typeStyles.WEEKDAY;
+                  const displayType = d.scheduleType === 'MONDAY' ? 'WEEKDAY' : d.scheduleType;
                   return (
                     <button
                       key={d.dateStr}
                       type="button"
-                      onClick={() => {
-                        setActiveRosterDayOffset(idx);
-                        if (selectedRosterFile) {
-                          processFileAndDeploy(selectedRosterFile, null, d.date);
-                        }
-                      }}
-                      className={`flex flex-col items-center px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition shrink-0 ${
-                        isSelected
-                          ? "bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 ring-2 ring-emerald-400"
-                          : "bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800"
-                      }`}
+                      onClick={() => setActiveRosterDayOffset(idx)}
+                      className={`flex flex-col items-center px-3.5 py-2.5 text-xs font-mono font-bold transition shrink-0 border-r border-slate-800 last:border-r-0 ${isSelected ? ts.sel : ts.idle}`}
                     >
-                      <span className="text-[9px] uppercase tracking-wider">{d.badge}</span>
-                      <span className="text-xs font-black">{d.sheetTag}</span>
-                      <span className="text-[9px] font-normal">{d.shortDay}</span>
+                      <span className={`text-[9px] uppercase tracking-widest font-black ${isSelected ? 'text-white/70' : 'text-slate-500'}`}>
+                        {d.badge}
+                      </span>
+                      <span className="text-base font-black leading-tight mt-0.5">{d.dayOfMonth}</span>
+                      <span className={`text-[10px] font-bold ${isSelected ? 'text-white/90' : 'text-slate-400'}`}>{d.monthShort}</span>
+                      <span className={`text-[9px] ${isSelected ? 'text-white/60' : 'text-slate-500'}`}>{d.shortDay}</span>
+                      <span className={`mt-1.5 text-[8px] px-1.5 py-0.5 rounded-sm font-black uppercase border ${isSelected ? 'bg-black/25 border-white/20 text-white/75' : ts.badge}`}>
+                        {displayType}
+                      </span>
                     </button>
                   );
                 })}
               </div>
+
+              {/* Context Awareness Strip */}
+              {(() => {
+                const offset = activeRosterDayOffset;
+                const d = activeSelectedDayObj;
+                const configs = [
+                  { icon: '⚡', label: "TODAY'S ROSTER", sub: `Deploying for current operational day`, color: 'bg-amber-950/50 border-amber-600/30 text-amber-300' },
+                  { icon: '📅', label: 'NEXT DAY ROSTER', sub: `Standard next-day advance deployment`, color: 'bg-emerald-950/50 border-emerald-600/30 text-emerald-300' },
+                  { icon: '📅', label: 'DAY AFTER TOMORROW', sub: `2-day advance deployment`, color: 'bg-cyan-950/50 border-cyan-600/30 text-cyan-300' },
+                ];
+                const cfg = offset <= 2
+                  ? configs[offset]
+                  : { icon: '🗓', label: `D+${offset} ADVANCE PLANNING`, sub: `${offset}-day advance deployment`, color: 'bg-slate-900 border-slate-700/50 text-slate-300' };
+                return (
+                  <div className={`px-3 py-2 flex items-center gap-2 text-[10px] font-mono ${cfg.color}`}>
+                    <span className="text-sm leading-none">{cfg.icon}</span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-black uppercase tracking-wider">{cfg.label}</span>
+                      <span className="opacity-60">—</span>
+                      <span className="font-normal opacity-70">{cfg.sub} • {d.fullOfficialTitle}</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
-            <div className="flex flex-col md:flex-row gap-3 items-center">
-              <div className="relative flex-1 w-full">
-                <input
-                  id="automateddispatchgat-i9"
-                  name="automateddispatchgat-i9"
-                  type="text"
-                  value={excelPathInput}
-                  onChange={(e) => setExcelPathInput(e.target.value)}
-                  placeholder="Paste file path or URL — supports .xlsx, .xls, .xlsb, .xlsm, .csv, .json, .pdf (AI-extracted)"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-                />
+            {/* ── Step 2 — Select Roster File ── */}
+            <div className="bg-slate-950/80 border border-slate-700 rounded-xl overflow-hidden">
+              <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-wider text-emerald-400">
+                <UploadCloud className="w-3.5 h-3.5" />
+                Step 2 — Select Roster File
+                <span className="text-slate-500 font-normal normal-case ml-1 tracking-normal">Supports .xlsx · .xls · .xlsb · .xlsm · .csv · .json · .pdf</span>
               </div>
-              <div className="flex items-center gap-2 w-full md:w-auto">
-                <label
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs px-3 py-2 rounded-lg cursor-pointer border border-slate-700 flex items-center gap-1.5 shrink-0 transition"
-                  title="Supported: Excel (.xlsx/.xls), CSV, JSON, PDF (AI-extracted via Gemini)"
-                >
-                  <UploadCloud className="h-4 w-4 text-emerald-400" />
-                  <span>Browse File</span>
-                  <input
-                    id="automateddispatchgat-i10"
-                    name="automateddispatchgat-i10"
-                    type="file"
-                    accept=".xlsx,.xls,.xlsb,.xlsm,.csv,.json,.pdf"
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        const file = e.target.files[0];
-                        setSelectedRosterFile(file);
-                        setExcelPathInput(file.name);
-                        processFileAndDeploy(file, null, activeSelectedDayObj.date);
-                      }
-                    }}
-                  />
-                </label>
-                <button
-                  type="button"
-                  onClick={() => processFileAndDeploy(selectedRosterFile, null, activeSelectedDayObj.date)}
-                  disabled={isInspectingPath}
-                  className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-black text-xs px-4 py-2 rounded-lg transition-all shadow-md shadow-emerald-950 flex items-center gap-2 shrink-0 uppercase tracking-wider cursor-pointer"
-                >
-                  {isInspectingPath ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Cpu className="h-4 w-4" />
-                  )}
-                  <span>INSPECT & AUTO-DEPLOY</span>
-                </button>
+
+              <div className="p-3 space-y-2.5">
+                <div className="flex flex-col md:flex-row gap-2 items-stretch">
+                  <div className="relative flex-1 w-full">
+                    <input
+                      id="automateddispatchgat-i9"
+                      name="automateddispatchgat-i9"
+                      type="text"
+                      value={excelPathInput}
+                      onChange={(e) => setExcelPathInput(e.target.value)}
+                      placeholder="Paste file path or URL here…"
+                      className="w-full h-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <label
+                    className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs px-4 py-2.5 rounded-lg cursor-pointer border border-slate-700 flex items-center gap-1.5 shrink-0 transition justify-center"
+                    title="Supported: Excel (.xlsx/.xls), CSV, JSON, PDF (AI-extracted via Gemini)"
+                  >
+                    <UploadCloud className="h-4 w-4 text-emerald-400" />
+                    <span>Browse &amp; Select File</span>
+                    <input
+                      id="automateddispatchgat-i10"
+                      name="automateddispatchgat-i10"
+                      type="file"
+                      accept=".xlsx,.xls,.xlsb,.xlsm,.csv,.json,.pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          const file = e.target.files[0];
+                          setSelectedRosterFile(file);
+                          setExcelPathInput(file.name);
+                          // ✋ No auto-deploy — user must press INSPECT & DEPLOY (Step 3)
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {/* File Ready / Empty Indicator */}
+                {selectedRosterFile ? (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-emerald-950/40 border border-emerald-600/30 rounded-lg">
+                    <CheckCircle className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                    <div className="flex-1 min-w-0 text-[10px] font-mono">
+                      <span className="text-emerald-300 font-black">{selectedRosterFile.name}</span>
+                      <span className="text-emerald-400/60 ml-2">({(selectedRosterFile.size / 1024).toFixed(1)} KB)</span>
+                      <span className="text-emerald-400/50 ml-2">· Ready for {activeSelectedDayObj.displayLabel}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedRosterFile(null); setExcelPathInput(''); }}
+                      className="text-slate-500 hover:text-rose-400 transition text-[10px] shrink-0 font-mono"
+                      title="Clear selected file"
+                    >
+                      ✕ Clear
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/60 border border-slate-700/50 rounded-lg text-[10px] font-mono text-slate-500 italic">
+                    <FileSpreadsheet className="h-3.5 w-3.5 shrink-0 text-slate-600" />
+                    No file selected — browse above or paste a path, then press INSPECT &amp; DEPLOY below
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* ── Step 3 — INSPECT & DEPLOY ── */}
+            {(() => {
+              const canInspect = !!selectedRosterFile && !isInspectingPath;
+              const d = activeSelectedDayObj;
+              const displayType = d.scheduleType === 'MONDAY' ? 'WEEKDAY' : d.scheduleType;
+              const gradients = {
+                SUNDAY:  'from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 shadow-orange-950/60',
+                SATURDAY:'from-violet-600 to-purple-500 hover:from-violet-500 hover:to-purple-400 shadow-violet-950/60',
+                MONDAY:  'from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-emerald-950/60',
+                WEEKDAY: 'from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-emerald-950/60',
+              };
+              const grad = gradients[d.scheduleType] || gradients.WEEKDAY;
+              const dayLabel = d.badge === 'TODAY'
+                ? 'TODAY'
+                : d.badge === 'TOMORROW'
+                  ? 'TOMORROW'
+                  : `${d.shortDay.toUpperCase()} ${d.dayOfMonth} ${d.monthShort.toUpperCase()}`;
+              return (
+                <div className="flex flex-col sm:flex-row items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => processFileAndDeploy(selectedRosterFile, null, activeSelectedDayObj.date)}
+                    disabled={!canInspect}
+                    title={!selectedRosterFile ? 'Select a roster file first (Step 2)' : `Inspect & deploy roster for ${d.displayLabel}`}
+                    className={`flex-1 bg-gradient-to-r ${grad} text-slate-950 font-black text-xs px-6 py-3.5 rounded-xl shadow-md flex items-center justify-center gap-2.5 uppercase tracking-wider transition-all ${
+                      canInspect ? 'cursor-pointer opacity-100' : 'opacity-35 cursor-not-allowed'
+                    }`}
+                  >
+                    {isInspectingPath ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Cpu className="h-5 w-5" />
+                    )}
+                    <span className="text-sm">
+                      {isInspectingPath
+                        ? `Inspecting ${d.badge} Roster…`
+                        : `INSPECT & DEPLOY — ${dayLabel} (${displayType})`
+                      }
+                    </span>
+                  </button>
+                  {!selectedRosterFile && (
+                    <span className="text-[10px] text-slate-500 font-mono italic whitespace-nowrap">
+                      ← Select a file in Step 2 to enable
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Detected Sheets in Multi-Sheet Workbook */}
             {detectedWorkbookSheets.length > 0 && (
