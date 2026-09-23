@@ -3851,152 +3851,302 @@ Rules:
     if (!targetDeployment) return [];
     const targetTrainIds = getLegTrainIds(targetDeployment);
     const targetDutyIdStr = String(targetDeployment.dutyId || "").trim();
+    const targetEmpId = String(
+      targetDeployment.empId || targetDeployment.empNo || targetDeployment.employeeId || "",
+    ).trim();
+    const targetEmpName = String(
+      targetDeployment.empName || targetDeployment.name || targetDeployment.driverName || "",
+    ).trim().toUpperCase();
 
-    return deployments
-      .filter((candidate) => {
-        const cDutyId = String(candidate.dutyId || "").trim();
-        if (cDutyId === targetDutyIdStr) return false;
-        if (!candidate.empName || candidate.empName === "--") return false;
-        const nameUpper = String(candidate.empName || "").toUpperCase();
-        if (nameUpper.includes("VACANT") || nameUpper.includes("UNASSIGNED")) return false;
+    const seenCandidates = new Set();
+    if (targetEmpId) seenCandidates.add(targetEmpId.toUpperCase());
+    if (targetEmpName) seenCandidates.add(targetEmpName);
 
-        const cStatus = String(candidate.status || "").toUpperCase();
-        // Candidate cannot already be providing relief or relieved, nor absent/not reporting/booked off
-        if (
-          cStatus === "RELIEF_DISPATCHED" ||
-          cStatus === "RELIEVED" ||
-          cStatus === "ABSENT" ||
-          cStatus === "AB" ||
-          cStatus === "NOT_REPORTING" ||
-          cStatus === "NR" ||
-          cStatus === "BOOKED_OFF" ||
-          cStatus === "BOOKED_OFF_VACANT" ||
-          Boolean(candidate.isAbsent) ||
-          Boolean(candidate.isNotReporting)
-        ) {
-          return false;
-        }
-        return true;
-      })
+    const poolList = [];
+
+    // =========================================================================
+    // 1. INGEST STANDBY CREW FROM BMRCL LINE 2 PEENYA DEPOT ROSTER DESK CONSOLE
+    //    A. Standbys & Operating Reserves (@Standby, @OR)
+    // =========================================================================
+    (consoleData.standbys || []).forEach((item, idx) => {
+      const empId = String(item.empNo || item.empId || `STBY_${idx + 1}`).trim();
+      const empName = String(item.name || item.empName || "").trim();
+      if (!empName || empName === "--" || empName.toUpperCase().includes("VACANT") || empName.toUpperCase().includes("UNASSIGNED")) return;
+      if (empName.toUpperCase() === targetEmpName || (empId && seenCandidates.has(empId.toUpperCase()))) return;
+      if (empId) seenCandidates.add(empId.toUpperCase());
+      seenCandidates.add(empName.toUpperCase());
+
+      const codeUpper = String(item.code || item.label || item.dutyId || "OR").trim().toUpperCase();
+      const isOR = codeUpper.startsWith("OR") || codeUpper.includes(" OR ");
+      const dutyCode = item.code || item.label || (isOR ? "OR" : "STANDBY");
+
+      poolList.push({
+        id: `console_stby_${empId}`,
+        empId,
+        empNo: empId,
+        empName,
+        name: empName,
+        dutyId: dutyCode,
+        trainId: "--",
+        shift: item.time || "06:00 - 14:00",
+        signOnTime: item.time ? String(item.time).split("-")[0].trim() : "06:00",
+        signOffTime: item.time && item.time.includes("-") ? String(item.time).split("-")[1].trim() : "14:00",
+        signOnLocation: "PYID",
+        signOffLocation: "PYID",
+        status: "STANDBY",
+        isSignedOn: true,
+        candidatePool: "STANDBY",
+        poolLabel: `STANDBY (${dutyCode})`,
+        poolPriority: 100, // Top Priority: Designated Depot Standby
+        reason: isOR
+          ? "Primary Peenya Depot Operating Reserve (OR) Standby Crew (Priority 1)"
+          : "Primary Depot Emergency Standby Crew from @Standby Console (Priority 1)",
+        isConsoleStandby: true,
+        source: "ROSTER_DESK_CONSOLE_STANDBY",
+        remainingHours: 7.0,
+      });
+    });
+
+    // =========================================================================
+    // 1. B. Outstation Step-Back Operators (@STBK)
+    // =========================================================================
+    (consoleData.outstationStepbacks || []).forEach((item, idx) => {
+      const empId = String(item.empNo || item.empId || `STBK_${idx + 1}`).trim();
+      const empName = String(item.name || item.empName || "").trim();
+      if (!empName || empName === "--" || empName.toUpperCase().includes("VACANT")) return;
+      if (empName.toUpperCase() === targetEmpName || (empId && seenCandidates.has(empId.toUpperCase()))) return;
+      if (empId) seenCandidates.add(empId.toUpperCase());
+      seenCandidates.add(empName.toUpperCase());
+
+      const stn = String(item.station || item.loc || "PYID").trim().toUpperCase();
+      poolList.push({
+        id: `console_stbk_${empId}`,
+        empId,
+        empNo: empId,
+        empName,
+        name: empName,
+        dutyId: `STBK (${stn})`,
+        trainId: "--",
+        shift: item.time || "06:00 - 14:00",
+        signOnTime: item.time ? String(item.time).split("-")[0].trim() : "06:00",
+        signOffTime: "14:00",
+        signOnLocation: stn,
+        signOffLocation: stn,
+        status: "STBK",
+        isSignedOn: true,
+        candidatePool: "STANDBY",
+        poolLabel: `STBK (${stn})`,
+        poolPriority: 90, // Step-back: 90 pts
+        reason: `Outstation Step-back Operator at ${stn} (@STBK Console) (Priority 1)`,
+        isConsoleStandby: true,
+        source: "ROSTER_DESK_CONSOLE_STBK",
+        remainingHours: 6.5,
+      });
+    });
+
+    // =========================================================================
+    // 1. C. PRO, NPRO, TGTP, RD3 Standby Registers (@PRO, @TGTP, @RD3)
+    // =========================================================================
+    if (consoleData.customRegisters) {
+      Object.entries(consoleData.customRegisters).forEach(([tag, list]) => {
+        if (!Array.isArray(list)) return;
+        const tagUpper = tag.toUpperCase();
+        const isPro = tagUpper.includes("PRO") || tagUpper.includes("PILOT");
+        const isTgtp = tagUpper.includes("TGTP");
+        const isRd3 = tagUpper.includes("RD3") || tagUpper.includes("RD-3");
+        if (!isPro && !isTgtp && !isRd3) return;
+
+        const poolType = isPro ? "PRO" : "STANDBY";
+        const priority = isPro ? 85 : 80;
+
+        list.forEach((item, idx) => {
+          const empId = String(item.empNo || item.empId || `${tag}_${idx + 1}`).trim();
+          const empName = String(item.name || item.empName || "").trim();
+          if (!empName || empName === "--" || empName.toUpperCase().includes("VACANT")) return;
+          if (empName.toUpperCase() === targetEmpName || (empId && seenCandidates.has(empId.toUpperCase()))) return;
+          if (empId) seenCandidates.add(empId.toUpperCase());
+          seenCandidates.add(empName.toUpperCase());
+
+          poolList.push({
+            id: `console_custom_${tag}_${empId}`,
+            empId,
+            empNo: empId,
+            empName,
+            name: empName,
+            dutyId: tag,
+            trainId: "--",
+            shift: item.time || item.info || "06:00 - 14:00",
+            signOnTime: "06:00",
+            signOffTime: "14:00",
+            signOnLocation: isTgtp ? "TGTP" : "PYID",
+            signOffLocation: isTgtp ? "TGTP" : "PYID",
+            status: tag,
+            isSignedOn: true,
+            candidatePool: poolType,
+            poolLabel: `${poolType} (${tag})`,
+            poolPriority: priority,
+            reason: `${tag} Operator from Peenya Console Registry (Priority 1)`,
+            isConsoleStandby: true,
+            source: "ROSTER_DESK_CONSOLE_CUSTOM",
+            remainingHours: 6.0,
+          });
+        });
+      });
+    }
+
+    // =========================================================================
+    // 2. INGEST FROM SCHEDULED DEPLOYMENTS (deployments)
+    // =========================================================================
+    deployments.forEach((candidate) => {
+      const cDutyId = String(candidate.dutyId || "").trim();
+      if (cDutyId === targetDutyIdStr) return;
+      if (!candidate.empName || candidate.empName === "--") return;
+      const nameUpper = String(candidate.empName || "").toUpperCase();
+      if (nameUpper.includes("VACANT") || nameUpper.includes("UNASSIGNED")) return;
+
+      const cEmpId = String(candidate.empId || candidate.empNo || "").trim();
+      if (seenCandidates.has(nameUpper) || (cEmpId && seenCandidates.has(cEmpId.toUpperCase()))) return;
+
+      const cStatus = String(candidate.status || "").toUpperCase();
+      if (
+        cStatus === "RELIEF_DISPATCHED" ||
+        cStatus === "RELIEVED" ||
+        cStatus === "ABSENT" ||
+        cStatus === "AB" ||
+        cStatus === "NOT_REPORTING" ||
+        cStatus === "NR" ||
+        cStatus === "BOOKED_OFF" ||
+        cStatus === "BOOKED_OFF_VACANT" ||
+        Boolean(candidate.isAbsent) ||
+        Boolean(candidate.isNotReporting)
+      ) {
+        return;
+      }
+
+      seenCandidates.add(nameUpper);
+      if (cEmpId) seenCandidates.add(cEmpId.toUpperCase());
+
+      const candidateTrainIds = getLegTrainIds(candidate);
+      const sameTrainDuty = candidateTrainIds.some((tid) => targetTrainIds.includes(tid));
+      const remainingHours = getRemainingHours(candidate);
+
+      const resolvedType = String(
+        resolveDutyType(candidate, currentDayType) || candidate.dutyType || "",
+      ).toUpperCase();
+      const trainIdStr = String(candidate.trainId || "").trim().toUpperCase();
+      const shiftStr = String(candidate.shift || "").trim().toUpperCase();
+      const remarksStr = String(candidate.remarks || "").trim().toUpperCase();
+      const dutyIdStr = String(candidate.dutyId || "").trim().toUpperCase();
+
+      // Check if candidate is driving an active mainline passenger train
+      // e.g. Train IDs like 201..233, A73, B4235, B57, B59, B60, M62PU, A1833, etc.
+      const isMainlineTrain = Boolean(
+        trainIdStr &&
+        trainIdStr !== "--" &&
+        trainIdStr !== "-" &&
+        trainIdStr !== "UNASSIGNED" &&
+        !["STBY", "STANDBY", "STDBY", "STBK", "RD3", "RD-3", "TGTP", "PRO", "NPRO", "PILOT", "OR", "OR1", "OR2"].includes(trainIdStr) &&
+        !trainIdStr.startsWith("ST") &&
+        !trainIdStr.startsWith("PRO") &&
+        !trainIdStr.startsWith("OR")
+      );
+
+      // Standby detection (Scheduled Roster Non-Running Standby Duty)
+      const isStandby = Boolean(
+        !isMainlineTrain && (
+          /\b(STBY|STANDBY|STDBY|STBK|RD-?3|TGTP|OR1|OR2)\b/i.test(resolvedType) ||
+          (/\bOR\b/i.test(resolvedType) && !/OPERATOR/i.test(resolvedType)) ||
+          /\b(STBY|STANDBY|STDBY|STBK|RD-?3|TGTP|OR1|OR2)\b/i.test(trainIdStr) ||
+          (/\bOR\b/i.test(trainIdStr) && !/OPERATOR/i.test(trainIdStr)) ||
+          /\b(STBY|STANDBY|STDBY|STBK|RD-?3|TGTP|OR1|OR2)\b/i.test(remarksStr) ||
+          /\b(STBY|STANDBY|STDBY|STBK|RD-?3|TGTP|OR1|OR2)\b/i.test(shiftStr) ||
+          dutyIdStr.startsWith("STBY") ||
+          dutyIdStr.startsWith("OR")
+        )
+      );
+
+      // Pro detection (Pilot Reserve)
+      const isPro = Boolean(
+        !isMainlineTrain && !isStandby && (
+          resolvedType.includes("PRO") ||
+          resolvedType.includes("NPRO") ||
+          resolvedType.includes("PILOT") ||
+          trainIdStr.includes("PRO") ||
+          trainIdStr.startsWith("PRO") ||
+          shiftStr.includes("PRO") ||
+          shiftStr.includes("NPRO") ||
+          remarksStr.includes("PRO") ||
+          remarksStr.includes("PILOT") ||
+          dutyIdStr.startsWith("PRO")
+        )
+      );
+
+      // Buffer
+      const isBuffer = Boolean(
+        !isMainlineTrain && !isStandby && !isPro && (
+          trainIdStr === "" ||
+          trainIdStr === "--" ||
+          trainIdStr === "UNASSIGNED" ||
+          resolvedType.includes("BUFFER") ||
+          resolvedType.includes("EXTRA")
+        )
+      );
+
+      let candidatePool = "ACTIVE_MAINLINE";
+      let poolLabel = `Active (Train ${candidate.trainId || "--"})`;
+      let poolPriority = 10;
+      let poolReason = sameTrainDuty
+        ? "Same path / train leg detected (crossover swap)"
+        : "In-service mainline operator (OCC crossover / cab swap)";
+
+      if (isStandby) {
+        candidatePool = "STANDBY";
+        const subLabel = trainIdStr && trainIdStr !== "--" ? trainIdStr : (resolvedType || "Depot Reserve");
+        poolLabel = `STANDBY (${subLabel})`;
+        poolPriority = 80;
+        poolReason = "Scheduled Roster Emergency Standby Crew (Priority 1)";
+      } else if (isPro) {
+        candidatePool = "PRO";
+        const subLabel = trainIdStr && trainIdStr !== "--" ? trainIdStr : (resolvedType || "Pilot Reserve");
+        poolLabel = `PRO PILOT (${subLabel})`;
+        poolPriority = 65;
+        poolReason = "Designated Depot Pilot Reserve Crew (Priority 1)";
+      } else if (isBuffer) {
+        candidatePool = "BUFFER";
+        poolLabel = "DEPOT BUFFER CREW";
+        poolPriority = 40;
+        poolReason = "Unassigned buffer operator available at depot";
+      }
+
+      poolList.push({
+        ...candidate,
+        candidatePool,
+        poolLabel,
+        poolPriority,
+        reason: poolReason,
+        sameTrainDuty,
+        remainingHours,
+      });
+    });
+
+    return poolList
       .map((candidate) => {
-        const candidateTrainIds = getLegTrainIds(candidate);
-        const sameTrainDuty = candidateTrainIds.some((tid) =>
-          targetTrainIds.includes(tid),
-        );
-        const remainingHours = getRemainingHours(candidate);
-
-        // Identify candidate pool type
-        const resolvedType = String(
-          resolveDutyType(candidate, currentDayType) || candidate.dutyType || "",
-        ).toUpperCase();
-        const trainIdStr = String(candidate.trainId || "").trim().toUpperCase();
-        const shiftStr = String(candidate.shift || "").trim().toUpperCase();
-        const remarksStr = String(candidate.remarks || "").trim().toUpperCase();
-        const dutyIdStr = String(candidate.dutyId || "").trim().toUpperCase();
-        const dutyIdNum = parseInt(dutyIdStr, 10);
-
-        // 1. Standby detection (Primary Depot Relief Reserve)
-        const isStandby = Boolean(
-          resolvedType.includes("STBY") ||
-          resolvedType.includes("STANDBY") ||
-          resolvedType.includes("STDBY") ||
-          resolvedType.includes("STBK") ||
-          resolvedType.includes("RD-3") ||
-          resolvedType.includes("RD3") ||
-          resolvedType.includes("TGTP") ||
-          resolvedType.includes("OR1") ||
-          resolvedType.includes("OR2") ||
-          resolvedType.includes("OR") ||
-          trainIdStr.includes("STBY") ||
-          trainIdStr.includes("STANDBY") ||
-          trainIdStr.includes("RD3") ||
-          trainIdStr.includes("TGTP") ||
-          trainIdStr.startsWith("OR") ||
-          shiftStr.includes("STBY") ||
-          shiftStr.includes("STANDBY") ||
-          remarksStr.includes("STANDBY") ||
-          remarksStr.includes("STBY") ||
-          remarksStr.includes("OR1") ||
-          remarksStr.includes("RD3") ||
-          dutyIdNum === 2 || dutyIdNum === 32 ||
-          dutyIdStr.startsWith("STBY") || dutyIdStr.startsWith("OR")
-        );
-
-        // 2. Pro detection (Pilot Reserve)
-        const isPro = Boolean(
-          !isStandby && (
-            resolvedType.includes("PRO") ||
-            resolvedType.includes("NPRO") ||
-            resolvedType.includes("PILOT") ||
-            trainIdStr.includes("PRO") ||
-            trainIdStr.startsWith("PRO") ||
-            shiftStr.includes("PRO") ||
-            shiftStr.includes("NPRO") ||
-            remarksStr.includes("PRO") ||
-            remarksStr.includes("PILOT") ||
-            dutyIdNum === 1 || dutyIdNum === 31 ||
-            dutyIdStr.startsWith("PRO")
-          )
-        );
-
-        // 3. Buffer / Unassigned (Depot available buffer)
-        const isBuffer = Boolean(
-          !isStandby && !isPro && (
-            trainIdStr === "" ||
-            trainIdStr === "--" ||
-            trainIdStr === "UNASSIGNED" ||
-            resolvedType.includes("BUFFER") ||
-            resolvedType.includes("EXTRA")
-          )
-        );
-
-        let candidatePool = "ACTIVE_MAINLINE";
-        let poolLabel = `Active (Train ${candidate.trainId || "--"})`;
-        let poolPriority = 10;
-        let poolReason = sameTrainDuty
-          ? "Same path / train leg detected (crossover swap)"
-          : "In-service mainline operator (OCC crossover / cab swap)";
-
-        if (isStandby) {
-          candidatePool = "STANDBY";
-          const subLabel = trainIdStr && trainIdStr !== "--" ? trainIdStr : (resolvedType || "Depot Reserve");
-          poolLabel = `STANDBY (${subLabel})`;
-          poolPriority = 80;
-          poolReason = "Primary Depot Emergency Standby Crew (Priority 1)";
-        } else if (isPro) {
-          candidatePool = "PRO";
-          const subLabel = trainIdStr && trainIdStr !== "--" ? trainIdStr : (resolvedType || "Pilot Reserve");
-          poolLabel = `PRO PILOT (${subLabel})`;
-          poolPriority = 65;
-          poolReason = "Designated Depot Pilot Reserve Crew (Priority 1)";
-        } else if (isBuffer) {
-          candidatePool = "BUFFER";
-          poolLabel = "DEPOT BUFFER CREW";
-          poolPriority = 40;
-          poolReason = "Unassigned buffer operator available at depot";
-        }
-
-        // Exact Score Breakdown for visualization
+        const remainingHours = candidate.remainingHours !== undefined ? candidate.remainingHours : getRemainingHours(candidate);
         const scores = {
-          poolPriority,
-          readiness: candidate.isSignedOn ? 40 : candidate.status === "DISPATCHED" ? 30 : 20,
-          trainMatch: sameTrainDuty ? 25 : 0,
-          reliefWindow: Math.min(
-            35,
-            Math.max(0, Math.round(remainingHours * 4.375)),
-          ),
+          poolPriority: candidate.poolPriority || 10,
+          readiness: candidate.candidatePool === "STANDBY"
+            ? 40
+            : candidate.isSignedOn ? 35 : candidate.status === "DISPATCHED" ? 25 : 15,
+          trainMatch: candidate.sameTrainDuty ? 25 : 0,
+          reliefWindow: Math.min(35, Math.max(0, Math.round(remainingHours * 4.375))),
         };
-        const totalScore =
-          scores.poolPriority + scores.readiness + scores.trainMatch + scores.reliefWindow;
+        const totalScore = scores.poolPriority + scores.readiness + scores.trainMatch + scores.reliefWindow;
 
         return {
           ...candidate,
-          candidatePool,
-          poolLabel,
           scoreBreakdown: scores,
           score: totalScore,
           remainingHours,
-          reason: poolReason,
         };
       })
       .filter((candidate) => candidate.remainingHours >= 0.25)
@@ -4014,7 +4164,10 @@ Rules:
     }
     if (
       eventType === "RESET" &&
-      (deployment.status === "RELIEF_DISPATCHED" || deployment.status === "RELIEVED")
+      (deployment.status === "RELIEF_DISPATCHED" ||
+        deployment.status === "RELIEVED" ||
+        deployment.status === "EMERGENCY" ||
+        deployment.status === "EMERGENCY_DECLARED")
     ) {
       await handleResetRelief(deployment);
       return;
@@ -4318,6 +4471,27 @@ Rules:
         );
       }
 
+      // If candidate is a console standby, create/update an active deployment record
+      if (recommendedCandidate.isConsoleStandby || !candDocIds.length) {
+        const cleanDutyKey = candDutyId.replace(/[^a-zA-Z0-9_-]/g, "_");
+        const consoleRelieverDocId = `gcc_deploy_active_run_duty_${cleanDutyKey}`;
+        await setDoc(
+          doc(db, "crew_daily_deployment", consoleRelieverDocId),
+          {
+            dutyId: candDutyId,
+            empId: candEmpId,
+            empName: candEmpName,
+            status: "RELIEF_DISPATCHED",
+            reliefTargetDuty: targetDutyId,
+            reliefTargetEmpName: targetEmpName,
+            reliefTargetEmpId: targetEmpId,
+            reliefDispatchedAt: serverTimestamp(),
+            lastUpdated: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
+
       // 3. Update the relieved target duty across all possible doc IDs
       const targetDocIds = getPossibleDutyDocIds(targetDutyId, targetEmpId);
       const targetPayload = {
@@ -4337,8 +4511,9 @@ Rules:
       }
 
       // 4. Update local fallbackDeployments state immediately for both duties
-      setFallbackDeployments((prev) =>
-        prev.map((d) => {
+      setFallbackDeployments((prev) => {
+        let foundRelieverInDeployments = false;
+        const updated = prev.map((d) => {
           if (String(d.dutyId).trim() === targetDutyId) {
             return {
               ...d,
@@ -4349,6 +4524,7 @@ Rules:
             };
           }
           if (String(d.dutyId).trim() === candDutyId) {
+            foundRelieverInDeployments = true;
             return {
               ...d,
               status: "RELIEF_DISPATCHED",
@@ -4358,11 +4534,33 @@ Rules:
             };
           }
           return d;
-        }),
-      );
+        });
+
+        if (!foundRelieverInDeployments && (recommendedCandidate.isConsoleStandby || candDutyId)) {
+          updated.unshift({
+            id: `reliever_${candEmpId || Date.now()}`,
+            dutyId: candDutyId,
+            empId: candEmpId,
+            empName: candEmpName,
+            dutyType: "STANDBY_RELIEVER",
+            trainId: targetDeployment.trainId || "--",
+            shift: recommendedCandidate.shift || "06:00 - 14:00",
+            signOnTime: recommendedCandidate.signOnTime || "06:00",
+            signOffTime: recommendedCandidate.signOffTime || "14:00",
+            signOnLocation: "PYID",
+            signOffLocation: targetDeployment.signOffLocation || "PYID",
+            status: "RELIEF_DISPATCHED",
+            reliefTargetDuty: targetDutyId,
+            reliefTargetEmpName: targetEmpName,
+            reliefTargetEmpId: targetEmpId,
+            isSignedOn: true,
+          });
+        }
+        return updated;
+      });
 
       alert(
-        `✅ Relief Dispatched: ${candEmpName} (Duty #${candDutyId}) is now relieving Duty #${targetDutyId} (${targetEmpName}).`,
+        `✅ Relief Dispatched: ${candEmpName} (${candDutyId}) is now relieving Duty #${targetDutyId} (${targetEmpName}).`,
       );
       setActiveAbnormalEvent(null);
       if (onImportComplete) onImportComplete();
@@ -4379,6 +4577,10 @@ Rules:
     try {
       const isReliever = deployment.status === "RELIEF_DISPATCHED";
       const isTarget = deployment.status === "RELIEVED";
+      const isEmergency =
+        deployment.status === "EMERGENCY" ||
+        deployment.status === "EMERGENCY_DECLARED" ||
+        (activeAbnormalEvent && String(activeAbnormalEvent.deployment?.dutyId) === String(deployment.dutyId));
 
       const dutyId1 = String(deployment.dutyId || "").trim();
       const dutyId2 = String(
@@ -4396,7 +4598,9 @@ Rules:
       const targetDutyId = isReliever ? dutyId2 : dutyId1;
       const relieverDutyId = isReliever ? dutyId1 : dutyId2;
 
-      const confirmMsg = `Reset & Undo Relief assignment between Duty #${relieverDutyId || "Reliever"} and Duty #${targetDutyId || "Target"}? Both operators will be restored to Active status.`;
+      const confirmMsg = isEmergency && !isTarget && !isReliever
+        ? `Reset emergency incident for Duty #${targetDutyId}? Duty will be restored to Active status.`
+        : `Reset & Undo Relief assignment between Duty #${relieverDutyId || "Reliever"} and Duty #${targetDutyId || "Target"}? Both operators will be restored to Active status.`;
       if (!window.confirm(confirmMsg)) return;
 
       // 1. Reset Reliever Duty
@@ -4411,6 +4615,7 @@ Rules:
           reliefTargetEmpName: null,
           reliefTargetEmpId: null,
           reliefDispatchedAt: null,
+          remarks: "Active Deployment",
           lastUpdated: serverTimestamp(),
         };
         for (const docId of relDocIds) {
@@ -4425,7 +4630,7 @@ Rules:
       // 2. Reset Target Duty
       if (targetDutyId) {
         const targetEmpId = String(
-          (isTarget ? deployment.empId : pairedDuty?.empId) || "",
+          (isTarget || isEmergency ? deployment.empId : pairedDuty?.empId) || "",
         );
         const tgtDocIds = getPossibleDutyDocIds(targetDutyId, targetEmpId);
         const tgtResetPayload = {
@@ -4434,6 +4639,7 @@ Rules:
           relievedByEmpName: null,
           relievedByEmpId: null,
           reliefDispatchedAt: null,
+          remarks: "Active Deployment",
           lastUpdated: serverTimestamp(),
         };
         for (const docId of tgtDocIds) {
@@ -4452,15 +4658,15 @@ Rules:
           orderBy("timestamp", "desc"),
         );
         const snap = await getDocs(qEvents);
-        const matchedEvent = snap.docs.find((d) => {
+        const matchedEvents = snap.docs.filter((d) => {
           const data = d.data();
           return (
             String(data.currentDutyId || data.targetDutyId) === targetDutyId ||
-            String(data.resolvedByDutyId) === relieverDutyId
+            (relieverDutyId && String(data.resolvedByDutyId) === relieverDutyId)
           );
         });
-        if (matchedEvent) {
-          await updateDoc(doc(db, "automated_dispatch_gate", matchedEvent.id), {
+        for (const ev of matchedEvents) {
+          await updateDoc(doc(db, "automated_dispatch_gate", ev.id), {
             status: "REVERTED",
             revertedAt: serverTimestamp(),
           });
@@ -4480,15 +4686,17 @@ Rules:
               relievedByDutyId: null,
               relievedByEmpName: null,
               relievedByEmpId: null,
+              remarks: "Active Deployment",
             };
           }
-          if (dId === relieverDutyId) {
+          if (relieverDutyId && dId === relieverDutyId) {
             return {
               ...d,
               status: "ACTIVE",
               reliefTargetDuty: null,
               reliefTargetEmpName: null,
               reliefTargetEmpId: null,
+              remarks: "Active Deployment",
             };
           }
           return d;
@@ -4500,7 +4708,9 @@ Rules:
       }
 
       alert(
-        `✅ Relief reset successfully! Duty #${targetDutyId} and Reliever Duty #${relieverDutyId} restored to Active.`,
+        relieverDutyId
+          ? `✅ Relief reset successfully! Duty #${targetDutyId} and Reliever Duty #${relieverDutyId} restored to Active.`
+          : `✅ Duty #${targetDutyId} emergency cleared and restored to Active.`,
       );
       if (onImportComplete) onImportComplete();
     } catch (err) {
@@ -4541,19 +4751,66 @@ Rules:
 
   const executeManualOverride = async () => {
     if (!overrideDutyId || !activeAbnormalEvent) return;
-    const candidate = deployments.find(
-      (d) => String(d.dutyId) === String(overrideDutyId),
+    const queryStr = String(overrideDutyId).trim().toUpperCase();
+
+    // 1. Try finding in deployments by dutyId or empId or empName
+    let candidate = deployments.find(
+      (d) =>
+        String(d.dutyId).trim().toUpperCase() === queryStr ||
+        String(d.empId || d.empNo || "").trim().toUpperCase() === queryStr ||
+        String(d.empName || d.name || "").trim().toUpperCase().includes(queryStr),
     );
+
+    // 2. Try finding in consoleData.standbys
+    if (!candidate && consoleData.standbys) {
+      const stby = (consoleData.standbys || []).find(
+        (s) =>
+          String(s.code || s.label || s.dutyId || "").trim().toUpperCase() === queryStr ||
+          String(s.empNo || s.empId || "").trim().toUpperCase() === queryStr ||
+          String(s.name || s.empName || "").trim().toUpperCase().includes(queryStr),
+      );
+      if (stby) {
+        candidate = {
+          empId: stby.empNo || stby.empId || `STBY_${Date.now()}`,
+          empNo: stby.empNo || stby.empId,
+          empName: stby.name || stby.empName,
+          dutyId: stby.code || stby.label || "STANDBY",
+          trainId: "--",
+          isConsoleStandby: true,
+        };
+      }
+    }
+
+    // 3. Try finding in outstationStepbacks
+    if (!candidate && consoleData.outstationStepbacks) {
+      const stbk = (consoleData.outstationStepbacks || []).find(
+        (s) =>
+          String(s.station || s.loc || "").trim().toUpperCase() === queryStr ||
+          String(s.empNo || s.empId || "").trim().toUpperCase() === queryStr ||
+          String(s.name || "").trim().toUpperCase().includes(queryStr),
+      );
+      if (stbk) {
+        candidate = {
+          empId: stbk.empNo || stbk.empId || `STBK_${Date.now()}`,
+          empNo: stbk.empNo || stbk.empId,
+          empName: stbk.name,
+          dutyId: `STBK (${stbk.station || stbk.loc || "PYID"})`,
+          trainId: "--",
+          isConsoleStandby: true,
+        };
+      }
+    }
+
     if (!candidate) {
-      return alert("Duty ID not found in current deployment roster.");
+      return alert(`Candidate "${overrideDutyId}" not found in Roster or Standby Console.`);
     }
 
     // Convert to structure expected by executeRelief
     const candidateAdapter = {
       ...candidate,
       score: "OVERRIDE",
-      scoreBreakdown: { readiness: 0, trainMatch: 0, reliefWindow: 0 },
-      reason: "Manual Supervisor Override",
+      scoreBreakdown: { poolPriority: 100, readiness: 40, trainMatch: 0, reliefWindow: 0 },
+      reason: "Manual GCC Supervisor Override",
     };
     await executeRelief(candidateAdapter);
   };
@@ -5939,37 +6196,55 @@ Rules:
                   <div className="bg-slate-950 border border-slate-800 rounded-lg p-4">
                     <p className="text-[10px] text-slate-500 mb-3 leading-relaxed">
                       If algorithmic recommendations are unsuitable, GCC may
-                      manually designate a relief Duty ID.
+                      manually designate a relief Duty ID or Emp No from Standby/Mainline.
                     </p>
                     <label
                       className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1"
                       htmlFor="automateddispatchgat-i1"
                     >
-                      Target Duty ID
+                      Target Duty ID / Emp No
                     </label>
                     <input
                       id="automateddispatchgat-i1"
                       name="automateddispatchgat-i1"
-                      type="number"
+                      type="text"
                       value={overrideDutyId}
                       onChange={(e) => setOverrideDutyId(e.target.value)}
-                      placeholder="e.g. 104"
+                      placeholder="e.g. 104, OR, 21968"
                       className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-amber-500 mb-3 font-mono"
                     />
                     <button
                       onClick={executeManualOverride}
                       disabled={savingEvent || !overrideDutyId}
-                      className="w-full bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white border border-slate-600 font-bold px-3 py-2 rounded text-[10px] tracking-widest flex items-center justify-center gap-1 uppercase transition-colors"
+                      className="w-full bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white border border-slate-600 font-bold px-3 py-2 rounded text-[10px] tracking-widest flex items-center justify-center gap-1 uppercase transition-colors cursor-pointer"
                     >
                       FORCE DISPATCH <ArrowRight className="h-3 w-3" />
                     </button>
                   </div>
 
                   <button
-                    onClick={() => setActiveAbnormalEvent(null)}
-                    className="w-full mt-2 text-rose-500 hover:text-rose-400 text-xs font-bold tracking-wider uppercase border border-rose-900/50 rounded py-2 hover:bg-rose-950/30 transition-colors"
+                    type="button"
+                    onClick={async () => {
+                      if (
+                        window.confirm(
+                          `Reset and clear incident on Duty #${activeAbnormalEvent.deployment.dutyId}? This will restore the duty to normal Active status and cancel the event.`
+                        )
+                      ) {
+                        await handleResetRelief(activeAbnormalEvent.deployment);
+                      }
+                    }}
+                    className="w-full mt-2 bg-rose-950/70 hover:bg-rose-900 text-rose-300 hover:text-white border border-rose-700/80 rounded py-2 text-xs font-black tracking-wider uppercase flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow"
+                    title="Clear emergency/incident and restore duty to normal Active"
                   >
-                    CANCEL EVENT
+                    <RotateCcw className="h-3.5 w-3.5" /> RESET / CANCEL INCIDENT
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveAbnormalEvent(null)}
+                    className="w-full mt-1.5 text-slate-500 hover:text-slate-300 text-[10px] font-mono tracking-wider uppercase py-1 text-center cursor-pointer transition-colors"
+                  >
+                    ✕ CLOSE WINDOW (KEEP INCIDENT OPEN)
                   </button>
                 </div>
               </div>
@@ -6688,6 +6963,8 @@ Rules:
                                   d.status === "NR" ||
                                   d.status === "ABSENT" ||
                                   d.status === "AB" ||
+                                  d.status === "EMERGENCY" ||
+                                  d.status === "EMERGENCY_DECLARED" ||
                                   d.status === "BOOKED_OFF_VACANT" ||
                                   isBookedOffVacant ||
                                   String(d.remarks || "").toUpperCase().includes("BOOKED OFF") ||
@@ -6747,6 +7024,28 @@ Rules:
                                     title="Re-open relief recommendations for this duty"
                                   >
                                     🔁 RE-RELIEVE
+                                  </button>
+                                </div>
+                              ) : d.status === "EMERGENCY" || d.status === "EMERGENCY_DECLARED" ? (
+                                <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                  <span className="text-[9px] bg-rose-955 text-rose-300 border border-rose-600/70 px-2 py-0.5 rounded font-mono font-bold animate-pulse">
+                                    🚨 EMERGENCY
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAbnormalEvent(d, "EMERGENCY")}
+                                    className="bg-rose-600 hover:bg-rose-500 text-white font-black px-2.5 py-1 rounded text-[9px] tracking-wider uppercase shadow flex items-center gap-1 cursor-pointer transition-colors"
+                                    title="Open Algorithmic Relief recommendations for this emergency duty"
+                                  >
+                                    🛡️ RELIEF ENGINE
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleResetRelief(d)}
+                                    className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-2 py-1 rounded text-[9px] tracking-wider uppercase border border-slate-600 flex items-center gap-1 cursor-pointer transition-colors"
+                                    title="Cancel emergency and restore duty to Active"
+                                  >
+                                    <RotateCcw className="h-3 w-3" /> RESET
                                   </button>
                                 </div>
                               ) : d.status === "DISPATCHED" ? (
