@@ -314,8 +314,10 @@ export function buildWeekdayLiveTrainTrackingMap(allDeployments = [], evalSecs) 
     const rawDuty = String(d.dutyId || d.dutyNo || '').trim();
     if (!rawDuty) return;
     const norm = rawDuty.padStart(2, '0');
-    // Prioritize active, operational, or filled deployment records
-    if (!deployMap.has(norm) || (d.empName && d.empName !== '--')) {
+    // Prioritize active, operational, or filled deployment records with actual names
+    const existing = deployMap.get(norm);
+    const hasValidName = d.empName && d.empName !== '--' && !d.empName.startsWith('Duty ') && !d.empName.startsWith('Train Operator');
+    if (!existing || (hasValidName && (!existing.empName || existing.empName === '--' || existing.empName.startsWith('Duty ')))) {
       deployMap.set(norm, d);
     }
   });
@@ -332,9 +334,13 @@ export function buildWeekdayLiveTrainTrackingMap(allDeployments = [], evalSecs) 
       const startStr = leg.from.includes(':') && leg.from.split(':').length === 2 ? `${leg.from}:00` : leg.from;
       const endStr = leg.to.includes(':') && leg.to.split(':').length === 2 ? `${leg.to}:00` : leg.to;
 
+      const empName = (deployed?.empName && deployed.empName !== '--') 
+        ? deployed.empName 
+        : `Duty ${normDuty}`;
+
       return {
         dutyId: normDuty,
-        empName: deployed?.empName || `Duty ${normDuty}`,
+        empName,
         empId: deployed?.empId || '--',
         startSec,
         endSec,
@@ -360,16 +366,26 @@ export function buildWeekdayLiveTrainTrackingMap(allDeployments = [], evalSecs) 
     let nextReliver = null;
     if (current) {
       const futureLegs = timeline.filter(c => c.startSec >= current.endSec - 300);
-      const distinctReliever = futureLegs.find(c => 
+      // Prioritize distinct reliever with a verified real name
+      const distinctRelieverWithName = futureLegs.find(c => 
         (c.dutyId !== current.dutyId || c.empId !== current.empId || c.empName !== current.empName) &&
-        c.empName && c.empName !== '--' && !c.empName.toLowerCase().includes('unassigned')
+        c.empName && c.empName !== '--' && 
+        !c.empName.toLowerCase().includes('unassigned') &&
+        !c.empName.startsWith('Train Operator') &&
+        !c.empName.startsWith('Duty ')
       );
-      nextReliver = distinctReliever || futureLegs[0] || null;
+      // Fallback: distinct duty leg
+      const distinctRelieverAny = futureLegs.find(c => 
+        (c.dutyId !== current.dutyId || c.empId !== current.empId || c.empName !== current.empName)
+      );
+      nextReliver = distinctRelieverWithName || distinctRelieverAny || futureLegs[0] || null;
     } else {
       nextReliver = timeline.find(c => 
         c.startSec > evalSecs && 
         c.empName && c.empName !== '--' && 
-        !c.empName.toLowerCase().includes('unassigned')
+        !c.empName.toLowerCase().includes('unassigned') &&
+        !c.empName.startsWith('Train Operator') &&
+        !c.empName.startsWith('Duty ')
       ) || timeline.find(c => c.startSec > evalSecs) || null;
     }
 
@@ -382,3 +398,107 @@ export function buildWeekdayLiveTrainTrackingMap(allDeployments = [], evalSecs) 
 
   return calculatedTracking;
 }
+
+/**
+ * Builds the complete Live Train Tracking Map for ANY schedule / day type
+ * (WEEKDAY, MONDAY, SATURDAY, SUNDAY, GH) using official ID chart or operational legs.
+ * 
+ * @param {Array} allDeployments - Deployed crew records
+ * @param {number} evalSecs - Current evaluation time in seconds
+ * @param {string} dayType - Schedule type: 'WEEKDAY', 'MONDAY', 'SATURDAY', 'SUNDAY', etc.
+ * @returns {Object} { [trainId]: { current, previous, nextReliver } }
+ */
+export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType = 'WEEKDAY') {
+  const normDay = String(dayType || 'WEEKDAY').toUpperCase().trim();
+  const isWeekdayLike = normDay === 'WEEKDAY' || normDay === 'WD' || normDay === 'MONDAY' || normDay === 'MON';
+
+  if (isWeekdayLike) {
+    return buildWeekdayLiveTrainTrackingMap(allDeployments, evalSecs);
+  }
+
+  // Non-weekday schedules (SATURDAY, SUNDAY, GH): build timeline per train from deployed legs
+  const trainTimelineMap = {};
+
+  const processLeg = (tid, startStr, endStr, operator) => {
+    const cleanTid = String(tid || '').trim();
+    if (!cleanTid || cleanTid === '--' || cleanTid === '-' || cleanTid === 'Stby' || cleanTid === 'Resv') return;
+    const startSec = timeStringToSeconds(startStr);
+    let endSec = timeStringToSeconds(endStr);
+    if (startSec >= 999999) return;
+    if (endSec >= 999999) endSec = startSec + (4 * 3600); // 4 hour fallback turn
+
+    if (!trainTimelineMap[cleanTid]) trainTimelineMap[cleanTid] = [];
+
+    const normDuty = String(operator.dutyId || operator.dutyNo || '').padStart(2, '0');
+    trainTimelineMap[cleanTid].push({
+      dutyId: normDuty,
+      empName: operator.empName || `Duty ${normDuty}`,
+      empId: operator.empId || '--',
+      startSec,
+      endSec,
+      startStr: startStr || '--',
+      endStr: endStr || '--',
+      isExchanged: operator.isExchanged || false,
+      originalEmpName: operator.originalEmpName || '',
+      originalEmpId: operator.originalEmpId || '',
+      exchangeId: operator.exchangeId || '',
+      approvedBy: operator.approvedBy || '',
+      approvedDateTime: operator.approvedDateTime || ''
+    });
+  };
+
+  (allDeployments || []).forEach(operator => {
+    if (operator.rawLegs) {
+      processLeg(operator.rawLegs.l1Train, operator.rawLegs.l1Start, operator.rawLegs.l1End, operator);
+      processLeg(operator.rawLegs.l2Train, operator.rawLegs.l2Start, operator.rawLegs.l2End, operator);
+      processLeg(operator.rawLegs.l3Train, operator.rawLegs.l3Start, operator.rawLegs.l3End, operator);
+      processLeg(operator.rawLegs.l4Train, operator.rawLegs.l4Start, operator.rawLegs.l4End, operator);
+    }
+    // Fallback: direct trainId on deployment record
+    if (operator.trainId && (!operator.rawLegs || !operator.rawLegs.l1Train || operator.rawLegs.l1Train === '--')) {
+      processLeg(operator.trainId, operator.signOnTime, operator.signOffTime, operator);
+    }
+  });
+
+  const calculatedTracking = {};
+
+  Object.keys(trainTimelineMap).forEach(tid => {
+    const timeline = trainTimelineMap[tid].sort((a, b) => a.startSec - b.startSec);
+    const current = timeline.find(c => evalSecs >= c.startSec && evalSecs <= c.endSec) || null;
+    const finished = timeline.filter(c => c.endSec < evalSecs);
+    const previous = finished.length > 0 ? finished[finished.length - 1] : null;
+
+    let nextReliver = null;
+    if (current) {
+      const futureLegs = timeline.filter(c => c.startSec >= current.endSec - 300);
+      const distinctRelieverWithName = futureLegs.find(c => 
+        (c.dutyId !== current.dutyId || c.empId !== current.empId || c.empName !== current.empName) &&
+        c.empName && c.empName !== '--' && 
+        !c.empName.toLowerCase().includes('unassigned') && 
+        !c.empName.startsWith('Train Operator') &&
+        !c.empName.startsWith('Duty ')
+      );
+      const distinctRelieverAny = futureLegs.find(c => 
+        (c.dutyId !== current.dutyId || c.empId !== current.empId || c.empName !== current.empName)
+      );
+      nextReliver = distinctRelieverWithName || distinctRelieverAny || futureLegs[0] || null;
+    } else {
+      nextReliver = timeline.find(c => 
+        c.startSec > evalSecs && 
+        c.empName && c.empName !== '--' && 
+        !c.empName.toLowerCase().includes('unassigned') && 
+        !c.empName.startsWith('Train Operator') &&
+        !c.empName.startsWith('Duty ')
+      ) || timeline.find(c => c.startSec > evalSecs) || null;
+    }
+
+    calculatedTracking[tid] = {
+      current,
+      previous,
+      nextReliver
+    };
+  });
+
+  return calculatedTracking;
+}
+

@@ -809,7 +809,7 @@ export default function AlstomAtsSystemView({
 
                   {/* Enriched detail tooltip */}
                   <title>
-                    {`Train ID: ${train.computedTrainId || train.displayTrainId || 'Pending'}\nUnit: ${train.particularTrainId || train.trainId}\nDestination Code: ${train.destinationId || 'N/A'}\nStatus: ${train.trainIdStatus || 'UNKNOWN'}\nLocation: ${train.currentStation || 'Line-2'}\nOperator: ${train.operatorName || '--'}`}
+                    {`Train ID: ${train.computedTrainId || train.displayTrainId || 'Pending'}\nUnit: ${train.particularTrainId || train.trainId}\nDestination Code: ${train.destinationId || 'N/A'}\nStatus: ${train.trainIdStatus || 'UNKNOWN'}\nLocation: ${train.currentStation || 'Line-2'}\nOperator: ${train.operatorName || '--'}${train.reliever?.name ? `\nReliever: ${train.reliever.name} (Duty ${train.reliever.dutyNo || '--'})` : ''}`}
                   </title>
 
                   {/* Directional Headlight beam (only active when moving on main line) */}

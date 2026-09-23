@@ -23,7 +23,7 @@ import { calculateDistance } from '../utils/kmCalculator';
 import { getStationName } from '../utils/stationHelpers';
 import { EMPLOYEE_MASTER_REGISTRY } from '../data/employeeProfileMaster';
 import { WTT_MASTER_REGISTRY } from '../data/wttMasterRegistry';
-import { buildWeekdayLiveTrainTrackingMap, WEEKDAY_RELIEF_ID_CHART } from '../data/weekdayReliefIdChartRegistry';
+import { buildWeekdayLiveTrainTrackingMap, buildLiveTrainTrackingMap, WEEKDAY_RELIEF_ID_CHART } from '../data/weekdayReliefIdChartRegistry';
 import AlstomAtsSystemView from './kmcalc/AlstomAtsSystemView';
 import { generate4DigitTrainId, formatParticularTrainId } from '../utils/trainIdResolver';
 
@@ -378,6 +378,7 @@ export default function LiveTrainPositionTracker({
       cleanReliever !== 'Unassigned' && 
       !cleanReliever.toLowerCase().includes('unassigned') && 
       !cleanReliever.startsWith('Train Operator') &&
+      !cleanReliever.startsWith('Duty ') &&
       (cleanReliever !== cleanActive || (relieverDutyNo && activeDutyNo && relieverDutyNo !== activeDutyNo && relieverDutyNo !== '--'))
     );
 
@@ -539,99 +540,38 @@ export default function LiveTrainPositionTracker({
 
     const allDeployments = [...activeDeployments, ...aiOnlyDeployments];
 
-    // 2. Build train timeline map & compute tracking
-    let calculatedTracking = {};
+    // 2. Build authoritative train tracking map for current day schedule
+    let calculatedTracking = buildLiveTrainTrackingMap(allDeployments, evalSecs, currentSchedule);
 
-    if (currentSchedule === 'WEEKDAY') {
-      // Authoritative Weekday calculation using Master Reliever ID Chart dated 03/Sep/2026 (BIET-APTS)
-      calculatedTracking = buildWeekdayLiveTrainTrackingMap(allDeployments, evalSecs);
-    } else {
-      const trainTimelineMap = {};
-      allDeployments.forEach(operator => {
-        const processLeg = (tid, startStr, endStr) => {
-          const cleanTid = String(tid || '').trim();
-          if (!cleanTid || cleanTid === '--' || cleanTid === '-') return;
-          const startSec = timeToSecondsNormalized(startStr);
-          let endSec = timeToSecondsNormalized(endStr);
-          if (startSec >= 999999) return;
-          if (endSec >= 999999) endSec = startSec + (4 * 3600); // 4 hour fallback driving turn
-
-          if (!trainTimelineMap[cleanTid]) trainTimelineMap[cleanTid] = [];
-
-          trainTimelineMap[cleanTid].push({
-            dutyId: operator.dutyId,
-            empName: operator.empName,
-            empId: operator.empId,
-            startSec,
-            endSec,
-            startStr,
-            endStr: (endStr && endStr !== '--') ? endStr : minutesToTime(Math.round(endSec / 60)),
-            isExchanged: operator.isExchanged,
-            originalEmpName: operator.originalEmpName,
-            originalEmpId: operator.originalEmpId
-          });
-        };
-
-        if (operator.rawLegs) {
-          processLeg(operator.rawLegs.l1Train, operator.rawLegs.l1Start, operator.rawLegs.l1End);
-          processLeg(operator.rawLegs.l2Train, operator.rawLegs.l2Start, operator.rawLegs.l2End);
-          processLeg(operator.rawLegs.l3Train, operator.rawLegs.l3Start, operator.rawLegs.l3End);
-          processLeg(operator.rawLegs.l4Train, operator.rawLegs.l4Start, operator.rawLegs.l4End);
-        }
-      });
-
-      Object.keys(trainTimelineMap).forEach(tid => {
-        const timeline = trainTimelineMap[tid].sort((a, b) => a.startSec - b.startSec);
-        const current = timeline.find(c => evalSecs >= c.startSec && evalSecs <= c.endSec) || null;
-        const finished = timeline.filter(c => c.endSec < evalSecs);
-        const previous = finished.length > 0 ? finished[finished.length - 1] : null;
-
-        // Find the immediate upcoming next operator on this train who is distinct from current operator
-        let nextReliver = null;
-        if (current) {
-          const futureLegs = timeline.filter(c => c.startSec >= current.endSec - 300);
-          const distinctReliever = futureLegs.find(c => 
-            (c.dutyId !== current.dutyId || c.empId !== current.empId || c.empName !== current.empName) &&
-            c.empName && c.empName !== '--' && !c.empName.toLowerCase().includes('unassigned') && !c.empName.startsWith('Train Operator')
-          );
-          nextReliver = distinctReliever || null;
-        } else {
-          nextReliver = timeline.find(c => 
-            c.startSec > evalSecs && 
-            c.empName && c.empName !== '--' && 
-            !c.empName.toLowerCase().includes('unassigned') && 
-            !c.empName.startsWith('Train Operator')
-          ) || null;
-        }
-
-        calculatedTracking[tid] = {
-          current,
-          previous,
-          nextReliver
-        };
-      });
-    }
-
-    // 4. Seamlessly integrate LIVE RELIEF TRACKING data for active day
+    // 3. Strictly synchronize with LIVE TRAIN OPERATOR RELIEF MATRIX for active day
+    // The Live Relief Matrix is the authoritative operational master for verified reliever and active operators
     if (propLiveTrainTrackingMap && Object.keys(propLiveTrainTrackingMap).length > 0) {
       Object.keys(propLiveTrainTrackingMap).forEach(tid => {
         const liveT = propLiveTrainTrackingMap[tid];
         if (!liveT) return;
 
-        // If LIVE RELIEF TRACKING has a verified operator name, use it directly
-        if (liveT.current && liveT.current.empName && liveT.current.empName !== '--' && !liveT.current.empName.startsWith('Train Operator')) {
-          calculatedTracking[tid] = {
-            ...(calculatedTracking[tid] || {}),
-            current: {
-              ...(calculatedTracking[tid]?.current || {}),
-              ...liveT.current
-            },
-            previous: calculatedTracking[tid]?.previous || liveT.previous,
-            nextReliver: calculatedTracking[tid]?.nextReliver || liveT.nextReliver
-          };
-        } else if (!calculatedTracking[tid]) {
+        if (!calculatedTracking[tid]) {
           calculatedTracking[tid] = liveT;
+          return;
         }
+
+        const existing = calculatedTracking[tid];
+        const isLiveCurrValid = liveT.current?.empName && 
+          liveT.current.empName !== '--' && 
+          !liveT.current.empName.startsWith('Train Operator') &&
+          !liveT.current.empName.startsWith('Duty ');
+
+        const isLiveNextValid = liveT.nextReliver?.empName && 
+          liveT.nextReliver.empName !== '--' && 
+          !liveT.nextReliver.empName.startsWith('Train Operator') &&
+          !liveT.nextReliver.empName.startsWith('Duty ');
+
+        calculatedTracking[tid] = {
+          ...existing,
+          current: isLiveCurrValid ? { ...existing.current, ...liveT.current } : (existing.current || liveT.current),
+          previous: liveT.previous || existing.previous,
+          nextReliver: isLiveNextValid ? { ...existing.nextReliver, ...liveT.nextReliver } : (existing.nextReliver || liveT.nextReliver)
+        };
       });
     }
 
@@ -757,19 +697,56 @@ export default function LiveTrainPositionTracker({
         const tracking = dynamicTrainTrackingMap[tId] || {};
         const liveTracking = propLiveTrainTrackingMap?.[tId] || {};
 
-        const currentOp = (tracking.current?.empName && tracking.current.empName !== '--' && !tracking.current.empName.startsWith('Train Operator'))
-          ? tracking.current
-          : (liveTracking.current?.empName && liveTracking.current.empName !== '--' && !liveTracking.current.empName.startsWith('Train Operator'))
-            ? liveTracking.current
-            : tracking.current || liveTracking.current || null;
+        // Authoritative Priority: Live Train Operator Relief Matrix is the master source of truth
+        const isVerifiedLiveCurrent = Boolean(
+          liveTracking.current?.empName &&
+          liveTracking.current.empName !== '--' &&
+          liveTracking.current.empName !== '-' &&
+          !liveTracking.current.empName.toLowerCase().includes('unassigned') &&
+          !liveTracking.current.empName.startsWith('Train Operator') &&
+          !liveTracking.current.empName.startsWith('Duty ')
+        );
 
-        const relieverOp = (tracking.nextReliver?.empName && tracking.nextReliver.empName !== '--')
-          ? tracking.nextReliver
-          : (liveTracking.nextReliver?.empName && liveTracking.nextReliver.empName !== '--')
-            ? liveTracking.nextReliver
-            : tracking.nextReliver || liveTracking.nextReliver || null;
+        const isVerifiedLocalCurrent = Boolean(
+          tracking.current?.empName &&
+          tracking.current.empName !== '--' &&
+          tracking.current.empName !== '-' &&
+          !tracking.current.empName.toLowerCase().includes('unassigned') &&
+          !tracking.current.empName.startsWith('Train Operator') &&
+          !tracking.current.empName.startsWith('Duty ')
+        );
 
-        const prevOp = tracking.previous || liveTracking.previous || null;
+        const currentOp = isVerifiedLiveCurrent
+          ? liveTracking.current
+          : isVerifiedLocalCurrent
+            ? tracking.current
+            : liveTracking.current || tracking.current || null;
+
+        const isVerifiedLiveReliever = Boolean(
+          liveTracking.nextReliver?.empName &&
+          liveTracking.nextReliver.empName !== '--' &&
+          liveTracking.nextReliver.empName !== '-' &&
+          !liveTracking.nextReliver.empName.toLowerCase().includes('unassigned') &&
+          !liveTracking.nextReliver.empName.startsWith('Train Operator') &&
+          !liveTracking.nextReliver.empName.startsWith('Duty ')
+        );
+
+        const isVerifiedLocalReliever = Boolean(
+          tracking.nextReliver?.empName &&
+          tracking.nextReliver.empName !== '--' &&
+          tracking.nextReliver.empName !== '-' &&
+          !tracking.nextReliver.empName.toLowerCase().includes('unassigned') &&
+          !tracking.nextReliver.empName.startsWith('Train Operator') &&
+          !tracking.nextReliver.empName.startsWith('Duty ')
+        );
+
+        const relieverOp = isVerifiedLiveReliever
+          ? liveTracking.nextReliver
+          : isVerifiedLocalReliever
+            ? tracking.nextReliver
+            : liveTracking.nextReliver || tracking.nextReliver || null;
+
+        const prevOp = liveTracking.previous || tracking.previous || null;
 
         let operatorInfo;
         if (currentOp && currentOp.empName && currentOp.empName !== '--') {
@@ -849,6 +826,7 @@ export default function LiveTrainPositionTracker({
           reliever.name !== 'Unassigned' && 
           !reliever.name.toLowerCase().includes('unassigned') && 
           !reliever.name.startsWith('Train Operator') &&
+          !reliever.name.startsWith('Duty ') &&
           (reliever.name !== operatorInfo.name || (reliever.dutyNo && operatorInfo.dutyNo && reliever.dutyNo !== operatorInfo.dutyNo && reliever.dutyNo !== '--'))
         );
 
@@ -1031,7 +1009,78 @@ export default function LiveTrainPositionTracker({
 
       const tracking = dynamicTrainTrackingMap[tId] || {};
       const liveTracking = propLiveTrainTrackingMap?.[tId] || {};
-      const currentOp = tracking.current || liveTracking.current || null;
+
+      const isVerifiedLiveCurrentStab = Boolean(
+        liveTracking.current?.empName &&
+        liveTracking.current.empName !== '--' &&
+        liveTracking.current.empName !== '-' &&
+        !liveTracking.current.empName.toLowerCase().includes('unassigned') &&
+        !liveTracking.current.empName.startsWith('Train Operator') &&
+        !liveTracking.current.empName.startsWith('Duty ')
+      );
+
+      const isVerifiedLocalCurrentStab = Boolean(
+        tracking.current?.empName &&
+        tracking.current.empName !== '--' &&
+        tracking.current.empName !== '-' &&
+        !tracking.current.empName.toLowerCase().includes('unassigned') &&
+        !tracking.current.empName.startsWith('Train Operator') &&
+        !tracking.current.empName.startsWith('Duty ')
+      );
+
+      const currentOp = isVerifiedLiveCurrentStab
+        ? liveTracking.current
+        : isVerifiedLocalCurrentStab
+          ? tracking.current
+          : liveTracking.current || tracking.current || null;
+
+      const isVerifiedLiveRelieverStab = Boolean(
+        liveTracking.nextReliver?.empName &&
+        liveTracking.nextReliver.empName !== '--' &&
+        liveTracking.nextReliver.empName !== '-' &&
+        !liveTracking.nextReliver.empName.toLowerCase().includes('unassigned') &&
+        !liveTracking.nextReliver.empName.startsWith('Train Operator') &&
+        !liveTracking.nextReliver.empName.startsWith('Duty ')
+      );
+
+      const isVerifiedLocalRelieverStab = Boolean(
+        tracking.nextReliver?.empName &&
+        tracking.nextReliver.empName !== '--' &&
+        tracking.nextReliver.empName !== '-' &&
+        !tracking.nextReliver.empName.toLowerCase().includes('unassigned') &&
+        !tracking.nextReliver.empName.startsWith('Train Operator') &&
+        !tracking.nextReliver.empName.startsWith('Duty ')
+      );
+
+      const relieverOp = isVerifiedLiveRelieverStab
+        ? liveTracking.nextReliver
+        : isVerifiedLocalRelieverStab
+          ? tracking.nextReliver
+          : liveTracking.nextReliver || tracking.nextReliver || null;
+
+      let reliever = null;
+      if (relieverOp && relieverOp.empName && relieverOp.empName !== '--') {
+        reliever = {
+          name: relieverOp.empName,
+          id: relieverOp.empId || '--',
+          dutyNo: relieverOp.dutyId || '--',
+          takeoverTime: relieverOp.startStr || '--',
+          startSec: relieverOp.startSec,
+          isExchanged: relieverOp.isExchanged,
+          originalEmpName: relieverOp.originalEmpName
+        };
+      }
+
+      const isVerifiedReliever = Boolean(
+        reliever && 
+        reliever.name && 
+        reliever.name !== '--' && 
+        reliever.name !== '-' && 
+        reliever.name !== 'Unassigned' && 
+        !reliever.name.toLowerCase().includes('unassigned') && 
+        !reliever.name.startsWith('Train Operator') &&
+        !reliever.name.startsWith('Duty ')
+      );
 
       const idResult = generate4DigitTrainId(tId, null);
       const particularIdStr = idResult.particularTrainIdStr || formatParticularTrainId(tId) || tId;
@@ -1071,16 +1120,16 @@ export default function LiveTrainPositionTracker({
         distanceTravelled: 0,
         distanceRemaining: 0,
         pctLine: Math.max(0, Math.min(1, stabPctLine)),
-        reliever: null,
+        reliever,
         scheduledHandoverStation: 'PYID',
-        isVerifiedReliever: false,
+        isVerifiedReliever,
         tripCompletionSec: null,
         timeRemainingToCompletionSec: 999999,
         timeRemainingMins: 0,
         isTripCompletingIn3Mins: false,
         shouldAnnounceReliever: false,
         hasReliever: false,
-        previousOperator: null,
+        previousOperator: liveTracking.previous || tracking.previous || null,
         isStabling: true
       });
     });

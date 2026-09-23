@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { WTT_MASTER_REGISTRY } from '../data/wttMasterRegistry';
-import { buildWeekdayLiveTrainTrackingMap } from '../data/weekdayReliefIdChartRegistry';
+import { buildWeekdayLiveTrainTrackingMap, buildLiveTrainTrackingMap } from '../data/weekdayReliefIdChartRegistry';
 
 import { lazyWithRetry } from '../utils/lazyWithRetry';
 
@@ -681,59 +681,8 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
         return secs < 3 * 3600 ? secs + 24 * 3600 : secs;
       })();
 
-      let calculatedTracking = {};
-
-      if (activeDay === 'WEEKDAY') {
-        // Authoritative Weekday calculation using Master Reliever ID Chart dated 03/Sep/2026 (BIET-APTS)
-        calculatedTracking = buildWeekdayLiveTrainTrackingMap(allDeployments, currentSecs);
-      } else {
-        let trainTimelineMap = {};
-        allDeployments.forEach(operator => {
-          const processLeg = (tid, startStr, endStr) => {
-            if (!tid || tid === '--' || tid === '-') return;
-            const startSec = timeToSeconds(startStr);
-            const endSec = timeToSeconds(endStr);
-            if (startSec >= 999999 || endSec >= 999999) return;
-
-            if (!trainTimelineMap[tid]) trainTimelineMap[tid] = [];
-
-            trainTimelineMap[tid].push({
-              dutyId: operator.dutyId,
-              empName: operator.empName,
-              empId: operator.empId,
-              startSec,
-              endSec,
-              startStr,
-              endStr,
-              isExchanged: operator.isExchanged,
-              originalEmpName: operator.originalEmpName,
-              originalEmpId: operator.originalEmpId,
-              exchangeId: operator.exchangeId,
-              approvedBy: operator.approvedBy,
-              approvedDateTime: operator.approvedDateTime
-            });
-          };
-
-          processLeg(operator.rawLegs.l1Train, operator.rawLegs.l1Start, operator.rawLegs.l1End);
-          processLeg(operator.rawLegs.l2Train, operator.rawLegs.l2Start, operator.rawLegs.l2End);
-          processLeg(operator.rawLegs.l3Train, operator.rawLegs.l3Start, operator.rawLegs.l3End);
-          processLeg(operator.rawLegs.l4Train, operator.rawLegs.l4Start, operator.rawLegs.l4End);
-        });
-
-        Object.keys(trainTimelineMap).forEach(tid => {
-          let timeline = trainTimelineMap[tid].sort((a, b) => a.startSec - b.startSec);
-          const current = timeline.find(c => currentSecs >= c.startSec && currentSecs <= c.endSec) || null;
-          const finished = timeline.filter(c => c.endSec < currentSecs);
-          const previous = finished.length > 0 ? finished[finished.length - 1] : null;
-          const nextReliver = timeline.find(c => c.startSec > currentSecs) || null;
-
-          calculatedTracking[tid] = {
-            current,
-            previous,
-            nextReliver
-          };
-        });
-      }
+      // Unified Live Train & Reliever Tracking Calculation for all day types
+      const calculatedTracking = buildLiveTrainTrackingMap(allDeployments, currentSecs, activeDay);
 
       setLiveTrainTrackingMap(calculatedTracking);
     } catch (error) {
