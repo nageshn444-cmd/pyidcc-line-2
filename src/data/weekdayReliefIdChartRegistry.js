@@ -5,9 +5,9 @@
  * BMRCL LINE-2 (PEENYA DEPOT CREW CONTROL)
  * Master Reliever ID Chart for WEEKDAY Link dated 03/Sep/2026 (BIET-APTS)
  * 
- * Defines the authoritative handover schedule and duty assignments across
- * Mainline Running Fleets (Trains 201 to 223) and Counseling Shift (Couns).
  */
+
+import { DUTY_TEMPLATES_REGISTRY } from './dutyTemplatesRegistry.js';
 
 export const WEEKDAY_RELIEF_ID_CHART = {
   '201': [
@@ -308,95 +308,50 @@ export const WEEKDAY_DUTY_LEGS_FROM_ID_CHART = (() => {
  * @param {number} evalSecs - Current evaluation time in seconds
  * @returns {Object} { [trainId]: { current, previous, nextReliver } }
  */
+/**
+ * Authoritative Master Reliever ID Chart for SATURDAY & GH
+ * Sourced directly from DUTY_TEMPLATES_REGISTRY['SAT']
+ */
+export const SATURDAY_RELIEF_ID_CHART = (() => {
+  const duties = DUTY_TEMPLATES_REGISTRY?.['SAT'] || [];
+  const chart = {};
+  duties.forEach(d => {
+    const t = String(d.trainNo || '').trim();
+    if (!t || t.startsWith('Pro') || t.startsWith('Rd3') || t.startsWith('Couns') || t.startsWith('Resv') || t.startsWith('CC') || t.startsWith('NTST') || t === 'Stby') return;
+    if (!chart[t]) chart[t] = [];
+    chart[t].push({ from: d.sOnTime, to: d.sOffTime, duty: String(d.dutyNo).padStart(2, '0') });
+  });
+  Object.keys(chart).forEach(t => { chart[t].sort((a, b) => a.from.localeCompare(b.from)); });
+  return chart;
+})();
+
+/**
+ * Authoritative Master Reliever ID Chart for SUNDAY
+ * Sourced directly from DUTY_TEMPLATES_REGISTRY['SUN']
+ */
+export const SUNDAY_RELIEF_ID_CHART = (() => {
+  const duties = DUTY_TEMPLATES_REGISTRY?.['SUN'] || [];
+  const chart = {};
+  duties.forEach(d => {
+    const t = String(d.trainNo || '').trim();
+    if (!t || t.startsWith('Pro') || t.startsWith('Rd3') || t.startsWith('Couns') || t.startsWith('Resv') || t.startsWith('CC') || t.startsWith('NTST') || t === 'Stby') return;
+    if (!chart[t]) chart[t] = [];
+    chart[t].push({ from: d.sOnTime, to: d.sOffTime, duty: String(d.dutyNo).padStart(2, '0') });
+  });
+  Object.keys(chart).forEach(t => { chart[t].sort((a, b) => a.from.localeCompare(b.from)); });
+  return chart;
+})();
+
+/**
+ * Builds the complete Live Train Tracking Map for WEEKDAY schedule
+ * using the official ID chart and active deployments.
+ * 
+ * @param {Array} allDeployments - Deployed crew data with dutyId, empName, empId, etc.
+ * @param {number} evalSecs - Current evaluation time in seconds
+ * @returns {Object} { [trainId]: { current, previous, nextReliver } }
+ */
 export function buildWeekdayLiveTrainTrackingMap(allDeployments = [], evalSecs) {
-  const deployMap = new Map();
-  (allDeployments || []).forEach(d => {
-    const rawDuty = String(d.dutyId || d.dutyNo || '').trim();
-    if (!rawDuty) return;
-    const norm = rawDuty.padStart(2, '0');
-    // Prioritize active, operational, or filled deployment records with actual names
-    const existing = deployMap.get(norm);
-    const hasValidName = d.empName && d.empName !== '--' && !d.empName.startsWith('Duty ') && !d.empName.startsWith('Train Operator');
-    if (!existing || (hasValidName && (!existing.empName || existing.empName === '--' || existing.empName.startsWith('Duty ')))) {
-      deployMap.set(norm, d);
-    }
-  });
-
-  const calculatedTracking = {};
-
-  Object.entries(WEEKDAY_RELIEF_ID_CHART).forEach(([trainId, legs]) => {
-    const timeline = legs.map(leg => {
-      const normDuty = String(leg.duty).padStart(2, '0');
-      const deployed = deployMap.get(normDuty);
-
-      const startSec = timeStringToSeconds(leg.from);
-      const endSec = timeStringToSeconds(leg.to);
-      const startStr = leg.from.includes(':') && leg.from.split(':').length === 2 ? `${leg.from}:00` : leg.from;
-      const endStr = leg.to.includes(':') && leg.to.split(':').length === 2 ? `${leg.to}:00` : leg.to;
-
-      const empName = (deployed?.empName && deployed.empName !== '--') 
-        ? deployed.empName 
-        : `Duty ${normDuty}`;
-
-      return {
-        dutyId: normDuty,
-        empName,
-        empId: deployed?.empId || '--',
-        startSec,
-        endSec,
-        startStr,
-        endStr,
-        isExchanged: deployed?.isExchanged || false,
-        originalEmpName: deployed?.originalEmpName || '',
-        originalEmpId: deployed?.originalEmpId || '',
-        exchangeId: deployed?.exchangeId || '',
-        approvedBy: deployed?.approvedBy || '',
-        approvedDateTime: deployed?.approvedDateTime || ''
-      };
-    }).sort((a, b) => a.startSec - b.startSec);
-
-    // 1. Current active operator
-    const current = timeline.find(c => evalSecs >= c.startSec && evalSecs <= c.endSec) || null;
-
-    // 2. Finished/previous operator
-    const finished = timeline.filter(c => c.endSec < evalSecs);
-    const previous = finished.length > 0 ? finished[finished.length - 1] : null;
-
-    // 3. Upcoming reliever operator
-    let nextReliver = null;
-    if (current) {
-      const futureLegs = timeline.filter(c => c.startSec >= current.endSec - 300);
-      // Prioritize distinct reliever with a verified real name
-      const distinctRelieverWithName = futureLegs.find(c => 
-        (c.dutyId !== current.dutyId || c.empId !== current.empId || c.empName !== current.empName) &&
-        c.empName && c.empName !== '--' && 
-        !c.empName.toLowerCase().includes('unassigned') &&
-        !c.empName.startsWith('Train Operator') &&
-        !c.empName.startsWith('Duty ')
-      );
-      // Fallback: distinct duty leg
-      const distinctRelieverAny = futureLegs.find(c => 
-        (c.dutyId !== current.dutyId || c.empId !== current.empId || c.empName !== current.empName)
-      );
-      nextReliver = distinctRelieverWithName || distinctRelieverAny || futureLegs[0] || null;
-    } else {
-      nextReliver = timeline.find(c => 
-        c.startSec > evalSecs && 
-        c.empName && c.empName !== '--' && 
-        !c.empName.toLowerCase().includes('unassigned') &&
-        !c.empName.startsWith('Train Operator') &&
-        !c.empName.startsWith('Duty ')
-      ) || timeline.find(c => c.startSec > evalSecs) || null;
-    }
-
-    calculatedTracking[trainId] = {
-      current,
-      previous,
-      nextReliver
-    };
-  });
-
-  return calculatedTracking;
+  return buildLiveTrainTrackingMap(allDeployments, evalSecs, 'WEEKDAY');
 }
 
 /**
@@ -410,60 +365,101 @@ export function buildWeekdayLiveTrainTrackingMap(allDeployments = [], evalSecs) 
  */
 export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType = 'WEEKDAY') {
   const normDay = String(dayType || 'WEEKDAY').toUpperCase().trim();
-  const isWeekdayLike = normDay === 'WEEKDAY' || normDay === 'WD' || normDay === 'MONDAY' || normDay === 'MON';
+  const isSunday = normDay === 'SUNDAY' || normDay === 'SUN';
+  const isSaturday = normDay === 'SATURDAY' || normDay === 'SAT' || normDay === 'GH' || normDay === 'SAT & GH' || normDay === 'SATURDAY & GH';
 
-  if (isWeekdayLike) {
-    return buildWeekdayLiveTrainTrackingMap(allDeployments, evalSecs);
-  }
+  const baseChart = isSunday 
+    ? SUNDAY_RELIEF_ID_CHART 
+    : isSaturday 
+      ? SATURDAY_RELIEF_ID_CHART 
+      : WEEKDAY_RELIEF_ID_CHART;
 
-  // Non-weekday schedules (SATURDAY, SUNDAY, GH): build timeline per train from deployed legs
+  const deployMap = new Map();
+  (allDeployments || []).forEach(d => {
+    const rawDuty = String(d.dutyId || d.dutyNo || '').trim();
+    if (!rawDuty) return;
+    const cleanDuty = rawDuty.replace(/^duty[_\s-]*/i, '');
+    const norm = /^[1-9]$/.test(cleanDuty) ? '0' + cleanDuty : cleanDuty;
+    const existing = deployMap.get(norm);
+    const hasValidName = d.empName && d.empName !== '--' && !d.empName.startsWith('Duty ') && !d.empName.startsWith('Train Operator');
+    if (!existing || (hasValidName && (!existing.empName || existing.empName === '--' || existing.empName.startsWith('Duty ')))) {
+      deployMap.set(norm, d);
+      if (/^0[1-9]$/.test(norm)) {
+        deployMap.set(norm.replace(/^0/, ''), d);
+      }
+    }
+  });
+
   const trainTimelineMap = {};
 
-  const processLeg = (tid, startStr, endStr, operator) => {
+  const addLegToTimeline = (tid, normDuty, startStr, endStr, deployed) => {
     const cleanTid = String(tid || '').trim();
     if (!cleanTid || cleanTid === '--' || cleanTid === '-' || cleanTid === 'Stby' || cleanTid === 'Resv') return;
     const startSec = timeStringToSeconds(startStr);
     let endSec = timeStringToSeconds(endStr);
     if (startSec >= 999999) return;
-    if (endSec >= 999999) endSec = startSec + (4 * 3600); // 4 hour fallback turn
+    if (endSec >= 999999) endSec = startSec + (4 * 3600);
+    if (endSec < startSec) endSec += 24 * 3600;
 
     if (!trainTimelineMap[cleanTid]) trainTimelineMap[cleanTid] = [];
 
-    const normDuty = String(operator.dutyId || operator.dutyNo || '').padStart(2, '0');
+    const norm = String(normDuty || '').replace(/^duty[_\s-]*/i, '').padStart(2, '0');
+    const matchedDeploy = deployed || deployMap.get(norm) || deployMap.get(norm.replace(/^0/, ''));
+
+    const empName = (matchedDeploy?.empName && matchedDeploy.empName !== '--')
+      ? matchedDeploy.empName
+      : `Duty ${norm}`;
+
     trainTimelineMap[cleanTid].push({
-      dutyId: normDuty,
-      empName: operator.empName || `Duty ${normDuty}`,
-      empId: operator.empId || '--',
+      dutyId: norm,
+      empName,
+      empId: matchedDeploy?.empId || '--',
       startSec,
       endSec,
-      startStr: startStr || '--',
-      endStr: endStr || '--',
-      isExchanged: operator.isExchanged || false,
-      originalEmpName: operator.originalEmpName || '',
-      originalEmpId: operator.originalEmpId || '',
-      exchangeId: operator.exchangeId || '',
-      approvedBy: operator.approvedBy || '',
-      approvedDateTime: operator.approvedDateTime || ''
+      startStr: startStr && startStr.includes(':') && startStr.split(':').length === 2 ? `${startStr}:00` : (startStr || '--'),
+      endStr: endStr && endStr.includes(':') && endStr.split(':').length === 2 ? `${endStr}:00` : (endStr || '--'),
+      isExchanged: matchedDeploy?.isExchanged || false,
+      originalEmpName: matchedDeploy?.originalEmpName || '',
+      originalEmpId: matchedDeploy?.originalEmpId || '',
+      exchangeId: matchedDeploy?.exchangeId || '',
+      approvedBy: matchedDeploy?.approvedBy || '',
+      approvedDateTime: matchedDeploy?.approvedDateTime || ''
     });
   };
 
+  // 1. Seed timeline from authoritative base chart for selected schedule
+  Object.entries(baseChart || {}).forEach(([tid, legs]) => {
+    (legs || []).forEach(leg => {
+      addLegToTimeline(tid, leg.duty, leg.from, leg.to);
+    });
+  });
+
+  // 2. Overlay or integrate any dynamic/deployed rawLegs from allDeployments
   (allDeployments || []).forEach(operator => {
     if (operator.rawLegs) {
-      processLeg(operator.rawLegs.l1Train, operator.rawLegs.l1Start, operator.rawLegs.l1End, operator);
-      processLeg(operator.rawLegs.l2Train, operator.rawLegs.l2Start, operator.rawLegs.l2End, operator);
-      processLeg(operator.rawLegs.l3Train, operator.rawLegs.l3Start, operator.rawLegs.l3End, operator);
-      processLeg(operator.rawLegs.l4Train, operator.rawLegs.l4Start, operator.rawLegs.l4End, operator);
-    }
-    // Fallback: direct trainId on deployment record
-    if (operator.trainId && (!operator.rawLegs || !operator.rawLegs.l1Train || operator.rawLegs.l1Train === '--')) {
-      processLeg(operator.trainId, operator.signOnTime, operator.signOffTime, operator);
+      if (operator.rawLegs.l1Train && operator.rawLegs.l1Train !== '--') addLegToTimeline(operator.rawLegs.l1Train, operator.dutyId, operator.rawLegs.l1Start, operator.rawLegs.l1End, operator);
+      if (operator.rawLegs.l2Train && operator.rawLegs.l2Train !== '--') addLegToTimeline(operator.rawLegs.l2Train, operator.dutyId, operator.rawLegs.l2Start, operator.rawLegs.l2End, operator);
+      if (operator.rawLegs.l3Train && operator.rawLegs.l3Train !== '--') addLegToTimeline(operator.rawLegs.l3Train, operator.dutyId, operator.rawLegs.l3Start, operator.rawLegs.l3End, operator);
+      if (operator.rawLegs.l4Train && operator.rawLegs.l4Train !== '--') addLegToTimeline(operator.rawLegs.l4Train, operator.dutyId, operator.rawLegs.l4Start, operator.rawLegs.l4End, operator);
+    } else if (operator.trainId && operator.trainId !== '--') {
+      addLegToTimeline(operator.trainId, operator.dutyId, operator.signOnTime, operator.signOffTime, operator);
     }
   });
 
   const calculatedTracking = {};
 
   Object.keys(trainTimelineMap).forEach(tid => {
-    const timeline = trainTimelineMap[tid].sort((a, b) => a.startSec - b.startSec);
+    const seenLegs = new Set();
+    const uniqueTimeline = [];
+    trainTimelineMap[tid].forEach(leg => {
+      const key = `${leg.dutyId}_${leg.startSec}_${leg.endSec}`;
+      if (!seenLegs.has(key)) {
+        seenLegs.add(key);
+        uniqueTimeline.push(leg);
+      }
+    });
+
+    const timeline = uniqueTimeline.sort((a, b) => a.startSec - b.startSec);
     const current = timeline.find(c => evalSecs >= c.startSec && evalSecs <= c.endSec) || null;
     const finished = timeline.filter(c => c.endSec < evalSecs);
     const previous = finished.length > 0 ? finished[finished.length - 1] : null;
@@ -487,7 +483,7 @@ export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType
         c.startSec > evalSecs && 
         c.empName && c.empName !== '--' && 
         !c.empName.toLowerCase().includes('unassigned') && 
-        !c.empName.startsWith('Train Operator') &&
+        !c.empName.startsWith('Train Operator') && 
         !c.empName.startsWith('Duty ')
       ) || timeline.find(c => c.startSec > evalSecs) || null;
     }

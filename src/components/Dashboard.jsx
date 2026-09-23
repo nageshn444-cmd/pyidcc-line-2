@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { db } from '../firebase';
 import { collection, getDocs, updateDoc, deleteDoc, setDoc, writeBatch, serverTimestamp, query, where, doc, onSnapshot } from 'firebase/firestore';
 import {
@@ -50,11 +50,28 @@ const fileToGenerativePart = async (file) => {
 };
 
 // ── Duty ID Utilities ──
-// Normalize: "1" → "01", "9" → "09"; leaves "10", "CC1", "SB12" etc. unchanged
+// Normalize: "1" → "01", "9" → "09", "duty_09" → "09"; leaves "10", "CC1", "SB12" etc. unchanged
 const normalizeDutyId = (id) => {
   const s = String(id || '').trim();
-  if (/^[1-9]$/.test(s)) return '0' + s;
-  return s;
+  const clean = s.replace(/^duty[_\s-]*/i, '');
+  if (/^[1-9]$/.test(clean)) return '0' + clean;
+  if (/^\d{1,2}$/.test(clean)) return clean.padStart(2, '0');
+  return clean || s;
+};
+
+// Robust schedule type normalization across tabs, Excel uploads, and Firestore documents
+const normalizeScheduleType = (type, docId = '') => {
+  const s = String(type || '').trim().toUpperCase();
+  if (s === 'SAT & GH' || s === 'GH' || s === 'SATURDAY & GH' || s === 'SATURDAY' || s.includes('SAT')) return 'SATURDAY';
+  if (s === 'SUNDAY' || s === 'SUN' || s.includes('SUN')) return 'SUNDAY';
+  if (s === 'MONDAY' || s === 'MON' || s.includes('MON')) return 'MONDAY';
+  if (s === 'WEEKDAY' || s === 'WD' || s.includes('WEEKDAY')) return 'WEEKDAY';
+  const idStr = String(docId || '').toLowerCase();
+  if (idStr.includes('sat')) return 'SATURDAY';
+  if (idStr.includes('sun')) return 'SUNDAY';
+  if (idStr.includes('mon')) return 'MONDAY';
+  if (idStr.includes('weekday')) return 'WEEKDAY';
+  return 'WEEKDAY';
 };
 
 // Validate: rejects malformed IDs like "6Z", "1A", empty strings, etc.
@@ -532,7 +549,8 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
         }
       });
 
-      const dayTrips = fullDataset.filter(t => String(t.scheduleType || '').toUpperCase() === activeDay);
+      const targetSchedule = normalizeScheduleType(activeDay);
+      const dayTrips = fullDataset.filter(t => normalizeScheduleType(t.scheduleType, t.id) === targetSchedule);
 
       const getTripDirection = (trip) => {
         if (trip.stations) {
@@ -573,7 +591,7 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
 
       // Deduplicate links
       const rawDayLinks = linksData.filter(l =>
-        String(l.scheduleType || '').toUpperCase() === activeDay &&
+        normalizeScheduleType(l.scheduleType, l.id) === targetSchedule &&
         isValidDutyId(l.dutyId)
       );
       const dedupedLinks = deduplicateByDutyId(rawDayLinks);
@@ -587,11 +605,11 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
         const normLinkId = normalizeDutyId(link.dutyId);
         const matchingGcc = deployData.find(d =>
           normalizeDutyId(d.dutyId) === normLinkId &&
-          String(d.scheduleType).toUpperCase() === activeDay
+          normalizeScheduleType(d.scheduleType, d.id) === targetSchedule
         );
         const matchedAtt = attData.find(a =>
           normalizeDutyId(a.dutyId) === normLinkId &&
-          String(a.scheduleType).toUpperCase() === activeDay
+          normalizeScheduleType(a.scheduleType, a.id) === targetSchedule
         );
         return {
           id: link.id,
@@ -629,7 +647,7 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       });
 
       const dedupedDeployData = deduplicateByDutyId(
-        deployData.filter(d => String(d.scheduleType || '').toUpperCase() === activeDay)
+        deployData.filter(d => normalizeScheduleType(d.scheduleType, d.id) === targetSchedule)
       );
       const linkedDutyIds = new Set(currentDayLinks.map(l => normalizeDutyId(l.dutyId)));
       const aiOnlyDeployments = dedupedDeployData
@@ -639,7 +657,7 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
         })
         .map(d => {
           const normId = normalizeDutyId(d.dutyId);
-          const matchedAtt = attData.find(a => normalizeDutyId(a.dutyId) === normId && String(a.scheduleType).toUpperCase() === activeDay);
+          const matchedAtt = attData.find(a => normalizeDutyId(a.dutyId) === normId && normalizeScheduleType(a.scheduleType, a.id) === targetSchedule);
           return {
             id: d.id,
             dutyId: normId,
@@ -671,6 +689,7 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
         });
 
       const allDeployments = [...activeDeployments, ...aiOnlyDeployments];
+      dailyDeploymentRef.current = allDeployments;
       setDailyDeployment(allDeployments);
       setAttendanceLogs(attData.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
 
@@ -682,7 +701,7 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       })();
 
       // Unified Live Train & Reliever Tracking Calculation for all day types
-      const calculatedTracking = buildLiveTrainTrackingMap(allDeployments, currentSecs, activeDay);
+      const calculatedTracking = buildLiveTrainTrackingMap(allDeployments, currentSecs, targetSchedule);
 
       setLiveTrainTrackingMap(calculatedTracking);
     } catch (error) {
@@ -827,6 +846,29 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       unsubEmployees();
     };
   }, [activeDay, activeTab]);
+
+  // ── Real-Time Dynamic Ticker for Live Train & Reliever Tracking Handover ──
+  // Re-evaluates handover times every 5 seconds so transitions (e.g. 10:58, 13:13) happen seamlessly
+  const dailyDeploymentRef = useRef([]);
+
+  useEffect(() => {
+    dailyDeploymentRef.current = dailyDeployment;
+  }, [dailyDeployment]);
+
+  useEffect(() => {
+    const updateTracking = () => {
+      const now = new Date();
+      const secs = (now.getHours() * 3600) + (now.getMinutes() * 60) + now.getSeconds();
+      const currentSecs = secs < 3 * 3600 ? secs + 24 * 3600 : secs;
+      const targetSchedule = normalizeScheduleType(activeDay);
+      const tracking = buildLiveTrainTrackingMap(dailyDeploymentRef.current || [], currentSecs, targetSchedule);
+      setLiveTrainTrackingMap(tracking);
+    };
+
+    updateTracking();
+    const ticker = setInterval(updateTracking, 5000);
+    return () => clearInterval(ticker);
+  }, [activeDay, dailyDeployment]);
 
 
   const handleGccRosterUpload = async (e) => {
@@ -1183,15 +1225,17 @@ Format the response strictly as a single JSON object.`;
   const filteredLinks = links.filter(l => String(l.dutyId || '').toLowerCase().includes(searchTerm.toLowerCase()));
 
   // FILTERED TRACKING ENGINE COMPLETED IN REAL-TIME
-  const filteredTrackingKeys = Object.keys(liveTrainTrackingMap).filter(tid => {
+  const filteredTrackingKeys = Object.keys(liveTrainTrackingMap).sort((a, b) => {
+    return String(a).localeCompare(String(b), undefined, { numeric: true });
+  }).filter(tid => {
     const tracking = liveTrainTrackingMap[tid];
     const matchStr = trackerSearchTerm.toLowerCase();
     return (
       String(tid).toLowerCase().includes(matchStr) ||
-      String(tracking.current?.empName || '').toLowerCase().includes(matchStr) ||
-      String(tracking.current?.dutyId || '').toLowerCase().includes(matchStr) ||
-      String(tracking.previous?.empName || '').toLowerCase().includes(matchStr) ||
-      String(tracking.nextReliver?.empName || '').toLowerCase().includes(matchStr)
+      String(tracking?.current?.empName || '').toLowerCase().includes(matchStr) ||
+      String(tracking?.current?.dutyId || '').toLowerCase().includes(matchStr) ||
+      String(tracking?.previous?.empName || '').toLowerCase().includes(matchStr) ||
+      String(tracking?.nextReliver?.empName || '').toLowerCase().includes(matchStr)
     );
   });
 

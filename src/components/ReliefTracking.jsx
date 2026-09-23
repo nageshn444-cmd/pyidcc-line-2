@@ -22,7 +22,8 @@ export default function ReliefTracking({
 
   // Filter keys based on search and duty inputs
   const finalTrackingKeys = useMemo(() => {
-    const keys = filteredTrackingKeys || Object.keys(liveTrainTrackingMap);
+    const rawKeys = filteredTrackingKeys || Object.keys(liveTrainTrackingMap);
+    const keys = [...rawKeys].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
     return keys.filter(tid => {
       const tracking = liveTrainTrackingMap[tid];
       const prev = tracking?.previous;
