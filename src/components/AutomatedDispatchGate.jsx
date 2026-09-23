@@ -33,6 +33,7 @@ import {
   Radio,
   RefreshCw,
   Repeat,
+  RotateCcw,
   Search,
   Send,
   Settings,
@@ -1447,6 +1448,7 @@ export default function AutomatedDispatchGate({
   const [filterStatus, setFilterStatus] = useState("ALL");
 
   const [activeAbnormalEvent, setActiveAbnormalEvent] = useState(null);
+  const [reliefPoolFilter, setReliefPoolFilter] = useState("PRIORITY"); // PRIORITY, ACTIVE, ALL
   const [savingEvent, setSavingEvent] = useState(false);
 
   const [eventHistory, setEventHistory] = useState([]);
@@ -3796,24 +3798,48 @@ Rules:
     );
   }, [filteredDeployments]);
 
+  const getPossibleDutyDocIds = (dutyId, empId) => {
+    const ids = new Set();
+    const sched = normalizeScheduleType(currentDayType).toLowerCase();
+    const rawDutyId = String(dutyId || "").trim();
+    if (rawDutyId && rawDutyId !== "UNASSIGNED" && rawDutyId !== "--") {
+      ids.add(`gcc_deploy_${sched}_duty_${rawDutyId}`);
+      const normDutyId = String(parseInt(rawDutyId, 10) || rawDutyId || "").trim();
+      const paddedDutyId = normDutyId ? normDutyId.padStart(2, "0") : "";
+      ids.add(`gcc_deploy_${sched}_duty_${normDutyId}`);
+      ids.add(`gcc_deploy_${sched}_duty_${paddedDutyId}`);
+      ids.add(`gcc_deploy_active_run_duty_${paddedDutyId}`);
+      ids.add(`gcc_deploy_active_run_duty_${normDutyId}`);
+    }
+    const cleanEmpId = String(empId || "").trim();
+    if (cleanEmpId && cleanEmpId !== "--" && cleanEmpId !== "UNASSIGNED") {
+      ids.add(`gcc_deploy_${sched}_extra_${cleanEmpId}`);
+    }
+    return Array.from(ids);
+  };
+
   const authorizeDispatch = async (deployment) => {
     if (onAuthorize) {
       await onAuthorize(deployment);
       return;
     }
     try {
-      const docId =
-        deployment.dutyId && deployment.dutyId !== "UNASSIGNED"
-          ? `gcc_deploy_${currentDayType.toLowerCase()}_duty_${deployment.dutyId}`
-          : `gcc_deploy_${currentDayType.toLowerCase()}_extra_${deployment.empId}`;
-      await setDoc(
-        doc(db, "crew_daily_deployment", docId),
-        {
-          status: "DISPATCHED",
-          dispatchTime: serverTimestamp(),
-          dispatchAuthorizedBy: "System",
-        },
-        { merge: true },
+      const dutyId = String(deployment.dutyId || "").trim();
+      const empId = String(deployment.empId || deployment.empNo || "").trim();
+      const docIds = getPossibleDutyDocIds(dutyId, empId);
+      const payload = {
+        status: "DISPATCHED",
+        dispatchTime: serverTimestamp(),
+        dispatchAuthorizedBy: "System",
+        lastUpdated: serverTimestamp(),
+      };
+      for (const dId of docIds) {
+        await setDoc(doc(db, "crew_daily_deployment", dId), payload, { merge: true });
+      }
+      setFallbackDeployments((prev) =>
+        prev.map((d) =>
+          String(d.dutyId).trim() === dutyId ? { ...d, status: "DISPATCHED" } : d,
+        ),
       );
     } catch (error) {
       console.error("Error authorizing dispatch:", error);
@@ -3824,13 +3850,34 @@ Rules:
   const getReliefRecommendations = (targetDeployment) => {
     if (!targetDeployment) return [];
     const targetTrainIds = getLegTrainIds(targetDeployment);
+    const targetDutyIdStr = String(targetDeployment.dutyId || "").trim();
 
     return deployments
-      .filter(
-        (candidate) =>
-          String(candidate.dutyId) !== String(targetDeployment.dutyId),
-      )
-      .filter((candidate) => candidate.empName && candidate.empName !== "--")
+      .filter((candidate) => {
+        const cDutyId = String(candidate.dutyId || "").trim();
+        if (cDutyId === targetDutyIdStr) return false;
+        if (!candidate.empName || candidate.empName === "--") return false;
+        const nameUpper = String(candidate.empName || "").toUpperCase();
+        if (nameUpper.includes("VACANT") || nameUpper.includes("UNASSIGNED")) return false;
+
+        const cStatus = String(candidate.status || "").toUpperCase();
+        // Candidate cannot already be providing relief or relieved, nor absent/not reporting/booked off
+        if (
+          cStatus === "RELIEF_DISPATCHED" ||
+          cStatus === "RELIEVED" ||
+          cStatus === "ABSENT" ||
+          cStatus === "AB" ||
+          cStatus === "NOT_REPORTING" ||
+          cStatus === "NR" ||
+          cStatus === "BOOKED_OFF" ||
+          cStatus === "BOOKED_OFF_VACANT" ||
+          Boolean(candidate.isAbsent) ||
+          Boolean(candidate.isNotReporting)
+        ) {
+          return false;
+        }
+        return true;
+      })
       .map((candidate) => {
         const candidateTrainIds = getLegTrainIds(candidate);
         const sameTrainDuty = candidateTrainIds.some((tid) =>
@@ -3838,35 +3885,140 @@ Rules:
         );
         const remainingHours = getRemainingHours(candidate);
 
+        // Identify candidate pool type
+        const resolvedType = String(
+          resolveDutyType(candidate, currentDayType) || candidate.dutyType || "",
+        ).toUpperCase();
+        const trainIdStr = String(candidate.trainId || "").trim().toUpperCase();
+        const shiftStr = String(candidate.shift || "").trim().toUpperCase();
+        const remarksStr = String(candidate.remarks || "").trim().toUpperCase();
+        const dutyIdStr = String(candidate.dutyId || "").trim().toUpperCase();
+        const dutyIdNum = parseInt(dutyIdStr, 10);
+
+        // 1. Standby detection (Primary Depot Relief Reserve)
+        const isStandby = Boolean(
+          resolvedType.includes("STBY") ||
+          resolvedType.includes("STANDBY") ||
+          resolvedType.includes("STDBY") ||
+          resolvedType.includes("STBK") ||
+          resolvedType.includes("RD-3") ||
+          resolvedType.includes("RD3") ||
+          resolvedType.includes("TGTP") ||
+          resolvedType.includes("OR1") ||
+          resolvedType.includes("OR2") ||
+          resolvedType.includes("OR") ||
+          trainIdStr.includes("STBY") ||
+          trainIdStr.includes("STANDBY") ||
+          trainIdStr.includes("RD3") ||
+          trainIdStr.includes("TGTP") ||
+          trainIdStr.startsWith("OR") ||
+          shiftStr.includes("STBY") ||
+          shiftStr.includes("STANDBY") ||
+          remarksStr.includes("STANDBY") ||
+          remarksStr.includes("STBY") ||
+          remarksStr.includes("OR1") ||
+          remarksStr.includes("RD3") ||
+          dutyIdNum === 2 || dutyIdNum === 32 ||
+          dutyIdStr.startsWith("STBY") || dutyIdStr.startsWith("OR")
+        );
+
+        // 2. Pro detection (Pilot Reserve)
+        const isPro = Boolean(
+          !isStandby && (
+            resolvedType.includes("PRO") ||
+            resolvedType.includes("NPRO") ||
+            resolvedType.includes("PILOT") ||
+            trainIdStr.includes("PRO") ||
+            trainIdStr.startsWith("PRO") ||
+            shiftStr.includes("PRO") ||
+            shiftStr.includes("NPRO") ||
+            remarksStr.includes("PRO") ||
+            remarksStr.includes("PILOT") ||
+            dutyIdNum === 1 || dutyIdNum === 31 ||
+            dutyIdStr.startsWith("PRO")
+          )
+        );
+
+        // 3. Buffer / Unassigned (Depot available buffer)
+        const isBuffer = Boolean(
+          !isStandby && !isPro && (
+            trainIdStr === "" ||
+            trainIdStr === "--" ||
+            trainIdStr === "UNASSIGNED" ||
+            resolvedType.includes("BUFFER") ||
+            resolvedType.includes("EXTRA")
+          )
+        );
+
+        let candidatePool = "ACTIVE_MAINLINE";
+        let poolLabel = `Active (Train ${candidate.trainId || "--"})`;
+        let poolPriority = 10;
+        let poolReason = sameTrainDuty
+          ? "Same path / train leg detected (crossover swap)"
+          : "In-service mainline operator (OCC crossover / cab swap)";
+
+        if (isStandby) {
+          candidatePool = "STANDBY";
+          const subLabel = trainIdStr && trainIdStr !== "--" ? trainIdStr : (resolvedType || "Depot Reserve");
+          poolLabel = `STANDBY (${subLabel})`;
+          poolPriority = 80;
+          poolReason = "Primary Depot Emergency Standby Crew (Priority 1)";
+        } else if (isPro) {
+          candidatePool = "PRO";
+          const subLabel = trainIdStr && trainIdStr !== "--" ? trainIdStr : (resolvedType || "Pilot Reserve");
+          poolLabel = `PRO PILOT (${subLabel})`;
+          poolPriority = 65;
+          poolReason = "Designated Depot Pilot Reserve Crew (Priority 1)";
+        } else if (isBuffer) {
+          candidatePool = "BUFFER";
+          poolLabel = "DEPOT BUFFER CREW";
+          poolPriority = 40;
+          poolReason = "Unassigned buffer operator available at depot";
+        }
+
         // Exact Score Breakdown for visualization
         const scores = {
-          readiness:
-            candidate.isSignedOn || candidate.status === "DISPATCHED" ? 40 : 20,
+          poolPriority,
+          readiness: candidate.isSignedOn ? 40 : candidate.status === "DISPATCHED" ? 30 : 20,
           trainMatch: sameTrainDuty ? 25 : 0,
           reliefWindow: Math.min(
             35,
             Math.max(0, Math.round(remainingHours * 4.375)),
-          ), // 8 hours * 4.375 = 35 max
+          ),
         };
         const totalScore =
-          scores.readiness + scores.trainMatch + scores.reliefWindow;
+          scores.poolPriority + scores.readiness + scores.trainMatch + scores.reliefWindow;
 
         return {
           ...candidate,
+          candidatePool,
+          poolLabel,
           scoreBreakdown: scores,
           score: totalScore,
           remainingHours,
-          reason: sameTrainDuty
-            ? "Path match detected"
-            : "Global available pool",
+          reason: poolReason,
         };
       })
-      .filter((candidate) => candidate.remainingHours >= 0.5)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3);
+      .filter((candidate) => candidate.remainingHours >= 0.25)
+      .sort((a, b) => b.score - a.score);
   };
 
   const handleAbnormalEvent = async (deployment, eventType) => {
+    if (eventType === "RESET_RELIEF") {
+      await handleResetRelief(deployment);
+      return;
+    }
+    if (eventType === "UNDO_DISPATCH") {
+      await handleUndoDispatch(deployment);
+      return;
+    }
+    if (
+      eventType === "RESET" &&
+      (deployment.status === "RELIEF_DISPATCHED" || deployment.status === "RELIEVED")
+    ) {
+      await handleResetRelief(deployment);
+      return;
+    }
     if (eventType === "CHANGE") {
       openAssignDriverModal(deployment);
       return;
@@ -4115,44 +4267,275 @@ Rules:
     if (!activeAbnormalEvent) return;
     try {
       setSavingEvent(true);
-      // 1. Mark the event as RESOLVED
-      await updateDoc(
+      const targetDeployment = activeAbnormalEvent.deployment;
+      const targetDutyId = String(targetDeployment.dutyId || "").trim();
+      const targetEmpName = String(
+        targetDeployment.empName || targetDeployment.name || "",
+      ).trim();
+      const targetEmpId = String(
+        targetDeployment.empId || targetDeployment.empNo || "",
+      ).trim();
+
+      const candDutyId = String(recommendedCandidate.dutyId || "").trim();
+      const candEmpName = String(
+        recommendedCandidate.empName || recommendedCandidate.name || "",
+      ).trim();
+      const candEmpId = String(
+        recommendedCandidate.empId || recommendedCandidate.empNo || "",
+      ).trim();
+
+      // 1. Mark the event as RESOLVED in automated_dispatch_gate
+      await setDoc(
         doc(db, "automated_dispatch_gate", activeAbnormalEvent.id),
         {
           status: "RESOLVED",
-          resolvedByDutyId: recommendedCandidate.dutyId,
-          resolvedByEmpName: recommendedCandidate.empName,
+          targetDutyId,
+          targetEmpName,
+          targetEmpId,
+          resolvedByDutyId: candDutyId,
+          resolvedByEmpName: candEmpName,
+          resolvedByEmpId: candEmpId,
           resolvedAt: serverTimestamp(),
-        },
-      );
-
-      // 2. Update the candidate to show they are providing relief
-      // (Assuming candidate is in crew_daily_deployment)
-      const candDocId =
-        recommendedCandidate.dutyId &&
-        recommendedCandidate.dutyId !== "UNASSIGNED"
-          ? `gcc_deploy_${currentDayType.toLowerCase()}_duty_${recommendedCandidate.dutyId}`
-          : `gcc_deploy_${currentDayType.toLowerCase()}_extra_${recommendedCandidate.empId}`;
-      const candRef = doc(db, "crew_daily_deployment", candDocId);
-      await setDoc(
-        candRef,
-        {
-          status: "RELIEF_DISPATCHED",
-          reliefTargetDuty: activeAbnormalEvent.deployment.dutyId,
         },
         { merge: true },
       );
 
+      // 2. Update the candidate to show they are providing relief across all possible doc IDs
+      const candDocIds = getPossibleDutyDocIds(candDutyId, candEmpId);
+      const relieverPayload = {
+        status: "RELIEF_DISPATCHED",
+        reliefTargetDuty: targetDutyId,
+        reliefTargetEmpName: targetEmpName,
+        reliefTargetEmpId: targetEmpId,
+        reliefDispatchedAt: serverTimestamp(),
+        lastUpdated: serverTimestamp(),
+      };
+      for (const cDocId of candDocIds) {
+        await setDoc(
+          doc(db, "crew_daily_deployment", cDocId),
+          relieverPayload,
+          { merge: true },
+        );
+      }
+
+      // 3. Update the relieved target duty across all possible doc IDs
+      const targetDocIds = getPossibleDutyDocIds(targetDutyId, targetEmpId);
+      const targetPayload = {
+        status: "RELIEVED",
+        relievedByDutyId: candDutyId,
+        relievedByEmpName: candEmpName,
+        relievedByEmpId: candEmpId,
+        reliefDispatchedAt: serverTimestamp(),
+        lastUpdated: serverTimestamp(),
+      };
+      for (const tDocId of targetDocIds) {
+        await setDoc(
+          doc(db, "crew_daily_deployment", tDocId),
+          targetPayload,
+          { merge: true },
+        );
+      }
+
+      // 4. Update local fallbackDeployments state immediately for both duties
+      setFallbackDeployments((prev) =>
+        prev.map((d) => {
+          if (String(d.dutyId).trim() === targetDutyId) {
+            return {
+              ...d,
+              status: "RELIEVED",
+              relievedByDutyId: candDutyId,
+              relievedByEmpName: candEmpName,
+              relievedByEmpId: candEmpId,
+            };
+          }
+          if (String(d.dutyId).trim() === candDutyId) {
+            return {
+              ...d,
+              status: "RELIEF_DISPATCHED",
+              reliefTargetDuty: targetDutyId,
+              reliefTargetEmpName: targetEmpName,
+              reliefTargetEmpId: targetEmpId,
+            };
+          }
+          return d;
+        }),
+      );
+
       alert(
-        `Relief Dispatched: ${recommendedCandidate.empName} taking over duty ${activeAbnormalEvent.deployment.dutyId}.`,
+        `✅ Relief Dispatched: ${candEmpName} (Duty #${candDutyId}) is now relieving Duty #${targetDutyId} (${targetEmpName}).`,
       );
       setActiveAbnormalEvent(null);
       if (onImportComplete) onImportComplete();
     } catch (err) {
       console.error(err);
-      alert("Failed to execute relief. Ensure permissions are set.");
+      alert("Failed to execute relief. " + (err.message || ""));
     } finally {
       setSavingEvent(false);
+    }
+  };
+
+  const handleResetRelief = async (deployment) => {
+    if (!deployment) return;
+    try {
+      const isReliever = deployment.status === "RELIEF_DISPATCHED";
+      const isTarget = deployment.status === "RELIEVED";
+
+      const dutyId1 = String(deployment.dutyId || "").trim();
+      const dutyId2 = String(
+        isReliever
+          ? deployment.reliefTargetDuty
+          : isTarget
+            ? deployment.relievedByDutyId
+            : "",
+      ).trim();
+
+      const pairedDuty = deployments.find(
+        (d) => String(d.dutyId).trim() === dutyId2,
+      );
+
+      const targetDutyId = isReliever ? dutyId2 : dutyId1;
+      const relieverDutyId = isReliever ? dutyId1 : dutyId2;
+
+      const confirmMsg = `Reset & Undo Relief assignment between Duty #${relieverDutyId || "Reliever"} and Duty #${targetDutyId || "Target"}? Both operators will be restored to Active status.`;
+      if (!window.confirm(confirmMsg)) return;
+
+      // 1. Reset Reliever Duty
+      if (relieverDutyId) {
+        const relieverEmpId = String(
+          (isReliever ? deployment.empId : pairedDuty?.empId) || "",
+        );
+        const relDocIds = getPossibleDutyDocIds(relieverDutyId, relieverEmpId);
+        const relResetPayload = {
+          status: "ACTIVE",
+          reliefTargetDuty: null,
+          reliefTargetEmpName: null,
+          reliefTargetEmpId: null,
+          reliefDispatchedAt: null,
+          lastUpdated: serverTimestamp(),
+        };
+        for (const docId of relDocIds) {
+          await setDoc(
+            doc(db, "crew_daily_deployment", docId),
+            relResetPayload,
+            { merge: true },
+          );
+        }
+      }
+
+      // 2. Reset Target Duty
+      if (targetDutyId) {
+        const targetEmpId = String(
+          (isTarget ? deployment.empId : pairedDuty?.empId) || "",
+        );
+        const tgtDocIds = getPossibleDutyDocIds(targetDutyId, targetEmpId);
+        const tgtResetPayload = {
+          status: "ACTIVE",
+          relievedByDutyId: null,
+          relievedByEmpName: null,
+          relievedByEmpId: null,
+          reliefDispatchedAt: null,
+          lastUpdated: serverTimestamp(),
+        };
+        for (const docId of tgtDocIds) {
+          await setDoc(
+            doc(db, "crew_daily_deployment", docId),
+            tgtResetPayload,
+            { merge: true },
+          );
+        }
+      }
+
+      // 3. Mark any open or recent automated_dispatch_gate event as REVERTED
+      try {
+        const qEvents = query(
+          collection(db, "automated_dispatch_gate"),
+          orderBy("timestamp", "desc"),
+        );
+        const snap = await getDocs(qEvents);
+        const matchedEvent = snap.docs.find((d) => {
+          const data = d.data();
+          return (
+            String(data.currentDutyId || data.targetDutyId) === targetDutyId ||
+            String(data.resolvedByDutyId) === relieverDutyId
+          );
+        });
+        if (matchedEvent) {
+          await updateDoc(doc(db, "automated_dispatch_gate", matchedEvent.id), {
+            status: "REVERTED",
+            revertedAt: serverTimestamp(),
+          });
+        }
+      } catch (e) {
+        console.warn("Could not update incident event doc:", e);
+      }
+
+      // 4. Update local fallbackDeployments state
+      setFallbackDeployments((prev) =>
+        prev.map((d) => {
+          const dId = String(d.dutyId).trim();
+          if (dId === targetDutyId) {
+            return {
+              ...d,
+              status: "ACTIVE",
+              relievedByDutyId: null,
+              relievedByEmpName: null,
+              relievedByEmpId: null,
+            };
+          }
+          if (dId === relieverDutyId) {
+            return {
+              ...d,
+              status: "ACTIVE",
+              reliefTargetDuty: null,
+              reliefTargetEmpName: null,
+              reliefTargetEmpId: null,
+            };
+          }
+          return d;
+        }),
+      );
+
+      if (activeAbnormalEvent) {
+        setActiveAbnormalEvent(null);
+      }
+
+      alert(
+        `✅ Relief reset successfully! Duty #${targetDutyId} and Reliever Duty #${relieverDutyId} restored to Active.`,
+      );
+      if (onImportComplete) onImportComplete();
+    } catch (err) {
+      console.error("Error resetting relief:", err);
+      alert("Failed to reset relief: " + (err.message || ""));
+    }
+  };
+
+  const handleUndoDispatch = async (deployment) => {
+    if (!deployment) return;
+    try {
+      const dutyId = String(deployment.dutyId || "").trim();
+      const empId = String(deployment.empId || deployment.empNo || "").trim();
+      const docIds = getPossibleDutyDocIds(dutyId, empId);
+      const payload = {
+        status: "ACTIVE",
+        dispatchTime: null,
+        dispatchAuthorizedBy: null,
+        lastUpdated: serverTimestamp(),
+      };
+      for (const dId of docIds) {
+        await setDoc(doc(db, "crew_daily_deployment", dId), payload, {
+          merge: true,
+        });
+      }
+      setFallbackDeployments((prev) =>
+        prev.map((d) =>
+          String(d.dutyId).trim() === dutyId ? { ...d, status: "ACTIVE" } : d,
+        ),
+      );
+      alert(`✅ Dispatch authorization revoked for Duty #${dutyId}.`);
+      if (onImportComplete) onImportComplete();
+    } catch (err) {
+      console.error("Error revoking dispatch:", err);
+      alert("Failed to revoke dispatch: " + err.message);
     }
   };
 
@@ -5341,71 +5724,192 @@ Rules:
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Engine Recommendations */}
                 <div className="col-span-2 space-y-3">
-                  <h4 className="text-xs font-bold text-slate-400 border-b border-slate-800 pb-2 uppercase tracking-widest flex items-center gap-2">
-                    <Cpu className="h-4 w-4 text-emerald-500" /> Engine
-                    Recommendations
-                  </h4>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-2 gap-2">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      <Cpu className="h-4 w-4 text-emerald-500" /> Engine
+                      Recommendations
+                    </h4>
+                    {/* Pool Filter Tabs */}
+                    {activeAbnormalEvent.recommendations && activeAbnormalEvent.recommendations.length > 0 && (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setReliefPoolFilter("PRIORITY")}
+                          className={`px-2.5 py-1 rounded text-[10px] font-mono uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
+                            reliefPoolFilter === "PRIORITY"
+                              ? "bg-emerald-500 text-slate-950 font-black shadow-md"
+                              : "bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200"
+                          }`}
+                        >
+                          🛡️ Standby & Pro (
+                          {
+                            activeAbnormalEvent.recommendations.filter(
+                              (r) => r.candidatePool === "STANDBY" || r.candidatePool === "PRO",
+                            ).length
+                          }
+                          )
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReliefPoolFilter("ACTIVE")}
+                          className={`px-2.5 py-1 rounded text-[10px] font-mono uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
+                            reliefPoolFilter === "ACTIVE"
+                              ? "bg-cyan-500 text-slate-950 font-black shadow-md"
+                              : "bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200"
+                          }`}
+                        >
+                          🚆 Active Mainline (
+                          {
+                            activeAbnormalEvent.recommendations.filter(
+                              (r) => r.candidatePool === "ACTIVE_MAINLINE",
+                            ).length
+                          }
+                          )
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReliefPoolFilter("ALL")}
+                          className={`px-2.5 py-1 rounded text-[10px] font-mono uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
+                            reliefPoolFilter === "ALL"
+                              ? "bg-purple-500 text-slate-950 font-black shadow-md"
+                              : "bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200"
+                          }`}
+                        >
+                          ⭐ All ({activeAbnormalEvent.recommendations.length})
+                        </button>
+                      </div>
+                    )}
+                  </div>
 
-                  {activeAbnormalEvent.recommendations.length === 0 ? (
-                    <div className="p-4 bg-slate-950 border border-slate-800 border-dashed rounded text-center text-slate-500 text-xs">
-                      No suitable relief candidates found. Manual intervention
-                      required.
-                    </div>
-                  ) : (
-                    activeAbnormalEvent.recommendations.map((rec, i) => (
+                  {(() => {
+                    const allRecs = activeAbnormalEvent.recommendations || [];
+                    const priorityRecs = allRecs.filter(
+                      (r) => r.candidatePool === "STANDBY" || r.candidatePool === "PRO",
+                    );
+                    const activeRecs = allRecs.filter(
+                      (r) => r.candidatePool === "ACTIVE_MAINLINE",
+                    );
+                    const displayedRecs =
+                      reliefPoolFilter === "PRIORITY"
+                        ? (priorityRecs.length > 0 ? priorityRecs : allRecs)
+                        : reliefPoolFilter === "ACTIVE"
+                          ? activeRecs
+                          : allRecs;
+
+                    if (displayedRecs.length === 0) {
+                      return (
+                        <div className="p-4 bg-slate-950 border border-slate-800 border-dashed rounded text-center text-slate-500 text-xs">
+                          {reliefPoolFilter === "PRIORITY"
+                            ? "No Standby or Pro candidates available. Switch to Active Mainline or use Manual Override."
+                            : "No suitable relief candidates found in this pool. Manual intervention required."}
+                        </div>
+                      );
+                    }
+
+                    return displayedRecs.map((rec, i) => (
                       <div
-                        key={i}
-                        className="flex flex-col md:flex-row items-center justify-between bg-slate-950 border border-slate-800 rounded-lg p-3 hover:border-emerald-500/30 transition-colors"
+                        key={rec.id || rec.dutyId || i}
+                        className={`flex flex-col md:flex-row items-center justify-between bg-slate-950 border rounded-lg p-3 transition-colors ${
+                          rec.candidatePool === "STANDBY"
+                            ? "border-emerald-600/50 hover:border-emerald-400 bg-emerald-955/20"
+                            : rec.candidatePool === "PRO"
+                              ? "border-amber-600/50 hover:border-amber-400 bg-amber-955/20"
+                              : "border-slate-800 hover:border-cyan-500/30"
+                        }`}
                       >
                         <div className="flex-1 w-full md:w-auto">
-                          <div className="flex items-center gap-2">
-                            <span className="bg-emerald-900/40 text-emerald-400 font-black text-xs px-2 py-0.5 rounded border border-emerald-800">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className={`font-black text-xs px-2 py-0.5 rounded border ${
+                                rec.candidatePool === "STANDBY"
+                                  ? "bg-emerald-900/60 text-emerald-300 border-emerald-600"
+                                  : rec.candidatePool === "PRO"
+                                    ? "bg-amber-900/60 text-amber-300 border-amber-600"
+                                    : "bg-slate-900 text-slate-300 border-slate-700"
+                              }`}
+                            >
                               #{i + 1}
                             </span>
-                            <span className="font-bold text-emerald-300">
+                            <span className="font-bold text-white text-sm">
                               {rec.empName}
                             </span>
-                            <span className="text-[10px] text-slate-500 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700">
-                              Duty {rec.dutyId}
+                            <span className="text-[10px] text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700 font-mono">
+                              Duty #{rec.dutyId}
                             </span>
+
+                            {/* Pool Badge */}
+                            {rec.candidatePool === "STANDBY" ? (
+                              <span className="bg-emerald-950 text-emerald-300 border border-emerald-600 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                                🛡️ {rec.poolLabel || "STANDBY"}
+                              </span>
+                            ) : rec.candidatePool === "PRO" ? (
+                              <span className="bg-amber-955 text-amber-300 border border-amber-600 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                                ⚡ {rec.poolLabel || "PRO PILOT"}
+                              </span>
+                            ) : rec.candidatePool === "BUFFER" ? (
+                              <span className="bg-teal-950 text-teal-300 border border-teal-600 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider">
+                                📋 {rec.poolLabel || "BUFFER"}
+                              </span>
+                            ) : (
+                              <span className="bg-cyan-950 text-cyan-300 border border-cyan-600/70 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider">
+                                🚆 {rec.poolLabel || "ACTIVE MAINLINE"}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Reason Explanation */}
+                          <div className="text-[10px] text-slate-400 mt-1 italic font-mono">
+                            {rec.reason}
                           </div>
 
                           {/* Score Visualization Bar */}
-                          <div className="mt-2 w-full max-w-xs flex h-2 rounded bg-slate-900 overflow-hidden border border-slate-800">
+                          <div className="mt-2 w-full max-w-sm flex h-2 rounded bg-slate-900 overflow-hidden border border-slate-800">
                             <div
                               style={{
-                                width: `${rec.scoreBreakdown.readiness}%`,
-                              }}
-                              className="bg-blue-500"
-                              title={`Readiness: ${rec.scoreBreakdown.readiness}`}
-                            ></div>
-                            <div
-                              style={{
-                                width: `${rec.scoreBreakdown.trainMatch}%`,
-                              }}
-                              className="bg-purple-500"
-                              title={`Path Match: ${rec.scoreBreakdown.trainMatch}`}
-                            ></div>
-                            <div
-                              style={{
-                                width: `${rec.scoreBreakdown.reliefWindow}%`,
+                                width: `${Math.min(100, ((rec.scoreBreakdown?.poolPriority || 0) / 80) * 45)}%`,
                               }}
                               className="bg-emerald-500"
-                              title={`Relief Window: ${rec.scoreBreakdown.reliefWindow}`}
+                              title={`Pool Priority: ${rec.scoreBreakdown?.poolPriority || 0}`}
+                            ></div>
+                            <div
+                              style={{
+                                width: `${Math.min(100, ((rec.scoreBreakdown?.readiness || 0) / 40) * 25)}%`,
+                              }}
+                              className="bg-blue-500"
+                              title={`Readiness: ${rec.scoreBreakdown?.readiness || 0}`}
+                            ></div>
+                            <div
+                              style={{
+                                width: `${Math.min(100, ((rec.scoreBreakdown?.trainMatch || 0) / 25) * 15)}%`,
+                              }}
+                              className="bg-purple-500"
+                              title={`Path Match: ${rec.scoreBreakdown?.trainMatch || 0}`}
+                            ></div>
+                            <div
+                              style={{
+                                width: `${Math.min(100, ((rec.scoreBreakdown?.reliefWindow || 0) / 35) * 15)}%`,
+                              }}
+                              className="bg-cyan-500"
+                              title={`Relief Window: ${rec.scoreBreakdown?.reliefWindow || 0}`}
                             ></div>
                           </div>
 
-                          <div className="flex text-[9px] gap-3 mt-1 text-slate-500 uppercase font-bold tracking-widest">
-                            <span className="text-blue-400">
-                              READY: {rec.scoreBreakdown.readiness}
-                            </span>
-                            <span className="text-purple-400">
-                              PATH: {rec.scoreBreakdown.trainMatch}
-                            </span>
+                          <div className="flex text-[9px] gap-2.5 mt-1.5 text-slate-500 uppercase font-bold tracking-widest flex-wrap">
                             <span className="text-emerald-400">
-                              WIND: {rec.scoreBreakdown.reliefWindow}
+                              POOL: {rec.scoreBreakdown?.poolPriority || 0}
                             </span>
-                            <span className="text-white ml-auto">
+                            <span className="text-blue-400">
+                              READY: {rec.scoreBreakdown?.readiness || 0}
+                            </span>
+                            {(rec.scoreBreakdown?.trainMatch || 0) > 0 && (
+                              <span className="text-purple-400">
+                                PATH: {rec.scoreBreakdown?.trainMatch}
+                              </span>
+                            )}
+                            <span className="text-cyan-400">
+                              WIND: {rec.scoreBreakdown?.reliefWindow || 0}
+                            </span>
+                            <span className="text-white ml-auto font-black bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700">
                               TOTAL: {rec.score}
                             </span>
                           </div>
@@ -5415,15 +5919,15 @@ Rules:
                           <button
                             onClick={() => executeRelief(rec)}
                             disabled={savingEvent}
-                            className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-slate-950 font-black px-4 py-2 rounded text-[10px] tracking-widest flex items-center justify-center gap-1 uppercase shadow-md transition-colors"
+                            className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-slate-950 font-black px-4 py-2 rounded text-[10px] tracking-widest flex items-center justify-center gap-1 uppercase shadow-md transition-colors cursor-pointer"
                           >
                             <CheckCircle className="h-3 w-3" />{" "}
                             {savingEvent ? "EXECUTING..." : "DISPATCH RELIEF"}
                           </button>
                         </div>
                       </div>
-                    ))
-                  )}
+                    ));
+                  })()}
                 </div>
 
                 {/* Manual Override Panel */}
@@ -6012,6 +6516,32 @@ Rules:
                                   EXCH
                                 </span>
                               </span>
+                            ) : d.status === "RELIEF_DISPATCHED" ? (
+                              <span className="inline-flex items-center gap-2">
+                                <span className="text-slate-200">
+                                  {highlightMatch(
+                                    d.empName || d.name || "UNASSIGNED",
+                                    searchQuery,
+                                  )}
+                                </span>
+                                <span className="text-[9px] bg-amber-950/90 text-amber-300 border border-amber-500/80 px-1.5 py-0.5 rounded font-mono font-black uppercase tracking-wider inline-flex items-center gap-1 shadow">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse"></span>{" "}
+                                  RELIEF → #{d.reliefTargetDuty || "--"}
+                                </span>
+                              </span>
+                            ) : d.status === "RELIEVED" ? (
+                              <span className="inline-flex items-center gap-2">
+                                <span className="text-slate-200">
+                                  {highlightMatch(
+                                    d.empName || d.name || "UNASSIGNED",
+                                    searchQuery,
+                                  )}
+                                </span>
+                                <span className="text-[9px] bg-purple-950/90 text-purple-300 border border-purple-500/80 px-1.5 py-0.5 rounded font-mono font-black uppercase tracking-wider inline-flex items-center gap-1 shadow">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse"></span>{" "}
+                                  RELIEVED (#{d.relievedByDutyId || "--"})
+                                </span>
+                              </span>
                             ) : isSwapped ? (
                               <span className="inline-flex items-center gap-2">
                                 <span className="text-slate-200">
@@ -6117,16 +6647,17 @@ Rules:
                                     handleAbnormalEvent(d, val);
                                   }
                                 }}
-                                disabled={
-                                  !!activeAbnormalEvent ||
-                                  d.status === "RELIEF_DISPATCHED"
-                                }
+                                disabled={!!activeAbnormalEvent}
                                 className={`text-[10px] font-black tracking-wider uppercase px-2 py-1 rounded border outline-none transition-all cursor-pointer shadow-sm ${
                                   d.status === "NOT_REPORTING" || d.status === "NR"
                                     ? "bg-rose-950/90 border-rose-500/60 text-rose-300"
                                     : d.status === "ABSENT" || d.status === "AB"
                                       ? "bg-red-950/90 border-red-500/60 text-red-300"
-                                      : "bg-slate-900 border-slate-700 text-slate-300 hover:border-amber-500/60"
+                                      : d.status === "RELIEF_DISPATCHED"
+                                        ? "bg-amber-955/90 border-amber-500/60 text-amber-300"
+                                        : d.status === "RELIEVED"
+                                          ? "bg-purple-955/90 border-purple-500/60 text-purple-300"
+                                          : "bg-slate-900 border-slate-700 text-slate-300 hover:border-amber-500/60"
                                 }`}
                                 title="Algorithmic Shift Validation & Relief Engine Trigger"
                               >
@@ -6139,7 +6670,29 @@ Rules:
                                 <option value="EMERGENCY">🚨 Emergency</option>
                                 <option value="INCIDENT">⚠️ Incident</option>
                                 <option value="DELAY">⏱️ Delay</option>
-                                {(d.status === "NOT_REPORTING" || d.status === "NR" || d.status === "ABSENT" || d.status === "AB" || d.status === "BOOKED_OFF_VACANT" || isBookedOffVacant || String(d.remarks || "").toUpperCase().includes("BOOKED OFF")) && (
+
+                                {/* Dynamic Relief & Dispatch Actions */}
+                                {d.status === "RELIEF_DISPATCHED" && (
+                                  <option value="RESET_RELIEF">↺ Undo Relief (Restore Operator)</option>
+                                )}
+                                {d.status === "RELIEVED" && (
+                                  <>
+                                    <option value="RESET_RELIEF">↺ Undo Relief (Restore Duty)</option>
+                                    <option value="EMERGENCY">🚨 Re-trigger Relief</option>
+                                  </>
+                                )}
+                                {d.status === "DISPATCHED" && (
+                                  <option value="UNDO_DISPATCH">↺ Revoke Dispatch</option>
+                                )}
+                                {(d.status === "NOT_REPORTING" ||
+                                  d.status === "NR" ||
+                                  d.status === "ABSENT" ||
+                                  d.status === "AB" ||
+                                  d.status === "BOOKED_OFF_VACANT" ||
+                                  isBookedOffVacant ||
+                                  String(d.remarks || "").toUpperCase().includes("BOOKED OFF") ||
+                                  d.status === "RELIEF_DISPATCHED" ||
+                                  d.status === "RELIEVED") && (
                                   <option value="RESET">🔄 Reset to Active</option>
                                 )}
                               </select>
@@ -6159,17 +6712,64 @@ Rules:
                                   <Plus className="h-3 w-3" /> ASSIGN DRIVER
                                 </button>
                               )}
-                              {!isDispatched ? (
+
+                              {d.status === "RELIEF_DISPATCHED" ? (
+                                <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                  <span className="text-[9px] bg-amber-955 text-amber-300 border border-amber-600/70 px-2 py-0.5 rounded font-mono font-bold">
+                                    RELIEF → #{d.reliefTargetDuty || "--"}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleResetRelief(d)}
+                                    className="bg-amber-600 hover:bg-amber-500 text-slate-950 font-black px-2.5 py-1 rounded text-[9px] tracking-wider uppercase shadow flex items-center gap-1 cursor-pointer transition-colors"
+                                    title="Undo relief dispatch and restore operator to normal duty"
+                                  >
+                                    <RotateCcw className="h-3 w-3" /> UNDO RELIEF
+                                  </button>
+                                </div>
+                              ) : d.status === "RELIEVED" ? (
+                                <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                  <span className="text-[9px] bg-purple-955 text-purple-300 border border-purple-600/70 px-2 py-0.5 rounded font-mono font-bold">
+                                    RELIEVED by #{d.relievedByDutyId || "--"}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleResetRelief(d)}
+                                    className="bg-amber-600 hover:bg-amber-500 text-slate-950 font-black px-2.5 py-1 rounded text-[9px] tracking-wider uppercase shadow flex items-center gap-1 cursor-pointer transition-colors"
+                                    title="Reset relief and restore duty to active"
+                                  >
+                                    <RotateCcw className="h-3 w-3" /> RESET
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAbnormalEvent(d, "EMERGENCY")}
+                                    className="bg-rose-600 hover:bg-rose-500 text-white font-black px-2 py-1 rounded text-[9px] tracking-wider uppercase shadow flex items-center gap-1 cursor-pointer transition-colors"
+                                    title="Re-open relief recommendations for this duty"
+                                  >
+                                    🔁 RE-RELIEVE
+                                  </button>
+                                </div>
+                              ) : d.status === "DISPATCHED" ? (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-1 pl-1">
+                                    <CheckCircle className="h-3 w-3 text-emerald-500" /> DISPATCHED
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUndoDispatch(d)}
+                                    className="text-[9px] text-slate-400 hover:text-amber-400 underline uppercase tracking-wider ml-1 cursor-pointer font-bold"
+                                    title="Revoke dispatch authorization"
+                                  >
+                                    UNDO
+                                  </button>
+                                </div>
+                              ) : (
                                 <button
                                   onClick={() => authorizeDispatch(d)}
-                                  className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black px-3 py-1 rounded text-[10px] tracking-widest uppercase shadow-md transition-colors"
+                                  className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black px-3 py-1 rounded text-[10px] tracking-widest uppercase shadow-md transition-colors cursor-pointer"
                                 >
                                   AUTHORIZE
                                 </button>
-                              ) : (
-                                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-1 pl-1">
-                                  <CheckCircle className="h-3 w-3 text-emerald-500" /> DISPATCHED
-                                </span>
                               )}
                             </div>
                           </td>
