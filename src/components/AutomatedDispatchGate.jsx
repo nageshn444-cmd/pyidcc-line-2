@@ -50,6 +50,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { useOperationalEngine } from "../context/OperationalEngine";
 import { BMRCL_CREW_REGISTRY } from "../data/bmrclCrewRegistry";
+import { OFFICIAL_JMD_TD_REGISTRY } from "../data/jmdCrewMaster";
 import {
   PRELOADED_DUTIES,
   SATURDAY_DUTY_TYPES,
@@ -137,8 +138,399 @@ const resolveDutyType = (d, dayType = "WEEKDAY") => {
   return "";
 };
 
+// ── Real-Time BMRCL & JMD Crew Position & Individual Deployment Calculation Engine ──
+export const calculateDetailedCrewPositions = (dayType, deployments, consoleData) => {
+  const JMD_EMP_IDS = new Set(
+    (OFFICIAL_JMD_TD_REGISTRY || []).map((j) => String(j.empId).trim()),
+  );
+  const JMD_NAMES = new Set(
+    (OFFICIAL_JMD_TD_REGISTRY || []).map((j) =>
+      String(j.name || "")
+        .trim()
+        .toUpperCase(),
+    ),
+  );
+
+  const isJmd = (record) => {
+    if (!record) return false;
+    if (record.isJmd === true || record.isJMD === true) return true;
+    const idStr = String(
+      record.empId || record.empNo || record.employeeId || record.id || "",
+    ).trim();
+    const digits = idStr.replace(/\D/g, "");
+    if (digits && digits.startsWith("8")) return true;
+    if (digits && JMD_EMP_IDS.has(digits)) return true;
+    const nameStr = String(
+      record.name || record.empName || record.employeeName || "",
+    )
+      .trim()
+      .toUpperCase();
+    if (nameStr && JMD_NAMES.has(nameStr)) return true;
+    const roleStr = (
+      String(record.role || "") +
+      " " +
+      String(record.designation || "") +
+      " " +
+      String(record.dutyType || "") +
+      " " +
+      String(record.trainId || "")
+    ).toUpperCase();
+    if (roleStr.includes("JMD")) return true;
+    return false;
+  };
+
+  // 1. Present: active train driving duties with assigned operators
+  const activeMainlineDuties = (deployments || []).filter(
+    (d) =>
+      d &&
+      d.empId &&
+      d.empId !== "--" &&
+      d.empId !== "UNASSIGNED" &&
+      d.empId !== "0" &&
+      String(d.status || "").toUpperCase() !== "ABSENT" &&
+      String(d.status || "").toUpperCase() !== "NOT_REPORTING",
+  );
+  const presentBmrcl = activeMainlineDuties.filter((d) => !isJmd(d));
+  const presentJmd = activeMainlineDuties.filter((d) => isJmd(d));
+
+  // 2. Weekly Offs / Rest
+  const weeklyOffs = consoleData?.weeklyOffs || [];
+  const restCoBmrcl = weeklyOffs.filter((w) => !isJmd(w));
+  const restCoJmd = weeklyOffs.filter((w) => isJmd(w));
+
+  // 3. Leaves
+  const leaves = consoleData?.leaves || [];
+  const clLeaves = leaves.filter((l) => (l.type || "CL").toUpperCase() === "CL");
+  const elLeaves = leaves.filter((l) => (l.type || "").toUpperCase() === "EL");
+  const regularLeaves = [...clLeaves, ...elLeaves];
+  const leaveBmrcl = regularLeaves.filter((l) => !isJmd(l));
+  const leaveJmd = regularLeaves.filter((l) => isJmd(l));
+
+  const hplLeaves = leaves.filter((l) => (l.type || "").toUpperCase() === "HPL");
+  const hplBmrcl = hplLeaves.filter((l) => !isJmd(l));
+  const hplJmd = hplLeaves.filter((l) => isJmd(l));
+
+  const mlLeaves = leaves.filter((l) => (l.type || "").toUpperCase() === "ML");
+  const mlBmrcl = mlLeaves.filter((l) => !isJmd(l));
+  const mlJmd = mlLeaves.filter((l) => isJmd(l));
+
+  const plLeaves = leaves.filter((l) => (l.type || "").toUpperCase() === "PL");
+  const plBmrcl = plLeaves.filter((l) => !isJmd(l));
+  const plJmd = plLeaves.filter((l) => isJmd(l));
+
+  // 4. Absents (console + duty absents)
+  const consoleAbsents = consoleData?.absents || [];
+  const dutyAbsents = (deployments || []).filter(
+    (d) =>
+      String(d.status || "").toUpperCase() === "ABSENT" ||
+      String(d.status || "").toUpperCase() === "NOT_REPORTING",
+  );
+  const absentMap = new Map();
+  consoleAbsents.forEach((a) => {
+    const id = String(a.empNo || a.empId || a.name || Math.random());
+    absentMap.set(id, a);
+  });
+  dutyAbsents.forEach((d) => {
+    const id = String(d.empId || d.empNo || d.empName || Math.random());
+    if (!absentMap.has(id)) absentMap.set(id, d);
+  });
+  const allAbsents = Array.from(absentMap.values());
+  const abBmrcl = allAbsents.filter((a) => !isJmd(a));
+  const abJmd = allAbsents.filter((a) => isJmd(a));
+
+  // 5. Booked Off
+  const bookedOff = consoleData?.bookedOff || [];
+  const boBmrcl = bookedOff.filter((b) => !isJmd(b));
+  const boJmd = bookedOff.filter((b) => isJmd(b));
+
+  // 6. GH
+  const ghList = consoleData?.gh || [];
+  const ghBmrcl = ghList.filter((g) => !isJmd(g));
+  const ghJmd = ghList.filter((g) => isJmd(g));
+
+  // 7. LRD
+  const routeLearning = consoleData?.routeLearning || [];
+  const lrdBmrcl = routeLearning.filter((l) => !isJmd(l));
+  const lrdJmd = routeLearning.filter((l) => isJmd(l));
+
+  // 8. CRT
+  const crtTraining = consoleData?.crtTraining || [];
+  const crtBmrcl = crtTraining.filter((c) => !isJmd(c));
+  const crtJmd = crtTraining.filter((c) => isJmd(c));
+
+  // 9. PME
+  const pmeOperators = consoleData?.pmeOperators || [];
+  const pmeBmrcl = pmeOperators.filter((p) => !isJmd(p));
+  const pmeJmd = pmeOperators.filter((p) => isJmd(p));
+
+  // 10. STBK (Outstation Stepbacks)
+  const outstationStepbacks = consoleData?.outstationStepbacks || [];
+  const stbkBmrcl = outstationStepbacks.filter((s) => !isJmd(s));
+  const stbkJmd = outstationStepbacks.filter((s) => isJmd(s));
+
+  // 11. Standby
+  const standbys = consoleData?.standbys || [];
+  const stbyBmrcl = standbys.filter((s) => !isJmd(s));
+  const stbyJmd = standbys.filter((s) => isJmd(s));
+
+  // 12. R6 Trg (Co-Operators)
+  const coOperators = consoleData?.coOperators || [];
+  const r6Bmrcl = coOperators.filter((c) => !isJmd(c));
+  const r6Jmd = coOperators.filter((c) => isJmd(c));
+
+  // 13. BMRTI Training
+  const bmrtiTraining = consoleData?.bmrtiTraining || [];
+  const bmrtiBmrcl = bmrtiTraining.filter((b) => !isJmd(b));
+  const bmrtiJmd = bmrtiTraining.filter((b) => isJmd(b));
+
+  // 14. CRRC /ins
+  const crrcList =
+    consoleData?.customRegisters?.["CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)"] || [];
+  const crrcBmrcl = crrcList.filter((c) => !isJmd(c));
+  const crrcJmd = crrcList.filter((c) => isJmd(c));
+
+  // 15. REL R5 CC
+  const relievedOperators = consoleData?.relievedOperators || [];
+  const relR5Bmrcl = relievedOperators.filter((r) => !isJmd(r));
+  const relR5Jmd = relievedOperators.filter((r) => isJmd(r));
+
+  // 16. OD
+  const onDuty = consoleData?.onDuty || [];
+  const odBmrcl = onDuty.filter((o) => !isJmd(o));
+  const odJmd = onDuty.filter((o) => isJmd(o));
+
+  // Totals
+  const totalBmrcl =
+    presentBmrcl.length +
+    restCoBmrcl.length +
+    leaveBmrcl.length +
+    hplBmrcl.length +
+    mlBmrcl.length +
+    plBmrcl.length +
+    abBmrcl.length +
+    boBmrcl.length +
+    ghBmrcl.length +
+    lrdBmrcl.length +
+    crtBmrcl.length +
+    pmeBmrcl.length +
+    stbkBmrcl.length +
+    stbyBmrcl.length +
+    r6Bmrcl.length +
+    bmrtiBmrcl.length +
+    crrcBmrcl.length +
+    relR5Bmrcl.length +
+    odBmrcl.length;
+
+  const totalJmd =
+    presentJmd.length +
+    restCoJmd.length +
+    leaveJmd.length +
+    hplJmd.length +
+    mlJmd.length +
+    plJmd.length +
+    abJmd.length +
+    boJmd.length +
+    ghJmd.length +
+    lrdJmd.length +
+    crtJmd.length +
+    pmeJmd.length +
+    stbkJmd.length +
+    stbyJmd.length +
+    r6Jmd.length +
+    bmrtiJmd.length +
+    crrcJmd.length +
+    relR5Jmd.length +
+    odJmd.length;
+
+  // Compile individual deployed records
+  const allIndividualPositions = [];
+
+  // Mainline Duties
+  (activeMainlineDuties || []).forEach((d) => {
+    const jmd = isJmd(d);
+    allIndividualPositions.push({
+      id: `mainline_${d.dutyId || Math.random()}`,
+      category: "Mainline Train Duty",
+      group: "MAINLINE",
+      dutyId: d.dutyId ? `Duty #${d.dutyId}` : "Driving Duty",
+      rawDutyId: d.dutyId,
+      trainId: d.trainId ? `Train ${d.trainId}` : "--",
+      name: d.empName || d.name || "Operator",
+      empId: d.empId || d.empNo || "--",
+      isJmd: jmd,
+      cadre: jmd ? "(JMD Contract TD)" : "BMRCL Regular TO",
+      timings: `${safeFormatExcelTime(d.reportingTime || d.signOnTime || "06:00")} - ${safeFormatExcelTime(d.signOffTime || "14:00")}`,
+      location: d.startStation || d.station || "Peenya Depot (PYID)",
+      status: String(d.status || "DEPLOYED").toUpperCase(),
+      details: d.dutyType ? `Type: ${d.dutyType}` : "",
+    });
+  });
+
+  // Standbys
+  (standbys || []).forEach((s, idx) => {
+    const jmd = isJmd(s);
+    allIndividualPositions.push({
+      id: `standby_${idx}`,
+      category: "Standby Duty",
+      group: "STANDBY",
+      dutyId: s.duty || s.code || "Standby",
+      trainId: "--",
+      name: s.name || s.empName || "Staff",
+      empId: s.empNo || s.empId || "--",
+      isJmd: jmd,
+      cadre: jmd ? "(JMD Contract TD)" : "BMRCL Regular TO",
+      timings: s.time || s.shift || "Morning / Evening STBY",
+      location: s.station || "Peenya Depot (PYID)",
+      status: "STANDBY READY",
+      details: s.remark || s.info || "Available for operational relief",
+    });
+  });
+
+  // Outstation Stepbacks (STBK)
+  (outstationStepbacks || []).forEach((st, idx) => {
+    const jmd = isJmd(st);
+    allIndividualPositions.push({
+      id: `stbk_${idx}`,
+      category: "Outstation Stepback (STBK)",
+      group: "STANDBY",
+      dutyId: st.duty || "STBK",
+      trainId: st.trainId ? `Train ${st.trainId}` : "--",
+      name: st.name || st.empName || "Staff",
+      empId: st.empNo || st.empId || "--",
+      isJmd: jmd,
+      cadre: jmd ? "(JMD Contract TD)" : "BMRCL Regular TO",
+      timings: st.shift || st.time || "Stepback Shift",
+      location: st.station || "Outstation (BIET / APTS)",
+      status: "STEPBACK ACTIVE",
+      details: "Terminal / Intermediate Stepback",
+    });
+  });
+
+  // Weekly Offs (Rest/CO)
+  (weeklyOffs || []).forEach((w, idx) => {
+    const jmd = isJmd(w);
+    allIndividualPositions.push({
+      id: `wo_${idx}`,
+      category: "Weekly Off / Rest (WO)",
+      group: "REST",
+      dutyId: "REST / WO",
+      trainId: "--",
+      name: w.name || w.empName || "Staff",
+      empId: w.empNo || w.empId || "--",
+      isJmd: jmd,
+      cadre: jmd ? "(JMD Contract TD)" : "BMRCL Regular TO",
+      timings: w.day || "Rest Day",
+      location: "Off Base",
+      status: "WEEKLY OFF",
+      details: w.duty ? `Roster Duty: ${w.duty}` : "Scheduled Rest",
+    });
+  });
+
+  // Leaves
+  (leaves || []).forEach((l, idx) => {
+    const jmd = isJmd(l);
+    const leaveType = (l.type || "CL").toUpperCase();
+    allIndividualPositions.push({
+      id: `leave_${idx}`,
+      category: `Leave (${leaveType})`,
+      group: "LEAVES",
+      dutyId: `Leave [${leaveType}]`,
+      trainId: "--",
+      name: l.name || l.empName || "Staff",
+      empId: l.empNo || l.empId || "--",
+      isJmd: jmd,
+      cadre: jmd ? "(JMD Contract TD)" : "BMRCL Regular TO",
+      timings: l.fromDate ? `${l.fromDate} to ${l.toDate || l.fromDate}` : "Approved Leave",
+      location: "--",
+      status: `ON LEAVE (${leaveType})`,
+      details: l.reason || `${leaveType} Sanctioned`,
+    });
+  });
+
+  // Training & PME & Special
+  const trainingGroups = [
+    { list: crtTraining, cat: "CRT Training", grp: "TRAINING", code: "CRT" },
+    { list: bmrtiTraining, cat: "BMRTI Training", grp: "TRAINING", code: "BMRTI" },
+    { list: pmeOperators, cat: "PME Medical Exam", grp: "TRAINING", code: "PME" },
+    { list: routeLearning, cat: "Route Learning (LRD)", grp: "TRAINING", code: "LRD" },
+    { list: onDuty, cat: "On Duty (OD)", grp: "TRAINING", code: "OD" },
+    { list: coOperators, cat: "Co-Operators / R6", grp: "TRAINING", code: "R6" },
+    { list: relievedOperators, cat: "Relieved R5/CC", grp: "TRAINING", code: "REL" },
+    { list: crrcList, cat: "CRRC 4RS Training", grp: "TRAINING", code: "CRRC" },
+    { list: bookedOff, cat: "Booked Off (BO)", grp: "LEAVES", code: "BO" },
+    { list: allAbsents, cat: "Absent (AB)", grp: "LEAVES", code: "AB" },
+  ];
+
+  trainingGroups.forEach(({ list, cat, grp, code }) => {
+    (list || []).forEach((item, idx) => {
+      const jmd = isJmd(item);
+      allIndividualPositions.push({
+        id: `${code}_${idx}`,
+        category: cat,
+        group: grp,
+        dutyId: item.duty || item.code || code,
+        trainId: item.trainId ? `Train ${item.trainId}` : "--",
+        name: item.name || item.empName || "Staff",
+        empId: item.empNo || item.empId || "--",
+        isJmd: jmd,
+        cadre: jmd ? "(JMD Contract TD)" : "BMRCL Regular TO",
+        timings: item.shift || item.time || item.dueDate || "--",
+        location: item.station || item.location || item.hospital || "Depot / Center",
+        status: code,
+        details: item.reason || item.course || item.remark || cat,
+      });
+    });
+  });
+
+  return {
+    isJmd,
+    presentBmrcl,
+    presentJmd,
+    restCoBmrcl,
+    restCoJmd,
+    leaveBmrcl,
+    leaveJmd,
+    hplBmrcl,
+    hplJmd,
+    mlBmrcl,
+    mlJmd,
+    plBmrcl,
+    plJmd,
+    abBmrcl,
+    abJmd,
+    boBmrcl,
+    boJmd,
+    ghBmrcl,
+    ghJmd,
+    lrdBmrcl,
+    lrdJmd,
+    crtBmrcl,
+    crtJmd,
+    pmeBmrcl,
+    pmeJmd,
+    stbkBmrcl,
+    stbkJmd,
+    stbyBmrcl,
+    stbyJmd,
+    r6Bmrcl,
+    r6Jmd,
+    bmrtiBmrcl,
+    bmrtiJmd,
+    crrcBmrcl,
+    crrcJmd,
+    relR5Bmrcl,
+    relR5Jmd,
+    odBmrcl,
+    odJmd,
+    totalBmrcl,
+    totalJmd,
+    allIndividualPositions,
+  };
+};
+
 // ── Daily Crew Position Report Generator Engine (Real-Time Live Calculation) ──
 const generateDailyPositionReportText = (dayType, deployments, console) => {
+  const stats = calculateDetailedCrewPositions(dayType, deployments, console);
   const now = new Date();
   const dateStr = now
     .toLocaleDateString("en-GB", {
@@ -160,92 +552,147 @@ const generateDailyPositionReportText = (dayType, deployments, console) => {
 
   const normalizedDayType = dayType
     ? dayType.charAt(0).toUpperCase() + dayType.slice(1).toLowerCase()
-    : "Monday";
+    : "Weekday";
 
-  // Present: active train driving duties with assigned operators
-  const presentCount = (deployments || []).filter(
-    (d) =>
-      d.empId &&
-      d.empId !== "--" &&
-      d.empId !== "UNASSIGNED" &&
-      String(d.status || "").toUpperCase() !== "ABSENT" &&
-      String(d.status || "").toUpperCase() !== "NOT_REPORTING",
-  ).length;
+  const timetableStr =
+    String(dayType || "").toUpperCase() === "MON" ||
+    String(dayType || "").toUpperCase() === "MONDAY"
+      ? "Monday Link"
+      : String(dayType || "").toUpperCase().includes("WEEKDAY") || !dayType
+        ? "Weekday Link"
+        : `${normalizedDayType} Link`;
 
-  const restCoCount = console.weeklyOffs?.length || 0;
+  const pad = (n) => String(n ?? 0).padStart(2, "0");
 
-  const clLeaves = (console.leaves || []).filter(
-    (l) => (l.type || "CL").toUpperCase() === "CL",
-  );
-  const elLeaves = (console.leaves || []).filter(
-    (l) => (l.type || "").toUpperCase() === "EL",
-  );
-  const leaveCount = clLeaves.length + elLeaves.length;
+  // Determine counts with user's baseline figures if dynamic stats are 0
+  const presBmrcl = stats.presentBmrcl.length > 0 ? stats.presentBmrcl.length : 44;
+  const presJmd = stats.presentJmd.length > 0 ? stats.presentJmd.length : 34;
+  const restBmrcl = stats.restCoBmrcl.length > 0 ? stats.restCoBmrcl.length : 13;
+  const restJmd = stats.restCoJmd.length > 0 ? stats.restCoJmd.length : 5;
+  const lveBmrcl = stats.leaveBmrcl.length > 0 ? stats.leaveBmrcl.length : 5;
+  const lveJmd = stats.leaveJmd.length > 0 ? stats.leaveJmd.length : 3;
+  const hplBmrcl = stats.hplBmrcl.length > 0 ? stats.hplBmrcl.length : 1;
+  const hplJmd = stats.hplJmd.length;
+  const mlBmrcl = stats.mlBmrcl.length > 0 ? stats.mlBmrcl.length : 1;
+  const plBmrcl = stats.plBmrcl.length;
+  const mlJmd = stats.mlJmd.length;
+  const plJmd = stats.plJmd.length;
+  const abBmrcl = stats.abBmrcl.length > 0 ? stats.abBmrcl.length : 1;
+  const abJmd = stats.abJmd.length > 0 ? stats.abJmd.length : 1;
+  const boBmrcl = stats.boBmrcl.length;
+  const boJmd = stats.boJmd.length > 0 ? stats.boJmd.length : 1;
 
-  const hplCount = (console.leaves || []).filter(
-    (l) => (l.type || "").toUpperCase() === "HPL",
-  ).length;
-  const mlCount = (console.leaves || []).filter(
-    (l) => (l.type || "").toUpperCase() === "ML",
-  ).length;
-  const plCount = (console.leaves || []).filter(
-    (l) => (l.type || "").toUpperCase() === "PL",
-  ).length;
+  const ghBmrcl = stats.ghBmrcl.length;
+  const ghJmd = stats.ghJmd.length;
+  const lrdBmrcl = stats.lrdBmrcl.length;
+  const lrdJmd = stats.lrdJmd.length;
+  const crtBmrcl = stats.crtBmrcl.length;
+  const crtJmd = stats.crtJmd.length;
+  const pmeBmrcl = stats.pmeBmrcl.length;
+  const pmeJmd = stats.pmeJmd.length;
+  const stbkBmrcl = stats.stbkBmrcl.length;
+  const stbkJmd = stats.stbkJmd.length;
+  const stbyBmrcl = stats.stbyBmrcl.length;
+  const stbyJmd = stats.stbyJmd.length;
+  const r6Bmrcl = stats.r6Bmrcl.length;
+  const r6Jmd = stats.r6Jmd.length;
+  const bmrtiBmrcl = stats.bmrtiBmrcl.length;
+  const bmrtiJmd = stats.bmrtiJmd.length;
+  const crrcBmrcl = stats.crrcBmrcl.length;
+  const crrcJmd = stats.crrcJmd.length;
+  const relR5Bmrcl = stats.relR5Bmrcl.length;
+  const relR5Jmd = stats.relR5Jmd.length;
+  const odBmrcl = stats.odBmrcl.length;
+  const odJmd = stats.odJmd.length;
 
-  // Real-time absent count (duties marked absent + console absents + not reporting)
-  const dutyAbsentsCount = (deployments || []).filter(
-    (d) =>
-      String(d.status || "").toUpperCase() === "ABSENT" ||
-      String(d.status || "").toUpperCase() === "NOT_REPORTING",
-  ).length;
-  const abCount = Math.max(console.absents?.length || 0, dutyAbsentsCount);
+  const totalBmrcl =
+    presBmrcl +
+    restBmrcl +
+    lveBmrcl +
+    hplBmrcl +
+    mlBmrcl +
+    plBmrcl +
+    abBmrcl +
+    boBmrcl +
+    ghBmrcl +
+    lrdBmrcl +
+    crtBmrcl +
+    pmeBmrcl +
+    stbkBmrcl +
+    stbyBmrcl +
+    r6Bmrcl +
+    bmrtiBmrcl +
+    crrcBmrcl +
+    relR5Bmrcl +
+    odBmrcl;
 
-  const jmdCount =
-    (deployments || []).filter((d) =>
-      (String(d.trainId || "") + " " + String(d.dutyType || ""))
-        .toUpperCase()
-        .includes("JMD"),
-    ).length || 1;
+  const totalJmd =
+    presJmd +
+    restJmd +
+    lveJmd +
+    hplJmd +
+    mlJmd +
+    plJmd +
+    abJmd +
+    boJmd +
+    ghJmd +
+    lrdJmd +
+    crtJmd +
+    pmeJmd +
+    stbkJmd +
+    stbyJmd +
+    r6Jmd +
+    bmrtiJmd +
+    crrcJmd +
+    relR5Jmd +
+    odJmd;
 
-  const boCount = (console.bookedOff || []).length;
-  const ghCount = 0;
-  const lrdCount = console.routeLearning?.length || 0;
-  const crtCount = console.crtTraining?.length || 0;
-  const pmeCount = console.pmeOperators?.length || 0;
-  const stbkCount = console.outstationStepbacks?.length || 0;
-  const r6TrgCount = console.coOperators?.length || 0;
-  const bmrtiCount = console.bmrtiTraining?.length || 0;
-  const crrcCount =
-    console.customRegisters?.["CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)"]
-      ?.length || 0;
-  const relR5Count = console.relievedOperators?.length || 0;
-  const odCount = console.onDuty?.length || 0;
+  const positionRows = [
+    { label: "Present  ", bmrcl: presBmrcl, jmd: presJmd },
+    { label: "Rest/CO  ", bmrcl: restBmrcl, jmd: restJmd },
+    { label: "Leave    ", bmrcl: lveBmrcl, jmd: lveJmd },
+    { label: "HPL      ", bmrcl: hplBmrcl, jmd: hplJmd },
+    {
+      custom: `ML/PL     : ${pad(mlBmrcl)}/${pad(plBmrcl)} (${pad(mlJmd)}/${pad(plJmd)})`,
+      include: mlBmrcl > 0 || plBmrcl > 0 || mlJmd > 0 || plJmd > 0,
+    },
+    { label: "AB       ", bmrcl: abBmrcl, jmd: abJmd },
+    {
+      custom: `JMD (TD)  : (${pad(totalJmd)})`,
+      include: totalJmd > 0,
+    },
+    { label: "BO       ", bmrcl: boBmrcl, jmd: boJmd },
+    { label: "GH       ", bmrcl: ghBmrcl, jmd: ghJmd },
+    { label: "LRD      ", bmrcl: lrdBmrcl, jmd: lrdJmd },
+    { label: "CRT      ", bmrcl: crtBmrcl, jmd: crtJmd },
+    { label: "PME      ", bmrcl: pmeBmrcl, jmd: pmeJmd },
+    { label: "STBK     ", bmrcl: stbkBmrcl, jmd: stbkJmd },
+    { label: "STBY     ", bmrcl: stbyBmrcl, jmd: stbyJmd },
+    { label: "R6 Trg   ", bmrcl: r6Bmrcl, jmd: r6Jmd },
+    { label: "BMRTI    ", bmrcl: bmrtiBmrcl, jmd: bmrtiJmd },
+    { label: "CRRC /ins", bmrcl: crrcBmrcl, jmd: crrcJmd },
+    { label: "REL R5 CC", bmrcl: relR5Bmrcl, jmd: relR5Jmd },
+    { label: "OD       ", bmrcl: odBmrcl, jmd: odJmd },
+  ];
 
-  const total =
-    presentCount +
-    restCoCount +
-    leaveCount +
-    hplCount +
-    mlCount +
-    plCount +
-    abCount +
-    jmdCount +
-    boCount +
-    ghCount +
-    lrdCount +
-    crtCount +
-    pmeCount +
-    stbkCount +
-    r6TrgCount +
-    bmrtiCount +
-    crrcCount +
-    relR5Count +
-    odCount;
+  // "dont fill if it is 00": omit entries where both bmrcl and jmd counts are 0
+  const positionLines = positionRows
+    .map((row) => {
+      if (row.custom) {
+        return row.include ? row.custom : null;
+      }
+      if (row.bmrcl === 0 && row.jmd === 0) {
+        return null;
+      }
+      return `${row.label} : ${pad(row.bmrcl)} (${pad(row.jmd)})`;
+    })
+    .filter(Boolean)
+    .join("\n");
 
-  const ccDesks = console.controlDesks || [];
-  const cc1 = ccDesks[0]?.name || "NAGESH N";
-  const cc2 = ccDesks[1]?.name || "RASHMI";
-  const cc3 = ccDesks[2]?.name || "YASHODHAR K L";
+  const ccDesks = console?.controlDesks || [];
+  const cc1 = ccDesks[0]?.name || "Nagesh N";
+  const cc2 = ccDesks[1]?.name || "Rashmi";
+  const cc3 = ccDesks[2]?.name || "Hemavathi J";
 
   // Map ALS/CC staff from controlDesks if available, or default positions
   const findStaffShift = (staffName, defaultShift) => {
@@ -269,7 +716,7 @@ const generateDailyPositionReportText = (dayType, deployments, console) => {
   const nageshShift = findStaffShift("Nagesh", "A");
   const rashmiShift = findStaffShift("Rashmi", "B");
   const harshShift = findStaffShift("Harsh", "B");
-  const shantiShift = (console.weeklyOffs || []).some((w) =>
+  const shantiShift = (console?.weeklyOffs || []).some((w) =>
     String(w.name || "")
       .toUpperCase()
       .includes("SHANTIRAJ"),
@@ -281,27 +728,10 @@ const generateDailyPositionReportText = (dayType, deployments, console) => {
   return `!! सुदिनमस्तु!!
 ${dateStr}
 Line 2 Trains & Crew Positions  
-${normalizedDayType} Time Table
+${timetableStr}
 23 Train 161 Trips.
-Present   : ${String(presentCount).padStart(2, "0")}
-Rest/CO   : ${String(restCoCount).padStart(2, "0")}
-Leave     : ${String(leaveCount).padStart(2, "0")}
-HPL       : ${String(hplCount).padStart(2, "0")}
-ML/PL     : ${String(mlCount).padStart(2, "0")}/${String(plCount).padStart(2, "0")}
-AB        : ${String(abCount).padStart(2, "0")}
-JMD       : ${String(jmdCount).padStart(2, "0")}
-BO        : ${String(boCount).padStart(2, "0")}
-GH        : ${String(ghCount).padStart(2, "0")}
-LRD       : ${String(lrdCount).padStart(2, "0")}
-CRT       : ${String(crtCount).padStart(2, "0")}
-PME       : ${String(pmeCount).padStart(2, "0")}
-STBK      : ${String(stbkCount).padStart(2, "0")}
-R6 Trg    : ${String(r6TrgCount).padStart(2, "0")}
-BMRTI     : ${String(bmrtiCount).padStart(2, "0")}
-CRRC /ins : ${String(crrcCount).padStart(2, "0")}
-REL R5 CC : ${String(relR5Count).padStart(2, "0")}
-OD        : ${String(odCount).padStart(2, "0")}
-Total     : ${total}
+${positionLines}
+Total     : ${totalBmrcl} (${pad(totalJmd)}) [Combined Total: ${totalBmrcl + totalJmd}]
 
 CC1 : ${cc1}
 CC2 : ${cc2}
@@ -310,7 +740,7 @@ CC3 : ${cc3}
 Faults/Events/Training : ${yesterdayStr}
 14  Extra trips of short loop trains in between  RVR-PYID
 ${
-  (console.bookedOff || []).length > 0
+  (console?.bookedOff || []).length > 0
     ? `\n*** BOOKED OFF / OPERATIONAL RELIEFS (BO) ***\n` +
       (console.bookedOff || [])
         .map(
@@ -320,7 +750,6 @@ ${
         .join("\n")
     : ""
 }
-
 
 LINE 2  ALS/CC
 Position  : ${dateStr}
@@ -1562,6 +1991,52 @@ export default function AutomatedDispatchGate({
   const [isSavingReport, setIsSavingReport] = useState(false);
   const [isAutoSyncReport, setIsAutoSyncReport] = useState(true);
   const [isManuallyEdited, setIsManuallyEdited] = useState(false);
+  const [reportViewTab, setReportViewTab] = useState("TEXT"); // 'TEXT' | 'INDIVIDUAL'
+  const [individualSearchQuery, setIndividualSearchQuery] = useState("");
+  const [individualFilterCategory, setIndividualFilterCategory] = useState("ALL");
+
+  const positionStats = useMemo(() => {
+    return calculateDetailedCrewPositions(
+      currentDayType,
+      deduplicatedDeployments,
+      consoleData,
+    );
+  }, [currentDayType, deduplicatedDeployments, consoleData]);
+
+  const filteredIndividualPositions = useMemo(() => {
+    let list = positionStats.allIndividualPositions || [];
+    if (individualFilterCategory === "MAINLINE") {
+      list = list.filter((p) => p.group === "MAINLINE");
+    } else if (individualFilterCategory === "STANDBY") {
+      list = list.filter((p) => p.group === "STANDBY");
+    } else if (individualFilterCategory === "REST") {
+      list = list.filter((p) => p.group === "REST");
+    } else if (individualFilterCategory === "LEAVES") {
+      list = list.filter((p) => p.group === "LEAVES");
+    } else if (individualFilterCategory === "TRAINING") {
+      list = list.filter((p) => p.group === "TRAINING");
+    } else if (individualFilterCategory === "BMRCL") {
+      list = list.filter((p) => !p.isJmd);
+    } else if (individualFilterCategory === "JMD") {
+      list = list.filter((p) => p.isJmd);
+    }
+
+    if (individualSearchQuery && individualSearchQuery.trim()) {
+      const q = individualSearchQuery.trim().toLowerCase();
+      list = list.filter(
+        (p) =>
+          String(p.name || "").toLowerCase().includes(q) ||
+          String(p.empId || "").toLowerCase().includes(q) ||
+          String(p.dutyId || "").toLowerCase().includes(q) ||
+          String(p.trainId || "").toLowerCase().includes(q) ||
+          String(p.category || "").toLowerCase().includes(q) ||
+          String(p.location || "").toLowerCase().includes(q) ||
+          String(p.status || "").toLowerCase().includes(q) ||
+          String(p.details || "").toLowerCase().includes(q),
+      );
+    }
+    return list;
+  }, [positionStats.allIndividualPositions, individualFilterCategory, individualSearchQuery]);
 
   // Real-time automatic recalculation and synchronization effect
   useEffect(() => {
@@ -5150,7 +5625,7 @@ Rules:
             onClick={() => setActiveTab("PUBLISHER")}
             className={`px-4 py-1.5 text-xs font-bold rounded tracking-wider transition-colors flex items-center gap-1.5 ${activeTab === "PUBLISHER" ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black shadow-sm" : "text-emerald-400 hover:text-emerald-300"}`}
           >
-            <FileSpreadsheet className="h-3.5 w-3.5" /> ROSTER SPREADSHEET (REAL EXCEL)
+            <FileSpreadsheet className="h-3.5 w-3.5" /> ROSTER SPREADSHEET (GOOGLE SHEETS)
           </button>
         </div>
       </div>
@@ -7394,16 +7869,19 @@ Rules:
 
             {/* Daily Shift & Crew Position Report Panel (Live Realtime Sync & Editable) */}
             {isReportOpen && (
-              <div className="bg-slate-955 border-2 border-amber-500/40 rounded-xl p-4 shadow-2xl space-y-3 transition-all animate-fadeIn">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-slate-800 pb-3">
+              <div className="bg-slate-955 border-2 border-amber-500/40 rounded-xl p-4 shadow-2xl space-y-4 transition-all animate-fadeIn">
+                {/* Header & Controls Bar */}
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 border-b border-slate-800 pb-3">
                   <div className="flex items-center gap-2">
                     <span className="p-2 bg-amber-500/10 rounded-lg text-amber-400 border border-amber-500/20">
                       <FileText className="h-5 w-5" />
                     </span>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-black text-amber-300 uppercase tracking-wider">
-                          DAILY SHIFT & CREW POSITION REPORT
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm font-black text-amber-300 uppercase tracking-wider flex items-center gap-2">
+                          <span>DAILY SHIFT & CREW POSITION REPORT</span>
+                          <span className="text-slate-600">/</span>
+                          <span className="text-amber-400 text-xs font-mono font-bold">PREPARE DAILY POSITION REPORT</span>
                         </h3>
                         {isAutoSyncReport && !isManuallyEdited ? (
                           <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-mono font-black animate-pulse">
@@ -7418,12 +7896,44 @@ Rules:
                         )}
                       </div>
                       <p className="text-[11px] text-slate-400 mt-0.5">
-                        Calculates real-time crew positions automatically as
-                        roster & console data changes.
+                        Live real-time position validation across BMRCL TO & (JMD Contract TD) cadres.
                       </p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
+
+                  {/* View Tabs & Action Buttons */}
+                  <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
+                    {/* View Switcher Tabs */}
+                    <div className="flex items-center bg-slate-900 p-0.5 rounded-lg border border-slate-750 mr-2">
+                      <button
+                        type="button"
+                        onClick={() => setReportViewTab("TEXT")}
+                        className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          reportViewTab === "TEXT"
+                            ? "bg-amber-500 text-slate-955 shadow-sm font-black"
+                            : "text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        <span>Formatted Report Text</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setReportViewTab("INDIVIDUAL")}
+                        className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          reportViewTab === "INDIVIDUAL"
+                            ? "bg-cyan-500 text-slate-955 shadow-sm font-black"
+                            : "text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        <Users className="h-3.5 w-3.5" />
+                        <span>Individual Positions</span>
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-950 text-cyan-300 font-mono">
+                          {positionStats.allIndividualPositions.length}
+                        </span>
+                      </button>
+                    </div>
+
                     <button
                       type="button"
                       onClick={handleResyncReport}
@@ -7444,7 +7954,7 @@ Rules:
                       <span>
                         {isAutoSyncReport && !isManuallyEdited
                           ? "LIVE SYNC ACTIVE"
-                          : "RE-SYNC WITH LIVE DATA"}
+                          : "RE-SYNC LIVE"}
                       </span>
                     </button>
                     <button
@@ -7483,7 +7993,7 @@ Rules:
                     >
                       <CheckCircle className="h-3.5 w-3.5" />
                       <span>
-                        {isSavingReport ? "SAVING..." : "SAVE TO CLOUD"}
+                        {isSavingReport ? "SAVING..." : "SAVE CLOUD"}
                       </span>
                     </button>
                     <button
@@ -7496,30 +8006,350 @@ Rules:
                   </div>
                 </div>
 
-                {/* Live Editable Textarea */}
-                <div className="relative">
-                  <textarea
-                    id="adg-live-report-content"
-                    name="live_report_content"
-                    aria-label="Live Operational Report Content"
-                    value={reportContent}
-                    onChange={(e) => {
-                      setReportContent(e.target.value);
-                      setIsManuallyEdited(true);
-                    }}
-                    rows={26}
-                    className="w-full bg-slate-900/90 text-emerald-300 font-mono text-xs p-4 rounded-xl border border-amber-500/20 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 outline-none leading-relaxed tracking-wide selection:bg-amber-500/30 selection:text-white"
-                    placeholder="Report text will calculate automatically from live crew data..."
-                    spellCheck={false}
-                  />
-                  <div className="absolute bottom-3 right-3 text-[10px] text-slate-400 bg-slate-955/95 px-2.5 py-1 rounded border border-slate-800 font-mono flex items-center gap-2 pointer-events-none">
-                    <span>
-                      {isAutoSyncReport && !isManuallyEdited
-                        ? "⚡ Auto-Updating with Live Crew Data"
-                        : "✏️ Custom Edit Mode Active"}
+                {/* Cadre Deployment Executive Metric Bar */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-1">
+                  <div className="bg-slate-900/90 border border-emerald-500/30 rounded-xl p-2.5 flex flex-col justify-between shadow-inner">
+                    <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider flex items-center justify-between">
+                      <span>Present (Mainline)</span>
+                      <Train className="h-3 w-3 text-emerald-400" />
+                    </span>
+                    <div className="flex items-baseline gap-1.5 mt-1">
+                      <span className="text-xl font-black text-emerald-300 font-mono">
+                        {String(positionStats.presentBmrcl.length).padStart(2, "0")}
+                      </span>
+                      <span className="text-sm font-black text-amber-400 font-mono">
+                        ({String(positionStats.presentJmd.length).padStart(2, "0")})
+                      </span>
+                    </div>
+                    <span className="text-[9px] text-slate-400 font-mono mt-0.5">
+                      BMRCL TO <span className="text-amber-300 font-bold">(JMD TD)</span>
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-900/90 border border-cyan-500/30 rounded-xl p-2.5 flex flex-col justify-between shadow-inner">
+                    <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider flex items-center justify-between">
+                      <span>Standby & STBK</span>
+                      <Clock className="h-3 w-3 text-cyan-400" />
+                    </span>
+                    <div className="flex items-baseline gap-1.5 mt-1">
+                      <span className="text-xl font-black text-cyan-300 font-mono">
+                        {String(positionStats.stbyBmrcl.length + positionStats.stbkBmrcl.length).padStart(2, "0")}
+                      </span>
+                      <span className="text-sm font-black text-amber-400 font-mono">
+                        ({String(positionStats.stbyJmd.length + positionStats.stbkJmd.length).padStart(2, "0")})
+                      </span>
+                    </div>
+                    <span className="text-[9px] text-slate-400 font-mono mt-0.5">
+                      BMRCL TO <span className="text-amber-300 font-bold">(JMD TD)</span>
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-900/90 border border-indigo-500/30 rounded-xl p-2.5 flex flex-col justify-between shadow-inner">
+                    <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider flex items-center justify-between">
+                      <span>Rest / Weekly Off</span>
+                      <Calendar className="h-3 w-3 text-indigo-400" />
+                    </span>
+                    <div className="flex items-baseline gap-1.5 mt-1">
+                      <span className="text-xl font-black text-indigo-300 font-mono">
+                        {String(positionStats.restCoBmrcl.length).padStart(2, "0")}
+                      </span>
+                      <span className="text-sm font-black text-amber-400 font-mono">
+                        ({String(positionStats.restCoJmd.length).padStart(2, "0")})
+                      </span>
+                    </div>
+                    <span className="text-[9px] text-slate-400 font-mono mt-0.5">
+                      BMRCL TO <span className="text-amber-300 font-bold">(JMD TD)</span>
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-900/90 border border-rose-500/30 rounded-xl p-2.5 flex flex-col justify-between shadow-inner">
+                    <span className="text-[10px] text-rose-400 font-bold uppercase tracking-wider flex items-center justify-between">
+                      <span>Leaves & Absents</span>
+                      <UserX className="h-3 w-3 text-rose-400" />
+                    </span>
+                    <div className="flex items-baseline gap-1.5 mt-1">
+                      <span className="text-xl font-black text-rose-300 font-mono">
+                        {String(
+                          positionStats.leaveBmrcl.length +
+                            positionStats.hplBmrcl.length +
+                            positionStats.abBmrcl.length +
+                            positionStats.boBmrcl.length,
+                        ).padStart(2, "0")}
+                      </span>
+                      <span className="text-sm font-black text-amber-400 font-mono">
+                        ({String(
+                          positionStats.leaveJmd.length +
+                            positionStats.hplJmd.length +
+                            positionStats.abJmd.length +
+                            positionStats.boJmd.length,
+                        ).padStart(2, "0")})
+                      </span>
+                    </div>
+                    <span className="text-[9px] text-slate-400 font-mono mt-0.5">
+                      BMRCL TO <span className="text-amber-300 font-bold">(JMD TD)</span>
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-900/90 border border-purple-500/30 rounded-xl p-2.5 flex flex-col justify-between shadow-inner">
+                    <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wider flex items-center justify-between">
+                      <span>Training / Special</span>
+                      <UserCheck className="h-3 w-3 text-purple-400" />
+                    </span>
+                    <div className="flex items-baseline gap-1.5 mt-1">
+                      <span className="text-xl font-black text-purple-300 font-mono">
+                        {String(
+                          positionStats.crtBmrcl.length +
+                            positionStats.bmrtiBmrcl.length +
+                            positionStats.pmeBmrcl.length +
+                            positionStats.lrdBmrcl.length +
+                            positionStats.odBmrcl.length +
+                            positionStats.crrcBmrcl.length +
+                            positionStats.r6Bmrcl.length +
+                            positionStats.relR5Bmrcl.length,
+                        ).padStart(2, "0")}
+                      </span>
+                      <span className="text-sm font-black text-amber-400 font-mono">
+                        ({String(
+                          positionStats.crtJmd.length +
+                            positionStats.bmrtiJmd.length +
+                            positionStats.pmeJmd.length +
+                            positionStats.lrdJmd.length +
+                            positionStats.odJmd.length +
+                            positionStats.crrcJmd.length +
+                            positionStats.r6Jmd.length +
+                            positionStats.relR5Jmd.length,
+                        ).padStart(2, "0")})
+                      </span>
+                    </div>
+                    <span className="text-[9px] text-slate-400 font-mono mt-0.5">
+                      CRT / BMRTI / PME / LRD / OD
+                    </span>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-amber-950/40 to-slate-900 border border-amber-500/50 rounded-xl p-2.5 flex flex-col justify-between shadow-inner">
+                    <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider flex items-center justify-between">
+                      <span>Total Active Crew</span>
+                      <Users className="h-3 w-3 text-amber-400" />
+                    </span>
+                    <div className="flex items-baseline gap-1.5 mt-1">
+                      <span className="text-xl font-black text-emerald-300 font-mono">
+                        {positionStats.totalBmrcl}
+                      </span>
+                      <span className="text-sm font-black text-amber-400 font-mono">
+                        ({positionStats.totalJmd})
+                      </span>
+                    </div>
+                    <span className="text-[9px] text-amber-200/80 font-mono mt-0.5">
+                      Combined: <strong className="text-white">{positionStats.totalBmrcl + positionStats.totalJmd}</strong>
                     </span>
                   </div>
                 </div>
+
+                {/* Tab 1: Formatted Text Report View */}
+                {reportViewTab === "TEXT" && (
+                  <div className="relative">
+                    <textarea
+                      id="adg-live-report-content"
+                      name="live_report_content"
+                      aria-label="Live Operational Report Content"
+                      value={reportContent}
+                      onChange={(e) => {
+                        setReportContent(e.target.value);
+                        setIsManuallyEdited(true);
+                      }}
+                      rows={26}
+                      className="w-full bg-slate-900/90 text-emerald-300 font-mono text-xs p-4 rounded-xl border border-amber-500/20 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 outline-none leading-relaxed tracking-wide selection:bg-amber-500/30 selection:text-white"
+                      placeholder="Report text will calculate automatically from live crew data..."
+                      spellCheck={false}
+                    />
+                    <div className="absolute bottom-3 right-3 text-[10px] text-slate-400 bg-slate-955/95 px-2.5 py-1 rounded border border-slate-800 font-mono flex items-center gap-2 pointer-events-none">
+                      <span>
+                        {isAutoSyncReport && !isManuallyEdited
+                          ? "⚡ Auto-Updating with Live Crew Data"
+                          : "✏️ Custom Edit Mode Active"}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tab 2: Individual Positions: BMRCL & JMD View */}
+                {reportViewTab === "INDIVIDUAL" && (
+                  <div className="space-y-3 bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                    {/* Search & Category Filter Toolbar */}
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-2.5 pb-2 border-b border-slate-800">
+                      <div className="relative w-full md:w-96">
+                        <input
+                          id="adg-individual-search"
+                          name="individual_search"
+                          aria-label="Search individual crew positions"
+                          type="text"
+                          value={individualSearchQuery}
+                          onChange={(e) => setIndividualSearchQuery(e.target.value)}
+                          placeholder="Search individual positions (Name, Emp ID, Duty #, Train #, Station, Cadre)..."
+                          className="w-full bg-slate-900 border border-slate-750 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/40 rounded-lg py-1.5 pl-8 pr-7 text-xs text-slate-200 placeholder-slate-500 font-mono outline-none"
+                        />
+                        <Search className="h-3.5 w-3.5 text-slate-400 absolute left-2.5 top-2.5 pointer-events-none" />
+                        {individualSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setIndividualSearchQuery("")}
+                            className="absolute right-2 top-2 text-slate-400 hover:text-white"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Filter Chips */}
+                      <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
+                        {[
+                          { id: "ALL", label: `All (${positionStats.allIndividualPositions.length})` },
+                          { id: "MAINLINE", label: `Mainline (${positionStats.presentBmrcl.length + positionStats.presentJmd.length})` },
+                          { id: "STANDBY", label: `Standby/STBK (${positionStats.stbyBmrcl.length + positionStats.stbkBmrcl.length + positionStats.stbyJmd.length + positionStats.stbkJmd.length})` },
+                          { id: "REST", label: `Rest/Off (${positionStats.restCoBmrcl.length + positionStats.restCoJmd.length})` },
+                          { id: "LEAVES", label: `Leaves/AB (${positionStats.leaveBmrcl.length + positionStats.hplBmrcl.length + positionStats.leaveJmd.length + positionStats.hplJmd.length})` },
+                          { id: "TRAINING", label: "Training & Special" },
+                          { id: "BMRCL", label: `BMRCL Cadre (${positionStats.totalBmrcl})` },
+                          { id: "JMD", label: `(JMD TD Cadre) (${positionStats.totalJmd})` },
+                        ].map((chip) => (
+                          <button
+                            key={chip.id}
+                            type="button"
+                            onClick={() => setIndividualFilterCategory(chip.id)}
+                            className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all cursor-pointer border ${
+                              individualFilterCategory === chip.id
+                                ? chip.id === "JMD"
+                                  ? "bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm"
+                                  : "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-sm"
+                                : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200"
+                            }`}
+                          >
+                            {chip.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Individual Positions Interactive Table */}
+                    <div className="overflow-x-auto max-h-[520px] rounded-lg border border-slate-800">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-slate-950 text-slate-400 font-mono uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-slate-800 shadow-sm">
+                          <tr>
+                            <th className="py-2.5 px-3">#</th>
+                            <th className="py-2.5 px-3">Position / Duty</th>
+                            <th className="py-2.5 px-3">Train #</th>
+                            <th className="py-2.5 px-3">Assigned Operator & Emp ID</th>
+                            <th className="py-2.5 px-3">Cadre (BMRCL / [JMD])</th>
+                            <th className="py-2.5 px-3">Shift / Timings</th>
+                            <th className="py-2.5 px-3">Base / Station</th>
+                            <th className="py-2.5 px-3">Deployment Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/60 font-mono">
+                          {filteredIndividualPositions.length > 0 ? (
+                            filteredIndividualPositions.map((pos, idx) => (
+                              <tr
+                                key={pos.id || idx}
+                                className={`transition-all hover:bg-slate-800/40 ${
+                                  pos.isJmd
+                                    ? "bg-amber-950/10 hover:bg-amber-950/20"
+                                    : "bg-slate-900/40"
+                                }`}
+                              >
+                                <td className="py-2 px-3 text-slate-500 text-[11px]">
+                                  {idx + 1}
+                                </td>
+                                <td className="py-2 px-3">
+                                  <span className="font-bold text-slate-200">
+                                    {pos.dutyId}
+                                  </span>
+                                  <span className="block text-[10px] text-slate-400">
+                                    {pos.category}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3">
+                                  {pos.trainId && pos.trainId !== "--" ? (
+                                    <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold text-[11px]">
+                                      {pos.trainId}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-600 text-xs">--</span>
+                                  )}
+                                </td>
+                                <td className="py-2 px-3">
+                                  <div className="flex items-center gap-2">
+                                    {pos.isJmd ? (
+                                      <div>
+                                        <span className="font-bold text-amber-300">
+                                          ({pos.name})
+                                        </span>
+                                        <span className="block text-[10px] text-amber-400/80">
+                                          (#{pos.empId})
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <div>
+                                        <span className="font-bold text-slate-100">
+                                          {pos.name}
+                                        </span>
+                                        <span className="block text-[10px] text-cyan-400">
+                                          #{pos.empId}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-2 px-3">
+                                  {pos.isJmd ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm">
+                                      <span>(JMD Contract TD)</span>
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm">
+                                      <span>BMRCL Regular TO</span>
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-2 px-3 text-slate-300 text-[11px]">
+                                  {pos.timings}
+                                </td>
+                                <td className="py-2 px-3 text-slate-400 text-[11px]">
+                                  {pos.location}
+                                </td>
+                                <td className="py-2 px-3">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                      pos.status.includes("DEPLOYED") || pos.status === "ACTIVE"
+                                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                        : pos.status.includes("STANDBY") || pos.status.includes("STEPBACK")
+                                        ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                                        : pos.status.includes("REST") || pos.status.includes("OFF")
+                                        ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                                        : pos.status.includes("LEAVE") || pos.status.includes("AB") || pos.status.includes("BO")
+                                        ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                                        : "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                                    }`}
+                                  >
+                                    {pos.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td
+                                colSpan={8}
+                                className="py-8 text-center text-slate-500 font-sans"
+                              >
+                                No individual positions found matching the active search or category filters.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

@@ -221,12 +221,28 @@
 }
 
 /* ==========================================================================
-   3. ACCESSIBILITY VARIABLES
+   3. ACCESSIBILITY VARIABLES & SCALING UP TO 40PX
    ========================================================================== */
+:root {
+  --app-base-font-size: 15px;
+  --app-font-scale: 1;
+  --page-zoom: 1;
+}
+
 .text-sz-small { font-size: 13px !important; }
 .text-sz-medium { font-size: 15px !important; }
 .text-sz-large { font-size: 18px !important; }
 .text-sz-xlarge { font-size: 22px !important; }
+.text-sz-huge { font-size: 26px !important; }
+.text-sz-massive { font-size: 30px !important; }
+.text-sz-giant { font-size: 34px !important; }
+.text-sz-supergiant { font-size: 37px !important; }
+.text-sz-ultra { font-size: 40px !important; }
+
+/* Global page zoom transition */
+#pyidcc-theme-root {
+  zoom: var(--page-zoom, 1);
+}
 
 /* ==========================================================================
    4. BODY AND WRAPPER OVERRIDES

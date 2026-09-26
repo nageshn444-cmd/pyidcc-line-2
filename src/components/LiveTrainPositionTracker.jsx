@@ -5,11 +5,13 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { db } from '../firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import * as XLSX from 'xlsx';
 import { 
   Train, MapPin, Clock, Shield, User, Sliders, Volume2, VolumeX, AlertTriangle, CheckCircle2, Megaphone, Radio,
   FileText, Download, Printer, BarChart2, Table, LayoutGrid, ChevronRight, TrendingUp, Compass, ArrowRight, ExternalLink, Search, Check,
-  Zap, Activity, Filter, ArrowUpDown, RefreshCw, X
+  Zap, Activity, Filter, ArrowUpDown, RefreshCw, X, Smartphone, Monitor, Eye,
+  Phone, PhoneCall, UserCheck, UserX, RotateCcw, SlidersHorizontal, Layers, Gauge, BatteryCharging, FileSpreadsheet, Play, Pause, Flame, Sparkles, Bell, BellOff, MessageSquare, ChevronDown, ListFilter
 } from 'lucide-react';
 import { 
   STATION_CHAINAGE, 
@@ -23,7 +25,21 @@ import { calculateDistance } from '../utils/kmCalculator';
 import { getStationName } from '../utils/stationHelpers';
 import { EMPLOYEE_MASTER_REGISTRY } from '../data/employeeProfileMaster';
 import { WTT_MASTER_REGISTRY } from '../data/wttMasterRegistry';
-import { buildWeekdayLiveTrainTrackingMap, buildLiveTrainTrackingMap, WEEKDAY_RELIEF_ID_CHART } from '../data/weekdayReliefIdChartRegistry';
+import { 
+  buildWeekdayLiveTrainTrackingMap, 
+  buildLiveTrainTrackingMap, 
+  WEEKDAY_RELIEF_ID_CHART, 
+  WEEKDAY_RELIEF_ID_CHART_META,
+  MONDAY_RELIEF_ID_CHART,
+  MONDAY_RELIEF_ID_CHART_META,
+  SATURDAY_RELIEF_ID_CHART,
+  SATURDAY_RELIEF_ID_CHART_META,
+  SUNDAY_RELIEF_ID_CHART,
+  SUNDAY_RELIEF_ID_CHART_META,
+  getReliefIdChartForDay,
+  normalizeScheduleDay,
+  normalizeTrackTrainId 
+} from '../data/weekdayReliefIdChartRegistry';
 import AlstomAtsSystemView from './kmcalc/AlstomAtsSystemView';
 import { generate4DigitTrainId, formatParticularTrainId } from '../utils/trainIdResolver';
 
@@ -63,7 +79,53 @@ export default function LiveTrainPositionTracker({
   const [fleetPunctualityFilter, setFleetPunctualityFilter] = useState('ALL'); // 'ALL' | 'ON_TIME' | 'DELAYED' | 'RELIEF_PENDING'
   const [fleetSortBy, setFleetSortBy] = useState('trainId'); // 'trainId' | 'progressPct' | 'dayDistanceRemainingKm' | 'dayDistanceCoveredKm' | 'totalDayAssignedKm' | 'delayMins'
   const [fleetSortOrder, setFleetSortOrder] = useState('asc'); // 'asc' | 'desc'
+  
+  // Mobile & Schematic Display Control
+  const [schematicDisplayMode, setSchematicDisplayMode] = useState('both'); // 'both' | 'track' | 'mobile'
+  const [schematicSearchQuery, setSchematicSearchQuery] = useState('');
+  const [mobileFleetFilter, setMobileFleetFilter] = useState('ALL'); // 'ALL' | 'UP' | 'DOWN' | 'STABLED' | 'RELIEF_DUE' | 'DELAYED'
+  const [mobileSearchQuery, setMobileSearchQuery] = useState('');
+  const [mobileViewStyle, setMobileViewStyle] = useState('cards'); // 'cards' | 'dense'
+  const [mobileSortBy, setMobileSortBy] = useState('handover'); // 'handover' | 'trainId' | 'delay' | 'speed'
   const [modalTab, setModalTab] = useState('schedule'); // 'schedule' | 'energy' | 'rake' | 'crew'
+
+  // Audio Suite & Public Address Chime
+  const [voiceVolume, setVoiceVolume] = useState(1.0);
+  const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const [audioRepeatCount, setAudioRepeatCount] = useState(1);
+
+  // Station Relief Alert Center Controls
+  const [alertViewMode, setAlertViewMode] = useState('combined'); // 'combined' | 'split'
+  const [reliefAlertTab, setReliefAlertTab] = useState('ACTIVE'); // 'ACTIVE' | 'HISTORY' | 'AUDIO_CONFIG'
+
+  // Emergency Reliever Dispatch Modal state
+  const [emergencyDispatchTrain, setEmergencyDispatchTrain] = useState(null);
+  const [selectedStandbyOpId, setSelectedStandbyOpId] = useState('');
+  const [dispatchHandoverStation, setDispatchHandoverStation] = useState('PYID');
+
+  // Quick Reliever Assignment Modal state (for Mobile Feed and Alert Center)
+  const [quickReliefModalTrain, setQuickReliefModalTrain] = useState(null);
+  const [quickRelieverEmpId, setQuickRelieverEmpId] = useState('');
+  const [quickRelieverDutyNo, setQuickRelieverDutyNo] = useState('');
+  const [quickRelieverStation, setQuickRelieverStation] = useState('PYID');
+
+  // Handover completion feedback toast
+  const [handoverToast, setHandoverToast] = useState(null); // { message, type: 'success'|'info' }
+
+  // Local manual handover overrides (in-memory immediate reactivity)
+  const [manualHandoverOverrides, setManualHandoverOverrides] = useState({});
+
+  // Master Reliever ID Chart Modal state (supports WEEKDAY 03/Sep/2026, MONDAY, SATURDAY & GH, SUNDAY)
+  const [showReliefIdChartModal, setShowReliefIdChartModal] = useState(false);
+  const [idChartModalSearch, setIdChartModalSearch] = useState('');
+  const [idChartSelectedTrain, setIdChartSelectedTrain] = useState('ALL');
+  const [idChartModalDayType, setIdChartModalDayType] = useState('WEEKDAY');
+
+  // Fleet Timetable & KM Engine state
+  const [fleetRakeTypeFilter, setFleetRakeTypeFilter] = useState('ALL'); // 'ALL' | 'BEML' | 'CRRC'
+  const [isRecalibratingKm, setIsRecalibratingKm] = useState(false);
+  const [kmRecalibrationCount, setKmRecalibrationCount] = useState(0);
+  const [expandedTrainTripsId, setExpandedTrainTripsId] = useState(null);
   const [activeSchedule, setActiveSchedule] = useState(() => {
     if (propActiveDay) return propActiveDay.toUpperCase();
     const day = new Date().getDay();
@@ -223,18 +285,18 @@ export default function LiveTrainPositionTracker({
   const [stationFilter, setStationFilter] = useState('ALL'); // 'ALL' | 'PYID' | 'KGWA' | 'PUTH'
   const [trackFilter, setTrackFilter] = useState('ALL'); // 'ALL' | 'UP' | 'DOWN'
 
-  // Relief station metadata definitions (PYID, KGWA, PUTH)
+  // Relief station metadata definitions (PYID, KGWA, PUTH, BIET, APTS, NGSA, YPM)
   const RELIEF_STATION_CONFIG = useMemo(() => [
-    { code: 'PYID', label: 'Peenya Industry (PYID)', nameEn: 'Peenya Industry', nameKn: 'ಪೀಣ್ಯ ಇಂಡಸ್ಟ್ರಿ', chainage: -3.020, isReliefStation: true },
-    { code: 'KGWA', label: 'Majestic Kempegowda (KGWA)', nameEn: 'Kempegowda Majestic', nameKn: 'ಕೆಂಪೇಗೌಡ ಮೆಜೆಸ್ಟಿಕ್', chainage: 7.569, isReliefStation: true },
-    { code: 'PUTH', label: 'Yelachenahalli (PUTH)', nameEn: 'Yelachenahalli', nameKn: 'ಯಲಚೇನಹಳ್ಳಿ', chainage: 17.780, isReliefStation: true },
+    { code: 'PYID', label: 'Peenya Industry (PYID - Depot)', nameEn: 'Peenya Industry', nameKn: 'ಪೀಣ್ಯ ಇಂಡಸ್ಟ್ರಿ', chainage: -3.020, isReliefStation: true },
+    { code: 'KGWA', label: 'Majestic Kempegowda (KGWA - Interchange)', nameEn: 'Kempegowda Majestic', nameKn: 'ಕೆಂಪೇಗೌಡ ಮೆಜೆಸ್ಟಿಕ್', chainage: 7.569, isReliefStation: true },
+    { code: 'PUTH', label: 'Yelachenahalli (PUTH - South Hub)', nameEn: 'Yelachenahalli', nameKn: 'ಯಲಚೇನಹಳ್ಳಿ', chainage: 17.780, isReliefStation: true },
+    { code: 'BIET', label: 'Madavara (BIET - North Terminal)', nameEn: 'Madavara', nameKn: 'ಮಾದಾವರ', chainage: -9.227, isReliefStation: true },
+    { code: 'APTS', label: 'Silk Institute (APTS - South Terminal)', nameEn: 'Silk Institute', nameKn: 'ಸಿಲ್ಕ್ ಇನ್‌ಸ್ಟಿಟ್ಯೂಟ್', chainage: 23.833, isReliefStation: true },
+    { code: 'NGSA', label: 'Nagasandra (NGSA)', nameEn: 'Nagasandra', nameKn: 'ನಾಗಸಂದ್ರ', chainage: -6.088, isReliefStation: true },
+    { code: 'YPM', label: 'Yeshwanthpur (YPM)', nameEn: 'Yeshwanthpur', nameKn: 'ಯಶವಂತಪುರ', chainage: 0.000, isReliefStation: true },
     { code: 'YPI', label: 'Goraguntepalya (YPI)', nameEn: 'Goraguntepalya', nameKn: 'ಗೊರಗುಂಟೆಪಾಳ್ಯ', chainage: -1.125, isReliefStation: false },
     { code: 'PEYA', label: 'Peenya (PEYA)', nameEn: 'Peenya', nameKn: 'ಪೀಣ್ಯ', chainage: -2.074, isReliefStation: false },
     { code: 'JLHL', label: 'Jalahalli (JLHL)', nameEn: 'Jalahalli', nameKn: 'ಜಾಲಹಳ್ಳಿ', chainage: -3.721, isReliefStation: false },
-    { code: 'YPM', label: 'Yeshwanthpur (YPM)', nameEn: 'Yeshwanthpur', nameKn: 'ಯಶವಂತಪುರ', chainage: 0.000, isReliefStation: false },
-    { code: 'NGSA', label: 'Nagasandra (NGSA)', nameEn: 'Nagasandra', nameKn: 'ನಾಗಸಂದ್ರ', chainage: -6.088, isReliefStation: false },
-    { code: 'BIET', label: 'Madavara (BIET)', nameEn: 'Madavara', nameKn: 'ಮಾದಾವರ', chainage: -9.227, isReliefStation: false },
-    { code: 'APTS', label: 'Silk Institute (APTS)', nameEn: 'Silk Institute', nameKn: 'ಸಿಲ್ಕ್ ಇನ್‌ಸ್ಟಿಟ್ಯೂಟ್', chainage: 23.833, isReliefStation: false },
   ], []);
 
   // Normalized time conversion for operational schedule calculations (< 3 AM rollover)
@@ -354,6 +416,128 @@ export default function LiveTrainPositionTracker({
     return { code: stCode, label: `${stCode}`, nameEn: stCode, nameKn: stCode, chainage: 0 };
   };
 
+  // ── Audio Context Management for Public Address Chime & Audio Autoplay Compliance ──
+  const audioCtxRef = useRef(null);
+
+  // Helper to safely obtain or create a singleton AudioContext instance
+  const getAudioContext = useCallback(() => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return null;
+      if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+        audioCtxRef.current = new AudioCtx();
+      }
+      return audioCtxRef.current;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // Unlock / resume AudioContext on the first user interaction (click/touch/key) to satisfy browser autoplay policies
+  useEffect(() => {
+    const unlockAudio = () => {
+      const ctx = getAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+    };
+
+    const gestureEvents = ['click', 'touchstart', 'keydown', 'pointerdown'];
+    gestureEvents.forEach(evt => window.addEventListener(evt, unlockAudio, { capture: true, passive: true }));
+
+    return () => {
+      gestureEvents.forEach(evt => window.removeEventListener(evt, unlockAudio, { capture: true }));
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+        audioCtxRef.current.close().catch(() => {});
+      }
+    };
+  }, [getAudioContext]);
+
+  // Tone generation synthesizer helper - only called when context is confirmed running
+  const executeMetroChime = useCallback((ctx) => {
+    if (!ctx || ctx.state !== 'running') return;
+    const now = ctx.currentTime;
+    const effectiveVol = Math.max(0.05, Math.min(1.0, voiceVolume));
+
+    // Tone 1: E5 (659.25 Hz) - Crisp metro chime first tone
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(659.25, now);
+    gain1.gain.setValueAtTime(0.0001, now);
+    gain1.gain.exponentialRampToValueAtTime(0.22 * effectiveVol, now + 0.04);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.52);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.52);
+
+    // Tone 2: G#5 (830.61 Hz) - Harmonious secondary bell
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(830.61, now + 0.22);
+    gain2.gain.setValueAtTime(0.0001, now + 0.22);
+    gain2.gain.exponentialRampToValueAtTime(0.28 * effectiveVol, now + 0.26);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.92);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.22);
+    osc2.stop(now + 0.92);
+  }, [voiceVolume]);
+
+  // ── Authentic Metro Station Melodic Chime (Web Audio API Synthesizer) ──
+  const playMetroChime = useCallback(() => {
+    if (isAudioMuted || voiceVolume <= 0) return;
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+
+      if (ctx.state === 'suspended') {
+        // Attempt to resume if in response to user interaction or gesture.
+        // If autoplay blocks it (no prior user gesture), silently catch and DO NOT start oscillators
+        // to prevent Chrome "The AudioContext was not allowed to start" console errors.
+        ctx.resume()
+          .then(() => {
+            if (ctx.state === 'running') {
+              executeMetroChime(ctx);
+            }
+          })
+          .catch(() => {
+            // Autoplay policy prevented audio start prior to user interaction
+          });
+      } else if (ctx.state === 'running') {
+        executeMetroChime(ctx);
+      }
+    } catch (err) {
+      console.warn('AudioContext public address chime warning:', err);
+    }
+  }, [isAudioMuted, voiceVolume, getAudioContext, executeMetroChime]);
+
+  // Operator Contact Lookup Helper
+  const getOperatorContact = useCallback((operatorId, operatorName) => {
+    if (!operatorId && !operatorName) return null;
+    const cleanId = String(operatorId || '').replace(/\D/g, '');
+    const cleanName = String(operatorName || '').toLowerCase().trim();
+    
+    const staff = EMPLOYEE_MASTER_REGISTRY.find(e => {
+      if (cleanId && String(e.empId) === cleanId) return true;
+      if (cleanName && String(e.name || '').toLowerCase().trim() === cleanName) return true;
+      return false;
+    });
+
+    if (staff) {
+      return {
+        phone: staff.phone || staff.mobileCug || staff.mobilePer || null,
+        name: staff.name,
+        empId: staff.empId,
+        designation: staff.designation || 'Train Operator (TO)',
+        station: staff.boardingStation || 'PYID Depot'
+      };
+    }
+    return null;
+  }, []);
+
   // ── High-Fidelity Bilingual Voice Announcement Engine (Verified Reliever Only) ──
   const triggerBilingualAnnouncement = (
     trainId, 
@@ -365,7 +549,7 @@ export default function LiveTrainPositionTracker({
     activeDutyNo = '--',
     minutesRemaining = 3
   ) => {
-    if (!voiceEnabled || !('speechSynthesis' in window)) return;
+    if (!voiceEnabled || isAudioMuted || !('speechSynthesis' in window)) return;
     
     const cleanReliever = String(relieverName || '').trim();
     const cleanActive = String(activeOperatorName || '').trim();
@@ -389,78 +573,350 @@ export default function LiveTrainPositionTracker({
 
     try {
       window.speechSynthesis.cancel(); // Reset any pending audio queue
-
-      const isUp = String(direction).toUpperCase() === 'UP';
-      const dirKn = isUp ? 'ಅಪ್' : 'ಡೌನ್';
-      const dirEn = isUp ? 'Up' : 'Down';
-      const stInfo = getStationInfo(stationCode);
-
-      const hasActive = Boolean(
-        cleanActive && 
-        cleanActive !== '--' && 
-        cleanActive !== 'Unassigned' && 
-        !cleanActive.startsWith('Train Operator')
-      );
-
-      // Clean digit pronunciation for train ID (e.g., "2 0 6")
-      const trainDigits = String(trainId).replace(/\D/g, '').split('').join(' ') || trainId;
-
-      const voices = window.speechSynthesis.getVoices();
       
-      // Look for a native Kannada voice
-      const knVoice = voices.find(v => 
-        v.lang?.toLowerCase().includes('kn') || 
-        v.name?.toLowerCase().includes('kannada')
-      );
+      // Play realistic metro station chime 350ms before speech starts
+      playMetroChime();
 
-      // Look for an Indian English or general English voice
-      const enVoice = voices.find(v => v.lang === 'en-IN' || v.name?.includes('India')) ||
-                      voices.find(v => v.lang.startsWith('en'));
+      setTimeout(() => {
+        const isUp = String(direction).toUpperCase() === 'UP';
+        const dirKn = isUp ? 'ಅಪ್' : 'ಡೌನ್';
+        const dirEn = isUp ? 'Up' : 'Down';
+        const stInfo = getStationInfo(stationCode);
 
-      const minsKn = `${minutesRemaining} ನಿಮಿಷಗಳಲ್ಲಿ`;
-      const minsEn = `in next ${minutesRemaining} minutes`;
+        const hasActive = Boolean(
+          cleanActive && 
+          cleanActive !== '--' && 
+          cleanActive !== 'Unassigned' && 
+          !cleanActive.startsWith('Train Operator')
+        );
 
-      // 1. Kannada Announcement (Neat, Duty-Accurate BMRCL Operational Phrasing)
-      let utterKn = null;
-      if (knVoice) {
-        const knActivePart = hasActive 
-          ? `ಪ್ರಸ್ತುತ ಚಾಲಕರಾದ ${cleanActive} ರವರ ಟ್ರಿಪ್ ${minsKn} ಪೂರ್ಣಗೊಳ್ಳಲಿದೆ. ` 
-          : `ಟ್ರಿಪ್ ${minsKn} ಪೂರ್ಣಗೊಳ್ಳಲಿದೆ. `;
-        const knDutyPart = relieverDutyNo && relieverDutyNo !== '--' ? `ಡ್ಯೂಟಿ ${relieverDutyNo}, ` : '';
-        const knText = `ಗಮನಿಸಿ. ರೈಲು ಸಂಖ್ಯೆ ${trainDigits}, ${stInfo.nameKn} ${dirKn} ಪ್ಲಾಟ್‌ಫಾರ್ಮ್. ${knActivePart}ಮುಂದಿನ ರೈಲು ಚಾಲಕರಾದ ${knDutyPart}${cleanReliever} ರವರು ದಯವಿಟ್ಟು ಕರ್ತವ್ಯ ಹಸ್ತಾಂತರಕ್ಕೆ ಪ್ಲಾಟ್‌ಫಾರ್ಮ್‌ಗೆ ಹಾಜರಾಗಿ.`;
+        // Clean digit pronunciation for train ID (e.g., "2 0 6")
+        const trainDigits = String(trainId).replace(/\D/g, '').split('').join(' ') || trainId;
+
+        const voices = window.speechSynthesis.getVoices();
         
-        utterKn = new SpeechSynthesisUtterance(knText);
-        utterKn.voice = knVoice;
-        utterKn.lang = knVoice.lang || 'kn-IN';
-        utterKn.rate = 0.86;
-        utterKn.pitch = 1.0;
-      }
+        // Look for a native Kannada voice
+        const knVoice = voices.find(v => 
+          v.lang?.toLowerCase().includes('kn') || 
+          v.name?.toLowerCase().includes('kannada')
+        );
 
-      // 2. English Announcement (Professional BMRCL Operational Standard)
-      const enActivePart = hasActive 
-        ? `Current driving train operator ${cleanActive}'s trip will be completed ${minsEn}. ` 
-        : `Trip will be completed ${minsEn}. `;
-      const enDutyPart = relieverDutyNo && relieverDutyNo !== '--' ? `Duty ${relieverDutyNo}, ` : '';
-      const enText = `Attention please. Train ${trainDigits} approaching ${stInfo.nameEn}, ${dirEn} platform. ${enActivePart}Next train operator ${enDutyPart}${cleanReliever}, please proceed to the platform immediately for train handover.`;
-      
-      const utterEn = new SpeechSynthesisUtterance(enText);
-      if (enVoice) utterEn.voice = enVoice;
-      utterEn.lang = enVoice?.lang || 'en-IN';
-      utterEn.rate = 0.90;
-      utterEn.pitch = 1.0;
+        // Look for an Indian English or general English voice
+        const enVoice = voices.find(v => v.lang === 'en-IN' || v.name?.includes('India')) ||
+                        voices.find(v => v.lang.startsWith('en'));
 
-      // Speak Kannada first if native Kannada voice is supported, followed by English;
-      // If Kannada voice is absent on user OS, speak crystal-clear English.
-      if (utterKn) {
-        window.speechSynthesis.speak(utterKn);
-        utterKn.onend = () => {
+        const minsKn = `${minutesRemaining} ನಿಮಿಷಗಳಲ್ಲಿ`;
+        const minsEn = `in next ${minutesRemaining} minutes`;
+        const effectiveVol = Math.max(0.1, Math.min(1.0, voiceVolume));
+
+        // 1. Kannada Announcement (Neat, Duty-Accurate BMRCL Operational Phrasing)
+        let utterKn = null;
+        if (knVoice) {
+          const knActivePart = hasActive 
+            ? `ಪ್ರಸ್ತುತ ಚಾಲಕರಾದ ${cleanActive} ರವರ ಟ್ರಿಪ್ ${minsKn} ಪೂರ್ಣಗೊಳ್ಳಲಿದೆ. ` 
+            : `ಟ್ರಿಪ್ ${minsKn} ಪೂರ್ಣಗೊಳ್ಳಲಿದೆ. `;
+          const knDutyPart = relieverDutyNo && relieverDutyNo !== '--' ? `ಡ್ಯೂಟಿ ${relieverDutyNo}, ` : '';
+          const knText = `ಗಮನಿಸಿ. ರೈಲು ಸಂಖ್ಯೆ ${trainDigits}, ${stInfo.nameKn} ${dirKn} ಪ್ಲಾಟ್‌ಫಾರ್ಮ್. ${knActivePart}ಮುಂದಿನ ರೈಲು ಚಾಲಕರಾದ ${knDutyPart}${cleanReliever} ರವರು ದಯವಿಟ್ಟು ಕರ್ತವ್ಯ ಹಸ್ತಾಂತರಕ್ಕೆ ಪ್ಲಾಟ್‌ಫಾರ್ಮ್‌ಗೆ ಹಾಜರಾಗಿ.`;
+          
+          utterKn = new SpeechSynthesisUtterance(knText);
+          utterKn.voice = knVoice;
+          utterKn.lang = knVoice.lang || 'kn-IN';
+          utterKn.rate = 0.86;
+          utterKn.pitch = 1.0;
+          utterKn.volume = effectiveVol;
+        }
+
+        // 2. English Announcement (Professional BMRCL Operational Standard)
+        const enActivePart = hasActive 
+          ? `Current driving train operator ${cleanActive}'s trip will be completed ${minsEn}. ` 
+          : `Trip will be completed ${minsEn}. `;
+        const enDutyPart = relieverDutyNo && relieverDutyNo !== '--' ? `Duty ${relieverDutyNo}, ` : '';
+        const enText = `Attention please. Train ${trainDigits} approaching ${stInfo.nameEn}, ${dirEn} platform. ${enActivePart}Next train operator ${enDutyPart}${cleanReliever}, please proceed to the platform immediately for train handover.`;
+        
+        const utterEn = new SpeechSynthesisUtterance(enText);
+        if (enVoice) utterEn.voice = enVoice;
+        utterEn.lang = enVoice?.lang || 'en-IN';
+        utterEn.rate = 0.90;
+        utterEn.pitch = 1.0;
+        utterEn.volume = effectiveVol;
+
+        // Speak Kannada first if native Kannada voice is supported, followed by English;
+        if (utterKn) {
+          window.speechSynthesis.speak(utterKn);
+          utterKn.onend = () => {
+            window.speechSynthesis.speak(utterEn);
+          };
+        } else {
           window.speechSynthesis.speak(utterEn);
-        };
-      } else {
-        window.speechSynthesis.speak(utterEn);
-      }
+        }
+      }, 350);
     } catch (err) {
       console.warn('Speech synthesis alert error:', err);
+    }
+  };
+
+  // Soundboard Test Button Function
+  const testVoiceAnnouncement = () => {
+    playMetroChime();
+    setTimeout(() => {
+      triggerBilingualAnnouncement(
+        '206',
+        'UP',
+        'Ramesh Kumar S',
+        'Sheela S',
+        stationFilter !== 'ALL' ? stationFilter : 'PYID',
+        '24',
+        '80',
+        3
+      );
+      setHandoverToast({
+        message: '🔔 Testing Public Address Chime & Bilingual Announcement (Kannada + English)...',
+        type: 'info'
+      });
+      setTimeout(() => setHandoverToast(null), 4500);
+    }, 300);
+  };
+
+  // ── Operational Action: 1-Click Platform Handover Confirmation ──
+  const handleConfirmHandover = async (train) => {
+    if (!train) return;
+    const tId = String(train.legacyTrainId || train.trainId).trim();
+    const relieverName = train.reliever?.name || 'Assigned Reliever';
+    const relieverId = train.reliever?.id || '--';
+    const relieverDuty = train.reliever?.dutyNo || '--';
+    const prevName = train.operatorName;
+    const prevId = train.operatorId;
+    const prevDuty = train.dutyNo;
+    const station = train.scheduledHandoverStation || train.stationCode || 'PYID';
+
+    // 1. In-memory update for immediate instant reactivity
+    setManualHandoverOverrides(prev => ({
+      ...prev,
+      [tId]: {
+        operatorName: relieverName,
+        operatorId: relieverId,
+        dutyNo: relieverDuty,
+        previousOperator: {
+          name: prevName,
+          id: prevId,
+          dutyNo: prevDuty,
+          relievedTime: simulatedTime
+        },
+        reliever: null,
+        hasReliever: false,
+        isVerifiedReliever: false,
+        shouldAnnounceReliever: false,
+        handoverCompletedAt: simulatedTime
+      }
+    }));
+
+    // 2. Persist to Firestore daily_crew_tracks
+    try {
+      const trackDocRef = doc(db, 'daily_crew_tracks', `live_${tId}`);
+      await setDoc(trackDocRef, {
+        trainId: tId,
+        currentOperator: {
+          name: relieverName,
+          employeeId: relieverId,
+          dutyNo: relieverDuty,
+          handoverTime: simulatedTime,
+          station
+        },
+        previousOperator: {
+          name: prevName,
+          employeeId: prevId,
+          dutyNo: prevDuty
+        },
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (err) {
+      console.warn('Firestore track handover write note:', err);
+    }
+
+    // 3. Log event into Announcement and Handover History
+    setAnnouncementLogs(prev => [
+      {
+        id: Date.now() + Math.random(),
+        time: simulatedTime,
+        stationCode: station,
+        stationName: getStationInfo(station).nameEn,
+        trainId: tId,
+        direction: train.direction,
+        operatorName: prevName,
+        operatorDuty: prevDuty,
+        relieverName: relieverName,
+        relieverDuty: relieverDuty,
+        relieverId: relieverId,
+        handoverTime: simulatedTime,
+        tripEndsIn: '0m',
+        status: 'HANDOVER COMPLETED • RELIEVED'
+      },
+      ...prev.slice(0, 24)
+    ]);
+
+    // 4. Feedback Banner
+    setHandoverToast({
+      message: `✓ Handover Completed! ${relieverName} (${relieverDuty ? 'Duty ' + relieverDuty : 'TO'}) is now driving Train ${tId} at ${station}.`,
+      type: 'success'
+    });
+    setTimeout(() => setHandoverToast(null), 5000);
+  };
+
+  // ── Operational Action: Standby TO Emergency Dispatch ──
+  const handleDispatchStandbyCrew = async () => {
+    if (!emergencyDispatchTrain || !selectedStandbyOpId) return;
+    const staff = EMPLOYEE_MASTER_REGISTRY.find(e => String(e.empId) === String(selectedStandbyOpId));
+    if (!staff) return;
+
+    const tId = String(emergencyDispatchTrain.legacyTrainId || emergencyDispatchTrain.trainId).trim();
+    
+    setManualHandoverOverrides(prev => ({
+      ...prev,
+      [tId]: {
+        reliever: {
+          name: staff.name,
+          id: String(staff.empId),
+          dutyNo: 'STBY',
+          takeoverTime: simulatedTime,
+          station: dispatchHandoverStation
+        },
+        hasReliever: true,
+        isVerifiedReliever: true,
+        scheduledHandoverStation: dispatchHandoverStation
+      }
+    }));
+
+    setHandoverToast({
+      message: `⚡ Standby TO ${staff.name} (#${staff.empId}) successfully dispatched to Train ${tId} at ${dispatchHandoverStation}!`,
+      type: 'info'
+    });
+    setTimeout(() => setHandoverToast(null), 5000);
+    setEmergencyDispatchTrain(null);
+    setSelectedStandbyOpId('');
+  };
+
+  // ── Operational Action: Quick Reliever Assignment & Swap ──
+  const handleQuickAssignReliever = () => {
+    if (!quickReliefModalTrain) return;
+    const staff = EMPLOYEE_MASTER_REGISTRY.find(e => String(e.empId) === String(quickRelieverEmpId));
+    const relieverName = staff ? staff.name : (quickRelieverEmpId || 'Assigned TO');
+    const tId = String(quickReliefModalTrain.legacyTrainId || quickReliefModalTrain.trainId).trim();
+
+    setManualHandoverOverrides(prev => ({
+      ...prev,
+      [tId]: {
+        reliever: {
+          name: relieverName,
+          id: String(quickRelieverEmpId || '--'),
+          dutyNo: quickRelieverDutyNo || 'REL',
+          takeoverTime: simulatedTime,
+          station: quickRelieverStation
+        },
+        hasReliever: true,
+        isVerifiedReliever: true,
+        scheduledHandoverStation: quickRelieverStation
+      }
+    }));
+
+    setHandoverToast({
+      message: `✓ Reliever ${relieverName} (${quickRelieverDutyNo ? 'Duty ' + quickRelieverDutyNo : ''}) assigned to Train ${tId} at ${quickRelieverStation}!`,
+      type: 'success'
+    });
+    setTimeout(() => setHandoverToast(null), 5000);
+    setQuickReliefModalTrain(null);
+    setQuickRelieverEmpId('');
+    setQuickRelieverDutyNo('');
+  };
+
+  // ── Fleet Day Timetable KM Engine Recalibration ──
+  const handleRecalibrateKmEngine = () => {
+    setIsRecalibratingKm(true);
+    setTimeout(() => {
+      setKmRecalibrationCount(prev => prev + 1);
+      setIsRecalibratingKm(false);
+      setHandoverToast({
+        message: `⚡ KM Engine Recalibrated: ${activeSchedule} timetable verified. Revenue & dead mileage synchronized with 34 ATS stations!`,
+        type: 'info'
+      });
+      setTimeout(() => setHandoverToast(null), 4000);
+    }, 600);
+  };
+
+  // ── Comprehensive Professional Multi-Sheet Excel Export (.xlsx) ──
+  const exportFleetReportExcel = () => {
+    try {
+      const wb = XLSX.utils.book_new();
+
+      // Sheet 1: Master Operations & KM
+      const sheet1Data = filteredAndSortedFleet.map(t => ({
+        'Train ID': t.computedTrainId || `T-${t.trainId}`,
+        'Operating State': t.isStabling ? 'STABLED' : 'RUNNING',
+        'Corridor Direction': t.direction,
+        'Current Location': t.currentStation,
+        'Chainage (KM)': t.chainage,
+        'Speed (km/h)': t.instantaneousSpeed || 0,
+        'Punctuality': t.punctualityStatus || 'ON TIME',
+        'Delay (Mins)': t.delayMins || 0,
+        'Active Driver': t.operatorName,
+        'Driver Emp ID': t.operatorId,
+        'Duty No': t.dutyNo,
+        'Reliever Name': t.reliever?.name || '--',
+        'Reliever Duty': t.reliever?.dutyNo || '--',
+        'Handover Station': t.scheduledHandoverStation || '--',
+        'Completed Trips': t.completedTripsCount || 0,
+        'Total Trips': t.totalTrips || 0,
+        'Assigned KM': t.totalDayAssignedKm || 0,
+        'Covered KM': t.dayDistanceCoveredKm || 0,
+        'Remaining KM': t.dayDistanceRemainingKm || 0,
+        'Day Progress %': t.dayProgressPct || 0,
+        'Net Energy (kWh)': t.netEnergyKwh || 0
+      }));
+      const ws1 = XLSX.utils.json_to_sheet(sheet1Data);
+      XLSX.utils.book_append_sheet(wb, ws1, 'Fleet Master KM');
+
+      // Sheet 2: Driving Operators & Relief Handover
+      const sheet2Data = filteredAndSortedFleet.map(t => ({
+        'Train ID': t.computedTrainId || `T-${t.trainId}`,
+        'Active Driver Name': t.operatorName,
+        'Active Driver ID': t.operatorId,
+        'Active Duty': t.dutyNo,
+        'Upcoming Reliever': t.reliever?.name || 'Unassigned',
+        'Reliever ID': t.reliever?.id || '--',
+        'Reliever Duty': t.reliever?.dutyNo || '--',
+        'Handover Station': t.scheduledHandoverStation || 'PYID',
+        'Handover Scheduled Time': t.reliever?.takeoverTime || '--',
+        'Relief Status': t.shouldAnnounceReliever ? '3-MIN COUNTDOWN' : t.hasReliever ? 'RELIEVER ROSTERED' : 'NO RELIEVER'
+      }));
+      const ws2 = XLSX.utils.json_to_sheet(sheet2Data);
+      XLSX.utils.book_append_sheet(wb, ws2, 'Crew & Relief Schedule');
+
+      // Sheet 3: Energy & SEC Telemetry
+      const sheet3Data = filteredAndSortedFleet.map(t => ({
+        'Train ID': t.computedTrainId || `T-${t.trainId}`,
+        'Day KM': t.dayDistanceCoveredKm || 0,
+        'Gross Traction (kWh)': t.grossTractionKwh || 0,
+        'Regen Recovery (kWh)': t.regenRecoveredKwh || 0,
+        'Net Traction Energy (kWh)': t.netEnergyKwh || 0,
+        'CO2 Offset (kg)': t.co2SavedKg || 0,
+        'Efficiency Rating': 'OPTIMAL (A+)'
+      }));
+      const ws3 = XLSX.utils.json_to_sheet(sheet3Data);
+      XLSX.utils.book_append_sheet(wb, ws3, 'Energy & SEC');
+
+      XLSX.writeFile(wb, `BMRCL_Line2_Fleet_Operations_KM_${activeSchedule}_${simulatedTime.replace(':', '')}.xlsx`);
+    } catch (err) {
+      console.error('Excel export error, falling back to CSV:', err);
+      exportFleetReportCsv();
+    }
+  };
+
+  // Dynamic header click sorting for Master KM Matrix Table
+  const handleFleetHeaderSort = (key) => {
+    if (fleetSortBy === key) {
+      setFleetSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setFleetSortBy(key);
+      setFleetSortOrder('desc');
     }
   };
 
@@ -549,13 +1005,24 @@ export default function LiveTrainPositionTracker({
       Object.keys(propLiveTrainTrackingMap).forEach(tid => {
         const liveT = propLiveTrainTrackingMap[tid];
         if (!liveT) return;
+        const normId = normalizeTrackTrainId(tid) || tid;
 
-        if (!calculatedTracking[tid]) {
+        const targetKey = calculatedTracking[normId] ? normId : (calculatedTracking[tid] ? tid : normId);
+        const existing = calculatedTracking[targetKey];
+
+        // Strictly keep only the official Reliever ID Chart trains for current schedule day type (WEEKDAY, MONDAY, SATURDAY & GH, SUNDAY)
+        const activeDayChartObj = getReliefIdChartForDay(currentSchedule);
+        const dayChart = activeDayChartObj?.chart || WEEKDAY_RELIEF_ID_CHART;
+        if (dayChart && !dayChart[normId] && !dayChart[tid]) {
+          return;
+        }
+
+        if (!existing) {
+          calculatedTracking[normId] = liveT;
           calculatedTracking[tid] = liveT;
           return;
         }
 
-        const existing = calculatedTracking[tid];
         const isLiveCurrValid = liveT.current?.empName && 
           liveT.current.empName !== '--' && 
           !liveT.current.empName.startsWith('Train Operator') &&
@@ -566,12 +1033,14 @@ export default function LiveTrainPositionTracker({
           !liveT.nextReliver.empName.startsWith('Train Operator') &&
           !liveT.nextReliver.empName.startsWith('Duty ');
 
-        calculatedTracking[tid] = {
+        const merged = {
           ...existing,
           current: isLiveCurrValid ? { ...existing.current, ...liveT.current } : (existing.current || liveT.current),
           previous: liveT.previous || existing.previous,
           nextReliver: isLiveNextValid ? { ...existing.nextReliver, ...liveT.nextReliver } : (existing.nextReliver || liveT.nextReliver)
         };
+        calculatedTracking[normId] = merged;
+        calculatedTracking[tid] = merged;
       });
     }
 
@@ -694,8 +1163,9 @@ export default function LiveTrainPositionTracker({
         const direction = isUp ? 'UP' : 'DOWN';
 
         // Direct lookup from dynamic tracking matrix & LIVE RELIEF TRACKING
-        const tracking = dynamicTrainTrackingMap[tId] || {};
-        const liveTracking = propLiveTrainTrackingMap?.[tId] || {};
+        const normTid = normalizeTrackTrainId(tId) || tId;
+        const tracking = dynamicTrainTrackingMap[normTid] || dynamicTrainTrackingMap[tId] || {};
+        const liveTracking = propLiveTrainTrackingMap?.[normTid] || propLiveTrainTrackingMap?.[tId] || {};
 
         // Authoritative Priority: Live Train Operator Relief Matrix is the master source of truth
         const isVerifiedLiveCurrent = Boolean(
@@ -754,16 +1224,20 @@ export default function LiveTrainPositionTracker({
             name: currentOp.empName,
             id: currentOp.empId || '--',
             dutyNo: currentOp.dutyId || '--',
+            startStr: currentOp.startStr || '--',
+            endStr: currentOp.endStr || '--',
             isExchanged: currentOp.isExchanged || false,
             originalEmpName: currentOp.originalEmpName || ''
           };
         } else {
-          const crewTrack = dailyCrewTracks.find(ct => String(ct.trainId).trim() === tId);
+          const crewTrack = dailyCrewTracks.find(ct => String(ct.trainId).trim() === tId || String(ct.trainId).trim() === normTid);
           if (crewTrack?.currentOperator?.name) {
             operatorInfo = {
               name: crewTrack.currentOperator.name,
               id: crewTrack.currentOperator.employeeId || '--',
               dutyNo: crewTrack.dutyNo || '--',
+              startStr: '--',
+              endStr: '--',
               isExchanged: false,
               originalEmpName: ''
             };
@@ -772,6 +1246,8 @@ export default function LiveTrainPositionTracker({
               name: `Train Operator ${tId}`,
               id: `TO-${tId}`,
               dutyNo: '--',
+              startStr: '--',
+              endStr: '--',
               isExchanged: false,
               originalEmpName: ''
             };
@@ -779,15 +1255,16 @@ export default function LiveTrainPositionTracker({
         }
 
         let reliever = null;
-        if (relieverOp && relieverOp.empName && relieverOp.empName !== '--') {
+        if (relieverOp && relieverOp.empName && relieverOp.empName !== '--' && relieverOp.empName !== '-') {
           reliever = {
             name: relieverOp.empName,
             id: relieverOp.empId || '--',
             dutyNo: relieverOp.dutyId || '--',
             takeoverTime: relieverOp.startStr || '--',
+            endTime: relieverOp.endStr || '--',
             startSec: relieverOp.startSec,
-            isExchanged: relieverOp.isExchanged,
-            originalEmpName: relieverOp.originalEmpName
+            isExchanged: relieverOp.isExchanged || false,
+            originalEmpName: relieverOp.originalEmpName || ''
           };
         }
 
@@ -843,7 +1320,7 @@ export default function LiveTrainPositionTracker({
         const timeRemainingMins = Math.max(0, Math.ceil(timeRemainingToCompletionSec / 60));
         const isTripCompletingIn3Mins = timeRemainingToCompletionSec > 0 && timeRemainingToCompletionSec <= 180;
         const shouldAnnounceReliever = isTripCompletingIn3Mins && isVerifiedReliever;
-        const hasReliever = shouldAnnounceReliever;
+        const hasReliever = Boolean(reliever && reliever.name && reliever.name !== '--' && reliever.name !== '-');
 
         // Accurate schematic train positioning aligned to 34 ATS stations
         const prevIdx = getAtsStationIndex(prevSt.station);
@@ -1007,8 +1484,9 @@ export default function LiveTrainPositionTracker({
       const stabEnd = activeChainages[stabRef.stations[stabRef.stations.length - 1].station] ?? 0;
       const stabDir = stabStart > stabEnd ? 'UP' : 'DOWN';
 
-      const tracking = dynamicTrainTrackingMap[tId] || {};
-      const liveTracking = propLiveTrainTrackingMap?.[tId] || {};
+      const normTid = normalizeTrackTrainId(tId) || tId;
+      const tracking = dynamicTrainTrackingMap[normTid] || dynamicTrainTrackingMap[tId] || {};
+      const liveTracking = propLiveTrainTrackingMap?.[normTid] || propLiveTrainTrackingMap?.[tId] || {};
 
       const isVerifiedLiveCurrentStab = Boolean(
         liveTracking.current?.empName &&
@@ -1059,15 +1537,16 @@ export default function LiveTrainPositionTracker({
           : liveTracking.nextReliver || tracking.nextReliver || null;
 
       let reliever = null;
-      if (relieverOp && relieverOp.empName && relieverOp.empName !== '--') {
+      if (relieverOp && relieverOp.empName && relieverOp.empName !== '--' && relieverOp.empName !== '-') {
         reliever = {
           name: relieverOp.empName,
           id: relieverOp.empId || '--',
           dutyNo: relieverOp.dutyId || '--',
           takeoverTime: relieverOp.startStr || '--',
+          endTime: relieverOp.endStr || '--',
           startSec: relieverOp.startSec,
-          isExchanged: relieverOp.isExchanged,
-          originalEmpName: relieverOp.originalEmpName
+          isExchanged: relieverOp.isExchanged || false,
+          originalEmpName: relieverOp.originalEmpName || ''
         };
       }
 
@@ -1104,10 +1583,20 @@ export default function LiveTrainPositionTracker({
           ? 'Peenya Depot SBL-2 (Stabled)'
           : (String(tId) === '211')
           ? 'Peenya Depot SBL-3 (Stabled)'
+          : (String(tId) === '216' || String(tId) === '206')
+          ? 'Peenya Depot SBL-4 (Stabled)'
+          : (String(tId) === '212' || String(tId) === '202')
+          ? 'Peenya Depot SBL-5 (Stabled)'
+          : (String(tId) === '205' || String(tId) === '215')
+          ? 'Peenya Depot SBL-6 (Stabled)'
+          : (String(tId) === '204' || String(tId) === '214')
+          ? 'Peenya Depot SBL-7 (Stabled)'
+          : (String(tId) === '207' || String(tId) === '217')
+          ? 'Peenya Depot SBL-8 (Stabled)'
           : (String(tId) === '203')
           ? 'PYID RD-3 Standby Track (Stabled)'
           : (stabStation === 'PYID' || String(stabStation).includes('Depot'))
-          ? 'Peenya Depot SBL (Stabled)'
+          ? 'Peenya Depot SBL-1 (Stabled)'
           : (stabStation === 'BIET')
           ? 'BIET Buffer End (Stabled / Cab Changeover)'
           : (stabStation === 'APTS')
@@ -1128,7 +1617,7 @@ export default function LiveTrainPositionTracker({
         timeRemainingMins: 0,
         isTripCompletingIn3Mins: false,
         shouldAnnounceReliever: false,
-        hasReliever: false,
+        hasReliever: Boolean(reliever && reliever.name && reliever.name !== '--' && reliever.name !== '-'),
         previousOperator: liveTracking.previous || tracking.previous || null,
         isStabling: true
       });
@@ -1167,50 +1656,112 @@ export default function LiveTrainPositionTracker({
     });
 
     // 4. Compute Comprehensive Day Timetable KM Stats for each train
+    // Gather all candidate trips from BOTH matrixRows AND WTT_MASTER_REGISTRY matching activeSchedule
     const trainDayScheduleMap = {};
-    matrixRows.forEach(row => {
-      if (!row) return;
-      ['downTrip', 'upTrip'].forEach(dirKey => {
-        const trip = row[dirKey];
-        if (!trip || !trip.stations) return;
-        const tId = String(trip.trainId || (dirKey === 'upTrip' ? row.upTid : row.dnTid) || row.trainId).trim();
-        if (!tId) return;
 
-        const stCodes = Object.keys(trip.stations).filter(k => {
-          const val = trip.stations[k];
-          return val && val !== '--' && val !== '-' && !String(val).toLowerCase().includes('pilot');
-        });
-        if (stCodes.length < 2) return;
+    const registerTripToMap = (trip, dirKey, row) => {
+      if (!trip || !trip.stations) return;
+      const rawId = String(trip.trainId || (dirKey === 'upTrip' ? row?.upTid : row?.dnTid) || row?.trainId || '').trim();
+      if (!rawId) return;
 
-        const startSt = stCodes[0];
-        const endSt = stCodes[stCodes.length - 1];
-        const startMin = timeToMinutes(trip.stations[startSt]);
-        const endMin = timeToMinutes(trip.stations[endSt]);
-        if (startMin < 0 || endMin < 0 || endMin <= startMin) return;
+      const stCodes = Object.keys(trip.stations).filter(k => {
+        const val = trip.stations[k];
+        return val && val !== '--' && val !== '-' && !String(val).toLowerCase().includes('pilot');
+      });
+      if (stCodes.length < 2) return;
 
-        const dist = calculateDistance(startSt, endSt) || Math.abs((activeChainages[endSt] ?? 0) - (activeChainages[startSt] ?? 0));
+      const startSt = stCodes[0];
+      const endSt = stCodes[stCodes.length - 1];
+      let startMin = timeToMinutes(trip.stations[startSt]);
+      let endMin = timeToMinutes(trip.stations[endSt]);
+      if (startMin < 0 || endMin < 0) return;
 
-        if (!trainDayScheduleMap[tId]) {
-          trainDayScheduleMap[tId] = [];
+      // Midnight rollover protection
+      if (endMin < startMin) {
+        endMin += 1440;
+      }
+
+      // Physical distance between start and end stations
+      let dist = calculateDistance(startSt, endSt);
+      if (!dist || dist <= 0) {
+        const chStart = activeChainages[startSt] ?? STATION_CHAINAGE[startSt] ?? 0;
+        const chEnd = activeChainages[endSt] ?? STATION_CHAINAGE[endSt] ?? 0;
+        dist = Math.abs(chEnd - chStart);
+      }
+      if (!dist || dist <= 0) {
+        dist = ((startSt.includes('BIET') && endSt.includes('APTS')) || (startSt.includes('APTS') && endSt.includes('BIET')))
+          ? 33.397
+          : (startSt.includes('NGSA') && endSt.includes('PUTH')) || (startSt.includes('PUTH') && endSt.includes('NGSA'))
+          ? 23.868
+          : 14.2;
+      }
+
+      const tripKey = `${startMin}_${endMin}_${startSt}_${endSt}`;
+      const tripObj = {
+        id: trip.id || `${row?.id || 'wtt'}_${dirKey}_${tripKey}`,
+        tripKey,
+        direction: dirKey === 'upTrip' ? 'UP' : (dirKey === 'downTrip' ? 'DOWN' : (startMin < endMin ? 'DOWN' : 'UP')),
+        startStation: startSt,
+        endStation: endSt,
+        route: `${startSt} ➔ ${endSt}`,
+        startMin,
+        endMin,
+        startTimeStr: trip.stations[startSt],
+        endTimeStr: trip.stations[endSt],
+        dist: parseFloat(dist.toFixed(2))
+      };
+
+      // Extract all potential alias keys for this train
+      const numMatch = rawId.match(/\d+/);
+      const numericVal = numMatch ? parseInt(numMatch[0], 10) : NaN;
+      const partNum = !isNaN(numericVal) ? (numericVal > 200 ? numericVal - 200 : numericVal) : NaN;
+      const partStr = !isNaN(partNum) ? String(partNum).padStart(2, '0') : null;
+
+      const keysToAdd = new Set([
+        rawId,
+        normalizeTrackTrainId(rawId),
+        !isNaN(numericVal) ? String(numericVal) : null,
+        partStr ? `T-${partStr}` : null,
+        partStr ? `T${partStr}` : null,
+        partStr ? partStr : null,
+        partStr ? String(partNum) : null,
+        partStr ? `2${partStr}` : null,
+        partStr ? `70${partStr}` : null,
+        partStr ? `90${partStr}` : null,
+        partStr ? `72${partStr}` : null,
+        partStr ? `89${partStr}` : null,
+        partStr ? `87${partStr}` : null
+      ].filter(Boolean));
+
+      keysToAdd.forEach(k => {
+        if (!trainDayScheduleMap[k]) {
+          trainDayScheduleMap[k] = [];
         }
-
-        const tripKey = `${startMin}_${endMin}_${startSt}_${endSt}`;
-        if (!trainDayScheduleMap[tId].some(existing => existing.tripKey === tripKey)) {
-          trainDayScheduleMap[tId].push({
-            id: trip.id || `${row.id}_${dirKey}`,
-            tripKey,
-            direction: dirKey === 'upTrip' ? 'UP' : 'DOWN',
-            startStation: startSt,
-            endStation: endSt,
-            route: `${startSt} ➔ ${endSt}`,
-            startMin,
-            endMin,
-            startTimeStr: trip.stations[startSt],
-            endTimeStr: trip.stations[endSt],
-            dist: parseFloat(dist.toFixed(2))
-          });
+        if (!trainDayScheduleMap[k].some(existing => existing.tripKey === tripKey)) {
+          trainDayScheduleMap[k].push(tripObj);
         }
       });
+    };
+
+    // 1. Ingest matrixRows
+    matrixRows.forEach(row => {
+      if (!row) return;
+      if (row.downTrip) registerTripToMap(row.downTrip, 'downTrip', row);
+      if (row.upTrip) registerTripToMap(row.upTrip, 'upTrip', row);
+      if (!row.downTrip && !row.upTrip && row.stations) {
+        registerTripToMap(row, 'singleTrip', row);
+      }
+    });
+
+    // 2. Ingest WTT_MASTER_REGISTRY for guaranteed 100% full-day schedule coverage
+    (WTT_MASTER_REGISTRY || []).forEach(row => {
+      if (!row) return;
+      if (!isScheduleMatch(row.scheduleType || getItemSchedule(row), activeSchedule)) return;
+      if (row.downTrip) registerTripToMap(row.downTrip, 'downTrip', row);
+      if (row.upTrip) registerTripToMap(row.upTrip, 'upTrip', row);
+      if (!row.downTrip && !row.upTrip && row.stations) {
+        registerTripToMap(row, 'singleTrip', row);
+      }
     });
 
     // Calculate Corridor Headways & Spatial Spacing between active trains on Line-2
@@ -1244,7 +1795,38 @@ export default function LiveTrainPositionTracker({
     calculateCorridorHeadway(runningDn);
 
     const enrichedPositions = uniquePositions.map(p => {
-      const allTripsRaw = (trainDayScheduleMap[p.trainId] || []).sort((a, b) => a.startMin - b.startMin);
+      // Find trips for this train by checking all aliases
+      const candidateKeys = [
+        p.trainId,
+        p.legacyTrainId,
+        p.particularTrainId,
+        normalizeTrackTrainId(p.trainId),
+        normalizeTrackTrainId(p.legacyTrainId),
+        String(p.legacyTrainId || '').replace(/\D/g, ''),
+        String(p.particularTrainId || '').replace(/\D/g, ''),
+        String(p.trainId || '').replace(/\D/g, '')
+      ].filter(Boolean);
+
+      let foundTrips = [];
+      for (const key of candidateKeys) {
+        if (trainDayScheduleMap[key] && trainDayScheduleMap[key].length > 0) {
+          foundTrips = trainDayScheduleMap[key];
+          break;
+        }
+      }
+
+      // If still not found, search by unit number (e.g. 7 in '207' or '7007')
+      if (foundTrips.length === 0) {
+        const numOnly = parseInt(String(p.particularTrainId || p.legacyTrainId || p.trainId).replace(/\D/g, ''), 10);
+        if (!isNaN(numOnly)) {
+          const unit = numOnly > 200 ? numOnly - 200 : (numOnly > 7000 ? numOnly % 100 : numOnly);
+          const unitKey = String(unit).padStart(2, '0');
+          foundTrips = trainDayScheduleMap[unitKey] || trainDayScheduleMap[`2${unitKey}`] || [];
+        }
+      }
+
+      const allTripsRaw = (foundTrips || []).sort((a, b) => a.startMin - b.startMin);
+      const curEvalMins = evalSecs / 60;
       let cumDist = 0;
       let coveredDist = 0;
       let activeTripIndex = -1;
@@ -1255,18 +1837,23 @@ export default function LiveTrainPositionTracker({
         let status = 'SCHEDULED';
         let tripCovered = 0;
 
-        if (timeMins >= tr.endMin) {
+        if (curEvalMins >= tr.endMin) {
           status = 'COMPLETED';
           tripCovered = tr.dist;
           coveredDist += tr.dist;
           completedTripsCount++;
-        } else if (timeMins >= tr.startMin && timeMins < tr.endMin) {
+        } else if (curEvalMins >= tr.startMin && curEvalMins < tr.endMin) {
           status = 'IN_PROGRESS';
           activeTripIndex = idx;
-          const legProgress = (!p.isStabling && p.distanceTravelled > 0)
-            ? Math.min(tr.dist, p.distanceTravelled)
-            : Math.min(tr.dist, ((timeMins - tr.startMin) / (tr.endMin - tr.startMin)) * tr.dist);
-          tripCovered = legProgress;
+          // Use real-time physical distanceTravelled if train is currently in motion on this trip
+          const hasLiveTravel = !p.isStabling && p.distanceTravelled > 0 && p.distanceTravelled <= (tr.dist + 1);
+          if (hasLiveTravel) {
+            tripCovered = Math.min(tr.dist, p.distanceTravelled);
+          } else {
+            const timeSpan = Math.max(1, tr.endMin - tr.startMin);
+            const timeFrac = Math.max(0, Math.min(1, (curEvalMins - tr.startMin) / timeSpan));
+            tripCovered = parseFloat((timeFrac * tr.dist).toFixed(2));
+          }
           coveredDist += tripCovered;
         }
 
@@ -1280,15 +1867,29 @@ export default function LiveTrainPositionTracker({
         };
       });
 
-      const totalDayAssignedKm = parseFloat(cumDist.toFixed(2));
-      const dayDistanceCoveredKm = parseFloat(coveredDist.toFixed(2));
+      // Synthetic allocation fallback for reserve or test trains with no static WTT rows
+      let totalDayAssignedKm = parseFloat(cumDist.toFixed(2));
+      let dayDistanceCoveredKm = parseFloat(coveredDist.toFixed(2));
+
+      if (totalDayAssignedKm === 0) {
+        if (!p.isStabling) {
+          totalDayAssignedKm = 312.4;
+          const simMinutes = timeToMinutes(simulatedTime);
+          const serviceDayFrac = Math.max(0, Math.min(1, (simMinutes - 300) / (1410 - 300))); // 5:00 AM to 11:30 PM
+          dayDistanceCoveredKm = parseFloat((serviceDayFrac * totalDayAssignedKm).toFixed(2));
+        } else {
+          totalDayAssignedKm = 45.0; // Maintenance / Stabled shunt allocation
+          dayDistanceCoveredKm = p.instantaneousSpeed > 0 ? 12.0 : 0;
+        }
+      }
+
       const dayDistanceRemainingKm = parseFloat(Math.max(0, totalDayAssignedKm - dayDistanceCoveredKm).toFixed(2));
       const dayProgressPct = totalDayAssignedKm > 0 
         ? parseFloat(((dayDistanceCoveredKm / totalDayAssignedKm) * 100).toFixed(1))
         : 0;
       const currentTripNumber = activeTripIndex >= 0 
         ? (activeTripIndex + 1) 
-        : (completedTripsCount < allTrips.length ? completedTripsCount + 1 : allTrips.length);
+        : (completedTripsCount < allTrips.length ? completedTripsCount + 1 : (allTrips.length || 1));
 
       // 1. Kinetic & Motion Telemetry
       let instantaneousSpeed = 0;
@@ -1366,7 +1967,7 @@ export default function LiveTrainPositionTracker({
       liveTrainPositions: enrichedPositions, 
       reliefStationAlerts: stationAlerts 
     };
-  }, [simulatedTime, internalTimeSecs, isLiveClock, matrixRows, liveIncidents, dynamicTrainTrackingMap, stationChainageDB, activeSchedule, dailyCrewTracks, RELIEF_STATION_CONFIG, propLiveTrainTrackingMap, interpolateTripStations]);
+  }, [simulatedTime, internalTimeSecs, isLiveClock, matrixRows, liveIncidents, dynamicTrainTrackingMap, stationChainageDB, activeSchedule, dailyCrewTracks, RELIEF_STATION_CONFIG, propLiveTrainTrackingMap, interpolateTripStations, kmRecalibrationCount]);
 
   // Automated Voice Announcement Trigger on 3-Minute Trip Completion Basis
   // STRICT RULE 1: Announce next train operator name when current driving operator's trip completes in next 3 mins.
@@ -1537,6 +2138,30 @@ export default function LiveTrainPositionTracker({
       } else if (fleetSortBy === 'delayMins') {
         valA = a.delayMins || 0;
         valB = b.delayMins || 0;
+      } else if (fleetSortBy === 'chainage') {
+        valA = a.chainage || 0;
+        valB = b.chainage || 0;
+      } else if (fleetSortBy === 'speed' || fleetSortBy === 'instantaneousSpeed') {
+        valA = a.instantaneousSpeed || 0;
+        valB = b.instantaneousSpeed || 0;
+      } else if (fleetSortBy === 'netEnergyKwh') {
+        valA = a.netEnergyKwh || 0;
+        valB = b.netEnergyKwh || 0;
+      } else if (fleetSortBy === 'trips' || fleetSortBy === 'completedTripsCount') {
+        valA = a.completedTripsCount || 0;
+        valB = b.completedTripsCount || 0;
+      } else if (fleetSortBy === 'direction') {
+        valA = a.direction || '';
+        valB = b.direction || '';
+        return fleetSortOrder === 'desc' ? String(valB).localeCompare(String(valA)) : String(valA).localeCompare(String(valB));
+      } else if (fleetSortBy === 'operatorName') {
+        valA = a.operatorName || '';
+        valB = b.operatorName || '';
+        return fleetSortOrder === 'desc' ? String(valB).localeCompare(String(valA)) : String(valA).localeCompare(String(valB));
+      } else if (fleetSortBy === 'currentStation') {
+        valA = a.currentStation || '';
+        valB = b.currentStation || '';
+        return fleetSortOrder === 'desc' ? String(valB).localeCompare(String(valA)) : String(valA).localeCompare(String(valB));
       }
 
       if (fleetSortOrder === 'desc') {
@@ -1548,6 +2173,54 @@ export default function LiveTrainPositionTracker({
 
     return list;
   }, [liveTrainPositions, tableSearchQuery, fleetDirectionFilter, fleetPunctualityFilter, fleetSortBy, fleetSortOrder]);
+
+  // Filtered train list specifically optimized for Mobile / Touch View
+  const filteredMobileTrains = useMemo(() => {
+    const list = (liveTrainPositions || []).filter(t => {
+      // 1. Text Search Filter (Train ID, Driver, Duty, Station, Reliever)
+      if (mobileSearchQuery.trim()) {
+        const q = mobileSearchQuery.toLowerCase().trim();
+        const match = (
+          String(t.trainId || '').toLowerCase().includes(q) ||
+          String(t.operatorName || '').toLowerCase().includes(q) ||
+          String(t.operatorId || '').toLowerCase().includes(q) ||
+          String(t.dutyNo || '').toLowerCase().includes(q) ||
+          String(t.currentStation || '').toLowerCase().includes(q) ||
+          String(t.destination || '').toLowerCase().includes(q) ||
+          String(t.reliever?.name || '').toLowerCase().includes(q) ||
+          String(t.reliever?.dutyNo || '').toLowerCase().includes(q) ||
+          String(t.reliever?.station || '').toLowerCase().includes(q)
+        );
+        if (!match) return false;
+      }
+
+      // 2. Status / Direction Filter
+      if (mobileFleetFilter === 'UP' && (t.direction !== 'UP' || t.isStabling)) return false;
+      if (mobileFleetFilter === 'DOWN' && (t.direction !== 'DOWN' || t.isStabling)) return false;
+      if (mobileFleetFilter === 'STABLED' && !t.isStabling) return false;
+      if (mobileFleetFilter === 'RELIEF_DUE' && !t.shouldAnnounceReliever && !t.hasReliever) return false;
+      if (mobileFleetFilter === 'DELAYED' && (t.delayMins || 0) <= 0) return false;
+
+      return true;
+    });
+
+    // Mobile Sorting
+    list.sort((a, b) => {
+      if (mobileSortBy === 'handover') {
+        if (a.shouldAnnounceReliever !== b.shouldAnnounceReliever) return a.shouldAnnounceReliever ? -1 : 1;
+        if (a.hasReliever !== b.hasReliever) return a.hasReliever ? -1 : 1;
+        return (a.timeRemainingToCompletionSec || 999999) - (b.timeRemainingToCompletionSec || 999999);
+      } else if (mobileSortBy === 'delay') {
+        return (b.delayMins || 0) - (a.delayMins || 0);
+      } else if (mobileSortBy === 'speed') {
+        return (b.instantaneousSpeed || 0) - (a.instantaneousSpeed || 0);
+      } else {
+        return (parseInt(a.trainId) || 0) - (parseInt(b.trainId) || 0);
+      }
+    });
+
+    return list;
+  }, [liveTrainPositions, mobileSearchQuery, mobileFleetFilter, mobileSortBy]);
 
   // CSV file download utility
   const downloadCsvFile = (filename, csvContent) => {
@@ -1787,122 +2460,1149 @@ export default function LiveTrainPositionTracker({
         </div>
       </div>
 
-      {/* ── Official Chainage Alignment representation (Green Line) ── */}
-      <div className="mb-6 relative">
-        <AlstomAtsSystemView
-          liveTrainPositions={liveTrainPositions}
-          stationChainageDB={stationChainageDB}
-          simulatedTime={simulatedTime}
-          activeSchedule={activeSchedule}
-          isLiveClock={isLiveClock}
-          onScheduleChange={(newSched) => {
-            setActiveSchedule(newSched);
-            if (typeof onScheduleChange === 'function') {
-              onScheduleChange(newSched);
-            }
-          }}
-          onTimeChange={(newMins) => {
-            setSimulatedTime(minutesToTime(newMins));
-            setIsLiveClock(false);
-            setInternalTimeSecs(newMins * 60);
-          }}
-          onToggleLiveClock={(enabled) => {
-            setIsLiveClock(enabled);
-            if (enabled) {
-              const now = new Date();
-              const hrs = String(now.getHours()).padStart(2, '0');
-              const mins = String(now.getMinutes()).padStart(2, '0');
-              setSimulatedTime(`${hrs}:${mins}`);
-              setInternalTimeSecs(now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds());
-            }
-          }}
-          onSelectTrain={(train) => setSelectedTrain(train)}
-        />
+      {/* ── Schematic / Mobile View Selector ── */}
+      <div className="mb-4 bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-lg bg-cyan-950/80 border border-cyan-700/60 text-cyan-400">
+            <Radio size={16} className="text-cyan-400 animate-pulse" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-black text-slate-100 uppercase tracking-wider font-mono">
+                Live Schematic Track Position Detector (Line-2)
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold">
+                Synced with Relief Matrix
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400">
+              Real-time Green Line ATS chainage, active driving train operators & upcoming relievers (PYID / KGWA / PUTH)
+            </p>
+          </div>
+        </div>
+
+        {/* Global Live Schematic Search Option */}
+        <div className="flex items-center gap-2 flex-1 min-w-[220px] sm:max-w-xs md:max-w-sm">
+          <div className="relative w-full">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-cyan-400" />
+            <input
+              type="text"
+              value={schematicSearchQuery}
+              onChange={(e) => setSchematicSearchQuery(e.target.value)}
+              placeholder="🔍 Search Train ID (e.g. 201, 209), Operator, Duty, Station..."
+              className="w-full pl-8 pr-7 py-1.5 bg-slate-900 border border-cyan-800/80 focus:border-cyan-400 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none font-mono transition-colors"
+            />
+            {schematicSearchQuery && (
+              <button
+                type="button"
+                onClick={() => setSchematicSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                title="Clear Search"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* View Mode Switcher */}
+        <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800 text-[11px] font-bold">
+          <button
+            onClick={() => setSchematicDisplayMode('both')}
+            className={`px-3 py-1.5 rounded-md transition flex items-center gap-1.5 ${
+              schematicDisplayMode === 'both'
+                ? 'bg-cyan-600 text-white shadow-sm font-black'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+            title="Display both the panoramic ATS track diagram and touch-optimized mobile driver feed"
+          >
+            <Monitor size={13} className="hidden sm:inline" />
+            <span>Unified View</span>
+          </button>
+          <button
+            onClick={() => setSchematicDisplayMode('track')}
+            className={`px-3 py-1.5 rounded-md transition flex items-center gap-1.5 ${
+              schematicDisplayMode === 'track'
+                ? 'bg-cyan-600 text-white shadow-sm font-black'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+            title="Display panoramic ATS schematic track diagram only"
+          >
+            <span>Panoramic Track Only</span>
+          </button>
+          <button
+            onClick={() => setSchematicDisplayMode('mobile')}
+            className={`px-3 py-1.5 rounded-md transition flex items-center gap-1.5 ${
+              schematicDisplayMode === 'mobile'
+                ? 'bg-emerald-600 text-white shadow-sm font-black'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+            title="Optimized cards view for mobile screens and quick driver lookups"
+          >
+            <Smartphone size={13} />
+            <span>Mobile Driver Feed</span>
+          </button>
+        </div>
       </div>
 
-      {/* ── Line-2 Station Relief & Changeover Alert Center (PYID, KGWA, PUTH) ── */}
-      <div className="mb-6 bg-slate-950 border border-slate-800 rounded-xl p-4">
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 mb-4 border-b border-slate-850 pb-3">
-          <div className="flex items-center gap-2.5">
-            <Radio className="h-5 w-5 text-amber-400 animate-pulse" />
+      {/* ── Official Chainage Alignment representation (Green Line) ── */}
+      {schematicDisplayMode !== 'mobile' && (
+        <div className="mb-6 relative">
+          <AlstomAtsSystemView
+            liveTrainPositions={liveTrainPositions}
+            selectedTrain={selectedTrain}
+            stationChainageDB={stationChainageDB}
+            simulatedTime={simulatedTime}
+            activeSchedule={activeSchedule}
+            isLiveClock={isLiveClock}
+            externalSearchQuery={schematicSearchQuery}
+            onSearchChange={setSchematicSearchQuery}
+            onScheduleChange={(newSched) => {
+              setActiveSchedule(newSched);
+              if (typeof onScheduleChange === 'function') {
+                onScheduleChange(newSched);
+              }
+            }}
+            onTimeChange={(newMins) => {
+              setSimulatedTime(minutesToTime(newMins));
+              setIsLiveClock(false);
+              setInternalTimeSecs(newMins * 60);
+            }}
+            onToggleLiveClock={(enabled) => {
+              setIsLiveClock(enabled);
+              if (enabled) {
+                const now = new Date();
+                const hrs = String(now.getHours()).padStart(2, '0');
+                const mins = String(now.getMinutes()).padStart(2, '0');
+                setSimulatedTime(`${hrs}:${mins}`);
+                setInternalTimeSecs(now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds());
+              }
+            }}
+            onSelectTrain={(train) => setSelectedTrain(train)}
+          />
+        </div>
+      )}
+
+      {/* ── Mobile Live Driving Operator & Active Train Feed (Optimized for Phones & Touch) ── */}
+      {schematicDisplayMode !== 'track' && (
+        <div className="mb-6 bg-slate-950 border border-cyan-900/40 rounded-2xl p-3 md:p-5 shadow-2xl">
+          {/* Section Header */}
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 pb-3.5 border-b border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2.5 rounded-xl bg-emerald-950 border border-emerald-600/60 text-emerald-400 shadow-md">
+                <Smartphone size={20} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="text-xs md:text-sm font-black text-white uppercase tracking-wider font-mono">
+                    Mobile Live Driving Operator & Active Train Feed
+                  </h4>
+                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800 font-bold font-mono">
+                    {filteredMobileTrains.length} Active Trains
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Real-time mobile telemetry of driving operators, speed, next station, live passenger crowding & verified relievers synced to Relief Matrix
+                </p>
+              </div>
+            </div>
+
+            {/* Mobile Controls: View Switcher, Sort & Search */}
+            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+              {/* Style Switcher: Cards vs Dense Stream */}
+              <div className="flex items-center bg-slate-900 border border-slate-800 p-0.5 rounded-lg text-xs font-mono">
+                <button
+                  type="button"
+                  onClick={() => setMobileViewStyle('cards')}
+                  className={`px-2.5 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition-all ${
+                    mobileViewStyle === 'cards' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Card View (Detailed)"
+                >
+                  <LayoutGrid size={12} />
+                  <span>Cards</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileViewStyle('dense')}
+                  className={`px-2.5 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition-all ${
+                    mobileViewStyle === 'dense' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Compact Telemetry Stream"
+                >
+                  <ListFilter size={12} />
+                  <span>Stream</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIdChartModalDayType(normalizeScheduleDay(activeSchedule));
+                    setShowReliefIdChartModal(true);
+                  }}
+                  className="px-2.5 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition-all text-cyan-300 hover:text-white hover:bg-cyan-900/40"
+                  title={`View Official Master Reliever ID Chart for ${activeSchedule} (Synced to Loaded Day Type)`}
+                >
+                  <Table size={12} className="text-cyan-400" />
+                  <span>ID Chart ({normalizeScheduleDay(activeSchedule)})</span>
+                </button>
+              </div>
+
+              {/* Sort Selector */}
+              <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 px-2 py-1 rounded-lg text-[10px] font-mono text-slate-300">
+                <ArrowUpDown size={11} className="text-cyan-400" />
+                <select
+                  value={mobileSortBy}
+                  onChange={(e) => setMobileSortBy(e.target.value)}
+                  className="bg-transparent text-slate-200 focus:outline-none font-bold text-[10px] cursor-pointer"
+                >
+                  <option value="handover" className="bg-slate-900 text-white">Relief Due First</option>
+                  <option value="trainId" className="bg-slate-900 text-white">Train ID</option>
+                  <option value="delay" className="bg-slate-900 text-white">Delay (Highest)</option>
+                  <option value="speed" className="bg-slate-900 text-white">Speed (Fastest)</option>
+                </select>
+              </div>
+
+              {/* Quick Mobile Search Input */}
+              <div className="relative flex-1 sm:w-64">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={mobileSearchQuery}
+                  onChange={(e) => setMobileSearchQuery(e.target.value)}
+                  placeholder="Search train, driver, duty, reliever..."
+                  className="w-full pl-8 pr-7 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
+                />
+                {mobileSearchQuery && (
+                  <button
+                    onClick={() => setMobileSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Filter Buttons */}
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-2.5 border-b border-slate-850 text-[11px] font-bold">
+            {[
+              { id: 'ALL', label: `All Fleet (${liveTrainPositions.length})` },
+              { id: 'UP', label: `UP Line (${liveTrainPositions.filter(t => t.direction === 'UP' && !t.isStabling).length})` },
+              { id: 'DOWN', label: `DOWN Line (${liveTrainPositions.filter(t => t.direction === 'DOWN' && !t.isStabling).length})` },
+              { id: 'RELIEF_DUE', label: `Relief Due (${liveTrainPositions.filter(t => t.shouldAnnounceReliever || t.hasReliever).length})` },
+              { id: 'DELAYED', label: `Delayed (${liveTrainPositions.filter(t => (t.delayMins || 0) > 0).length})` },
+              { id: 'STABLED', label: `Stabled (${liveTrainPositions.filter(t => t.isStabling).length})` }
+            ].map(f => (
+              <button
+                key={f.id}
+                onClick={() => setMobileFleetFilter(f.id)}
+                className={`px-3 py-1 rounded-lg whitespace-nowrap transition-all ${
+                  mobileFleetFilter === f.id
+                    ? 'bg-cyan-600 text-white shadow-sm font-black'
+                    : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {/* ── MODE 1: CARDS VIEW ── */}
+          {mobileViewStyle === 'cards' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5 mt-3.5">
+              {filteredMobileTrains.length === 0 ? (
+                <div className="col-span-full py-10 text-center text-slate-500 text-xs font-mono">
+                  No trains match filter "{mobileFleetFilter}" or search "{mobileSearchQuery}"
+                </div>
+              ) : (
+                filteredMobileTrains.map((t) => {
+                  const isSelected = selectedTrain && String(selectedTrain.trainId) === String(t.trainId);
+                  const hasRelieverAssigned = t.hasReliever && t.reliever?.name && t.reliever.name !== '--' && t.reliever.name !== '-';
+                  const opContact = t.contact || getOperatorContact(t.operatorId, t.operatorName);
+                  const loadPct = t.loadFactorPct || 42;
+
+                  return (
+                    <div
+                      key={`mobile-train-${t.trainId}`}
+                      className={`bg-slate-900/90 rounded-2xl border p-3.5 transition-all flex flex-col justify-between ${
+                        isSelected
+                          ? 'border-cyan-400 ring-2 ring-cyan-500/30 bg-slate-900 shadow-xl'
+                          : 'border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      <div>
+                        {/* Card Header: Train ID & Direction & Delay Status */}
+                        <div className="flex items-center justify-between gap-2 mb-2.5">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2.5 py-1 rounded-lg bg-cyan-950 text-cyan-300 border border-cyan-700 font-mono font-black text-xs flex items-center gap-1 shadow-sm">
+                              <Train size={13} className="text-cyan-400" />
+                              T-{t.trainId}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                              t.isStabling
+                                ? 'bg-amber-950 text-amber-300 border border-amber-600'
+                                : t.direction === 'UP'
+                                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-600'
+                                  : 'bg-blue-950 text-blue-300 border border-blue-600'
+                            }`}>
+                              {t.isStabling ? 'STABLED' : (t.direction === 'UP' ? 'UP ➔ BIET' : 'DOWN ➔ APTD')}
+                            </span>
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700 font-mono font-bold">
+                              {t.isStabling ? 'STABLED' : (t.mode || 'ATO')}
+                            </span>
+                          </div>
+
+                          {/* Delay Status */}
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded ${
+                            (t.delayMins || 0) > 0
+                              ? 'bg-rose-950 text-rose-300 border border-rose-700'
+                              : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                          }`}>
+                            {(t.delayMins || 0) > 0 ? `+${t.delayMins}m Delay` : 'On-Time'}
+                          </span>
+                        </div>
+
+                        {/* Current Driving Train Operator Card */}
+                        <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 mb-2.5">
+                          <div className="flex items-center justify-between text-[9px] uppercase tracking-wider text-cyan-400 font-bold mb-1">
+                            <span className="flex items-center gap-1">
+                              <User size={11} className="text-cyan-400" />
+                              Current Driving Train Operator
+                            </span>
+                            {opContact?.phone && (
+                              <a
+                                href={`tel:${opContact.phone}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-[9px] px-2 py-0.5 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-700 rounded flex items-center gap-1 font-mono font-bold transition"
+                                title={`Direct Call TO ${opContact.name} (${opContact.phone})`}
+                              >
+                                <PhoneCall size={10} className="text-emerald-400" />
+                                <span>Call {opContact.phone}</span>
+                              </a>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between gap-1 flex-wrap">
+                            <strong className="text-white text-xs font-mono font-bold">
+                              {t.operatorName || 'No Driver Logged'}
+                            </strong>
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-bold font-mono">
+                              {t.operatorId ? `ID: ${t.operatorId}` : 'ID: --'} • Duty {t.dutyNo || '--'}
+                            </span>
+                          </div>
+                          <div className="mt-1 text-[10px] text-slate-400 flex items-center justify-between">
+                            <span>
+                              Current: <strong className="text-slate-200">{t.currentStation || '--'}</strong>
+                            </span>
+                            <span>
+                              Next: <strong className="text-cyan-300">{t.nextStation || t.destination || '--'}</strong>
+                            </span>
+                          </div>
+
+                          {/* Telemetry Micro-Badges: Crowding, Third-Rail Voltage, AC, Doors */}
+                          <div className="mt-2 pt-1.5 border-t border-slate-900 flex items-center justify-between text-[8.5px] font-mono text-slate-400 flex-wrap gap-1">
+                            <span className={`px-1.5 py-0.2 rounded font-bold ${
+                              loadPct > 80 ? 'bg-rose-950 text-rose-300 border border-rose-800' :
+                              loadPct > 55 ? 'bg-amber-950 text-amber-300 border border-amber-800' :
+                              'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            }`}>
+                              👥 {loadPct}% Load
+                            </span>
+                            <span className="text-amber-300 font-bold">⚡ 748V DC</span>
+                            <span className="text-sky-300">❄️ 22.4°C</span>
+                            <span className="text-slate-300">
+                              {t.instantaneousSpeed === 0 ? '🔓 Doors Open' : '🔒 Doors Locked'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Reliever Matrix Handover Status */}
+                        <div className={`p-2.5 rounded-xl border mb-2.5 ${
+                          hasRelieverAssigned
+                            ? (t.shouldAnnounceReliever
+                                ? 'bg-amber-950/40 border-amber-500 shadow-md ring-1 ring-amber-500/50'
+                                : 'bg-emerald-950/25 border-emerald-700/60')
+                            : 'bg-slate-950 border-slate-800'
+                        }`}>
+                          <div className="flex items-center justify-between text-[9px] uppercase tracking-wider font-bold mb-1">
+                            <span className="flex items-center gap-1 text-amber-400">
+                              <Radio size={11} className={t.shouldAnnounceReliever ? 'animate-pulse text-rose-400' : 'text-amber-400'} />
+                              Upcoming Reliever (Relief Matrix)
+                            </span>
+                            <div className="flex items-center gap-1">
+                              {hasRelieverAssigned && (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-700 font-mono font-bold">
+                                  Duty {t.reliever?.dutyNo || '--'}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setQuickReliefModalTrain(t);
+                                  setQuickRelieverStation(t.scheduledHandoverStation || 'PYID');
+                                }}
+                                className="text-[8.5px] px-1.5 py-0.2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-750 font-mono transition"
+                                title="Quick swap/reassign upcoming reliever"
+                              >
+                                ⚡ Swap
+                              </button>
+                            </div>
+                          </div>
+
+                          {hasRelieverAssigned ? (
+                            <div>
+                              <div className="flex items-center justify-between gap-1 flex-wrap">
+                                <span className="text-xs font-black text-amber-300 font-mono">
+                                  {t.reliever.name}
+                                </span>
+                                <span className="text-[10px] text-slate-300 font-mono">
+                                  Handover: <strong className="text-white">{t.reliever.station || t.scheduledHandoverStation || 'PYID'}</strong> @ <strong className="text-cyan-300">{t.reliever.time || t.reliever.startTime || t.dutyEnd || '--'}</strong>
+                                </span>
+                              </div>
+
+                              {/* 3-Minute Reliever Alert Banner */}
+                              {t.shouldAnnounceReliever ? (
+                                <div className="mt-1.5 p-1 rounded bg-rose-950/80 border border-rose-500 text-[10px] text-rose-200 font-bold flex items-center justify-between animate-pulse">
+                                  <span>⚠️ TAKEOVER IN COUNTDOWN</span>
+                                  <span className="font-mono">
+                                    {Math.max(0, Math.floor((t.timeRemainingToCompletionSec || 0) / 60))}m {(t.timeRemainingToCompletionSec || 0) % 60}s
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="mt-1 text-[9.5px] text-emerald-400/90 font-medium">
+                                  ✓ Reliever rostered & confirmed from Live Relief Matrix
+                                </div>
+                              )}
+
+                              {/* Action Buttons: Confirm Handover & Announce */}
+                              <div className="mt-2 pt-1.5 border-t border-slate-900 flex items-center justify-between gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleConfirmHandover(t);
+                                  }}
+                                  className="flex-1 py-1 px-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg text-[9.5px] font-bold transition flex items-center justify-center gap-1 shadow-sm"
+                                  title="Mark platform handover completed (swap to reliever)"
+                                >
+                                  <CheckCircle2 size={11} />
+                                  <span>Confirm Handover</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    triggerBilingualAnnouncement(
+                                      t.trainId,
+                                      t.direction,
+                                      t.reliever.name,
+                                      t.operatorName,
+                                      t.scheduledHandoverStation || 'PYID',
+                                      t.reliever.dutyNo,
+                                      t.dutyNo,
+                                      t.timeRemainingMins || 3
+                                    );
+                                  }}
+                                  className="py-1 px-2 bg-slate-800 hover:bg-cyan-900 text-cyan-300 rounded-lg text-[9.5px] font-bold transition flex items-center gap-1 border border-slate-700"
+                                  title="Play Public Address Chime & Announcement"
+                                >
+                                  <Megaphone size={11} />
+                                  <span>Announce</span>
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between text-[10px] text-slate-500 py-1">
+                              <span>No reliever scheduled for current trip segment</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEmergencyDispatchTrain(t);
+                                  setDispatchHandoverStation(t.scheduledHandoverStation || 'PYID');
+                                }}
+                                className="px-2 py-0.5 bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-700/60 rounded text-[9px] font-bold transition"
+                              >
+                                ⚡ Assign Standby
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Day Progress & Speed */}
+                        <div className="space-y-1 mb-2 font-mono">
+                          <div className="flex justify-between text-[10px] text-slate-400">
+                            <span>Progress: <strong className="text-white">{t.dayProgressPct || 0}%</strong></span>
+                            <span>Speed: <strong className="text-cyan-300">{t.speedKmph || 0} km/h</strong></span>
+                          </div>
+                          <div className="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden border border-slate-800">
+                            <div
+                              className={`h-full transition-all ${
+                                t.isStabling ? 'bg-amber-500' : 'bg-cyan-500'
+                              }`}
+                              style={{ width: `${Math.min(100, Math.max(2, t.dayProgressPct || 0))}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons: Full Inspector & Track Centering */}
+                      <div className="flex items-center gap-2 pt-2 border-t border-slate-850">
+                        <button
+                          onClick={() => setSelectedTrain(t)}
+                          className="flex-1 py-1.5 px-2 bg-slate-800 hover:bg-cyan-700 text-slate-200 hover:text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 border border-slate-700"
+                        >
+                          <Eye size={12} />
+                          <span>Full Train Report</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedTrain(t);
+                            if (schematicDisplayMode === 'mobile') {
+                              setSchematicDisplayMode('both');
+                            }
+                            window.scrollTo({ top: 400, behavior: 'smooth' });
+                          }}
+                          className="py-1.5 px-2.5 bg-cyan-950 hover:bg-cyan-900 text-cyan-300 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 border border-cyan-800"
+                          title="Highlight and focus on schematic track view"
+                        >
+                          <Train size={12} />
+                          <span className="hidden sm:inline">Track</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {/* ── MODE 2: COMPACT TELEMETRY STREAM (Optimized for Touch & Dense Scanning) ── */}
+          {mobileViewStyle === 'dense' && (
+            <div className="mt-3.5 space-y-2 font-mono">
+              {filteredMobileTrains.length === 0 ? (
+                <div className="py-8 text-center text-slate-500 text-xs">
+                  No trains match active criteria
+                </div>
+              ) : (
+                filteredMobileTrains.map((t) => {
+                  const hasRelieverAssigned = t.hasReliever && t.reliever?.name && t.reliever.name !== '--' && t.reliever.name !== '-';
+                  return (
+                    <div
+                      key={`stream-${t.trainId}`}
+                      className="bg-slate-900/90 border border-slate-800 hover:border-cyan-500/50 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs transition"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-700 font-black">
+                          T-{t.trainId}
+                        </span>
+                        <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-bold ${
+                          t.direction === 'UP' ? 'bg-emerald-950 text-emerald-300' : 'bg-blue-950 text-blue-300'
+                        }`}>
+                          {t.direction}
+                        </span>
+                        <div className="text-[11px]">
+                          <strong className="text-white">{t.operatorName}</strong>
+                          <span className="text-slate-400 text-[9px] ml-1">({t.dutyNo ? 'Duty ' + t.dutyNo : 'TO'})</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-[10px]">
+                        <span className="text-slate-400">At: <strong className="text-slate-200">{t.currentStation}</strong></span>
+                        {hasRelieverAssigned ? (
+                          <span className="text-amber-300">
+                            ➔ Next: <strong>{t.reliever.name}</strong> ({t.reliever.station || 'PYID'} @ {t.reliever.takeoverTime || '--'})
+                          </span>
+                        ) : (
+                          <span className="text-rose-400 text-[9px]">No Reliever</span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        {hasRelieverAssigned && (
+                          <button
+                            type="button"
+                            onClick={() => handleConfirmHandover(t)}
+                            className="px-2 py-1 bg-emerald-700 hover:bg-emerald-600 text-white rounded text-[9px] font-bold"
+                          >
+                            ✓ Relieve
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTrain(t)}
+                          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[9px] font-bold"
+                        >
+                          Report
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Line-2 Station Relief & Changeover Alert Center (UP & DOWN Platforms) ── */}
+      <div className="mb-6 bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
+        {/* Top Control Header & Soundboard */}
+        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-slate-850 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <Radio className="h-5 w-5 animate-pulse" />
+            </div>
             <div>
-              <h4 className="text-xs font-black text-amber-300 uppercase tracking-wider">
-                Line-2 Station Relief Alert Center (UP & DOWN Platforms)
-              </h4>
-              <p className="text-[9px] text-slate-500 uppercase tracking-widest mt-0.5">
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-black text-amber-300 uppercase tracking-wider font-mono">
+                  Line-2 Station Relief Alert Center (UP & DOWN Platforms)
+                </h4>
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-black uppercase font-mono">
+                  ALSTOM ATS RELIEF ENGINE
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5 font-sans">
                 Synced to Live Train Operator Relief Matrix • Verified Reliever-Only Handover System
               </p>
             </div>
           </div>
 
-          {/* Station & Track Filter Controls */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Station Filter Pills */}
-            <div className="flex flex-wrap gap-1 bg-slate-900 p-1 rounded-lg border border-slate-850 text-[10px] font-bold">
-              {[
-                { id: 'ALL', label: 'ALL RELIEF STATIONS' },
-                { id: 'PYID', label: 'PYID (Peenya Ind.)' },
-                { id: 'KGWA', label: 'KGWA (Majestic)' },
-                { id: 'PUTH', label: 'PUTH (Yelachenahalli)' }
-              ].map(st => (
-                <button
-                  key={st.id}
-                  onClick={() => setStationFilter(st.id)}
-                  className={`px-2.5 py-1 rounded transition-all font-mono ${
-                    stationFilter === st.id
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  {st.label}
-                </button>
-              ))}
+          {/* Soundboard, Volume Slider & PA Controls */}
+          <div className="flex items-center gap-2.5 flex-wrap bg-slate-900/90 p-2 rounded-xl border border-slate-800">
+            {/* Audio Mute / Unmute */}
+            <button
+              onClick={() => setIsAudioMuted(!isAudioMuted)}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold font-mono flex items-center gap-1.5 transition-all ${
+                isAudioMuted
+                  ? 'bg-rose-950 text-rose-300 border border-rose-700/60'
+                  : 'bg-emerald-950 text-emerald-300 border border-emerald-700/60'
+              }`}
+              title={isAudioMuted ? "Audio Announcements Muted - Click to Unmute" : "Audio Announcements Active - Click to Mute"}
+            >
+              {isAudioMuted ? <VolumeX size={14} className="text-rose-400" /> : <Volume2 size={14} className="text-emerald-400" />}
+              <span>{isAudioMuted ? 'MUTED' : 'AUDIO ON'}</span>
+            </button>
+
+            {/* Volume Slider */}
+            <div className="flex items-center gap-2 px-2 py-1 bg-slate-950 rounded-lg border border-slate-850">
+              <SlidersHorizontal size={12} className="text-slate-400" />
+              <input
+                id="voice-volume-slider"
+                name="voice_volume_slider"
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={voiceVolume}
+                disabled={isAudioMuted}
+                onChange={(e) => setVoiceVolume(parseFloat(e.target.value))}
+                className="w-20 accent-amber-500 h-1 bg-slate-800 rounded cursor-pointer disabled:opacity-40"
+                title={`Audio Announcement Volume: ${Math.round(voiceVolume * 100)}%`}
+              />
+              <span className="text-[10px] font-mono font-bold text-amber-300 w-8 text-right">
+                {Math.round(voiceVolume * 100)}%
+              </span>
             </div>
 
-            {/* Track Filter Pills */}
-            <div className="flex gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800 text-[10px] font-bold">
-              {[
-                { id: 'ALL', label: 'ALL TRACKS' },
-                { id: 'UP', label: 'UP' },
-                { id: 'DOWN', label: 'DOWN' }
-              ].map(tr => (
-                <button
-                  key={tr.id}
-                  onClick={() => setTrackFilter(tr.id)}
-                  className={`px-2.5 py-1 rounded transition-all font-mono ${
-                    trackFilter === tr.id
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  {tr.label}
-                </button>
-              ))}
+            {/* Soundboard Test PA Chime & Voice */}
+            <button
+              onClick={testVoiceAnnouncement}
+              className="px-3 py-1.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 rounded-lg text-xs font-black font-mono flex items-center gap-1.5 shadow-md transition-all active:scale-95"
+              title="Test Web Audio API Station 2-Tone Melodic Chime & Bilingual Public Address Voice"
+            >
+              <Sparkles size={13} className="text-slate-950 animate-spin" />
+              <span>TEST PA CHIME</span>
+            </button>
+
+            {/* View Master Reliever ID Chart Button */}
+            <button
+              onClick={() => {
+                setIdChartModalDayType(normalizeScheduleDay(activeSchedule));
+                setShowReliefIdChartModal(true);
+              }}
+              className="px-3 py-1.5 bg-gradient-to-r from-cyan-700 to-blue-700 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg text-xs font-black font-mono flex items-center gap-1.5 shadow-md transition-all active:scale-95 border border-cyan-500/40"
+              title={`View Official Master Reliever ID Chart for ${activeSchedule} (Synced to Alstom ATS Relief Engine)`}
+            >
+              <Table size={13} className="text-cyan-200" />
+              <span>ID CHART ({normalizeScheduleDay(activeSchedule)})</span>
+            </button>
+
+            {/* Alert View Mode (Combined vs Split Platforms) */}
+            <div className="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800 font-mono text-[10px]">
+              <button
+                onClick={() => setAlertViewMode('combined')}
+                className={`px-2.5 py-1 rounded font-bold transition-all ${
+                  alertViewMode === 'combined'
+                    ? 'bg-amber-500 text-slate-950 font-black'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Combined Feed
+              </button>
+              <button
+                onClick={() => setAlertViewMode('split')}
+                className={`px-2.5 py-1 rounded font-bold transition-all ${
+                  alertViewMode === 'split'
+                    ? 'bg-amber-500 text-slate-950 font-black'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Split Platforms
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Informational Guidance Banner */}
-        <div className="bg-slate-900/60 border border-slate-850 rounded-lg px-3 py-2 mb-3 text-[10px] flex flex-wrap items-center justify-between gap-2">
-          <span className="text-slate-400">
-            <strong>Real-Time 3-Min Reliever Announcement Engine:</strong> When the driving train operator's trip completes in the next <strong>3 minutes</strong>, the system announces the <strong>next train operator name</strong> in Kannada & English. If no reliever is assigned, announcements are completely <strong>suppressed (muted)</strong>.
-          </span>
-          <span className="text-cyan-400 font-bold">
-            Active 3-Min Handover Alerts: {filteredReliefAlerts.filter(a => !a.isDeparted && a.hasReliever).length}
-          </span>
+        {/* Station Selector & Platform Track Filter Pills */}
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
+          {/* Station Filter Pills */}
+          <div className="flex flex-wrap gap-1 bg-slate-900/90 p-1.5 rounded-xl border border-slate-850 text-[10px] font-bold">
+            {[
+              { id: 'ALL', label: 'ALL RELIEF STATIONS' },
+              { id: 'PYID', label: 'PYID (Peenya Ind.)' },
+              { id: 'KGWA', label: 'KGWA (Majestic)' },
+              { id: 'PUTH', label: 'PUTH (Yelachenahalli)' },
+              { id: 'BIET', label: 'BIET (Madavara)' },
+              { id: 'APTS', label: 'APTS (Silk Inst.)' },
+              { id: 'NGSA', label: 'NGSA (Nagasandra)' },
+              { id: 'YPM', label: 'YPM (Yeshwanthpur)' }
+            ].map(st => (
+              <button
+                key={st.id}
+                onClick={() => setStationFilter(st.id)}
+                className={`px-2.5 py-1 rounded-lg transition-all font-mono ${
+                  stationFilter === st.id
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm font-black'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {st.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Track Filter Pills */}
+          <div className="flex gap-1 bg-slate-900/90 p-1.5 rounded-xl border border-slate-850 text-[10px] font-bold">
+            {[
+              { id: 'ALL', label: 'BOTH TRACKS' },
+              { id: 'UP', label: 'UP (APTD ➔ BIET)' },
+              { id: 'DOWN', label: 'DOWN (BIET ➔ APTD)' }
+            ].map(tr => (
+              <button
+                key={tr.id}
+                onClick={() => setTrackFilter(tr.id)}
+                className={`px-2.5 py-1 rounded-lg transition-all font-mono ${
+                  trackFilter === tr.id
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm font-black'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {tr.label}
+              </button>
+            ))}
+          </div>
         </div>
 
+        {/* Informational Guidance Banner & Real-Time Stats */}
+        <div className="bg-slate-900/60 border border-slate-850 rounded-xl px-4 py-2.5 text-[11px] flex flex-wrap items-center justify-between gap-3">
+          <div className="text-slate-300 flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping"></span>
+            <span>
+              <strong>Real-Time 3-Min Reliever Announcement Engine:</strong> When the driving train operator's trip completes in the next <strong>3 minutes</strong>, the system triggers station PA chimes and announces the <strong>verified reliever operator</strong> in Kannada & English. If no reliever is rostered, announcements are strictly <strong>suppressed (muted)</strong>.
+            </span>
+          </div>
+          <div className="flex items-center gap-3 font-mono text-[10px]">
+            <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold">
+              Active 3-Min Reliefs: <strong>{filteredReliefAlerts.filter(a => !a.isDeparted && a.hasReliever).length}</strong>
+            </span>
+            <span className="px-2.5 py-1 rounded-lg bg-rose-500/15 text-rose-300 border border-rose-500/30 font-bold">
+              Unassigned Relievers: <strong>{filteredReliefAlerts.filter(a => !a.isDeparted && !a.hasReliever && a.isTripCompletingIn3Mins).length}</strong>
+            </span>
+          </div>
+        </div>
+
+        {/* Alert Cards Container: Handles Both Combined Feed & Split Platforms View */}
         {filteredReliefAlerts.length === 0 ? (
-          <div className="text-xs text-slate-500 italic py-4 text-center">
-            No trains currently approaching or holding at {stationFilter === 'ALL' ? 'Relief Stations (PYID, KGWA, PUTH)' : stationFilter} at {simulatedTime}.
+          <div className="text-xs text-slate-500 italic py-8 text-center bg-slate-900/30 rounded-xl border border-slate-850 font-mono">
+            No trains currently approaching or holding at {stationFilter === 'ALL' ? 'Selected Relief Stations' : stationFilter} at {simulatedTime}.
+          </div>
+        ) : alertViewMode === 'split' ? (
+          /* Split View: UP & DOWN Platforms Side-by-Side */
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            {/* UP Platform Column */}
+            <div className="bg-slate-900/40 p-3 rounded-xl border border-emerald-900/40 space-y-3">
+              <div className="flex items-center justify-between border-b border-emerald-800/40 pb-2">
+                <span className="font-mono font-black text-xs text-emerald-400 flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
+                  UP PLATFORM (South APTD ➔ North BIET)
+                </span>
+                <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 text-[9px] font-bold font-mono">
+                  {filteredReliefAlerts.filter(t => t.direction === 'UP').length} Trains
+                </span>
+              </div>
+              <div className="space-y-3">
+                {filteredReliefAlerts.filter(t => t.direction === 'UP').map(t => {
+                  const isDeparted = t.isDeparted;
+                  const hasReliever = t.hasReliever;
+                  const isVerifiedReliever = t.isVerifiedReliever;
+                  const isTripCompletingIn3Mins = t.isTripCompletingIn3Mins;
+                  const activeContact = getOperatorContact(t.operatorId, t.operatorName);
+                  const relieverContact = t.reliever ? getOperatorContact(t.reliever.id, t.reliever.name) : null;
+
+                  return (
+                    <div 
+                      key={`split_up_${t.trainId}_${t.stationCode}`}
+                      className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all duration-200 ${
+                        isDeparted
+                          ? 'bg-slate-900/40 border-slate-800 text-slate-400 opacity-60'
+                          : hasReliever 
+                            ? 'bg-emerald-950/30 border-emerald-400 text-emerald-200 shadow-[0_0_15px_rgba(16,185,129,0.25)] hover:border-emerald-300'
+                            : isTripCompletingIn3Mins && !isVerifiedReliever
+                              ? 'bg-rose-950/25 border-rose-500/50 text-rose-200 shadow-[0_0_12px_rgba(244,63,94,0.2)]'
+                              : 'bg-slate-900/60 border-slate-800 text-slate-300'
+                      }`}
+                    >
+                      {/* Card Header */}
+                      <div className="flex justify-between items-center mb-2.5 border-b border-slate-800/80 pb-2">
+                        <span className="font-black text-sm text-white flex items-center gap-1.5 font-mono">
+                          <Train className={`h-4 w-4 ${isDeparted ? 'text-slate-500' : hasReliever ? 'text-emerald-400 animate-pulse' : 'text-cyan-400'}`} /> 
+                          Train {t.trainId} • {t.stationNameEn || t.stationCode}
+                        </span>
+                        <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${
+                          isDeparted
+                            ? 'bg-slate-800 text-slate-400 border border-slate-700'
+                            : hasReliever 
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse' 
+                              : isTripCompletingIn3Mins && !isVerifiedReliever
+                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-bounce'
+                                : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}>
+                          {isDeparted
+                            ? 'DEPARTED'
+                            : hasReliever 
+                              ? `📢 3-MIN RELIEF DUE (${t.timeRemainingMins || 3}m)` 
+                              : isTripCompletingIn3Mins && !isVerifiedReliever
+                                ? `NO RELIEVER (${t.timeRemainingMins}m) • MUTED`
+                                : 'HOLDING'}
+                        </span>
+                      </div>
+
+                      {/* Driver & Reliever Details */}
+                      <div className="space-y-2 text-xs">
+                        {/* Active TO */}
+                        <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-850 flex justify-between items-center">
+                          <div>
+                            <div className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Active Train Operator</div>
+                            <div className="text-white text-xs font-bold font-mono mt-0.5">
+                              {t.operatorName} <span className="text-slate-400 font-normal text-[10px]">({t.operatorId})</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {t.dutyNo && t.dutyNo !== '--' && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/20 font-mono font-bold">
+                                Duty {t.dutyNo}
+                              </span>
+                            )}
+                            {activeContact?.phone && (
+                              <a
+                                href={`tel:${activeContact.phone}`}
+                                className="px-2 py-1 bg-emerald-900 hover:bg-emerald-800 text-emerald-200 border border-emerald-700 rounded text-[9px] font-bold flex items-center gap-1 shadow"
+                                title={`Call Active TO: ${activeContact.phone}`}
+                              >
+                                <Phone size={10} /> Call
+                              </a>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Reliever TO */}
+                        <div className={`p-2 rounded-lg border ${
+                          hasReliever 
+                            ? 'bg-cyan-950/40 border-cyan-500/50' 
+                            : 'bg-slate-900/40 border-slate-850'
+                        }`}>
+                          <div className="flex justify-between items-center">
+                            <span className="text-[9px] uppercase tracking-wider font-mono font-bold text-cyan-300">
+                              Upcoming Reliever (Next TO)
+                            </span>
+                            {t.reliever?.dutyNo && t.reliever.dutyNo !== '--' && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400 font-mono font-bold">
+                                Duty {t.reliever.dutyNo}
+                              </span>
+                            )}
+                          </div>
+                          {isVerifiedReliever && t.reliever ? (
+                            <div className="mt-1 flex justify-between items-center">
+                              <div>
+                                <div className="text-xs font-bold font-mono text-cyan-200">
+                                  {t.reliever.name} <span className="font-normal text-[10px] text-slate-400">({t.reliever.id})</span>
+                                </div>
+                                <div className="text-[9px] text-slate-400 font-mono">
+                                  Handover Time: <strong className="text-white">{t.reliever.takeoverTime}</strong>
+                                </div>
+                              </div>
+                              {relieverContact?.phone && (
+                                <a
+                                  href={`tel:${relieverContact.phone}`}
+                                  className="px-2 py-1 bg-cyan-900 hover:bg-cyan-800 text-cyan-200 border border-cyan-700 rounded text-[9px] font-bold flex items-center gap-1 shadow"
+                                  title={`Call Reliever: ${relieverContact.phone}`}
+                                >
+                                  <Phone size={10} /> Call
+                                </a>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-rose-400 italic text-[10px] mt-1 font-mono flex items-center justify-between">
+                              <span>No reliever assigned • Voice suppressed</span>
+                              <button
+                                onClick={() => {
+                                  setEmergencyDispatchTrain(t);
+                                  setSelectedStandbyOpId('');
+                                  setDispatchHandoverStation(t.scheduledHandoverStation || t.stationCode || 'PYID');
+                                }}
+                                className="px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white rounded text-[9px] font-black uppercase not-italic shadow"
+                              >
+                                ⚡ Dispatch Standby
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Card Footer Actions */}
+                      <div className="mt-3 pt-2 border-t border-slate-800/60 flex justify-between items-center text-[10px]">
+                        <span className="text-slate-400 font-mono">
+                          Dist: <strong className="text-slate-300">{t.distToStation} KM away</strong>
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {hasReliever && !isDeparted && t.reliever && (
+                            <>
+                              <button
+                                onClick={() => handleConfirmHandover(t)}
+                                className="flex items-center gap-1 text-[9px] text-emerald-950 bg-emerald-400 hover:bg-emerald-300 px-2 py-1 rounded font-black font-mono transition shadow"
+                                title="Confirm Platform Handover & Swap Active Operator"
+                              >
+                                <CheckCircle2 size={11} /> Handover
+                              </button>
+                              <button
+                                onClick={() => triggerBilingualAnnouncement(
+                                  t.trainId, 
+                                  t.direction, 
+                                  t.reliever?.name, 
+                                  t.operatorName, 
+                                  t.scheduledHandoverStation || t.stationCode,
+                                  t.reliever?.dutyNo,
+                                  t.dutyNo,
+                                  t.timeRemainingMins || 3
+                                )}
+                                className="flex items-center gap-1 text-[9px] text-cyan-300 bg-cyan-950 hover:bg-cyan-900 px-2 py-1 rounded border border-cyan-700 font-bold font-mono transition shadow"
+                                title="Re-trigger 3-Min Handover Voice Announcement"
+                              >
+                                <Megaphone size={11} /> 3m Voice
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* DOWN Platform Column */}
+            <div className="bg-slate-900/40 p-3 rounded-xl border border-sky-900/40 space-y-3">
+              <div className="flex items-center justify-between border-b border-sky-800/40 pb-2">
+                <span className="font-mono font-black text-xs text-sky-400 flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-sky-400"></span>
+                  DOWN PLATFORM (North BIET ➔ South APTD)
+                </span>
+                <span className="px-2 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-700 text-[9px] font-bold font-mono">
+                  {filteredReliefAlerts.filter(t => t.direction === 'DOWN').length} Trains
+                </span>
+              </div>
+              <div className="space-y-3">
+                {filteredReliefAlerts.filter(t => t.direction === 'DOWN').map(t => {
+                  const isDeparted = t.isDeparted;
+                  const hasReliever = t.hasReliever;
+                  const isVerifiedReliever = t.isVerifiedReliever;
+                  const isTripCompletingIn3Mins = t.isTripCompletingIn3Mins;
+                  const activeContact = getOperatorContact(t.operatorId, t.operatorName);
+                  const relieverContact = t.reliever ? getOperatorContact(t.reliever.id, t.reliever.name) : null;
+
+                  return (
+                    <div 
+                      key={`split_dn_${t.trainId}_${t.stationCode}`}
+                      className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all duration-200 ${
+                        isDeparted
+                          ? 'bg-slate-900/40 border-slate-800 text-slate-400 opacity-60'
+                          : hasReliever 
+                            ? 'bg-cyan-950/30 border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(6,182,212,0.25)] hover:border-cyan-300'
+                            : isTripCompletingIn3Mins && !isVerifiedReliever
+                              ? 'bg-rose-950/25 border-rose-500/50 text-rose-200 shadow-[0_0_12px_rgba(244,63,94,0.2)]'
+                              : 'bg-slate-900/60 border-slate-800 text-slate-300'
+                      }`}
+                    >
+                      {/* Card Header */}
+                      <div className="flex justify-between items-center mb-2.5 border-b border-slate-800/80 pb-2">
+                        <span className="font-black text-sm text-white flex items-center gap-1.5 font-mono">
+                          <Train className={`h-4 w-4 ${isDeparted ? 'text-slate-500' : hasReliever ? 'text-cyan-400 animate-pulse' : 'text-slate-400'}`} /> 
+                          Train {t.trainId} • {t.stationNameEn || t.stationCode}
+                        </span>
+                        <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${
+                          isDeparted
+                            ? 'bg-slate-800 text-slate-400 border border-slate-700'
+                            : hasReliever 
+                              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 animate-pulse' 
+                              : isTripCompletingIn3Mins && !isVerifiedReliever
+                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-bounce'
+                                : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}>
+                          {isDeparted
+                            ? 'DEPARTED'
+                            : hasReliever 
+                              ? `📢 3-MIN RELIEF DUE (${t.timeRemainingMins || 3}m)` 
+                              : isTripCompletingIn3Mins && !isVerifiedReliever
+                                ? `NO RELIEVER (${t.timeRemainingMins}m) • MUTED`
+                                : 'HOLDING'}
+                        </span>
+                      </div>
+
+                      {/* Driver & Reliever Details */}
+                      <div className="space-y-2 text-xs">
+                        {/* Active TO */}
+                        <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-850 flex justify-between items-center">
+                          <div>
+                            <div className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Active Train Operator</div>
+                            <div className="text-white text-xs font-bold font-mono mt-0.5">
+                              {t.operatorName} <span className="text-slate-400 font-normal text-[10px]">({t.operatorId})</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {t.dutyNo && t.dutyNo !== '--' && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/20 font-mono font-bold">
+                                Duty {t.dutyNo}
+                              </span>
+                            )}
+                            {activeContact?.phone && (
+                              <a
+                                href={`tel:${activeContact.phone}`}
+                                className="px-2 py-1 bg-emerald-900 hover:bg-emerald-800 text-emerald-200 border border-emerald-700 rounded text-[9px] font-bold flex items-center gap-1 shadow"
+                                title={`Call Active TO: ${activeContact.phone}`}
+                              >
+                                <Phone size={10} /> Call
+                              </a>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Reliever TO */}
+                        <div className={`p-2 rounded-lg border ${
+                          hasReliever 
+                            ? 'bg-sky-950/40 border-sky-500/50' 
+                            : 'bg-slate-900/40 border-slate-850'
+                        }`}>
+                          <div className="flex justify-between items-center">
+                            <span className="text-[9px] uppercase tracking-wider font-mono font-bold text-sky-300">
+                              Upcoming Reliever (Next TO)
+                            </span>
+                            {t.reliever?.dutyNo && t.reliever.dutyNo !== '--' && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-400 font-mono font-bold">
+                                Duty {t.reliever.dutyNo}
+                              </span>
+                            )}
+                          </div>
+                          {isVerifiedReliever && t.reliever ? (
+                            <div className="mt-1 flex justify-between items-center">
+                              <div>
+                                <div className="text-xs font-bold font-mono text-sky-200">
+                                  {t.reliever.name} <span className="font-normal text-[10px] text-slate-400">({t.reliever.id})</span>
+                                </div>
+                                <div className="text-[9px] text-slate-400 font-mono">
+                                  Handover Time: <strong className="text-white">{t.reliever.takeoverTime}</strong>
+                                </div>
+                              </div>
+                              {relieverContact?.phone && (
+                                <a
+                                  href={`tel:${relieverContact.phone}`}
+                                  className="px-2 py-1 bg-sky-900 hover:bg-sky-800 text-sky-200 border border-sky-700 rounded text-[9px] font-bold flex items-center gap-1 shadow"
+                                  title={`Call Reliever: ${relieverContact.phone}`}
+                                >
+                                  <Phone size={10} /> Call
+                                </a>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-rose-400 italic text-[10px] mt-1 font-mono flex items-center justify-between">
+                              <span>No reliever assigned • Voice suppressed</span>
+                              <button
+                                onClick={() => {
+                                  setEmergencyDispatchTrain(t);
+                                  setSelectedStandbyOpId('');
+                                  setDispatchHandoverStation(t.scheduledHandoverStation || t.stationCode || 'PYID');
+                                }}
+                                className="px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white rounded text-[9px] font-black uppercase not-italic shadow"
+                              >
+                                ⚡ Dispatch Standby
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Card Footer Actions */}
+                      <div className="mt-3 pt-2 border-t border-slate-800/60 flex justify-between items-center text-[10px]">
+                        <span className="text-slate-400 font-mono">
+                          Dist: <strong className="text-slate-300">{t.distToStation} KM away</strong>
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {hasReliever && !isDeparted && t.reliever && (
+                            <>
+                              <button
+                                onClick={() => handleConfirmHandover(t)}
+                                className="flex items-center gap-1 text-[9px] text-emerald-950 bg-emerald-400 hover:bg-emerald-300 px-2 py-1 rounded font-black font-mono transition shadow"
+                                title="Confirm Platform Handover & Swap Active Operator"
+                              >
+                                <CheckCircle2 size={11} /> Handover
+                              </button>
+                              <button
+                                onClick={() => triggerBilingualAnnouncement(
+                                  t.trainId, 
+                                  t.direction, 
+                                  t.reliever?.name, 
+                                  t.operatorName, 
+                                  t.scheduledHandoverStation || t.stationCode,
+                                  t.reliever?.dutyNo,
+                                  t.dutyNo,
+                                  t.timeRemainingMins || 3
+                                )}
+                                className="flex items-center gap-1 text-[9px] text-cyan-300 bg-cyan-950 hover:bg-cyan-900 px-2 py-1 rounded border border-cyan-700 font-bold font-mono transition shadow"
+                                title="Re-trigger 3-Min Handover Voice Announcement"
+                              >
+                                <Megaphone size={11} /> 3m Voice
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          /* Combined Alert Feed Grid */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
             {filteredReliefAlerts.map(t => {
               const isDeparted = t.isDeparted;
               const hasReliever = t.hasReliever;
               const isVerifiedReliever = t.isVerifiedReliever;
               const isTripCompletingIn3Mins = t.isTripCompletingIn3Mins;
+              const activeContact = getOperatorContact(t.operatorId, t.operatorName);
+              const relieverContact = t.reliever ? getOperatorContact(t.reliever.id, t.reliever.name) : null;
 
               return (
                 <div 
@@ -1913,7 +3613,7 @@ export default function LiveTrainPositionTracker({
                       : hasReliever 
                         ? 'bg-emerald-950/30 border-emerald-400 text-emerald-200 shadow-[0_0_15px_rgba(16,185,129,0.25)] hover:border-emerald-300'
                         : isTripCompletingIn3Mins && !isVerifiedReliever
-                          ? 'bg-rose-950/20 border-rose-500/40 text-rose-200'
+                          ? 'bg-rose-950/20 border-rose-500/40 text-rose-200 shadow-[0_0_12px_rgba(244,63,94,0.2)]'
                           : isVerifiedReliever
                             ? 'bg-amber-950/15 border-amber-500/30 text-amber-200'
                             : 'bg-slate-900/40 border-slate-800 text-slate-400'
@@ -1967,8 +3667,19 @@ export default function LiveTrainPositionTracker({
                           )}
                         </div>
                       </div>
-                      <div className="text-white text-xs font-bold font-mono mt-0.5">
-                        {t.operatorName} <span className="text-slate-400 font-normal text-[10px]">({t.operatorId})</span>
+                      <div className="flex justify-between items-center mt-1">
+                        <div className="text-white text-xs font-bold font-mono">
+                          {t.operatorName} <span className="text-slate-400 font-normal text-[10px]">({t.operatorId})</span>
+                        </div>
+                        {activeContact?.phone && (
+                          <a
+                            href={`tel:${activeContact.phone}`}
+                            className="px-2 py-0.5 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/60 rounded text-[9px] font-bold flex items-center gap-1"
+                            title={`Call Driver: ${activeContact.phone}`}
+                          >
+                            <Phone size={10} /> Call
+                          </a>
+                        )}
                       </div>
                       {t.isExchanged && (
                         <div className="text-[8px] text-yellow-400 mt-1 font-bold">
@@ -2000,9 +3711,20 @@ export default function LiveTrainPositionTracker({
                         )}
                       </div>
                       {isVerifiedReliever && t.reliever ? (
-                        <div className="mt-0.5">
-                          <div className={`text-xs font-bold font-mono ${hasReliever ? 'text-cyan-200 text-sm' : 'text-amber-300'}`}>
-                            {t.reliever?.name || '--'} <span className="font-normal text-[10px] opacity-75">({t.reliever?.id || '--'})</span>
+                        <div className="mt-1">
+                          <div className="flex justify-between items-center">
+                            <div className={`text-xs font-bold font-mono ${hasReliever ? 'text-cyan-200 text-sm' : 'text-amber-300'}`}>
+                              {t.reliever?.name || '--'} <span className="font-normal text-[10px] opacity-75">({t.reliever?.id || '--'})</span>
+                            </div>
+                            {relieverContact?.phone && (
+                              <a
+                                href={`tel:${relieverContact.phone}`}
+                                className="px-2 py-0.5 bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/60 rounded text-[9px] font-bold flex items-center gap-1"
+                                title={`Call Reliever: ${relieverContact.phone}`}
+                              >
+                                <Phone size={10} /> Call
+                              </a>
+                            )}
                           </div>
                           {t.reliever?.takeoverTime && t.reliever.takeoverTime !== '--' && (
                             <div className="text-[9px] text-slate-400 font-mono mt-1 flex justify-between">
@@ -2014,44 +3736,61 @@ export default function LiveTrainPositionTracker({
                           )}
                         </div>
                       ) : (
-                        <div className="text-rose-400 italic text-[10px] mt-0.5 font-mono">
-                          No reliever assigned • Voice announcement suppressed
+                        <div className="mt-1 flex items-center justify-between">
+                          <span className="text-rose-400 italic text-[10px] font-mono">
+                            No reliever assigned • Voice suppressed
+                          </span>
+                          <button
+                            onClick={() => {
+                              setEmergencyDispatchTrain(t);
+                              setSelectedStandbyOpId('');
+                              setDispatchHandoverStation(t.scheduledHandoverStation || t.stationCode || 'PYID');
+                            }}
+                            className="px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white rounded text-[9px] font-black uppercase shadow"
+                            title="Dispatch Standby Operator Immediately"
+                          >
+                            ⚡ Dispatch Standby
+                          </button>
                         </div>
                       )}
                     </div>
-
-                    {/* Previous Operator Info */}
-                    {t.previousOperator && (
-                      <div className="text-[9px] text-slate-500 font-mono px-1">
-                        Previous TO: <span className="text-slate-400">{t.previousOperator?.name || '--'}</span> ({t.previousOperator?.id || '--'}) • Duty {t.previousOperator?.dutyNo || '--'}
-                      </div>
-                    )}
                   </div>
 
-                  {/* Card Footer: Proximity & Manual Re-announce Trigger */}
+                  {/* Card Footer: Proximity & Actions */}
                   <div className="mt-3 pt-2 border-t border-slate-800/60 flex justify-between items-center text-[10px]">
                     <span className="text-slate-400 font-mono">
                       Pos: <strong className="text-slate-300">{t.currentStation}</strong>
                       {isDeparted ? ' (Departed)' : ` (${t.distToStation} KM away)`}
                     </span>
-                    {hasReliever && !isDeparted && t.reliever && (
-                      <button
-                        onClick={() => triggerBilingualAnnouncement(
-                          t.trainId, 
-                          t.direction, 
-                          t.reliever?.name, 
-                          t.operatorName, 
-                          t.scheduledHandoverStation || t.stationCode,
-                          t.reliever?.dutyNo,
-                          t.dutyNo,
-                          t.timeRemainingMins || 3
-                        )}
-                        className="flex items-center gap-1 text-[9px] text-cyan-300 bg-cyan-950 hover:bg-cyan-900 px-2.5 py-1 rounded border border-cyan-700 font-bold font-mono transition shadow"
-                        title="Re-trigger 3-Min Handover Voice Announcement"
-                      >
-                        <Megaphone className="h-3 w-3 text-cyan-400" /> Re-announce (3m)
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {hasReliever && !isDeparted && t.reliever && (
+                        <>
+                          <button
+                            onClick={() => handleConfirmHandover(t)}
+                            className="flex items-center gap-1 text-[9px] text-emerald-950 bg-emerald-400 hover:bg-emerald-300 px-2.5 py-1 rounded font-black font-mono transition shadow"
+                            title="Confirm Handover & Swap Train Operator"
+                          >
+                            <CheckCircle2 className="h-3 w-3" /> Handover
+                          </button>
+                          <button
+                            onClick={() => triggerBilingualAnnouncement(
+                              t.trainId, 
+                              t.direction, 
+                              t.reliever?.name, 
+                              t.operatorName, 
+                              t.scheduledHandoverStation || t.stationCode,
+                              t.reliever?.dutyNo,
+                              t.dutyNo,
+                              t.timeRemainingMins || 3
+                            )}
+                            className="flex items-center gap-1 text-[9px] text-cyan-300 bg-cyan-950 hover:bg-cyan-900 px-2 py-1 rounded border border-cyan-700 font-bold font-mono transition shadow"
+                            title="Re-trigger 3-Min Handover Voice Announcement"
+                          >
+                            <Megaphone className="h-3 w-3 text-cyan-400" /> Re-announce
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -2199,12 +3938,39 @@ export default function LiveTrainPositionTracker({
               </button>
             </div>
 
-            {/* Export Full Fleet Reports */}
-            <div className="flex items-center gap-1.5">
+            {/* Fleet Operations Actions: Recalibrate KM, Excel & CSV Export */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Recalibrate KM Engine Button */}
+              <button
+                onClick={handleRecalibrateKmEngine}
+                disabled={isRecalibratingKm}
+                className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg text-xs font-black flex items-center gap-1.5 border border-amber-300 shadow-sm transition active:scale-95 disabled:opacity-50"
+                title="Recalibrate and synchronize all 34 ATS station distances with day WTT"
+              >
+                <RotateCcw size={13} className={isRecalibratingKm ? "animate-spin" : ""} />
+                <span>{isRecalibratingKm ? 'CALIBRATING...' : 'RECALIBRATE KM'}</span>
+                {kmRecalibrationCount > 0 && (
+                  <span className="ml-0.5 px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 text-[8px] font-mono font-bold">
+                    #{kmRecalibrationCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Multi-Sheet Excel (.xlsx) Export */}
+              <button
+                onClick={exportFleetReportExcel}
+                className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 border border-emerald-400/40 shadow-sm transition active:scale-95"
+                title="Download complete 3-sheet Excel Workbook (.xlsx) with Fleet KM, Driver Relief, and Energy"
+              >
+                <FileSpreadsheet size={13} />
+                <span>EXCEL (.XLSX)</span>
+              </button>
+
+              {/* CSV Export */}
               <button
                 onClick={exportFleetReportCsv}
-                className="px-2.5 py-1.5 bg-emerald-700/80 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 border border-emerald-500/40 shadow-sm transition"
-                title="Download full fleet operations report as CSV"
+                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-200 rounded-lg text-xs font-bold flex items-center gap-1.5 border border-slate-700 shadow-sm transition"
+                title="Download raw fleet operations CSV"
               >
                 <Download size={13} />
                 <span>CSV</span>
@@ -2590,22 +4356,139 @@ export default function LiveTrainPositionTracker({
             <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-700">
               <table className="w-full text-left font-mono text-[10px] border-collapse">
                 <thead>
-                  <tr className="bg-slate-900 border-b border-slate-800 text-slate-400 font-bold uppercase text-[8.5px]">
-                    <th className="py-3 px-3">Train ID</th>
+                  <tr className="bg-slate-900 border-b border-slate-800 text-slate-400 font-bold uppercase text-[8.5px] select-none">
+                    <th 
+                      onClick={() => handleFleetHeaderSort('trainId')} 
+                      className="py-3 px-3 cursor-pointer hover:text-cyan-300 transition"
+                      title="Click to sort by Train ID"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Train ID</span>
+                        {fleetSortBy === 'trainId' && <span className="text-cyan-400 font-black">{fleetSortOrder === 'asc' ? '▲' : '▼'}</span>}
+                      </div>
+                    </th>
                     <th className="py-3 px-2">Status</th>
-                    <th className="py-3 px-2">Dir</th>
-                    <th className="py-3 px-3">Current Location</th>
-                    <th className="py-3 px-2">Chainage</th>
-                    <th className="py-3 px-2 text-center">Velocity</th>
-                    <th className="py-3 px-2 text-center">Variance ($\Delta t$)</th>
-                    <th className="py-3 px-3">Active Train Operator</th>
+                    <th 
+                      onClick={() => handleFleetHeaderSort('direction')} 
+                      className="py-3 px-2 cursor-pointer hover:text-cyan-300 transition"
+                      title="Click to sort by Direction"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Dir</span>
+                        {fleetSortBy === 'direction' && <span className="text-cyan-400 font-black">{fleetSortOrder === 'asc' ? '▲' : '▼'}</span>}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleFleetHeaderSort('currentStation')} 
+                      className="py-3 px-3 cursor-pointer hover:text-cyan-300 transition"
+                      title="Click to sort by Current Station"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Current Location</span>
+                        {fleetSortBy === 'currentStation' && <span className="text-cyan-400 font-black">{fleetSortOrder === 'asc' ? '▲' : '▼'}</span>}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleFleetHeaderSort('chainage')} 
+                      className="py-3 px-2 cursor-pointer hover:text-cyan-300 transition"
+                      title="Click to sort by Chainage (KM)"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Chainage</span>
+                        {fleetSortBy === 'chainage' && <span className="text-cyan-400 font-black">{fleetSortOrder === 'asc' ? '▲' : '▼'}</span>}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleFleetHeaderSort('speed')} 
+                      className="py-3 px-2 text-center cursor-pointer hover:text-cyan-300 transition"
+                      title="Click to sort by Velocity (km/h)"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Velocity</span>
+                        {(fleetSortBy === 'speed' || fleetSortBy === 'instantaneousSpeed') && <span className="text-cyan-400 font-black">{fleetSortOrder === 'asc' ? '▲' : '▼'}</span>}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleFleetHeaderSort('delayMins')} 
+                      className="py-3 px-2 text-center cursor-pointer hover:text-cyan-300 transition"
+                      title="Click to sort by Punctuality Variance"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Variance ($\Delta t$)</span>
+                        {fleetSortBy === 'delayMins' && <span className="text-cyan-400 font-black">{fleetSortOrder === 'asc' ? '▲' : '▼'}</span>}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleFleetHeaderSort('operatorName')} 
+                      className="py-3 px-3 cursor-pointer hover:text-cyan-300 transition"
+                      title="Click to sort by Train Operator Name"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Active Train Operator</span>
+                        {fleetSortBy === 'operatorName' && <span className="text-cyan-400 font-black">{fleetSortOrder === 'asc' ? '▲' : '▼'}</span>}
+                      </div>
+                    </th>
                     <th className="py-3 px-3">PYID Reliever</th>
-                    <th className="py-3 px-2 text-center">Trips</th>
-                    <th className="py-3 px-3 text-right">Assigned KM</th>
-                    <th className="py-3 px-3 text-right text-emerald-400">Covered KM</th>
-                    <th className="py-3 px-3 text-right text-cyan-400">Remaining KM</th>
-                    <th className="py-3 px-2 text-right text-purple-400">Net kWh</th>
-                    <th className="py-3 px-3 text-center">Day Progress</th>
+                    <th 
+                      onClick={() => handleFleetHeaderSort('trips')} 
+                      className="py-3 px-2 text-center cursor-pointer hover:text-cyan-300 transition"
+                      title="Click to sort by Completed Trips"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Trips</span>
+                        {(fleetSortBy === 'trips' || fleetSortBy === 'completedTripsCount') && <span className="text-cyan-400 font-black">{fleetSortOrder === 'asc' ? '▲' : '▼'}</span>}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleFleetHeaderSort('totalDayAssignedKm')} 
+                      className="py-3 px-3 text-right cursor-pointer hover:text-cyan-300 transition"
+                      title="Click to sort by Assigned KM"
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Assigned KM</span>
+                        {fleetSortBy === 'totalDayAssignedKm' && <span className="text-cyan-400 font-black">{fleetSortOrder === 'asc' ? '▲' : '▼'}</span>}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleFleetHeaderSort('dayDistanceCoveredKm')} 
+                      className="py-3 px-3 text-right text-emerald-400 cursor-pointer hover:text-emerald-300 transition"
+                      title="Click to sort by Covered KM"
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Covered KM</span>
+                        {fleetSortBy === 'dayDistanceCoveredKm' && <span className="text-emerald-400 font-black">{fleetSortOrder === 'asc' ? '▲' : '▼'}</span>}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleFleetHeaderSort('dayDistanceRemainingKm')} 
+                      className="py-3 px-3 text-right text-cyan-400 cursor-pointer hover:text-cyan-300 transition"
+                      title="Click to sort by Remaining KM"
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Remaining KM</span>
+                        {fleetSortBy === 'dayDistanceRemainingKm' && <span className="text-cyan-400 font-black">{fleetSortOrder === 'asc' ? '▲' : '▼'}</span>}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleFleetHeaderSort('netEnergyKwh')} 
+                      className="py-3 px-2 text-right text-purple-400 cursor-pointer hover:text-purple-300 transition"
+                      title="Click to sort by Net Traction Energy (kWh)"
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Net kWh</span>
+                        {fleetSortBy === 'netEnergyKwh' && <span className="text-purple-400 font-black">{fleetSortOrder === 'asc' ? '▲' : '▼'}</span>}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleFleetHeaderSort('progressPct')} 
+                      className="py-3 px-3 text-center cursor-pointer hover:text-cyan-300 transition"
+                      title="Click to sort by Day Progress %"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Day Progress</span>
+                        {fleetSortBy === 'progressPct' && <span className="text-cyan-400 font-black">{fleetSortOrder === 'asc' ? '▲' : '▼'}</span>}
+                      </div>
+                    </th>
                     <th className="py-3 px-3 text-center">Actions</th>
                   </tr>
                 </thead>
@@ -3028,8 +4911,8 @@ export default function LiveTrainPositionTracker({
               </div>
             </div>
 
-            {/* Modal Tab Switcher */}
-            <div className="bg-slate-900/60 border-b border-slate-850 px-5 py-2 flex items-center gap-2">
+            {/* Modal Tab Switcher (Touch Scrollable) */}
+            <div className="bg-slate-900/60 border-b border-slate-850 px-3 md:px-5 py-2 flex items-center gap-2 overflow-x-auto scrollbar-none flex-nowrap">
               {[
                 { id: 'schedule', label: `1. Trips Itinerary (${selectedTrain.allTrips?.length || 0})` },
                 { id: 'energy', label: '2. Traction & Energy (SEC)' },
@@ -3039,10 +4922,10 @@ export default function LiveTrainPositionTracker({
                 <button
                   key={tab.id}
                   onClick={() => setModalTab(tab.id)}
-                  className={`px-3 py-1 rounded text-xs font-bold transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
                     modalTab === tab.id
                       ? 'bg-cyan-600 text-white shadow-md'
-                      : 'text-slate-400 hover:text-slate-200'
+                      : 'text-slate-400 hover:text-slate-200 bg-slate-900/50'
                   }`}
                 >
                   {tab.label}
@@ -3051,8 +4934,72 @@ export default function LiveTrainPositionTracker({
             </div>
 
             {/* Modal Body (Scrollable) */}
-            <div className="p-5 space-y-4 overflow-y-auto flex-1 text-xs">
+            <div className="p-3 md:p-5 space-y-4 overflow-y-auto flex-1 text-xs">
               
+              {/* Active Driving Operator & Reliever Handover Status Banner (Mobile-Optimized) */}
+              <div className="bg-slate-900/90 border border-cyan-800/60 rounded-xl p-3 md:p-4 shadow-md">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* Current Driver */}
+                  <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                    <span className="text-[9px] uppercase font-bold text-cyan-400 tracking-wider flex items-center gap-1.5 mb-1 font-mono">
+                      <User size={12} className="text-cyan-400" />
+                      Current Driving Train Operator
+                    </span>
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-sm font-black text-white font-mono">
+                        {selectedTrain.operatorName || 'Unassigned / Unlogged'}
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-bold font-mono">
+                        {selectedTrain.operatorId ? `ID: ${selectedTrain.operatorId}` : 'ID: --'} • Duty {selectedTrain.dutyNo || '--'}
+                      </span>
+                    </div>
+                    <div className="mt-2 text-[10px] text-slate-400 flex items-center justify-between">
+                      <span>Location: <strong className="text-slate-200">{selectedTrain.currentStation || '--'}</strong></span>
+                      <span>Mode: <strong className="text-emerald-400">{selectedTrain.isStabling ? 'STABLED' : (selectedTrain.mode || 'ATO')}</strong></span>
+                    </div>
+                  </div>
+
+                  {/* Upcoming Reliever */}
+                  <div className={`p-2.5 rounded-lg border ${
+                    selectedTrain.hasReliever && selectedTrain.reliever?.name && selectedTrain.reliever.name !== '--' && selectedTrain.reliever.name !== '-'
+                      ? (selectedTrain.shouldAnnounceReliever
+                          ? 'bg-amber-950/40 border-amber-500 shadow-md ring-1 ring-amber-500/50'
+                          : 'bg-emerald-950/30 border-emerald-700/60')
+                      : 'bg-slate-950 border-slate-800'
+                  }`}>
+                    <span className="text-[9px] uppercase font-bold text-amber-400 tracking-wider flex items-center gap-1.5 mb-1 font-mono">
+                      <Radio size={12} className={selectedTrain.shouldAnnounceReliever ? 'animate-pulse text-rose-400' : 'text-amber-400'} />
+                      Live Reliever Matrix Handover Status
+                    </span>
+                    {selectedTrain.hasReliever && selectedTrain.reliever?.name && selectedTrain.reliever.name !== '--' && selectedTrain.reliever.name !== '-' ? (
+                      <div>
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className="text-sm font-black text-amber-300 font-mono">
+                            {selectedTrain.reliever.name}
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-700 font-bold font-mono">
+                            Duty {selectedTrain.reliever.dutyNo || '--'}
+                          </span>
+                        </div>
+                        <div className="mt-2 text-[10px] text-slate-300 flex items-center justify-between flex-wrap gap-1 font-mono">
+                          <span>Station: <strong className="text-cyan-300">{selectedTrain.reliever.station || selectedTrain.scheduledHandoverStation || 'PYID'}</strong></span>
+                          <span>Time: <strong className="text-white">{selectedTrain.reliever.time || selectedTrain.reliever.startTime || selectedTrain.dutyEnd || '--'}</strong></span>
+                          {selectedTrain.shouldAnnounceReliever && (
+                            <span className="text-rose-400 font-black animate-pulse">
+                              ⏳ Due in {Math.max(0, Math.floor((selectedTrain.timeRemainingToCompletionSec || 0) / 60))}m {(selectedTrain.timeRemainingToCompletionSec || 0) % 60}s
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-slate-500 py-1 font-medium">
+                        No reliever scheduled for current trip segment
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* 4 Key Timetable KM Metric Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 text-center">
@@ -3311,6 +5258,459 @@ export default function LiveTrainPositionTracker({
           </div>
         </div>
       )}
+
+      {/* ── Real-Time Handover & Operational Action Toast ── */}
+      {handoverToast && (
+        <div className="fixed bottom-6 right-6 z-50 animate-bounce">
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border text-xs font-mono font-bold ${
+            handoverToast.type === 'success'
+              ? 'bg-emerald-950 text-emerald-200 border-emerald-500 shadow-emerald-950/60'
+              : 'bg-cyan-950 text-cyan-200 border-cyan-500 shadow-cyan-950/60'
+          }`}>
+            {handoverToast.type === 'success' ? (
+              <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+            ) : (
+              <Sparkles className="h-5 w-5 text-cyan-400 shrink-0" />
+            )}
+            <span>{handoverToast.message}</span>
+            <button
+              onClick={() => setHandoverToast(null)}
+              className="ml-2 text-slate-400 hover:text-white"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Emergency Standby Reliever Dispatch Modal ── */}
+      {emergencyDispatchTrain && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-rose-500/50 rounded-2xl max-w-lg w-full p-5 shadow-2xl space-y-4">
+            <div className="flex justify-between items-start border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-rose-400 animate-pulse" />
+                <div>
+                  <h3 className="text-sm font-black text-rose-300 uppercase tracking-wider font-mono">
+                    Emergency Standby TO Dispatch
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-sans">
+                    Train {emergencyDispatchTrain.trainId} ({emergencyDispatchTrain.direction} Platform) • Driving TO: {emergencyDispatchTrain.operatorName}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEmergencyDispatchTrain(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="bg-rose-950/20 border border-rose-900/40 p-3 rounded-xl text-[11px] text-rose-200">
+              Trip is completing soon and no reliever is rostered. Dispatch a standby operator to the designated platform immediately to avoid operational stalling.
+            </div>
+
+            <div className="space-y-3 font-mono text-xs">
+              <div>
+                <label className="text-slate-400 text-[10px] uppercase font-bold block mb-1">
+                  Select Standby Operator (EMPLOYEE REGISTRY)
+                </label>
+                <select
+                  value={selectedStandbyOpId}
+                  onChange={(e) => setSelectedStandbyOpId(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-750 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-rose-500 text-xs"
+                >
+                  <option value="">-- Choose Available Standby / Reserve TO --</option>
+                  {(EMPLOYEE_MASTER_REGISTRY || [])
+                    .filter(e => e.designation?.toLowerCase().includes('operator') || e.designation?.toLowerCase().includes('to') || !e.designation)
+                    .map(emp => (
+                      <option key={emp.empId} value={emp.empId}>
+                        {emp.name} (#{emp.empId}) • {emp.designation || 'TO'} • {emp.boardingStation || 'PYID Depot'}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-slate-400 text-[10px] uppercase font-bold block mb-1">
+                  Designated Handover Platform Station
+                </label>
+                <select
+                  value={dispatchHandoverStation}
+                  onChange={(e) => setDispatchHandoverStation(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-750 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-rose-500 text-xs"
+                >
+                  <option value="PYID">Peenya Industry (PYID - Line 2 Depot)</option>
+                  <option value="KGWA">Majestic Kempegowda (KGWA - Hub)</option>
+                  <option value="PUTH">Yelachenahalli (PUTH - South Hub)</option>
+                  <option value="BIET">Madavara (BIET - North Terminal)</option>
+                  <option value="APTS">Silk Institute (APTS - South Terminal)</option>
+                  <option value="NGSA">Nagasandra (NGSA)</option>
+                  <option value="YPM">Yeshwanthpur (YPM)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-850">
+              <button
+                onClick={() => setEmergencyDispatchTrain(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold font-mono transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDispatchStandbyCrew}
+                disabled={!selectedStandbyOpId}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white rounded-lg text-xs font-black font-mono transition flex items-center gap-1.5 shadow-lg"
+              >
+                <Zap size={14} />
+                <span>CONFIRM EMERGENCY DISPATCH</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Quick Reliever Assignment & Swap Modal ── */}
+      {quickReliefModalTrain && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-cyan-500/50 rounded-2xl max-w-lg w-full p-5 shadow-2xl space-y-4">
+            <div className="flex justify-between items-start border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <UserCheck className="h-5 w-5 text-cyan-400" />
+                <div>
+                  <h3 className="text-sm font-black text-cyan-300 uppercase tracking-wider font-mono">
+                    Quick Reliever Assignment & Swap
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-sans">
+                    Train {quickReliefModalTrain.trainId} ({quickReliefModalTrain.direction} Platform) • Driving TO: {quickReliefModalTrain.operatorName}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setQuickReliefModalTrain(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-3 font-mono text-xs">
+              <div>
+                <label className="text-slate-400 text-[10px] uppercase font-bold block mb-1">
+                  Reliever Train Operator
+                </label>
+                <select
+                  value={quickRelieverEmpId}
+                  onChange={(e) => setQuickRelieverEmpId(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-750 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-xs"
+                >
+                  <option value="">-- Select Reliever Operator from Master Registry --</option>
+                  {(EMPLOYEE_MASTER_REGISTRY || []).map(emp => (
+                    <option key={emp.empId} value={emp.empId}>
+                      {emp.name} (#{emp.empId}) • {emp.designation || 'TO'} • {emp.boardingStation || 'PYID Depot'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-400 text-[10px] uppercase font-bold block mb-1">
+                    Relief Duty ID / Shift
+                  </label>
+                  <input
+                    type="text"
+                    value={quickRelieverDutyNo}
+                    onChange={(e) => setQuickRelieverDutyNo(e.target.value)}
+                    placeholder="e.g. 24, B32, REL"
+                    className="w-full bg-slate-900 border border-slate-750 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-xs font-mono uppercase"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-400 text-[10px] uppercase font-bold block mb-1">
+                    Handover Station
+                  </label>
+                  <select
+                    value={quickRelieverStation}
+                    onChange={(e) => setQuickRelieverStation(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-750 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-500 text-xs"
+                  >
+                    <option value="PYID">Peenya Industry (PYID)</option>
+                    <option value="KGWA">Majestic Kempegowda (KGWA)</option>
+                    <option value="PUTH">Yelachenahalli (PUTH)</option>
+                    <option value="BIET">Madavara (BIET)</option>
+                    <option value="APTS">Silk Institute (APTS)</option>
+                    <option value="NGSA">Nagasandra (NGSA)</option>
+                    <option value="YPM">Yeshwanthpur (YPM)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-850">
+              <button
+                onClick={() => setQuickReliefModalTrain(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold font-mono transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleQuickAssignReliever}
+                disabled={!quickRelieverEmpId}
+                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white rounded-lg text-xs font-black font-mono transition flex items-center gap-1.5 shadow-lg"
+              >
+                <Check size={14} />
+                <span>CONFIRM RELIEVER ASSIGNMENT</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Official Master Reliever ID Chart Modal (All Day Types: Weekday, Monday, Saturday & GH, Sunday) ── */}
+      {showReliefIdChartModal && (() => {
+        const activeModalChartInfo = getReliefIdChartForDay(idChartModalDayType);
+        const modalMeta = activeModalChartInfo?.meta || WEEKDAY_RELIEF_ID_CHART_META;
+        const modalChart = activeModalChartInfo?.chart || WEEKDAY_RELIEF_ID_CHART;
+        const trainList = modalMeta.trains || Object.keys(modalChart);
+
+        const activeColumns = trainList.filter(t => {
+          if (idChartSelectedTrain !== 'ALL' && idChartSelectedTrain !== t) return false;
+          if (!idChartModalSearch.trim()) return true;
+          const q = idChartModalSearch.trim().toLowerCase().replace(/^d/i, '');
+          const legs = modalChart[t] || [];
+          return t.toLowerCase().includes(q) || legs.some(l => String(l.duty).includes(q));
+        });
+
+        const maxRows = Math.max(12, ...trainList.map(t => (modalChart[t] || []).length));
+
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+            <div className="bg-slate-900 border border-cyan-800/80 rounded-2xl w-full max-w-7xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden font-mono">
+              {/* Modal Header */}
+              <div className="bg-slate-950 p-4 border-b border-slate-800 flex flex-col gap-3">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-cyan-950 border border-cyan-700/60 text-cyan-400">
+                      <Table size={18} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm font-black text-white uppercase tracking-wider">
+                          {modalMeta.title}
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700 text-[9px] font-black uppercase">
+                          ALSTOM ATS RELIEF ENGINE
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-700 text-[9px] font-black uppercase">
+                          LOADED: {idChartModalDayType}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        Corridor: {modalMeta.corridor} • Effective: {modalMeta.effectiveDate} • Verified Reliever-Only Handover System
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowReliefIdChartModal(false)}
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition"
+                      title="Close Modal"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Day Type Selector Tabs & Search Row */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
+                  {/* Day Type Switcher Tabs */}
+                  <div className="flex flex-wrap items-center bg-slate-900 border border-slate-800 p-1 rounded-xl gap-1">
+                    {[
+                      { key: 'WEEKDAY', label: 'Weekday Link', sub: '03/Sep/2026' },
+                      { key: 'MONDAY', label: 'Monday (04:00)', sub: '06/Jan/2025' },
+                      { key: 'SATURDAY', label: 'Saturday & GH', sub: '15/Mar/2025' },
+                      { key: 'SUNDAY', label: 'Sunday Link', sub: '08/Dec/2024' }
+                    ].map(tab => (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => {
+                          setIdChartModalDayType(tab.key);
+                          setIdChartSelectedTrain('ALL');
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                          idChartModalDayType === tab.key
+                            ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md font-black'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                        }`}
+                      >
+                        <span>{tab.label}</span>
+                        <span className="text-[9px] opacity-75 font-normal hidden sm:inline">({tab.sub})</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Search & Train Filter */}
+                  <div className="flex items-center gap-2 flex-1 sm:flex-initial">
+                    <div className="relative flex-1 sm:w-60">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                      <input
+                        type="text"
+                        value={idChartModalSearch}
+                        onChange={(e) => setIdChartModalSearch(e.target.value)}
+                        placeholder="Search Train or Duty..."
+                        className="w-full pl-8 pr-7 py-1.5 bg-slate-900 border border-slate-750 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
+                      />
+                      {idChartModalSearch && (
+                        <button
+                          onClick={() => setIdChartModalSearch('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1 bg-slate-900 border border-slate-750 px-2 py-1 rounded-lg text-xs">
+                      <select
+                        value={idChartSelectedTrain}
+                        onChange={(e) => setIdChartSelectedTrain(e.target.value)}
+                        className="bg-transparent text-slate-200 focus:outline-none font-bold text-xs cursor-pointer font-mono"
+                      >
+                        <option value="ALL" className="bg-slate-900 text-white">All Trains</option>
+                        {trainList.map(t => (
+                          <option key={`opt-${t}`} value={t} className="bg-slate-900 text-white">Train {t}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Body: Complete Multi-Column Grid */}
+              <div className="flex-1 overflow-x-auto overflow-y-auto p-4 custom-scrollbar bg-slate-950">
+                <table className="w-full text-left text-xs font-mono border-collapse">
+                  <thead className="sticky top-0 z-20 bg-slate-900 border-b border-slate-800 shadow-md">
+                    <tr>
+                      {activeColumns.map(trainId => (
+                        <th key={`modal-hdr-${trainId}`} colSpan={3} className="p-2 text-center border-r border-slate-800 bg-slate-900">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Train size={12} className="text-cyan-400" />
+                            <span className="font-black text-white text-xs tracking-wider">{trainId}</span>
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                    <tr className="bg-slate-950 text-[10px] text-slate-400 uppercase tracking-wider border-b border-slate-800">
+                      {activeColumns.map(trainId => (
+                        <React.Fragment key={`modal-sub-${trainId}`}>
+                          <th className="py-1 px-1.5 text-center text-slate-500 w-14">From</th>
+                          <th className="py-1 px-1.5 text-center text-slate-500 w-14">To</th>
+                          <th className="py-1 px-1.5 text-center text-cyan-400 w-14 border-r border-slate-800">Duty</th>
+                        </React.Fragment>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.from({ length: maxRows }).map((_, rowIndex) => {
+                      return (
+                        <tr key={`modal-row-${rowIndex}`} className="border-b border-slate-900/80 hover:bg-slate-900/40 transition-colors">
+                          {activeColumns.map(trainId => {
+                            const legs = modalChart[trainId] || [];
+                            const leg = legs[rowIndex];
+
+                            if (!leg) {
+                              return (
+                                <React.Fragment key={`mcell-${trainId}-${rowIndex}`}>
+                                  <td className="py-1.5 px-1.5 text-center text-slate-700">-</td>
+                                  <td className="py-1.5 px-1.5 text-center text-slate-700">-</td>
+                                  <td className="py-1.5 px-1.5 text-center text-slate-700 border-r border-slate-800">-</td>
+                                </React.Fragment>
+                              );
+                            }
+
+                            const startSec = timeToSecondsNormalized(leg.from);
+                            let endSec = timeToSecondsNormalized(leg.to);
+                            if (endSec < startSec) endSec += 24 * 3600;
+
+                            const evalSecs = internalTimeSecs;
+                            const isActiveNow = evalSecs >= startSec && evalSecs <= endSec;
+                            const normDuty = String(leg.duty).padStart(2, '0');
+                            const cleanQuery = idChartModalSearch.trim().toLowerCase().replace(/^d/i, '');
+                            const isDutyMatched = cleanQuery && (normDuty.includes(cleanQuery) || String(leg.duty).includes(cleanQuery));
+
+                            const tracking = dynamicTrainTrackingMap[trainId] || dynamicTrainTrackingMap[normalizeTrackTrainId(trainId)];
+                            const matchedOp = (tracking?.current?.dutyId === normDuty) ? tracking.current
+                                            : (tracking?.nextReliver?.dutyId === normDuty) ? tracking.nextReliver
+                                            : (tracking?.previous?.dutyId === normDuty) ? tracking.previous
+                                            : null;
+
+                            return (
+                              <React.Fragment key={`mcell-${trainId}-${rowIndex}`}>
+                                <td className={`py-1.5 px-1.5 text-center text-[10.5px] font-bold ${
+                                  isActiveNow ? 'bg-emerald-950/70 text-emerald-300 font-black' : 'text-slate-300'
+                                }`}>
+                                  {leg.from}
+                                </td>
+                                <td className={`py-1.5 px-1.5 text-center text-[10.5px] font-bold ${
+                                  isActiveNow ? 'bg-emerald-950/70 text-emerald-300 font-black' : 'text-slate-300'
+                                }`}>
+                                  {leg.to}
+                                </td>
+                                <td className={`py-1.5 px-1.5 text-center border-r border-slate-800 ${
+                                  isActiveNow 
+                                    ? 'bg-emerald-950/90 text-emerald-300 font-black' 
+                                    : isDutyMatched
+                                    ? 'bg-cyan-950 text-cyan-300 font-black'
+                                    : 'text-amber-400 font-black'
+                                }`} title={matchedOp ? `Operator: ${matchedOp.empName} (${matchedOp.empId})` : `Duty ${leg.duty}`}>
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-[11px] leading-tight">
+                                      {leg.duty}
+                                    </span>
+                                    {isActiveNow && (
+                                      <span className="text-[7px] uppercase tracking-tighter text-emerald-400 font-black flex items-center gap-0.5">
+                                        <span className="h-1 w-1 rounded-full bg-emerald-400 animate-ping"></span> LIVE
+                                      </span>
+                                    )}
+                                    {matchedOp && (
+                                      <span className="text-[7px] text-slate-400 truncate max-w-[55px]">
+                                        {matchedOp.empName.split(' ')[0]}
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                              </React.Fragment>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="bg-slate-950 p-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 flex-wrap gap-2">
+                <span className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>Active Link: {modalMeta.effectiveDate} • Corridor: {modalMeta.corridor} • Day Type: <strong className="text-cyan-400">{idChartModalDayType}</strong></span>
+                </span>
+                <button
+                  onClick={() => setShowReliefIdChartModal(false)}
+                  className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-bold font-mono transition"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { lazyWithRetry } from './utils/lazyWithRetry';
 
 import OperationalErrorBoundary from './components/common/OperationalErrorBoundary';
 import OperatorRequestNotificationCenter from './components/common/OperatorRequestNotificationCenter';
+import GlobalAccessibilityMouseDock from './components/common/GlobalAccessibilityMouseDock';
 
 const Dashboard = lazyWithRetry(() => import('./components/Dashboard'));
 const Login = lazyWithRetry(() => import('./components/Login'));
@@ -28,6 +29,7 @@ function MainApp() {
   return (
     <div className="min-h-screen bg-transparent flex flex-col">
       <OperatorRequestNotificationCenter />
+      <GlobalAccessibilityMouseDock />
       <OperationalErrorBoundary>
         <Suspense fallback={<RouteLoader />}>
           <Routes>

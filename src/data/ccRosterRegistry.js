@@ -59,20 +59,8 @@ export function resolveCCDutyForDate(empId, dateStr, customSchedules = {}) {
     };
   }
 
-  // 2. Canonical rotation fallback based on day of week / default
-  const d = new Date(dateStr);
-  const dayName = d.toLocaleDateString('en-IN', { weekday: 'long' });
-
-  // Fixed WO match check
-  if (staff.fixedWo && dayName.toLowerCase() === staff.fixedWo.toLowerCase()) {
-    return {
-      empId,
-      name: staff.name,
-      shiftCode: 'WO',
-      ...CC_SHIFT_DEFINITIONS['WO']
-    };
-  }
-
+  // 2. Canonical desk assignment (Permanent CC Desk: Nagesh N -> A, Deepa L -> B, Rashmi -> C/N)
+  // Official CCs are dedicated solely to CC Desk and do not participate in line weekly off
   const shiftCode = staff.defaultShift || 'A';
   return {
     empId,

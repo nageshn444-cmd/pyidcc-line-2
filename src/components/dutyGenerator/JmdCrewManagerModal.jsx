@@ -75,6 +75,7 @@ export default function JmdCrewManagerModal({
 
   // Edit Directory Profile Modal State
   const [editProfileTD, setEditProfileTD] = useState(null);
+  const [editName, setEditName] = useState('');
   const [editDesignation, setEditDesignation] = useState('Train Driver (JMD Contract)');
   const [editDepot, setEditDepot] = useState('PYID');
   const [editPhone, setEditPhone] = useState('');
@@ -83,6 +84,10 @@ export default function JmdCrewManagerModal({
   const [editMedicalDate, setEditMedicalDate] = useState('2027-12-31');
   const [editFixedWo, setEditFixedWo] = useState('Sunday');
   const [editNotes, setEditNotes] = useState('');
+
+  // Inline Name Editing State
+  const [editingNameEmpId, setEditingNameEmpId] = useState(null);
+  const [inlineNameValue, setInlineNameValue] = useState('');
 
   // Add New JMD TD Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -197,8 +202,38 @@ export default function JmdCrewManagerModal({
     });
   };
 
+  const handleStartInlineNameEdit = (emp) => {
+    setEditingNameEmpId(emp.empId);
+    setInlineNameValue(emp.name || '');
+  };
+
+  const handleCancelInlineNameEdit = () => {
+    setEditingNameEmpId(null);
+    setInlineNameValue('');
+  };
+
+  const handleSaveInlineName = (empId) => {
+    const trimmed = inlineNameValue.trim();
+    if (!trimmed) {
+      alert("Train driver name cannot be empty.");
+      return;
+    }
+    onUpdateCrewStatus(empId, {
+      name: trimmed,
+      employeeName: trimmed,
+      updatedAt: new Date().toISOString()
+    });
+    setEditingNameEmpId(null);
+    setInlineNameValue('');
+    setSaveSuccessEmpId(empId);
+    setTimeout(() => {
+      setSaveSuccessEmpId(prev => prev === empId ? null : prev);
+    }, 2500);
+  };
+
   const handleOpenEdit = (emp) => {
     setEditProfileTD(emp);
+    setEditName(emp.name || '');
     setEditDesignation(emp.designation || 'Train Driver (JMD Contract)');
     setEditDepot(emp.boardingStation || emp.depot || 'PYID');
     setEditPhone(emp.phone || emp.mobileNumber || '');
@@ -213,7 +248,15 @@ export default function JmdCrewManagerModal({
     e.preventDefault();
     if (!editProfileTD) return;
 
+    const trimmedName = editName.trim();
+    if (!trimmedName) {
+      alert("Train driver name cannot be empty.");
+      return;
+    }
+
     onUpdateCrewStatus(editProfileTD.empId, {
+      name: trimmedName,
+      employeeName: trimmedName,
       designation: editDesignation,
       depot: editDepot,
       boardingStation: editDepot,
@@ -227,6 +270,11 @@ export default function JmdCrewManagerModal({
       notes: editNotes,
       updatedAt: new Date().toISOString()
     });
+
+    setSaveSuccessEmpId(editProfileTD.empId);
+    setTimeout(() => {
+      setSaveSuccessEmpId(prev => prev === editProfileTD.empId ? null : prev);
+    }, 2500);
 
     setEditProfileTD(null);
   };
@@ -602,14 +650,67 @@ export default function JmdCrewManagerModal({
                         #{emp.empId}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="font-bold text-slate-100 flex items-center gap-1.5">
-                          {emp.name}
-                          <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
-                            isFemale ? 'bg-pink-900/60 text-pink-300 border border-pink-500/40' : 'bg-slate-800 text-slate-300'
-                          }`}>
-                            {isFemale ? 'FEMALE (PINK)' : 'MALE'}
-                          </span>
-                        </div>
+                        {editingNameEmpId === emp.empId ? (
+                          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="text"
+                              value={inlineNameValue}
+                              onChange={(e) => setInlineNameValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleSaveInlineName(emp.empId);
+                                } else if (e.key === 'Escape') {
+                                  e.preventDefault();
+                                  handleCancelInlineNameEdit();
+                                }
+                              }}
+                              autoFocus
+                              className="bg-slate-950 border border-amber-400 text-white text-xs font-bold rounded-lg px-2.5 py-1 w-48 focus:outline-none focus:ring-1 focus:ring-amber-400 shadow-sm"
+                              placeholder="Enter driver name..."
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleSaveInlineName(emp.empId)}
+                              title="Save name (Enter)"
+                              className="p-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white transition-colors shadow-sm"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCancelInlineNameEdit}
+                              title="Cancel (Esc)"
+                              className="p-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors shadow-sm"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="group/name flex items-center gap-1.5">
+                            <span className="font-bold text-slate-100 hover:text-amber-300 transition-colors">
+                              {emp.name}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleStartInlineNameEdit(emp)}
+                              title="Quick edit driver name"
+                              className="opacity-70 group-hover/name:opacity-100 p-1 text-slate-400 hover:text-amber-400 hover:bg-slate-800/90 rounded-md transition-all cursor-pointer"
+                            >
+                              <Edit className="w-3 h-3" />
+                            </button>
+                            {saveSuccessEmpId === emp.empId && (
+                              <span className="text-[10px] font-bold text-amber-400 bg-amber-950/80 border border-amber-500/40 px-1.5 py-0.5 rounded animate-pulse">
+                                ✓ Saved
+                              </span>
+                            )}
+                            <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                              isFemale ? 'bg-pink-900/60 text-pink-300 border border-pink-500/40' : 'bg-slate-800 text-slate-300'
+                            }`}>
+                              {isFemale ? 'FEMALE (PINK)' : 'MALE'}
+                            </span>
+                          </div>
+                        )}
                         <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5 font-mono">
                           {emp.phone && <span>📞 {emp.phone}</span>}
                           {emp.bloodGroup && <span>🩸 {emp.bloodGroup}</span>}
@@ -844,7 +945,7 @@ export default function JmdCrewManagerModal({
                   <Edit className="w-5 h-5 text-amber-400" />
                   <div>
                     <h3 className="text-sm font-bold text-white">
-                      Edit JMD TD: {editProfileTD.name}
+                      Edit JMD TD: {editName || editProfileTD.name}
                     </h3>
                     <span className="text-[10px] text-slate-400 font-mono">
                       Emp ID: #{editProfileTD.empId} • Train Driver (Contract)
@@ -860,6 +961,22 @@ export default function JmdCrewManagerModal({
               </div>
 
               <form onSubmit={handleSaveEdit} className="space-y-3 mt-4 text-xs">
+                <div>
+                  <label htmlFor="jmdcrewmanagermodal-fld-name" className="text-xs font-bold text-slate-300 block mb-1">
+                    Train Driver Full Name
+                  </label>
+                  <input
+                    id="jmdcrewmanagermodal-fld-name"
+                    name="jmdcrewmanagermodal_fld_name"
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    required
+                    placeholder="e.g. Ramesh Kumar"
+                    className="w-full bg-slate-800 border border-slate-700 focus:border-amber-400 rounded-lg px-3 py-2 text-white font-medium focus:outline-none"
+                  />
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label htmlFor="jmdcrewmanagermodal-fld-5" className="text-xs font-bold text-slate-300 block mb-1">

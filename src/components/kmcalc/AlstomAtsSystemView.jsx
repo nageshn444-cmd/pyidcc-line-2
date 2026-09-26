@@ -18,7 +18,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Clock } from 'lucide-react';
+import { Clock, Train, User, ArrowRight, Shield, Zap, ChevronRight, Eye, Sparkles, Search, X, LocateFixed, Filter, MapPin } from 'lucide-react';
 import { STATION_CHAINAGE, ATS_STATION_SEQUENCE, timeToMinutes, minutesToTime } from '../../utils/kpiEngine';
 
 // Complete single-line station progression from South (APTD) to North (BIET)
@@ -64,6 +64,9 @@ export default function AlstomAtsSystemView({
   simulatedTime = '11:15',
   activeSchedule = 'WEEKDAY',
   isLiveClock = true,
+  selectedTrain = null,
+  externalSearchQuery = '',
+  onSearchChange = null,
   onScheduleChange = () => {},
   onTimeChange = () => {},
   onToggleLiveClock = () => {},
@@ -71,7 +74,20 @@ export default function AlstomAtsSystemView({
 }) {
   const [selectedStation, setSelectedStation] = useState(null);
   const [hoveredTrain, setHoveredTrain] = useState(null);
+  const [internalSearchQuery, setInternalSearchQuery] = useState('');
   const scrollContainerRef = useRef(null);
+
+  // Sync internal search with optional externalSearchQuery
+  const activeSearch = externalSearchQuery !== undefined && externalSearchQuery !== ''
+    ? externalSearchQuery
+    : internalSearchQuery;
+
+  const handleSearchChange = (val) => {
+    setInternalSearchQuery(val);
+    if (typeof onSearchChange === 'function') {
+      onSearchChange(val);
+    }
+  };
 
   // Simulation Playback state (advance time automatically)
   const [isSimPlaying, setIsSimPlaying] = useState(false);
@@ -129,8 +145,13 @@ export default function AlstomAtsSystemView({
   const RD3_Y = 232;     // Peenya Industry Road 3 (RD-3) Platform & Standby Track
   const LINK_Y = 245;    // East-West Purple Line Link at KGWA
   const DEPOT_Y1 = 268;  // Peenya Depot Transfer Track 2 & SBL-1
-  const DEPOT_Y2 = 298;  // Peenya Depot Transfer Track 1 & SBL-2
-  const DEPOT_Y3 = 328;  // Peenya Depot SBL-3
+  const DEPOT_Y2 = 294;  // Peenya Depot Transfer Track 1 & SBL-2
+  const DEPOT_Y3 = 320;  // Peenya Depot SBL-3
+  const DEPOT_Y4 = 346;  // Peenya Depot SBL-4
+  const DEPOT_Y5 = 372;  // Peenya Depot SBL-5
+  const DEPOT_Y6 = 398;  // Peenya Depot SBL-6
+  const DEPOT_Y7 = 424;  // Peenya Depot SBL-7
+  const DEPOT_Y8 = 450;  // Peenya Depot SBL-8
 
   const START_X = 60;
   const END_X = 4720;
@@ -167,13 +188,12 @@ export default function AlstomAtsSystemView({
         String(tr.currentStation).includes('RD-3')
       );
 
-      // B. Peenya Depot SBL (Stabled Trains: T221, T218, T211, etc.)
-      // STRICT REQUIREMENT: DO NOT stable trains at Transfer Track 1 and 2!
-      // Once trains are stabled at the depot, they are located inside PEENYA DEPOT SBL (Stabling Lines).
+      // B. Peenya Depot SBL (Stabled Trains: T221, T218, T211, T216, T212, T205, T204, T207, etc.)
+      // Once trains are stabled at the depot, they are located inside PEENYA DEPOT SBL (Stabling Lines 1 to 8).
       const isDepotStabled = tr.isStabling && !isRd3Train && (
         String(tr.currentStation).includes('Depot') || 
         String(tr.currentStation).includes('SBL') || 
-        ['221', '218', '211'].includes(String(tr.trainId)) ||
+        ['221', '218', '211', '216', '212', '205', '204', '207', '206', '202', '214', '217'].includes(String(tr.trainId)) ||
         String(tr.currentStation).includes('PYID')
       );
 
@@ -190,24 +210,42 @@ export default function AlstomAtsSystemView({
         exactY = RD3_Y;
         statusText = 'STANDBY (RD-3)';
       } else if (isDepotStabled) {
-        // Stabled trains are positioned inside PEENYA DEPOT SBL (Stabling Lines beyond Transfer Tracks)
-        if (String(tr.trainId) === '221') {
-          exactX = 4115; // SBL-1
-          exactY = DEPOT_Y1;
-          statusText = 'DEPOT SBL-1';
-        } else if (String(tr.trainId) === '218') {
-          exactX = 4115; // SBL-2
-          exactY = DEPOT_Y2;
-          statusText = 'DEPOT SBL-2';
-        } else if (String(tr.trainId) === '211') {
-          exactX = 4115; // SBL-3
-          exactY = DEPOT_Y3;
-          statusText = 'DEPOT SBL-3';
-        } else {
-          exactX = 4055;
-          exactY = DEPOT_Y1;
-          statusText = 'DEPOT SBL';
+        // Stabled trains are positioned inside PEENYA DEPOT SBL across 8 Stabling Lines (SBL-1 to SBL-8)
+        const tIdStr = String(tr.particularTrainId || tr.trainId);
+        
+        let sblIndex = 1;
+        if (tIdStr === '221') sblIndex = 1;
+        else if (tIdStr === '218') sblIndex = 2;
+        else if (tIdStr === '211') sblIndex = 3;
+        else if (tIdStr === '216' || tIdStr === '206') sblIndex = 4;
+        else if (tIdStr === '212' || tIdStr === '202') sblIndex = 5;
+        else if (tIdStr === '205' || tIdStr === '215') sblIndex = 6;
+        else if (tIdStr === '204' || tIdStr === '214') sblIndex = 7;
+        else if (tIdStr === '207' || tIdStr === '217') sblIndex = 8;
+        else {
+          const match = String(tr.currentStation).match(/SBL-?([1-8])/i);
+          if (match) {
+            sblIndex = parseInt(match[1]);
+          } else {
+            const num = parseInt(tIdStr.replace(/\D/g, '')) || 1;
+            sblIndex = ((num - 1) % 8) + 1;
+          }
         }
+
+        const sblYMap = {
+          1: DEPOT_Y1,
+          2: DEPOT_Y2,
+          3: DEPOT_Y3,
+          4: DEPOT_Y4,
+          5: DEPOT_Y5,
+          6: DEPOT_Y6,
+          7: DEPOT_Y7,
+          8: DEPOT_Y8
+        };
+
+        exactX = 4135;
+        exactY = sblYMap[sblIndex] || DEPOT_Y1;
+        statusText = `DEPOT SBL-${sblIndex}`;
       } else if (isMovingFromDepot) {
         // Actively moving from Depot on Transfer Track towards PYID
         exactX = 3880; // Transfer Track 2
@@ -216,9 +254,6 @@ export default function AlstomAtsSystemView({
       }
 
       // 2. SPECIFIC RULE: Terminal Station Cab Changeover & Buffer End
-      // At terminal stations (BIET & APTS):
-      // During cab changeover / completion of trip at terminal station, trains move to the BUFFER END (beyond platform).
-      // From the buffer end, when departure time approaches, the train moves back to the departure track.
       const isAtBietTerminal = String(tr.currentStation).includes('BIET') || tr.chainage <= -9.0;
       const isAtAptsTerminal = String(tr.currentStation).includes('APTS') || tr.chainage >= 23.5;
       const isTurnaroundOrStabledAtTerminal = tr.isStabling || tr.distanceRemaining === 0 || String(tr.currentStation).includes('(');
@@ -254,10 +289,357 @@ export default function AlstomAtsSystemView({
     });
   }, [liveTrainPositions]);
 
+  // Match search filter against train ID, operator name, duty number, or station
+  const isTrainMatchingSearch = (tr, query) => {
+    if (!query || !query.trim()) return true;
+    const q = query.toLowerCase().trim();
+    const qClean = q.replace(/^train\s*[-#]?/i, '').replace(/^t[-#]?\s*/i, '').trim();
+
+    // Train ID & Variations (e.g. "201", "T201", "T-201", "Train 201")
+    const tId = String(tr.trainId || '').toLowerCase();
+    const partTId = String(tr.particularTrainId || '').toLowerCase();
+    const compTId = String(tr.computedTrainId || '').toLowerCase();
+    const legTId = String(tr.legacyTrainId || '').toLowerCase();
+    const dispTId = String(tr.displayTrainId || '').toLowerCase();
+
+    if (
+      tId.includes(q) || `t${tId}`.includes(q) || `t-${tId}`.includes(q) || `train ${tId}`.includes(q) ||
+      partTId.includes(q) || compTId.includes(q) || legTId.includes(q) || dispTId.includes(q)
+    ) return true;
+
+    if (qClean) {
+      if (
+        tId === qClean || tId.includes(qClean) || `t${tId}`.includes(qClean) ||
+        partTId === qClean || partTId.includes(qClean) ||
+        compTId === qClean || compTId.includes(qClean) ||
+        legTId === qClean || legTId.includes(qClean)
+      ) return true;
+    }
+
+    // Train Operator Name & ID
+    const opName = String(tr.operatorName || '').toLowerCase();
+    const opId = String(tr.operatorId || '').toLowerCase();
+    if (opName.includes(q) || opId.includes(q)) return true;
+
+    // Reliever Name & ID
+    const relName = String(tr.reliever?.name || '').toLowerCase();
+    const relId = String(tr.reliever?.id || '').toLowerCase();
+    if (relName.includes(q) || relId.includes(q)) return true;
+
+    // Duty Number (e.g. "1", "D1", "D14", "14")
+    const dNo = String(tr.dutyNo || '').toLowerCase();
+    const relDNo = String(tr.reliever?.dutyNo || '').toLowerCase();
+    const cleanQ = q.replace(/^d/i, '').trim();
+    if (dNo === q || `d${dNo}` === q || (cleanQ && dNo === cleanQ)) return true;
+    if (relDNo === q || `d${relDNo}` === q || (cleanQ && relDNo === cleanQ)) return true;
+
+    // Station (currentStation, scheduledHandoverStation, previousStation, nextStation, statusText)
+    const curSt = String(tr.currentStation || '').toLowerCase();
+    const hOver = String(tr.scheduledHandoverStation || '').toLowerCase();
+    const prevSt = String(tr.previousStation || '').toLowerCase();
+    const nextSt = String(tr.nextStation || '').toLowerCase();
+    const status = String(tr.statusText || '').toLowerCase();
+    if (curSt.includes(q) || hOver.includes(q) || prevSt.includes(q) || nextSt.includes(q) || status.includes(q)) return true;
+
+    return false;
+  };
+
+  const filteredTimetableTrains = useMemo(() => {
+    return timetableTrains.filter(tr => isTrainMatchingSearch(tr, activeSearch));
+  }, [timetableTrains, activeSearch]);
+
+  // Auto-scroll track canvas to center the searched train
+  useEffect(() => {
+    if (activeSearch && activeSearch.trim() && filteredTimetableTrains.length > 0) {
+      const firstMatched = filteredTimetableTrains[0];
+      if (scrollContainerRef.current) {
+        const cWidth = scrollContainerRef.current.clientWidth || 900;
+        scrollContainerRef.current.scrollTo({
+          left: Math.max(0, firstMatched.currentX - cWidth / 2),
+          behavior: 'smooth'
+        });
+      }
+    }
+  }, [activeSearch, filteredTimetableTrains]);
+
   return (
     <div className="bg-[#4a5360] text-slate-100 font-mono rounded-xl border-2 border-[#333a44] shadow-2xl overflow-hidden select-none">
       
 
+
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* 1. MOBILE & DESKTOP ACTIVE TRAIN QUICK-SELECT CAROUSEL              */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      <div className="bg-[#2e353f] border-b border-[#232931] px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-200">
+              <Train className="h-3.5 w-3.5 text-cyan-400" />
+              <span className="uppercase tracking-wider">
+                Live Line-2 Active Fleet ({filteredTimetableTrains.length}{activeSearch ? `/${timetableTrains.length}` : ''})
+              </span>
+              <span className="text-[8px] px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
+                Synced to Live Relief Matrix
+              </span>
+            </div>
+
+            {/* Quick Active Fleet Search Box */}
+            <div className="relative flex items-center min-w-[210px] sm:min-w-[290px]">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-cyan-400" />
+              <input
+                type="text"
+                value={activeSearch}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="🔍 Search Train ID (e.g. 201, 209), Operator, Duty, Station..."
+                className="w-full pl-8 pr-7 py-1 bg-[#1a2028] border border-cyan-700/80 focus:border-cyan-400 rounded-md text-[9.5px] text-white placeholder-slate-400 focus:outline-none font-mono transition-colors"
+              />
+              {activeSearch && (
+                <button
+                  type="button"
+                  onClick={() => handleSearchChange('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  title="Clear Search"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <span className="text-[8px] text-slate-400 font-mono">
+            Tap train card to center on track & inspect driving details
+          </span>
+        </div>
+
+        {/* Real-time Current Location HUD banner for searched train */}
+        {activeSearch && filteredTimetableTrains.length > 0 && (
+          <div className="mt-1.5 mb-2.5 bg-[#0c131d] border-2 border-cyan-400/80 rounded-xl p-2.5 shadow-2xl flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2 border-b border-cyan-900/60 pb-1.5 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-500 text-[10px] font-black uppercase tracking-wider shadow-sm">
+                  <MapPin className="h-3.5 w-3.5 text-cyan-400 animate-bounce" />
+                  <span>Current Location Radar</span>
+                </span>
+                <span className="text-[9px] text-slate-300 font-mono">
+                  Found <strong className="text-amber-300 font-bold">{filteredTimetableTrains.length}</strong> matching train{filteredTimetableTrains.length > 1 ? 's' : ''} for &ldquo;<span className="text-cyan-300 font-bold">{activeSearch}</span>&rdquo;
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleSearchChange('')}
+                className="text-[8.5px] text-slate-400 hover:text-white px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700"
+              >
+                Clear Search
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+              {filteredTimetableTrains.map(tr => {
+                const isUp = tr.direction === 'UP';
+                const isSelected = selectedTrain && String(selectedTrain.trainId) === String(tr.trainId);
+
+                return (
+                  <div 
+                    key={`hud_tr_${tr.trainId}`} 
+                    className={`flex flex-col gap-1.5 p-2 rounded-lg border transition-all ${
+                      isSelected
+                        ? 'bg-cyan-950/90 border-cyan-400 shadow-md ring-1 ring-cyan-400'
+                        : 'bg-[#151c27] border-cyan-800/60 hover:border-cyan-500/80'
+                    }`}
+                  >
+                    {/* Header: Train ID & Status */}
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-black tracking-wide">
+                        TRAIN {tr.particularTrainId || tr.trainId}
+                      </span>
+                      <span className={`px-1.5 py-0.2 rounded text-[8px] font-black uppercase ${
+                        tr.isStabling 
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          : isUp 
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
+                          : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                      }`}>
+                        {tr.isStabling ? tr.statusText : (isUp ? 'UP ➔ BIET' : 'DN ➔ APTD')}
+                      </span>
+                    </div>
+
+                    {/* PROMINENT CURRENT LOCATION */}
+                    <div className="bg-[#0b1017] border border-cyan-500/40 rounded p-1.5 flex items-start gap-1.5">
+                      <MapPin className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5 animate-pulse" />
+                      <div className="flex flex-col">
+                        <span className="text-[7px] text-cyan-400 font-bold uppercase tracking-wider">Current Location</span>
+                        <span className="text-[10px] font-black text-white leading-tight">
+                          {tr.currentStation || (tr.isStabling ? 'Peenya Depot Stabling' : 'Line-2 Mainline Track')}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Operational Details */}
+                    <div className="grid grid-cols-2 gap-1 text-[8px] text-slate-300">
+                      <div>
+                        <span className="text-slate-500">Speed: </span>
+                        <strong className="text-emerald-400 font-bold">{tr.speedKmH ? `${tr.speedKmH} km/h` : '0 km/h (Stabled)'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Chainage: </span>
+                        <strong className="text-cyan-300 font-bold">{tr.chainage >= 0 ? `+${tr.chainage.toFixed(3)}` : tr.chainage?.toFixed(3)} KM</strong>
+                      </div>
+                    </div>
+
+                    {/* Driver & Reliever */}
+                    <div className="text-[8px] text-slate-300 border-t border-slate-800/80 pt-1 flex flex-col gap-0.5">
+                      <div className="truncate flex items-center gap-1">
+                        <span className="text-slate-500">Driver:</span>
+                        <strong className="text-white truncate">{tr.operatorName || '--'}</strong>
+                        {tr.dutyNo && tr.dutyNo !== '--' && (
+                          <span className="text-slate-400">({tr.dutyNo.startsWith('D') ? tr.dutyNo : `D${tr.dutyNo}`})</span>
+                        )}
+                      </div>
+                      <div className="truncate flex items-center gap-1">
+                        <span className="text-amber-500 font-bold">Reliever:</span>
+                        <strong className={tr.reliever?.name ? "text-amber-300 truncate font-mono" : "text-slate-500 italic"}>
+                          {tr.reliever?.name || 'None Assigned'}
+                        </strong>
+                        {tr.reliever?.dutyNo && tr.reliever.dutyNo !== '--' && (
+                          <span className="text-amber-400">({tr.reliever.dutyNo.startsWith('D') ? tr.reliever.dutyNo : `D${tr.reliever.dutyNo}`})</span>
+                        )}
+                        {tr.scheduledHandoverStation && (
+                          <span className="text-slate-400 text-[7.5px]">@{tr.scheduledHandoverStation}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Locate on Diagram Action Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelectTrain(tr);
+                        if (scrollContainerRef.current) {
+                          const cWidth = scrollContainerRef.current.clientWidth || 900;
+                          scrollContainerRef.current.scrollTo({
+                            left: Math.max(0, tr.currentX - cWidth / 2),
+                            behavior: 'smooth'
+                          });
+                        }
+                      }}
+                      className="mt-0.5 w-full py-1 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-black rounded text-[8.5px] flex items-center justify-center gap-1 shadow-sm transition-all"
+                    >
+                      <LocateFixed size={11} />
+                      <span>Locate & Spotlight on Track</span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Horizontal scrollable train cards ribbon */}
+        {filteredTimetableTrains.length === 0 ? (
+          <div className="py-2.5 px-3 text-center w-full text-[9px] text-slate-400 flex items-center justify-center gap-2 bg-[#1b2027] rounded-lg border border-slate-750">
+            <Search className="h-3.5 w-3.5 text-amber-400" />
+            <span>No trains matching &ldquo;<strong className="text-white">{activeSearch}</strong>&rdquo; across Train ID, Driver, Duty, or Station.</span>
+            <button 
+              type="button"
+              onClick={() => handleSearchChange('')} 
+              className="text-cyan-400 underline font-bold ml-1 hover:text-cyan-300"
+            >
+              Clear Search
+            </button>
+          </div>
+        ) : (
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-600">
+            {filteredTimetableTrains.map(tr => {
+              const isUp = tr.direction === 'UP';
+              const isSelected = selectedTrain && String(selectedTrain.trainId) === String(tr.trainId);
+              const has3mRelief = tr.shouldAnnounceReliever;
+
+              return (
+                <button
+                  key={`ats_chip_${tr.trainId}_${tr.direction}`}
+                  onClick={() => {
+                    onSelectTrain(tr);
+                    if (scrollContainerRef.current) {
+                      scrollContainerRef.current.scrollTo({
+                        left: Math.max(0, tr.currentX - 350),
+                        behavior: 'smooth'
+                      });
+                    }
+                  }}
+                className={`flex-shrink-0 text-left px-2.5 py-1.5 rounded-lg border text-[9px] transition-all font-mono min-w-[220px] max-w-[260px] ${
+                  isSelected 
+                    ? 'bg-cyan-950/90 border-cyan-400 shadow-lg shadow-cyan-900/50 ring-1 ring-cyan-400' 
+                    : has3mRelief
+                      ? 'bg-emerald-950/60 border-emerald-400/80 shadow-md shadow-emerald-950/40'
+                      : 'bg-[#1b2027] hover:bg-[#232932] border-slate-700/80'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1 mb-1 border-b border-slate-750 pb-1">
+                  <span className="font-black text-slate-100 flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${tr.isStabling ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'}`}></span>
+                    TRAIN {tr.particularTrainId || tr.trainId}
+                  </span>
+                  <span className={`px-1.5 py-0.2 rounded text-[7.5px] font-black uppercase ${
+                    isUp ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                  }`}>
+                    {isUp ? 'UP ➔' : '⬅ DN'} {tr.statusText}
+                  </span>
+                </div>
+
+                {/* Current Driving Operator */}
+                <div className="text-[8.5px] text-emerald-300 font-bold truncate flex items-center gap-1">
+                  <span className="text-slate-400 font-normal">Driving TO:</span>
+                  <strong className="text-white">{tr.operatorName || '--'}</strong>
+                  {tr.dutyNo && tr.dutyNo !== '--' && (
+                    <span className="text-slate-400 font-normal text-[7.5px]">({tr.dutyNo.startsWith('D') ? tr.dutyNo : `D${tr.dutyNo}`})</span>
+                  )}
+                </div>
+
+                {/* Next Reliever from Relief Matrix */}
+                <div className="text-[8.5px] text-amber-300 font-bold truncate flex items-center justify-between mt-0.5">
+                  <div className="truncate flex items-center gap-1">
+                    <span className="text-slate-400 font-normal">Reliever:</span>
+                    <strong className={has3mRelief ? 'text-emerald-400 animate-pulse' : 'text-amber-200'}>
+                      {tr.reliever?.name ? tr.reliever.name : 'None Assigned'}
+                    </strong>
+                    {tr.reliever?.dutyNo && tr.reliever.dutyNo !== '--' && (
+                      <span className="text-slate-400 font-normal text-[7.5px]">({tr.reliever.dutyNo.startsWith('D') ? tr.reliever.dutyNo : `D${tr.reliever.dutyNo}`})</span>
+                    )}
+                  </div>
+                  {has3mRelief && (
+                    <span className="px-1 py-0.2 bg-emerald-500/20 text-emerald-300 rounded text-[7px] font-black border border-emerald-500/30">
+                      3m ALERT
+                    </span>
+                  )}
+                </div>
+
+                <div className={`mt-1.5 pt-1 border-t flex flex-col gap-0.5 rounded px-1.5 py-1 ${
+                  isSelected
+                    ? 'border-cyan-400 bg-cyan-900/40 text-cyan-200'
+                    : activeSearch
+                    ? 'border-amber-500/50 bg-amber-950/40 text-amber-200'
+                    : 'border-slate-800/80 bg-slate-900/40 text-slate-300'
+                }`}>
+                  <div className="flex items-center justify-between gap-1 text-[8.5px]">
+                    <span className="font-bold flex items-center gap-1 text-amber-300 truncate">
+                      <MapPin size={10} className="text-cyan-400 shrink-0 animate-bounce" />
+                      <span className="text-slate-400 font-normal">LOC:</span>
+                      <strong className="text-white truncate">{tr.currentStation || (tr.isStabling ? 'Peenya Depot' : 'Line-2 Track')}</strong>
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[7.5px] text-slate-400 font-mono">
+                    <span className="text-slate-300 font-semibold">{tr.isStabling ? tr.statusText : (isUp ? 'UP Line' : 'DN Line')}</span>
+                    <span className="text-cyan-300 font-bold">
+                      {tr.chainage >= 0 ? `+${tr.chainage.toFixed(2)}` : tr.chainage?.toFixed(2)} km
+                    </span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      </div>
 
       {/* ─────────────────────────────────────────────────────────────────── */}
       {/* 2. OVERVIEW CONTINUOUS TRACK RIBBON (Beneath Header as in Image)    */}
@@ -315,9 +697,9 @@ export default function AlstomAtsSystemView({
         ref={scrollContainerRef}
         className="p-4 bg-[#444d59] overflow-x-auto scrollbar-thin scrollbar-thumb-cyan-700 scrollbar-track-slate-800"
       >
-        <div className="relative select-none" style={{ width: `${TOTAL_TRACK_WIDTH}px`, height: '380px' }}>
+        <div className="relative select-none" style={{ width: `${TOTAL_TRACK_WIDTH}px`, height: '520px' }}>
           
-          <svg className="w-full h-full" viewBox={`0 0 ${TOTAL_TRACK_WIDTH} 380`}>
+          <svg className="w-full h-full" viewBox={`0 0 ${TOTAL_TRACK_WIDTH} 520`}>
             
             <defs>
               <pattern id="hatch-under-progress-full" width="12" height="12" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
@@ -515,12 +897,12 @@ export default function AlstomAtsSystemView({
               <text x="3945" y={DEPOT_Y2 - 6} fill="#93c5fd" fontSize="7.5" fontWeight="bold">TRANSFER TRACK 1 (INDUCTION)</text>
 
               {/* Depot Boundary Line between Transfer Tracks and Peenya Depot Yard */}
-              <line x1="4005" y1={DEPOT_Y1 - 18} x2="4005" y2={DEPOT_Y3 + 18} stroke="#facc15" strokeWidth="1.2" strokeDasharray="3 3" opacity="0.75" />
+              <line x1="4005" y1={DEPOT_Y1 - 18} x2="4005" y2={DEPOT_Y8 + 18} stroke="#facc15" strokeWidth="1.2" strokeDasharray="3 3" opacity="0.75" />
               <text x="4005" y={DEPOT_Y1 - 22} fill="#facc15" fontSize="7" fontWeight="bold" textAnchor="middle">DEPOT BOUNDARY</text>
 
-              {/* ── PEENYA DEPOT SBL (STABLING LINES YARD) ── */}
-              <rect x="4010" y={DEPOT_Y1 - 16} width="210" height={DEPOT_Y3 - DEPOT_Y1 + 34} fill="#0f172a" fillOpacity="0.85" stroke="#eab308" strokeWidth="1.2" strokeDasharray="4 2" rx="3" />
-              <text x="4115" y={DEPOT_Y1 - 5} fill="#facc15" fontSize="8" fontWeight="900" textAnchor="middle" letterSpacing="0.5">PEENYA DEPOT SBL (STABLING LINES)</text>
+              {/* ── PEENYA DEPOT SBL (STABLING LINES 1 TO 8) ── */}
+              <rect x="4010" y={DEPOT_Y1 - 16} width="210" height={DEPOT_Y8 - DEPOT_Y1 + 34} fill="#0f172a" fillOpacity="0.85" stroke="#eab308" strokeWidth="1.2" strokeDasharray="4 2" rx="3" />
+              <text x="4115" y={DEPOT_Y1 - 5} fill="#facc15" fontSize="8" fontWeight="900" textAnchor="middle" letterSpacing="0.5">PEENYA DEPOT SBL (STABLING LINES 1 TO 8)</text>
 
               {/* SBL-1 (Depot Stabling Line 1) */}
               <line x1="4005" y1={DEPOT_Y1} x2="4185" y2={DEPOT_Y1} stroke="#2563eb" strokeWidth="3.5" />
@@ -533,12 +915,52 @@ export default function AlstomAtsSystemView({
               <text x="4192" y={DEPOT_Y2 + 3} fill="#cbd5e1" fontSize="7" fontWeight="bold">SBL-2</text>
 
               {/* SBL-3 (Depot Stabling Line 3 with Turnout from SBL-2) */}
-              <line x1="4025" y1={DEPOT_Y2} x2="4055" y2={DEPOT_Y3} stroke="#2563eb" strokeWidth="3" />
-              <circle cx="4025" cy={DEPOT_Y2} r="2.5" fill="#ef4444" />
-              <circle cx="4055" cy={DEPOT_Y3} r="2.5" fill="#10b981" />
-              <line x1="4055" y1={DEPOT_Y3} x2="4185" y2={DEPOT_Y3} stroke="#2563eb" strokeWidth="3.5" />
+              <line x1="4020" y1={DEPOT_Y2} x2="4045" y2={DEPOT_Y3} stroke="#2563eb" strokeWidth="3" />
+              <circle cx="4020" cy={DEPOT_Y2} r="2.5" fill="#ef4444" />
+              <circle cx="4045" cy={DEPOT_Y3} r="2.5" fill="#10b981" />
+              <line x1="4045" y1={DEPOT_Y3} x2="4185" y2={DEPOT_Y3} stroke="#2563eb" strokeWidth="3.5" />
               <line x1="4185" y1={DEPOT_Y3 - 8} x2="4185" y2={DEPOT_Y3 + 8} stroke="#ef4444" strokeWidth="4" />
               <text x="4192" y={DEPOT_Y3 + 3} fill="#cbd5e1" fontSize="7" fontWeight="bold">SBL-3</text>
+
+              {/* SBL-4 (Depot Stabling Line 4 with Turnout from ladder) */}
+              <line x1="4035" y1={DEPOT_Y3} x2="4060" y2={DEPOT_Y4} stroke="#2563eb" strokeWidth="3" />
+              <circle cx="4035" cy={DEPOT_Y3} r="2.5" fill="#ef4444" />
+              <circle cx="4060" cy={DEPOT_Y4} r="2.5" fill="#10b981" />
+              <line x1="4060" y1={DEPOT_Y4} x2="4185" y2={DEPOT_Y4} stroke="#2563eb" strokeWidth="3.5" />
+              <line x1="4185" y1={DEPOT_Y4 - 8} x2="4185" y2={DEPOT_Y4 + 8} stroke="#ef4444" strokeWidth="4" />
+              <text x="4192" y={DEPOT_Y4 + 3} fill="#cbd5e1" fontSize="7" fontWeight="bold">SBL-4</text>
+
+              {/* SBL-5 (Depot Stabling Line 5 with Turnout from ladder) */}
+              <line x1="4050" y1={DEPOT_Y4} x2="4075" y2={DEPOT_Y5} stroke="#2563eb" strokeWidth="3" />
+              <circle cx="4050" cy={DEPOT_Y4} r="2.5" fill="#ef4444" />
+              <circle cx="4075" cy={DEPOT_Y5} r="2.5" fill="#10b981" />
+              <line x1="4075" y1={DEPOT_Y5} x2="4185" y2={DEPOT_Y5} stroke="#2563eb" strokeWidth="3.5" />
+              <line x1="4185" y1={DEPOT_Y5 - 8} x2="4185" y2={DEPOT_Y5 + 8} stroke="#ef4444" strokeWidth="4" />
+              <text x="4192" y={DEPOT_Y5 + 3} fill="#cbd5e1" fontSize="7" fontWeight="bold">SBL-5</text>
+
+              {/* SBL-6 (Depot Stabling Line 6 with Turnout from ladder) */}
+              <line x1="4065" y1={DEPOT_Y5} x2="4090" y2={DEPOT_Y6} stroke="#2563eb" strokeWidth="3" />
+              <circle cx="4065" cy={DEPOT_Y5} r="2.5" fill="#ef4444" />
+              <circle cx="4090" cy={DEPOT_Y6} r="2.5" fill="#10b981" />
+              <line x1="4090" y1={DEPOT_Y6} x2="4185" y2={DEPOT_Y6} stroke="#2563eb" strokeWidth="3.5" />
+              <line x1="4185" y1={DEPOT_Y6 - 8} x2="4185" y2={DEPOT_Y6 + 8} stroke="#ef4444" strokeWidth="4" />
+              <text x="4192" y={DEPOT_Y6 + 3} fill="#cbd5e1" fontSize="7" fontWeight="bold">SBL-6</text>
+
+              {/* SBL-7 (Depot Stabling Line 7 with Turnout from ladder) */}
+              <line x1="4080" y1={DEPOT_Y6} x2="4105" y2={DEPOT_Y7} stroke="#2563eb" strokeWidth="3" />
+              <circle cx="4080" cy={DEPOT_Y6} r="2.5" fill="#ef4444" />
+              <circle cx="4105" cy={DEPOT_Y7} r="2.5" fill="#10b981" />
+              <line x1="4105" y1={DEPOT_Y7} x2="4185" y2={DEPOT_Y7} stroke="#2563eb" strokeWidth="3.5" />
+              <line x1="4185" y1={DEPOT_Y7 - 8} x2="4185" y2={DEPOT_Y7 + 8} stroke="#ef4444" strokeWidth="4" />
+              <text x="4192" y={DEPOT_Y7 + 3} fill="#cbd5e1" fontSize="7" fontWeight="bold">SBL-7</text>
+
+              {/* SBL-8 (Depot Stabling Line 8 with Turnout from ladder) */}
+              <line x1="4095" y1={DEPOT_Y7} x2="4120" y2={DEPOT_Y8} stroke="#2563eb" strokeWidth="3" />
+              <circle cx="4095" cy={DEPOT_Y7} r="2.5" fill="#ef4444" />
+              <circle cx="4120" cy={DEPOT_Y8} r="2.5" fill="#10b981" />
+              <line x1="4120" y1={DEPOT_Y8} x2="4185" y2={DEPOT_Y8} stroke="#2563eb" strokeWidth="3.5" />
+              <line x1="4185" y1={DEPOT_Y8 - 8} x2="4185" y2={DEPOT_Y8 + 8} stroke="#ef4444" strokeWidth="4" />
+              <text x="4192" y={DEPOT_Y8 + 3} fill="#cbd5e1" fontSize="7" fontWeight="bold">SBL-8</text>
             </g>
 
             {/* ── EAST-WEST LINE PURPLE LINE LINK AT KGWA (Majestic) ── */}
@@ -755,15 +1177,79 @@ export default function AlstomAtsSystemView({
               const isUp = train.direction === 'UP';
               const trX = train.currentX;
               const trY = train.currentY;
+              const isMatched = isTrainMatchingSearch(train, activeSearch);
+              const isDimmed = activeSearch && !isMatched;
+              const isSelected = selectedTrain && (String(selectedTrain.trainId) === String(train.trainId) || String(selectedTrain.particularTrainId) === String(train.particularTrainId));
+              const isHighlighted = (isMatched && activeSearch) || isSelected;
 
               return (
                 <g 
                   key={`${train.trainId}_${train.direction}_${train.rowId || ''}`} 
-                  className="cursor-pointer transition-transform duration-500 ease-out"
+                  className={`cursor-pointer transition-all duration-300 ease-out ${isDimmed ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}
                   onClick={() => onSelectTrain(train)}
                   onMouseEnter={() => setHoveredTrain(train)}
                   onMouseLeave={() => setHoveredTrain(null)}
                 >
+                  {/* Glowing match locator halo & Location Callout Tag when search is active or train selected */}
+                  {isHighlighted && (
+                    <g>
+                      {/* Vertical beacon guide line */}
+                      <line 
+                        x1={trX} 
+                        y1={trY >= DEPOT_Y1 ? trY - 32 : trY - 38} 
+                        x2={trX} 
+                        y2={trY - 14} 
+                        stroke="#38bdf8" 
+                        strokeWidth="2" 
+                        strokeDasharray="3 2" 
+                      />
+
+                      {/* Halo around train */}
+                      <rect 
+                        x={trX - 34} 
+                        y={trY - 18} 
+                        width="68" 
+                        height="36" 
+                        fill="none" 
+                        stroke="#38bdf8" 
+                        strokeWidth="2.5" 
+                        strokeDasharray="4 2" 
+                        rx="6" 
+                        className="animate-pulse"
+                      />
+
+                      {/* Location Spotlight Callout Box directly above train */}
+                      <g>
+                        <rect 
+                          x={trX - 75} 
+                          y={trY >= DEPOT_Y1 ? trY - 48 : trY - 56} 
+                          width="150" 
+                          height="18" 
+                          rx="4" 
+                          fill="#082f49" 
+                          stroke="#38bdf8" 
+                          strokeWidth="1.6" 
+                          filter="drop-shadow(0 4px 10px rgba(0,0,0,0.9))" 
+                        />
+                        <text 
+                          x={trX} 
+                          y={trY >= DEPOT_Y1 ? trY - 36 : trY - 44} 
+                          fill="#fde047" 
+                          fontSize="8" 
+                          fontWeight="900" 
+                          textAnchor="middle"
+                        >
+                          📍 LOC: {train.currentStation ? train.currentStation.replace(' (Stabled)', '').replace(' (Stabling)', '') : (train.isStabling ? 'DEPOT' : 'LINE-2 TRACK')}
+                        </text>
+                        {/* Downward pointer triangle */}
+                        <polygon 
+                          points={`${trX - 4},${trY >= DEPOT_Y1 ? trY - 30 : trY - 38} ${trX + 4},${trY >= DEPOT_Y1 ? trY - 30 : trY - 38} ${trX},${trY >= DEPOT_Y1 ? trY - 26 : trY - 34}`} 
+                          fill="#38bdf8" 
+                        />
+                      </g>
+                    </g>
+                  )}
+
                   {/* Moving / Stabled train block */}
                   <rect 
                     x={trX - 28} 
@@ -780,7 +1266,9 @@ export default function AlstomAtsSystemView({
                         : (isUp ? "#059669" : "#0284c7")
                     } 
                     stroke={
-                      trY >= DEPOT_Y1 
+                      isHighlighted
+                        ? "#38bdf8"
+                        : trY >= DEPOT_Y1 
                         ? "#f59e0b" 
                         : trY === RD3_Y 
                         ? "#fde047" 
@@ -788,7 +1276,7 @@ export default function AlstomAtsSystemView({
                         ? "#f43f5e" 
                         : "#ffffff"
                     } 
-                    strokeWidth="2" 
+                    strokeWidth={isHighlighted ? "3" : "2"} 
                     rx="4"
                     filter="url(#train-glow-up)"
                     className="shadow-2xl"
@@ -797,7 +1285,7 @@ export default function AlstomAtsSystemView({
                   {/* Train number text with direction / location arrow */}
                   <text x={trX} y={trY + 4} fill="#ffffff" fontSize="9.5" fontWeight="900" textAnchor="middle">
                     {trY >= DEPOT_Y1 
-                      ? (train.isStabling ? `T${train.particularTrainId || train.trainId} [SBL]` : `T${train.particularTrainId || train.trainId} ➔ PYID`) 
+                      ? (train.isStabling ? `T${train.particularTrainId || train.trainId} [${(train.statusText || 'SBL').replace('DEPOT ', '')}]` : `T${train.particularTrainId || train.trainId} ➔ PYID`) 
                       : trY === RD3_Y 
                       ? `T${train.particularTrainId || train.trainId} (RD-3)` 
                       : (train.statusText.includes('BUFFER') || train.statusText.includes('CHANGEOVER'))
@@ -807,9 +1295,40 @@ export default function AlstomAtsSystemView({
                       : (isUp ? `T${train.trainId} ➔` : `⬅ T${train.trainId}`)}
                   </text>
 
+                  {/* Reliever tag derived strictly from Live Train Operator Relief Matrix */}
+                  <rect 
+                    x={trX - 44} 
+                    y={trY - 26} 
+                    width="88" 
+                    height="12" 
+                    fill="#0f172a" 
+                    fillOpacity="0.95" 
+                    rx="2" 
+                    stroke={train.shouldAnnounceReliever ? "#38bdf8" : train.reliever?.name ? "#f59e0b" : "#475569"} 
+                    strokeWidth={train.shouldAnnounceReliever ? "1.5" : "0.8"} 
+                  />
+                  <text 
+                    x={trX} 
+                    y={trY - 17} 
+                    fill={train.shouldAnnounceReliever ? "#38bdf8" : train.reliever?.name ? "#fde047" : "#94a3b8"} 
+                    fontSize="6.5" 
+                    fontWeight="900" 
+                    textAnchor="middle"
+                  >
+                    {train.reliever?.name 
+                      ? `${train.shouldAnnounceReliever ? '📢 3m RLV' : 'RLV'}: ${train.reliever.name.split(' ')[0]} (D${train.reliever.dutyNo || '--'})` 
+                      : 'RLV: NONE'}
+                  </text>
+
                   {/* Enriched detail tooltip */}
                   <title>
-                    {`Train ID: ${train.computedTrainId || train.displayTrainId || 'Pending'}\nUnit: ${train.particularTrainId || train.trainId}\nDestination Code: ${train.destinationId || 'N/A'}\nStatus: ${train.trainIdStatus || 'UNKNOWN'}\nLocation: ${train.currentStation || 'Line-2'}\nOperator: ${train.operatorName || '--'}${train.reliever?.name ? `\nReliever: ${train.reliever.name} (Duty ${train.reliever.dutyNo || '--'})` : ''}`}
+                    {`Train ID: ${train.computedTrainId || train.displayTrainId || 'Pending'} (Unit ${train.particularTrainId || train.trainId})\n` +
+                     `Current Driving Operator: ${train.operatorName || '--'} (${train.operatorId || '--'}) • Duty ${train.dutyNo || '--'}\n` +
+                     `Next Reliever (Relief Matrix): ${train.reliever?.name || 'None Assigned'} (${train.reliever?.id || '--'}) • Duty ${train.reliever?.dutyNo || '--'}\n` +
+                     `Scheduled Handover Station: ${train.scheduledHandoverStation || 'PYID'}\n` +
+                     `Handover Time: ${train.reliever?.takeoverTime || '--'}\n` +
+                     `Location: ${train.currentStation || 'Line-2'} (${train.chainage >= 0 ? `+${train.chainage.toFixed(3)}` : train.chainage?.toFixed(3)} KM)\n` +
+                     `Status: ${train.statusText || 'RUNNING'} (${train.speedKmH || 0} km/h)`}
                   </title>
 
                   {/* Directional Headlight beam (only active when moving on main line) */}
@@ -821,10 +1340,10 @@ export default function AlstomAtsSystemView({
                     )
                   )}
 
-                  {/* Driver tag and operational speed derived from timetable */}
-                  <rect x={trX - 36} y={trY + 14} width="72" height="12" fill="#0f172a" fillOpacity="0.95" rx="2" stroke="#475569" strokeWidth="1" />
-                  <text x={trX} y={trY + 23} fill={trY >= DEPOT_Y1 ? "#facc15" : trY === RD3_Y ? "#fde047" : (isUp ? "#34d399" : "#38bdf8")} fontSize="7" fontWeight="bold" textAnchor="middle">
-                    {train.operatorName ? train.operatorName.split(' ')[0] : `D${train.dutyNo}`} ({train.statusText})
+                  {/* Driver tag and operational speed derived from timetable & Relief Matrix */}
+                  <rect x={trX - 44} y={trY + 14} width="88" height="12" fill="#0f172a" fillOpacity="0.95" rx="2" stroke="#475569" strokeWidth="0.8" />
+                  <text x={trX} y={trY + 23} fill={trY >= DEPOT_Y1 ? "#facc15" : trY === RD3_Y ? "#fde047" : (isUp ? "#34d399" : "#38bdf8")} fontSize="6.5" fontWeight="bold" textAnchor="middle">
+                    TO: {train.operatorName ? train.operatorName.split(' ')[0] : (train.dutyNo ? `D${train.dutyNo}` : '--')} ({train.statusText})
                   </text>
                 </g>
               );

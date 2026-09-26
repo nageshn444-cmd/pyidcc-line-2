@@ -8,7 +8,7 @@
  */
 
 import { OFFICIAL_CC_STAFF } from '../data/ccRosterRegistry.js';
-import { calculateRestHours, isFirstShiftDuty, isSecondShiftDuty } from './dutyConstraintEngine.js';
+import { calculateRestHours, isFirstShiftDuty, isSecondShiftDuty, isNightDutyRecord } from './dutyConstraintEngine.js';
 import { DAY_TYPE_PROFILES } from '../data/dayTypeProfiles.js';
 
 export function validateCompleteRoster({
@@ -172,7 +172,7 @@ export function validateCompleteRoster({
     const hist = historicalData[a.empId];
     const prevDuty = a.previousDayDuty || (hist?.recentDuties && hist.recentDuties.length > 0 ? hist.recentDuties[hist.recentDuties.length - 1] : null);
     if (prevDuty && prevDuty.sOffTime && a.sOnTime && a.sOnTime !== '—') {
-      const isPrevNight = prevDuty.isNight || prevDuty.shift === 'N' || String(prevDuty.dutyCode).startsWith('N');
+      const isPrevNight = isNightDutyRecord(prevDuty);
       const rest = calculateRestHours(prevDuty.sOffTime, a.sOnTime, isPrevNight);
 
       // RULE 1: Night shift to A-shift / 1st Shift (including PRO 1) is strictly prohibited

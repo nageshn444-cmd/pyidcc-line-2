@@ -3,7 +3,7 @@ import { triggerChangeover, revertToNormalRoster, CHANGEOVER_TABLE } from '../..
 import { 
   RefreshCw, Play, Shield, Moon, Sun, Calendar, CheckCircle2, 
   ChevronDown, ChevronUp, Eye, X, AlertCircle, User, AlertTriangle, 
-  Search, Cpu, Check, Filter, Zap, Radio
+  Search, Cpu, Check, Filter, Zap, Radio, Clock, MapPin, Route
 } from 'lucide-react';
 import { db } from '../../firebase';
 import { doc, getDoc, collection, onSnapshot, query } from 'firebase/firestore';
@@ -121,6 +121,7 @@ export default function ChangeoverDashboard({ onRefresh }) {
   // ── Search and Filter Controls ──
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL"); // ALL, ASSIGNED, UNASSIGNED, RELIEF_SWAP, ABNORMAL
+  const [expandedDutyNo, setExpandedDutyNo] = useState(null);
 
   // ── Real-Time Sync with DISPATCH GATEWAY CORE & Settings ──
   useEffect(() => {
@@ -364,9 +365,10 @@ export default function ChangeoverDashboard({ onRefresh }) {
   // ── Live Metrics and Statistics ──
   const stats = useMemo(() => {
     if (!previewRows.length) return null;
-    const totalNightKm = previewRows.reduce((s, r) => s + (r.nightKms || 0), 0);
-    const totalMornKm = previewRows.reduce((s, r) => s + (r.mornKms || 0), 0);
-    return { duties: previewRows.length, totalNightKm, totalMornKm, totalKm: totalNightKm + totalMornKm };
+    const totalNightKm = previewRows.reduce((s, r) => s + (Number(r.nightKms) || 0), 0);
+    const totalMornKm = previewRows.reduce((s, r) => s + (Number(r.mornKms) || 0), 0);
+    const totalKm = previewRows.reduce((s, r) => s + (Number(r.totalKms) || ((Number(r.nightKms) || 0) + (Number(r.mornKms) || 0))), 0);
+    return { duties: previewRows.length, totalNightKm, totalMornKm, totalKm };
   }, [previewRows]);
 
   const operatorStats = useMemo(() => {
@@ -656,14 +658,21 @@ export default function ChangeoverDashboard({ onRefresh }) {
 
           {stats && (
             <div className="flex items-center gap-2 text-xs font-mono flex-wrap">
-              <div className="bg-blue-950/40 border border-blue-800/60 px-2.5 py-1 rounded text-blue-300 font-bold text-[11px]">
-                NIGHT KM: {stats.totalNightKm}
+              <div className="bg-blue-950/50 border border-blue-500/40 px-2.5 py-1 rounded-lg text-blue-300 font-bold text-[11px] flex items-center gap-1.5 shadow-sm">
+                <Moon className="h-3 w-3 text-blue-400" />
+                <span>NIGHT LEG: <span className="text-white font-extrabold">{stats.totalNightKm}</span> KM</span>
               </div>
-              <div className="bg-amber-950/40 border border-amber-800/60 px-2.5 py-1 rounded text-amber-300 font-bold text-[11px]">
-                MORN KM: {stats.totalMornKm}
+              <div className="bg-amber-950/50 border border-amber-500/40 px-2.5 py-1 rounded-lg text-amber-300 font-bold text-[11px] flex items-center gap-1.5 shadow-sm">
+                <Sun className="h-3 w-3 text-amber-400" />
+                <span>MORN LEG: <span className="text-white font-extrabold">{stats.totalMornKm}</span> KM</span>
               </div>
-              <div className="bg-emerald-950/40 border border-emerald-800/60 px-3 py-1 rounded text-emerald-300 font-extrabold text-[11px]">
-                TOTAL KM: {stats.totalKm}
+              <div className="bg-emerald-950/60 border border-emerald-500/50 px-3 py-1 rounded-lg text-emerald-300 font-black text-[11px] flex items-center gap-1.5 shadow-sm">
+                <Zap className="h-3 w-3 text-emerald-400" />
+                <span>TOTAL CHANGEOVER: <span className="text-white font-black text-xs">{stats.totalKm}</span> KM</span>
+              </div>
+              <div className="bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-lg text-slate-300 font-bold text-[10.5px] hidden sm:flex items-center gap-1">
+                <span className="text-slate-500">AVG:</span>
+                <span className="text-slate-200">{(stats.totalKm / (stats.duties || 1)).toFixed(1)} km/duty</span>
               </div>
             </div>
           )}
@@ -756,16 +765,22 @@ export default function ChangeoverDashboard({ onRefresh }) {
             <table className="w-full text-left text-[11px] font-mono border-collapse">
               <thead>
                 <tr className="bg-slate-950 text-slate-400 uppercase text-[9.5px] border-b border-slate-800 text-center font-bold">
-                  <th className="px-2.5 py-2 border-r border-slate-800 w-[45px]">#</th>
+                  <th className="px-2.5 py-2 border-r border-slate-800 w-[55px]">Duty</th>
                   <th className="px-3 py-2 border-r border-slate-800 text-cyan-400 bg-cyan-950/20 text-left min-w-[210px]">
                     Night Shift Train Operator (Dispatch Gateway Core)
                   </th>
-                  <th colSpan="7" className="px-2.5 py-2 border-r border-slate-800 text-blue-400 bg-blue-950/20">Night Step</th>
-                  <th colSpan="7" className="px-2.5 py-2 border-r border-slate-800 text-amber-400 bg-amber-950/20">Morning Takeover</th>
-                  <th colSpan="3" className="px-2.5 py-2 text-emerald-400 bg-emerald-950/20">Summary</th>
+                  <th colSpan="7" className="px-2.5 py-2 border-r border-slate-800 text-blue-400 bg-blue-950/20">
+                    <span className="inline-flex items-center gap-1.5"><Moon className="h-3 w-3 text-blue-400" /> Leg 1: Night Shift Run</span>
+                  </th>
+                  <th colSpan="7" className="px-2.5 py-2 border-r border-slate-800 text-amber-400 bg-amber-950/20">
+                    <span className="inline-flex items-center gap-1.5"><Sun className="h-3 w-3 text-amber-400" /> Leg 3: Morning Takeover Run</span>
+                  </th>
+                  <th colSpan="3" className="px-2.5 py-2 text-emerald-400 bg-emerald-950/20">
+                    <span className="inline-flex items-center gap-1.5"><Zap className="h-3 w-3 text-emerald-400" /> Crew Link Totals</span>
+                  </th>
                 </tr>
                 <tr className="bg-slate-955 text-slate-400 uppercase text-[9px] border-b border-slate-800 text-center">
-                  <th className="px-2 py-1.5 border-r border-slate-800">Duty</th>
+                  <th className="px-2 py-1.5 border-r border-slate-800"># / Leg</th>
                   <th className="px-3 py-1.5 border-r border-slate-800 text-left text-cyan-300">Active Operator Name &amp; ID</th>
                   <th className="px-2 py-1.5">Sign On</th>
                   <th className="px-2 py-1.5">Loc</th>
@@ -773,15 +788,15 @@ export default function ChangeoverDashboard({ onRefresh }) {
                   <th className="px-2 py-1.5">Dep</th>
                   <th className="px-2 py-1.5">Arr</th>
                   <th className="px-2 py-1.5">Handover</th>
-                  <th className="px-2 py-1.5 border-r border-slate-800 text-blue-400">N.Km</th>
+                  <th className="px-2 py-1.5 border-r border-slate-800 text-blue-300 font-bold bg-blue-950/40">Night Leg Km</th>
                   <th className="px-2 py-1.5">Takeover Loc</th>
                   <th className="px-2 py-1.5 text-amber-400 font-bold">Train</th>
                   <th className="px-2 py-1.5">Dep</th>
                   <th className="px-2 py-1.5">Arr</th>
                   <th className="px-2 py-1.5">Sign Off</th>
                   <th className="px-2 py-1.5">Off Loc</th>
-                  <th className="px-2 py-1.5 border-r border-slate-800 text-amber-400">M.Km</th>
-                  <th className="px-2 py-1.5 text-emerald-400 font-bold">Tot.Km</th>
+                  <th className="px-2 py-1.5 border-r border-slate-800 text-amber-300 font-bold bg-amber-950/40">Morn Leg Km</th>
+                  <th className="px-2 py-1.5 text-emerald-400 font-extrabold bg-emerald-950/40">Total Km</th>
                   <th className="px-2 py-1.5">Duty Hrs</th>
                   <th className="px-2 py-1.5">Drive Hrs</th>
                 </tr>
@@ -789,121 +804,258 @@ export default function ChangeoverDashboard({ onRefresh }) {
               <tbody className="divide-y divide-slate-850 text-center">
                 {filteredRows.map((r, idx) => {
                   const op = r.operator || {};
+                  const isExpanded = expandedDutyNo === r.dutyNo;
                   return (
-                    <tr key={r.dutyNo || idx} className="hover:bg-slate-850/50 transition">
-                      {/* Duty Number */}
-                      <td className="px-2 py-2 font-bold text-slate-100 border-r border-slate-800">{r.dutyNo}</td>
+                    <React.Fragment key={r.dutyNo || idx}>
+                      <tr
+                        onClick={() => setExpandedDutyNo(isExpanded ? null : r.dutyNo)}
+                        className={`hover:bg-slate-800/60 transition cursor-pointer select-none ${isExpanded ? 'bg-slate-850/80' : ''}`}
+                        title="Click to view full Crew Link Leg Journey & Distance Details"
+                      >
+                        {/* Duty Number & Expand Toggle */}
+                        <td className="px-2 py-2 font-bold text-slate-100 border-r border-slate-800">
+                          <div className="flex items-center justify-center gap-1">
+                            <span>{r.dutyNo}</span>
+                            {isExpanded ? (
+                              <ChevronUp className="h-3 w-3 text-amber-400" />
+                            ) : (
+                              <ChevronDown className="h-3 w-3 text-slate-500 hover:text-slate-300" />
+                            )}
+                          </div>
+                        </td>
 
-                      {/* Active Night Shift Train Operator */}
-                      <td className="px-3 py-2 text-left border-r border-slate-800 bg-slate-950/40">
-                        <div className="flex items-center gap-2">
-                          <div className={`p-1.5 rounded-lg shrink-0 ${
-                            op.isUnassigned ? 'bg-slate-800/80 text-slate-500' :
-                            op.isRelief ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' :
-                            op.isExchanged ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' :
-                            op.isSwapped ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' :
-                            op.isNR ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' :
-                            op.isAB ? 'bg-red-500/20 text-red-300 border border-red-500/40' :
-                            'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                        {/* Active Night Shift Train Operator */}
+                        <td className="px-3 py-2 text-left border-r border-slate-800 bg-slate-950/40">
+                          <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded-lg shrink-0 ${
+                              op.isUnassigned ? 'bg-slate-800/80 text-slate-500' :
+                              op.isRelief ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' :
+                              op.isExchanged ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' :
+                              op.isSwapped ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' :
+                              op.isNR ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' :
+                              op.isAB ? 'bg-red-500/20 text-red-300 border border-red-500/40' :
+                              'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                            }`}>
+                              <User className="h-3.5 w-3.5" />
+                            </div>
+
+                            <div className="flex flex-col min-w-0">
+                              {/* Operator Name and Status Badges */}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`font-bold truncate text-xs ${
+                                  op.isUnassigned ? 'text-slate-500 italic' :
+                                  op.isNR ? 'text-rose-300 font-black' :
+                                  op.isAB ? 'text-red-300 font-black' :
+                                  'text-slate-100'
+                                }`}>
+                                  {op.empName}
+                                </span>
+
+                                {op.isRelief && (
+                                  <span className="bg-cyan-950/90 text-cyan-300 border border-cyan-500/80 px-1.5 py-0.2 rounded text-[8px] font-mono font-bold tracking-wider inline-flex items-center gap-1 shadow">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" /> RELIEF
+                                  </span>
+                                )}
+
+                                {op.isExchanged && (
+                                  <span className="bg-purple-950/90 text-purple-300 border border-purple-500/80 px-1.5 py-0.2 rounded text-[8px] font-mono font-bold tracking-wider inline-flex items-center gap-1 shadow">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse" /> EXCH
+                                  </span>
+                                )}
+
+                                {op.isSwapped && (
+                                  <span className="bg-amber-950/90 text-amber-300 border border-amber-500/80 px-1.5 py-0.2 rounded text-[8px] font-mono font-bold tracking-wider inline-flex items-center gap-1 shadow">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" /> SWAP
+                                  </span>
+                                )}
+
+                                {op.isNR && (
+                                  <span className="bg-rose-950/90 text-rose-300 border border-rose-500/80 px-1.5 py-0.2 rounded text-[8px] font-mono font-bold tracking-wider inline-flex items-center gap-1 shadow">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-rose-400 animate-pulse" /> NR
+                                  </span>
+                                )}
+
+                                {op.isAB && (
+                                  <span className="bg-red-950/90 text-red-300 border border-red-500/80 px-1.5 py-0.2 rounded text-[8px] font-mono font-bold tracking-wider inline-flex items-center gap-1 shadow">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-pulse" /> AB
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Emp ID and Swap/Exchange Details */}
+                              <div className="flex items-center gap-1.5 text-[9.5px] flex-wrap mt-0.5">
+                                <span className="font-mono text-cyan-400 font-bold">
+                                  {op.empId !== '--' ? `#${op.empId}` : 'ID: --'}
+                                </span>
+
+                                {op.isSwapped && (op.swappedWith || op.swappedDutyId || op.remarks) && (
+                                  <span
+                                    className="text-[8.5px] font-mono text-amber-300 font-bold bg-amber-950/60 border border-amber-500/40 px-1 py-0.2 rounded truncate max-w-[190px]"
+                                    title={op.remarks || `Swapped with ${op.swappedWith || op.swappedDutyId}`}
+                                  >
+                                    {op.swappedDutyId ? `⇄ Duty #${op.swappedDutyId}` : (op.swappedWith ? `⇄ ${op.swappedWith}` : '⇄ Swapped')}
+                                  </span>
+                                )}
+
+                                {op.isExchanged && (op.exchangedWith || op.remarks) && (
+                                  <span
+                                    className="text-[8.5px] font-mono text-purple-300 font-bold bg-purple-950/60 border border-purple-500/40 px-1 py-0.2 rounded truncate max-w-[190px]"
+                                    title={op.remarks || `Exchanged with ${op.exchangedWith}`}
+                                  >
+                                    {op.exchangedWith ? `⇄ ${op.exchangedWith}` : (op.remarks && op.remarks.includes("Exchanged with") ? op.remarks : '⇄ Exchanged')}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Night Step (Leg 1) Details */}
+                        <td className="px-2 py-2 text-slate-300"><TimeCell t={r.signOnTime} /></td>
+                        <td className="px-2 py-2 text-emerald-400 font-bold">{r.signOnLocation || '--'}</td>
+                        <td className="px-2 py-2 text-blue-300 font-bold">{r.nightTrainNo || '--'}</td>
+                        <td className="px-2 py-2 text-slate-300"><TimeCell t={r.nightDepTime} /></td>
+                        <td className="px-2 py-2 text-slate-300"><TimeCell t={r.nightArrTime} /></td>
+                        <td className="px-2 py-2 text-slate-400 text-[10px]">{r.nightHandoverLoc || '--'}</td>
+                        <td className="px-2 py-2 border-r border-slate-800 bg-blue-950/15">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-950/80 border border-blue-500/40 text-blue-300 font-mono font-bold text-[11px] shadow-sm">
+                            {r.nightKms || 0} km
+                          </span>
+                        </td>
+
+                        {/* Morning Takeover (Leg 3) Details */}
+                        <td className="px-2 py-2 text-slate-400 text-[10px]">{r.takeoverLocation || '--'}</td>
+                        <td className="px-2 py-2 text-amber-300 font-bold">{r.mornTrainNo || '--'}</td>
+                        <td className="px-2 py-2 text-slate-300"><TimeCell t={r.mornDepTime} /></td>
+                        <td className="px-2 py-2 text-slate-300"><TimeCell t={r.mornArrTime} /></td>
+                        <td className="px-2 py-2 text-slate-300"><TimeCell t={r.signOffTime} /></td>
+                        <td className="px-2 py-2 text-amber-400 font-bold">{r.signOffLocation || '--'}</td>
+                        <td className="px-2 py-2 border-r border-slate-800 bg-amber-950/15">
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded font-mono font-bold text-[11px] shadow-sm ${
+                            Number(r.mornKms) > 0 ? 'bg-amber-950/80 border border-amber-500/40 text-amber-300' : 'bg-slate-900 border border-slate-750 text-slate-500'
                           }`}>
-                            <User className="h-3.5 w-3.5" />
-                          </div>
+                            {r.mornKms || 0} km
+                          </span>
+                        </td>
 
-                          <div className="flex flex-col min-w-0">
-                            {/* Operator Name and Status Badges */}
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className={`font-bold truncate text-xs ${
-                                op.isUnassigned ? 'text-slate-500 italic' :
-                                op.isNR ? 'text-rose-300 font-black' :
-                                op.isAB ? 'text-red-300 font-black' :
-                                'text-slate-100'
-                              }`}>
-                                {op.empName}
-                              </span>
+                        {/* Summary Metrics */}
+                        <td className="px-2 py-2 bg-emerald-950/15">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-950/90 border border-emerald-500/50 text-emerald-300 font-mono font-extrabold text-xs shadow-sm">
+                            {r.totalKms || ((Number(r.nightKms) || 0) + (Number(r.mornKms) || 0))} km
+                          </span>
+                        </td>
+                        <td className="px-2 py-2 text-slate-300"><TimeCell t={r.dutyHrs} /></td>
+                        <td className="px-2 py-2 text-cyan-300 font-bold"><TimeCell t={r.drivingHrs} /></td>
+                      </tr>
 
-                              {op.isRelief && (
-                                <span className="bg-cyan-950/90 text-cyan-300 border border-cyan-500/80 px-1.5 py-0.2 rounded text-[8px] font-mono font-bold tracking-wider inline-flex items-center gap-1 shadow">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" /> RELIEF
-                                </span>
-                              )}
+                      {/* Expandable Crew Link & Leg Breakdown Drawer */}
+                      {isExpanded && (
+                        <tr className="bg-slate-950/95 border-b border-amber-500/40">
+                          <td colSpan={19} className="p-3 text-left">
+                            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 shadow-xl space-y-3">
+                              <div className="flex items-center justify-between border-b border-slate-800 pb-2 flex-wrap gap-2">
+                                <div className="flex items-center gap-2">
+                                  <Route className="h-4 w-4 text-amber-400" />
+                                  <span className="text-xs font-bold text-slate-100 uppercase tracking-wide">
+                                    Duty #{r.dutyNo} Crew Link &amp; Leg Kilometers Breakdown
+                                  </span>
+                                  <Badge color="blue">Line-2 Peenya Depot</Badge>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs font-mono font-bold">
+                                  <span className="bg-blue-950/80 text-blue-300 border border-blue-500/40 px-2 py-0.5 rounded">
+                                    Leg 1: {r.nightKms || 0} km
+                                  </span>
+                                  <span className="text-slate-500">+</span>
+                                  <span className="bg-amber-950/80 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded">
+                                    Leg 3: {r.mornKms || 0} km
+                                  </span>
+                                  <span className="text-slate-500">=</span>
+                                  <span className="bg-emerald-950/90 text-emerald-300 border border-emerald-500/50 px-2.5 py-0.5 rounded font-black">
+                                    Total: {r.totalKms || ((Number(r.nightKms) || 0) + (Number(r.mornKms) || 0))} km
+                                  </span>
+                                </div>
+                              </div>
 
-                              {op.isExchanged && (
-                                <span className="bg-purple-950/90 text-purple-300 border border-purple-500/80 px-1.5 py-0.2 rounded text-[8px] font-mono font-bold tracking-wider inline-flex items-center gap-1 shadow">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse" /> EXCH
-                                </span>
-                              )}
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-[11px] font-mono">
+                                {/* Leg 1: Night Drive */}
+                                <div className="bg-blue-950/30 border border-blue-800/60 rounded-lg p-3 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-blue-300 font-bold uppercase text-[10px] flex items-center gap-1.5">
+                                      <Moon className="h-3.5 w-3.5 text-blue-400" /> Leg 1: Night Run
+                                    </span>
+                                    <span className="bg-blue-500/20 text-blue-300 border border-blue-500/40 px-2 py-0.5 rounded font-black text-xs">
+                                      {r.nightKms || 0} KM
+                                    </span>
+                                  </div>
+                                  <div className="space-y-1 text-slate-300 text-[10.5px]">
+                                    <div><span className="text-slate-500">Train:</span> <span className="text-blue-300 font-bold">#{r.nightTrainNo || '--'}</span></div>
+                                    <div><span className="text-slate-500">Sign On:</span> {r.signOnTime} @ <span className="text-emerald-400 font-semibold">{r.signOnLocation}</span></div>
+                                    <div><span className="text-slate-500">Trip:</span> {r.nightDepTime} ➔ {r.nightArrTime} ({r.nightTripTime})</div>
+                                    <div><span className="text-slate-500">Handover:</span> <span className="text-slate-200 font-semibold">{r.nightHandoverLoc || '--'}</span></div>
+                                  </div>
+                                </div>
 
-                              {op.isSwapped && (
-                                <span className="bg-amber-950/90 text-amber-300 border border-amber-500/80 px-1.5 py-0.2 rounded text-[8px] font-mono font-bold tracking-wider inline-flex items-center gap-1 shadow">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" /> SWAP
-                                </span>
-                              )}
+                                {/* Leg 2: Mid-Shift Rest Break */}
+                                <div className="bg-indigo-950/30 border border-indigo-800/60 rounded-lg p-3 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-indigo-300 font-bold uppercase text-[10px] flex items-center gap-1.5">
+                                      <Clock className="h-3.5 w-3.5 text-indigo-400" /> Leg 2: Rest / Stabling
+                                    </span>
+                                    <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded font-black text-xs">
+                                      0 KM (Break)
+                                    </span>
+                                  </div>
+                                  <div className="space-y-1 text-slate-300 text-[10.5px]">
+                                    <div><span className="text-slate-500">From:</span> {r.nightHandoverLoc || '--'}</div>
+                                    <div><span className="text-slate-500">To:</span> {r.takeoverLocation || '--'}</div>
+                                    <div><span className="text-slate-500">Duration:</span> <span className="text-indigo-300 font-bold">{r.nightBreak || '--'}</span></div>
+                                    <div className="text-slate-500 italic text-[10px]">Station / Depot Layover</div>
+                                  </div>
+                                </div>
 
-                              {op.isNR && (
-                                <span className="bg-rose-950/90 text-rose-300 border border-rose-500/80 px-1.5 py-0.2 rounded text-[8px] font-mono font-bold tracking-wider inline-flex items-center gap-1 shadow">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-rose-400 animate-pulse" /> NR
-                                </span>
-                              )}
+                                {/* Leg 3: Morning Takeover Drive */}
+                                <div className="bg-amber-950/30 border border-amber-800/60 rounded-lg p-3 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-amber-300 font-bold uppercase text-[10px] flex items-center gap-1.5">
+                                      <Sun className="h-3.5 w-3.5 text-amber-400" /> Leg 3: Morning Run
+                                    </span>
+                                    <span className={`px-2 py-0.5 rounded font-black text-xs ${
+                                      Number(r.mornKms) > 0 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-slate-800 text-slate-500 border border-slate-700'
+                                    }`}>
+                                      {r.mornKms || 0} KM
+                                    </span>
+                                  </div>
+                                  <div className="space-y-1 text-slate-300 text-[10.5px]">
+                                    <div><span className="text-slate-500">Train:</span> <span className="text-amber-300 font-bold">{r.mornTrainNo !== '--' ? `#${r.mornTrainNo}` : 'PDC / Standby'}</span></div>
+                                    <div><span className="text-slate-500">Takeover:</span> <span className="text-slate-200 font-semibold">{r.takeoverLocation}</span> ({r.mornDepTime})</div>
+                                    <div><span className="text-slate-500">Trip:</span> {r.mornDepTime} ➔ {r.mornArrTime} ({r.mornTripTime})</div>
+                                    <div><span className="text-slate-500">Sign Off:</span> {r.signOffTime} @ <span className="text-amber-400 font-semibold">{r.signOffLocation}</span></div>
+                                  </div>
+                                </div>
 
-                              {op.isAB && (
-                                <span className="bg-red-950/90 text-red-300 border border-red-500/80 px-1.5 py-0.2 rounded text-[8px] font-mono font-bold tracking-wider inline-flex items-center gap-1 shadow">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-pulse" /> AB
-                                </span>
-                              )}
-
+                                {/* Total Crew Link Summary */}
+                                <div className="bg-emerald-950/30 border border-emerald-800/60 rounded-lg p-3 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-emerald-300 font-bold uppercase text-[10px] flex items-center gap-1.5">
+                                      <Zap className="h-3.5 w-3.5 text-emerald-400" /> Shift Totals
+                                    </span>
+                                    <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded font-black text-xs">
+                                      {r.totalKms || ((Number(r.nightKms) || 0) + (Number(r.mornKms) || 0))} KM
+                                    </span>
+                                  </div>
+                                  <div className="space-y-1 text-slate-300 text-[10.5px]">
+                                    <div><span className="text-slate-500">Duty Hours:</span> <span className="text-slate-200 font-bold">{r.dutyHrs || '--'}</span></div>
+                                    <div><span className="text-slate-500">Driving Hours:</span> <span className="text-cyan-300 font-bold">{r.drivingHrs || '--'}</span></div>
+                                    <div><span className="text-slate-500">Operator:</span> <span className="text-white font-bold">{r.operator?.empName || '--'}</span></div>
+                                    <div><span className="text-slate-500">Leg Split:</span> <span className="text-blue-300 font-semibold">{r.nightKms || 0}km</span> + <span className="text-amber-300 font-semibold">{r.mornKms || 0}km</span></div>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-
-                            {/* Emp ID and Swap/Exchange Details */}
-                            <div className="flex items-center gap-1.5 text-[9.5px] flex-wrap mt-0.5">
-                              <span className="font-mono text-cyan-400 font-bold">
-                                {op.empId !== '--' ? `#${op.empId}` : 'ID: --'}
-                              </span>
-
-                              {op.isSwapped && (op.swappedWith || op.swappedDutyId || op.remarks) && (
-                                <span
-                                  className="text-[8.5px] font-mono text-amber-300 font-bold bg-amber-950/60 border border-amber-500/40 px-1 py-0.2 rounded truncate max-w-[190px]"
-                                  title={op.remarks || `Swapped with ${op.swappedWith || op.swappedDutyId}`}
-                                >
-                                  {op.swappedDutyId ? `⇄ Duty #${op.swappedDutyId}` : (op.swappedWith ? `⇄ ${op.swappedWith}` : '⇄ Swapped')}
-                                </span>
-                              )}
-
-                              {op.isExchanged && (op.exchangedWith || op.remarks) && (
-                                <span
-                                  className="text-[8.5px] font-mono text-purple-300 font-bold bg-purple-950/60 border border-purple-500/40 px-1 py-0.2 rounded truncate max-w-[190px]"
-                                  title={op.remarks || `Exchanged with ${op.exchangedWith}`}
-                                >
-                                  {op.exchangedWith ? `⇄ ${op.exchangedWith}` : (op.remarks && op.remarks.includes("Exchanged with") ? op.remarks : '⇄ Exchanged')}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Night Step Details */}
-                      <td className="px-2 py-2 text-slate-300"><TimeCell t={r.signOnTime} /></td>
-                      <td className="px-2 py-2 text-emerald-400 font-bold">{r.signOnLocation || '--'}</td>
-                      <td className="px-2 py-2 text-blue-300 font-bold">{r.nightTrainNo || '--'}</td>
-                      <td className="px-2 py-2 text-slate-300"><TimeCell t={r.nightDepTime} /></td>
-                      <td className="px-2 py-2 text-slate-300"><TimeCell t={r.nightArrTime} /></td>
-                      <td className="px-2 py-2 text-slate-400 text-[10px]">{r.nightHandoverLoc || '--'}</td>
-                      <td className="px-2 py-2 text-blue-400 font-bold border-r border-slate-800">{r.nightKms || 0}</td>
-
-                      {/* Morning Takeover Details */}
-                      <td className="px-2 py-2 text-slate-400 text-[10px]">{r.takeoverLocation || '--'}</td>
-                      <td className="px-2 py-2 text-amber-300 font-bold">{r.mornTrainNo || '--'}</td>
-                      <td className="px-2 py-2 text-slate-300"><TimeCell t={r.mornDepTime} /></td>
-                      <td className="px-2 py-2 text-slate-300"><TimeCell t={r.mornArrTime} /></td>
-                      <td className="px-2 py-2 text-slate-300"><TimeCell t={r.signOffTime} /></td>
-                      <td className="px-2 py-2 text-amber-400 font-bold">{r.signOffLocation || '--'}</td>
-                      <td className="px-2 py-2 text-amber-400 font-bold border-r border-slate-800">{r.mornKms || 0}</td>
-
-                      {/* Summary Metrics */}
-                      <td className="px-2 py-2 text-emerald-400 font-extrabold text-xs">{r.totalKms || (r.nightKms + r.mornKms) || 0}</td>
-                      <td className="px-2 py-2 text-slate-300"><TimeCell t={r.dutyHrs} /></td>
-                      <td className="px-2 py-2 text-cyan-300 font-bold"><TimeCell t={r.drivingHrs} /></td>
-                    </tr>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>

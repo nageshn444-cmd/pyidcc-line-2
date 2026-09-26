@@ -583,7 +583,7 @@ export function calculateLegKmsFromWTT(
       const seqResult = calculateSequenceDistance(pathStops);
       let finalKms = seqResult.totalExact > 0 ? parseFloat(seqResult.totalExact.toFixed(2)) : (seqResult.totalRounded || 0);
 
-      if (finalKms > 85) {
+      if (finalKms > 150) {
         const directDist = calculateDistance(bStop.station, aStop.station);
         finalKms = (typeof directDist === "number" && directDist > 0) ? parseFloat(directDist.toFixed(2)) : 35;
       }
@@ -1173,7 +1173,8 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
     (normSchedule === "SUNDAY" && Number(dutyNoClean) >= 48 && Number(dutyNoClean) <= 62) ||
     (normSchedule === "WEEKDAY" ? (Number(dutyNoClean) >= 61 && Number(dutyNoClean) <= 74) : (Number(dutyNoClean) >= 64 && Number(dutyNoClean) <= 77));
 
-  if (dutyNoClean && isNightDutyNo) {
+  // Only apply CHANGEOVER_TABLE if duty is explicitly marked as changeover or not on WEEKDAY standard link roster
+  if (dutyNoClean && isNightDutyNo && normSchedule !== "WEEKDAY" && duty.isChangeover === true) {
     let tableKey = "WEEKDAY__SATURDAY";
     if (normSchedule === "SUNDAY") tableKey = "SUNDAY__MONDAY";
     else if (normSchedule === "SATURDAY") tableKey = "SATURDAY__SUNDAY";
@@ -1325,15 +1326,20 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
   const storedTotal = parseStoredKm(duty.totalKm || duty.kms || duty.totalKms);
   const officialTotal = parseStoredKm(duty.kms || duty.totalKms || duty.totalKm);
 
-  let leg1Km = calc1 > 0 ? calc1 : stored1;
-  let leg2Km = calc2 > 0 ? calc2 : stored2;
-  let leg3Km = calc3 > 0 ? calc3 : stored3;
-  let leg4Km = calc4 > 0 ? calc4 : stored4;
+  let leg1Km = stored1 > 0 ? stored1 : calc1;
+  let leg2Km = stored2 > 0 ? stored2 : calc2;
+  let leg3Km = stored3 > 0 ? stored3 : calc3;
+  let leg4Km = stored4 > 0 ? stored4 : calc4;
 
-  if (nightKms > 0) leg1Km = nightKms;
-  if (mornKms > 0) {
-    if (leg2Km > 0 && leg3Km === 0) leg2Km = mornKms;
-    else leg3Km = mornKms;
+  if (normSchedule === "WEEKDAY" && isNightDutyNo) {
+    leg3Km = 0;
+    leg4Km = 0;
+  } else {
+    if (nightKms > 0) leg1Km = nightKms;
+    if (mornKms > 0) {
+      if (leg2Km > 0 && leg3Km === 0) leg2Km = mornKms;
+      else leg3Km = mornKms;
+    }
   }
 
   const calculatedTotal = Number((leg1Km + leg2Km + leg3Km + leg4Km).toFixed(2));

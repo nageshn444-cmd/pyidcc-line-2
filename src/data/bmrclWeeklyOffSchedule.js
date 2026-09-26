@@ -1,169 +1,203 @@
 /**
- * BMRCL Peenya Depot Line 2 - Official Weekly Off Schedule
- * Document: "Implementation of Weekoff from September 7th 2025"
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ * 
+ * BMRCL LINE-2 (PEENYA DEPOT CREW CONTROL)
+ * Official Weekly Off Schedule
+ * Document: "PYID CC WEEKLY OFF ALLOTMENT FROM OCTOBER - 2026"
+ * 
+ * Total Allocated Active Crew: 127 (91 BMRCL Regular Train Operators + 36 JMD Contract Train Drivers)
+ * 
+ * Policy Notes:
+ * i. Priority consideration WRT to Total Number of Sunday Weekly off availed months till Sep-2026
+ * ii. JMD Train Drivers Weekly off will be Rotated as and when WO Allotment is revised periodically
  */
 
 export const BMRCL_OFFICIAL_WEEKLY_OFF_SCHEDULE = [
-  // ── SUNDAY (18 Operators) ──
-  { empId: '20787', empName: 'Baskar S', dayOfWeek: 'Sunday' },
-  { empId: '21504', empName: 'BhagyaLakshmi V', dayOfWeek: 'Sunday' },
-  { empId: '21702', empName: 'Chandrashekar G', dayOfWeek: 'Sunday' },
-  { empId: '21703', empName: 'Srinivas V', dayOfWeek: 'Sunday' },
-  { empId: '21708', empName: 'Sowmya N', dayOfWeek: 'Sunday' },
-  { empId: '21953', empName: 'Raveen', dayOfWeek: 'Sunday' },
-  { empId: '21969', empName: 'Jeeva S', dayOfWeek: 'Sunday' },
-  { empId: '22013', empName: 'Mahadevswamy S', dayOfWeek: 'Sunday' },
-  { empId: '22226', empName: 'Shiva Kant Gaur', dayOfWeek: 'Sunday' },
-  { empId: '22237', empName: 'Ranjan Kumar Bharathi', dayOfWeek: 'Sunday' },
-  { empId: '22246', empName: 'BK Singh', dayOfWeek: 'Sunday' },
-  { empId: '22260', empName: 'Satya Prakash', dayOfWeek: 'Sunday' },
-  { empId: '22282', empName: 'Vinod Kumar Singh V', dayOfWeek: 'Sunday' },
-  { empId: '22284', empName: 'Aravinda Vinod Kumar', dayOfWeek: 'Sunday' },
-  { empId: '22289', empName: 'Sanjay Kumar', dayOfWeek: 'Sunday' },
-  { empId: '22308', empName: 'Rajesh KA', dayOfWeek: 'Sunday' },
-  { empId: '22319', empName: 'Prakash P', dayOfWeek: 'Sunday' },
-  { empId: '22529', empName: 'Mahesh Kumar M', dayOfWeek: 'Sunday' },
+  // ── SUNDAY (28 Operators: 25 Regular + 3 Special/Standby) ──
+  { empId: '21029', empName: 'Raghavendra K T', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO' },
+  { empId: '21436', empName: 'Manjunatha K R', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO' },
+  { empId: '21711', empName: 'Shakuntala', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO' },
+  { empId: '21712', empName: 'Hemavathi J', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO' },
+  { empId: '22116', empName: 'Nagalingegowda M', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO' },
+  { empId: '22236', empName: 'Ravindra Sahu', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO' },
+  { empId: '22239', empName: 'Manjunatha KS', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO' },
+  { empId: '22245', empName: 'Shamukha Rao B', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO' },
+  { empId: '22254', empName: 'Kc Abhilash Nambiar', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO' },
+  { empId: '22256', empName: 'Siddaldainga Swamy', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO' },
+  { empId: '22264', empName: 'Yashodhar K L', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO' },
+  { empId: '22268', empName: 'Shanthamurthy G', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO' },
+  { empId: '22322', empName: 'Harish PK', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO' },
+  { empId: '22461', empName: 'Anantha', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO' },
+  { empId: '22464', empName: 'Naveen Kumar H S', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO' },
+  { empId: '22470', empName: 'Pavankumar M', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO' },
+  { empId: '22484', empName: 'Manjunath Swamy S M', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO' },
+  { empId: '22500', empName: 'Bhavyashree K S', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO' },
+  { empId: '22514', empName: 'Shakunthala R', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO' },
+  { empId: '22522', empName: 'Harshith D', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO' },
+  { empId: '88000048', empName: 'Karan Velarasan', dayOfWeek: 'Sunday', cadre: 'JMD_TD' },
+  { empId: '88000087', empName: 'Manoj L G', dayOfWeek: 'Sunday', cadre: 'JMD_TD' },
+  { empId: '88000088', empName: 'Dileep Kumar', dayOfWeek: 'Sunday', cadre: 'JMD_TD' },
+  { empId: '88000124', empName: 'Thanuja C', dayOfWeek: 'Sunday', cadre: 'JMD_TD' },
+  { empId: '88000129', empName: 'Ramu A', dayOfWeek: 'Sunday', cadre: 'JMD_TD' },
+  // Sunday (Special / Priority Allotment)
+  { empId: '21414', empName: 'Harsha N', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO', isSpecial: true },
+  { empId: '21724', empName: 'Anand M', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO', isSpecial: true },
+  { empId: '22315', empName: 'Krishna Murthy R', dayOfWeek: 'Sunday', cadre: 'BMRCL_TO', isSpecial: true },
 
-  // ── MONDAY (21 Operators) ──
-  { empId: '21694', empName: 'Nagendra C S', dayOfWeek: 'Monday' },
-  { empId: '21715', empName: 'Radhika M', dayOfWeek: 'Monday' },
-  { empId: '21725', empName: 'Soumya Patil', dayOfWeek: 'Monday' },
-  { empId: '21945', empName: 'Nithin Kumar M', dayOfWeek: 'Monday' },
-  { empId: '21955', empName: 'Ashish Kumar', dayOfWeek: 'Monday' },
-  { empId: '21978', empName: 'Rangaswamy D N', dayOfWeek: 'Monday' },
-  { empId: '21994', empName: 'Jagadeesh S', dayOfWeek: 'Monday' },
-  { empId: '22256', empName: 'Siddalingaswamy', dayOfWeek: 'Monday' },
-  { empId: '22281', empName: 'Ashok Itnal', dayOfWeek: 'Monday' },
-  { empId: '22455', empName: 'Venkatesh', dayOfWeek: 'Monday' },
-  { empId: '22461', empName: 'Anantha', dayOfWeek: 'Monday' },
-  { empId: '22484', empName: 'Manjunath Swamy SM', dayOfWeek: 'Monday' },
-  { empId: '22456', empName: 'Chatranjali UG', dayOfWeek: 'Monday' },
-  { empId: '22517', empName: 'Ramachandra', dayOfWeek: 'Monday' },
-  { empId: '88000002', empName: 'Shivamani MR', dayOfWeek: 'Monday' },
-  { empId: '88000020', empName: 'Prajwal', dayOfWeek: 'Monday' },
-  { empId: '88000037', empName: 'Gowtham U', dayOfWeek: 'Monday' },
-  { empId: '88000085', empName: 'Nithin R', dayOfWeek: 'Monday' },
-  { empId: '88000088', empName: 'Dileep Kumar', dayOfWeek: 'Monday' },
-  { empId: '88000096', empName: 'Vinay Kumar GR', dayOfWeek: 'Monday' },
-  { empId: '88000143', empName: 'Nandan Kumar BN', dayOfWeek: 'Monday' },
+  // ── MONDAY (15 Operators) ──
+  { empId: '21977', empName: 'Siva Nag Kakarla V S', dayOfWeek: 'Monday', cadre: 'BMRCL_TO' },
+  { empId: '22016', empName: 'Sharanbasappa', dayOfWeek: 'Monday', cadre: 'BMRCL_TO' },
+  { empId: '22240', empName: 'Sunil PN', dayOfWeek: 'Monday', cadre: 'BMRCL_TO' },
+  { empId: '22281', empName: 'Ashok Itnal', dayOfWeek: 'Monday', cadre: 'BMRCL_TO' },
+  { empId: '22455', empName: 'Venkatesh N', dayOfWeek: 'Monday', cadre: 'BMRCL_TO' },
+  { empId: '22456', empName: 'Chaitranjali U G', dayOfWeek: 'Monday', cadre: 'BMRCL_TO' },
+  { empId: '22468', empName: 'Nayana D R', dayOfWeek: 'Monday', cadre: 'BMRCL_TO' },
+  { empId: '22490', empName: 'Ashwini Bashetti', dayOfWeek: 'Monday', cadre: 'BMRCL_TO' },
+  { empId: '22493', empName: 'Kaveri V S', dayOfWeek: 'Monday', cadre: 'BMRCL_TO' },
+  { empId: '22497', empName: 'Harish Murthy HN', dayOfWeek: 'Monday', cadre: 'BMRCL_TO' },
+  { empId: '88000085', empName: 'Nithin R', dayOfWeek: 'Monday', cadre: 'JMD_TD' },
+  { empId: '88000105', empName: 'Yogesh G H', dayOfWeek: 'Monday', cadre: 'JMD_TD' },
+  { empId: '88000111', empName: 'Mahesh K C', dayOfWeek: 'Monday', cadre: 'JMD_TD' },
+  { empId: '88000135', empName: 'Arun Kumar', dayOfWeek: 'Monday', cadre: 'JMD_TD' },
+  { empId: '88000143', empName: 'Nandan Kumar', dayOfWeek: 'Monday', cadre: 'JMD_TD' },
 
-  // ── TUESDAY (25 Operators) ──
-  { empId: '21029', empName: 'Raghavendra K T', dayOfWeek: 'Tuesday' },
-  { empId: '21506', empName: 'Chikke Gowda N', dayOfWeek: 'Tuesday' },
-  { empId: '21553', empName: 'Mahesh Kumar', dayOfWeek: 'Tuesday' },
-  { empId: '22236', empName: 'Ravindra Saahu', dayOfWeek: 'Tuesday' },
-  { empId: '22244', empName: 'Ravi HR', dayOfWeek: 'Tuesday' },
-  { empId: '22287', empName: 'Suresh Sanakal', dayOfWeek: 'Tuesday' },
-  { empId: '22296', empName: 'Sooraj', dayOfWeek: 'Tuesday' },
-  { empId: '22297', empName: 'Mohammed Rafiq', dayOfWeek: 'Tuesday' },
-  { empId: '22457', empName: 'Shashikala M', dayOfWeek: 'Tuesday' },
-  { empId: '22470', empName: 'Pavan Kumar M', dayOfWeek: 'Tuesday' },
-  { empId: '22491', empName: 'Kalavathi KM', dayOfWeek: 'Tuesday' },
-  { empId: '22493', empName: 'Kaveri VS', dayOfWeek: 'Tuesday' },
-  { empId: '22497', empName: 'Harish Murthy', dayOfWeek: 'Tuesday' },
-  { empId: '22581', empName: 'Rajeev Kumar Singh', dayOfWeek: 'Tuesday' },
-  { empId: '22561', empName: 'Sajeet Kumar Rai', dayOfWeek: 'Tuesday' },
-  { empId: '22224', empName: 'Sunil Kumar Satpathy', dayOfWeek: 'Tuesday' },
-  { empId: '22477', empName: 'Mamatha V', dayOfWeek: 'Tuesday' },
-  { empId: '22572', empName: 'Sunil Kumar Sharma', dayOfWeek: 'Tuesday' },
-  { empId: '88000009', empName: 'Basavaraj', dayOfWeek: 'Tuesday' },
-  { empId: '88000021', empName: 'Mahesh', dayOfWeek: 'Tuesday' },
-  { empId: '88000038', empName: 'Abhishek B', dayOfWeek: 'Tuesday' },
-  { empId: '88000041', empName: 'Shekh Tahir', dayOfWeek: 'Tuesday' },
-  { empId: '88000087', empName: 'Manoj LG', dayOfWeek: 'Tuesday' },
-  { empId: '88000100', empName: 'Prajwal N', dayOfWeek: 'Tuesday' },
-  { empId: '88000104', empName: 'Pooja HT', dayOfWeek: 'Tuesday' },
+  // ── TUESDAY (18 Operators: 15 Regular + 3 Special/Standby) ──
+  { empId: '21553', empName: 'Mahesh Kumar K A', dayOfWeek: 'Tuesday', cadre: 'BMRCL_TO' },
+  { empId: '21703', empName: 'Srinivas V', dayOfWeek: 'Tuesday', cadre: 'BMRCL_TO' },
+  { empId: '21961', empName: 'Santhosh Kumara A T', dayOfWeek: 'Tuesday', cadre: 'BMRCL_TO' },
+  { empId: '22260', empName: 'Satya Prakash', dayOfWeek: 'Tuesday', cadre: 'BMRCL_TO' },
+  { empId: '22282', empName: 'Vinod Kumar Singh V', dayOfWeek: 'Tuesday', cadre: 'BMRCL_TO' },
+  { empId: '22319', empName: 'Prakash P', dayOfWeek: 'Tuesday', cadre: 'BMRCL_TO' },
+  { empId: '22458', empName: 'Sheela S', dayOfWeek: 'Tuesday', cadre: 'BMRCL_TO' },
+  { empId: '88000038', empName: 'Abhishek B', dayOfWeek: 'Tuesday', cadre: 'JMD_TD' },
+  { empId: '88000100', empName: 'Prajwal N', dayOfWeek: 'Tuesday', cadre: 'JMD_TD' },
+  { empId: '88000102', empName: 'Karthik', dayOfWeek: 'Tuesday', cadre: 'JMD_TD' },
+  { empId: '88000117', empName: 'Dayanand A', dayOfWeek: 'Tuesday', cadre: 'JMD_TD' },
+  { empId: '88000127', empName: 'Chethan H K', dayOfWeek: 'Tuesday', cadre: 'JMD_TD' },
+  { empId: '88000136', empName: 'Shashank S', dayOfWeek: 'Tuesday', cadre: 'JMD_TD' },
+  { empId: '88000140', empName: 'Naveen Kumar M C', dayOfWeek: 'Tuesday', cadre: 'JMD_TD' },
+  { empId: '88000141', empName: 'Karthik S Awari', dayOfWeek: 'Tuesday', cadre: 'JMD_TD' },
+  // Tuesday (Special / Priority Allotment)
+  { empId: '21482', empName: 'Devaraj B', dayOfWeek: 'Tuesday', cadre: 'BMRCL_TO', isSpecial: true },
+  { empId: '22224', empName: 'Sunil Kumar Satpathy', dayOfWeek: 'Tuesday', cadre: 'BMRCL_TO', isSpecial: true },
+  { empId: '22297', empName: 'Mohd Rafiq', dayOfWeek: 'Tuesday', cadre: 'BMRCL_TO', isSpecial: true },
 
-  // ── WEDNESDAY (19 Operators) ──
-  { empId: '21414', empName: 'Harsha N', dayOfWeek: 'Wednesday' },
-  { empId: '21482', empName: 'Devaraj B', dayOfWeek: 'Wednesday' },
-  { empId: '21967', empName: 'Mahesh Rao KR', dayOfWeek: 'Wednesday' },
-  { empId: '22239', empName: 'Manjunatha KS', dayOfWeek: 'Wednesday' },
-  { empId: '22261', empName: 'Babu Halakami', dayOfWeek: 'Wednesday' },
-  { empId: '22294', empName: 'Viswanath KS', dayOfWeek: 'Wednesday' },
-  { empId: '22312', empName: 'Jagadeesh KS', dayOfWeek: 'Wednesday' },
-  { empId: '22490', empName: 'Ashwini Bashetti', dayOfWeek: 'Wednesday' },
-  { empId: '22520', empName: 'Rashmi L', dayOfWeek: 'Wednesday' },
-  { empId: '22538', empName: 'Manoj K', dayOfWeek: 'Wednesday' },
-  { empId: '22514', empName: 'Shakunthala R', dayOfWeek: 'Wednesday' },
-  { empId: '22568', empName: 'Amith Kumar Jha', dayOfWeek: 'Wednesday' },
-  { empId: '88000042', empName: 'Sanjay BS', dayOfWeek: 'Wednesday' },
-  { empId: '88000045', empName: 'Sandeep Raj JR', dayOfWeek: 'Wednesday' },
-  { empId: '88000048', empName: 'Karan Velarasan', dayOfWeek: 'Wednesday' },
-  { empId: '88000094', empName: 'Abhilash NH', dayOfWeek: 'Wednesday' },
-  { empId: '88000095', empName: 'Pavan MN', dayOfWeek: 'Wednesday' },
-  { empId: '88000109', empName: 'Chaithanya MB', dayOfWeek: 'Wednesday' },
-  { empId: '88000125', empName: 'Sharath S', dayOfWeek: 'Wednesday' },
+  // ── WEDNESDAY (16 Operators: 15 Regular + 1 Special/Standby) ──
+  { empId: '21725', empName: 'Soumya Patil', dayOfWeek: 'Wednesday', cadre: 'BMRCL_TO' },
+  { empId: '21953', empName: 'Raveen G', dayOfWeek: 'Wednesday', cadre: 'BMRCL_TO' },
+  { empId: '21967', empName: 'Mahesh Rao Kale', dayOfWeek: 'Wednesday', cadre: 'BMRCL_TO' },
+  { empId: '21969', empName: 'Jeeva S', dayOfWeek: 'Wednesday', cadre: 'BMRCL_TO' },
+  { empId: '22227', empName: 'GA Sudhakar', dayOfWeek: 'Wednesday', cadre: 'BMRCL_TO' },
+  { empId: '22229', empName: 'G Raja', dayOfWeek: 'Wednesday', cadre: 'BMRCL_TO' },
+  { empId: '22244', empName: 'Ravi H R', dayOfWeek: 'Wednesday', cadre: 'BMRCL_TO' },
+  { empId: '22246', empName: 'Bijay Kumar Singh', dayOfWeek: 'Wednesday', cadre: 'BMRCL_TO' },
+  { empId: '22261', empName: 'Babu Halakami', dayOfWeek: 'Wednesday', cadre: 'BMRCL_TO' },
+  { empId: '22312', empName: 'Jagadeesha K S', dayOfWeek: 'Wednesday', cadre: 'BMRCL_TO' },
+  { empId: '88000094', empName: 'Abhilash N H', dayOfWeek: 'Wednesday', cadre: 'JMD_TD' },
+  { empId: '88000095', empName: 'Pavan M N', dayOfWeek: 'Wednesday', cadre: 'JMD_TD' },
+  { empId: '88000096', empName: 'Vinay Kumar G R', dayOfWeek: 'Wednesday', cadre: 'JMD_TD' },
+  { empId: '88000109', empName: 'Chaithanya M B', dayOfWeek: 'Wednesday', cadre: 'JMD_TD' },
+  { empId: '88000125', empName: 'Sharath S', dayOfWeek: 'Wednesday', cadre: 'JMD_TD' },
+  // Wednesday (Special / Priority Allotment)
+  { empId: '22294', empName: 'Viswanath K S', dayOfWeek: 'Wednesday', cadre: 'BMRCL_TO', isSpecial: true },
 
-  // ── THURSDAY (21 Operators) ──
-  { empId: '21509', empName: 'Onkarappa', dayOfWeek: 'Thursday' },
-  { empId: '21712', empName: 'Hemavathi J', dayOfWeek: 'Thursday' },
-  { empId: '21714', empName: 'Priyanka K N', dayOfWeek: 'Thursday' },
-  { empId: '21977', empName: 'Sivnag Kakarla VS', dayOfWeek: 'Thursday' },
-  { empId: '22229', empName: 'G Raja', dayOfWeek: 'Thursday' },
-  { empId: '22315', empName: 'Krishna Murthy', dayOfWeek: 'Thursday' },
-  { empId: '22458', empName: 'Sheela', dayOfWeek: 'Thursday' },
-  { empId: '22499', empName: 'Shivakumar D', dayOfWeek: 'Thursday' },
-  { empId: '22522', empName: 'Harshith D', dayOfWeek: 'Thursday' },
-  { empId: '22240', empName: 'Sunil PN', dayOfWeek: 'Thursday' },
-  { empId: '22254', empName: 'KC Abhilash N', dayOfWeek: 'Thursday' },
-  { empId: '22525', empName: 'Shiv Shankar M', dayOfWeek: 'Thursday' },
-  { empId: '22506', empName: 'Shwetha S', dayOfWeek: 'Thursday' },
-  { empId: '22586', empName: 'Subhasish Chakraborty', dayOfWeek: 'Thursday' },
-  { empId: '88000050', empName: 'Dhiraj BL', dayOfWeek: 'Thursday' },
-  { empId: '88000084', empName: 'Abhilash S', dayOfWeek: 'Thursday' },
-  { empId: '88000102', empName: 'Sai Kiran C', dayOfWeek: 'Thursday' },
-  { empId: '88000111', empName: 'Mahesha S', dayOfWeek: 'Thursday' },
-  { empId: '88000118', empName: 'Harsha SG', dayOfWeek: 'Thursday' },
-  { empId: '88000129', empName: 'Ramu A', dayOfWeek: 'Thursday' },
-  { empId: '88000142', empName: 'Suryanarayan Rao', dayOfWeek: 'Thursday' },
+  // ── THURSDAY (17 Operators: 15 Regular + 2 Special/Standby) ──
+  { empId: '20787', empName: 'S Baskar', dayOfWeek: 'Thursday', cadre: 'BMRCL_TO' },
+  { empId: '21705', empName: 'Dhanaraj D', dayOfWeek: 'Thursday', cadre: 'BMRCL_TO' },
+  { empId: '21968', empName: 'M Venkata Kiran Kumar', dayOfWeek: 'Thursday', cadre: 'BMRCL_TO' },
+  { empId: '21971', empName: 'Vinay Kumar', dayOfWeek: 'Thursday', cadre: 'BMRCL_TO' },
+  { empId: '21994', empName: 'Jagadeesha S', dayOfWeek: 'Thursday', cadre: 'BMRCL_TO' },
+  { empId: '22013', empName: 'Mahadevaswamy S', dayOfWeek: 'Thursday', cadre: 'BMRCL_TO' },
+  { empId: '22284', empName: 'B Aravinda Vinod Kumar', dayOfWeek: 'Thursday', cadre: 'BMRCL_TO' },
+  { empId: '22287', empName: 'Suresh Sanakall', dayOfWeek: 'Thursday', cadre: 'BMRCL_TO' },
+  { empId: '22289', empName: 'Sanjay Kumar', dayOfWeek: 'Thursday', cadre: 'BMRCL_TO' },
+  { empId: '88000037', empName: 'Gowtham U', dayOfWeek: 'Thursday', cadre: 'JMD_TD' },
+  { empId: '88000116', empName: 'Vinod Belebhavi', dayOfWeek: 'Thursday', cadre: 'JMD_TD' },
+  { empId: '88000118', empName: 'Harsha S G', dayOfWeek: 'Thursday', cadre: 'JMD_TD' },
+  { empId: '88000132', empName: 'Hemanth A', dayOfWeek: 'Thursday', cadre: 'JMD_TD' },
+  { empId: '88000134', empName: 'Jayashree', dayOfWeek: 'Thursday', cadre: 'JMD_TD' },
+  { empId: '88000137', empName: 'Lokesh A', dayOfWeek: 'Thursday', cadre: 'JMD_TD' },
+  // Thursday (Special / Priority Allotment)
+  { empId: '22237', empName: 'Ranjan Kumar Bharati', dayOfWeek: 'Thursday', cadre: 'BMRCL_TO', isSpecial: true },
+  { empId: '22296', empName: 'Sooraj R', dayOfWeek: 'Thursday', cadre: 'BMRCL_TO', isSpecial: true },
 
-  // { empId: '21502', empName: 'Seema Subhan', dayOfWeek: 'Friday' }, // Relieved from Active Mainline Driving Duties (Station Controller)
-  { empId: '21724', empName: 'Anand M', dayOfWeek: 'Friday' },
-  { empId: '21968', empName: 'Venkata Kiran Kumar M', dayOfWeek: 'Friday' },
-  { empId: '22264', empName: 'Yashodhar KL', dayOfWeek: 'Friday' },
-  { empId: '22268', empName: 'Shantamurthy G', dayOfWeek: 'Friday' },
-  { empId: '22463', empName: 'Mamatha D', dayOfWeek: 'Friday' },
-  { empId: '22464', empName: 'Naveen kumar HS', dayOfWeek: 'Friday' },
-  { empId: '22465', empName: 'Madhu R', dayOfWeek: 'Friday' },
-  { empId: '22468', empName: 'Nayana DR', dayOfWeek: 'Friday' },
-  { empId: '22528', empName: 'Arun Kumar TR', dayOfWeek: 'Friday' },
-  { empId: '22480', empName: 'Sowmya A', dayOfWeek: 'Friday' },
-  { empId: '22502', empName: 'Gangappa', dayOfWeek: 'Friday' },
-  { empId: '22494', empName: 'Mahantesh MD', dayOfWeek: 'Friday' },
-  { empId: '22486', empName: 'Chethana S', dayOfWeek: 'Friday' },
-  { empId: '22500', empName: 'Bhavyashree K S', dayOfWeek: 'Friday' },
-  { empId: '88000051', empName: 'Mallikarjun HS', dayOfWeek: 'Friday' },
-  { empId: '88000093', empName: 'Sai Kiran C', dayOfWeek: 'Friday' },
-  { empId: '88000110', empName: 'Mahesha S', dayOfWeek: 'Friday' },
-  { empId: '88000116', empName: 'Vinod', dayOfWeek: 'Friday' },
-  { empId: '88000117', empName: 'Dayanand A', dayOfWeek: 'Friday' },
-  { empId: '88000119', empName: 'Hemalatha NN', dayOfWeek: 'Friday' },
-  { empId: '88000131', empName: 'Preetham S', dayOfWeek: 'Friday' },
+  // ── FRIDAY (15 Operators) ──
+  { empId: '21434', empName: 'Pruthviraj L K', dayOfWeek: 'Friday', cadre: 'BMRCL_TO' },
+  { empId: '21714', empName: 'Priyanka K N', dayOfWeek: 'Friday', cadre: 'BMRCL_TO' },
+  { empId: '21715', empName: 'Radhika M', dayOfWeek: 'Friday', cadre: 'BMRCL_TO' },
+  { empId: '21945', empName: 'Nithin Kumar M', dayOfWeek: 'Friday', cadre: 'BMRCL_TO' },
+  { empId: '21970', empName: 'Syama Raju M', dayOfWeek: 'Friday', cadre: 'BMRCL_TO' },
+  { empId: '21978', empName: 'Rangaswamy D N', dayOfWeek: 'Friday', cadre: 'BMRCL_TO' },
+  { empId: '22465', empName: 'Madhu R', dayOfWeek: 'Friday', cadre: 'BMRCL_TO' },
+  { empId: '22494', empName: 'Mahantesh M D', dayOfWeek: 'Friday', cadre: 'BMRCL_TO' },
+  { empId: '22499', empName: 'Shivakumar D', dayOfWeek: 'Friday', cadre: 'BMRCL_TO' },
+  { empId: '22502', empName: 'Gangappa', dayOfWeek: 'Friday', cadre: 'BMRCL_TO' },
+  { empId: '22525', empName: 'Shivashankar M', dayOfWeek: 'Friday', cadre: 'BMRCL_TO' },
+  { empId: '88000084', empName: 'Abhilash S', dayOfWeek: 'Friday', cadre: 'JMD_TD' },
+  { empId: '88000110', empName: 'Mahesha S', dayOfWeek: 'Friday', cadre: 'JMD_TD' },
+  { empId: '88000131', empName: 'Preetham S', dayOfWeek: 'Friday', cadre: 'JMD_TD' },
+  { empId: '88000139', empName: 'Lingaraju D A', dayOfWeek: 'Friday', cadre: 'JMD_TD' },
 
-  // ── SATURDAY (24 Operators) ──
-  { empId: '21078', empName: 'Dayanand K', dayOfWeek: 'Saturday' },
-  { empId: '21434', empName: 'Pruthvi Raj L K', dayOfWeek: 'Saturday' },
-  { empId: '21436', empName: 'Manjunatha K R', dayOfWeek: 'Saturday' },
-  { empId: '21705', empName: 'Dhanaraj D', dayOfWeek: 'Saturday' },
-  { empId: '21711', empName: 'Shakuntala', dayOfWeek: 'Saturday' },
-  { empId: '21961', empName: 'Santhosh Kumar A T', dayOfWeek: 'Saturday' },
-  { empId: '21970', empName: 'Syama Raju M', dayOfWeek: 'Saturday' },
-  { empId: '21971', empName: 'Vinay Kumar', dayOfWeek: 'Saturday' },
-  { empId: '22001', empName: 'Parmeshwar H', dayOfWeek: 'Saturday' },
-  { empId: '22016', empName: 'Sharanabasappa', dayOfWeek: 'Saturday' },
-  { empId: '22101', empName: 'Vijaya Kumar HT', dayOfWeek: 'Saturday' },
-  { empId: '22116', empName: 'Nagalinge Gowda M', dayOfWeek: 'Saturday' },
-  { empId: '22258', empName: 'Sankara Rao Achut', dayOfWeek: 'Saturday' },
-  { empId: '22263', empName: 'Siddappa Revakkanavar', dayOfWeek: 'Saturday' },
-  { empId: '22322', empName: 'Harish PK', dayOfWeek: 'Saturday' },
-  { empId: '22245', empName: 'Shanmukha Rao B', dayOfWeek: 'Saturday' },
-  { empId: '88000031', empName: 'Sandeepa N', dayOfWeek: 'Saturday' },
-  { empId: '88000047', empName: 'Ranjith R', dayOfWeek: 'Saturday' },
-  { empId: '88000105', empName: 'Yogesh GH', dayOfWeek: 'Saturday' },
-  { empId: '88000107', empName: 'Sumanth S', dayOfWeek: 'Saturday' },
-  { empId: '88000136', empName: 'Shashank S', dayOfWeek: 'Saturday' },
-  { empId: '88000141', empName: 'Kartik S Awari', dayOfWeek: 'Saturday' },
-  { empId: '88000137', empName: 'Lokesh A', dayOfWeek: 'Saturday' },
-  { empId: '88000128', empName: 'Mokshith R', dayOfWeek: 'Saturday' }
+  // ── SATURDAY (18 Operators: 17 Regular + 1 Special/Standby) ──
+  { empId: '21078', empName: 'Dayananda K', dayOfWeek: 'Saturday', cadre: 'BMRCL_TO' },
+  { empId: '21694', empName: 'Nagendra C S', dayOfWeek: 'Saturday', cadre: 'BMRCL_TO' },
+  { empId: '21708', empName: 'Sowmya N', dayOfWeek: 'Saturday', cadre: 'BMRCL_TO' },
+  { empId: '21955', empName: 'Ashish Kumar', dayOfWeek: 'Saturday', cadre: 'BMRCL_TO' },
+  { empId: '22101', empName: 'Vijayakumar H T', dayOfWeek: 'Saturday', cadre: 'BMRCL_TO' },
+  { empId: '22258', empName: 'Sankara Rao Achyutha', dayOfWeek: 'Saturday', cadre: 'BMRCL_TO' },
+  { empId: '22308', empName: 'Rajesh K A', dayOfWeek: 'Saturday', cadre: 'BMRCL_TO' },
+  { empId: '22457', empName: 'Shashikala M', dayOfWeek: 'Saturday', cadre: 'BMRCL_TO' },
+  { empId: '22463', empName: 'Mamatha D', dayOfWeek: 'Saturday', cadre: 'BMRCL_TO' },
+  { empId: '22480', empName: 'Soumya A', dayOfWeek: 'Saturday', cadre: 'BMRCL_TO' },
+  { empId: '22486', empName: 'Chethana S', dayOfWeek: 'Saturday', cadre: 'BMRCL_TO' },
+  { empId: '22491', empName: 'Kalavathi K M', dayOfWeek: 'Saturday', cadre: 'BMRCL_TO' },
+  { empId: '22506', empName: 'Shwetha S', dayOfWeek: 'Saturday', cadre: 'BMRCL_TO' },
+  { empId: '22528', empName: 'Arun Kumar T R', dayOfWeek: 'Saturday', cadre: 'BMRCL_TO' },
+  { empId: '88000093', empName: 'Sai Kiran C', dayOfWeek: 'Saturday', cadre: 'JMD_TD' },
+  { empId: '88000104', empName: 'Pooja H T', dayOfWeek: 'Saturday', cadre: 'JMD_TD' },
+  { empId: '88000107', empName: 'Sumanth S', dayOfWeek: 'Saturday', cadre: 'JMD_TD' },
+  // Saturday (Special / Priority Allotment)
+  { empId: '21723', empName: 'Manjunath', dayOfWeek: 'Saturday', cadre: 'BMRCL_TO', isSpecial: true }
 ];
+
+export const OCTOBER_2026_WEEKLY_OFF_SCHEDULE = BMRCL_OFFICIAL_WEEKLY_OFF_SCHEDULE;
+
+export const WEEKLY_OFF_ALLOTMENT_META = {
+  title: 'PYID CC WEEKLY OFF ALLOTMENT FROM OCTOBER - 2026',
+  effectivePeriod: 'October 2026 - March 2027',
+  noticeBoardDate: '05/09/2026',
+  totalActiveCrew: 127,
+  bmrclRegularTOs: 91,
+  jmdContractTDs: 36,
+  distribution: {
+    Sunday: 28,
+    Monday: 15,
+    Tuesday: 18,
+    Wednesday: 16,
+    Thursday: 17,
+    Friday: 15,
+    Saturday: 18
+  }
+};
+
+// Fast Lookup Map by Employee ID (accepts string or number)
+export const OFFICIAL_WEEKLY_OFF_BY_EMPID = (() => {
+  const map = new Map();
+  BMRCL_OFFICIAL_WEEKLY_OFF_SCHEDULE.forEach(item => {
+    const str = String(item.empId).trim();
+    const num = parseInt(str, 10);
+    map.set(str, item.dayOfWeek);
+    if (!isNaN(num)) {
+      map.set(num, item.dayOfWeek);
+    }
+  });
+  return map;
+})();
+
+export function getOfficialWeeklyOffForEmp(empId, defaultDay = 'Sunday') {
+  if (!empId) return defaultDay;
+  const str = String(empId).trim();
+  const num = parseInt(str, 10);
+  return OFFICIAL_WEEKLY_OFF_BY_EMPID.get(str) || OFFICIAL_WEEKLY_OFF_BY_EMPID.get(num) || defaultDay;
+}

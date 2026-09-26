@@ -23,6 +23,7 @@ const ViewerLayout            = lazyWithRetry(() => import('./layout/ViewerLayou
 
 // Data
 import { BMRCL_CREW_REGISTRY, BMRCL_CREW_MASTER_BACKUP } from '../data/bmrclCrewRegistry';
+import { WEEKDAY_MASTER_LINKS } from '../data/weekdayMasterLinks';
 
 // ── Global Suspense fallback shown while lazy chunks download ──
 const ModuleLoader = () => (
@@ -590,10 +591,23 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       setUnifiedRows(synchronizedPairs);
 
       // Deduplicate links
-      const rawDayLinks = linksData.filter(l =>
+      let rawDayLinks = linksData.filter(l =>
         normalizeScheduleType(l.scheduleType, l.id) === targetSchedule &&
         isValidDutyId(l.dutyId)
       );
+
+      // WEEKDAY SCHEDULE: If DB has no links, or has stale/outdated roster (e.g. not 75 duties, or Duty 3 has old train 209, or Duty 2 has old Rd3 Stby),
+      // seamlessly use the new canonical WEEKDAY_MASTER_LINKS from Weekday link.xlsx WEF 03/Sep/2026.
+      if (targetSchedule === 'WEEKDAY') {
+        const isDbStale = rawDayLinks.length === 0 || 
+          rawDayLinks.length !== 75 || 
+          rawDayLinks.some(l => (normalizeDutyId(l.dutyId) === '03' || normalizeDutyId(l.dutyId) === '3') && (l.trainId === '209' || l.leg1TrainNo === '209')) ||
+          rawDayLinks.some(l => (normalizeDutyId(l.dutyId) === '02' || normalizeDutyId(l.dutyId) === '2') && (l.trainId === 'Rd3 Stby' || l.signOnLocation === 'PYID'));
+        if (isDbStale) {
+          rawDayLinks = WEEKDAY_MASTER_LINKS;
+        }
+      }
+
       const dedupedLinks = deduplicateByDutyId(rawDayLinks);
       const currentDayLinks = dedupedLinks.sort((a, b) =>
         String(a.dutyId).localeCompare(String(b.dutyId), undefined, { numeric: true })
@@ -1073,6 +1087,36 @@ Format the response strictly as a single JSON object.`;
     }
   };
 
+  const handleUpdateMasterWeekdayLinks = async () => {
+    if (!window.confirm("Update and save Weekday Link Roster with new schedule (75 Duties, WEF 03/Sep/2026)? This will overwrite old weekday links in database.")) return;
+    try {
+      setLoading(true);
+      const batch = writeBatch(db);
+      WEEKDAY_MASTER_LINKS.forEach(duty => {
+        const docRef = doc(db, 'crew_final_links', duty.id);
+        batch.set(docRef, {
+          ...duty,
+          lastModified: serverTimestamp()
+        }, { merge: true });
+      });
+      // Delete any obsolete duty IDs 76 to 99
+      for (let i = 76; i <= 99; i++) {
+        batch.delete(doc(db, 'crew_final_links', `link_weekday_duty_${i}`));
+        batch.delete(doc(db, 'crew_final_links', `link_weekday_${i}`));
+      }
+      await batch.commit();
+      alert("✅ Weekday Link Roster successfully updated and saved to database with new 75 duties (WEF 03/Sep/2026)!");
+      fetchLiveData();
+    } catch (err) {
+      console.error("Failed to update weekday links in database:", err);
+      // Still refresh local view with master links
+      setLinks(WEEKDAY_MASTER_LINKS);
+      alert(`⚠️ Local Weekday Link view refreshed with new 75 duties. Database sync: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleIncidentLogSubmit = async (e) => {
     e.preventDefault();
     if (!targetTid || !delayMinutes) return;
@@ -1284,6 +1328,7 @@ Format the response strictly as a single JSON object.`;
           handleDeleteTripRow={handleDeleteTripRow}
           addDelayToTime={addDelayToTime}
           handleRosterReset={handleRosterReset}
+          handleUpdateMasterWeekdayLinks={handleUpdateMasterWeekdayLinks}
           handleGccRosterUpload={handleGccRosterUpload}
           targetTid={targetTid}
           setTargetTid={setTargetTid}

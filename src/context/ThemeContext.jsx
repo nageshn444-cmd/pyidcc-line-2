@@ -3,6 +3,18 @@ import { db } from '../firebase';
 import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
 
+export const FONT_PRESET_MAP = {
+  small: 13,
+  medium: 15,
+  large: 18,
+  xlarge: 22,
+  huge: 26,
+  massive: 30,
+  giant: 34,
+  supergiant: 37,
+  ultra: 40
+};
+
 export const DEFAULT_THEME_VALUE = {
   theme: 'theme-occ-dark',
   rawTheme: 'theme-occ-dark',
@@ -29,10 +41,13 @@ export const DEFAULT_THEME_VALUE = {
   },
   accessibility: {
     fontSize: 'medium',
+    customFontSizePx: 15,
+    pageZoom: 100,
     highContrast: false,
     animations: 'normal',
     brightness: 100,
     blueLightReduction: false,
+    mousePointerDockOpen: false,
   },
   setAccessibility: () => {},
   personalization: {
@@ -120,15 +135,19 @@ export function ThemeProvider({ children }) {
     getStored(`pyidcc_automode_${uid}`, getStored('pyidcc_automode_active', 'system'))
   );
   
-  const [accessibility, setAccessibilityState] = useState(() => 
-    getStoredJSON(`pyidcc_access_${uid}`, {
-      fontSize: 'medium',
-      highContrast: false,
-      animations: 'normal',
-      brightness: 100,
-      blueLightReduction: false,
-    })
-  );
+  const [accessibility, setAccessibilityState] = useState(() => {
+    const loaded = getStoredJSON(`pyidcc_access_${uid}`, {});
+    return {
+      fontSize: loaded.fontSize || 'medium',
+      customFontSizePx: loaded.customFontSizePx || FONT_PRESET_MAP[loaded.fontSize] || 15,
+      pageZoom: loaded.pageZoom || 100,
+      highContrast: Boolean(loaded.highContrast),
+      animations: loaded.animations || 'normal',
+      brightness: loaded.brightness || 100,
+      blueLightReduction: Boolean(loaded.blueLightReduction),
+      mousePointerDockOpen: Boolean(loaded.mousePointerDockOpen)
+    };
+  });
 
   const [personalization, setPersonalizationState] = useState(() => 
     getStoredJSON(`pyidcc_pers_${uid}`, {
@@ -270,10 +289,57 @@ export function ThemeProvider({ children }) {
     cardShadow: 'var(--card-shadow)'
   }), []);
 
-  // 4. Pure CSS/React container styling - ZERO imperative DOM manipulation ("dont do DOM")
+  // Synchronize dynamic font scaling up to 40px and page zooming (75%-200%) to DOM
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const targetPx = Number(accessibility.customFontSizePx) || FONT_PRESET_MAP[accessibility.fontSize] || 15;
+    const boundedPx = Math.max(12, Math.min(40, targetPx));
+    const fontRatio = boundedPx / 15;
+    const targetZoom = Number(accessibility.pageZoom) || 100;
+    const boundedZoom = Math.max(70, Math.min(200, targetZoom));
+    const zoomRatio = boundedZoom / 100;
+
+    // Apply root properties for Tailwind rem scaling
+    document.documentElement.style.setProperty('--app-base-font-size', `${boundedPx}px`);
+    document.documentElement.style.setProperty('--app-font-scale', `${fontRatio.toFixed(3)}`);
+    document.documentElement.style.setProperty('--page-zoom', `${zoomRatio}`);
+
+    // Scale root rem font size so text-xs, text-sm, text-base etc. scale proportionally
+    document.documentElement.style.fontSize = `${(16 * fontRatio).toFixed(2)}px`;
+
+    // Apply viewport zoom if supported
+    if ('zoom' in document.documentElement.style) {
+      document.documentElement.style.zoom = `${boundedZoom}%`;
+    }
+    if (document.body && 'zoom' in document.body.style) {
+      document.body.style.zoom = `${boundedZoom}%`;
+    }
+
+    // Apply eye shield / blue light filter
+    if (accessibility.blueLightReduction) {
+      document.documentElement.style.filter = 'sepia(0.2) saturate(0.9) brightness(0.95)';
+    } else {
+      document.documentElement.style.filter = '';
+    }
+  }, [accessibility.fontSize, accessibility.customFontSizePx, accessibility.pageZoom, accessibility.blueLightReduction]);
+
+  // 4. CSS container styling
   const containerStyle = useMemo(() => {
+    const targetPx = Number(accessibility.customFontSizePx) || FONT_PRESET_MAP[accessibility.fontSize] || 15;
+    const boundedPx = Math.max(12, Math.min(40, targetPx));
+    const targetZoom = Number(accessibility.pageZoom) || 100;
+    const boundedZoom = Math.max(70, Math.min(200, targetZoom));
+
+    const styles = {
+      '--app-base-font-size': `${boundedPx}px`,
+      '--app-font-scale': `${(boundedPx / 15).toFixed(3)}`,
+      '--page-zoom': `${boundedZoom / 100}`,
+      zoom: `${boundedZoom}%`
+    };
+
     if (activeTheme === 'theme-custom') {
-      return {
+      Object.assign(styles, {
         '--custom-app-bg': customThemeColors.appBg,
         '--custom-panel-bg': customThemeColors.panelBg,
         '--custom-panel-bg-solid': customThemeColors.panelBg.replace(/[\d\.]+\)$/, '1)'),
@@ -284,10 +350,11 @@ export function ThemeProvider({ children }) {
         '--custom-border-color': 'rgba(255,255,255,0.08)',
         '--custom-accent-color': customThemeColors.accentColor,
         '--custom-accent-glow': customThemeColors.accentColor + '55',
-      };
+      });
     }
-    return undefined;
-  }, [activeTheme, customThemeColors]);
+
+    return styles;
+  }, [activeTheme, customThemeColors, accessibility.fontSize, accessibility.customFontSizePx, accessibility.pageZoom]);
 
   const containerClass = useMemo(() => {
     const list = [
@@ -337,10 +404,13 @@ export function ThemeProvider({ children }) {
   const resetThemeSettings = () => {
     const defaultAccess = {
       fontSize: 'medium',
+      customFontSizePx: 15,
+      pageZoom: 100,
       highContrast: false,
       animations: 'normal',
       brightness: 100,
       blueLightReduction: false,
+      mousePointerDockOpen: false,
     };
     const defaultPers = {
       density: 'comfortable',

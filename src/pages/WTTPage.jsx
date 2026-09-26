@@ -116,6 +116,8 @@ export default function WTTPage(props) {
             setTrackerSearchTerm={props.setTrackerSearchTerm}
             filteredTrackingKeys={props.filteredTrackingKeys}
             liveTrainTrackingMap={props.liveTrainTrackingMap}
+            activeDay={props.activeDay || 'WEEKDAY'}
+            simulatedTime={props.simulatedTime}
           />
         )}
         

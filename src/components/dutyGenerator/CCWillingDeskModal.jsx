@@ -380,7 +380,7 @@ export default function CCWillingDeskModal({
                     <span className="text-[10px] text-indigo-400 font-mono font-bold">#{cc.empId}</span>
                   </div>
                   <span className="text-[10px] text-slate-400 block mt-0.5">
-                    Role: <strong className="text-indigo-300">{cc.role}</strong> (WO: {cc.fixedWo})
+                    Role: <strong className="text-indigo-300">{cc.role}</strong> · <span className="text-emerald-400 font-bold">⭐ Dedicated Official CC</span>
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">

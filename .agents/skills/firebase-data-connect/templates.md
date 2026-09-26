@@ -2,7 +2,7 @@
 
 Ready-to-use templates for common Firebase SQL Connect patterns.
 
----
+______________________________________________________________________
 
 ## Basic CRUD Schema
 
@@ -49,7 +49,7 @@ mutation DeleteItem($id: UUID!) @auth(level: USER) {
 }
 ```
 
----
+______________________________________________________________________
 
 ## User-Owned Resources
 
@@ -113,7 +113,7 @@ mutation DeleteNote($id: UUID!) @auth(level: USER) {
 }
 ```
 
----
+______________________________________________________________________
 
 ## Many-to-Many Relationship
 
@@ -169,7 +169,7 @@ mutation RemoveTagFromArticle($articleId: UUID!, $tagId: UUID!) @auth(level: USE
 }
 ```
 
----
+______________________________________________________________________
 
 ## dataconnect.yaml Template
 
@@ -187,7 +187,7 @@ schema:
 connectorDirs: ["./connector"]
 ```
 
----
+______________________________________________________________________
 
 ## connector.yaml Template
 
@@ -202,12 +202,13 @@ generate:
     package: "com.myapp.dataconnect"
   swiftSdk:
     outputDir: "../ios/MyApp/DataConnect"
+    package: "DataConnectGenerated"
   dartSdk:
     outputDir: "../flutter/lib/dataconnect"
     package: myapp_dataconnect
 ```
 
----
+______________________________________________________________________
 
 ## Firebase Init Commands
 
@@ -229,7 +230,7 @@ npx -y firebase-tools@latest dataconnect:sdk:generate
 npx -y firebase-tools@latest deploy --only dataconnect
 ```
 
----
+______________________________________________________________________
 
 ## SDK Initialization (Web)
 
@@ -268,7 +269,7 @@ console.log(data.items);
 await createItem({ name: 'New Item', description: 'Description' });
 ```
 
----
+______________________________________________________________________
 
 ## Realtime Query Templates
 
@@ -310,7 +311,7 @@ const unsubscribe = subscribe(liveDashboardRef(), {
     // Called immediately with current data, then on each refresh
     renderDashboard(result.data.items);
   },
-  onError: (error) => console.error('Subscription error:', error)
+  onErr: (error) => console.error('Subscription error:', error) // Observer object property is `onErr` (positional overload parameter is `onError`)
 });
 
 // Cleanup when done

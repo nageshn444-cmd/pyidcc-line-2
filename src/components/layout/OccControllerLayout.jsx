@@ -11,6 +11,7 @@ import { lazyWithRetry } from '../../utils/lazyWithRetry';
 
 const EmergencyReliefEngine = lazyWithRetry(() => import('../EmergencyReliefEngine'));
 const AiAssistantSidebar    = lazyWithRetry(() => import('../AiAssistantSidebar'));
+const TrainSwapControl      = lazyWithRetry(() => import('../TrainSwapControl'));
 
 const MiniLoader = () => (
   <div className="flex items-center justify-center p-8">
@@ -66,6 +67,28 @@ export default function OccControllerLayout({
         )}
 
         <div className="flex items-center gap-4">
+          {/* Tab Navigation: Telemetry vs Train Swap Engine */}
+          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-[10px] font-bold">
+            <button
+              onClick={() => setActiveTab('DASHBOARD')}
+              className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 ${
+                activeTab === 'DASHBOARD' ? 'bg-emerald-600 text-slate-950 font-black' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Activity size={12} />
+              <span>OCC Command</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('TRAIN_SWAP')}
+              className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 ${
+                activeTab === 'TRAIN_SWAP' ? 'bg-emerald-600 text-slate-950 font-black' : 'text-emerald-400 hover:text-white'
+              }`}
+            >
+              <Train size={12} />
+              <span>Train ID Swap Engine</span>
+            </button>
+          </div>
+
           {/* Local theme switch */}
           <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg p-1 text-[10px]">
             <span className="text-slate-500 px-1 font-bold">THEME:</span>
@@ -113,8 +136,14 @@ export default function OccControllerLayout({
         </div>
       </header>
 
-      {/* 2. Multi-Screen Layout Console */}
-      (
+      {/* 2. Multi-Screen Layout Console vs Train ID Swap Engine */}
+      {activeTab === 'TRAIN_SWAP' ? (
+        <div className="flex-1 p-6 max-w-7xl mx-auto w-full">
+          <Suspense fallback={<MiniLoader />}>
+            <TrainSwapControl />
+          </Suspense>
+        </div>
+      ) : (
         <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-6 p-6">
           
           {/* Left Column: Live Grid & Incident Propagation (4/12 width) */}
@@ -167,7 +196,7 @@ export default function OccControllerLayout({
             </Suspense>
           </div>
         </div>
-      )
+      )}
 
       {/* AI Assistant Sidebar */}
       <Suspense fallback={null}>

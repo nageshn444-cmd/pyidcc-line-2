@@ -19,6 +19,34 @@ export function timeStringToMinutes(tStr) {
 }
 
 /**
+ * Robustly determines if a duty record or previous duty assignment represents a Night Shift.
+ * Covers explicit shift ('N', 'C', 'NIGHT', '3'), duty codes starting with 'N' or containing 'NIGHT'/'NPRO',
+ * duty numbers >= 64 (e.g. Duty 80, Duty 75), and morning sign-off completions (05:00 - 09:30).
+ */
+export function isNightDutyRecord(record) {
+  if (!record) return false;
+  if (record.isNight === true) return true;
+  const shift = String(record.shift || '').toUpperCase().trim();
+  if (shift === 'N' || shift === 'C' || shift.includes('NIGHT') || shift === '3') return true;
+  const dutyCode = String(record.dutyCode || record.dutyId || record.dutyNo || '').toUpperCase().trim();
+  if (dutyCode.startsWith('N') || dutyCode.includes('NIGHT') || dutyCode.includes('NPRO')) return true;
+  const numMatch = dutyCode.match(/\d+/);
+  if (numMatch) {
+    const num = parseInt(numMatch[0], 10);
+    if (!isNaN(num) && num >= 64) return true;
+  }
+  const offTime = record.sOffTime || record.signOffTime;
+  if (offTime) {
+    const mins = timeStringToMinutes(offTime);
+    // Morning sign-off between 05:00 and 09:30 is unmistakably a night shift finishing on Day D
+    if (mins >= 5 * 60 && mins <= 9 * 60 + 30) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Calculates continuous rest hours between previous day sign-off and next day sign-on.
  * H2: Min 12h rest for normal shifts; wrap-aware across midnight.
  * For previous night duties (ending Day D morning), rest on Day D is nextMins - prevMins;
@@ -31,13 +59,15 @@ export function calculateRestHours(prevSignOffStr, nextSignOnStr, isPreviousDuty
   const nextMins = timeStringToMinutes(nextSignOnStr);
 
   let restMins = 0;
-  if (isPreviousDutyNight || prevMins <= 7 * 60) {
-    // Previous duty finished in the morning of Day D (e.g. 06:30)
+  // If explicitly flagged as previous night duty OR if previous sign-off was in morning (<= 09:30 AM),
+  // then previous duty finished on the morning of Day D.
+  if (isPreviousDutyNight || prevMins <= 9 * 60 + 30) {
+    // Previous duty finished in the morning of Day D (e.g. 06:00, 06:30, 07:30)
     if (nextMins < prevMins) {
       // Proposed duty starts BEFORE or AT previous night duty sign-off on Day D! Absolute overlap
       restMins = 0;
     } else {
-      // Proposed duty starts later on Day D (e.g. 14:30) -> gap is difference on Day D
+      // Proposed duty starts later on Day D (e.g. 13:50 vs 07:30 -> 6.3h; 14:00 vs 06:00 -> 8.0h)
       restMins = nextMins - prevMins;
     }
   } else {
@@ -157,7 +187,7 @@ export function validateDutyAssignment({
 
   // ── H2: MINIMUM REST & SHIFT TRANSITION GATES ──
   if (previousDuty && !isProposedWO && !isProposedLeave && previousDuty.sOffTime) {
-    const isPrevNight = previousDuty.isNight || previousDuty.shift === 'N' || String(previousDuty.dutyCode).startsWith('N');
+    const isPrevNight = isNightDutyRecord(previousDuty);
     const restHours = calculateRestHours(previousDuty.sOffTime, proposedDuty.sOnTime, isPrevNight);
 
     // Rule 1: Night shift to A-shift / 1st Shift (including PRO 1, OR 1, morning standby) is strictly prohibited!
@@ -213,6 +243,12 @@ export function validateDutyAssignment({
   }
   if (employee.medical_valid_till && new Date(employee.medical_valid_till) < new Date(targetDate)) {
     errors.push(`H9: Medical (PME) fitness expired on ${employee.medical_valid_till}.`);
+  }
+
+  // ── H10: CRT (COMPETENCY REFRESHMENT TRAINING) VALIDITY GATE ──
+  const crtTill = employee.crtValidTill || employee.crt_valid_till || employee.crtRenewalDate;
+  if (crtTill && new Date(crtTill) < new Date(targetDate)) {
+    errors.push(`H10: CRT (Competency) expired on ${crtTill}. Mandatory 6-month refresher training required before operating mainline.`);
   }
 
   return {

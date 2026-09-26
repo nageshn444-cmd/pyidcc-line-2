@@ -26,7 +26,7 @@ import { EMPLOYEE_MASTER_REGISTRY } from '../data/employeeProfileMaster.js';
 import { OFFICIAL_JMD_TD_REGISTRY } from '../data/jmdCrewMaster.js';
 import { HISTORICAL_ROSTER_INTELLIGENCE } from '../data/historicalRosterIntelligence.js';
 import { OFFICIAL_CC_STAFF, OFFICIAL_ALS_GCC_STAFF, resolveCCDutyForDate } from '../data/ccRosterRegistry.js';
-import { validateDutyAssignment, calculateRestHours, isFirstShiftDuty, isSecondShiftDuty } from './dutyConstraintEngine.js';
+import { validateDutyAssignment, calculateRestHours, isFirstShiftDuty, isSecondShiftDuty, isNightDutyRecord, timeStringToMinutes } from './dutyConstraintEngine.js';
 import { validateCompleteRoster } from './rosterIntegrityValidator.js';
 import { formatDutyTypeLink } from '../utils/timeHelpers.js';
 import { resolveEmployeeCycleState } from './employeeCycleStateMachine.js';
@@ -70,13 +70,17 @@ export function extractPreviousDayGCCAssignments(previousDayRoster = null, liveD
     if (nid && nid !== strId) map.set(nid, record);
   };
 
-  const getShiftFromDutyOrTime = (dutyId, sOnTime, explicitShift) => {
-    if (explicitShift && ['A', 'B', 'C', 'N'].includes(String(explicitShift).toUpperCase())) {
-      return String(explicitShift).toUpperCase() === 'C' ? 'N' : String(explicitShift).toUpperCase();
-    }
+  const getShiftFromDutyOrTime = (dutyId, sOnTime, explicitShift, sOffTime) => {
+    const exp = String(explicitShift || '').toUpperCase().trim();
+    if (exp === 'N' || exp === 'C' || exp.includes('NIGHT') || exp === '3') return 'N';
+    if (exp === 'B' || exp.includes('AFTERNOON') || exp === '2') return 'B';
+    if (exp === 'A' || exp.includes('MORNING') || exp === '1') return 'A';
+
     const dStr = String(dutyId || '').trim();
-    if (dStr.startsWith('N') || dStr.includes('NIGHT')) return 'N';
-    const num = parseInt(dStr, 10);
+    const dUpper = dStr.toUpperCase();
+    if (dUpper.startsWith('N') || dUpper.includes('NIGHT') || dUpper.includes('NPRO')) return 'N';
+    const numMatch = dStr.match(/\d+/);
+    const num = numMatch ? parseInt(numMatch[0], 10) : NaN;
     if (!isNaN(num) && num > 0) {
       if (num <= 32) return 'A';
       if (num <= 63) return 'B';
@@ -90,6 +94,10 @@ export function extractPreviousDayGCCAssignments(previousDayRoster = null, liveD
         if (hour >= 12 && hour < 20) return 'B';
         return 'A';
       }
+    }
+    if (sOffTime) {
+      const mins = timeStringToMinutes(sOffTime);
+      if (mins >= 5 * 60 && mins <= 9 * 60 + 30) return 'N';
     }
     return 'A';
   };
@@ -108,20 +116,22 @@ export function extractPreviousDayGCCAssignments(previousDayRoster = null, liveD
       const nid = normId(rawId) || String(rawId).trim();
       const dutyId = String(item.dutyId || item.dutyNo || '').trim();
       const sOnTime = item.signOnTime || item.sOnTime || '';
-      const shift = getShiftFromDutyOrTime(dutyId, sOnTime, item.shift);
-      const sOffTime = item.signOffTime || item.sOffTime || estimateSignOffTime(shift, sOnTime);
+      const sOffTime = item.signOffTime || item.sOffTime || '';
+      const shift = getShiftFromDutyOrTime(dutyId, sOnTime, item.shift, sOffTime);
+      const effectiveOffTime = sOffTime || estimateSignOffTime(shift, sOnTime);
+      const isNight = isNightDutyRecord(item) || shift === 'N';
 
       setEntry(rawId, {
         empId: nid,
         empName: item.empName || item.name || item.operatorName || '',
         dutyNo: dutyId,
         dutyCode: item.dutyCode || (dutyId ? `Duty ${dutyId}` : 'Mainline'),
-        shift,
+        shift: isNight ? 'N' : shift,
         sOnTime,
-        sOffTime,
+        sOffTime: effectiveOffTime,
         trainId: item.trainId || '',
         category: 'MAINLINE',
-        isNight: shift === 'N',
+        isNight,
         status: item.status || 'ASSIGNED',
         source: 'LIVE_DEPLOYMENT'
       });
@@ -138,25 +148,27 @@ export function extractPreviousDayGCCAssignments(previousDayRoster = null, liveD
         const nid = normId(rawId) || String(rawId).trim();
         const dutyId = String(d.dutyId || d.dutyNo || '').trim();
         const sOnTime = d.signOnTime || d.sOnTime || '';
-        const shift = getShiftFromDutyOrTime(dutyId, sOnTime, d.shift);
-        const sOffTime = d.signOffTime || d.sOffTime || estimateSignOffTime(shift, sOnTime);
+        const sOffTime = d.signOffTime || d.sOffTime || '';
+        const shift = getShiftFromDutyOrTime(dutyId, sOnTime, d.shift || d.dutyType, sOffTime);
+        const effectiveOffTime = sOffTime || estimateSignOffTime(shift, sOnTime);
 
         const isDutyWO = d.dutyCode === 'WO' || d.shift === 'WO' || dutyId === 'WO';
         const isDutyLeave = ['CL', 'EL', 'HPL', 'ML', 'MS', 'GHEL', 'SPECIAL', 'BOOK_OFF'].includes(d.dutyCode) || d.shift === 'LEAVE';
+        const isNight = !isDutyWO && !isDutyLeave && (isNightDutyRecord(d) || shift === 'N');
 
         setEntry(rawId, {
           empId: nid,
           empName: d.empName || d.name || d.operatorName || '',
           dutyNo: isDutyWO || isDutyLeave ? null : dutyId,
           dutyCode: d.dutyCode || (dutyId ? `Duty ${dutyId}` : 'Mainline'),
-          shift: isDutyWO ? 'WO' : (isDutyLeave ? 'LEAVE' : shift),
+          shift: isDutyWO ? 'WO' : (isDutyLeave ? 'LEAVE' : (isNight ? 'N' : shift)),
           sOnTime,
-          sOffTime,
+          sOffTime: effectiveOffTime,
           trainId: d.trainId || '',
           category: isDutyWO ? 'WEEKLY_OFF' : (isDutyLeave ? 'LEAVE' : 'MAINLINE'),
           isWeeklyOff: isDutyWO,
           isLeave: isDutyLeave,
-          isNight: !isDutyWO && !isDutyLeave && shift === 'N',
+          isNight,
           status: d.status || 'ASSIGNED',
           source: 'GCC_ROSTER_DUTIES'
         });
@@ -395,11 +407,12 @@ export function generateDailyDutyRoster({
   activePool.forEach(emp => {
     const empId = parseInt(emp.empId, 10);
 
-    // If pre-locked, skip filtering
-    if (assignedEmpIds.has(empId)) return;
+    // Official CCs (Nagesh N, Deepa L, Rashmi) are strictly dedicated to CC Desk
+    const isCCOfficial = [20726, 20038, 20037].includes(empId) || 
+      ['NAGESH N', 'DEEPA L', 'RASHMI'].some(n => (emp.name || '').toUpperCase().includes(n));
 
-    // Check Weekly Off (H15)
-    if (isWeeklyOffOnDate(emp, targetDate)) {
+    // Check Weekly Off (H15) - Official CCs never participate in weekly off
+    if (!isCCOfficial && isWeeklyOffOnDate(emp, targetDate)) {
       notAvailableCrew.push({
         empId,
         name: emp.name,
@@ -424,7 +437,7 @@ export function generateDailyDutyRoster({
 
     // Check Week-Off Override (H15-OVR): user-specified WO override for this date
     const woOverrideEntry = woOverrides && (woOverrides[empId] || woOverrides[String(empId)]);
-    if (woOverrideEntry) {
+    if (!isCCOfficial && woOverrideEntry) {
       notAvailableCrew.push({
         empId,
         name: emp.name,
@@ -578,15 +591,30 @@ export function generateDailyDutyRoster({
       return;
     }
 
-    // Attach previous day tracking to available employee from EXCEL AUTO-READER
-    const prev = prevDayGCCMap.get(String(empId));
+    // Attach previous day tracking to available employee from EXCEL AUTO-READER & Historical Intelligence
+    const hist = historicalData[empId] || historicalData[String(empId)];
+    const histRecent = (hist?.recentDuties && hist.recentDuties.length > 0)
+      ? hist.recentDuties[hist.recentDuties.length - 1]
+      : (hist?.recent7 && hist.recent7.length > 0 ? { dutyCode: hist.recent7[hist.recent7.length - 1] } : null);
+    const prev = prevDayGCCMap.get(String(empId)) || prevDayGCCMap.get(Number(empId)) || histRecent;
+
     emp._prevAssignment = prev;
     emp._prevShift = prev?.shift || null;
-    emp._prevDutyNo = prev?.dutyNo ? parseInt(String(prev.dutyNo).replace(/\D/g, ''), 10) : null;
-    emp._prevDutyCode = prev?.dutyCode || null;
-    emp._prevIsNight = prev?.isNight || prev?.shift === 'N' || String(prev?.dutyCode || '').startsWith('N');
+    const rawDuty = prev?.dutyNo || prev?.dutyCode || prev?.dutyId || '';
+    const numMatch = String(rawDuty).match(/\d+/);
+    emp._prevDutyNo = numMatch ? parseInt(numMatch[0], 10) : null;
+    emp._prevDutyCode = prev?.dutyCode || (emp._prevDutyNo ? `Duty ${emp._prevDutyNo}` : null);
+    emp._prevIsNight = isNightDutyRecord(prev);
+    if (emp._prevIsNight && (!emp._prevShift || emp._prevShift === 'A')) {
+      emp._prevShift = 'N';
+    }
     emp._prevIsWO = prev?.isWeeklyOff || prev?.dutyCode === 'WO' || prev?.category === 'WEEKLY_OFF';
     emp._returnedFromWO = emp._prevIsWO === true;
+
+    // Official CCs are dedicated to CC Desk and do not enter the mainline driving pool
+    if (isCCOfficial) {
+      return;
+    }
 
     // Otherwise eligible for driving/special duty pool
     availableDrivingPool.push(emp);
@@ -865,7 +893,14 @@ export function generateDailyDutyRoster({
       const duty = linkTemplates.find(d => parseInt(d.dutyNo, 10) === reqDutyNo);
       const candIdx = availableDrivingPool.findIndex(e => e.empId === req.empId);
       if (duty && candIdx >= 0) {
-        const cand = availableDrivingPool.splice(candIdx, 1)[0];
+        const cand = availableDrivingPool[candIdx];
+        const isPrevNight = cand._prevIsNight || isNightDutyRecord(cand._prevAssignment);
+        if (isPrevNight && isFirstShiftDuty(duty)) return; // Block Night -> A transition demand
+        if (isPrevNight) {
+          const rest = cand._prevAssignment?.sOffTime ? calculateRestHours(cand._prevAssignment.sOffTime, duty.sOnTime, true) : 16;
+          if (rest < 8.0) return; // Block demand if rest < 8h
+        }
+        availableDrivingPool.splice(candIdx, 1);
         assignedEmpIds.add(cand.empId);
         activeDutyAssignments.push({
           ...duty,
@@ -1066,8 +1101,41 @@ export function generateDailyDutyRoster({
     const duty = linkTemplates.find(d => parseInt(d.dutyNo, 10) === pinkNo);
     if (!duty) return;
 
-    if (pregnantPool.length > 0) {
-      const cand = pregnantPool.shift();
+    const isDuty1st = isFirstShiftDuty(duty) || duty.shift === 'A';
+    const isDuty2nd = isSecondShiftDuty(duty) || duty.shift === 'B';
+
+    // Find candidate in pregnantPool who strictly meets rest & shift transition rules
+    let bestIdx = -1;
+    for (let i = 0; i < pregnantPool.length; i++) {
+      const cand = pregnantPool[i];
+      const hist = historicalData[cand.empId] || { recentDuties: [] };
+      const prev = cand._prevAssignment || prevDayGCCMap.get(String(cand.empId)) || (hist.recentDuties && hist.recentDuties.length > 0 ? hist.recentDuties[hist.recentDuties.length - 1] : null);
+      const isPrevNight = cand._prevIsNight === true || isNightDutyRecord(prev);
+
+      // RULE 1: Night shift to 1st Shift (morning) is strictly prohibited at all times!
+      if (isPrevNight && isDuty1st) continue;
+
+      // RULE 2: B-shift to 1st Shift (morning) has tight rest (< 12h)
+      if (cand._prevShift === 'B' && isDuty1st) continue;
+
+      const prevOff = prev?.sOffTime || cand._prevAssignment?.sOffTime;
+      const rest = prevOff ? calculateRestHours(prevOff, duty.sOnTime, isPrevNight) : 16;
+
+      // RULE 3: Mandatory minimum 8 hours gap from Night shift to 2nd Shift (High Priority)
+      if (isPrevNight) {
+        if (rest < 8.0) continue; // STRICT REJECTION: never assign with < 8.0h rest!
+        if (!isDuty2nd) continue; // Night operator can ONLY take 2nd shift (with >= 8h rest)
+      } else {
+        // Standard inter-shift rest requires minimum 12.0h
+        if (rest < 12.0) continue;
+      }
+
+      bestIdx = i;
+      break;
+    }
+
+    if (bestIdx >= 0) {
+      const cand = pregnantPool.splice(bestIdx, 1)[0];
       const poolIdx = availableDrivingPool.findIndex(e => e.empId === cand.empId);
       if (poolIdx >= 0) availableDrivingPool.splice(poolIdx, 1);
       assignedEmpIds.add(cand.empId);
@@ -1107,7 +1175,8 @@ export function generateDailyDutyRoster({
 
     for (let i = 0; i < availableDrivingPool.length; i++) {
       const cand = availableDrivingPool[i];
-      const isPrevNight = cand._prevIsNight === true;
+      const prev = cand._prevAssignment;
+      const isPrevNight = cand._prevIsNight === true || isNightDutyRecord(prev);
 
       // RULE 1: Night shift to 1st Shift (morning: PRO 1 at 06:00) is strictly prohibited!
       if (isPrevNight && isDuty1st) continue;
@@ -1115,11 +1184,10 @@ export function generateDailyDutyRoster({
       // RULE 2: B-shift to 1st Shift (morning) has tight rest (< 12h)
       if (cand._prevShift === 'B' && isDuty1st) continue;
 
-      const prev = cand._prevAssignment;
       const rest = prev && prev.sOffTime ? calculateRestHours(prev.sOffTime, duty.sOnTime, isPrevNight) : 16;
 
       // RULE 3: From Night to 2nd Shift, there MUST be at least an 8-hour gap
-      if (isPrevNight && isDuty2nd) {
+      if (isPrevNight) {
         if (rest < 8.0) continue;
       } else {
         if (rest < 12.0) continue;
@@ -1218,19 +1286,21 @@ export function generateDailyDutyRoster({
         const hist = historicalData[cand.empId] || { recentDuties: [] };
         const prev = cand._prevAssignment || prevDayGCCMap.get(String(cand.empId)) || (hist.recentDuties && hist.recentDuties.length > 0 ? hist.recentDuties[hist.recentDuties.length - 1] : null);
         
-        const isPrevNight = cand._prevIsNight || (prev && (prev.isNight || prev.shift === 'N' || String(prev.dutyCode).startsWith('N')));
+        const isPrevNight = cand._prevIsNight || isNightDutyRecord(prev);
         
         // H2 Hard Rule: Night shift to 1st Shift (A-shift morning) transition is strictly prohibited
-        if (isPrevNight && isDutyA) continue;
+        if (isPrevNight && (isDutyA || isFirstShiftDuty(duty))) continue;
 
         // H2 Hard Rule: B-shift yesterday to A-shift morning (sign-off 21:30-22:00 to sign-on 05:30-06:30 gives only ~7.5h rest < 12h)
-        if (cand._prevShift === 'B' && isDutyA) continue;
+        if (cand._prevShift === 'B' && (isDutyA || isFirstShiftDuty(duty))) continue;
 
-        const rest = prev && prev.sOffTime ? calculateRestHours(prev.sOffTime, duty.sOnTime, isPrevNight) : 16;
+        const prevOff = prev?.sOffTime || cand._prevAssignment?.sOffTime;
+        const rest = prevOff ? calculateRestHours(prevOff, duty.sOnTime, isPrevNight) : 16;
         
-        // RULE 3: From Night shift to 2nd Shift (B-shift), there MUST be at least an 8-hour gap
-        if (isPrevNight && isDutyB) {
+        // RULE 3: From Night shift, there MUST be at least an 8-hour gap for ANY subsequent duty
+        if (isPrevNight) {
           if (rest < 8.0) continue;
+          if (!isDutyB && !isSecondShiftDuty(duty)) continue;
         } else {
           // Standard inter-shift rest requires minimum 12.0h
           if (rest < 12.0) continue;
@@ -1306,12 +1376,18 @@ export function generateDailyDutyRoster({
       if (!bestCand && availableDrivingPool.length > 0) {
         for (let i = 0; i < availableDrivingPool.length; i++) {
           const cand = availableDrivingPool[i];
-          const isPrevNight = cand._prevIsNight === true;
-          if (isPrevNight && isDutyA) continue; // NEVER night to A
-          if (cand._prevShift === 'B' && isDutyA) continue;
-          const rest = cand._prevAssignment?.sOffTime ? calculateRestHours(cand._prevAssignment.sOffTime, duty.sOnTime, isPrevNight) : 16;
-          if (isPrevNight && isDutyB) {
+          const hist = historicalData[cand.empId] || { recentDuties: [] };
+          const prev = cand._prevAssignment || prevDayGCCMap.get(String(cand.empId)) || (hist.recentDuties && hist.recentDuties.length > 0 ? hist.recentDuties[hist.recentDuties.length - 1] : null);
+          const isPrevNight = cand._prevIsNight === true || isNightDutyRecord(prev);
+
+          if (isPrevNight && (isDutyA || isFirstShiftDuty(duty))) continue; // NEVER night to A or 1st shift
+          if (cand._prevShift === 'B' && (isDutyA || isFirstShiftDuty(duty))) continue;
+
+          const prevOff = prev?.sOffTime || cand._prevAssignment?.sOffTime;
+          const rest = prevOff ? calculateRestHours(prevOff, duty.sOnTime, isPrevNight) : 16;
+          if (isPrevNight) {
             if (rest < 8.0) continue;
+            if (!isDutyB && !isSecondShiftDuty(duty)) continue;
           } else if (rest < 12.0) {
             continue;
           }
@@ -1400,7 +1476,7 @@ export function generateDailyDutyRoster({
     let candIdx = -1;
     for (let i = 0; i < availableDrivingPool.length; i++) {
       const cand = availableDrivingPool[i];
-      const isPrevNight = cand._prevIsNight === true;
+      const isPrevNight = cand._prevIsNight === true || isNightDutyRecord(cand._prevAssignment);
 
       // RULE 1: Night to 1st Shift strictly prohibited
       if (isPrevNight && isDuty1st) continue;
@@ -1469,7 +1545,7 @@ export function generateDailyDutyRoster({
       let candIdx = -1;
       for (let i = 0; i < availableDrivingPool.length; i++) {
         const cand = availableDrivingPool[i];
-        const isPrevNight = cand._prevIsNight === true;
+        const isPrevNight = cand._prevIsNight === true || isNightDutyRecord(cand._prevAssignment);
 
         if (isPrevNight && isShift1st) continue;
         if (cand._prevShift === 'B' && isShift1st) continue;
@@ -1552,7 +1628,7 @@ export function generateDailyDutyRoster({
     const residual = availableDrivingPool.shift();
     assignedEmpIds.add(residual.empId);
 
-    const isPrevNight = residual._prevIsNight === true;
+    const isPrevNight = residual._prevIsNight === true || isNightDutyRecord(residual._prevAssignment);
     const isPrevB = residual._prevShift === 'B';
 
     // Rest-safe shift assignment for residual crew
@@ -1563,10 +1639,18 @@ export function generateDailyDutyRoster({
 
     if (isPrevNight) {
       // Operator finished night duty on Day D morning -> MUST NOT be on 06:00 1st Shift
-      // Assign to 2nd shift standby (>= 8h rest: 14:30 - 22:00)
+      // Ensure minimum 8.0h gap from previous night sign-off
       stbyShift = 'STBY';
-      stbyOnTime = '14:30';
-      stbyOffTime = '22:00';
+      const prevOffMins = residual._prevAssignment?.sOffTime ? timeStringToMinutes(residual._prevAssignment.sOffTime) : (6 * 60 + 30);
+      const earliestOnMins = prevOffMins + 8 * 60; // minimum 8h gap
+      const targetMins = Math.max(14 * 60 + 30, earliestOnMins);
+      const onH = String(Math.floor(targetMins / 60)).padStart(2, '0');
+      const onM = String(targetMins % 60).padStart(2, '0');
+      const offTotalMins = targetMins + 7.5 * 60;
+      const offH = String(Math.floor(offTotalMins / 60) % 24).padStart(2, '0');
+      const offM = String(Math.round(offTotalMins % 60)).padStart(2, '0');
+      stbyOnTime = `${onH}:${onM}`;
+      stbyOffTime = `${offH}:${offM}`;
       stbyReason = 'Post-Night 2nd Shift Standby Reserve (8h+ Rest Verified)';
     } else if (isPrevB) {
       // Finished B-shift around 21:30 -> 12h rest means earliest sign-on is 09:30 or 2nd shift (14:00)
@@ -1596,6 +1680,122 @@ export function generateDailyDutyRoster({
     });
   }
 
+  // ── ACTIVE SAFETY FIREWALL: ZERO-TOLERANCE REST & SHIFT RULE RESOLVER ──
+  // Strictly enforces:
+  // 1. Minimum 8.0h gap between Night Shift and 2nd Shift (High Priority, NEVER < 8.0h)
+  // 2. NEVER assign a Night Shift operator to 1st Shift (A-shift) at any time
+  // 3. Minimum 12.0h rest for standard day-to-day transitions
+  for (let i = 0; i < activeDutyAssignments.length; i++) {
+    const a = activeDutyAssignments[i];
+    if (!a.empId) continue;
+
+    const hist = historicalData[a.empId] || { recentDuties: [] };
+    const prev = prevDayGCCMap.get(String(a.empId)) || prevDayGCCMap.get(Number(a.empId)) || (hist.recentDuties && hist.recentDuties.length > 0 ? hist.recentDuties[hist.recentDuties.length - 1] : null);
+    if (!prev || !prev.sOffTime || !a.sOnTime || a.sOnTime === '—') continue;
+
+    const isPrevNight = isNightDutyRecord(prev);
+    const rest = calculateRestHours(prev.sOffTime, a.sOnTime, isPrevNight);
+    const isDuty1st = isFirstShiftDuty(a) || a.shift === 'A';
+    const isDuty2nd = isSecondShiftDuty(a) || a.shift === 'B';
+
+    let hasViolation = false;
+    let violationReason = '';
+
+    if (isPrevNight && isDuty1st) {
+      hasViolation = true;
+      violationReason = `H2: Night shift operator (${a.name} #${a.empId}) assigned to 1st Shift (${a.dutyCode || a.dutyNo}). Night to 1st Shift is strictly prohibited at all times.`;
+    } else if (isPrevNight && rest < 8.0) {
+      hasViolation = true;
+      violationReason = `H2: Mandatory 8h gap violation (${rest}h < 8.0h) from previous Night sign-off (${prev.sOffTime}) to duty (${a.dutyCode || a.dutyNo}) sign-on (${a.sOnTime}).`;
+    } else if (!isPrevNight && rest < 12.0) {
+      hasViolation = true;
+      violationReason = `H2: Standard rest violation (${rest}h < 12.0h) for ${a.name} #${a.empId} to duty ${a.dutyCode || a.dutyNo}.`;
+    }
+
+    if (hasViolation) {
+      // Find a compliant replacement candidate from specialAuxAssignments (OR Spare / Standby)
+      let replacementCand = null;
+      let replacementFromAuxIdx = -1;
+
+      for (let j = 0; j < specialAuxAssignments.length; j++) {
+        const aux = specialAuxAssignments[j];
+        if (aux.assignmentCategory !== 'SPECIAL_AUX_DUTY' || aux.dutyCode === 'OD') continue;
+        const auxPrev = prevDayGCCMap.get(String(aux.empId)) || prevDayGCCMap.get(Number(aux.empId));
+        const auxIsPrevNight = isNightDutyRecord(auxPrev);
+        if (auxIsPrevNight && isDuty1st) continue;
+        const auxRest = auxPrev?.sOffTime ? calculateRestHours(auxPrev.sOffTime, a.sOnTime, auxIsPrevNight) : 16;
+        if (auxIsPrevNight && auxRest < 8.0) continue;
+        if (!auxIsPrevNight && auxRest < 12.0) continue;
+
+        replacementCand = aux;
+        replacementFromAuxIdx = j;
+        break;
+      }
+
+      if (replacementCand && replacementFromAuxIdx >= 0) {
+        const violatingEmpId = a.empId;
+        const violatingName = a.name;
+        const violatingGender = a.gender;
+
+        a.empId = replacementCand.empId;
+        a.name = replacementCand.name;
+        a.gender = replacementCand.gender;
+        a.reason = `${a.reason || 'Active Duty'} · Swapped via Safety Firewall for 8h+ Rest Compliance`;
+
+        const prevOffMins = prev.sOffTime ? timeStringToMinutes(prev.sOffTime) : (6 * 60 + 30);
+        const safeOnMins = Math.max(14 * 60 + 30, prevOffMins + 8 * 60);
+        const onH = String(Math.floor(safeOnMins / 60)).padStart(2, '0');
+        const onM = String(safeOnMins % 60).padStart(2, '0');
+        const offMins = safeOnMins + 7.5 * 60;
+        const offH = String(Math.floor(offMins / 60) % 24).padStart(2, '0');
+        const offM = String(Math.round(offMins % 60)).padStart(2, '0');
+
+        specialAuxAssignments[replacementFromAuxIdx].empId = violatingEmpId;
+        specialAuxAssignments[replacementFromAuxIdx].name = violatingName;
+        specialAuxAssignments[replacementFromAuxIdx].gender = violatingGender;
+        specialAuxAssignments[replacementFromAuxIdx].sOnTime = `${onH}:${onM}`;
+        specialAuxAssignments[replacementFromAuxIdx].sOffTime = `${offH}:${offM}`;
+        specialAuxAssignments[replacementFromAuxIdx].reason = `Rest-Protected Post-Night Reserve (>=8.0h Rest Verified)`;
+      } else {
+        const violatingEmpId = a.empId;
+        const violatingName = a.name;
+        const violatingGender = a.gender;
+
+        a.empId = null;
+        a.name = '— UNASSIGNED —';
+        a.isOfficialForRole = false;
+        a.reason = `Unassigned by Safety Firewall: ${violationReason}`;
+
+        const prevOffMins = prev.sOffTime ? timeStringToMinutes(prev.sOffTime) : (6 * 60 + 30);
+        const safeOnMins = Math.max(14 * 60 + 30, prevOffMins + 8 * 60);
+        const onH = String(Math.floor(safeOnMins / 60)).padStart(2, '0');
+        const onM = String(safeOnMins % 60).padStart(2, '0');
+        const offMins = safeOnMins + 7.5 * 60;
+        const offH = String(Math.floor(offMins / 60) % 24).padStart(2, '0');
+        const offM = String(Math.round(offMins % 60)).padStart(2, '0');
+
+        specialAuxAssignments.push({
+          empId: violatingEmpId,
+          name: violatingName,
+          gender: violatingGender,
+          assignmentCategory: 'SPECIAL_AUX_DUTY',
+          assignmentSubType: 'OR Spare Pool',
+          tag: 'OR',
+          dutyCode: 'OR_SPARE',
+          dutyNo: null,
+          shift: 'STBY',
+          sOnTime: `${onH}:${onM}`,
+          sOffTime: `${offH}:${offM}`,
+          sOnLoc: 'PYID',
+          sOffLoc: 'PYID',
+          kms: 0,
+          reason: `Rest-Protected Post-Night Reserve (>=8.0h Rest Verified)`,
+          prevDutyInfo: prev.dutyCode || (prev.dutyNo ? `Duty ${prev.dutyNo}` : 'Night Duty')
+        });
+      }
+    }
+  }
+
   // Sort active duties by dutyNo
   activeDutyAssignments.sort((a, b) => parseInt(a.dutyNo, 10) - parseInt(b.dutyNo, 10));
 
@@ -1618,9 +1818,9 @@ export function generateDailyDutyRoster({
 
     // Attach Previous Day GCC Reference Assignment
     if (item.empId) {
-      const prev = prevDayGCCMap.get(String(item.empId));
+      const prev = prevDayGCCMap.get(String(item.empId)) || prevDayGCCMap.get(Number(item.empId));
       if (prev) {
-        const isPrevNight = prev.shift === 'N' || prev.isNight;
+        const isPrevNight = isNightDutyRecord(prev);
         const restHours = (prev.sOffTime && item.sOnTime && item.sOnTime !== '—')
           ? calculateRestHours(prev.sOffTime, item.sOnTime, isPrevNight)
           : (prev.shift === 'WO' ? 24.0 : 16.0);
@@ -1634,7 +1834,8 @@ export function generateDailyDutyRoster({
         item.previousDayDuty = {
           dutyNo: prev.dutyNo,
           dutyCode: prev.dutyCode,
-          shift: prev.shift,
+          shift: isPrevNight ? 'N' : prev.shift,
+          isNight: isPrevNight,
           sOnTime: prev.sOnTime,
           sOffTime: prev.sOffTime,
           trainId: prev.trainId,
@@ -1642,7 +1843,7 @@ export function generateDailyDutyRoster({
           source: prev.source,
           restHoursFromPrev: restHours,
           isRestCompliant,
-          transition: `${prev.shift || 'OFF'} ➔ ${item.shift || item.assignmentSubType || 'DUTY'}`
+          transition: `${(isPrevNight ? 'N' : prev.shift) || 'OFF'} ➔ ${item.shift || item.assignmentSubType || 'DUTY'}`
         };
       } else {
         item.previousDayDuty = null;

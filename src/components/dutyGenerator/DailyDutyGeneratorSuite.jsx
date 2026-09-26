@@ -2,13 +2,14 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Sparkles, Calendar, Moon, History, ShieldAlert, ShieldCheck,
   Send, Layers, RefreshCw, BarChart2, Compass, Lock, Users, UserMinus, UserX, CheckCircle2,
-  Database, ArrowRightLeft, Briefcase, Zap, ChevronRight, Activity, Star
+  Database, ArrowRightLeft, Briefcase, Zap, ChevronRight, Activity, Star, Award
 } from 'lucide-react';
 import GeneratorDraftConsole from './GeneratorDraftConsole';
 import NextDayRequirementsCenter from './NextDayRequirementsCenter';
 import WeekOffControlManager from './WeekOffControlManager';
 import NightShiftBalancingDesk from './NightShiftBalancingDesk';
 import DutyHistoryIntelligence from './DutyHistoryIntelligence';
+import CompetencyRegistryDesk from './CompetencyRegistryDesk';
 import ActiveCrewManagerModal from './ActiveCrewManagerModal';
 import RelievedCrewManagerModal from './RelievedCrewManagerModal';
 import NewStaffLRDModal from './NewStaffLRDModal';
@@ -249,12 +250,11 @@ export default function DailyDutyGeneratorSuite() {
         }
 
         const existing = crewMap.get(empId) || {};
-
         const cleanDocName = (docSnap.name && !String(docSnap.name).startsWith('Employee #')) ? docSnap.name : null;
         const cleanEmpName = (docSnap.employeeName && !String(docSnap.employeeName).startsWith('Employee #')) ? docSnap.employeeName : null;
         const cleanExistingName = (existing.name && !String(existing.name).startsWith('Employee #')) ? existing.name : null;
         const cleanUnifiedName = (unified.name && !String(unified.name).startsWith('Employee #')) ? unified.name : null;
-        const resolvedStaffName = cleanDocName || cleanEmpName || masterEmp?.name || cleanUnifiedName || cleanExistingName || `Staff #${empId}`;
+        const resolvedStaffName = localOver.name || cleanDocName || cleanEmpName || masterEmp?.name || cleanUnifiedName || cleanExistingName || `Staff #${empId}`;
 
         const merged = {
           ...unified,
@@ -293,6 +293,7 @@ export default function DailyDutyGeneratorSuite() {
             ...unified,
             ...masterEmp,
             empId,
+            name: localOver.name || masterEmp.name || unified.name || `Staff #${empId}`,
             status: isMasterRelieved ? 'RELIEVED' : (masterEmp.status || 'ACTIVE'),
             activeCrew: !isMasterRelieved,
             isRelieved: isMasterRelieved,
@@ -316,6 +317,7 @@ export default function DailyDutyGeneratorSuite() {
             ...unified,
             ...masterEmp,
             empId,
+            name: localOver.name || masterEmp.name || unified.name || `Staff #${empId}`,
             status: isMasterRelieved ? 'RELIEVED' : (masterEmp.status || 'ACTIVE'),
             activeCrew: !isMasterRelieved,
             isRelieved: isMasterRelieved,
@@ -488,10 +490,17 @@ export default function DailyDutyGeneratorSuite() {
     const strId = String(empId).trim();
     const numId = normalizeCanonicalEmpId(empId) || empId;
 
+    const sanitizedUpdate = { ...statusUpdate };
+    if (sanitizedUpdate.name) {
+      sanitizedUpdate.name = String(sanitizedUpdate.name).trim();
+      sanitizedUpdate.employeeName = sanitizedUpdate.name;
+    }
+
     setLocalCrewOverrides(prev => {
       const next = {
         ...prev,
-        [strId]: { ...(prev[strId] || {}), ...statusUpdate }
+        [strId]: { ...(prev[strId] || {}), ...sanitizedUpdate },
+        [numId]: { ...(prev[numId] || {}), ...sanitizedUpdate }
       };
       try {
         localStorage.setItem('pyidcc_crew_overrides', JSON.stringify(next));
@@ -500,7 +509,7 @@ export default function DailyDutyGeneratorSuite() {
     });
 
     const isRelievedOrDeleted = statusUpdate.isRelieved === true || statusUpdate.status === 'RELIEVED' || statusUpdate.status === 'DELETED' || statusUpdate.isDeleted === true || statusUpdate.activeCrew === false || statusUpdate.removedFromActiveRoster === true;
-    const isReinstated = statusUpdate.isRelieved === false && (statusUpdate.status === 'ACTIVE' || statusUpdate.activeCrew === true);
+    const isReinstated = (statusUpdate.isRelieved === false || statusUpdate.isDeleted === false || statusUpdate.activeCrew === true) && (statusUpdate.status === 'ACTIVE' || statusUpdate.activeCrew === true || statusUpdate.isDeleted === false);
 
     try {
       const delKey = strId.startsWith('8') ? 'pyidcc_deleted_jmd_td_ids' : 'pyidcc_deleted_crew_ids';
@@ -519,16 +528,17 @@ export default function DailyDutyGeneratorSuite() {
           localStorage.setItem(relKey, JSON.stringify(relSaved));
         }
       } else if (isReinstated) {
-        delSaved = delSaved.filter(id => String(id) !== strId && String(id) !== String(numId));
-        localStorage.setItem(delKey, JSON.stringify(delSaved));
-        relSaved = relSaved.filter(id => String(id) !== strId && String(id) !== String(numId));
-        localStorage.setItem(relKey, JSON.stringify(relSaved));
+        ['pyidcc_deleted_crew_ids', 'pyidcc_deleted_jmd_td_ids', 'pyidcc_relieved_crew_ids'].forEach(key => {
+          const saved = JSON.parse(localStorage.getItem(key) || '[]');
+          const filtered = saved.filter(id => String(id) !== strId && String(id) !== String(numId));
+          localStorage.setItem(key, JSON.stringify(filtered));
+        });
       }
     } catch (e) {}
 
     try {
       const docRef = doc(db, 'crewRegistry', `crew_${numId}`);
-      await setDoc(docRef, { ...statusUpdate, empId: numId, updatedAt: serverTimestamp() }, { merge: true });
+      await setDoc(docRef, { ...sanitizedUpdate, empId: numId, updatedAt: serverTimestamp() }, { merge: true });
     } catch (err) {
       console.warn("Firestore crew status update error:", err);
     }
@@ -540,7 +550,14 @@ export default function DailyDutyGeneratorSuite() {
       const next = { ...prev };
       updatesList.forEach(u => {
         const strId = String(u.empId).trim();
-        next[strId] = { ...(next[strId] || {}), ...u };
+        const numId = normalizeCanonicalEmpId(u.empId) || u.empId;
+        const sanitized = { ...u };
+        if (sanitized.name) {
+          sanitized.name = String(sanitized.name).trim();
+          sanitized.employeeName = sanitized.name;
+        }
+        next[strId] = { ...(next[strId] || {}), ...sanitized };
+        next[numId] = { ...(next[numId] || {}), ...sanitized };
       });
       try {
         localStorage.setItem('pyidcc_crew_overrides', JSON.stringify(next));
@@ -584,8 +601,13 @@ export default function DailyDutyGeneratorSuite() {
       const batch = writeBatch(db);
       updatesList.forEach(u => {
         const numId = normalizeCanonicalEmpId(u.empId) || u.empId;
+        const sanitized = { ...u };
+        if (sanitized.name) {
+          sanitized.name = String(sanitized.name).trim();
+          sanitized.employeeName = sanitized.name;
+        }
         const docRef = doc(db, 'crewRegistry', `crew_${numId}`);
-        batch.set(docRef, { ...u, empId: numId, updatedAt: serverTimestamp() }, { merge: true });
+        batch.set(docRef, { ...sanitized, empId: numId, updatedAt: serverTimestamp() }, { merge: true });
       });
       await batch.commit();
       setSyncStatusMsg(`✅ Updated ${updatesList.length} crew status records in Firestore!`);
@@ -671,16 +693,19 @@ export default function DailyDutyGeneratorSuite() {
 
     // Un-delete if previously in deleted sets
     try {
-      ['pyidcc_deleted_crew_ids', 'pyidcc_deleted_jmd_td_ids'].forEach(key => {
+      ['pyidcc_deleted_crew_ids', 'pyidcc_deleted_jmd_td_ids', 'pyidcc_relieved_crew_ids'].forEach(key => {
         const saved = JSON.parse(localStorage.getItem(key) || '[]');
         const filtered = saved.filter(id => String(id) !== strId && String(id) !== String(numId));
         localStorage.setItem(key, JSON.stringify(filtered));
       });
     } catch (e) {}
 
+    const cleanName = String(newMember.name || '').trim();
     const freshMember = {
       ...newMember,
       empId: numId,
+      name: cleanName,
+      employeeName: cleanName,
       isDeleted: false,
       isRelieved: false,
       activeCrew: true,
@@ -689,7 +714,7 @@ export default function DailyDutyGeneratorSuite() {
     };
 
     setLocalCrewOverrides(prev => {
-      const next = { ...prev, [strId]: freshMember };
+      const next = { ...prev, [strId]: freshMember, [numId]: freshMember };
       try {
         localStorage.setItem('pyidcc_crew_overrides', JSON.stringify(next));
       } catch (e) {}
@@ -811,7 +836,8 @@ export default function DailyDutyGeneratorSuite() {
     { id: 'NEXT_DAY_REQ', label: 'Requirements', icon: Calendar, badge: activeRequests.length, color: 'amber' },
     { id: 'WEEK_OFF_MGR', label: 'Week-Off Control', icon: Lock, badge: null, color: 'purple' },
     { id: 'NIGHT_BALANCER', label: 'Night Balance (26d)', icon: Moon, badge: '6/6', color: 'indigo' },
-    { id: 'HISTORY_INTEL', label: 'History (90d)', icon: History, badge: null, color: 'teal' }
+    { id: 'HISTORY_INTEL', label: 'History (90d)', icon: History, badge: null, color: 'teal' },
+    { id: 'CRT_COMPETENCY', label: 'CRT (Competency)', icon: Award, badge: '6M', color: 'emerald' }
   ];
 
   const tabColorMap = {
@@ -820,6 +846,7 @@ export default function DailyDutyGeneratorSuite() {
     purple: 'bg-purple-600 text-white shadow-purple-600/30',
     indigo: 'bg-indigo-600 text-white shadow-indigo-600/30',
     teal: 'bg-teal-600 text-white shadow-teal-600/30',
+    emerald: 'bg-emerald-600 text-white shadow-emerald-600/30',
   };
 
   const tabDotMap = {
@@ -828,6 +855,7 @@ export default function DailyDutyGeneratorSuite() {
     purple: 'bg-purple-400',
     indigo: 'bg-indigo-400',
     teal: 'bg-teal-400',
+    emerald: 'bg-emerald-400',
   };
 
   const dutyCount = DAY_TYPE_PROFILES[dayType]?.totalDuties || 79;
@@ -1165,6 +1193,15 @@ export default function DailyDutyGeneratorSuite() {
             {activeTab === 'HISTORY_INTEL' && (
               <DutyHistoryIntelligence
                 crewList={activeCandidateDrivingCrew}
+              />
+            )}
+
+            {activeTab === 'CRT_COMPETENCY' && (
+              <CompetencyRegistryDesk
+                crewList={activeCandidateDrivingCrew}
+                allCrewList={crewList}
+                targetDate={targetDate}
+                onUpdateCrewMember={handleUpdateCrewStatus}
               />
             )}
           </div>

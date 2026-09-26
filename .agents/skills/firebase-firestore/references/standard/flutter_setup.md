@@ -1,20 +1,26 @@
 # Cloud Firestore in Flutter
 
-This guide covers basic CRUD operations, type-safe data modeling, and real-time streams when using Cloud Firestore in a Flutter application via the `cloud_firestore` package.
+This guide covers basic CRUD operations, type-safe data modeling, and real-time
+streams when using Cloud Firestore in a Flutter application via the
+`cloud_firestore` package.
 
 ## 1. Setup
 
 Ensure you have added the required dependency:
+
 ```bash
 flutter pub add cloud_firestore
 ```
+
 Also, ensure FlutterFire is configured properly for your target platforms.
 
----
+______________________________________________________________________
 
 ## 2. Best Practices: Type-Safe Models
 
-Instead of passing raw `Map<String, dynamic>` maps throughout your UI layer, define a domain model class with `fromFirestore` and `toFirestore` converters to maintain type safety.
+Instead of passing raw `Map<String, dynamic>` maps throughout your UI layer,
+define a domain model class with `fromFirestore` and `toFirestore` converters to
+maintain type safety.
 
 ```dart
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -54,11 +60,12 @@ class Item {
 }
 ```
 
----
+______________________________________________________________________
 
 ## 3. The Service Layer
 
-Encapsulate all database interactions within a dedicated service class to keep your UI code clean and testable.
+Encapsulate all database interactions within a dedicated service class to keep
+your UI code clean and testable.
 
 ### Initialization & References
 
@@ -74,7 +81,7 @@ class ItemService {
     try {
       await _itemsRef.add(item.toFirestore());
     } catch (e) {
-      print("Error creating document: \$e");
+      print("Error creating document: $e");
     }
   }
 
@@ -88,7 +95,7 @@ class ItemService {
 
       return querySnapshot.docs.map((doc) => Item.fromFirestore(doc)).toList();
     } catch (e) {
-      print("Error fetching documents: \$e");
+      print("Error fetching documents: $e");
       return [];
     }
   }
@@ -111,7 +118,7 @@ class ItemService {
     try {
       await _itemsRef.doc(id).update({'name': newName});
     } catch (e) {
-      print("Error updating document: \$e");
+      print("Error updating document: $e");
     }
   }
 
@@ -120,17 +127,18 @@ class ItemService {
     try {
       await _itemsRef.doc(id).delete();
     } catch (e) {
-      print("Error deleting document: \$e");
+      print("Error deleting document: $e");
     }
   }
 }
 ```
 
----
+______________________________________________________________________
 
 ## 4. Listening to Streams in the UI (`StreamBuilder`)
 
-Use Flutter's `StreamBuilder` to rebuild the interface reactively whenever data changes in your database collection.
+Use Flutter's `StreamBuilder` to rebuild the interface reactively whenever data
+changes in your database collection.
 
 ```dart
 StreamBuilder<List<Item>>(

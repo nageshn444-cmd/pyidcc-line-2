@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Play, Sparkles, ShieldCheck, AlertTriangle, CheckCircle2, Download, 
   Search, Filter, Edit3, Eye, FileSpreadsheet, Send, RefreshCw, X, Lock, Unlock,
@@ -62,6 +62,140 @@ export default function GeneratorDraftConsole({
   // Audit Log State
   const [auditLogs, setAuditLogs] = useState([]);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+
+  // CC Desk Reassignment & Leave Substitution State
+  const [reassigningCcDuty, setReassigningCcDuty] = useState(null);
+  const [selectedSubstituteId, setSelectedSubstituteId] = useState('');
+  const [markOfficialLeave, setMarkOfficialLeave] = useState(false);
+  const [ccLeaveCategory, setCcLeaveCategory] = useState('CL');
+  const [substituteFilterText, setSubstituteFilterText] = useState('');
+
+  const handleOpenReassignCc = (duty) => {
+    setReassigningCcDuty(duty);
+    setSelectedSubstituteId('');
+    setMarkOfficialLeave(false);
+    setCcLeaveCategory('CL');
+    setSubstituteFilterText('');
+  };
+
+  const handleSaveCcReassignment = (e) => {
+    e.preventDefault();
+    if (!reassigningCcDuty || !solutions) return;
+
+    const substitute = crewList.find(c => String(c.empId || c.employeeId) === String(selectedSubstituteId));
+    if (!substitute) {
+      alert('Please select a valid substitute crew member.');
+      return;
+    }
+
+    const currentDuty = reassigningCcDuty;
+    const oldEmpId = currentDuty.empId;
+    const isOfficial = [20726, 20038, 20037].includes(Number(oldEmpId)) || 
+      ['NAGESH N', 'DEEPA L', 'RASHMI'].some(n => String(currentDuty.name).toUpperCase().includes(n));
+
+    setSolutions(prev => {
+      if (!prev) return prev;
+      const currentSol = { ...prev[selectedPlanId] };
+      let newAssignments = [...currentSol.assignments];
+
+      if (markOfficialLeave && isOfficial) {
+        newAssignments.push({
+          empId: oldEmpId,
+          name: currentDuty.name,
+          gender: currentDuty.gender || 'MALE',
+          assignmentCategory: 'NOT_AVAILABLE',
+          assignmentSubType: ccLeaveCategory,
+          tag: ccLeaveCategory,
+          dutyCode: ccLeaveCategory,
+          dutyNo: null,
+          shift: 'LEAVE',
+          sOnTime: '—',
+          sOffTime: '—',
+          sOnLoc: '—',
+          sOffLoc: '—',
+          kms: 0,
+          reason: `Approved ${ccLeaveCategory} Leave (Substitute Assigned)`,
+          isOfficialForRole: true
+        });
+      }
+
+      newAssignments = newAssignments.map(a => {
+        if (a.empId === currentDuty.empId && (a.assignmentCategory === 'CREW_CONTROLLER' || a.dutyCode === currentDuty.dutyCode)) {
+          return {
+            ...a,
+            empId: substitute.empId,
+            name: substitute.name,
+            gender: substitute.gender || 'MALE',
+            specialTag: 'CC_RELIEF',
+            specialProfile: 'CC_RELIEF',
+            reason: `Relief CC assigned to ${a.assignedDutyCode || a.dutyCode} (${substitute.name})`
+          };
+        } else if (a.empId === substitute.empId) {
+          return {
+            ...a,
+            empId: null,
+            name: 'Unassigned',
+            status: 'UNASSIGNED'
+          };
+        }
+        return a;
+      });
+
+      return {
+        ...prev,
+        [selectedPlanId]: {
+          ...currentSol,
+          assignments: newAssignments
+        }
+      };
+    });
+
+    setReassigningCcDuty(null);
+  };
+
+  const handleResetToOfficialCc = (duty) => {
+    if (!solutions) return;
+    const slotCode = duty.assignedDutyCode || duty.assignmentSubType || 'CC1';
+    let officialEmp = null;
+    if (slotCode.includes('1')) {
+      officialEmp = { empId: 20726, name: 'Nagesh N', gender: 'MALE' };
+    } else if (slotCode.includes('2')) {
+      officialEmp = { empId: 20038, name: 'Deepa L', gender: 'FEMALE' };
+    } else {
+      officialEmp = { empId: 20037, name: 'Rashmi', gender: 'FEMALE' };
+    }
+
+    setSolutions(prev => {
+      if (!prev) return prev;
+      const currentSol = { ...prev[selectedPlanId] };
+      let newAssignments = currentSol.assignments
+        .filter(a => !(a.empId === officialEmp.empId && a.assignmentCategory === 'NOT_AVAILABLE'))
+        .map(a => {
+          if (a.assignmentCategory === 'CREW_CONTROLLER' && (a.assignedDutyCode === slotCode || a.dutyCode === slotCode || a.assignmentSubType === slotCode)) {
+            return {
+              ...a,
+              empId: officialEmp.empId,
+              name: officialEmp.name,
+              gender: officialEmp.gender,
+              specialTag: 'OFFICIAL_CC',
+              specialProfile: 'CC',
+              reason: `Official Crew Controller (${slotCode})`
+            };
+          }
+          return a;
+        });
+
+      return {
+        ...prev,
+        [selectedPlanId]: {
+          ...currentSol,
+          assignments: newAssignments
+        }
+      };
+    });
+
+    setReassigningCcDuty(null);
+  };
 
   useEffect(() => {
     if (loggedInUserName && changedBy === 'Crew Controller (OCC-2)') {
@@ -204,9 +338,64 @@ export default function GeneratorDraftConsole({
   const notAvailableStaff = groupedBuckets.NOT_AVAILABLE || [];
   const traineeStaff = groupedBuckets.TRAINEE || [];
 
+  const CC_OFFICIAL_NAMES = ['NAGESH N', 'DEEPA L', 'RASHMI'];
+  const CC_OFFICIAL_IDS = new Set(['20726', '20038', '20037', 20726, 20038, 20037]);
+  const isCCOfficial = (empId, name) => {
+    if (CC_OFFICIAL_IDS.has(empId) || CC_OFFICIAL_IDS.has(String(empId))) return true;
+    const n = String(name || '').toUpperCase();
+    return CC_OFFICIAL_NAMES.some(official => n.includes(official));
+  };
+
+  // Strictly filter CC-Willing candidates: Never allow supervisory/station staff (e.g. 20009 to 20018)
+  const ccWillingCandidates = useMemo(() => {
+    const SUPERVISORY_EXCLUSIONS = new Set([
+      20009, 20010, 20011, 20012, 20013, 20014, 20015, 20016, 20017, 20018, 20019, 20020,
+      20037, 20038, 20057, 20087, 20726, 21502
+    ]);
+
+    return (crewList || [])
+      .filter(c => {
+        if (!c || !c.empId) return false;
+        const cid = parseInt(c.empId, 10);
+
+        // 1. Strictly exclude supervisory staff IDs (e.g. 20009 Gourivaragouda G, 20018 Arunkumar D S, etc.)
+        if (SUPERVISORY_EXCLUSIONS.has(cid)) return false;
+
+        // 2. Exclude official CCs
+        if (isCCOfficial(c.empId, c.name)) return false;
+
+        // 3. Exclude non-driving designations (Station Superintendent, Station Controller)
+        const r = String(c.role || '').toLowerCase();
+        const d = String(c.designation || '').toLowerCase();
+        if (r.includes('superintendent') || d.includes('superintendent') ||
+            r.includes('station master') || d.includes('station master') ||
+            c.role === 'STATION_CONTROLLER') {
+          return false;
+        }
+
+        // 4. Must be active driving crew
+        if (c.status === 'RELIEVED' || c.status === 'INACTIVE' || c.isRelieved === true || c.activeCrew === false) return false;
+
+        // 5. STRICT ENFORCEMENT: ONLY CC-WILLING EMPLOYEE NAMES!
+        const masterEmp = EMPLOYEE_MASTER_REGISTRY.find(m => Number(m.empId) === cid);
+        const isWilling = c.ccWilling === true || c.specialProfile === 'CC_WILLING' ||
+                          masterEmp?.ccWilling === true || masterEmp?.specialProfile === 'CC_WILLING';
+        if (!isWilling) return false;
+
+        if (substituteFilterText && substituteFilterText.trim()) {
+          const q = substituteFilterText.trim().toLowerCase();
+          const sId = String(c.empId);
+          const sName = String(c.name || '').toLowerCase();
+          return sName.includes(q) || sId.includes(q);
+        }
+        return true;
+      })
+      .sort((a, b) => (parseInt(a.empId, 10) || 0) - (parseInt(b.empId, 10) || 0));
+  }, [crewList, substituteFilterText]);
+
   // Sub-categories within NOT_AVAILABLE
   const leaveStaff = notAvailableStaff.filter(a => ['CL', 'EL', 'HPL', 'ML', 'MS', 'GHEL', 'SPECIAL', 'BOOK_OFF'].includes(a.assignmentSubType) || ['LEAVE', 'MATERNITY_LEAVE', 'BOOK_OFF'].includes(a.status));
-  const weekOffStaff = notAvailableStaff.filter(a => a.assignmentSubType === 'WO' || a.status === 'WEEK_OFF');
+  const weekOffStaff = notAvailableStaff.filter(a => (a.assignmentSubType === 'WO' || a.status === 'WEEK_OFF') && !isCCOfficial(a.empId, a.name));
   const trainingStaff = notAvailableStaff.filter(a => ['TRAINING', 'CRT'].includes(a.assignmentSubType) || a.status === 'TRAINING');
   const lrdDuties = notAvailableStaff.filter(a => a.assignmentSubType === 'LRD' || a.status === 'LRD');
   const pinkLine4Staff = allAssignments.filter(a => a.specialProfile === 'PINK_LINE_4' || a.notes?.includes('Pink Line 4'));
@@ -1332,9 +1521,20 @@ export default function GeneratorDraftConsole({
                               #{emp.empId} · {emp.sOnTime && emp.sOffTime ? `${emp.sOnTime}–${formatTo24HourTime(emp.sOffTime, emp.sOnTime, emp.shift)}` : 'CC Shift'}
                             </span>
                           </div>
-                          <span className="px-2 py-1 bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 rounded-lg text-[10px] font-bold font-mono flex-shrink-0">
-                            {emp.assignedDutyCode || emp.role || 'CC'}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <span className="px-2 py-1 bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 rounded-lg text-[10px] font-bold font-mono">
+                              {emp.assignedDutyCode || emp.role || 'CC'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenReassignCc(emp)}
+                              className="px-2 py-1 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 hover:text-white border border-indigo-500/30 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                              title="Reassign CC Desk or assign relief if official is on leave"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                              Edit
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
@@ -1709,79 +1909,6 @@ export default function GeneratorDraftConsole({
               onPublishRoster={handlePublishRoster}
             />
           )}
-
-          {/* ── 5. Enhanced Manpower Summary Strip ── */}
-          <div className="bg-gradient-to-br from-slate-900 to-slate-900/80 border border-slate-800 rounded-3xl p-5 shadow-xl">
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800 mb-4">
-              <div className="flex items-center gap-2">
-                <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
-                <div>
-                  <span className="text-sm font-black text-white block">BMRCL Daily Manpower Summary</span>
-                  <span className="text-[11px] text-slate-500 font-mono">{targetDate} · {dayType} Schedule · Official Excel Reference</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="px-3 py-1.5 bg-emerald-500/15 border border-emerald-500/30 rounded-xl">
-                  <span className="text-[10px] text-emerald-400 font-bold block uppercase tracking-wider">Total Crew Accounted</span>
-                  <span className="text-2xl font-black text-white font-mono">{totalAccountedStaff}</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 gap-2">
-              {[
-                { label: 'Driving', value: presentRunningCount, color: 'emerald', icon: '🚆' },
-                { label: 'CC Desk', value: ccAssignedCount, color: 'indigo', icon: '🎛' },
-                { label: 'Week Off', value: restWoCount, color: 'blue', icon: '🔒' },
-                { label: 'CL', value: clLeaveCount, color: 'amber', icon: '📋' },
-                { label: 'EL / GHEL', value: elGhelCount, color: 'yellow', icon: '📅' },
-                { label: 'ML & HPL', value: mlHplCount, color: 'pink', icon: '🌸' },
-                { label: 'Book-Off', value: bookOffCount, color: 'orange', icon: '📖' },
-                { label: 'Special/STBY', value: specialAuxCount, color: 'purple', icon: '⭐' },
-                { label: 'LRD', value: lrdStaffCount, color: 'cyan', icon: '🧭' },
-                { label: 'Training', value: trainingTrgCount, color: 'violet', icon: '🎓' },
-              ].map(stat => {
-                const colorMap = {
-                  emerald: 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300',
-                  indigo: 'bg-indigo-950/60 border-indigo-500/40 text-indigo-300',
-                  blue: 'bg-blue-950/60 border-blue-500/40 text-blue-300',
-                  amber: 'bg-amber-950/60 border-amber-500/40 text-amber-300',
-                  yellow: 'bg-yellow-950/60 border-yellow-500/40 text-yellow-300',
-                  pink: 'bg-pink-950/60 border-pink-500/40 text-pink-300',
-                  orange: 'bg-orange-950/60 border-orange-500/40 text-orange-300',
-                  purple: 'bg-purple-950/60 border-purple-500/40 text-purple-300',
-                  cyan: 'bg-cyan-950/60 border-cyan-500/40 text-cyan-300',
-                  violet: 'bg-violet-950/60 border-violet-500/40 text-violet-300',
-                };
-                const barColorMap = {
-                  emerald: 'bg-emerald-400',
-                  indigo: 'bg-indigo-400',
-                  blue: 'bg-blue-400',
-                  amber: 'bg-amber-400',
-                  yellow: 'bg-yellow-400',
-                  pink: 'bg-pink-400',
-                  orange: 'bg-orange-400',
-                  purple: 'bg-purple-400',
-                  cyan: 'bg-cyan-400',
-                  violet: 'bg-violet-400',
-                };
-                const pct = totalAccountedStaff > 0 ? Math.round((stat.value / totalAccountedStaff) * 100) : 0;
-                return (
-                  <div key={stat.label} className={`p-3 rounded-2xl border ${colorMap[stat.color]} text-center`}>
-                    <div className="text-lg font-black text-white tabular-nums">{stat.value}</div>
-                    <div className="text-[9px] font-bold uppercase tracking-wide mt-0.5 mb-2">{stat.icon} {stat.label}</div>
-                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full ${barColorMap[stat.color]} rounded-full transition-all duration-700`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <div className="text-[9px] text-slate-600 mt-1 font-mono">{pct}%</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         </>
       )}
 
@@ -2014,6 +2141,155 @@ export default function GeneratorDraftConsole({
                 Close Audit History
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CC Desk Reassignment & Leave Substitution Modal ── */}
+      {reassigningCcDuty && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-xl p-6 shadow-2xl text-slate-100 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-black text-white flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-indigo-400" />
+                  Reassign {reassigningCcDuty.assignedDutyCode || reassigningCcDuty.assignmentSubType || 'CC'} Desk Shift
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Timing: <strong className="text-slate-200">{reassigningCcDuty.sOnTime || '06:30'}–{reassigningCcDuty.sOffTime || '14:00'}</strong> · Current: <strong className="text-indigo-300">{reassigningCcDuty.name} (#{reassigningCcDuty.empId})</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReassigningCcDuty(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCcReassignment} className="space-y-4">
+              {/* Leave Option */}
+              <div className="p-3 bg-indigo-950/30 border border-indigo-500/30 rounded-2xl space-y-2">
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={markOfficialLeave}
+                    onChange={(e) => setMarkOfficialLeave(e.target.checked)}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 bg-slate-800 border-slate-700"
+                  />
+                  <span className="text-xs font-bold text-indigo-200">
+                    Official CC is taking Leave (e.g. CL/EL) — Assign Relief Operator
+                  </span>
+                </label>
+                {markOfficialLeave && (
+                  <div className="pt-2 border-t border-indigo-500/20 flex items-center gap-3">
+                    <label className="text-[11px] text-slate-300 font-medium">Leave Category:</label>
+                    <select
+                      value={ccLeaveCategory}
+                      onChange={(e) => setCcLeaveCategory(e.target.value)}
+                      className="bg-slate-900 border border-indigo-500/40 rounded-lg px-2.5 py-1 text-xs text-indigo-300 font-bold"
+                    >
+                      <option value="CL">Casual Leave (CL)</option>
+                      <option value="EL">Earned Leave (EL)</option>
+                      <option value="HPL">Half Pay Leave (HPL)</option>
+                      <option value="ML">Medical Leave (ML)</option>
+                    </select>
+                    <span className="text-[10px] text-indigo-300/80 italic">Staff will be placed under Leaves, NOT Weekly Off.</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Substitute Search & Selection */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-300">
+                    Select Substitute Crew Member:
+                  </label>
+                  <span className="text-[10px] text-emerald-400 font-bold">
+                    ✓ Exclusive CC-Willing Relief Pool Only
+                  </span>
+                </div>
+
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={substituteFilterText}
+                    onChange={(e) => setSubstituteFilterText(e.target.value)}
+                    placeholder="Search CC-Willing operator by name or Emp ID..."
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div className="max-h-52 overflow-y-auto space-y-1.5 p-1 bg-slate-950/60 rounded-xl border border-slate-800">
+                  {ccWillingCandidates.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-400 italic">
+                      No CC-Willing operators found matching search. Only operators designated as CC-Willing appear here.
+                    </div>
+                  ) : (
+                    ccWillingCandidates.map(c => {
+                      const isSelected = String(selectedSubstituteId) === String(c.empId);
+
+                      return (
+                        <div
+                          key={c.empId}
+                          onClick={() => setSelectedSubstituteId(String(c.empId))}
+                          className={`p-2 rounded-xl flex items-center justify-between cursor-pointer transition-all border ${
+                            isSelected
+                              ? 'bg-indigo-600/30 border-indigo-500 text-white font-bold'
+                              : 'bg-slate-900/60 border-slate-800/80 hover:bg-slate-800 text-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs">{c.name}</span>
+                            <span className="text-[10px] text-slate-500 font-mono">#{c.empId}</span>
+                            <span className="text-[9px] px-1.5 py-0.2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded font-bold">
+                              ✓ CC-Willing
+                            </span>
+                            {c.gender === 'FEMALE' && (
+                              <span className="text-[9px] px-1 py-0.2 bg-pink-500/20 text-pink-300 rounded font-bold">
+                                🌸
+                              </span>
+                            )}
+                          </div>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg ${isSelected ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                            {isSelected ? 'Selected' : 'Select'}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => handleResetToOfficialCc(reassigningCcDuty)}
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition-all"
+                >
+                  Reset to Official CC
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setReassigningCcDuty(null)}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!selectedSubstituteId}
+                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-indigo-600/30"
+                  >
+                    Confirm Reassignment
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       )}

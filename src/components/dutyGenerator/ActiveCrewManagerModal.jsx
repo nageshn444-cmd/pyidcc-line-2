@@ -3,7 +3,7 @@ import {
   Users, UserMinus, UserCheck, Search, Filter, AlertTriangle, 
   CheckCircle2, X, ShieldAlert, Clock, ArrowRight, UserX, RefreshCw,
   HeartPulse, Calendar, Sparkles, Plus, Edit, Save, Phone, Droplet, FileText, Check, Briefcase,
-  ChevronDown, Trash2
+  ChevronDown, Trash2, RotateCcw
 } from 'lucide-react';
 import { normalizeCanonicalEmpId, OFFICIAL_PYID_ACTIVE_IDS } from '../../utils/crewRegistryDataMerger';
 import { getCanonicalStaffName } from './CCWillingDeskModal';
@@ -48,6 +48,7 @@ export default function ActiveCrewManagerModal({
 
   // Edit Directory Profile Modal State
   const [editProfileTO, setEditProfileTO] = useState(null);
+  const [editName, setEditName] = useState('');
   const [editDesignation, setEditDesignation] = useState('Train Operator');
   const [editDepot, setEditDepot] = useState('PYID');
   const [editPhone, setEditPhone] = useState('');
@@ -55,6 +56,10 @@ export default function ActiveCrewManagerModal({
   const [editCompetencyDate, setEditCompetencyDate] = useState('');
   const [editMedicalDate, setEditMedicalDate] = useState('');
   const [editFixedWo, setEditFixedWo] = useState('Sunday');
+
+  // Inline Name Editing State
+  const [editingNameEmpId, setEditingNameEmpId] = useState(null);
+  const [inlineNameValue, setInlineNameValue] = useState('');
 
   // Week-Off Management & Assignment State
   const [bulkTargetWo, setBulkTargetWo] = useState('Sunday');
@@ -148,6 +153,40 @@ export default function ActiveCrewManagerModal({
     return Array.from(map.values()).sort((a, b) => a.empId - b.empId);
   }, [crewList]);
 
+  const deletedCrewList = React.useMemo(() => {
+    let deletedSet = new Set();
+    try {
+      const deletedCrew = JSON.parse(localStorage.getItem('pyidcc_deleted_crew_ids') || '[]');
+      const deletedJmd = JSON.parse(localStorage.getItem('pyidcc_deleted_jmd_td_ids') || '[]');
+      deletedSet = new Set([...deletedCrew, ...deletedJmd].map(id => String(id).trim()));
+    } catch {}
+
+    const map = new Map();
+    (crewList || []).forEach(e => {
+      if (!e) return;
+      const canonicalId = normalizeCanonicalEmpId(e.empId || e.employeeId || e.id);
+      if (!canonicalId) return;
+      const strId = String(canonicalId);
+
+      const isDel = deletedSet.has(strId) || e.isDeleted === true || e.status === 'DELETED';
+      if (isDel && !map.has(canonicalId)) {
+        const canonicalName = getCanonicalStaffName(e);
+        const isJmdEmp = strId.startsWith('8');
+        map.set(canonicalId, {
+          ...e,
+          empId: canonicalId,
+          name: canonicalName,
+          isDeleted: true,
+          status: 'DELETED',
+          designation: isJmdEmp ? 'Train Driver (JMD Contract)' : (e.designation || 'Train Operator (BMRCL Regular)')
+        });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.empId - b.empId);
+  }, [crewList]);
+
+  const deletedCrewCount = deletedCrewList.length;
+
   const activeCrewCount = activeCrewOnly.length;
 
   const jmdCrewCount = React.useMemo(() => {
@@ -194,6 +233,15 @@ export default function ActiveCrewManagerModal({
 
   const filteredCrew = React.useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
+
+    if (activeFilter === 'DELETED') {
+      return deletedCrewList.filter(emp => {
+        const name = String(emp.name || '').toLowerCase();
+        const empIdStr = String(emp.empId || emp.employeeId || emp.id || '');
+        return !q || name.includes(q) || empIdStr.includes(q);
+      });
+    }
+
     return activeCrewOnly.filter(emp => {
       const name = String(emp.name || '').toLowerCase();
       const empIdStr = String(emp.empId || emp.employeeId || emp.id || '');
@@ -223,7 +271,37 @@ export default function ActiveCrewManagerModal({
 
       return matchesSearch && matchesCategory && matchesDay;
     });
-  }, [activeCrewOnly, searchQuery, activeFilter, selectedDayFilter, currentDayOfWeek]);
+  }, [activeCrewOnly, deletedCrewList, searchQuery, activeFilter, selectedDayFilter, currentDayOfWeek]);
+
+  const handleRestoreStaff = (emp) => {
+    if (!emp) return;
+    const strId = String(emp.empId).trim();
+    const numId = normalizeCanonicalEmpId(emp.empId) || emp.empId;
+
+    try {
+      ['pyidcc_deleted_crew_ids', 'pyidcc_deleted_jmd_td_ids', 'pyidcc_relieved_crew_ids'].forEach(key => {
+        const saved = JSON.parse(localStorage.getItem(key) || '[]');
+        const filtered = saved.filter(id => String(id) !== strId && String(id) !== String(numId));
+        localStorage.setItem(key, JSON.stringify(filtered));
+      });
+    } catch (e) {}
+
+    if (onUpdateCrewStatus) {
+      onUpdateCrewStatus(numId, {
+        status: 'ACTIVE',
+        activeCrew: true,
+        isDeleted: false,
+        isRelieved: false,
+        removedFromActiveRoster: false,
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    setSaveSuccessEmpId(numId);
+    setTimeout(() => {
+      setSaveSuccessEmpId(prev => (prev === numId ? null : prev));
+    }, 2500);
+  };
 
   // Handlers for Instant & Bulk Fixed Week-Off Assignment
   const handleUpdateFixedWo = (empId, newWo) => {
@@ -314,11 +392,48 @@ export default function ActiveCrewManagerModal({
     });
   };
 
+  const handleStartInlineNameEdit = (emp) => {
+    setEditingNameEmpId(emp.empId);
+    setInlineNameValue(emp.name || '');
+  };
+
+  const handleCancelInlineNameEdit = () => {
+    setEditingNameEmpId(null);
+    setInlineNameValue('');
+  };
+
+  const handleSaveInlineName = (empId) => {
+    const trimmed = inlineNameValue.trim();
+    if (!trimmed) {
+      alert("Operator name cannot be empty.");
+      return;
+    }
+    onUpdateCrewStatus(empId, {
+      name: trimmed,
+      employeeName: trimmed,
+      updatedAt: new Date().toISOString()
+    });
+    setEditingNameEmpId(null);
+    setInlineNameValue('');
+    setSaveSuccessEmpId(empId);
+    setTimeout(() => {
+      setSaveSuccessEmpId(prev => prev === empId ? null : prev);
+    }, 2500);
+  };
+
   const handleSaveEditProfile = (e) => {
     e.preventDefault();
     if (!editProfileTO) return;
 
+    const trimmedName = editName.trim();
+    if (!trimmedName) {
+      alert("Operator name cannot be empty.");
+      return;
+    }
+
     onUpdateCrewStatus(editProfileTO.empId, {
+      name: trimmedName,
+      employeeName: trimmedName,
       designation: editDesignation,
       depot: editDepot,
       boardingStation: editDepot,
@@ -332,11 +447,17 @@ export default function ActiveCrewManagerModal({
       updatedAt: new Date().toISOString()
     });
 
+    setSaveSuccessEmpId(editProfileTO.empId);
+    setTimeout(() => {
+      setSaveSuccessEmpId(prev => prev === editProfileTO.empId ? null : prev);
+    }, 2500);
+
     setEditProfileTO(null);
   };
 
   const handleOpenEditProfile = (emp) => {
     setEditProfileTO(emp);
+    setEditName(emp.name || '');
     setEditDesignation(emp.designation || 'Train Operator');
     setEditDepot(emp.depot || emp.boardingStation || 'PYID');
     setEditPhone(emp.phone || emp.mobileNumber || '');
@@ -364,6 +485,24 @@ export default function ActiveCrewManagerModal({
     setStaffToDelete(null);
   };
 
+  const matchedExistingStaff = React.useMemo(() => {
+    if (!newEmpId || newEmpId.trim().length < 3) return null;
+    const cleanId = String(parseInt(newEmpId, 10) || newEmpId).trim();
+    return (crewList || []).find(e => String(e.empId || e.id).trim() === cleanId) || null;
+  }, [newEmpId, crewList]);
+
+  const isMatchedStaffDeleted = React.useMemo(() => {
+    if (!matchedExistingStaff) return false;
+    let deletedSet = new Set();
+    try {
+      const deletedCrew = JSON.parse(localStorage.getItem('pyidcc_deleted_crew_ids') || '[]');
+      const deletedJmd = JSON.parse(localStorage.getItem('pyidcc_deleted_jmd_td_ids') || '[]');
+      deletedSet = new Set([...deletedCrew, ...deletedJmd].map(id => String(id).trim()));
+    } catch {}
+    const str = String(matchedExistingStaff.empId).trim();
+    return deletedSet.has(str) || matchedExistingStaff.isDeleted === true || matchedExistingStaff.status === 'DELETED';
+  }, [matchedExistingStaff]);
+
   const handleAddNewTO = (e) => {
     e.preventDefault();
     if (!newEmpId || !newName) return;
@@ -371,18 +510,32 @@ export default function ActiveCrewManagerModal({
     const numericId = parseInt(newEmpId, 10);
     const idKey = String(numericId || newEmpId).trim();
 
-    // Prevent duplicate empId addition
-    const existing = (crewList || []).find(e => String(e.empId || e.id).trim() === idKey);
-    if (existing) {
-      alert(`Employee #${idKey} already exists in registry (${existing.name}). Please use Directory Edit or enter a unique Employee ID.`);
-      return;
+    // Check if employee already exists in active crew
+    const isCurrentlyActive = activeCrewOnly.find(emp => String(emp.empId).trim() === idKey);
+    if (isCurrentlyActive) {
+      const confirmUpdate = window.confirm(
+        `Employee #${idKey} already exists in active registry (${isCurrentlyActive.name}).\n\nDo you want to update this operator's profile with these new details?`
+      );
+      if (!confirmUpdate) return;
     }
 
+    // Un-delete if previously in deleted/relieved sets
+    try {
+      ['pyidcc_deleted_crew_ids', 'pyidcc_deleted_jmd_td_ids', 'pyidcc_relieved_crew_ids'].forEach(key => {
+        const saved = JSON.parse(localStorage.getItem(key) || '[]');
+        const filtered = saved.filter(id => String(id) !== idKey && String(id) !== String(numericId));
+        localStorage.setItem(key, JSON.stringify(filtered));
+      });
+    } catch (err) {}
+
+    const cleanName = newName.trim();
     const newMember = {
       empId: numericId || newEmpId,
-      name: newName.trim(),
+      name: cleanName,
+      employeeName: cleanName,
       gender: newGender,
       fixedWo: newFixedWo,
+      weeklyOffDay: newFixedWo,
       specialProfile: newGender === 'FEMALE' && newProfile === 'NORMAL' ? 'PINK' : newProfile,
       pinkDutyEligible: newGender === 'FEMALE' || newProfile === 'PINK',
       nightTarget: 6,
@@ -394,17 +547,23 @@ export default function ActiveCrewManagerModal({
       competencyValidUntil: '2028-12-31',
       activeCrew: true,
       isRelieved: false,
+      isDeleted: false,
+      removedFromActiveRoster: false,
       notes: newNotes,
       lrd: { daysRequired: 0, daysCompleted: 0, reason: null, confirmedByUser: false },
       maternityLeave: null,
       role: 'TRAIN_OPERATOR',
       isOfficialCC: false,
       canDriveTrain: true,
-      ccWilling: newProfile === 'CC_WILLING'
+      ccWilling: newProfile === 'CC_WILLING',
+      updatedAt: new Date().toISOString()
     };
 
     if (onAddNewCrewMember) {
       onAddNewCrewMember(newMember);
+    }
+    if (onUpdateCrewStatus) {
+      onUpdateCrewStatus(numericId || newEmpId, newMember);
     }
 
     setNewEmpId('');
@@ -415,6 +574,11 @@ export default function ActiveCrewManagerModal({
     setNewStation('PYID');
     setNewNotes('Newly Reported to PYID CC');
     setIsAddModalOpen(false);
+
+    setSaveSuccessEmpId(numericId || newEmpId);
+    setTimeout(() => {
+      setSaveSuccessEmpId(prev => (prev === (numericId || newEmpId) ? null : prev));
+    }, 3000);
   };
 
   // Multi-select handlers
@@ -604,12 +768,17 @@ export default function ActiveCrewManagerModal({
               { id: 'BMRCL_TO', label: `BMRCL TOs (${bmrclCrewCount})` },
               { id: 'JMD_TD', label: `JMD Contract TDs (${jmdCrewCount})` },
               { id: 'MATERNITY', label: `🌸 Maternity (${maternityCount})` },
-              { id: 'PINK', label: `🌸 Pink Pool (${pinkDutyCount})` }
+              { id: 'PINK', label: `🌸 Pink Pool (${pinkDutyCount})` },
+              ...(deletedCrewCount > 0 ? [{ id: 'DELETED', label: `🗑️ Deleted (${deletedCrewCount})`, isDanger: true }] : [])
             ].map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${activeFilter === tab.id ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                  activeFilter === tab.id
+                    ? (tab.isDanger ? 'bg-rose-600 text-white shadow-md' : 'bg-emerald-600 text-white shadow-md')
+                    : (tab.isDanger ? 'bg-rose-950/40 text-rose-300 hover:text-white border border-rose-500/30' : 'bg-slate-800 text-slate-400 hover:text-white')
+                }`}
               >
                 {tab.label}
               </button>
@@ -766,7 +935,7 @@ export default function ActiveCrewManagerModal({
               {filteredCrew.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="px-4 py-8 text-center text-slate-500">
-                    No active train operators found matching the criteria.
+                    {activeFilter === 'DELETED' ? 'No deleted train operators found.' : 'No active train operators found matching the criteria.'}
                   </td>
                 </tr>
               ) : (
@@ -793,17 +962,70 @@ export default function ActiveCrewManagerModal({
                         {emp.empId}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="font-bold text-slate-100 flex items-center gap-1.5">
-                          {emp.name}
-                          {emp.specialProfile === 'PINK' && (
-                            <span className="text-[10px] px-1.5 py-0.2 bg-pink-500/20 text-pink-300 rounded border border-pink-500/30">
-                              🌸 Pink
+                        {editingNameEmpId === emp.empId ? (
+                          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="text"
+                              value={inlineNameValue}
+                              onChange={(e) => setInlineNameValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleSaveInlineName(emp.empId);
+                                } else if (e.key === 'Escape') {
+                                  e.preventDefault();
+                                  handleCancelInlineNameEdit();
+                                }
+                              }}
+                              autoFocus
+                              className="bg-slate-950 border border-emerald-400 text-white text-xs font-bold rounded-lg px-2.5 py-1 w-48 focus:outline-none focus:ring-1 focus:ring-emerald-400 shadow-sm"
+                              placeholder="Enter operator name..."
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleSaveInlineName(emp.empId)}
+                              title="Save name (Enter)"
+                              className="p-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors shadow-sm"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCancelInlineNameEdit}
+                              title="Cancel (Esc)"
+                              className="p-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors shadow-sm"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="group/name flex items-center gap-1.5">
+                            <span className="font-bold text-slate-100 hover:text-emerald-300 transition-colors">
+                              {emp.name}
                             </span>
-                          )}
-                          <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${isFemale ? 'bg-pink-500/20 text-pink-300' : 'bg-blue-500/20 text-blue-300'}`}>
-                            {emp.gender}
-                          </span>
-                        </div>
+                            <button
+                              type="button"
+                              onClick={() => handleStartInlineNameEdit(emp)}
+                              title="Quick edit operator name"
+                              className="opacity-70 group-hover/name:opacity-100 p-1 text-slate-400 hover:text-emerald-400 hover:bg-slate-800/90 rounded-md transition-all cursor-pointer"
+                            >
+                              <Edit className="w-3 h-3" />
+                            </button>
+                            {saveSuccessEmpId === emp.empId && (
+                              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-1.5 py-0.5 rounded animate-pulse">
+                                ✓ Saved
+                              </span>
+                            )}
+                            {emp.specialProfile === 'PINK' && (
+                              <span className="text-[10px] px-1.5 py-0.2 bg-pink-500/20 text-pink-300 rounded border border-pink-500/30">
+                                🌸 Pink
+                              </span>
+                            )}
+                            <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${isFemale ? 'bg-pink-500/20 text-pink-300' : 'bg-blue-500/20 text-blue-300'}`}>
+                              {emp.gender}
+                            </span>
+                          </div>
+                        )}
                         <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5 font-mono">
                           {emp.phone && <span>📞 {emp.phone}</span>}
                           {emp.bloodGroup && <span>🩸 {emp.bloodGroup}</span>}
@@ -863,7 +1085,11 @@ export default function ActiveCrewManagerModal({
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        {isMLActive ? (
+                        {emp.isDeleted || emp.status === 'DELETED' ? (
+                          <span className="px-2 py-0.5 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded text-[10px] font-bold flex items-center gap-1 w-fit">
+                            <UserX className="w-3 h-3 text-rose-400" /> DELETED
+                          </span>
+                        ) : isMLActive ? (
                           <div className="space-y-1">
                             <span className="px-2 py-0.5 bg-pink-500/20 text-pink-300 border border-pink-500/30 rounded text-[10px] font-bold flex items-center gap-1 w-fit">
                               <HeartPulse className="w-3 h-3" /> STATUTORY ML (180d)
@@ -882,7 +1108,29 @@ export default function ActiveCrewManagerModal({
                         )}
                       </td>
                       <td className="px-4 py-3 text-right relative">
-                        <div className="relative inline-block text-left action-dropdown-container">
+                        {emp.isDeleted || emp.status === 'DELETED' ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleRestoreStaff(emp)}
+                              className="px-2.5 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 hover:text-white border border-emerald-500/50 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
+                              title="Restore Train Operator to Active Roster"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5 text-emerald-400" />
+                              Restore TO
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditProfile(emp)}
+                              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-200 hover:text-white border border-slate-700 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1 shadow-sm cursor-pointer"
+                              title="Edit Directory Profile"
+                            >
+                              <Edit className="w-3.5 h-3.5 text-blue-400" />
+                              Edit
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="relative inline-block text-left action-dropdown-container">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -1037,6 +1285,7 @@ export default function ActiveCrewManagerModal({
                             </div>
                           )}
                         </div>
+                        )}
                       </td>
                     </tr>
                   );
@@ -1301,6 +1550,42 @@ export default function ActiveCrewManagerModal({
               </div>
 
               <form onSubmit={handleAddNewTO} className="space-y-3 mt-4 text-xs">
+                {matchedExistingStaff && (
+                  <div className={`p-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 animate-fadeIn ${
+                    isMatchedStaffDeleted
+                      ? 'bg-amber-950/60 border-amber-500/50 text-amber-200'
+                      : 'bg-blue-950/60 border-blue-500/50 text-blue-200'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                      <div>
+                        <div className="font-bold">
+                          {isMatchedStaffDeleted ? 'Previously Removed / Deleted Staff Found' : 'Existing Staff in Registry'}
+                        </div>
+                        <div className="text-[11px] opacity-90">
+                          #{matchedExistingStaff.empId}: <strong>{matchedExistingStaff.name || 'Staff Member'}</strong>
+                          {isMatchedStaffDeleted 
+                            ? ' — Submitting will reactivate and restore them to the Active candidate roster.' 
+                            : ' — Submitting will update their profile information.'}
+                        </div>
+                      </div>
+                    </div>
+                    {(!newName || newName !== matchedExistingStaff.name) && matchedExistingStaff.name && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewName(matchedExistingStaff.name);
+                          if (matchedExistingStaff.gender) setNewGender(matchedExistingStaff.gender);
+                          if (matchedExistingStaff.fixedWo) setNewFixedWo(matchedExistingStaff.fixedWo);
+                        }}
+                        className="px-2 py-1 bg-white/10 hover:bg-white/20 text-white rounded-lg text-[10px] font-bold whitespace-nowrap cursor-pointer transition-colors shadow-sm"
+                      >
+                        Autofill Name
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label htmlFor="activecrewmanagermodal-fld-21" className="text-xs font-bold text-slate-300 block mb-1">
@@ -1431,7 +1716,7 @@ export default function ActiveCrewManagerModal({
                   <Edit className="w-5 h-5 text-blue-400" />
                   <div>
                     <h3 className="text-sm font-bold text-white">
-                      Edit Directory Profile: {editProfileTO.name}
+                      Edit Directory Profile: {editName || editProfileTO.name}
                     </h3>
                     <span className="text-[10px] text-slate-400 font-mono">
                       Emp ID: #{editProfileTO.empId} • Synchronized with Crew Directory Matrix
@@ -1447,6 +1732,22 @@ export default function ActiveCrewManagerModal({
               </div>
 
               <form onSubmit={handleSaveEditProfile} className="space-y-3 mt-4 text-xs">
+                <div>
+                  <label htmlFor="activecrewmanagermodal-fld-name" className="text-xs font-bold text-slate-300 block mb-1">
+                    Train Operator Full Name
+                  </label>
+                  <input
+                    id="activecrewmanagermodal-fld-name"
+                    name="activecrewmanagermodal_fld_name"
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    required
+                    placeholder="e.g. Ramesh Kumar"
+                    className="w-full bg-slate-800 border border-slate-700 focus:border-blue-400 rounded-lg px-3 py-2 text-white font-medium focus:outline-none"
+                  />
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label htmlFor="activecrewmanagermodal-fld-35" className="text-xs font-bold text-slate-300 block mb-1">

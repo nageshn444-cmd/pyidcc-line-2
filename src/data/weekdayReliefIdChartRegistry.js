@@ -3,12 +3,20 @@
  * SPDX-License-Identifier: Apache-2.0
  * 
  * BMRCL LINE-2 (PEENYA DEPOT CREW CONTROL)
- * Master Reliever ID Chart for WEEKDAY Link dated 03/Sep/2026 (BIET-APTS)
+ * Master Reliever ID Chart & Live Train Relief Engine for All Schedule Day Types:
+ * - WEEKDAY (dated 03/Sep/2026 BIET-APTS)
+ * - MONDAY (WEF 06/Jan/2025 APTS-BIET)
+ * - SATURDAY & GH (WEF 15/Mar/2025 APTS-BIET)
+ * - SUNDAY (WEF 08/Dec/2024 BIET-APTS)
  * 
+ * Synced to Alstom ATS Relief Engine • Verified Reliever-Only Handover System
  */
 
 import { DUTY_TEMPLATES_REGISTRY } from './dutyTemplatesRegistry.js';
 
+// ============================================================================
+// 1. WEEKDAY RELIEF ID CHART (TUESDAY - FRIDAY)
+// ============================================================================
 export const WEEKDAY_RELIEF_ID_CHART = {
   '201': [
     { from: '04:25', to: '06:33', duty: '71' },
@@ -262,7 +270,707 @@ export const WEEKDAY_RELIEF_ID_CHART = {
   ]
 };
 
-// Converts HH:MM or HH:MM:SS string to seconds, shifting late night trips (00:00-02:59) to next day
+export const WEEKDAY_RELIEF_ID_CHART_META = {
+  title: 'ID CHART for WEEKDAY Link dated 03/Sep/2026 (BIET-APTS)',
+  effectiveDate: '03/Sep/2026',
+  corridor: 'BIET-APTS',
+  depot: 'Peenya Industry Depot Crew Control (PYIDCC)',
+  trains: ['201', '202', '203', '204', '205', '206', '207', '208', '209', '210', '211', '212', '213', '214', '215', '216', '217', '218', '219', '220', '221', '222', '223', 'Couns']
+};
+
+// ============================================================================
+// 2. MONDAY 04:00hrs SERVICE RELIEF ID CHART (WEF 06/Jan/2025 APTS - BIET)
+// ============================================================================
+export const MONDAY_RELIEF_ID_CHART = {
+  '201': [
+    { from: '06:35', to: '08:18', duty: '14' },
+    { from: '08:18', to: '10:28', duty: '03' },
+    { from: '10:28', to: '12:41', duty: '16' },
+    { from: '12:41', to: '14:57', duty: '26' },
+    { from: '14:57', to: '17:13', duty: '51' },
+    { from: '17:13', to: '19:02', duty: '45' },
+    { from: '19:02', to: '21:35', duty: '40' }
+  ],
+  '202': [
+    { from: '06:18', to: '06:57', duty: '06' },
+    { from: '06:57', to: '09:07', duty: '22' },
+    { from: '09:07', to: '11:40', duty: '19' },
+    { from: '16:50', to: '19:27', duty: '63' },
+    { from: '19:27', to: '21:37', duty: '44' },
+    { from: '21:37', to: '00:20', duty: '72' }
+  ],
+  '203': [
+    { from: '06:31', to: '08:48', duty: '13' },
+    { from: '08:48', to: '10:58', duty: '09' },
+    { from: '10:58', to: '13:13', duty: '29' },
+    { from: '13:13', to: '13:47', duty: '19' },
+    { from: '13:45', to: '15:29', duty: '28' },
+    { from: '15:29', to: '17:46', duty: '55' },
+    { from: '17:46', to: '19:57', duty: '50' },
+    { from: '19:57', to: '21:50', duty: '60' },
+    { from: '21:48', to: '00:10', duty: '66' }
+  ],
+  '204': [
+    { from: '06:28', to: '08:58', duty: '11' },
+    { from: '08:58', to: '11:08', duty: '14' },
+    { from: '11:08', to: '13:21', duty: '05' },
+    { from: '13:53', to: '15:37', duty: '29' },
+    { from: '15:37', to: '16:12', duty: '56' },
+    { from: '16:10', to: '17:57', duty: '59' },
+    { from: '17:57', to: '20:07', duty: '52' },
+    { from: '20:07', to: '21:58', duty: '63' },
+    { from: '21:56', to: '23:30', duty: '77' }
+  ],
+  '205': [
+    { from: '06:41', to: '07:37', duty: '17' },
+    { from: '07:35', to: '09:18', duty: '26' },
+    { from: '09:18', to: '11:28', duty: '13' },
+    { from: '11:28', to: '12:15', duty: '08' },
+    { from: '16:10', to: '17:06', duty: '60' },
+    { from: '17:04', to: '18:47', duty: '41' },
+    { from: '18:47', to: '21:00', duty: '37' },
+    { from: '21:00', to: '21:50', duty: '59' }
+  ],
+  '206': [
+    { from: '06:45', to: '08:28', duty: '19' },
+    { from: '08:28', to: '10:38', duty: '08' },
+    { from: '10:38', to: '12:49', duty: '32' },
+    { from: '12:49', to: '13:23', duty: '33' },
+    { from: '13:23', to: '15:05', duty: '35' },
+    { from: '15:05', to: '17:20', duty: '52' },
+    { from: '17:20', to: '19:12', duty: '46' },
+    { from: '19:12', to: '20:53', duty: '61' },
+    { from: '20:53', to: '21:44', duty: '52' },
+    { from: '21:42', to: '00:15', duty: '73' }
+  ],
+  '207': [
+    { from: '06:38', to: '07:47', duty: '16' },
+    { from: '07:45', to: '09:28', duty: '27' },
+    { from: '09:28', to: '11:41', duty: '11' },
+    { from: '11:41', to: '13:53', duty: '07' },
+    { from: '13:53', to: '16:08', duty: '33' },
+    { from: '16:08', to: '18:17', duty: '37' },
+    { from: '18:17', to: '20:27', duty: '55' },
+    { from: '20:27', to: '21:34', duty: '48' },
+    { from: '21:32', to: '00:15', duty: '64' }
+  ],
+  '208': [
+    { from: '06:53', to: '08:07', duty: '21' },
+    { from: '08:07', to: '09:48', duty: '16' },
+    { from: '09:48', to: '11:58', duty: '20' },
+    { from: '11:58', to: '14:09', duty: '15' },
+    { from: '14:09', to: '16:25', duty: '41' },
+    { from: '16:25', to: '18:37', duty: '39' },
+    { from: '18:37', to: '20:47', duty: '35' },
+    { from: '20:47', to: '21:34', duty: '50' },
+    { from: '21:32', to: '00:10', duty: '70' }
+  ],
+  '209': [
+    { from: '06:13', to: '07:48', duty: '03' },
+    { from: '07:48', to: '09:58', duty: '28' },
+    { from: '09:58', to: '12:12', duty: '24' },
+    { from: '12:41', to: '14:25', duty: '22' },
+    { from: '14:25', to: '16:41', duty: '46' },
+    { from: '16:41', to: '18:32', duty: '40' },
+    { from: '18:32', to: '21:05', duty: '58' }
+  ],
+  '210': [
+    { from: '06:28', to: '07:58', duty: '08' },
+    { from: '07:58', to: '10:08', duty: '29' },
+    { from: '10:08', to: '12:18', duty: '25' },
+    { from: '12:18', to: '12:51', duty: '13' },
+    { from: '12:49', to: '14:33', duty: '20' },
+    { from: '14:33', to: '16:48', duty: '48' },
+    { from: '16:48', to: '18:57', duty: '44' },
+    { from: '18:57', to: '21:07', duty: '38' },
+    { from: '21:07', to: '21:36', duty: '54' },
+    { from: '21:34', to: '23:55', duty: '71' }
+  ],
+  '211': [
+    { from: '06:25', to: '08:08', duty: '09' },
+    { from: '08:08', to: '10:18', duty: '31' },
+    { from: '10:18', to: '12:33', duty: '30' },
+    { from: '12:33', to: '13:07', duty: '24' },
+    { from: '13:05', to: '14:49', duty: '27' },
+    { from: '14:49', to: '17:04', duty: '50' },
+    { from: '17:04', to: '19:17', duty: '47' },
+    { from: '19:17', to: '21:31', duty: '41' },
+    { from: '21:31', to: '22:00', duty: '62' }
+  ],
+  '212': [
+    { from: '06:10', to: '08:03', duty: '05' },
+    { from: '08:03', to: '09:43', duty: '30' },
+    { from: '09:43', to: '11:23', duty: '06' },
+    { from: '11:23', to: '13:37', duty: '03' },
+    { from: '13:37', to: '15:53', duty: '32' },
+    { from: '15:53', to: '18:07', duty: '35' },
+    { from: '18:07', to: '20:17', duty: '54' },
+    { from: '20:17', to: '21:50', duty: '51' },
+    { from: '21:48', to: '00:15', duty: '67' }
+  ],
+  '213': [
+    { from: '06:15', to: '08:13', duty: '04' },
+    { from: '08:13', to: '09:53', duty: '32' },
+    { from: '09:53', to: '11:34', duty: '26' },
+    { from: '11:34', to: '13:45', duty: '10' },
+    { from: '14:17', to: '16:01', duty: '44' },
+    { from: '16:01', to: '17:52', duty: '36' },
+    { from: '17:52', to: '19:32', duty: '51' },
+    { from: '19:32', to: '21:46', duty: '45' },
+    { from: '21:46', to: '23:55', duty: '65' }
+  ],
+  '214': [
+    { from: '06:25', to: '08:23', duty: '10' },
+    { from: '08:23', to: '10:03', duty: '23' },
+    { from: '10:03', to: '12:04', duty: '27' },
+    { from: '12:04', to: '14:17', duty: '14' },
+    { from: '14:17', to: '16:33', duty: '45' },
+    { from: '16:33', to: '18:22', duty: '56' },
+    { from: '18:22', to: '21:00', duty: '36' }
+  ],
+  '215': [
+    { from: '06:35', to: '08:33', duty: '15' },
+    { from: '08:33', to: '10:13', duty: '05' },
+    { from: '10:13', to: '12:25', duty: '17' },
+    { from: '12:25', to: '12:59', duty: '11' },
+    { from: '12:57', to: '14:41', duty: '21' },
+    { from: '14:41', to: '16:57', duty: '49' },
+    { from: '16:57', to: '19:07', duty: '33' },
+    { from: '19:07', to: '21:17', duty: '39' },
+    { from: '21:17', to: '21:46', duty: '55' },
+    { from: '21:44', to: '00:15', duty: '74' }
+  ],
+  '216': [
+    { from: '06:20', to: '08:43', duty: '07' },
+    { from: '08:43', to: '11:25', duty: '21' },
+    { from: '16:20', to: '18:42', duty: '61' },
+    { from: '18:42', to: '21:15', duty: '57' }
+  ],
+  '217': [
+    { from: '07:25', to: '09:08', duty: '06' },
+    { from: '09:08', to: '11:18', duty: '15' },
+    { from: '11:18', to: '13:29', duty: '31' },
+    { from: '13:29', to: '14:03', duty: '12' },
+    { from: '14:01', to: '15:45', duty: '31' },
+    { from: '15:45', to: '17:41', duty: '34' },
+    { from: '17:41', to: '19:22', duty: '60' },
+    { from: '19:22', to: '21:25', duty: '62' },
+    { from: '21:25', to: '21:56', duty: '61' },
+    { from: '21:54', to: '00:05', duty: '75' }
+  ],
+  '218': [
+    { from: '06:30', to: '08:53', duty: '12' },
+    { from: '08:53', to: '11:35', duty: '04' },
+    { from: '16:30', to: '18:52', duty: '62' },
+    { from: '18:52', to: '20:32', duty: '56' },
+    { from: '20:32', to: '21:25', duty: '53' }
+  ],
+  '219': [
+    { from: '06:40', to: '09:03', duty: '18' },
+    { from: '09:03', to: '10:43', duty: '10' },
+    { from: '10:43', to: '12:57', duty: '28' },
+    { from: '12:57', to: '13:49', duty: '25' },
+    { from: '13:47', to: '15:13', duty: '34' },
+    { from: '15:13', to: '17:28', duty: '53' },
+    { from: '17:28', to: '19:37', duty: '48' }
+  ],
+  '220': [
+    { from: '06:50', to: '09:13', duty: '20' },
+    { from: '09:13', to: '10:53', duty: '07' },
+    { from: '10:53', to: '13:05', duty: '23' },
+    { from: '13:05', to: '13:39', duty: '04' },
+    { from: '13:37', to: '15:21', duty: '30' },
+    { from: '15:21', to: '17:36', duty: '54' },
+    { from: '17:36', to: '19:47', duty: '49' },
+    { from: '19:47', to: '21:42', duty: '47' },
+    { from: '21:42', to: '23:50', duty: '68' }
+  ],
+  '221': [
+    { from: '07:00', to: '07:57', duty: '23' },
+    { from: '07:55', to: '09:38', duty: '17' },
+    { from: '09:38', to: '11:48', duty: '22' },
+    { from: '11:48', to: '14:01', duty: '09' },
+    { from: '14:33', to: '16:17', duty: '47' },
+    { from: '16:17', to: '18:27', duty: '38' },
+    { from: '18:27', to: '20:37', duty: '59' },
+    { from: '20:37', to: '21:24', duty: '49' },
+    { from: '21:22', to: '23:10', duty: '69' }
+  ],
+  '222': [
+    { from: '07:00', to: '09:23', duty: '24' },
+    { from: '09:23', to: '11:55', duty: '12' },
+    { from: '15:50', to: '18:12', duty: '57' },
+    { from: '18:12', to: '20:40', duty: '34' }
+  ],
+  '223': [
+    { from: '07:10', to: '09:33', duty: '25' },
+    { from: '09:33', to: '12:00', duty: '18' },
+    { from: '15:45', to: '18:02', duty: '58' },
+    { from: '18:02', to: '19:42', duty: '53' },
+    { from: '19:42', to: '21:54', duty: '46' },
+    { from: '21:54', to: '22:40', duty: '76' }
+  ],
+  'Couns': [
+    { from: '13:00', to: '14:20', duty: '18' },
+    { from: '13:35', to: '15:31', duty: '36' },
+    { from: '13:35', to: '15:38', duty: '37' },
+    { from: '13:35', to: '15:47', duty: '38' },
+    { from: '13:35', to: '15:55', duty: '39' },
+    { from: '13:50', to: '16:11', duty: '40' }
+  ]
+};
+
+export const MONDAY_RELIEF_ID_CHART_META = {
+  dayType: 'MONDAY',
+  title: 'ID CHART for MONDAY 04:00hrs Service Link WEF 06/Jan/2025 (APTS - BIET)',
+  badge: 'MONDAY LINK (APTS-BIET)',
+  totalTrains: 24,
+  trains: ['201', '202', '203', '204', '205', '206', '207', '208', '209', '210', '211', '212', '213', '214', '215', '216', '217', '218', '219', '220', '221', '222', '223', 'Couns']
+};
+
+// ============================================================================
+// 3. SATURDAY & GH RELIEF ID CHART (WEF 15/Mar/2025 APTS - BIET)
+// ============================================================================
+export const SATURDAY_RELIEF_ID_CHART = {
+  '201': [
+    { from: '04:25', to: '06:33', duty: '70' },
+    { from: '06:33', to: '08:54', duty: '10' },
+    { from: '08:54', to: '11:06', duty: '05' },
+    { from: '11:06', to: '13:21', duty: '07' },
+    { from: '13:21', to: '13:55', duty: '20' },
+    { from: '13:53', to: '15:37', duty: '27' },
+    { from: '15:37', to: '17:56', duty: '34' },
+    { from: '17:56', to: '20:08', duty: '47' },
+    { from: '20:08', to: '21:40', duty: '42' },
+    { from: '21:40', to: '23:30', duty: '69' }
+  ],
+  '202': [
+    { from: '04:00', to: '06:48', duty: '67' },
+    { from: '06:48', to: '09:05', duty: '16' },
+    { from: '09:05', to: '11:17', duty: '09' },
+    { from: '11:17', to: '13:29', duty: '12' },
+    { from: '13:29', to: '15:45', duty: '26' },
+    { from: '15:45', to: '17:41', duty: '50' },
+    { from: '17:41', to: '19:19', duty: '45' },
+    { from: '19:19', to: '20:58', duty: '58' },
+    { from: '20:58', to: '21:44', duty: '56' },
+    { from: '21:42', to: '00:00', duty: '70' }
+  ],
+  '203': [
+    { from: '04:30', to: '07:03', duty: '72' },
+    { from: '07:03', to: '09:16', duty: '19' },
+    { from: '09:16', to: '11:28', duty: '13' },
+    { from: '11:28', to: '12:10', duty: '15' },
+    { from: '16:20', to: '18:35', duty: '57' },
+    { from: '18:35', to: '20:14', duty: '53' },
+    { from: '20:14', to: '21:50', duty: '48' },
+    { from: '21:50', to: '00:15', duty: '63' }
+  ],
+  '204': [
+    { from: '04:40', to: '07:18', duty: '68' },
+    { from: '07:18', to: '09:38', duty: '21' },
+    { from: '09:38', to: '11:50', duty: '14' },
+    { from: '11:50', to: '14:09', duty: '10' },
+    { from: '14:09', to: '16:25', duty: '37' },
+    { from: '16:25', to: '18:40', duty: '51' },
+    { from: '18:40', to: '20:52', duty: '54' },
+    { from: '20:52', to: '21:30', duty: '55' }
+  ],
+  '205': [
+    { from: '04:45', to: '06:55', duty: '71' },
+    { from: '06:55', to: '08:06', duty: '17' },
+    { from: '08:04', to: '09:49', duty: '26' },
+    { from: '09:49', to: '12:01', duty: '18' },
+    { from: '12:01', to: '14:25', duty: '16' },
+    { from: '14:25', to: '16:41', duty: '40' },
+    { from: '16:41', to: '18:24', duty: '33' },
+    { from: '18:24', to: '20:40', duty: '34' }
+  ],
+  '206': [
+    { from: '04:30', to: '06:15', duty: '69' },
+    { from: '06:13', to: '07:48', duty: '03' },
+    { from: '07:48', to: '10:00', duty: '24' },
+    { from: '10:00', to: '12:11', duty: '20' },
+    { from: '12:11', to: '14:33', duty: '13' },
+    { from: '14:33', to: '16:49', duty: '42' },
+    { from: '16:49', to: '19:02', duty: '36' },
+    { from: '19:02', to: '21:14', duty: '57' },
+    { from: '21:14', to: '21:46', duty: '54' },
+    { from: '21:44', to: '00:20', duty: '71' }
+  ],
+  '207': [
+    { from: '04:20', to: '06:30', duty: '61' },
+    { from: '06:28', to: '07:59', duty: '08' },
+    { from: '07:59', to: '10:11', duty: '25' },
+    { from: '10:11', to: '12:21', duty: '22' },
+    { from: '12:21', to: '14:41', duty: '19' },
+    { from: '14:41', to: '16:57', duty: '43' },
+    { from: '16:57', to: '19:13', duty: '37' },
+    { from: '19:13', to: '21:25', duty: '38' },
+    { from: '21:25', to: '21:56', duty: '58' },
+    { from: '21:54', to: '00:15', duty: '72' }
+  ],
+  '208': [
+    { from: '04:15', to: '06:27', duty: '60' },
+    { from: '06:25', to: '08:10', duty: '07' },
+    { from: '08:10', to: '10:22', duty: '28' },
+    { from: '10:22', to: '12:31', duty: '27' },
+    { from: '12:31', to: '13:07', duty: '11' },
+    { from: '13:05', to: '14:49', duty: '22' },
+    { from: '14:49', to: '17:04', duty: '44' },
+    { from: '17:04', to: '18:46', duty: '38' },
+    { from: '18:46', to: '20:25', duty: '55' },
+    { from: '20:25', to: '21:34', duty: '49' },
+    { from: '21:32', to: '00:15', duty: '59' }
+  ],
+  '209': [
+    { from: '04:30', to: '06:38', duty: '63' },
+    { from: '06:36', to: '08:21', duty: '12' },
+    { from: '08:21', to: '10:33', duty: '30' },
+    { from: '10:33', to: '12:49', duty: '29' },
+    { from: '12:49', to: '13:41', duty: '14' },
+    { from: '13:39', to: '15:05', duty: '34' },
+    { from: '15:05', to: '17:20', duty: '46' },
+    { from: '17:20', to: '19:35', duty: '42' },
+    { from: '19:35', to: '21:45', duty: '43' },
+    { from: '21:45', to: '23:45', duty: '61' }
+  ],
+  '210': [
+    { from: '04:40', to: '06:49', duty: '59' },
+    { from: '06:47', to: '08:32', duty: '15' },
+    { from: '08:32', to: '10:44', duty: '08' },
+    { from: '10:44', to: '12:57', duty: '03' },
+    { from: '12:57', to: '15:13', duty: '23' },
+    { from: '15:13', to: '17:28', duty: '47' },
+    { from: '17:28', to: '19:08', duty: '43' },
+    { from: '19:08', to: '20:47', duty: '51' },
+    { from: '20:47', to: '21:34', duty: '50' },
+    { from: '21:32', to: '00:00', duty: '65' }
+  ],
+  '211': [
+    { from: '05:00', to: '06:18', duty: '62' },
+    { from: '06:18', to: '08:43', duty: '06' },
+    { from: '08:43', to: '10:55', duty: '17' },
+    { from: '10:55', to: '11:40', duty: '04' },
+    { from: '15:50', to: '18:01', duty: '52' },
+    { from: '18:02', to: '19:41', duty: '48' },
+    { from: '19:41', to: '21:34', duty: '37' },
+    { from: '21:34', to: '22:30', duty: '66' }
+  ],
+  '212': [
+    { from: '06:30', to: '07:44', duty: '64' },
+    { from: '07:42', to: '09:27', duty: '23' },
+    { from: '09:27', to: '11:39', duty: '11' },
+    { from: '11:39', to: '13:53', duty: '06' },
+    { from: '13:53', to: '15:48', duty: '28' },
+    { from: '15:46', to: '16:08', duty: '51' },
+    { from: '16:08', to: '18:18', duty: '55' },
+    { from: '18:18', to: '20:30', duty: '39' },
+    { from: '20:30', to: '21:10', duty: '46' }
+  ],
+  '213': [
+    { from: '06:15', to: '08:05', duty: '04' },
+    { from: '08:05', to: '09:44', duty: '27' },
+    { from: '09:44', to: '11:23', duty: '16' },
+    { from: '11:23', to: '13:37', duty: '08' },
+    { from: '13:37', to: '15:53', duty: '29' },
+    { from: '15:53', to: '18:07', duty: '53' },
+    { from: '18:07', to: '20:19', duty: '50' },
+    { from: '20:19', to: '21:00', duty: '44' }
+  ],
+  '214': [
+    { from: '06:15', to: '08:16', duty: '05' },
+    { from: '08:16', to: '09:55', duty: '29' },
+    { from: '09:55', to: '11:34', duty: '19' },
+    { from: '11:34', to: '13:45', duty: '17' },
+    { from: '13:45', to: '16:01', duty: '30' },
+    { from: '16:01', to: '17:51', duty: '39' },
+    { from: '17:51', to: '19:30', duty: '41' },
+    { from: '19:30', to: '21:45', duty: '36' }
+  ],
+  '215': [
+    { from: '06:30', to: '08:27', duty: '09' },
+    { from: '08:27', to: '10:06', duty: '03' },
+    { from: '10:06', to: '11:45', duty: '23' },
+    { from: '11:45', to: '14:01', duty: '05' },
+    { from: '14:01', to: '14:35', duty: '36' },
+    { from: '14:33', to: '16:17', duty: '41' },
+    { from: '16:17', to: '18:29', duty: '56' },
+    { from: '18:29', to: '20:41', duty: '52' },
+    { from: '20:41', to: '21:25', duty: '53' }
+  ],
+  '216': [
+    { from: '06:45', to: '08:38', duty: '13' },
+    { from: '08:38', to: '10:17', duty: '04' },
+    { from: '10:17', to: '11:56', duty: '21' },
+    { from: '11:56', to: '14:17', duty: '09' },
+    { from: '14:17', to: '16:33', duty: '38' },
+    { from: '16:33', to: '18:51', duty: '58' },
+    { from: '18:51', to: '21:03', duty: '33' },
+    { from: '21:03', to: '21:36', duty: '52' },
+    { from: '21:34', to: '23:55', duty: '67' }
+  ],
+  '217': [
+    { from: '06:35', to: '08:49', duty: '11' },
+    { from: '08:49', to: '10:28', duty: '07' },
+    { from: '10:28', to: '12:41', duty: '26' },
+    { from: '12:41', to: '14:57', duty: '21' },
+    { from: '14:57', to: '17:13', duty: '45' },
+    { from: '17:13', to: '19:24', duty: '40' },
+    { from: '19:24', to: '21:35', duty: '35' },
+    { from: '21:35', to: '00:15', duty: '68' }
+  ],
+  '218': [
+    { from: '06:45', to: '09:00', duty: '14' },
+    { from: '09:00', to: '10:39', duty: '12' },
+    { from: '10:39', to: '11:20', duty: '24' },
+    { from: '16:00', to: '18:13', duty: '54' },
+    { from: '18:13', to: '19:52', duty: '49' },
+    { from: '19:52', to: '21:42', duty: '40' },
+    { from: '21:42', to: '23:50', duty: '60' }
+  ],
+  '219': [
+    { from: '07:00', to: '09:11', duty: '18' },
+    { from: '09:11', to: '10:50', duty: '15' },
+    { from: '10:50', to: '13:05', duty: '25' },
+    { from: '13:05', to: '13:39', duty: '24' },
+    { from: '13:37', to: '15:21', duty: '25' },
+    { from: '15:21', to: '17:36', duty: '48' },
+    { from: '17:36', to: '19:46', duty: '44' },
+    { from: '19:46', to: '20:30', duty: '45' }
+  ],
+  '220': [
+    { from: '07:10', to: '09:22', duty: '20' },
+    { from: '09:22', to: '11:01', duty: '06' },
+    { from: '11:01', to: '13:13', duty: '28' },
+    { from: '13:13', to: '14:25', duty: '18' },
+    { from: '14:23', to: '15:29', duty: '39' },
+    { from: '15:29', to: '17:46', duty: '49' },
+    { from: '17:46', to: '19:57', duty: '46' },
+    { from: '19:57', to: '21:32', duty: '41' },
+    { from: '21:30', to: '00:10', duty: '62' }
+  ],
+  '221': [
+    { from: '07:20', to: '09:33', duty: '22' },
+    { from: '09:33', to: '11:12', duty: '10' },
+    { from: '11:12', to: '11:55', duty: '30' },
+    { from: '16:45', to: '18:57', duty: '35' },
+    { from: '18:57', to: '20:36', duty: '56' },
+    { from: '20:36', to: '21:24', duty: '47' },
+    { from: '21:22', to: '23:15', duty: '64' }
+  ],
+  'Couns': [
+    { from: '13:20', to: '16:15', duty: '33' },
+    { from: '13:45', to: '16:15', duty: '35' }
+  ]
+};
+
+export const SATURDAY_RELIEF_ID_CHART_META = {
+  dayType: 'SATURDAY',
+  title: 'ID CHART for SATURDAY & GH Link WEF 15/Mar/2025 (APTS - BIET)',
+  badge: 'SAT & GH LINK (APTS-BIET)',
+  totalTrains: 22,
+  trains: ['201', '202', '203', '204', '205', '206', '207', '208', '209', '210', '211', '212', '213', '214', '215', '216', '217', '218', '219', '220', '221', 'Couns']
+};
+
+// ============================================================================
+// 4. SUNDAY RELIEF ID CHART (WEF 08/Dec/2024 BIET - APTS)
+// ============================================================================
+export const SUNDAY_RELIEF_ID_CHART = {
+  '201': [
+    { from: '06:58', to: '08:33', duty: '04' },
+    { from: '08:33', to: '10:56', duty: '05' },
+    { from: '10:56', to: '13:20', duty: '16' },
+    { from: '13:20', to: '13:55', duty: '09' },
+    { from: '13:53', to: '15:44', duty: '27' },
+    { from: '15:44', to: '18:08', duty: '37' },
+    { from: '18:08', to: '20:32', duty: '47' },
+    { from: '20:32', to: '21:45', duty: '34' },
+    { from: '21:43', to: '23:20', duty: '60' }
+  ],
+  '202': [
+    { from: '07:28', to: '09:46', duty: '09' },
+    { from: '09:46', to: '12:06', duty: '07' },
+    { from: '12:06', to: '14:24', duty: '12' },
+    { from: '14:57', to: '16:48', duty: '21' },
+    { from: '16:48', to: '19:12', duty: '44' },
+    { from: '19:12', to: '21:36', duty: '27' },
+    { from: '21:36', to: '00:10', duty: '58' }
+  ],
+  '203': [
+    { from: '07:38', to: '09:56', duty: '11' },
+    { from: '09:56', to: '12:16', duty: '08' },
+    { from: '12:16', to: '14:40', duty: '06' },
+    { from: '14:40', to: '17:04', duty: '34' },
+    { from: '17:04', to: '19:28', duty: '25' },
+    { from: '19:28', to: '21:32', duty: '29' },
+    { from: '21:32', to: '23:00', duty: '55' }
+  ],
+  '204': [
+    { from: '07:48', to: '10:06', duty: '14' },
+    { from: '10:06', to: '12:26', duty: '10' },
+    { from: '12:26', to: '14:48', duty: '17' },
+    { from: '14:48', to: '17:12', duty: '35' },
+    { from: '17:12', to: '19:36', duty: '45' },
+    { from: '19:36', to: '21:22', duty: '26' },
+    { from: '21:22', to: '23:45', duty: '48' }
+  ],
+  '205': [
+    { from: '07:43', to: '08:39', duty: '13' },
+    { from: '08:37', to: '10:26', duty: '18' },
+    { from: '10:26', to: '12:46', duty: '09' },
+    { from: '12:46', to: '14:44', duty: '10' },
+    { from: '14:44', to: '15:04', duty: '36' },
+    { from: '15:04', to: '17:28', duty: '22' },
+    { from: '17:28', to: '19:52', duty: '46' },
+    { from: '19:52', to: '21:38', duty: '32' },
+    { from: '21:38', to: '23:25', duty: '59' }
+  ],
+  '206': [
+    { from: '07:40', to: '08:49', duty: '12' },
+    { from: '08:47', to: '10:36', duty: '19' },
+    { from: '10:36', to: '12:56', duty: '11' },
+    { from: '12:56', to: '15:00', duty: '15' },
+    { from: '15:00', to: '15:20', duty: '39' },
+    { from: '15:20', to: '17:44', duty: '41' },
+    { from: '17:44', to: '20:08', duty: '34' },
+    { from: '20:08', to: '21:46', duty: '45' },
+    { from: '21:44', to: '00:00', duty: '50' }
+  ],
+  '207': [
+    { from: '06:30', to: '08:46', duty: '03' },
+    { from: '08:46', to: '11:06', duty: '20' },
+    { from: '11:06', to: '13:28', duty: '18' },
+    { from: '13:28', to: '14:03', duty: '11' },
+    { from: '14:01', to: '15:52', duty: '28' },
+    { from: '15:52', to: '18:16', duty: '39' },
+    { from: '18:16', to: '20:40', duty: '40' },
+    { from: '20:40', to: '21:50', duty: '35' }
+  ],
+  '208': [
+    { from: '07:13', to: '08:56', duty: '06' },
+    { from: '08:56', to: '11:16', duty: '04' },
+    { from: '11:16', to: '13:36', duty: '13' },
+    { from: '13:36', to: '14:11', duty: '14' },
+    { from: '14:09', to: '16:00', duty: '29' },
+    { from: '16:00', to: '18:24', duty: '43' },
+    { from: '18:24', to: '20:48', duty: '41' },
+    { from: '20:48', to: '21:35', duty: '38' },
+    { from: '21:33', to: '00:10', duty: '56' }
+  ],
+  '209': [
+    { from: '07:20', to: '09:06', duty: '07' },
+    { from: '09:06', to: '11:26', duty: '03' },
+    { from: '11:26', to: '13:44', duty: '19' },
+    { from: '13:44', to: '16:08', duty: '26' },
+    { from: '16:08', to: '18:32', duty: '23' },
+    { from: '18:32', to: '20:56', duty: '36' },
+    { from: '20:56', to: '21:45', duty: '47' },
+    { from: '21:43', to: '00:10', duty: '61' }
+  ],
+  '210': [
+    { from: '07:27', to: '09:16', duty: '08' },
+    { from: '09:16', to: '11:36', duty: '12' },
+    { from: '11:36', to: '14:00', duty: '20' },
+    { from: '14:00', to: '16:04', duty: '18' },
+    { from: '16:04', to: '16:24', duty: '44' },
+    { from: '16:24', to: '16:59', duty: '46' },
+    { from: '16:57', to: '18:48', duty: '28' },
+    { from: '18:48', to: '21:12', duty: '37' },
+    { from: '21:12', to: '21:47', duty: '41' },
+    { from: '21:45', to: '00:10', duty: '62' }
+  ],
+  '211': [
+    { from: '07:37', to: '09:26', duty: '10' },
+    { from: '09:26', to: '11:46', duty: '06' },
+    { from: '11:46', to: '14:08', duty: '04' },
+    { from: '14:08', to: '16:32', duty: '24' },
+    { from: '16:32', to: '18:56', duty: '29' },
+    { from: '18:56', to: '21:55', duty: '39' }
+  ],
+  '212': [
+    { from: '07:47', to: '09:36', duty: '15' },
+    { from: '09:36', to: '11:56', duty: '17' },
+    { from: '11:56', to: '14:16', duty: '21' },
+    { from: '14:51', to: '16:20', duty: '20' },
+    { from: '16:20', to: '16:40', duty: '45' },
+    { from: '16:40', to: '17:15', duty: '47' },
+    { from: '17:13', to: '19:04', duty: '26' },
+    { from: '19:04', to: '21:28', duty: '43' },
+    { from: '21:28', to: '00:10', duty: '54' }
+  ],
+  '213': [
+    { from: '07:00', to: '07:50', duty: '05' },
+    { from: '07:50', to: '10:16', duty: '16' },
+    { from: '10:16', to: '12:36', duty: '15' },
+    { from: '12:36', to: '14:56', duty: '07' },
+    { from: '14:56', to: '17:20', duty: '38' },
+    { from: '17:20', to: '19:44', duty: '24' },
+    { from: '19:44', to: '21:49', duty: '44' },
+    { from: '21:47', to: '00:00', duty: '52' }
+  ],
+  '214': [
+    { from: '08:00', to: '08:59', duty: '17' },
+    { from: '08:57', to: '10:46', duty: '13' },
+    { from: '10:46', to: '13:04', duty: '14' },
+    { from: '13:04', to: '15:28', duty: '23' },
+    { from: '15:28', to: '17:52', duty: '36' },
+    { from: '17:52', to: '20:16', duty: '35' },
+    { from: '20:16', to: '21:25', duty: '46' },
+    { from: '21:23', to: '23:40', duty: '53' }
+  ],
+  '215': [
+    { from: '10:00', to: '11:23', duty: '21' },
+    { from: '11:21', to: '13:47', duty: '05' },
+    { from: '13:45', to: '15:36', duty: '25' },
+    { from: '15:36', to: '18:00', duty: '42' },
+    { from: '18:00', to: '20:24', duty: '38' },
+    { from: '20:24', to: '21:35', duty: '33' },
+    { from: '21:33', to: '00:10', duty: '49' }
+  ],
+  '216': [
+    { from: '10:30', to: '12:03', duty: '22' },
+    { from: '12:01', to: '13:52', duty: '03' },
+    { from: '13:52', to: '14:27', duty: '16' },
+    { from: '14:25', to: '16:16', duty: '19' },
+    { from: '16:16', to: '18:40', duty: '27' },
+    { from: '18:40', to: '21:04', duty: '42' },
+    { from: '21:04', to: '21:37', duty: '40' },
+    { from: '21:35', to: '00:00', duty: '57' }
+  ],
+  '217': [
+    { from: '11:15', to: '12:43', duty: '23' },
+    { from: '12:41', to: '14:32', duty: '22' },
+    { from: '14:32', to: '16:56', duty: '33' },
+    { from: '16:56', to: '19:20', duty: '32' },
+    { from: '19:20', to: '21:44', duty: '28' },
+    { from: '21:44', to: '23:45', duty: '51' }
+  ],
+  '218': [
+    { from: '12:15', to: '13:23', duty: '24' },
+    { from: '13:23', to: '14:52', duty: '08' },
+    { from: '14:52', to: '15:12', duty: '37' },
+    { from: '15:12', to: '17:36', duty: '40' },
+    { from: '17:36', to: '20:00', duty: '33' },
+    { from: '20:00', to: '21:10', duty: '25' }
+  ]
+};
+
+export const SUNDAY_RELIEF_ID_CHART_META = {
+  dayType: 'SUNDAY',
+  title: 'ID CHART for SUNDAY Link WEF 08/Dec/2024 (BIET - APTS)',
+  badge: 'SUNDAY LINK (BIET-APTS)',
+  totalTrains: 18,
+  trains: ['201', '202', '203', '204', '205', '206', '207', '208', '209', '210', '211', '212', '213', '214', '215', '216', '217', '218']
+};
+
+// ============================================================================
+// SHARED UTILITIES & TIMELINE CONVERSION
+// ============================================================================
+
+/**
+ * Converts HH:MM or HH:MM:SS string to seconds, shifting late night trips (00:00-02:59) to next day
+ */
 export function timeStringToSeconds(timeStr) {
   if (!timeStr || timeStr === '--' || timeStr === '-') return 999999;
   const parts = String(timeStr).trim().split(':');
@@ -276,10 +984,28 @@ export function timeStringToSeconds(timeStr) {
   return secs;
 }
 
-// Inverted mapping: Duty ID -> array of ordered legs
-export const WEEKDAY_DUTY_LEGS_FROM_ID_CHART = (() => {
+/**
+ * Normalizes any train identifier format (e.g. 'T-206', 'T206', '206', '06', '6')
+ * to standard Line-2 3-digit rake format (e.g. '206') or clean ID.
+ */
+export function normalizeTrackTrainId(rawId) {
+  if (rawId === null || rawId === undefined || rawId === '' || rawId === '--' || rawId === '-') return '';
+  const str = String(rawId).trim();
+  const digits = str.replace(/^[^\d]+/, '').replace(/[^\d].*$/, '');
+  const num = parseInt(digits, 10);
+  if (!isNaN(num)) {
+    if (num >= 1 && num <= 25) return String(200 + num);
+    if (num >= 201 && num <= 225) return String(num);
+  }
+  return str.toUpperCase();
+}
+
+/**
+ * Derives Duty -> array of ordered legs from an ID Chart
+ */
+export function buildDutyLegsFromChart(chart) {
   const map = {};
-  Object.entries(WEEKDAY_RELIEF_ID_CHART).forEach(([trainId, legs]) => {
+  Object.entries(chart || {}).forEach(([trainId, legs]) => {
     legs.forEach(leg => {
       const d = String(leg.duty).padStart(2, '0');
       if (!map[d]) map[d] = [];
@@ -298,57 +1024,87 @@ export const WEEKDAY_DUTY_LEGS_FROM_ID_CHART = (() => {
   });
 
   return map;
-})();
+}
+
+// Inverted mappings: Duty ID -> array of ordered legs for each schedule
+export const WEEKDAY_DUTY_LEGS_FROM_ID_CHART = buildDutyLegsFromChart(WEEKDAY_RELIEF_ID_CHART);
+export const MONDAY_DUTY_LEGS_FROM_ID_CHART = buildDutyLegsFromChart(MONDAY_RELIEF_ID_CHART);
+export const SATURDAY_DUTY_LEGS_FROM_ID_CHART = buildDutyLegsFromChart(SATURDAY_RELIEF_ID_CHART);
+export const SUNDAY_DUTY_LEGS_FROM_ID_CHART = buildDutyLegsFromChart(SUNDAY_RELIEF_ID_CHART);
+
+// Aggregated Registries for Multi-Day Support
+export const ALL_RELIEF_ID_CHARTS = {
+  WEEKDAY: WEEKDAY_RELIEF_ID_CHART,
+  MONDAY: MONDAY_RELIEF_ID_CHART,
+  SATURDAY: SATURDAY_RELIEF_ID_CHART,
+  SUNDAY: SUNDAY_RELIEF_ID_CHART
+};
+
+export const ALL_RELIEF_ID_CHART_METAS = {
+  WEEKDAY: WEEKDAY_RELIEF_ID_CHART_META,
+  MONDAY: MONDAY_RELIEF_ID_CHART_META,
+  SATURDAY: SATURDAY_RELIEF_ID_CHART_META,
+  SUNDAY: SUNDAY_RELIEF_ID_CHART_META
+};
+
+export const ALL_DUTY_LEGS_FROM_ID_CHARTS = {
+  WEEKDAY: WEEKDAY_DUTY_LEGS_FROM_ID_CHART,
+  MONDAY: MONDAY_DUTY_LEGS_FROM_ID_CHART,
+  SATURDAY: SATURDAY_DUTY_LEGS_FROM_ID_CHART,
+  SUNDAY: SUNDAY_DUTY_LEGS_FROM_ID_CHART
+};
+
+/**
+ * Normalizes any day type string to one of the 4 primary keys:
+ * 'WEEKDAY' | 'MONDAY' | 'SATURDAY' | 'SUNDAY'
+ */
+export function normalizeScheduleDay(dayType = 'WEEKDAY') {
+  const norm = String(dayType || 'WEEKDAY').toUpperCase().trim();
+  if (norm.includes('SUN')) return 'SUNDAY';
+  if (norm.includes('SAT') || norm.includes('GH')) return 'SATURDAY';
+  if (norm.includes('MON')) return 'MONDAY';
+  return 'WEEKDAY';
+}
+
+/**
+ * Helper to retrieve chart, meta, and duty legs for any day string
+ */
+export function getReliefIdChartForDay(dayType = 'WEEKDAY') {
+  const key = normalizeScheduleDay(dayType);
+  if (key === 'SUNDAY') {
+    return {
+      dayType: 'SUNDAY',
+      chart: SUNDAY_RELIEF_ID_CHART,
+      meta: SUNDAY_RELIEF_ID_CHART_META,
+      dutyLegs: SUNDAY_DUTY_LEGS_FROM_ID_CHART
+    };
+  }
+  if (key === 'SATURDAY') {
+    return {
+      dayType: 'SATURDAY',
+      chart: SATURDAY_RELIEF_ID_CHART,
+      meta: SATURDAY_RELIEF_ID_CHART_META,
+      dutyLegs: SATURDAY_DUTY_LEGS_FROM_ID_CHART
+    };
+  }
+  if (key === 'MONDAY') {
+    return {
+      dayType: 'MONDAY',
+      chart: MONDAY_RELIEF_ID_CHART,
+      meta: MONDAY_RELIEF_ID_CHART_META,
+      dutyLegs: MONDAY_DUTY_LEGS_FROM_ID_CHART
+    };
+  }
+  return {
+    dayType: 'WEEKDAY',
+    chart: WEEKDAY_RELIEF_ID_CHART,
+    meta: WEEKDAY_RELIEF_ID_CHART_META,
+    dutyLegs: WEEKDAY_DUTY_LEGS_FROM_ID_CHART
+  };
+}
 
 /**
  * Builds the complete Live Train Tracking Map for WEEKDAY schedule
- * using the official ID chart and active deployments.
- * 
- * @param {Array} allDeployments - Deployed crew data with dutyId, empName, empId, etc.
- * @param {number} evalSecs - Current evaluation time in seconds
- * @returns {Object} { [trainId]: { current, previous, nextReliver } }
- */
-/**
- * Authoritative Master Reliever ID Chart for SATURDAY & GH
- * Sourced directly from DUTY_TEMPLATES_REGISTRY['SAT']
- */
-export const SATURDAY_RELIEF_ID_CHART = (() => {
-  const duties = DUTY_TEMPLATES_REGISTRY?.['SAT'] || [];
-  const chart = {};
-  duties.forEach(d => {
-    const t = String(d.trainNo || '').trim();
-    if (!t || t.startsWith('Pro') || t.startsWith('Rd3') || t.startsWith('Couns') || t.startsWith('Resv') || t.startsWith('CC') || t.startsWith('NTST') || t === 'Stby') return;
-    if (!chart[t]) chart[t] = [];
-    chart[t].push({ from: d.sOnTime, to: d.sOffTime, duty: String(d.dutyNo).padStart(2, '0') });
-  });
-  Object.keys(chart).forEach(t => { chart[t].sort((a, b) => a.from.localeCompare(b.from)); });
-  return chart;
-})();
-
-/**
- * Authoritative Master Reliever ID Chart for SUNDAY
- * Sourced directly from DUTY_TEMPLATES_REGISTRY['SUN']
- */
-export const SUNDAY_RELIEF_ID_CHART = (() => {
-  const duties = DUTY_TEMPLATES_REGISTRY?.['SUN'] || [];
-  const chart = {};
-  duties.forEach(d => {
-    const t = String(d.trainNo || '').trim();
-    if (!t || t.startsWith('Pro') || t.startsWith('Rd3') || t.startsWith('Couns') || t.startsWith('Resv') || t.startsWith('CC') || t.startsWith('NTST') || t === 'Stby') return;
-    if (!chart[t]) chart[t] = [];
-    chart[t].push({ from: d.sOnTime, to: d.sOffTime, duty: String(d.dutyNo).padStart(2, '0') });
-  });
-  Object.keys(chart).forEach(t => { chart[t].sort((a, b) => a.from.localeCompare(b.from)); });
-  return chart;
-})();
-
-/**
- * Builds the complete Live Train Tracking Map for WEEKDAY schedule
- * using the official ID chart and active deployments.
- * 
- * @param {Array} allDeployments - Deployed crew data with dutyId, empName, empId, etc.
- * @param {number} evalSecs - Current evaluation time in seconds
- * @returns {Object} { [trainId]: { current, previous, nextReliver } }
  */
 export function buildWeekdayLiveTrainTrackingMap(allDeployments = [], evalSecs) {
   return buildLiveTrainTrackingMap(allDeployments, evalSecs, 'WEEKDAY');
@@ -364,15 +1120,18 @@ export function buildWeekdayLiveTrainTrackingMap(allDeployments = [], evalSecs) 
  * @returns {Object} { [trainId]: { current, previous, nextReliver } }
  */
 export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType = 'WEEKDAY') {
-  const normDay = String(dayType || 'WEEKDAY').toUpperCase().trim();
-  const isSunday = normDay === 'SUNDAY' || normDay === 'SUN';
-  const isSaturday = normDay === 'SATURDAY' || normDay === 'SAT' || normDay === 'GH' || normDay === 'SAT & GH' || normDay === 'SATURDAY & GH';
+  const normDay = normalizeScheduleDay(dayType);
+  const isSunday = normDay === 'SUNDAY';
+  const isSaturday = normDay === 'SATURDAY';
+  const isMonday = normDay === 'MONDAY';
 
   const baseChart = isSunday 
     ? SUNDAY_RELIEF_ID_CHART 
     : isSaturday 
       ? SATURDAY_RELIEF_ID_CHART 
-      : WEEKDAY_RELIEF_ID_CHART;
+      : isMonday
+        ? MONDAY_RELIEF_ID_CHART
+        : WEEKDAY_RELIEF_ID_CHART;
 
   const deployMap = new Map();
   (allDeployments || []).forEach(d => {
@@ -393,8 +1152,9 @@ export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType
   const trainTimelineMap = {};
 
   const addLegToTimeline = (tid, normDuty, startStr, endStr, deployed) => {
-    const cleanTid = String(tid || '').trim();
-    if (!cleanTid || cleanTid === '--' || cleanTid === '-' || cleanTid === 'Stby' || cleanTid === 'Resv') return;
+    const rawTid = String(tid || '').trim();
+    if (!rawTid || rawTid === '--' || rawTid === '-' || rawTid === 'Stby' || rawTid === 'Resv') return;
+    const cleanTid = normalizeTrackTrainId(rawTid) || rawTid;
     const startSec = timeStringToSeconds(startStr);
     let endSec = timeStringToSeconds(endStr);
     if (startSec >= 999999) return;
@@ -434,15 +1194,13 @@ export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType
     });
   });
 
-  // 2. Overlay or integrate any dynamic/deployed rawLegs from allDeployments
+  // 2. Overlay or integrate any dynamic/deployed rawLegs if provided
   (allDeployments || []).forEach(operator => {
     if (operator.rawLegs) {
       if (operator.rawLegs.l1Train && operator.rawLegs.l1Train !== '--') addLegToTimeline(operator.rawLegs.l1Train, operator.dutyId, operator.rawLegs.l1Start, operator.rawLegs.l1End, operator);
       if (operator.rawLegs.l2Train && operator.rawLegs.l2Train !== '--') addLegToTimeline(operator.rawLegs.l2Train, operator.dutyId, operator.rawLegs.l2Start, operator.rawLegs.l2End, operator);
       if (operator.rawLegs.l3Train && operator.rawLegs.l3Train !== '--') addLegToTimeline(operator.rawLegs.l3Train, operator.dutyId, operator.rawLegs.l3Start, operator.rawLegs.l3End, operator);
       if (operator.rawLegs.l4Train && operator.rawLegs.l4Train !== '--') addLegToTimeline(operator.rawLegs.l4Train, operator.dutyId, operator.rawLegs.l4Start, operator.rawLegs.l4End, operator);
-    } else if (operator.trainId && operator.trainId !== '--') {
-      addLegToTimeline(operator.trainId, operator.dutyId, operator.signOnTime, operator.signOffTime, operator);
     }
   });
 
@@ -493,8 +1251,22 @@ export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType
       previous,
       nextReliver
     };
+
+    // Index common aliases non-enumerably so Object.keys() only contains the official train keys without duplicates
+    const num = parseInt(tid, 10);
+    if (!isNaN(num) && num >= 201 && num <= 225) {
+      const unit = String(num - 200).padStart(2, '0');
+      const aliasProps = { value: calculatedTracking[tid], enumerable: false, writable: true, configurable: true };
+      try {
+        Object.defineProperty(calculatedTracking, `T${tid}`, aliasProps);
+        Object.defineProperty(calculatedTracking, `T-${tid}`, aliasProps);
+        Object.defineProperty(calculatedTracking, unit, aliasProps);
+        Object.defineProperty(calculatedTracking, String(num - 200), aliasProps);
+      } catch (e) {
+        // Fallback for environments without defineProperty
+      }
+    }
   });
 
   return calculatedTracking;
 }
-

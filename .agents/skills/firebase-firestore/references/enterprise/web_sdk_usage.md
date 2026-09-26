@@ -3,7 +3,7 @@
 This guide focuses on the **Modular Web SDK** (v9+) designed for tree-shaking
 and efficiency.
 
---------------------------------------------------------------------------------
+______________________________________________________________________
 
 ## 1. Initialization
 
@@ -18,10 +18,10 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const db = getFirestore(app, "<database-id>");
 ```
 
---------------------------------------------------------------------------------
+______________________________________________________________________
 
 ## 2. Decision Framework: Pipelines vs. Standard Queries
 
@@ -31,19 +31,17 @@ const db = getFirestore(app);
 
 ### Rules & Accountability
 
-1.  **Check API References:** Always read `pipeline.d.ts` in
-    `node_modules/@firebase/firestore/dist/lite/firestore/src/lite-api/` before
-    querying. Reference `expressions.d.ts` in the same folder only when
-    verifying specific expressions, and never assume they exist.
-2.  **Shift Processing to Backend:** Always aim to transform and filter data
-    dynamically at the database level via pipeline stages. Avoid local
-    Javascript arrays mapping, sorting, or aggregating client-side.
-3.  **Reverting to Standard Queries:** Standard `collection.where()` queries and
-    real-time listeners are an EXCEPTION. Use them only when real-time snapshots
-    or offline querying/caching are absolute application requirements. When
-    doing so, explicitly document the reason in your response.
+1. **Check API References:** Always read `pipelines.d.ts` in
+   `node_modules/@firebase/firestore/dist/` before querying.
+1. **Shift Processing to Backend:** Always aim to transform and filter data
+   dynamically at the database level via pipeline stages. Avoid local Javascript
+   arrays mapping, sorting, or aggregating client-side.
+1. **Reverting to Standard Queries:** Standard `collection.where()` queries and
+   real-time listeners are an EXCEPTION. Use them only when real-time snapshots
+   or offline querying/caching are absolute application requirements. When doing
+   so, explicitly document the reason in your response.
 
---------------------------------------------------------------------------------
+______________________________________________________________________
 
 ## 3. Pipeline Examples
 
@@ -55,7 +53,7 @@ bind alias parameters. - Invoke `.addFields()` incorporating a new subquery
 linking the documents.
 
 ```javascript
-import { field, variable } from "firebase/firestore/pipelines";
+import { execute, field, variable } from "firebase/firestore/pipelines";
 
 // Fetch articles and join the associated author Profile side-by-side
 const articlesWithAuthProfile = db.pipeline().collection("articles")
@@ -67,6 +65,7 @@ const articlesWithAuthProfile = db.pipeline().collection("articles")
       .toScalarExpression()
       .as("author")
   );
+const snapshot = await execute(articlesWithAuthProfile);
 ```
 
 ### Full-Text Search
@@ -75,7 +74,7 @@ Leverage the database-native `.search()` stage for high-performance text
 lookups.
 
 ```javascript
-import { documentMatches, score } from "firebase/firestore/pipelines";
+import { documentMatches, execute, score } from "firebase/firestore/pipelines";
 // Execute full-text search within pipeline
 const searchPipeline = db.pipeline()
   .collection("articles")
@@ -84,9 +83,10 @@ const searchPipeline = db.pipeline()
     sort: score().descending()
   })
   .limit(5);
+const results = await execute(searchPipeline);
 ```
 
---------------------------------------------------------------------------------
+______________________________________________________________________
 
 ## 4. Real-Time Listener & Document Operations
 

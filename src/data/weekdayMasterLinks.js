@@ -1,5 +1,11 @@
-{
-  "link_weekday_duty_01": {
+/**
+ * Master Weekday Link Roster Data for BMRCL Line 2 JMD
+ * Effective 03/Sep/2026 (APTS - BIET Mainline Corridor)
+ * Parsed from: Weekday link.xlsx (75 Duties, Night duties 61-74 strictly 2 legs, Leg 1-4 KMs accurately recalculated)
+ */
+
+export const WEEKDAY_MASTER_LINKS = [
+  {
     "dutyNo": "1",
     "dutyId": "01",
     "id": "link_weekday_duty_01",
@@ -55,7 +61,7 @@
       }
     ]
   },
-  "link_weekday_duty_02": {
+  {
     "dutyNo": "2",
     "dutyId": "02",
     "id": "link_weekday_duty_02",
@@ -111,7 +117,7 @@
       }
     ]
   },
-  "link_weekday_duty_03": {
+  {
     "dutyNo": "3",
     "dutyId": "03",
     "id": "link_weekday_duty_03",
@@ -195,7 +201,7 @@
       }
     ]
   },
-  "link_weekday_duty_04": {
+  {
     "dutyNo": "4",
     "dutyId": "04",
     "id": "link_weekday_duty_04",
@@ -270,7 +276,7 @@
       }
     ]
   },
-  "link_weekday_duty_05": {
+  {
     "dutyNo": "5",
     "dutyId": "05",
     "id": "link_weekday_duty_05",
@@ -345,7 +351,7 @@
       }
     ]
   },
-  "link_weekday_duty_06": {
+  {
     "dutyNo": "6",
     "dutyId": "06",
     "id": "link_weekday_duty_06",
@@ -420,7 +426,7 @@
       }
     ]
   },
-  "link_weekday_duty_07": {
+  {
     "dutyNo": "7",
     "dutyId": "07",
     "id": "link_weekday_duty_07",
@@ -495,7 +501,7 @@
       }
     ]
   },
-  "link_weekday_duty_08": {
+  {
     "dutyNo": "8",
     "dutyId": "08",
     "id": "link_weekday_duty_08",
@@ -579,7 +585,7 @@
       }
     ]
   },
-  "link_weekday_duty_09": {
+  {
     "dutyNo": "9",
     "dutyId": "09",
     "id": "link_weekday_duty_09",
@@ -654,7 +660,7 @@
       }
     ]
   },
-  "link_weekday_duty_10": {
+  {
     "dutyNo": "10",
     "dutyId": "10",
     "id": "link_weekday_duty_10",
@@ -729,7 +735,7 @@
       }
     ]
   },
-  "link_weekday_duty_11": {
+  {
     "dutyNo": "11",
     "dutyId": "11",
     "id": "link_weekday_duty_11",
@@ -804,7 +810,7 @@
       }
     ]
   },
-  "link_weekday_duty_12": {
+  {
     "dutyNo": "12",
     "dutyId": "12",
     "id": "link_weekday_duty_12",
@@ -879,7 +885,7 @@
       }
     ]
   },
-  "link_weekday_duty_13": {
+  {
     "dutyNo": "13",
     "dutyId": "13",
     "id": "link_weekday_duty_13",
@@ -963,7 +969,7 @@
       }
     ]
   },
-  "link_weekday_duty_14": {
+  {
     "dutyNo": "14",
     "dutyId": "14",
     "id": "link_weekday_duty_14",
@@ -1038,7 +1044,7 @@
       }
     ]
   },
-  "link_weekday_duty_15": {
+  {
     "dutyNo": "15",
     "dutyId": "15",
     "id": "link_weekday_duty_15",
@@ -1113,7 +1119,7 @@
       }
     ]
   },
-  "link_weekday_duty_16": {
+  {
     "dutyNo": "16",
     "dutyId": "16",
     "id": "link_weekday_duty_16",
@@ -1188,7 +1194,7 @@
       }
     ]
   },
-  "link_weekday_duty_17": {
+  {
     "dutyNo": "17",
     "dutyId": "17",
     "id": "link_weekday_duty_17",
@@ -1263,7 +1269,7 @@
       }
     ]
   },
-  "link_weekday_duty_18": {
+  {
     "dutyNo": "18",
     "dutyId": "18",
     "id": "link_weekday_duty_18",
@@ -1338,7 +1344,7 @@
       }
     ]
   },
-  "link_weekday_duty_19": {
+  {
     "dutyNo": "19",
     "dutyId": "19",
     "id": "link_weekday_duty_19",
@@ -1422,7 +1428,7 @@
       }
     ]
   },
-  "link_weekday_duty_20": {
+  {
     "dutyNo": "20",
     "dutyId": "20",
     "id": "link_weekday_duty_20",
@@ -1506,7 +1512,7 @@
       }
     ]
   },
-  "link_weekday_duty_21": {
+  {
     "dutyNo": "21",
     "dutyId": "21",
     "id": "link_weekday_duty_21",
@@ -1581,7 +1587,7 @@
       }
     ]
   },
-  "link_weekday_duty_22": {
+  {
     "dutyNo": "22",
     "dutyId": "22",
     "id": "link_weekday_duty_22",
@@ -1656,7 +1662,7 @@
       }
     ]
   },
-  "link_weekday_duty_23": {
+  {
     "dutyNo": "23",
     "dutyId": "23",
     "id": "link_weekday_duty_23",
@@ -1731,7 +1737,7 @@
       }
     ]
   },
-  "link_weekday_duty_24": {
+  {
     "dutyNo": "24",
     "dutyId": "24",
     "id": "link_weekday_duty_24",
@@ -1815,7 +1821,7 @@
       }
     ]
   },
-  "link_weekday_duty_25": {
+  {
     "dutyNo": "25",
     "dutyId": "25",
     "id": "link_weekday_duty_25",
@@ -1890,7 +1896,7 @@
       }
     ]
   },
-  "link_weekday_duty_26": {
+  {
     "dutyNo": "26",
     "dutyId": "26",
     "id": "link_weekday_duty_26",
@@ -1965,7 +1971,7 @@
       }
     ]
   },
-  "link_weekday_duty_27": {
+  {
     "dutyNo": "27",
     "dutyId": "27",
     "id": "link_weekday_duty_27",
@@ -2040,7 +2046,7 @@
       }
     ]
   },
-  "link_weekday_duty_28": {
+  {
     "dutyNo": "28",
     "dutyId": "28",
     "id": "link_weekday_duty_28",
@@ -2115,7 +2121,7 @@
       }
     ]
   },
-  "link_weekday_duty_29": {
+  {
     "dutyNo": "29",
     "dutyId": "29",
     "id": "link_weekday_duty_29",
@@ -2190,7 +2196,7 @@
       }
     ]
   },
-  "link_weekday_duty_30": {
+  {
     "dutyNo": "30",
     "dutyId": "30",
     "id": "link_weekday_duty_30",
@@ -2265,7 +2271,7 @@
       }
     ]
   },
-  "link_weekday_duty_31": {
+  {
     "dutyNo": "31",
     "dutyId": "31",
     "id": "link_weekday_duty_31",
@@ -2331,7 +2337,7 @@
       }
     ]
   },
-  "link_weekday_duty_32": {
+  {
     "dutyNo": "32",
     "dutyId": "32",
     "id": "link_weekday_duty_32",
@@ -2397,7 +2403,7 @@
       }
     ]
   },
-  "link_weekday_duty_33": {
+  {
     "dutyNo": "33",
     "dutyId": "33",
     "id": "link_weekday_duty_33",
@@ -2472,7 +2478,7 @@
       }
     ]
   },
-  "link_weekday_duty_34": {
+  {
     "dutyNo": "34",
     "dutyId": "34",
     "id": "link_weekday_duty_34",
@@ -2547,7 +2553,7 @@
       }
     ]
   },
-  "link_weekday_duty_35": {
+  {
     "dutyNo": "35",
     "dutyId": "35",
     "id": "link_weekday_duty_35",
@@ -2622,7 +2628,7 @@
       }
     ]
   },
-  "link_weekday_duty_36": {
+  {
     "dutyNo": "36",
     "dutyId": "36",
     "id": "link_weekday_duty_36",
@@ -2697,7 +2703,7 @@
       }
     ]
   },
-  "link_weekday_duty_37": {
+  {
     "dutyNo": "37",
     "dutyId": "37",
     "id": "link_weekday_duty_37",
@@ -2772,7 +2778,7 @@
       }
     ]
   },
-  "link_weekday_duty_38": {
+  {
     "dutyNo": "38",
     "dutyId": "38",
     "id": "link_weekday_duty_38",
@@ -2847,7 +2853,7 @@
       }
     ]
   },
-  "link_weekday_duty_39": {
+  {
     "dutyNo": "39",
     "dutyId": "39",
     "id": "link_weekday_duty_39",
@@ -2931,7 +2937,7 @@
       }
     ]
   },
-  "link_weekday_duty_40": {
+  {
     "dutyNo": "40",
     "dutyId": "40",
     "id": "link_weekday_duty_40",
@@ -3006,7 +3012,7 @@
       }
     ]
   },
-  "link_weekday_duty_41": {
+  {
     "dutyNo": "41",
     "dutyId": "41",
     "id": "link_weekday_duty_41",
@@ -3081,7 +3087,7 @@
       }
     ]
   },
-  "link_weekday_duty_42": {
+  {
     "dutyNo": "42",
     "dutyId": "42",
     "id": "link_weekday_duty_42",
@@ -3165,7 +3171,7 @@
       }
     ]
   },
-  "link_weekday_duty_43": {
+  {
     "dutyNo": "43",
     "dutyId": "43",
     "id": "link_weekday_duty_43",
@@ -3240,7 +3246,7 @@
       }
     ]
   },
-  "link_weekday_duty_44": {
+  {
     "dutyNo": "44",
     "dutyId": "44",
     "id": "link_weekday_duty_44",
@@ -3315,7 +3321,7 @@
       }
     ]
   },
-  "link_weekday_duty_45": {
+  {
     "dutyNo": "45",
     "dutyId": "45",
     "id": "link_weekday_duty_45",
@@ -3390,7 +3396,7 @@
       }
     ]
   },
-  "link_weekday_duty_46": {
+  {
     "dutyNo": "46",
     "dutyId": "46",
     "id": "link_weekday_duty_46",
@@ -3465,7 +3471,7 @@
       }
     ]
   },
-  "link_weekday_duty_47": {
+  {
     "dutyNo": "47",
     "dutyId": "47",
     "id": "link_weekday_duty_47",
@@ -3540,7 +3546,7 @@
       }
     ]
   },
-  "link_weekday_duty_48": {
+  {
     "dutyNo": "48",
     "dutyId": "48",
     "id": "link_weekday_duty_48",
@@ -3624,7 +3630,7 @@
       }
     ]
   },
-  "link_weekday_duty_49": {
+  {
     "dutyNo": "49",
     "dutyId": "49",
     "id": "link_weekday_duty_49",
@@ -3699,7 +3705,7 @@
       }
     ]
   },
-  "link_weekday_duty_50": {
+  {
     "dutyNo": "50",
     "dutyId": "50",
     "id": "link_weekday_duty_50",
@@ -3783,7 +3789,7 @@
       }
     ]
   },
-  "link_weekday_duty_51": {
+  {
     "dutyNo": "51",
     "dutyId": "51",
     "id": "link_weekday_duty_51",
@@ -3858,7 +3864,7 @@
       }
     ]
   },
-  "link_weekday_duty_52": {
+  {
     "dutyNo": "52",
     "dutyId": "52",
     "id": "link_weekday_duty_52",
@@ -3933,7 +3939,7 @@
       }
     ]
   },
-  "link_weekday_duty_53": {
+  {
     "dutyNo": "53",
     "dutyId": "53",
     "id": "link_weekday_duty_53",
@@ -4008,7 +4014,7 @@
       }
     ]
   },
-  "link_weekday_duty_54": {
+  {
     "dutyNo": "54",
     "dutyId": "54",
     "id": "link_weekday_duty_54",
@@ -4083,7 +4089,7 @@
       }
     ]
   },
-  "link_weekday_duty_55": {
+  {
     "dutyNo": "55",
     "dutyId": "55",
     "id": "link_weekday_duty_55",
@@ -4158,7 +4164,7 @@
       }
     ]
   },
-  "link_weekday_duty_56": {
+  {
     "dutyNo": "56",
     "dutyId": "56",
     "id": "link_weekday_duty_56",
@@ -4233,7 +4239,7 @@
       }
     ]
   },
-  "link_weekday_duty_57": {
+  {
     "dutyNo": "57",
     "dutyId": "57",
     "id": "link_weekday_duty_57",
@@ -4308,7 +4314,7 @@
       }
     ]
   },
-  "link_weekday_duty_58": {
+  {
     "dutyNo": "58",
     "dutyId": "58",
     "id": "link_weekday_duty_58",
@@ -4383,7 +4389,7 @@
       }
     ]
   },
-  "link_weekday_duty_59": {
+  {
     "dutyNo": "59",
     "dutyId": "59",
     "id": "link_weekday_duty_59",
@@ -4449,7 +4455,7 @@
       }
     ]
   },
-  "link_weekday_duty_60": {
+  {
     "dutyNo": "60",
     "dutyId": "60",
     "id": "link_weekday_duty_60",
@@ -4515,7 +4521,7 @@
       }
     ]
   },
-  "link_weekday_duty_61": {
+  {
     "dutyNo": "61",
     "dutyId": "61",
     "id": "link_weekday_duty_61",
@@ -4581,7 +4587,7 @@
       }
     ]
   },
-  "link_weekday_duty_62": {
+  {
     "dutyNo": "62",
     "dutyId": "62",
     "id": "link_weekday_duty_62",
@@ -4647,7 +4653,7 @@
       }
     ]
   },
-  "link_weekday_duty_63": {
+  {
     "dutyNo": "63",
     "dutyId": "63",
     "id": "link_weekday_duty_63",
@@ -4713,7 +4719,7 @@
       }
     ]
   },
-  "link_weekday_duty_64": {
+  {
     "dutyNo": "64",
     "dutyId": "64",
     "id": "link_weekday_duty_64",
@@ -4779,7 +4785,7 @@
       }
     ]
   },
-  "link_weekday_duty_65": {
+  {
     "dutyNo": "65",
     "dutyId": "65",
     "id": "link_weekday_duty_65",
@@ -4845,7 +4851,7 @@
       }
     ]
   },
-  "link_weekday_duty_66": {
+  {
     "dutyNo": "66",
     "dutyId": "66",
     "id": "link_weekday_duty_66",
@@ -4911,7 +4917,7 @@
       }
     ]
   },
-  "link_weekday_duty_67": {
+  {
     "dutyNo": "67",
     "dutyId": "67",
     "id": "link_weekday_duty_67",
@@ -4977,7 +4983,7 @@
       }
     ]
   },
-  "link_weekday_duty_68": {
+  {
     "dutyNo": "68",
     "dutyId": "68",
     "id": "link_weekday_duty_68",
@@ -5043,7 +5049,7 @@
       }
     ]
   },
-  "link_weekday_duty_69": {
+  {
     "dutyNo": "69",
     "dutyId": "69",
     "id": "link_weekday_duty_69",
@@ -5109,7 +5115,7 @@
       }
     ]
   },
-  "link_weekday_duty_70": {
+  {
     "dutyNo": "70",
     "dutyId": "70",
     "id": "link_weekday_duty_70",
@@ -5175,7 +5181,7 @@
       }
     ]
   },
-  "link_weekday_duty_71": {
+  {
     "dutyNo": "71",
     "dutyId": "71",
     "id": "link_weekday_duty_71",
@@ -5241,7 +5247,7 @@
       }
     ]
   },
-  "link_weekday_duty_72": {
+  {
     "dutyNo": "72",
     "dutyId": "72",
     "id": "link_weekday_duty_72",
@@ -5307,7 +5313,7 @@
       }
     ]
   },
-  "link_weekday_duty_73": {
+  {
     "dutyNo": "73",
     "dutyId": "73",
     "id": "link_weekday_duty_73",
@@ -5373,7 +5379,7 @@
       }
     ]
   },
-  "link_weekday_duty_74": {
+  {
     "dutyNo": "74",
     "dutyId": "74",
     "id": "link_weekday_duty_74",
@@ -5439,7 +5445,7 @@
       }
     ]
   },
-  "link_weekday_duty_75": {
+  {
     "dutyNo": "75",
     "dutyId": "75",
     "id": "link_weekday_duty_75",
@@ -5495,4 +5501,4 @@
       }
     ]
   }
-}
+];

@@ -1,12 +1,24 @@
 # Web SDK
 
-Consult this file when writing client-side web code (TypeScript/JavaScript) that interacts with the SQL Connect backend.
+Consult this file when writing client-side web code (TypeScript/JavaScript) that
+interacts with the SQL Connect backend.
 
 ### Best Practices for Agents
-- **Understand Operation Storage**: SQL Connect queries and mutations are stored on the server like Cloud Functions. **Whenever you update operations, you must regenerate the SDK and redeploy services** that use it to avoid breaking clients.
-- **Resilient Enum Handling**: JavaScript/TypeScript does not enforce exhaustive checks on enums. Always add a `default` branch to `switch` statements or an `else` branch to handle unknown values gracefully when schemas evolve.
-- **TanStack Query vs. Native**: You can generate hooks for React/Angular using TanStack Query. Choose either TanStack or SQL Connect's built-in real-time and caching support, but do not use both in the same project. SQL Connect offers normalized caching and remote invalidation.
-- **Emulator Connection**: `connectDataConnectEmulator` is only required if connecting to the emulator. Otherwise, the generated SDK auto-creates the instance.
+
+- **Understand Operation Storage**: SQL Connect queries and mutations are stored
+  on the server like Cloud Functions. **Whenever you update operations, you must
+  regenerate the SDK and redeploy services** that use it to avoid breaking
+  clients.
+- **Resilient Enum Handling**: JavaScript/TypeScript does not enforce exhaustive
+  checks on enums. Always add a `default` branch to `switch` statements or an
+  `else` branch to handle unknown values gracefully when schemas evolve.
+- **TanStack Query vs. Native**: You can generate hooks for React/Angular using
+  TanStack Query. Choose either TanStack or SQL Connect's built-in real-time and
+  caching support, but do not use both in the same project. SQL Connect offers
+  normalized caching and remote invalidation.
+- **Emulator Connection**: `connectDataConnectEmulator` is only required if
+  connecting to the emulator. Otherwise, the generated SDK auto-creates the
+  instance.
 
 ### Installation
 
@@ -29,6 +41,7 @@ connectDataConnectEmulator(dataConnect, 'localhost', 9399);
 ### Calling Operations
 
 #### Using `executeQuery` (Preferred for clarity)
+
 ```typescript
 import { executeQuery } from 'firebase/data-connect';
 import { listMoviesRef } from '@dataconnect/generated';
@@ -39,6 +52,7 @@ console.log(data.movies);
 ```
 
 #### Using Action Shortcuts
+
 ```typescript
 import { listMovies } from '@dataconnect/generated';
 
@@ -46,6 +60,7 @@ listMovies().then(data => showInUI(data));
 ```
 
 ### Resilient Enum Handling
+
 Use a `default` case or check against `Object.values`.
 
 ```typescript
@@ -69,6 +84,7 @@ if (queryResult.data) {
 ```
 
 ### Client-Side Caching
+
 Enable caching in `connector.yaml`:
 
 ```yaml
@@ -82,30 +98,46 @@ generate:
 ```
 
 Use policies in code:
+
 ```typescript
-await executeQuery(queryRef, QueryFetchPolicy.CACHE_ONLY);
-await executeQuery(queryRef, QueryFetchPolicy.SERVER_ONLY);
+await executeQuery(queryRef, { fetchPolicy: QueryFetchPolicy.CACHE_ONLY });
+await executeQuery(queryRef, { fetchPolicy: QueryFetchPolicy.SERVER_ONLY });
 ```
 
 ### Subscriptions (Realtime)
-Use `subscribe()` to receive live updates.
 
-#### Web (Vanilla JS)
+Use `subscribe()` to receive live updates. It accepts either an observer object (`SubscriptionOptions`) or positional callbacks:
+
+> **Note:** When passing an observer object literal, the error callback property is named **`onErr`** (`{ onNext, onErr, onComplete }`). Passing `onError` in an object literal fails TypeScript compilation (`TS2769`) and is ignored at runtime. The name `onError` is only used as the parameter name in the positional callback overload (`subscribe(ref, onNext, onError, onComplete)`).
+
+#### Web (Vanilla JS / TypeScript)
+
 ```typescript
 import { subscribe } from 'firebase/data-connect';
 import { getMovieByIdRef } from '@dataconnect/generated';
 
 const queryRef = getMovieByIdRef({ id: "<MOVIE_ID>" });
 
-const unsubscribe = subscribe(queryRef, (result) => {
-  console.log("Updated result:", result);
+// Option 1: Observer object (recommended — uses `onErr`)
+const unsubscribe = subscribe(queryRef, {
+  onNext: (result) => console.log("Updated result:", result),
+  onErr: (error) => console.error("Subscription error:", error)
 });
+
+// Option 2: Positional callbacks (`onNext`, `onError`, `onComplete`)
+const unsubscribePositional = subscribe(
+  queryRef,
+  (result) => console.log("Updated result:", result),
+  (error) => console.error("Subscription error:", error)
+);
 ```
 
 ### TanStack Query Support (React)
+
 To use React hooks, re-run `firebase init dataconnect:sdk` after adding React.
 
 #### Usage
+
 ```typescript
 import { useListAllMovies } from "@dataconnect/generated/react";
 
@@ -116,6 +148,7 @@ function MyComponent() {
 ```
 
 ### Data Type Mapping Reference
+
 - GraphQL `Timestamp` -> TypeScript `string`
 - GraphQL `Date` -> TypeScript `string`
 - GraphQL `UUID` -> TypeScript `string`

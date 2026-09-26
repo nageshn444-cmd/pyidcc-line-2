@@ -8,7 +8,7 @@ import {
   Settings, Key, AlertTriangle, Sparkles, LayoutGrid, Search, Maximize2, 
   Minimize2, CheckSquare, FileText, ClipboardList, RefreshCw, Cpu, 
   Train, Calendar, Radio, ShieldAlert, Trash2, RotateCcw, UploadCloud,
-  MessageSquare, BookOpen, Calculator, Sliders, Repeat, Clock, Copy, Plus
+  MessageSquare, BookOpen, Calculator, Sliders, Repeat, Clock, Copy, Plus, ArrowRightLeft
 } from 'lucide-react';
 
 import { lazyWithRetry } from '../../utils/lazyWithRetry';
@@ -30,7 +30,6 @@ const LeaveRequestManager        = lazyWithRetry(() => import('../LeaveRequestMa
 const GCCControl                 = lazyWithRetry(() => import('../GCCControl'));
 const TORequestForm              = lazyWithRetry(() => import('../TORequestForm'));
 const EmergencyReliefEngine      = lazyWithRetry(() => import('../EmergencyReliefEngine'));
-const ManualOverrideForm         = lazyWithRetry(() => import('../ManualOverrideForm'));
 const GccRosterUploader          = lazyWithRetry(() => import('../GccRosterUploader'));
 const RollingStockFaultLog       = lazyWithRetry(() => import('../RollingStockFaultLog'));
 const PerformanceMetrics         = lazyWithRetry(() => import('../PerformanceMetrics'));
@@ -42,6 +41,7 @@ const ChangeoverLink             = lazyWithRetry(() => import('../admin/Changeov
 const ChangeoverDashboard        = lazyWithRetry(() => import('../admin/ChangeoverDashboard'));
 const AIFaultReportingPage       = lazyWithRetry(() => import('../../pages/AIFaultReportingPage'));
 const DailyDutyGeneratorSuite    = lazyWithRetry(() => import('../dutyGenerator/DailyDutyGeneratorSuite'));
+const TrainSwapControl           = lazyWithRetry(() => import('../TrainSwapControl'));
 
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -102,6 +102,7 @@ export default function SuperAdminLayout({
   handleDeleteTripRow,
   addDelayToTime,
   handleRosterReset: providedHandleRosterReset,
+  handleUpdateMasterWeekdayLinks,
   handleGccRosterUpload,
   targetTid,
   setTargetTid,
@@ -775,6 +776,7 @@ export default function SuperAdminLayout({
     { id: 'LEAVE', label: 'Leave Requests', icon: Calendar, module: 'Leave Requests' },
     { id: 'LEAVE_BO', label: 'Leave & Absent (BO)', icon: CalendarClock, module: 'Leave Requests' },
     { id: 'MODULES', label: 'OCC Modules Suite', icon: Radio, module: 'Dashboard' },
+    { id: 'TRAIN_SWAP', label: 'Train ID Swap Engine', icon: ArrowRightLeft, module: 'Dashboard' },
     { id: 'EMERGENCY_RELIEF', label: 'Emergency Relief', icon: ShieldAlert, module: 'Emergency Relief Module' },
     { id: 'NIGHT_CHANGEOVER', label: 'Night Changeover', icon: Clock, module: 'Shift Exchange' },
     { id: 'CHANGEOVER_LINK', label: 'Changeover Link', icon: Repeat, module: 'Shift Exchange' },
@@ -1153,6 +1155,15 @@ export default function SuperAdminLayout({
                       >
                         <RotateCcw className="h-3 w-3 mr-1 text-amber-500" /> Reset Headers
                       </button>
+                      {activeDay === 'WEEKDAY' && handleUpdateMasterWeekdayLinks && (
+                        <button 
+                          onClick={handleUpdateMasterWeekdayLinks} 
+                          className="flex items-center bg-blue-950/40 hover:bg-blue-900/50 text-blue-400 border border-blue-800/85 hover:border-blue-700 px-2.5 py-1.5 rounded text-[10px] font-mono font-bold uppercase tracking-wide transition-all shadow-[0_0_10px_rgba(59,130,246,0.15)]"
+                          title="Update and save new Weekday Link Roster (WEF 03/Sep/2026, 75 Duties) to database"
+                        >
+                          <RefreshCw className="h-3 w-3 mr-1 text-blue-400" /> Update Weekday Link (75 Duties)
+                        </button>
+                      )}
                     </>
                   )}
                   <div className="text-xs font-bold font-mono text-slate-450 uppercase">
@@ -1660,22 +1671,20 @@ export default function SuperAdminLayout({
                 <span className="bg-slate-800 text-slate-400 text-xs px-4 py-1.5 rounded-full font-bold shadow-inner">V 2.0 INTEGRATED</span>
               </div>
 
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                <div className={`border border-amber-500/30 p-5 rounded-xl bg-slate-950 ${isTrainOperator ? 'xl:col-span-2' : ''}`}>
-                  <h3 className="text-amber-400 font-bold mb-4 flex items-center gap-2 border-b border-slate-850 pb-2 uppercase tracking-wider text-sm">
-                    <AlertTriangle className="h-4 w-4" /> 2. Manual Override System
-                  </h3>
-                  <ManualOverrideForm />
-                </div>
-
-                {!isTrainOperator && (
-                  <div>
-                    <GccRosterUploader />
-                  </div>
-                )}
-
-
+              {/* BMRCL Line-2 Automatic Train ID Swap & Crew Relief Decision Engine */}
+              <div>
+                <TrainSwapControl />
               </div>
+
+              {!isTrainOperator && (
+                <div className="pt-2">
+                  <GccRosterUploader />
+                </div>
+              )}
+            </div>
+          ) : activeTab === 'TRAIN_SWAP' ? (
+            <div className="space-y-6">
+              <TrainSwapControl />
             </div>
           ) : activeTab === 'EMERGENCY_RELIEF' ? (
             <EmergencyReliefEngine />

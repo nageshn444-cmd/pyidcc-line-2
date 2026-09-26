@@ -53,7 +53,7 @@ export default function WeekOffControlManager({
     {
       id: 'AUDIT_OFFICIAL_OCT2026',
       empId: 21029,
-      empName: 'All 91 BMRCL Train Operators',
+      empName: 'All 91 BMRCL Train Operators & 36 JMD Train Drivers',
       oldWo: 'Prior Cycle',
       newWo: 'Official Allotment',
       reason: 'PYID CC Notice Board Weekly Off Allotment from October 2026 (Dated 05/09/2026)',
@@ -109,6 +109,8 @@ export default function WeekOffControlManager({
       if (e.isOfficialCC === true || e.role === 'OFFICIAL_CREW_CONTROLLER' || e.specialProfile === 'CC') return false;
       if (e.role === 'Official ALS' || e.role === 'Official GCC' || e.role === 'STATION_CONTROLLER' || e.designation === 'Station Controller') return false;
       if (SUPERVISORY_NON_DRIVING_IDS.has(cid)) return false;
+      const nameUpper = String(e.name || e.employeeName || '').toUpperCase();
+      if (['NAGESH N', 'DEEPA L', 'RASHMI'].some(n => nameUpper.includes(n))) return false;
 
       return !e.status || e.status === 'ACTIVE' || e.status === 'DUTY' || e.status === 'MATERNITY_LEAVE' || (e.maternityLeave && e.maternityLeave.active);
     });
@@ -392,8 +394,8 @@ export default function WeekOffControlManager({
               onChange={(e) => {
                 setRevisionCycle(e.target.value);
                 setCycleLabel(
-                  e.target.value === '6_MONTHS' ? 'Cycle 2026-H2 (Aug 2026 – Jan 2027)' :
-                  e.target.value === '1_YEAR' ? 'Annual Cycle 2026–2027 (1 Year)' : 'Quarterly Cycle Q3-2026'
+                  e.target.value === '6_MONTHS' ? 'Cycle: October 2026 – March 2027 (Official PYID CC Notice Board Allotment)' :
+                  e.target.value === '1_YEAR' ? 'Annual Cycle 2026–2027 (1 Year)' : 'Quarterly Cycle Q4-2026'
                 );
               }}
               className="bg-slate-950 border border-slate-700 text-blue-300 font-bold px-3 py-1.5 rounded-lg text-xs"

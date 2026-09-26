@@ -5,6 +5,8 @@
  * Sourced directly from BMRCL Line 2 Timetables & Published Rosters.
  */
 
+import { getOfficialWeeklyOffForEmp } from './bmrclWeeklyOffSchedule.js';
+
 export const DAY_TYPE_PROFILES = {
   WEEKDAY: {
     id: "WEEKDAY",
@@ -217,6 +219,14 @@ export function resolveDayType(dateStr, holidayList = []) {
  */
 export function isWeeklyOffOnDate(emp, dateStr) {
   if (!emp || !dateStr) return false;
+
+  // Official Crew Controllers (Nagesh N, Deepa L, Rashmi) are strictly dedicated to CC Desk and NEVER participate in weekly off
+  const cid = Number(emp.empId || emp.id || emp.employeeId);
+  const name = String(emp.name || emp.employeeName || '').toUpperCase();
+  if ([20726, 20038, 20037].includes(cid) || ['NAGESH N', 'DEEPA L', 'RASHMI'].some(n => name.includes(n))) {
+    return false;
+  }
+
   const d = new Date(dateStr + 'T00:00:00');
   const dayOfWeek = d.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
   
@@ -227,7 +237,7 @@ export function isWeeklyOffOnDate(emp, dateStr) {
     return Number(emp.wo_weekday) === dayOfWeek;
   }
 
-  const fixedWo = emp.fixedWo || emp.weeklyOffDay || emp.woWeekday;
+  const fixedWo = emp.fixedWo || emp.weeklyOffDay || emp.woWeekday || getOfficialWeeklyOffForEmp(emp.empId || emp.id || emp.employeeId);
   if (typeof fixedWo === 'number') {
     return fixedWo === dayOfWeek;
   }
