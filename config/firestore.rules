@@ -241,10 +241,35 @@ service cloud.firestore {
 
     match /crew_live_attendance/{documentId} {
       allow read:  if isSignedIn();
-      // Admins/controllers can write anything
-      allow write: if isAdminOrController();
+      // Admins/controllers can write anything (including delete for RESET DAILY ROSTER)
+      allow write:  if isAdminOrController();
+      allow delete: if isAdminOrController();
       // Any authenticated operator can write their own attendance
       allow create, update: if isSignedIn();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  DISPATCH GATE & CONSOLE CACHE  (RESET DAILY ROSTER / Clear Console)
+    // ═══════════════════════════════════════════════════════════════
+
+    match /roster_desk_console/{documentId} {
+      allow read:                   if isSignedIn();
+      allow create, update, delete: if isAdminOrController();
+    }
+
+    match /dispatch_excel_cache/{documentId} {
+      allow read:                   if isSignedIn();
+      allow create, update, delete: if isAdminOrController();
+    }
+
+    match /roster_deployment_meta/{documentId} {
+      allow read:                   if isSignedIn();
+      allow create, update, delete: if isAdminOrController();
+    }
+
+    match /dispatch_gate_roster/{documentId} {
+      allow read:                   if isSignedIn();
+      allow create, update, delete: if isAdminOrController();
     }
 
     match /wtt_live_incidents/{documentId} {
