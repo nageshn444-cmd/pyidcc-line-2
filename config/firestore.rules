@@ -11,15 +11,20 @@ service cloud.firestore {
     }
 
     function getUserRole() {
-      let path = /databases/$(database)/documents/system_users/$(request.auth.uid);
-      return exists(path) ? get(path).data.role : null;
+      let sysPath = /databases/$(database)/documents/system_users/$(request.auth.uid);
+      let usrPath = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(sysPath) ? get(sysPath).data.role
+           : exists(usrPath) ? get(usrPath).data.role
+           : null;
     }
 
     // Owner: nageshn444@gmail.com OR 20726@pyidcc.bmrcl.com
-    // Use the authenticated UID too so Google sign-in works reliably even if the email claim is missing.
+    // Hardcoded UIDs for both Firebase-email UID and Google OAuth UID to
+    // avoid cross-document getUserRole() lookups that can hit quota limits.
     function isOwner() {
       return isSignedIn() && (
         request.auth.uid == 'EByfpLYSWsM2nxTKB1urzXgHjV02' ||
+        request.auth.uid == 'XMNjv8dXKSVnuNTXEnQaM6zbXFW2' ||
         request.auth.token.email == 'nageshn444@gmail.com' ||
         request.auth.token.email == '20726@pyidcc.bmrcl.com' ||
         getUserRole() == 'SUPER_ADMIN'
