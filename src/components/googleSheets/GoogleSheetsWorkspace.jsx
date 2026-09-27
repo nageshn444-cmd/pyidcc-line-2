@@ -71,6 +71,17 @@ import {
 } from '../../services/excel/formulaEngine';
 import { exportWorkbookToExcel, exportSheetToCsv } from '../../services/excel/excelExport';
 import { parseExcelFile } from '../../services/excel/excelImport';
+import { 
+  isGoogleSheetUrl, 
+  parseGoogleSheetUrl, 
+  fetchGoogleSheetCsv, 
+  csvToFile, 
+  pasteClipboardAsRosterFile,
+  saveGoogleSheetUrl, 
+  getSavedGoogleSheetUrl, 
+  getCreateGoogleSheetUrl 
+} from '../../services/GoogleSheetsSyncService';
+import { rosterAutoClassifierService } from '../../services/RosterAutoClassifierService';
 
 // ── Google Sheets Signature Color Palette (80 authentic Google shades) ──
 const GOOGLE_PALETTE = [
@@ -337,12 +348,7 @@ export default function GoogleSheetsWorkspace({ userRole = 'CONTROLLER', initial
   const [embedMode, setEmbedMode] = useState('INTERACTIVE'); // 'INTERACTIVE' | 'HTML_EMBED' | 'PUBLISHED'
   
   const [googleSheetUrl, setGoogleSheetUrl] = useState(() => {
-    const saved = localStorage.getItem('bmrcl_connected_google_sheet_url');
-    if (saved && !saved.includes('1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms')) {
-      return saved;
-    }
-    localStorage.removeItem('bmrcl_connected_google_sheet_url');
-    return initialSheetUrl || '';
+    return initialSheetUrl || getSavedGoogleSheetUrl();
   });
 
   const [inputSheetUrl, setInputSheetUrl] = useState(googleSheetUrl);
@@ -647,24 +653,76 @@ export default function GoogleSheetsWorkspace({ userRole = 'CONTROLLER', initial
     }
   };
 
-  // ── Sync to Dispatch Gateway Core ──
+  // ── Sync to Dispatch Gateway Core & Firebase ──
   const handleSyncToDispatchCore = async () => {
     try {
       setSyncStatus('SYNCING');
+      let classified = null;
+
+      if (googleSheetUrl && isGoogleSheetUrl(googleSheetUrl)) {
+        saveGoogleSheetUrl(googleSheetUrl);
+        const csvText = await fetchGoogleSheetCsv(googleSheetUrl);
+        const parsedMeta = parseGoogleSheetUrl(googleSheetUrl);
+        const file = csvToFile(
+          csvText,
+          `Google_Sheet_${parsedMeta?.id?.slice(0, 8) || 'Roster'}.csv`
+        );
+        const XLSX = await import('xlsx');
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: 'array' });
+        classified = rosterAutoClassifierService.parseWorkbook(wb, new Date());
+      } else {
+        const wsData = [];
+        const maxRow = activeSheet?.rowCount || 60;
+        const maxCol = activeSheet?.colCount || 26;
+        for (let r = 0; r < maxRow; r++) {
+          const rowArr = [];
+          for (let c = 0; c < maxCol; c++) {
+            const key = `${colIndexToLetter(c)}${r + 1}`;
+            const cell = activeSheet?.data?.[key];
+            rowArr.push(cell?.value !== undefined ? cell.value : (cell?.raw || ''));
+          }
+          wsData.push(rowArr);
+        }
+        classified = rosterAutoClassifierService.parseRosterData(
+          wsData,
+          new Date(),
+          'WEEKDAY',
+          activeSheet?.name || 'Sheet1'
+        );
+      }
+
+      if (classified) {
+        await rosterAutoClassifierService.autoDeployClassifiedData(
+          classified,
+          'Google Sheets Workspace',
+          'Synced from Google Sheets Enterprise Suite'
+        );
+      }
+
       const rosterRef = doc(db, 'bmrcl_dispatch_roster_sync', 'current_active_roster');
       const exportData = {
         syncedAt: new Date().toISOString(),
-        sheetName: activeSheet.name,
+        googleSheetUrl: googleSheetUrl || '',
+        sheetName: activeSheet?.name || 'Sheet1',
         workbookTitle: workbook.name,
-        totalEntries: Object.keys(activeSheet.data).length,
-        data: activeSheet.data
+        totalEntries: Object.keys(activeSheet?.data || {}).length,
+        totalDuties: classified?.duties?.length || 0,
+        totalLeaves: classified?.leaves?.length || 0,
+        totalWO: classified?.weeklyOffs?.length || 0,
+        data: activeSheet?.data || {}
       };
       await setDoc(rosterRef, exportData, { merge: true });
+
       setSyncStatus('SUCCESS');
-      setTimeout(() => setSyncStatus(null), 3000);
-    } catch {
-      setSyncStatus('SUCCESS');
-      setTimeout(() => setSyncStatus(null), 3000);
+      setTimeout(() => setSyncStatus(null), 4000);
+      alert(
+        `✅ Successfully synced with Automated Dispatch Gate!\n• Duties Rostered: ${classified?.duties?.length || 0}\n• Weekly Offs: ${classified?.weeklyOffs?.length || 0}\n• Leaves: ${classified?.leaves?.length || 0}\n• Standbys: ${classified?.standbys?.length || 0}`
+      );
+    } catch (err) {
+      console.error('Sync Error:', err);
+      setSyncStatus(null);
+      alert(`Sync Error: ${err.message || err}`);
     }
   };
 
@@ -672,7 +730,7 @@ export default function GoogleSheetsWorkspace({ userRole = 'CONTROLLER', initial
   const handleDisconnectUrl = () => {
     setGoogleSheetUrl('');
     setInputSheetUrl('');
-    localStorage.removeItem('bmrcl_connected_google_sheet_url');
+    saveGoogleSheetUrl('');
     setViewMode('STUDIO');
   };
 
@@ -928,6 +986,104 @@ export default function GoogleSheetsWorkspace({ userRole = 'CONTROLLER', initial
             title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
           >
             {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Enterprise Google Sheets Live Connection & Sync Ribbon ── */}
+      <div className={`px-4 py-2 border-b flex flex-wrap items-center justify-between gap-2.5 text-xs font-mono ${
+        isLight ? 'bg-[#EDF2FA] border-[#D3E3FD] text-[#001D35]' : 'bg-[#141618] border-[#2A2D32] text-emerald-300'
+      }`}>
+        <div className="flex items-center gap-2 flex-1 min-w-[280px]">
+          <div className="w-5 h-5 rounded flex items-center justify-center text-white text-[11px] font-black shrink-0" style={{ backgroundColor: '#0F9D58' }}>
+            田
+          </div>
+          <span className="font-bold text-[11px] whitespace-nowrap">
+            Google Sheet Link:
+          </span>
+          <div className="relative flex-1 max-w-xl">
+            <input
+              type="text"
+              value={googleSheetUrl}
+              onChange={(e) => {
+                const val = e.target.value;
+                setGoogleSheetUrl(val);
+                if (isGoogleSheetUrl(val)) {
+                  saveGoogleSheetUrl(val);
+                }
+              }}
+              placeholder="Paste Google Sheets link (e.g. https://docs.google.com/spreadsheets/d/...)"
+              className={`w-full px-2.5 py-1 text-xs rounded border transition font-mono ${
+                isLight 
+                  ? 'bg-white border-[#C4C7C5] text-slate-800 focus:border-[#0F9D58] focus:ring-1 focus:ring-[#0F9D58]' 
+                  : 'bg-[#1E2024] border-slate-700 text-slate-200 focus:border-emerald-500'
+              }`}
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {googleSheetUrl && (
+            <a
+              href={googleSheetUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+              title="Open Google Sheet in a new tab to work and edit"
+            >
+              <ExternalLink size={12} className="text-emerald-400" />
+              <span>Open in Google Sheets ↗</span>
+            </a>
+          )}
+          <a
+            href={getCreateGoogleSheetUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-2.5 py-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded text-xs transition flex items-center gap-1"
+            title="Create a fresh Google Sheet"
+          >
+            <Plus size={12} />
+            <span>Create Sheet ↗</span>
+          </a>
+          <button
+            onClick={handleSyncToDispatchCore}
+            disabled={syncStatus === 'SYNCING'}
+            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold transition flex items-center gap-1.5 shadow active:scale-95 disabled:opacity-50"
+            title="Synchronize Google Sheet roster changes with Automated Dispatch Gate"
+          >
+            <RefreshCw size={12} className={syncStatus === 'SYNCING' ? 'animate-spin' : ''} />
+            <span>{syncStatus === 'SYNCING' ? 'Syncing…' : syncStatus === 'SUCCESS' ? '✅ Synced to App!' : '⚡ Sync Data with App'}</span>
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                setSyncStatus('SYNCING');
+                const file = await pasteClipboardAsRosterFile();
+                const XLSX = await import('xlsx');
+                const buffer = await file.arrayBuffer();
+                const wb = XLSX.read(buffer, { type: 'array' });
+                const classified = rosterAutoClassifierService.parseWorkbook(wb, new Date());
+                if (classified) {
+                  await rosterAutoClassifierService.autoDeployClassifiedData(
+                    classified,
+                    'Google Sheets Clipboard Paste',
+                    'Synced from Clipboard'
+                  );
+                }
+                setSyncStatus('SUCCESS');
+                setTimeout(() => setSyncStatus(null), 4000);
+                alert(`✅ Successfully synced clipboard roster data with Automated Dispatch Gate!\n• Duties: ${classified?.duties?.length || 0}\n• Weekly Offs: ${classified?.weeklyOffs?.length || 0}\n• Leaves: ${classified?.leaves?.length || 0}`);
+              } catch (err) {
+                setSyncStatus(null);
+                alert(`Clipboard Sync Error: ${err.message}`);
+              }
+            }}
+            disabled={syncStatus === 'SYNCING'}
+            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded text-xs font-bold transition flex items-center gap-1.5 border border-emerald-500/40 shadow active:scale-95 disabled:opacity-50"
+            title="Paste copied rows from Google Sheets (Ctrl+A, Ctrl+C in sheets) and sync immediately without changing sharing permissions"
+          >
+            <Copy size={12} className="text-emerald-400" />
+            <span>📋 Paste &amp; Sync</span>
           </button>
         </div>
       </div>

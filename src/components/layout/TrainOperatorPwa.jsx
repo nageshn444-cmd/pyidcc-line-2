@@ -867,7 +867,11 @@ export default function TrainOperatorPwa({
           </div>
         ) : activeTab === 'NOTICE' ? (
           <div className="space-y-4 pb-16">
-            <RosterPublisherBoard userRole="TRAIN_OPERATOR" currentOperatorId={empId} />
+            <RosterPublisherBoard
+              userRole="TRAIN_OPERATOR"
+              currentOperatorId={empId}
+              initialDateStr={selectedDateStr}
+            />
           </div>
         ) : null}
       </main>

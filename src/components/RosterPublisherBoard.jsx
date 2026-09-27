@@ -4,7 +4,7 @@ import OfficialGccRosterSheetView from "./common/OfficialGccRosterSheetView";
 
 const GoogleSheetsWorkspace = lazy(() => import("./googleSheets/GoogleSheetsWorkspace"));
 
-export default function RosterPublisherBoard({ userRole = "CONTROLLER", currentOperatorId = null }) {
+export default function RosterPublisherBoard({ userRole = "CONTROLLER", currentOperatorId = null, initialDateStr = null }) {
   // Default to Official Sheet or Google Sheets Workspace
   const [boardMode, setBoardMode] = useState("OFFICIAL_SHEET");
 
@@ -69,6 +69,7 @@ export default function RosterPublisherBoard({ userRole = "CONTROLLER", currentO
           <OfficialGccRosterSheetView 
             userRole={userRole} 
             currentOperatorId={currentOperatorId} 
+            initialDateStr={initialDateStr}
           />
         </div>
       ) : (

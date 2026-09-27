@@ -629,7 +629,9 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
           id: link.id,
           dutyId: normLinkId,
           signOnTime: matchingGcc?.signOnTime || link.signOnTime,
-          signOnLocation: link.signOnLocation,
+          signOnLocation: matchingGcc?.signOnLocation || link.signOnLocation,
+          signOffLocation: matchingGcc?.signOffLocation || link.signOffLocation || '--',
+          dutyType: matchingGcc?.dutyType || link.dutyType || '--',
           trainId: matchingGcc?.trainId || link.trainId,
           empId: matchingGcc ? matchingGcc.empId : '--',
           empName: matchingGcc ? matchingGcc.empName : '--',
@@ -676,7 +678,9 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
             id: d.id,
             dutyId: normId,
             signOnTime: d.signOnTime || '--',
-            signOnLocation: d.rawLegs?.l1Start ? '--' : '--',
+            signOnLocation: d.signOnLocation || d.signOnPlace || '--',
+            signOffLocation: d.signOffLocation || d.signOffPlace || '--',
+            dutyType: d.dutyType || '--',
             trainId: d.trainId || '--',
             empId: d.empId || '--',
             empName: d.empName || '--',
@@ -1080,10 +1084,127 @@ Format the response strictly as a single JSON object.`;
 
   const handleRosterReset = async () => {
     if (window.confirm(`Reset GCC rosters for ${activeDay}?`)) {
-      const q = query(collection(db, "crew_daily_deployment"), where("scheduleType", "==", activeDay));
-      const snapshot = await getDocs(q); const batch = writeBatch(db);
-      snapshot.docs.forEach(doc => batch.delete(doc.ref));
-      await batch.commit(); fetchLiveData();
+      try {
+        setLoading(true);
+        const targetSched = normalizeScheduleType(activeDay).toUpperCase();
+        const rawTargetDay = String(activeDay || "").trim().toUpperCase();
+        const todayStr = new Date().toISOString().split("T")[0];
+        const localTodayStr = new Date().toLocaleDateString("sv-SE");
+
+        // Helper to safely commit deletions in chunks of 400
+        const deleteDocRefsInBatches = async (refs) => {
+          let b = writeBatch(db);
+          let count = 0;
+          for (let i = 0; i < refs.length; i++) {
+            b.delete(refs[i]);
+            count++;
+            if (count >= 400) {
+              await b.commit();
+              b = writeBatch(db);
+              count = 0;
+            }
+          }
+          if (count > 0) {
+            await b.commit();
+          }
+        };
+
+        // 1. Delete all matching crew_daily_deployment docs
+        const deploySnap = await getDocs(collection(db, "crew_daily_deployment"));
+        const deployRefsToDelete = [];
+        deploySnap.docs.forEach((docSnap) => {
+          const data = docSnap.data();
+          const sched = String(data.scheduleType || "").trim().toUpperCase();
+          const docIdLower = docSnap.id.toLowerCase();
+          const targetSchedLower = targetSched.toLowerCase();
+          const rawTargetLower = rawTargetDay.toLowerCase();
+
+          const matchesSchedule =
+            normalizeScheduleType(data.scheduleType, docSnap.id) === targetSched ||
+            sched === targetSched ||
+            sched === rawTargetDay ||
+            sched === "ACTIVE_RUN" ||
+            docIdLower.includes(targetSchedLower) ||
+            docIdLower.includes(rawTargetLower) ||
+            (targetSched === "WEEKDAY" && (sched === "GENERAL" || docIdLower.includes("weekday") || docIdLower.includes("active_run"))) ||
+            targetSched === "ALL";
+
+          if (matchesSchedule) {
+            deployRefsToDelete.push(docSnap.ref);
+          }
+        });
+        await deleteDocRefsInBatches(deployRefsToDelete);
+
+        // 2. Delete matching crew_live_attendance records
+        try {
+          const attSnap = await getDocs(collection(db, "crew_live_attendance"));
+          const attRefsToDelete = [];
+          attSnap.docs.forEach((docSnap) => {
+            const data = docSnap.data();
+            const sched = String(data.scheduleType || "").trim().toUpperCase();
+            const docIdLower = docSnap.id.toLowerCase();
+            const matchesSchedule =
+              normalizeScheduleType(data.scheduleType, docSnap.id) === targetSched ||
+              sched === targetSched ||
+              sched === rawTargetDay ||
+              docIdLower.includes(targetSched.toLowerCase()) ||
+              docIdLower.includes(rawTargetDay.toLowerCase()) ||
+              targetSched === "ALL";
+            if (matchesSchedule) {
+              attRefsToDelete.push(docSnap.ref);
+            }
+          });
+          await deleteDocRefsInBatches(attRefsToDelete);
+        } catch (attErr) {
+          console.warn("Could not clear crew_live_attendance on reset:", attErr);
+        }
+
+        // 3. Clear console cache docs
+        const emptyConsoleDoc = {
+          controlDesks: [],
+          leaves: [],
+          standbys: [],
+          outstationStepbacks: [],
+          crtTraining: [],
+          bmrtiTraining: [],
+          weeklyOffs: [],
+          relievedOperators: [],
+          pmeOperators: [],
+          routeLearning: [],
+          notReporting: [],
+          absents: [],
+          bookedOff: [],
+          isExplicitlyCleared: true,
+          updatedAt: serverTimestamp(),
+        };
+
+        const metaBatch = writeBatch(db);
+        metaBatch.set(doc(db, "roster_desk_console", "current"), emptyConsoleDoc);
+        metaBatch.set(doc(db, "roster_desk_console", "latest"), emptyConsoleDoc);
+        metaBatch.delete(doc(db, "roster_desk_console", "latest_deployment_meta"));
+        metaBatch.set(doc(db, "dispatch_excel_cache", todayStr), emptyConsoleDoc);
+        metaBatch.set(doc(db, "dispatch_excel_cache", localTodayStr), emptyConsoleDoc);
+        metaBatch.set(doc(db, "dispatch_excel_cache", "current"), emptyConsoleDoc);
+        await metaBatch.commit();
+
+        // 4. Clear local storage
+        try {
+          if (typeof window !== "undefined" && window.localStorage) {
+            window.localStorage.removeItem("pyidcc_roster_desk_console_cache");
+            window.localStorage.removeItem("pyidcc_roster_desk_meta");
+          }
+        } catch (e) {
+          console.warn("Could not clear cache on reset", e);
+        }
+
+        alert(`✅ Daily Roster Reset for ${activeDay}. Cleared ${deployRefsToDelete.length} deployment record(s).`);
+        fetchLiveData();
+      } catch (err) {
+        console.error("handleRosterReset failed:", err);
+        alert(`❌ Failed to reset roster: ${err.message}`);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 

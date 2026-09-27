@@ -27,7 +27,6 @@ import {
   Eye,
   FileSpreadsheet,
   FileText,
-  History,
   Loader2,
   Plus,
   Radio,
@@ -35,7 +34,6 @@ import {
   Repeat,
   RotateCcw,
   Search,
-  Send,
   Settings,
   ShieldAlert,
   Train,
@@ -45,9 +43,23 @@ import {
   Users,
   UserX,
   X,
+  ExternalLink,
+  Sparkles,
+  Layers,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
+import {
+  isGoogleSheetUrl,
+  parseGoogleSheetUrl,
+  fetchGoogleSheetCsv,
+  csvToFile,
+  pasteClipboardAsRosterFile,
+  saveGoogleSheetUrl,
+  getSavedGoogleSheetUrl,
+  getCreateGoogleSheetUrl,
+  DEFAULT_CONNECTED_GOOGLE_SHEET_URL,
+} from "../services/GoogleSheetsSyncService";
 import { useOperationalEngine } from "../context/OperationalEngine";
 import { BMRCL_CREW_REGISTRY } from "../data/bmrclCrewRegistry";
 import { OFFICIAL_JMD_TD_REGISTRY } from "../data/jmdCrewMaster";
@@ -58,15 +70,26 @@ import {
 } from "../data/kmcalc/preloadedDuties";
 import { db } from "../firebase";
 import {
+  addOrUpdateCustomRegisterOperator,
   enforceSingleDutyRule,
   formatExcelDate,
   formatExcelTime,
+  getCanonicalCategoryTitle,
+  getHeaderKey,
+  isDateOrTimeValue,
+  isJunkOrWatermarkText,
+  isStandardAuxMarker,
+  normalizeHeaderTitle,
   rosterAutoClassifierService,
 } from "../services/RosterAutoClassifierService";
-import { swapOperatorsInConsoleData, rotateTripleOperatorsInConsoleData, transferOperatorInConsoleData } from "../services/RosterService";
+import {
+  rotateTripleOperatorsInConsoleData,
+  swapOperatorsInConsoleData,
+  transferOperatorInConsoleData,
+} from "../services/RosterService";
+import { getRolling7Days } from "../utils/rosterDateUtils";
 import RosterPublisherBoard from "./RosterPublisherBoard";
 import OfficialGccRosterSheetView from "./common/OfficialGccRosterSheetView";
-import { getRolling7Days } from "../utils/rosterDateUtils";
 
 // ── Duty ID Utilities (shared with Dashboard) ──
 // Format Excel decimal/string times (e.g. 0.29166 -> 07:00)
@@ -138,46 +161,56 @@ const resolveDutyType = (d, dayType = "WEEKDAY") => {
   return "";
 };
 
-// ── Real-Time BMRCL & JMD Crew Position & Individual Deployment Calculation Engine ──
-export const calculateDetailedCrewPositions = (dayType, deployments, consoleData) => {
-  const JMD_EMP_IDS = new Set(
-    (OFFICIAL_JMD_TD_REGISTRY || []).map((j) => String(j.empId).trim()),
-  );
-  const JMD_NAMES = new Set(
-    (OFFICIAL_JMD_TD_REGISTRY || []).map((j) =>
-      String(j.name || "")
-        .trim()
-        .toUpperCase(),
-    ),
-  );
-
-  const isJmd = (record) => {
-    if (!record) return false;
-    if (record.isJmd === true || record.isJMD === true) return true;
-    const idStr = String(
-      record.empId || record.empNo || record.employeeId || record.id || "",
-    ).trim();
-    const digits = idStr.replace(/\D/g, "");
-    if (digits && digits.startsWith("8")) return true;
-    if (digits && JMD_EMP_IDS.has(digits)) return true;
-    const nameStr = String(
-      record.name || record.empName || record.employeeName || "",
-    )
+// ── Module-Level BMRCL vs JMD Helper (Used across Console, Calculation Engine & Dynamic Cards) ──
+const JMD_EMP_IDS = new Set(
+  (OFFICIAL_JMD_TD_REGISTRY || []).map((j) => String(j.empId).trim()),
+);
+const JMD_NAMES = new Set(
+  (OFFICIAL_JMD_TD_REGISTRY || []).map((j) =>
+    String(j.name || "")
       .trim()
-      .toUpperCase();
-    if (nameStr && JMD_NAMES.has(nameStr)) return true;
-    const roleStr = (
-      String(record.role || "") +
-      " " +
-      String(record.designation || "") +
-      " " +
-      String(record.dutyType || "") +
-      " " +
-      String(record.trainId || "")
-    ).toUpperCase();
-    if (roleStr.includes("JMD")) return true;
-    return false;
-  };
+      .toUpperCase(),
+  ),
+);
+
+export function isJmd(record) {
+  if (!record) return false;
+  if (record.isJmd === true || record.isJMD === true) return true;
+  const idStr = String(
+    record.empId || record.empNo || record.employeeId || record.id || "",
+  ).trim();
+  const digits = idStr.replace(/\D/g, "");
+  if (digits && digits.startsWith("8")) return true;
+  if (digits && typeof JMD_EMP_IDS !== "undefined" && JMD_EMP_IDS && JMD_EMP_IDS.has(digits)) return true;
+  const nameStr = String(
+    record.name || record.empName || record.employeeName || "",
+  )
+    .trim()
+    .toUpperCase();
+  if (nameStr && typeof JMD_NAMES !== "undefined" && JMD_NAMES && JMD_NAMES.has(nameStr)) return true;
+  const roleStr = (
+    String(record.role || "") +
+    " " +
+    String(record.designation || "") +
+    " " +
+    String(record.dutyType || "") +
+    " " +
+    String(record.trainId || "")
+  ).toUpperCase();
+  if (roleStr.includes("JMD")) return true;
+  return false;
+}
+
+if (typeof window !== "undefined") {
+  window.isJmd = isJmd;
+}
+
+// ── Real-Time BMRCL & JMD Crew Position & Individual Deployment Calculation Engine ──
+export const calculateDetailedCrewPositions = (
+  dayType,
+  deployments,
+  consoleData,
+) => {
 
   // 1. Present: active train driving duties with assigned operators
   const activeMainlineDuties = (deployments || []).filter(
@@ -200,13 +233,17 @@ export const calculateDetailedCrewPositions = (dayType, deployments, consoleData
 
   // 3. Leaves
   const leaves = consoleData?.leaves || [];
-  const clLeaves = leaves.filter((l) => (l.type || "CL").toUpperCase() === "CL");
+  const clLeaves = leaves.filter(
+    (l) => (l.type || "CL").toUpperCase() === "CL",
+  );
   const elLeaves = leaves.filter((l) => (l.type || "").toUpperCase() === "EL");
   const regularLeaves = [...clLeaves, ...elLeaves];
   const leaveBmrcl = regularLeaves.filter((l) => !isJmd(l));
   const leaveJmd = regularLeaves.filter((l) => isJmd(l));
 
-  const hplLeaves = leaves.filter((l) => (l.type || "").toUpperCase() === "HPL");
+  const hplLeaves = leaves.filter(
+    (l) => (l.type || "").toUpperCase() === "HPL",
+  );
   const hplBmrcl = hplLeaves.filter((l) => !isJmd(l));
   const hplJmd = hplLeaves.filter((l) => isJmd(l));
 
@@ -285,7 +322,9 @@ export const calculateDetailedCrewPositions = (dayType, deployments, consoleData
 
   // 14. CRRC /ins
   const crrcList =
-    consoleData?.customRegisters?.["CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)"] || [];
+    consoleData?.customRegisters?.[
+      "CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)"
+    ] || [];
   const crrcBmrcl = crrcList.filter((c) => !isJmd(c));
   const crrcJmd = crrcList.filter((c) => isJmd(c));
 
@@ -440,7 +479,9 @@ export const calculateDetailedCrewPositions = (dayType, deployments, consoleData
       empId: l.empNo || l.empId || "--",
       isJmd: jmd,
       cadre: jmd ? "(JMD Contract TD)" : "BMRCL Regular TO",
-      timings: l.fromDate ? `${l.fromDate} to ${l.toDate || l.fromDate}` : "Approved Leave",
+      timings: l.fromDate
+        ? `${l.fromDate} to ${l.toDate || l.fromDate}`
+        : "Approved Leave",
       location: "--",
       status: `ON LEAVE (${leaveType})`,
       details: l.reason || `${leaveType} Sanctioned`,
@@ -450,12 +491,37 @@ export const calculateDetailedCrewPositions = (dayType, deployments, consoleData
   // Training & PME & Special
   const trainingGroups = [
     { list: crtTraining, cat: "CRT Training", grp: "TRAINING", code: "CRT" },
-    { list: bmrtiTraining, cat: "BMRTI Training", grp: "TRAINING", code: "BMRTI" },
-    { list: pmeOperators, cat: "PME Medical Exam", grp: "TRAINING", code: "PME" },
-    { list: routeLearning, cat: "Route Learning (LRD)", grp: "TRAINING", code: "LRD" },
+    {
+      list: bmrtiTraining,
+      cat: "BMRTI Training",
+      grp: "TRAINING",
+      code: "BMRTI",
+    },
+    {
+      list: pmeOperators,
+      cat: "PME Medical Exam",
+      grp: "TRAINING",
+      code: "PME",
+    },
+    {
+      list: routeLearning,
+      cat: "Route Learning (LRD)",
+      grp: "TRAINING",
+      code: "LRD",
+    },
     { list: onDuty, cat: "On Duty (OD)", grp: "TRAINING", code: "OD" },
-    { list: coOperators, cat: "Co-Operators / R6", grp: "TRAINING", code: "R6" },
-    { list: relievedOperators, cat: "Relieved R5/CC", grp: "TRAINING", code: "REL" },
+    {
+      list: coOperators,
+      cat: "Co-Operators / R6",
+      grp: "TRAINING",
+      code: "R6",
+    },
+    {
+      list: relievedOperators,
+      cat: "Relieved R5/CC",
+      grp: "TRAINING",
+      code: "REL",
+    },
     { list: crrcList, cat: "CRRC 4RS Training", grp: "TRAINING", code: "CRRC" },
     { list: bookedOff, cat: "Booked Off (BO)", grp: "LEAVES", code: "BO" },
     { list: allAbsents, cat: "Absent (AB)", grp: "LEAVES", code: "AB" },
@@ -475,7 +541,8 @@ export const calculateDetailedCrewPositions = (dayType, deployments, consoleData
         isJmd: jmd,
         cadre: jmd ? "(JMD Contract TD)" : "BMRCL Regular TO",
         timings: item.shift || item.time || item.dueDate || "--",
-        location: item.station || item.location || item.hospital || "Depot / Center",
+        location:
+          item.station || item.location || item.hospital || "Depot / Center",
         status: code,
         details: item.reason || item.course || item.remark || cat,
       });
@@ -558,16 +625,20 @@ const generateDailyPositionReportText = (dayType, deployments, console) => {
     String(dayType || "").toUpperCase() === "MON" ||
     String(dayType || "").toUpperCase() === "MONDAY"
       ? "Monday Link"
-      : String(dayType || "").toUpperCase().includes("WEEKDAY") || !dayType
+      : String(dayType || "")
+            .toUpperCase()
+            .includes("WEEKDAY") || !dayType
         ? "Weekday Link"
         : `${normalizedDayType} Link`;
 
   const pad = (n) => String(n ?? 0).padStart(2, "0");
 
   // Determine counts with user's baseline figures if dynamic stats are 0
-  const presBmrcl = stats.presentBmrcl.length > 0 ? stats.presentBmrcl.length : 44;
+  const presBmrcl =
+    stats.presentBmrcl.length > 0 ? stats.presentBmrcl.length : 44;
   const presJmd = stats.presentJmd.length > 0 ? stats.presentJmd.length : 34;
-  const restBmrcl = stats.restCoBmrcl.length > 0 ? stats.restCoBmrcl.length : 13;
+  const restBmrcl =
+    stats.restCoBmrcl.length > 0 ? stats.restCoBmrcl.length : 13;
   const restJmd = stats.restCoJmd.length > 0 ? stats.restCoJmd.length : 5;
   const lveBmrcl = stats.leaveBmrcl.length > 0 ? stats.leaveBmrcl.length : 5;
   const lveJmd = stats.leaveJmd.length > 0 ? stats.leaveJmd.length : 3;
@@ -813,7 +884,9 @@ const deduplicateDeployments = (items) => {
   const seen = new Map();
   const hasValidOp = (d) => {
     if (!d) return false;
-    const name = String(d.empName || d.name || d.operatorName || "").trim().toUpperCase();
+    const name = String(d.empName || d.name || d.operatorName || "")
+      .trim()
+      .toUpperCase();
     const id = String(d.empId || d.empNo || d.employeeId || "").trim();
     return (
       name !== "" &&
@@ -832,33 +905,13 @@ const deduplicateDeployments = (items) => {
     let empId = String(d.empId || d.empNo || d.employeeId || "").trim();
     let empName = String(d.empName || d.name || d.operatorName || "").trim();
 
-    // Duty 01 rule: Assigned to Venkata Kiran Kumar M (#21968)
-    if (norm === "01" || norm === "1") {
-      if (!empId || empId === "--" || empId === "UNASSIGNED" || !empName || empName.toUpperCase().includes("VACANT") || d.status === "BOOKED_OFF_VACANT") {
-        empId = "21968";
-        empName = "Venkata Kiran Kumar M";
-        return {
-          ...d,
-          dutyId: norm,
-          empId: "21968",
-          empName: "Venkata Kiran Kumar M",
-          trainId: d.trainId && d.trainId !== "--" ? d.trainId : "Pro1",
-          dutyType: d.dutyType && d.dutyType !== "--" ? d.dutyType : "PR01",
-          signOnTime: d.signOnTime && d.signOnTime !== "--" ? d.signOnTime : "06:00",
-          signOnLocation: d.signOnLocation && d.signOnLocation !== "--" ? d.signOnLocation : "PYID",
-          signOffTime: d.signOffTime && d.signOffTime !== "--" ? d.signOffTime : "06:00",
-          signOffLocation: d.signOffLocation && d.signOffLocation !== "--" ? d.signOffLocation : "PYID",
-          status: "ACTIVE",
-          isSignedOn: true,
-          source: d.source || "EXCEL_DEPLOYMENT",
-        };
-      }
-    }
-
     if (empId === "21968" || empName.toUpperCase().includes("VENKATA KIRAN")) {
       empId = "21968";
       empName = "Venkata Kiran Kumar M";
-    } else if (empId === "22016" || empName.toUpperCase() === "SHARANABASAPPA") {
+    } else if (
+      empId === "22016" ||
+      empName.toUpperCase() === "SHARANABASAPPA"
+    ) {
       empId = "22016";
       empName = "Sharanabasappa";
     }
@@ -871,7 +924,7 @@ const deduplicateDeployments = (items) => {
     };
   };
 
-  for (const rawItem of (items || [])) {
+  for (const rawItem of items || []) {
     if (!rawItem) continue;
     const raw = String(rawItem.dutyId || "").trim();
     // Reject invalid duty IDs entirely (e.g. "6Z", "1A", empty)
@@ -892,48 +945,28 @@ const deduplicateDeployments = (items) => {
         seen.set(norm, existing);
       } else {
         const currentIsActive = item.status === "ACTIVE" || item.isSignedOn;
-        const existingIsActive = existing.status === "ACTIVE" || existing.isSignedOn;
+        const existingIsActive =
+          existing.status === "ACTIVE" || existing.isSignedOn;
         if (currentIsActive && !existingIsActive) {
           seen.set(norm, item);
         } else if (!currentIsActive && existingIsActive) {
           seen.set(norm, existing);
         } else {
-          const itemTime = item.lastUpdated?.toMillis?.() || (item.lastUpdated?.seconds ? item.lastUpdated.seconds * 1000 : 0) || 0;
-          const existTime = existing.lastUpdated?.toMillis?.() || (existing.lastUpdated?.seconds ? existing.lastUpdated.seconds * 1000 : 0) || 0;
+          const itemTime =
+            item.lastUpdated?.toMillis?.() ||
+            (item.lastUpdated?.seconds ? item.lastUpdated.seconds * 1000 : 0) ||
+            0;
+          const existTime =
+            existing.lastUpdated?.toMillis?.() ||
+            (existing.lastUpdated?.seconds
+              ? existing.lastUpdated.seconds * 1000
+              : 0) ||
+            0;
           if (itemTime > existTime) {
             seen.set(norm, item);
           }
         }
       }
-    }
-  }
-
-  // Ensure Duty 01 is guaranteed present with Venkata Kiran Kumar M
-  if (!seen.has("01")) {
-    seen.set("01", {
-      dutyId: "01",
-      empId: "21968",
-      empName: "Venkata Kiran Kumar M",
-      trainId: "Pro1",
-      dutyType: "PR01",
-      signOnTime: "06:00",
-      signOnLocation: "PYID",
-      signOffTime: "06:00",
-      signOffLocation: "PYID",
-      status: "ACTIVE",
-      isSignedOn: true,
-      source: "EXCEL_DEPLOYMENT",
-    });
-  } else {
-    const d01 = seen.get("01");
-    if (!hasValidOp(d01) || d01.status === "BOOKED_OFF_VACANT") {
-      seen.set("01", {
-        ...d01,
-        empId: "21968",
-        empName: "Venkata Kiran Kumar M",
-        status: "ACTIVE",
-        isSignedOn: true,
-      });
     }
   }
 
@@ -1091,29 +1124,26 @@ const alignRecordWithRegistry = (record) => {
 export const sanitizeConsoleItem = (item) => {
   if (!item || typeof item !== "object") return item;
   let id = String(item.empNo || item.empId || item.employeeId || "").trim();
-  let name = String(item.name || item.empName || item.employeeName || "").trim();
+  let name = String(
+    item.name || item.empName || item.employeeName || "",
+  ).trim();
 
-  // High-fidelity BMRCL operator resolutions
+  // BMRCL Rule: Use ONLY train operator's name as it is in the deploying sheet!
+  // Do NOT override with another person's name or hardcoded names.
   if (
-    id === "22016" ||
-    name.toUpperCase() === "SHARANABASAPPA" ||
-    (id === "22016" && (name.toUpperCase().includes("STANDBY") || !name || name === "--"))
-  ) {
-    name = "Sharanabasappa";
-    id = "22016";
-  } else if (id === "21968" || name.toUpperCase().includes("VENKATA KIRAN")) {
-    name = "Venkata Kiran Kumar M";
-    id = "21968";
-  } else if (
     id &&
     id !== "--" &&
     id !== "UNASSIGNED" &&
     (!name ||
       name === "--" ||
       name === "UNASSIGNED" ||
-      /^(STANDBY|STBY|SB|OR|OR1|OR2|OD|BO|NR|AB|WO|LEAVE|CL|EL|REL|PME|LRD|CRT|BMRTI)$/i.test(name))
+      /^(STANDBY|STBY|SB|OR|OR1|OR2|OD|BO|NR|AB|WO|LEAVE|CL|EL|REL|PME|LRD|CRT|BMRTI)$/i.test(
+        name,
+      ))
   ) {
-    const regMatch = BMRCL_CREW_REGISTRY.find((c) => String(c.id) === id);
+    const regMatch = (BMRCL_CREW_REGISTRY || []).find(
+      (c) => String(c.id || c.empId) === id,
+    );
     if (regMatch && regMatch.name) {
       name = regMatch.name;
     }
@@ -1160,18 +1190,43 @@ export const sanitizeConsoleContainer = (obj) => {
     }
   });
   if (Array.isArray(result.bookedOff)) {
-    // Filter out Duty 01 / 21968 from bookedOff
+    // Filter out Duty 01 from bookedOff if present
     result.bookedOff = sanitizeConsoleList(result.bookedOff).filter((b) => {
-      const id = String(b.empNo || b.empId || "").trim();
       const duty = String(b.dutyId || b.duty || "").trim();
-      const name = String(b.name || b.empName || "").toUpperCase();
-      return id !== "21968" && duty !== "01" && duty !== "1" && !name.includes("VENKATA KIRAN");
+      return duty !== "01" && duty !== "1";
     });
   }
   if (result.customRegisters && typeof result.customRegisters === "object") {
     const nextCust = {};
     Object.entries(result.customRegisters).forEach(([cat, l]) => {
-      nextCust[cat] = sanitizeConsoleList(l);
+      if (
+        !cat ||
+        isDateOrTimeValue(cat) ||
+        isJunkOrWatermarkText(cat) ||
+        isStandardAuxMarker(cat) ||
+        cat.trim().length < 2 ||
+        /^(Indv Duties|CC Duty|Compulsory GH|Print Wd|20\.9 TO 26\.9|Day|Line-1)$/i.test(cat.trim()) ||
+        /From sheet:/i.test(cat)
+      ) {
+        return;
+      }
+      const canonTitle = getCanonicalCategoryTitle(nextCust, cat);
+      if (!nextCust[canonTitle]) nextCust[canonTitle] = [];
+      const sanitizedList = sanitizeConsoleList(l).filter((op) => {
+        const opName = String(op.name || "").trim();
+        const opRemarks = String(op.remarks || "");
+        const opInfo = String(op.info || "");
+        if (opRemarks.includes("From sheet:") || opInfo.includes("From sheet:")) return false;
+        if (isJunkOrWatermarkText(opName)) return false;
+        if (/^(Sl No|SI\.No\.|Duty No\.|Stdby|PYID DN|PYID|PUTH Dn|PYID Up|KGWA Up|KGWA Dn|Present|Prepared By|Day|Line-1|01st|17th|L2 ALS\/CC ROSTER|General Shift)$/i.test(opName)) return false;
+        return true;
+      });
+      sanitizedList.forEach((op) => {
+        addOrUpdateCustomRegisterOperator(nextCust, canonTitle, op);
+      });
+      if (nextCust[canonTitle].length === 0) {
+        delete nextCust[canonTitle];
+      }
     });
     result.customRegisters = nextCust;
   }
@@ -1358,10 +1413,16 @@ export default function AutomatedDispatchGate({
     return list.filter((e) => {
       if (!e) return false;
       const id = String(e.empNo || e.empId || "").trim();
-      const name = String(e.name || e.empName || "").trim().toUpperCase();
+      const name = String(e.name || e.empName || "")
+        .trim()
+        .toUpperCase();
       const isDesignatedPlaceholder =
-        (id === "22297" && name.includes("RAFIQ") && (e.date === "BMRTI" || e.time === "09:00 - 17:30")) ||
-        (id === "22315" && name.includes("KRISHNA") && (e.date === "BMRTI" || e.time === "09:00 - 17:30"));
+        (id === "22297" &&
+          name.includes("RAFIQ") &&
+          (e.date === "BMRTI" || e.time === "09:00 - 17:30")) ||
+        (id === "22315" &&
+          name.includes("KRISHNA") &&
+          (e.date === "BMRTI" || e.time === "09:00 - 17:30"));
       return !isDesignatedPlaceholder;
     });
   };
@@ -1380,21 +1441,32 @@ export default function AutomatedDispatchGate({
               coOperators: sanitizeConsoleList(parsed.coOperators || []),
               leaves: sanitizeConsoleList(parsed.leaves || []),
               standbys: sanitizeConsoleList(parsed.standbys || []),
-              outstationStepbacks: sanitizeConsoleList(parsed.outstationStepbacks || []),
+              outstationStepbacks: sanitizeConsoleList(
+                parsed.outstationStepbacks || [],
+              ),
               crtTraining: sanitizeConsoleList(parsed.crtTraining || []),
               bmrtiTraining: sanitizeBmrtiList(parsed.bmrtiTraining || []),
               weeklyOffs: sanitizeConsoleList(parsed.weeklyOffs || []),
-              relievedOperators: sanitizeConsoleList(parsed.relievedOperators || []),
+              relievedOperators: sanitizeConsoleList(
+                parsed.relievedOperators || [],
+              ),
               pmeOperators: sanitizeConsoleList(parsed.pmeOperators || []),
               routeLearning: sanitizeConsoleList(parsed.routeLearning || []),
               notReporting: sanitizeConsoleList(parsed.notReporting || []),
               absents: sanitizeConsoleList(parsed.absents || []),
-              bookedOff: sanitizeConsoleList(parsed.bookedOff || []).filter((b) => {
-                const id = String(b.empNo || b.empId || "").trim();
-                const duty = String(b.dutyId || b.duty || "").trim();
-                const name = String(b.name || b.empName || "").toUpperCase();
-                return id !== "21968" && duty !== "01" && duty !== "1" && !name.includes("VENKATA KIRAN");
-              }),
+              bookedOff: sanitizeConsoleList(parsed.bookedOff || []).filter(
+                (b) => {
+                  const id = String(b.empNo || b.empId || "").trim();
+                  const duty = String(b.dutyId || b.duty || "").trim();
+                  const name = String(b.name || b.empName || "").toUpperCase();
+                  return (
+                    id !== "21968" &&
+                    duty !== "01" &&
+                    duty !== "1" &&
+                    !name.includes("VENKATA KIRAN")
+                  );
+                },
+              ),
               onDuty: sanitizeConsoleList(parsed.onDuty || []),
               customRegisters: parsed.customRegisters || {},
             };
@@ -1572,147 +1644,162 @@ export default function AutomatedDispatchGate({
   const [activeRosterDayOffset, setActiveRosterDayOffset] = useState(0);
   const [activeWorkbook, setActiveWorkbook] = useState(null);
   const [detectedWorkbookSheets, setDetectedWorkbookSheets] = useState([]);
-  const [showOfficialGccSheetModal, setShowOfficialGccSheetModal] = useState(false);
+  const [showOfficialGccSheetModal, setShowOfficialGccSheetModal] =
+    useState(false);
   const [isPublishedToOperators, setIsPublishedToOperators] = useState(true);
 
-  const activeSelectedDayObj = rollingDays[activeRosterDayOffset] || rollingDays[0];
+  const activeSelectedDayObj =
+    rollingDays[activeRosterDayOffset] || rollingDays[0];
   const activeSelectedDateStr = activeSelectedDayObj.dateStr;
 
+  const mergeConsoleData = useCallback((data) => {
+    if (!data) return;
+    if (data.isExplicitlyCleared) {
+      const emptyState = {
+        controlDesks: [],
+        coOperators: [],
+        leaves: [],
+        standbys: [],
+        outstationStepbacks: [],
+        crtTraining: [],
+        bmrtiTraining: [],
+        weeklyOffs: [],
+        relievedOperators: [],
+        pmeOperators: [],
+        routeLearning: [],
+        notReporting: [],
+        absents: [],
+        bookedOff: [],
+        onDuty: [],
+        customRegisters: {},
+      };
+      setConsoleData(emptyState);
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          window.localStorage.removeItem("pyidcc_roster_desk_console_cache");
+        }
+      } catch (e) {
+        console.warn("Could not clear console cache", e);
+      }
+      return;
+    }
+
+    setConsoleData((prev) => {
+      const isFullDeployment = Boolean(
+        data.sheetName ||
+        data.date ||
+        data.dayType ||
+        data.updatedAt ||
+        Array.isArray(data.coOperators),
+      );
+      const has = (arr) => Array.isArray(arr) && arr.length > 0;
+
+      const rawNext = {
+        controlDesks: Array.isArray(data.controlDesks)
+          ? data.controlDesks
+          : has(data.controlDesks)
+            ? data.controlDesks
+            : prev.controlDesks,
+        coOperators: Array.isArray(data.coOperators)
+          ? data.coOperators
+          : isFullDeployment
+            ? []
+            : prev.coOperators,
+        leaves: Array.isArray(data.leaves)
+          ? data.leaves
+          : has(data.leaves)
+            ? data.leaves
+            : prev.leaves,
+        standbys: Array.isArray(data.standbys)
+          ? data.standbys
+          : has(data.standbys)
+            ? data.standbys
+            : prev.standbys,
+        outstationStepbacks: Array.isArray(data.outstationStepbacks)
+          ? data.outstationStepbacks
+          : has(data.outstationStepbacks)
+            ? data.outstationStepbacks
+            : prev.outstationStepbacks,
+        crtTraining: Array.isArray(data.crtTraining)
+          ? data.crtTraining
+          : has(data.crtTraining)
+            ? data.crtTraining
+            : prev.crtTraining,
+        bmrtiTraining: sanitizeBmrtiList(
+          Array.isArray(data.bmrtiTraining)
+            ? data.bmrtiTraining
+            : has(data.bmrtiTraining)
+              ? data.bmrtiTraining
+              : prev.bmrtiTraining,
+        ),
+        weeklyOffs: Array.isArray(data.weeklyOffs)
+          ? data.weeklyOffs
+          : has(data.weeklyOffs)
+            ? data.weeklyOffs
+            : prev.weeklyOffs,
+        relievedOperators: Array.isArray(data.relievedOperators)
+          ? data.relievedOperators
+          : has(data.relievedOperators)
+            ? data.relievedOperators
+            : prev.relievedOperators,
+        pmeOperators: Array.isArray(data.pmeOperators)
+          ? data.pmeOperators
+          : has(data.pmeOperators)
+            ? data.pmeOperators
+            : prev.pmeOperators,
+        routeLearning: Array.isArray(data.routeLearning)
+          ? data.routeLearning
+          : has(data.routeLearning)
+            ? data.routeLearning
+            : prev.routeLearning,
+        notReporting: Array.isArray(data.notReporting)
+          ? data.notReporting
+          : has(data.notReporting)
+            ? data.notReporting
+            : prev.notReporting,
+        absents: Array.isArray(data.absents)
+          ? data.absents
+          : has(data.absents)
+            ? data.absents
+            : prev.absents,
+        bookedOff: Array.isArray(data.bookedOff)
+          ? data.bookedOff
+          : has(data.bookedOff)
+            ? data.bookedOff
+            : prev.bookedOff || [],
+        onDuty: Array.isArray(data.onDuty)
+          ? data.onDuty
+          : has(data.onDuty)
+            ? data.onDuty
+            : prev.onDuty,
+        customRegisters:
+          data.customRegisters && typeof data.customRegisters === "object"
+            ? data.customRegisters
+            : prev.customRegisters,
+      };
+
+      const sanitizedIncoming = sanitizeConsoleContainer(rawNext);
+      const next = enforceSingleDutyRule(sanitizedIncoming);
+
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          window.localStorage.setItem(
+            "pyidcc_roster_desk_console_cache",
+            JSON.stringify(next),
+          );
+        }
+      } catch (e) {
+        console.warn("Could not write console cache", e);
+      }
+
+      return next;
+    });
+  }, []);
+
+  // Primary listeners for metadata and current/today desk console
   useEffect(() => {
     const todayStr = new Date().toISOString().split("T")[0];
     const localTodayStr = new Date().toLocaleDateString("sv-SE");
-
-    const mergeConsoleData = (data) => {
-      if (!data) return;
-      if (data.isExplicitlyCleared) {
-        const emptyState = {
-          controlDesks: [],
-          coOperators: [],
-          leaves: [],
-          standbys: [],
-          outstationStepbacks: [],
-          crtTraining: [],
-          bmrtiTraining: [],
-          weeklyOffs: [],
-          relievedOperators: [],
-          pmeOperators: [],
-          routeLearning: [],
-          notReporting: [],
-          absents: [],
-          bookedOff: [],
-          onDuty: [],
-          customRegisters: {},
-        };
-        setConsoleData(emptyState);
-        try {
-          if (typeof window !== "undefined" && window.localStorage) {
-            window.localStorage.removeItem("pyidcc_roster_desk_console_cache");
-          }
-        } catch (e) {
-          console.warn("Could not clear console cache", e);
-        }
-        return;
-      }
-
-      setConsoleData((prev) => {
-        const isFullDeployment = Boolean(
-          data.sheetName ||
-          data.date ||
-          data.dayType ||
-          data.updatedAt ||
-          Array.isArray(data.coOperators)
-        );
-        const has = (arr) => Array.isArray(arr) && arr.length > 0;
-
-        const rawNext = {
-          controlDesks: Array.isArray(data.controlDesks)
-            ? data.controlDesks
-            : has(data.controlDesks)
-              ? data.controlDesks
-              : prev.controlDesks,
-          coOperators: Array.isArray(data.coOperators)
-            ? data.coOperators
-            : (isFullDeployment ? [] : prev.coOperators),
-          leaves: Array.isArray(data.leaves)
-            ? data.leaves
-            : has(data.leaves) ? data.leaves : prev.leaves,
-          standbys: Array.isArray(data.standbys)
-            ? data.standbys
-            : has(data.standbys) ? data.standbys : prev.standbys,
-          outstationStepbacks: Array.isArray(data.outstationStepbacks)
-            ? data.outstationStepbacks
-            : has(data.outstationStepbacks)
-              ? data.outstationStepbacks
-              : prev.outstationStepbacks,
-          crtTraining: Array.isArray(data.crtTraining)
-            ? data.crtTraining
-            : has(data.crtTraining)
-              ? data.crtTraining
-              : prev.crtTraining,
-          bmrtiTraining: sanitizeBmrtiList(
-            Array.isArray(data.bmrtiTraining)
-              ? data.bmrtiTraining
-              : has(data.bmrtiTraining)
-                ? data.bmrtiTraining
-                : prev.bmrtiTraining,
-          ),
-          weeklyOffs: Array.isArray(data.weeklyOffs)
-            ? data.weeklyOffs
-            : has(data.weeklyOffs) ? data.weeklyOffs : prev.weeklyOffs,
-          relievedOperators: Array.isArray(data.relievedOperators)
-            ? data.relievedOperators
-            : has(data.relievedOperators)
-              ? data.relievedOperators
-              : prev.relievedOperators,
-          pmeOperators: Array.isArray(data.pmeOperators)
-            ? data.pmeOperators
-            : has(data.pmeOperators)
-              ? data.pmeOperators
-              : prev.pmeOperators,
-          routeLearning: Array.isArray(data.routeLearning)
-            ? data.routeLearning
-            : has(data.routeLearning)
-              ? data.routeLearning
-              : prev.routeLearning,
-          notReporting: Array.isArray(data.notReporting)
-            ? data.notReporting
-            : has(data.notReporting)
-              ? data.notReporting
-              : prev.notReporting,
-          absents: Array.isArray(data.absents)
-            ? data.absents
-            : has(data.absents) ? data.absents : prev.absents,
-          bookedOff: Array.isArray(data.bookedOff)
-            ? data.bookedOff
-            : has(data.bookedOff)
-              ? data.bookedOff
-              : prev.bookedOff || [],
-          onDuty: Array.isArray(data.onDuty)
-            ? data.onDuty
-            : has(data.onDuty) ? data.onDuty : prev.onDuty,
-          customRegisters:
-            data.customRegisters && typeof data.customRegisters === "object"
-              ? data.customRegisters
-              : prev.customRegisters,
-        };
-
-        const sanitizedIncoming = sanitizeConsoleContainer(rawNext);
-        const next = enforceSingleDutyRule(sanitizedIncoming);
-
-        try {
-          if (typeof window !== "undefined" && window.localStorage) {
-            window.localStorage.setItem(
-              "pyidcc_roster_desk_console_cache",
-              JSON.stringify(next),
-            );
-          }
-        } catch (e) {
-          console.warn("Could not write console cache", e);
-        }
-
-        return next;
-      });
-    };
 
     const unsubMeta = onSnapshot(
       doc(db, "roster_desk_console", "latest_deployment_meta"),
@@ -1777,59 +1864,31 @@ export default function AutomatedDispatchGate({
       unsubDeskCurrent();
       unsubDeskLatest();
     };
-  }, []);
+  }, [mergeConsoleData]);
 
-  // ── AUTO-HEAL DUTY 01 (Venkata Kiran Kumar M #21968) in Firestore ──
+  // Real-time listener for whichever day is selected in Step 1 (Today, Tomorrow, Day After Tomorrow, etc.)
   useEffect(() => {
-    const healDuty01InFirestore = async () => {
-      try {
-        const duty01Docs = [
-          "gcc_deploy_weekday_duty_01",
-          "gcc_deploy_weekday_duty_1",
-          "gcc_deploy_active_run_duty_01",
-          "gcc_deploy_monday_duty_01",
-        ];
-        for (const docId of duty01Docs) {
-          try {
-            const snap = await getDoc(doc(db, "crew_daily_deployment", docId));
-            if (snap.exists()) {
-              const d = snap.data();
-              if (
-                d.status === "BOOKED_OFF_VACANT" ||
-                !d.empId ||
-                d.empId === "--" ||
-                String(d.empName || "").toUpperCase().includes("VACANT")
-              ) {
-                await setDoc(
-                  doc(db, "crew_daily_deployment", docId),
-                  {
-                    dutyId: "01",
-                    empId: "21968",
-                    empName: "Venkata Kiran Kumar M",
-                    trainId: "Pro1",
-                    dutyType: "PR01",
-                    signOnTime: "06:00",
-                    signOnLocation: "PYID",
-                    signOffTime: "06:00",
-                    signOffLocation: "PYID",
-                    status: "ACTIVE",
-                    isSignedOn: true,
-                    lastUpdated: serverTimestamp(),
-                  },
-                  { merge: true },
-                );
-              }
-            }
-          } catch (e) {
-            // non-fatal
+    if (!activeSelectedDateStr) return;
+    const unsubTargetDate = onSnapshot(
+      doc(db, "dispatch_excel_cache", activeSelectedDateStr),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          mergeConsoleData(data);
+          if (Array.isArray(data.duties) && data.duties.length > 0) {
+            setFallbackDeployments(deduplicateDeployments(data.duties));
+          }
+          if (data.isPublishedForOperators !== undefined) {
+            setIsPublishedToOperators(Boolean(data.isPublishedForOperators));
           }
         }
-      } catch (err) {
-        console.warn("Auto-heal Duty 01 warning:", err);
+      },
+      (err) => {
+        console.warn("Dispatch cache date listener error:", err);
       }
-    };
-    healDuty01InFirestore();
-  }, []);
+    );
+    return () => unsubTargetDate();
+  }, [activeSelectedDateStr, mergeConsoleData]);
 
   const handleDayTypeChange = (day) => {
     if (setActiveDay) {
@@ -1919,7 +1978,8 @@ export default function AutomatedDispatchGate({
   // ── Book Off & Immediate Driver Reassignment States ──
   const [showBookOffModal, setShowBookOffModal] = useState(false);
   const [bookOffTargetDuty, setBookOffTargetDuty] = useState(null);
-  const [bookOffFaultCategory, setBookOffFaultCategory] = useState("TRAIN_FAULT");
+  const [bookOffFaultCategory, setBookOffFaultCategory] =
+    useState("TRAIN_FAULT");
   const [bookOffReason, setBookOffReason] = useState("");
   const [bookOffAssignRelief, setBookOffAssignRelief] = useState(true);
   const [bookOffReliefSource, setBookOffReliefSource] = useState("STANDBY"); // "STANDBY" | "CREW_POOL" | "SWAP"
@@ -1938,7 +1998,8 @@ export default function AutomatedDispatchGate({
   // ── Universal Crew Transfer Across Pages / Registers Modal States ──
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferTargetOperator, setTransferTargetOperator] = useState(null);
-  const [transferDestinationCategory, setTransferDestinationCategory] = useState("MAINLINE");
+  const [transferDestinationCategory, setTransferDestinationCategory] =
+    useState("MAINLINE");
   const [transferTargetDutyId, setTransferTargetDutyId] = useState("");
   const [transferReason, setTransferReason] = useState("");
   const [transferSearchQuery, setTransferSearchQuery] = useState("");
@@ -1964,15 +2025,21 @@ export default function AutomatedDispatchGate({
   }, [activeOperatorIdSet]);
 
   // Excel Path Reader & Control Engine States
-  const [excelPathInput, setExcelPathInput] = useState("");
+  const [excelPathInput, setExcelPathInput] = useState(() =>
+    getSavedGoogleSheetUrl(),
+  );
   const [selectedRosterFile, setSelectedRosterFile] = useState(null);
   const [isInspectingPath, setIsInspectingPath] = useState(false);
+  // Google Sheets Live Sync States
+  const [connectedGoogleSheetUrl, setConnectedGoogleSheetUrl] = useState(() =>
+    getSavedGoogleSheetUrl(),
+  );
+  const [isSyncingGoogleSheet, setIsSyncingGoogleSheet] = useState(false);
   // GCC local Excel bridge connection state
   const [gccBridgeStatus, setGccBridgeStatus] = useState("CHECKING");
   const [gccBridgeFileName, setGccBridgeFileName] = useState("");
   const [gccBridgeLastModified, setGccBridgeLastModified] = useState("");
   const gccBridgeSignatureRef = useRef("");
-
 
   // Staging & Confirmation Engine States
   const [stagedRoster, setStagedRoster] = useState(null);
@@ -1993,7 +2060,8 @@ export default function AutomatedDispatchGate({
   const [isManuallyEdited, setIsManuallyEdited] = useState(false);
   const [reportViewTab, setReportViewTab] = useState("TEXT"); // 'TEXT' | 'INDIVIDUAL'
   const [individualSearchQuery, setIndividualSearchQuery] = useState("");
-  const [individualFilterCategory, setIndividualFilterCategory] = useState("ALL");
+  const [individualFilterCategory, setIndividualFilterCategory] =
+    useState("ALL");
 
   const positionStats = useMemo(() => {
     return calculateDetailedCrewPositions(
@@ -2025,18 +2093,38 @@ export default function AutomatedDispatchGate({
       const q = individualSearchQuery.trim().toLowerCase();
       list = list.filter(
         (p) =>
-          String(p.name || "").toLowerCase().includes(q) ||
-          String(p.empId || "").toLowerCase().includes(q) ||
-          String(p.dutyId || "").toLowerCase().includes(q) ||
-          String(p.trainId || "").toLowerCase().includes(q) ||
-          String(p.category || "").toLowerCase().includes(q) ||
-          String(p.location || "").toLowerCase().includes(q) ||
-          String(p.status || "").toLowerCase().includes(q) ||
-          String(p.details || "").toLowerCase().includes(q),
+          String(p.name || "")
+            .toLowerCase()
+            .includes(q) ||
+          String(p.empId || "")
+            .toLowerCase()
+            .includes(q) ||
+          String(p.dutyId || "")
+            .toLowerCase()
+            .includes(q) ||
+          String(p.trainId || "")
+            .toLowerCase()
+            .includes(q) ||
+          String(p.category || "")
+            .toLowerCase()
+            .includes(q) ||
+          String(p.location || "")
+            .toLowerCase()
+            .includes(q) ||
+          String(p.status || "")
+            .toLowerCase()
+            .includes(q) ||
+          String(p.details || "")
+            .toLowerCase()
+            .includes(q),
       );
     }
     return list;
-  }, [positionStats.allIndividualPositions, individualFilterCategory, individualSearchQuery]);
+  }, [
+    positionStats.allIndividualPositions,
+    individualFilterCategory,
+    individualSearchQuery,
+  ]);
 
   // Real-time automatic recalculation and synchronization effect
   useEffect(() => {
@@ -2155,6 +2243,47 @@ export default function AutomatedDispatchGate({
     if (!stagedRoster) return;
     setIsSavingToFirebase(true);
     try {
+      // Merge customRegisters cleanly with existing consoleData.customRegisters
+      const mergedCustomRegisters = { ...(consoleData.customRegisters || {}) };
+      if (
+        stagedRoster.customRegisters &&
+        typeof stagedRoster.customRegisters === "object"
+      ) {
+        Object.entries(stagedRoster.customRegisters).forEach(
+          ([stagedTitle, stagedList]) => {
+            if (
+              !stagedTitle ||
+              isDateOrTimeValue(stagedTitle) ||
+              isJunkOrWatermarkText(stagedTitle) ||
+              isStandardAuxMarker(stagedTitle)
+            ) {
+              return;
+            }
+            (stagedList || []).forEach((newOp) => {
+              addOrUpdateCustomRegisterOperator(
+                mergedCustomRegisters,
+                stagedTitle,
+                newOp,
+              );
+            });
+          },
+        );
+      }
+      // Purge any legacy junk or empty keys
+      Object.keys(mergedCustomRegisters).forEach((k) => {
+        if (
+          !k ||
+          isDateOrTimeValue(k) ||
+          isJunkOrWatermarkText(k) ||
+          isStandardAuxMarker(k) ||
+          /^(Indv Duties|CC Duty|Compulsory GH|Print Wd|20\.9 TO 26\.9|Day|Line-1)$/i.test(k.trim()) ||
+          /From sheet:/i.test(k) ||
+          (mergedCustomRegisters[k] || []).length === 0
+        ) {
+          delete mergedCustomRegisters[k];
+        }
+      });
+
       const consoleObj = {
         duties: stagedRoster.duties || [],
         controlDesks: stagedRoster.controlDesks || [],
@@ -2172,14 +2301,14 @@ export default function AutomatedDispatchGate({
         absents: stagedRoster.absents || [],
         bookedOff: stagedRoster.bookedOff || [],
         onDuty: stagedRoster.onDuty || [],
-        customRegisters: stagedRoster.customRegisters || {},
+        customRegisters: mergedCustomRegisters,
       };
 
       const dateStr =
         stagedRoster.dateStr || new Date().toISOString().split("T")[0];
       const consoleSnapshot = {
         date: dateStr,
-        dayType: currentDayType,
+        dayType: stagedRoster.dayType || stagedRoster.scheduleType || currentDayType,
         sheetName:
           stagedRoster.sheetName || stagedRoster.fileName || "Roster Sheet",
         ...consoleObj,
@@ -2208,6 +2337,16 @@ export default function AutomatedDispatchGate({
         "Confirmed from Automated Dispatch Gate Staging Buffer",
       );
 
+      setConsoleData(consoleObj);
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          window.localStorage.setItem(
+            "pyidcc_roster_desk_console_cache",
+            JSON.stringify(consoleSnapshot),
+          );
+        }
+      } catch (e) {}
+
       setIsRosterConfirmed(true);
       alert(
         `✅ Official Day Roster for ${dateStr} successfully confirmed and saved to Firebase & Monthly Archives!`,
@@ -2220,7 +2359,6 @@ export default function AutomatedDispatchGate({
     }
   };
 
-
   // Automatically pull the GCC workbook from the local Windows bridge and
   // feed it into the EXISTING roster file processing pipeline.
   // This does not parse/classify the workbook itself.
@@ -2228,7 +2366,9 @@ export default function AutomatedDispatchGate({
     const bridgeBase = "http://127.0.0.1:17845";
 
     try {
-      const statusResponse = await fetch(`${bridgeBase}/status`, { cache: "no-store" });
+      const statusResponse = await fetch(`${bridgeBase}/status`, {
+        cache: "no-store",
+      });
 
       if (!statusResponse.ok) {
         throw new Error(`Bridge status HTTP ${statusResponse.status}`);
@@ -2254,7 +2394,9 @@ export default function AutomatedDispatchGate({
 
       if (gccBridgeSignatureRef.current === signature) return;
 
-      const fileResponse = await fetch(`${bridgeBase}/file`, { cache: "no-store" });
+      const fileResponse = await fetch(`${bridgeBase}/file`, {
+        cache: "no-store",
+      });
 
       if (!fileResponse.ok) {
         throw new Error(`Bridge file HTTP ${fileResponse.status}`);
@@ -2271,8 +2413,7 @@ export default function AutomatedDispatchGate({
 
       const file = new File([blob], fileName, {
         type:
-          blob.type ||
-          "application/vnd.ms-excel.sheet.binary.macroEnabled.12",
+          blob.type || "application/vnd.ms-excel.sheet.binary.macroEnabled.12",
         lastModified: lastModifiedHeader
           ? new Date(lastModifiedHeader).getTime()
           : Date.now(),
@@ -2312,7 +2453,11 @@ export default function AutomatedDispatchGate({
     setIsRosterConfirmed(false);
   };
 
-  const processFileAndDeploy = async (fileToProcess, targetSheetName = null, targetDate = null) => {
+  const processFileAndDeploy = async (
+    fileToProcess,
+    targetSheetName = null,
+    targetDate = null,
+  ) => {
     let file = fileToProcess || selectedRosterFile;
     if (!file) {
       document.getElementById("automateddispatchgat-i10")?.click();
@@ -2594,18 +2739,26 @@ Rules:
         const workbook = XLSX.read(arrayBuffer, { type: "array" });
         setActiveWorkbook(workbook);
         try {
-          const detected = rosterAutoClassifierService.detectWorkbookSheets(workbook);
+          const detected =
+            rosterAutoClassifierService.detectWorkbookSheets(workbook);
           setDetectedWorkbookSheets(detected);
         } catch (e) {
           console.warn("Sheet detection error:", e);
         }
 
+        const effectiveTargetDate =
+          targetDate || activeSelectedDayObj.date || new Date();
+        const effectiveScheduleType =
+          (activeSelectedDayObj && activeSelectedDayObj.scheduleType) ||
+          getScheduleTypeFromDate(effectiveTargetDate) ||
+          currentDayType;
+
         try {
           classifiedData = rosterAutoClassifierService.parseWorkbook(
             workbook,
-            targetDate || activeSelectedDayObj.date || new Date(),
-            currentDayType,
-            targetSheetName
+            effectiveTargetDate,
+            effectiveScheduleType,
+            targetSheetName,
           );
         } catch (err) {
           console.warn(
@@ -2647,7 +2800,9 @@ Rules:
               deduplicateDeployments(classifiedData.duties),
             );
           }
-          await rosterAutoClassifierService.autoDeployClassifiedData(classifiedData);
+          await rosterAutoClassifierService.autoDeployClassifiedData(
+            classifiedData,
+          );
           setStagedRoster({
             ...classifiedData,
             fileName: file?.name || "Roster Sheet",
@@ -2656,7 +2811,13 @@ Rules:
           deployedDutiesCount = classifiedData.duties?.length || 0;
         } else {
           const parsedDutiesMap = new Map();
-          for (const sheetName of workbook.SheetNames) {
+          const candidateSheets = targetSheetName && workbook.Sheets[targetSheetName]
+            ? [targetSheetName]
+            : workbook.SheetNames.filter((s) => /^\d{1,2}[./-]\d{1,2}$/.test(s.trim()));
+          const sheetsToScan = candidateSheets.length > 0 ? candidateSheets : workbook.SheetNames.filter(
+            (s) => !/^(CRRC|INDV|CC DUTY|TOTAL|COMPULSORY|PRINT|ALS|440)/i.test(s)
+          );
+          for (const sheetName of sheetsToScan) {
             const sheet = workbook.Sheets[sheetName];
             if (!sheet) continue;
             const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
@@ -2734,12 +2895,16 @@ Rules:
           const parsedDuties = Array.from(parsedDutiesMap.values());
           if (parsedDuties.length > 0) {
             const batch = writeBatch(db);
+            const deployScheduleType =
+              classifiedData?.dayType ||
+              effectiveScheduleType ||
+              currentDayType;
             parsedDuties.forEach((d) => {
-              const docId = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${d.dutyId}`;
+              const docId = `gcc_deploy_${deployScheduleType.toLowerCase()}_duty_${d.dutyId}`;
               batch.set(
                 doc(db, "crew_daily_deployment", docId),
                 {
-                  scheduleType: currentDayType,
+                  scheduleType: deployScheduleType,
                   dutyId: d.dutyId,
                   empId: d.empId || "--",
                   empName: d.empName || "--",
@@ -2851,25 +3016,95 @@ Rules:
       )
     ) {
       try {
+        const targetSched = normalizeScheduleType(currentDayType).toUpperCase();
+        const rawTargetDay = String(currentDayType || "")
+          .trim()
+          .toUpperCase();
+        const todayStr = new Date().toISOString().split("T")[0];
+        const localTodayStr = new Date().toLocaleDateString("sv-SE");
+        const selectedDateStr = activeSelectedDateStr || todayStr;
+
+        // Helper to safely commit deletions in chunks of 400
+        const deleteDocRefsInBatches = async (refs) => {
+          let b = writeBatch(db);
+          let count = 0;
+          for (let i = 0; i < refs.length; i++) {
+            b.delete(refs[i]);
+            count++;
+            if (count >= 400) {
+              await b.commit();
+              b = writeBatch(db);
+              count = 0;
+            }
+          }
+          if (count > 0) {
+            await b.commit();
+          }
+        };
+
+        // 1. Collect all crew_daily_deployment docs to delete
         const snap = await getDocs(collection(db, "crew_daily_deployment"));
-        const batch = writeBatch(db);
-        let deletedCount = 0;
+        const deployRefsToDelete = [];
 
         snap.docs.forEach((docSnap) => {
           const data = docSnap.data();
-          const sched = String(data.scheduleType || "").toUpperCase();
-          const targetSched = String(currentDayType || "").toUpperCase();
-          if (
-            !sched ||
+          const sched = String(data.scheduleType || "")
+            .trim()
+            .toUpperCase();
+          const docIdLower = docSnap.id.toLowerCase();
+          const targetSchedLower = targetSched.toLowerCase();
+          const rawTargetLower = rawTargetDay.toLowerCase();
+
+          const matchesSchedule =
+            normalizeScheduleType(data.scheduleType) === targetSched ||
             sched === targetSched ||
+            sched === rawTargetDay ||
             sched === "ACTIVE_RUN" ||
-            targetSched === "ALL"
-          ) {
-            batch.delete(docSnap.ref);
-            deletedCount++;
+            docIdLower.includes(targetSchedLower) ||
+            docIdLower.includes(rawTargetLower) ||
+            (targetSched === "WEEKDAY" &&
+              (sched === "GENERAL" ||
+                docIdLower.includes("weekday") ||
+                docIdLower.includes("active_run"))) ||
+            data.targetDate === selectedDateStr ||
+            data.date === selectedDateStr ||
+            targetSched === "ALL";
+
+          if (matchesSchedule) {
+            deployRefsToDelete.push(docSnap.ref);
           }
         });
 
+        await deleteDocRefsInBatches(deployRefsToDelete);
+
+        // 2. Also clear crew_live_attendance records for this day/schedule
+        try {
+          const attSnap = await getDocs(collection(db, "crew_live_attendance"));
+          const attRefsToDelete = [];
+          attSnap.docs.forEach((docSnap) => {
+            const data = docSnap.data();
+            const sched = String(data.scheduleType || "")
+              .trim()
+              .toUpperCase();
+            const docIdLower = docSnap.id.toLowerCase();
+            const matchesSchedule =
+              normalizeScheduleType(data.scheduleType) === targetSched ||
+              sched === targetSched ||
+              sched === rawTargetDay ||
+              docIdLower.includes(targetSched.toLowerCase()) ||
+              docIdLower.includes(rawTargetDay.toLowerCase()) ||
+              data.date === selectedDateStr ||
+              targetSched === "ALL";
+            if (matchesSchedule) {
+              attRefsToDelete.push(docSnap.ref);
+            }
+          });
+          await deleteDocRefsInBatches(attRefsToDelete);
+        } catch (attErr) {
+          console.warn("Could not clear crew_live_attendance:", attErr);
+        }
+
+        // 3. Clear console cache and meta docs in Firestore
         const emptyConsoleDoc = {
           controlDesks: [],
           leaves: [],
@@ -2888,21 +3123,39 @@ Rules:
           updatedAt: serverTimestamp(),
         };
 
-        const todayStr = new Date().toISOString().split("T")[0];
-        const localTodayStr = new Date().toLocaleDateString("sv-SE");
-
-        batch.set(doc(db, "roster_desk_console", "current"), emptyConsoleDoc);
-        batch.set(doc(db, "roster_desk_console", "latest"), emptyConsoleDoc);
-        batch.delete(doc(db, "roster_desk_console", "latest_deployment_meta"));
-        batch.set(doc(db, "dispatch_excel_cache", todayStr), emptyConsoleDoc);
-        batch.set(
+        const metaBatch = writeBatch(db);
+        metaBatch.set(
+          doc(db, "roster_desk_console", "current"),
+          emptyConsoleDoc,
+        );
+        metaBatch.set(
+          doc(db, "roster_desk_console", "latest"),
+          emptyConsoleDoc,
+        );
+        metaBatch.delete(
+          doc(db, "roster_desk_console", "latest_deployment_meta"),
+        );
+        metaBatch.set(
+          doc(db, "dispatch_excel_cache", todayStr),
+          emptyConsoleDoc,
+        );
+        metaBatch.set(
           doc(db, "dispatch_excel_cache", localTodayStr),
           emptyConsoleDoc,
         );
-        batch.set(doc(db, "dispatch_excel_cache", "current"), emptyConsoleDoc);
+        if (selectedDateStr) {
+          metaBatch.set(
+            doc(db, "dispatch_excel_cache", selectedDateStr),
+            emptyConsoleDoc,
+          );
+        }
+        metaBatch.set(
+          doc(db, "dispatch_excel_cache", "current"),
+          emptyConsoleDoc,
+        );
+        await metaBatch.commit();
 
-        await batch.commit();
-
+        // 4. Clear local storage
         try {
           if (typeof window !== "undefined" && window.localStorage) {
             window.localStorage.removeItem("pyidcc_roster_desk_console_cache");
@@ -2912,7 +3165,9 @@ Rules:
           console.warn("Could not clear cache on reset", e);
         }
 
+        // 5. Reset component state immediately
         setDeployedRosterInfo(null);
+        setFallbackDeployments([]);
         setConsoleData({
           controlDesks: [],
           coOperators: [],
@@ -2933,7 +3188,7 @@ Rules:
         });
 
         alert(
-          `Daily Roster Cleared Successfully. Cleared ${deletedCount} deployment record(s).`,
+          `Daily Roster Cleared Successfully. Cleared ${deployRefsToDelete.length} deployment record(s).`,
         );
         if (onImportComplete) onImportComplete();
       } catch (err) {
@@ -2982,9 +3237,13 @@ Rules:
       await setDoc(doc(db, "dispatch_excel_cache", dateStr), consoleSnapshot, {
         merge: true,
       });
-      await setDoc(doc(db, "dispatch_excel_cache", "current"), consoleSnapshot, {
-        merge: true,
-      });
+      await setDoc(
+        doc(db, "dispatch_excel_cache", "current"),
+        consoleSnapshot,
+        {
+          merge: true,
+        },
+      );
 
       // Deploy active train driving duties from deduplicatedDeployments to crew_daily_deployment
       if (deduplicatedDeployments && deduplicatedDeployments.length > 0) {
@@ -3062,7 +3321,11 @@ Rules:
       for (const item of cleanConsole.notReporting || []) {
         if (!item.empNo) continue;
         await setDoc(
-          doc(db, "absent_bookoff_register", `not_reporting_${item.empNo}_${dateStr}`),
+          doc(
+            db,
+            "absent_bookoff_register",
+            `not_reporting_${item.empNo}_${dateStr}`,
+          ),
           {
             employeeId: item.empNo,
             employeeName: item.name,
@@ -3075,12 +3338,33 @@ Rules:
       }
 
       // Deploy dynamic category pages to roster_category_pages
-      if (cleanConsole.customRegisters && typeof cleanConsole.customRegisters === "object") {
-        for (const [catTitle, items] of Object.entries(cleanConsole.customRegisters)) {
-          const safeSlug = catTitle.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+      if (
+        cleanConsole.customRegisters &&
+        typeof cleanConsole.customRegisters === "object"
+      ) {
+        for (const [catTitle, items] of Object.entries(
+          cleanConsole.customRegisters,
+        )) {
+          const safeSlug = catTitle
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "_")
+            .replace(/^_+|_+$/g, "");
           if (safeSlug) {
             await setDoc(
               doc(db, "roster_category_pages", `${safeSlug}_${dateStr}`),
+              {
+                categoryTitle: catTitle,
+                categorySlug: safeSlug,
+                date: dateStr,
+                dayType: currentDayType,
+                staffCount: (items || []).length,
+                staff: items || [],
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true },
+            );
+            await setDoc(
+              doc(db, "custom_registers", safeSlug),
               {
                 categoryTitle: catTitle,
                 categorySlug: safeSlug,
@@ -3139,7 +3423,8 @@ Rules:
           const empId = String(item.empNo || item.empId || "").trim();
           const empName = String(item.name || "").trim();
           if (!empName && !empId) return null;
-          const dutyCode = item.duty || item.code || item.dutyId || item.type || defaultPrefix;
+          const dutyCode =
+            item.duty || item.code || item.dutyId || item.type || defaultPrefix;
           return {
             id: `console_${catKey}_${idx}_${empId || idx}`,
             type: "CONSOLE",
@@ -3164,24 +3449,77 @@ Rules:
       }
     };
 
-    addConsoleGroup("Co-Operators & 2nd Crew", consoleData.coOperators, "coOperators", "Co-Op");
-    addConsoleGroup("Crew Controllers", consoleData.controlDesks, "controlDesks", "CC");
+    addConsoleGroup(
+      "Co-Operators & 2nd Crew",
+      consoleData.coOperators,
+      "coOperators",
+      "Co-Op",
+    );
+    addConsoleGroup(
+      "Crew Controllers",
+      consoleData.controlDesks,
+      "controlDesks",
+      "CC",
+    );
     addConsoleGroup("Leave & Rest", consoleData.leaves, "leaves", "Leave");
     addConsoleGroup("Standby", consoleData.standbys, "standbys", "Standby");
-    addConsoleGroup("STBK (Outstation Stepbacks)", consoleData.outstationStepbacks, "outstationStepbacks", "STBK");
-    addConsoleGroup("CRT Training", consoleData.crtTraining, "crtTraining", "CRT");
-    addConsoleGroup("BMRTI Training", consoleData.bmrtiTraining, "bmrtiTraining", "BMRTI");
+    addConsoleGroup(
+      "STBK (Outstation Stepbacks)",
+      consoleData.outstationStepbacks,
+      "outstationStepbacks",
+      "STBK",
+    );
+    addConsoleGroup(
+      "CRT Training",
+      consoleData.crtTraining,
+      "crtTraining",
+      "CRT",
+    );
+    addConsoleGroup(
+      "BMRTI Training",
+      consoleData.bmrtiTraining,
+      "bmrtiTraining",
+      "BMRTI",
+    );
     addConsoleGroup("Weekly Off", consoleData.weeklyOffs, "weeklyOffs", "WO");
-    addConsoleGroup("REL (Relieved)", consoleData.relievedOperators, "relievedOperators", "REL");
-    addConsoleGroup("PME (Medical Exam)", consoleData.pmeOperators, "pmeOperators", "PME");
-    addConsoleGroup("LRD (Route Learning)", consoleData.routeLearning, "routeLearning", "LRD");
+    addConsoleGroup(
+      "REL (Relieved)",
+      consoleData.relievedOperators,
+      "relievedOperators",
+      "REL",
+    );
+    addConsoleGroup(
+      "PME (Medical Exam)",
+      consoleData.pmeOperators,
+      "pmeOperators",
+      "PME",
+    );
+    addConsoleGroup(
+      "LRD (Route Learning)",
+      consoleData.routeLearning,
+      "routeLearning",
+      "LRD",
+    );
     addConsoleGroup("OD (On Duty)", consoleData.onDuty, "onDuty", "OD");
-    addConsoleGroup("NR (Not Reporting)", consoleData.notReporting, "notReporting", "NR");
+    addConsoleGroup(
+      "NR (Not Reporting)",
+      consoleData.notReporting,
+      "notReporting",
+      "NR",
+    );
     addConsoleGroup("AB (Absent)", consoleData.absents, "absents", "AB");
-    addConsoleGroup("Booked Off (BO)", consoleData.bookedOff, "bookedOff", "BO");
+    addConsoleGroup(
+      "Booked Off (BO)",
+      consoleData.bookedOff,
+      "bookedOff",
+      "BO",
+    );
 
     // Custom Registers including CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)
-    if (consoleData.customRegisters && typeof consoleData.customRegisters === "object") {
+    if (
+      consoleData.customRegisters &&
+      typeof consoleData.customRegisters === "object"
+    ) {
       Object.entries(consoleData.customRegisters).forEach(([tagName, list]) => {
         addConsoleGroup(tagName, list, `custom_${tagName}`, tagName);
       });
@@ -3200,11 +3538,13 @@ Rules:
     const direct = allSwappableEntities.find((e) => e.id === val);
     if (direct) return direct;
     const byDuty = allSwappableEntities.find(
-      (e) => String(e.dutyId).trim().toLowerCase() === String(val).trim().toLowerCase()
+      (e) =>
+        String(e.dutyId).trim().toLowerCase() ===
+        String(val).trim().toLowerCase(),
     );
     if (byDuty) return byDuty;
     const byEmp = allSwappableEntities.find(
-      (e) => String(e.empId).trim() === String(val).trim()
+      (e) => String(e.empId).trim() === String(val).trim(),
     );
     if (byEmp) return byEmp;
     return null;
@@ -3235,7 +3575,9 @@ Rules:
 
     if (isTriple) {
       if (!swapDuty1 || !swapDuty2 || !swapDuty3) {
-        alert("Please select all three Duty IDs / Operators for Triple Swap/Exchange.");
+        alert(
+          "Please select all three Duty IDs / Operators for Triple Swap/Exchange.",
+        );
         return;
       }
       if (
@@ -3262,7 +3604,9 @@ Rules:
     const item3 = isTriple ? findSwappableEntity(swapDuty3) : null;
 
     if (!item1 || !item2 || (isTriple && !item3)) {
-      alert("One or more selected Duty IDs / Operators were not found in current deployment roster or console.");
+      alert(
+        "One or more selected Duty IDs / Operators were not found in current deployment roster or console.",
+      );
       return;
     }
 
@@ -3298,11 +3642,17 @@ Rules:
 
         // 1. Target original Firestore docId if present
         if (itemTarget.docId) {
-          batch.set(doc(db, "crew_daily_deployment", itemTarget.docId), payload, { merge: true });
+          batch.set(
+            doc(db, "crew_daily_deployment", itemTarget.docId),
+            payload,
+            { merge: true },
+          );
         }
 
         // 2. Also write standard IDs so both padded and unpadded and schedule-specific keys match
-        const normId = String(parseInt(itemTarget.dutyId, 10) || itemTarget.dutyId).trim();
+        const normId = String(
+          parseInt(itemTarget.dutyId, 10) || itemTarget.dutyId,
+        ).trim();
         const paddedId = normId.padStart(2, "0");
         const sched = normalizeScheduleType(currentDayType).toLowerCase();
 
@@ -3314,7 +3664,9 @@ Rules:
         ]);
 
         possibleDocIds.forEach((dId) => {
-          batch.set(doc(db, "crew_daily_deployment", dId), payload, { merge: true });
+          batch.set(doc(db, "crew_daily_deployment", dId), payload, {
+            merge: true,
+          });
         });
       };
 
@@ -3337,7 +3689,10 @@ Rules:
           item1.type === "CONSOLE" ||
           item2.type === "CONSOLE" ||
           item3.type === "CONSOLE" ||
-          (item1.type === "MAINLINE" && item2.type === "MAINLINE" && item3.type === "MAINLINE" && Array.isArray(newConsoleData.duties))
+          (item1.type === "MAINLINE" &&
+            item2.type === "MAINLINE" &&
+            item3.type === "MAINLINE" &&
+            Array.isArray(newConsoleData.duties))
         ) {
           newConsoleData = rotateTripleOperatorsInConsoleData(
             newConsoleData,
@@ -3346,7 +3701,7 @@ Rules:
             item2.empId,
             item2.empName,
             item3.empId,
-            item3.empName
+            item3.empName,
           );
           updatedConsole = true;
         }
@@ -3375,18 +3730,43 @@ Rules:
             createdAt: serverTimestamp(),
           };
           batch.set(exRef, exPayload);
-          batch.set(doc(db, "shift_exchanges_operational", `${exRef.id}_${item1.dutyId}`), { ...exPayload, dutyNumber: item1.dutyId });
-          batch.set(doc(db, "shift_exchanges_operational", `${exRef.id}_${item2.dutyId}`), { ...exPayload, dutyNumber: item2.dutyId });
-          batch.set(doc(db, "shift_exchanges_operational", `${exRef.id}_${item3.dutyId}`), { ...exPayload, dutyNumber: item3.dutyId });
+          batch.set(
+            doc(
+              db,
+              "shift_exchanges_operational",
+              `${exRef.id}_${item1.dutyId}`,
+            ),
+            { ...exPayload, dutyNumber: item1.dutyId },
+          );
+          batch.set(
+            doc(
+              db,
+              "shift_exchanges_operational",
+              `${exRef.id}_${item2.dutyId}`,
+            ),
+            { ...exPayload, dutyNumber: item2.dutyId },
+          );
+          batch.set(
+            doc(
+              db,
+              "shift_exchanges_operational",
+              `${exRef.id}_${item3.dutyId}`,
+            ),
+            { ...exPayload, dutyNumber: item3.dutyId },
+          );
         }
 
         try {
           const auditRef = doc(collection(db, "auditLogs"));
           batch.set(auditRef, {
-            action: isExchange ? "ROSTER_DESK_TRIPLE_EXCHANGE" : "ROSTER_DESK_TRIPLE_SWAP",
+            action: isExchange
+              ? "ROSTER_DESK_TRIPLE_EXCHANGE"
+              : "ROSTER_DESK_TRIPLE_SWAP",
             performedBy: "Crew Controller / GCC (DISPATCH GATEWAY CORE)",
             timestamp: serverTimestamp(),
-            operationType: isExchange ? "TRIPLE_DUTY_EXCHANGE" : "TRIPLE_DUTY_SWAP",
+            operationType: isExchange
+              ? "TRIPLE_DUTY_EXCHANGE"
+              : "TRIPLE_DUTY_SWAP",
             isTriple: true,
             duty1: item1.label,
             duty2: item2.label,
@@ -3417,19 +3797,23 @@ Rules:
             item1.empId,
             item1.empName,
             item2.empId,
-            item2.empName
+            item2.empName,
           );
           updatedConsole = true;
         }
 
         // 4. If both items are mainline duties, also update consoleData.duties if present
-        if (item1.type === "MAINLINE" && item2.type === "MAINLINE" && Array.isArray(newConsoleData.duties)) {
+        if (
+          item1.type === "MAINLINE" &&
+          item2.type === "MAINLINE" &&
+          Array.isArray(newConsoleData.duties)
+        ) {
           newConsoleData = swapOperatorsInConsoleData(
             newConsoleData,
             item1.empId,
             item1.empName,
             item2.empId,
-            item2.empName
+            item2.empName,
           );
           updatedConsole = true;
         }
@@ -3455,15 +3839,31 @@ Rules:
             createdAt: serverTimestamp(),
           };
           batch.set(exRef, exPayload);
-          batch.set(doc(db, "shift_exchanges_operational", `${exRef.id}_${item1.dutyId}`), { ...exPayload, dutyNumber: item1.dutyId });
-          batch.set(doc(db, "shift_exchanges_operational", `${exRef.id}_${item2.dutyId}`), { ...exPayload, dutyNumber: item2.dutyId });
+          batch.set(
+            doc(
+              db,
+              "shift_exchanges_operational",
+              `${exRef.id}_${item1.dutyId}`,
+            ),
+            { ...exPayload, dutyNumber: item1.dutyId },
+          );
+          batch.set(
+            doc(
+              db,
+              "shift_exchanges_operational",
+              `${exRef.id}_${item2.dutyId}`,
+            ),
+            { ...exPayload, dutyNumber: item2.dutyId },
+          );
         }
 
         // 6. Audit Log
         try {
           const auditRef = doc(collection(db, "auditLogs"));
           batch.set(auditRef, {
-            action: isExchange ? "ROSTER_DESK_DUTY_EXCHANGE" : "ROSTER_DESK_DUTY_SWAP",
+            action: isExchange
+              ? "ROSTER_DESK_DUTY_EXCHANGE"
+              : "ROSTER_DESK_DUTY_SWAP",
             performedBy: "Crew Controller / GCC (DISPATCH GATEWAY CORE)",
             timestamp: serverTimestamp(),
             operationType: isExchange ? "DUTY_EXCHANGE" : "DUTY_SWAP",
@@ -3480,15 +3880,32 @@ Rules:
 
       if (updatedConsole) {
         newConsoleData.lastUpdated = serverTimestamp();
-        batch.set(doc(db, "roster_desk_console", "current"), newConsoleData, { merge: true });
-        batch.set(doc(db, "roster_desk_console", "latest"), newConsoleData, { merge: true });
-        batch.set(doc(db, "dispatch_excel_cache", "current"), newConsoleData, { merge: true });
-        const activeDateStr = deployedRosterInfo?.dateStr || activeSelectedDateStr;
-        batch.set(doc(db, "dispatch_excel_cache", activeDateStr), newConsoleData, { merge: true });
+        const todayIsoStr = new Date().toISOString().split("T")[0];
+        const activeDateStr =
+          activeSelectedDateStr || deployedRosterInfo?.dateStr || todayIsoStr;
+        const isCurrentDay = activeDateStr === todayIsoStr;
+
+        batch.set(
+          doc(db, "dispatch_excel_cache", activeDateStr),
+          newConsoleData,
+          { merge: true },
+        );
+
+        if (isCurrentDay) {
+          batch.set(doc(db, "roster_desk_console", "current"), newConsoleData, {
+            merge: true,
+          });
+          batch.set(doc(db, "roster_desk_console", "latest"), newConsoleData, {
+            merge: true,
+          });
+          batch.set(doc(db, "dispatch_excel_cache", "current"), newConsoleData, {
+            merge: true,
+          });
+        }
         if (typeof window !== "undefined" && window.localStorage) {
           window.localStorage.setItem(
             "pyidcc_roster_desk_console_cache",
-            JSON.stringify(newConsoleData)
+            JSON.stringify(newConsoleData),
           );
         }
         setConsoleData(newConsoleData);
@@ -3498,10 +3915,12 @@ Rules:
 
       if (isTriple) {
         alert(
-          `✅ ${isExchange ? "Triple Duty Exchange" : "Triple Duties Swap"} Completed Successfully:\n${item1.label} ➔ ${item2.label} ➔ ${item3.label} ➔ ${item1.label}`
+          `✅ ${isExchange ? "Triple Duty Exchange" : "Triple Duties Swap"} Completed Successfully:\n${item1.label} ➔ ${item2.label} ➔ ${item3.label} ➔ ${item1.label}`,
         );
       } else {
-        alert(`✅ ${isExchange ? "Duty Exchanged" : "Duties Swapped"} Successfully:\n${item1.label}\n↔\n${item2.label}`);
+        alert(
+          `✅ ${isExchange ? "Duty Exchanged" : "Duties Swapped"} Successfully:\n${item1.label}\n↔\n${item2.label}`,
+        );
       }
       setShowSwapModal(false);
       setSwapDuty1("");
@@ -3511,7 +3930,9 @@ Rules:
       if (onImportComplete) onImportComplete();
     } catch (err) {
       console.error(err);
-      alert(`Failed to ${isExchange ? "exchange" : "swap"} duties: ` + err.message);
+      alert(
+        `Failed to ${isExchange ? "exchange" : "swap"} duties: ` + err.message,
+      );
     }
   };
 
@@ -3520,7 +3941,9 @@ Rules:
     if (!deployment) return;
     setBookOffTargetDuty(deployment);
     setBookOffFaultCategory("TRAIN_FAULT");
-    setBookOffReason(`Train fault on Train ${deployment.trainId || "--"}, Duty #${deployment.dutyId}`);
+    setBookOffReason(
+      `Train fault on Train ${deployment.trainId || "--"}, Duty #${deployment.dutyId}`,
+    );
     setBookOffAssignRelief(true);
     setBookOffReliefSource("STANDBY");
     setBookOffRelieverSearch("");
@@ -3585,10 +4008,17 @@ Rules:
           : `gcc_deploy_${currentDayType.toLowerCase()}_extra_${deployment.empId}`;
 
       const relieverName = selectedReliever
-        ? String(selectedReliever.name || selectedReliever.empName || "").toUpperCase()
+        ? String(
+            selectedReliever.name || selectedReliever.empName || "",
+          ).toUpperCase()
         : null;
       const relieverId = selectedReliever
-        ? String(selectedReliever.id || selectedReliever.empId || selectedReliever.empNo || "")
+        ? String(
+            selectedReliever.id ||
+              selectedReliever.empId ||
+              selectedReliever.empNo ||
+              "",
+          )
         : null;
 
       // 1. Log to absent_bookoff_register for real-time leave & book-off register tracking
@@ -3597,7 +4027,9 @@ Rules:
         doc(db, "absent_bookoff_register", regDocId),
         {
           employeeId: String(deployment.empId || deployment.empNo || "--"),
-          employeeName: String(deployment.empName || deployment.name || "OPERATOR").toUpperCase(),
+          employeeName: String(
+            deployment.empName || deployment.name || "OPERATOR",
+          ).toUpperCase(),
           code: "BO",
           category: "BOOK_OFF",
           faultCategory: bookOffFaultCategory,
@@ -3618,7 +4050,9 @@ Rules:
       );
 
       // 2. Update crew_daily_deployment (write to both padded & unpadded doc IDs for consistency)
-      const normDutyId = String(parseInt(deployment.dutyId, 10) || deployment.dutyId || "").trim();
+      const normDutyId = String(
+        parseInt(deployment.dutyId, 10) || deployment.dutyId || "",
+      ).trim();
       const paddedDutyId = normDutyId ? normDutyId.padStart(2, "0") : "";
       const sched = normalizeScheduleType(currentDayType).toLowerCase();
       const possibleDutyDocIds = new Set([targetDocId]);
@@ -3636,13 +4070,17 @@ Rules:
           status: "ACTIVE",
           isSignedOn: true,
           relievedFrom: String(deployment.empId || deployment.empNo || "--"),
-          relievedFromName: String(deployment.empName || deployment.name || "--"),
+          relievedFromName: String(
+            deployment.empName || deployment.name || "--",
+          ),
           relievedAt: serverTimestamp(),
           remarks: `Replacement driver assigned. Original driver ${deployment.empName} booked off: [${bookOffFaultCategory}] ${bookOffReason}`,
           lastUpdated: serverTimestamp(),
         };
         possibleDutyDocIds.forEach((dId) => {
-          batch.set(doc(db, "crew_daily_deployment", dId), payload, { merge: true });
+          batch.set(doc(db, "crew_daily_deployment", dId), payload, {
+            merge: true,
+          });
         });
       } else {
         const payload = {
@@ -3651,13 +4089,17 @@ Rules:
           status: "BOOKED_OFF_VACANT",
           isSignedOn: false,
           relievedFrom: String(deployment.empId || deployment.empNo || "--"),
-          relievedFromName: String(deployment.empName || deployment.name || "--"),
+          relievedFromName: String(
+            deployment.empName || deployment.name || "--",
+          ),
           relievedAt: serverTimestamp(),
           remarks: `DRIVER BOOKED OFF: [${bookOffFaultCategory}] ${bookOffReason} — RELIEF DRIVER REQUIRED`,
           lastUpdated: serverTimestamp(),
         };
         possibleDutyDocIds.forEach((dId) => {
-          batch.set(doc(db, "crew_daily_deployment", dId), payload, { merge: true });
+          batch.set(doc(db, "crew_daily_deployment", dId), payload, {
+            merge: true,
+          });
         });
       }
 
@@ -3665,7 +4107,9 @@ Rules:
       const boEntry = {
         empNo: String(deployment.empId || deployment.empNo || "--"),
         empId: String(deployment.empId || deployment.empNo || "--"),
-        name: String(deployment.empName || deployment.name || "OPERATOR").toUpperCase(),
+        name: String(
+          deployment.empName || deployment.name || "OPERATOR",
+        ).toUpperCase(),
         dutyId: String(deployment.dutyId || ""),
         trainId: String(deployment.trainId || "--"),
         faultCategory: bookOffFaultCategory,
@@ -3697,7 +4141,9 @@ Rules:
         updatedStandbys = updatedStandbys.filter(
           (s) =>
             String(s.empNo || s.empId).trim() !== String(relieverId).trim() &&
-            String(s.name || s.empName).trim().toUpperCase() !== String(relieverName).trim().toUpperCase(),
+            String(s.name || s.empName)
+              .trim()
+              .toUpperCase() !== String(relieverName).trim().toUpperCase(),
         );
       }
 
@@ -3765,9 +4211,17 @@ Rules:
     }
     const deployment = assignTargetDuty;
     const todayStr = new Date().toISOString().split("T")[0];
-    const relieverName = String(selectedReliever.name || selectedReliever.empName || "").toUpperCase();
-    const relieverId = String(selectedReliever.id || selectedReliever.empId || selectedReliever.empNo || "");
-    const reliefSource = selectedReliever.source || assignDriverType || "STANDBY";
+    const relieverName = String(
+      selectedReliever.name || selectedReliever.empName || "",
+    ).toUpperCase();
+    const relieverId = String(
+      selectedReliever.id ||
+        selectedReliever.empId ||
+        selectedReliever.empNo ||
+        "",
+    );
+    const reliefSource =
+      selectedReliever.source || assignDriverType || "STANDBY";
 
     setIsSubmittingAssign(true);
     try {
@@ -3777,7 +4231,9 @@ Rules:
           ? `gcc_deploy_${currentDayType.toLowerCase()}_duty_${deployment.dutyId}`
           : `gcc_deploy_${currentDayType.toLowerCase()}_extra_${deployment.empId}`;
 
-      const normDutyId = String(parseInt(deployment.dutyId, 10) || deployment.dutyId || "").trim();
+      const normDutyId = String(
+        parseInt(deployment.dutyId, 10) || deployment.dutyId || "",
+      ).trim();
       const paddedDutyId = normDutyId ? normDutyId.padStart(2, "0") : "";
       const sched = normalizeScheduleType(currentDayType).toLowerCase();
       const possibleDutyDocIds = new Set([targetDocId]);
@@ -3798,12 +4254,17 @@ Rules:
       };
 
       possibleDutyDocIds.forEach((dId) => {
-        batch.set(doc(db, "crew_daily_deployment", dId), assignPayload, { merge: true });
+        batch.set(doc(db, "crew_daily_deployment", dId), assignPayload, {
+          merge: true,
+        });
       });
 
       // If this duty was previously booked off, update matching bookedOff entries
       let updatedBookedOff = (consoleData.bookedOff || []).map((bo) => {
-        if (String(bo.dutyId) === String(deployment.dutyId) && (bo.status === "VACANT" || !bo.relieverName)) {
+        if (
+          String(bo.dutyId) === String(deployment.dutyId) &&
+          (bo.status === "VACANT" || !bo.relieverName)
+        ) {
           return {
             ...bo,
             status: "RELIEVED",
@@ -3832,7 +4293,11 @@ Rules:
         if (String(otherDutyId) !== String(deployment.dutyId)) {
           const otherDocId = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${otherDutyId}`;
           const currentDepDriver = String(deployment.empId || "").trim();
-          if (currentDepDriver && currentDepDriver !== "--" && currentDepDriver !== "UNASSIGNED") {
+          if (
+            currentDepDriver &&
+            currentDepDriver !== "--" &&
+            currentDepDriver !== "UNASSIGNED"
+          ) {
             batch.set(
               doc(db, "crew_daily_deployment", otherDocId),
               {
@@ -3862,21 +4327,27 @@ Rules:
         }
       }
 
+      const effectiveTargetDate =
+        activeSelectedDateStr || deployedRosterInfo?.dateStr || todayStr;
+      const isCurrentDay = effectiveTargetDate === todayStr;
+
       batch.set(
-        doc(db, "roster_desk_console", "current"),
+        doc(db, "dispatch_excel_cache", effectiveTargetDate),
         updatedConsole,
         { merge: true },
       );
-      batch.set(
-        doc(db, "roster_desk_console", "latest"),
-        updatedConsole,
-        { merge: true },
-      );
-      batch.set(
-        doc(db, "dispatch_excel_cache", todayStr),
-        updatedConsole,
-        { merge: true },
-      );
+
+      if (isCurrentDay) {
+        batch.set(doc(db, "roster_desk_console", "current"), updatedConsole, {
+          merge: true,
+        });
+        batch.set(doc(db, "roster_desk_console", "latest"), updatedConsole, {
+          merge: true,
+        });
+        batch.set(doc(db, "dispatch_excel_cache", "current"), updatedConsole, {
+          merge: true,
+        });
+      }
 
       await batch.commit();
 
@@ -3893,7 +4364,9 @@ Rules:
       setShowAssignDriverModal(false);
       setAssignTargetDuty(null);
       setSelectedReliever(null);
-      alert(`✅ Driver ${relieverName} assigned to Duty #${deployment.dutyId} successfully from [${reliefSource}]!`);
+      alert(
+        `✅ Driver ${relieverName} assigned to Duty #${deployment.dutyId} successfully from [${reliefSource}]!`,
+      );
       if (onImportComplete) onImportComplete();
     } catch (err) {
       console.error("Assign driver error:", err);
@@ -3903,10 +4376,109 @@ Rules:
     }
   };
 
+  const handleAddNewCustomCategory = async (title) => {
+    if (!title || !title.trim()) return;
+    const cleanTitle = normalizeHeaderTitle(title);
+    const existing = consoleData.customRegisters || {};
+    const existingTitle = Object.keys(existing).find(
+      (k) => getHeaderKey(k) === getHeaderKey(cleanTitle),
+    );
+    if (existingTitle) {
+      alert(`Header "${existingTitle}" already exists! Switched to category.`);
+      setConsoleFilterCategory(existingTitle);
+      return;
+    }
+    const updatedConsole = {
+      ...consoleData,
+      customRegisters: {
+        ...existing,
+        [cleanTitle]: [],
+      },
+    };
+    setConsoleData(updatedConsole);
+    setConsoleFilterCategory(cleanTitle);
+
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.setItem(
+          "pyidcc_roster_desk_console_cache",
+          JSON.stringify(updatedConsole),
+        );
+      }
+      const todayStr = new Date().toISOString().split("T")[0];
+      const safeSlug = getHeaderKey(cleanTitle);
+      await setDoc(
+        doc(db, "roster_desk_console", "current"),
+        {
+          customRegisters: updatedConsole.customRegisters,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+      if (safeSlug) {
+        await setDoc(
+          doc(db, "custom_registers", safeSlug),
+          {
+            categoryTitle: cleanTitle,
+            categorySlug: safeSlug,
+            date: todayStr,
+            dayType: currentDayType,
+            staffCount: 0,
+            staff: [],
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
+    } catch (e) {
+      console.warn("Error persisting new custom header:", e);
+    }
+  };
+
+  const handleRemoveOperatorFromCustomCategory = async (tagName, operator) => {
+    const id = String(operator.empNo || operator.empId || "").trim();
+    const name = String(operator.name || "").trim();
+    if (!window.confirm(`Remove ${name || id} from [${tagName}]?`)) return;
+
+    const list = consoleData.customRegisters?.[tagName] || [];
+    const updatedList = list.filter(
+      (it) => String(it.empNo || it.empId || "").trim() !== id,
+    );
+    const updatedConsole = {
+      ...consoleData,
+      customRegisters: {
+        ...(consoleData.customRegisters || {}),
+        [tagName]: updatedList,
+      },
+    };
+    setConsoleData(updatedConsole);
+
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.setItem(
+          "pyidcc_roster_desk_console_cache",
+          JSON.stringify(updatedConsole),
+        );
+      }
+      await setDoc(
+        doc(db, "roster_desk_console", "current"),
+        {
+          customRegisters: updatedConsole.customRegisters,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+    } catch (e) {
+      console.warn("Error updating custom category after removal:", e);
+    }
+  };
+
   const openTransferModal = (operator = null, sourceCategory = "STANDBY") => {
     if (operator) {
       setTransferTargetOperator({
-        empId: String(operator.empNo || operator.empId || operator.id || "").trim(),
+        empId: String(
+          operator.empNo || operator.empId || operator.id || "",
+        ).trim(),
         empName: String(operator.name || operator.empName || "").trim(),
         currentCategory: sourceCategory,
         rawItem: operator,
@@ -3930,7 +4502,9 @@ Rules:
       return;
     }
     const op = transferTargetOperator;
-    const opName = String(op.empName || op.name || "").trim().toUpperCase();
+    const opName = String(op.empName || op.name || "")
+      .trim()
+      .toUpperCase();
     const opId = String(op.empId || op.empNo || "").trim();
     const srcCat = op.currentCategory || "STANDBY";
     const tgtCat = transferDestinationCategory;
@@ -3972,7 +4546,10 @@ Rules:
 
         // If target duty was in bookedOff, update relief status
         let updatedBookedOff = (updatedConsole.bookedOff || []).map((bo) => {
-          if (String(bo.dutyId) === String(transferTargetDutyId) && (bo.status === "VACANT" || !bo.relieverName)) {
+          if (
+            String(bo.dutyId) === String(transferTargetDutyId) &&
+            (bo.status === "VACANT" || !bo.relieverName)
+          ) {
             return {
               ...bo,
               status: "RELIEVED",
@@ -4031,21 +4608,27 @@ Rules:
         }
       }
 
+      const effectiveTargetDate =
+        activeSelectedDateStr || deployedRosterInfo?.dateStr || todayStr;
+      const isCurrentDay = effectiveTargetDate === todayStr;
+
       batch.set(
-        doc(db, "roster_desk_console", "current"),
+        doc(db, "dispatch_excel_cache", effectiveTargetDate),
         updatedConsole,
         { merge: true },
       );
-      batch.set(
-        doc(db, "roster_desk_console", "latest"),
-        updatedConsole,
-        { merge: true },
-      );
-      batch.set(
-        doc(db, "dispatch_excel_cache", todayStr),
-        updatedConsole,
-        { merge: true },
-      );
+
+      if (isCurrentDay) {
+        batch.set(doc(db, "roster_desk_console", "current"), updatedConsole, {
+          merge: true,
+        });
+        batch.set(doc(db, "roster_desk_console", "latest"), updatedConsole, {
+          merge: true,
+        });
+        batch.set(doc(db, "dispatch_excel_cache", "current"), updatedConsole, {
+          merge: true,
+        });
+      }
 
       await batch.commit();
       setConsoleData(updatedConsole);
@@ -4087,7 +4670,9 @@ Rules:
     try {
       const batch = writeBatch(db);
       const targetDocId = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${boItem.dutyId}`;
-      const normDutyId = String(parseInt(boItem.dutyId, 10) || boItem.dutyId || "").trim();
+      const normDutyId = String(
+        parseInt(boItem.dutyId, 10) || boItem.dutyId || "",
+      ).trim();
       const paddedDutyId = normDutyId ? normDutyId.padStart(2, "0") : "";
       const sched = normalizeScheduleType(currentDayType).toLowerCase();
       const possibleDutyDocIds = new Set([targetDocId]);
@@ -4108,7 +4693,9 @@ Rules:
       };
 
       possibleDutyDocIds.forEach((dId) => {
-        batch.set(doc(db, "crew_daily_deployment", dId), restorePayload, { merge: true });
+        batch.set(doc(db, "crew_daily_deployment", dId), restorePayload, {
+          merge: true,
+        });
       });
 
       // Remove from bookedOff list
@@ -4119,16 +4706,23 @@ Rules:
       );
 
       const updatedConsole = { ...consoleData, bookedOff: updatedBookedOff };
+      const effectiveTargetDate =
+        activeSelectedDateStr || deployedRosterInfo?.dateStr || todayStr;
+      const isCurrentDay = effectiveTargetDate === todayStr;
+
       batch.set(
-        doc(db, "roster_desk_console", "current"),
+        doc(db, "dispatch_excel_cache", effectiveTargetDate),
         { bookedOff: updatedBookedOff },
         { merge: true },
       );
-      batch.set(
-        doc(db, "dispatch_excel_cache", todayStr),
-        { bookedOff: updatedBookedOff },
-        { merge: true },
-      );
+
+      if (isCurrentDay) {
+        batch.set(
+          doc(db, "roster_desk_console", "current"),
+          { bookedOff: updatedBookedOff },
+          { merge: true },
+        );
+      }
 
       await batch.commit();
       setConsoleData(updatedConsole);
@@ -4146,7 +4740,10 @@ Rules:
       alert("No booked off records to copy.");
       return;
     }
-    const dateStr = deployedRosterInfo?.dateStr || activeSelectedDateStr || new Date().toISOString().split("T")[0];
+    const dateStr =
+      deployedRosterInfo?.dateStr ||
+      activeSelectedDateStr ||
+      new Date().toISOString().split("T")[0];
     let text = `🚨 *BMRCL LINE 2 (PEENYA DEPOT) — BOOKED OFF INCIDENT LOG*\n📅 Date: ${dateStr}\n━━━━━━━━━━━━━━━━━━━━\n`;
     boList.forEach((b, idx) => {
       text += `${idx + 1}. *${b.name || b.empName}* (#${b.empNo || b.empId})\n`;
@@ -4166,16 +4763,82 @@ Rules:
     alert("📋 Booked Off Incident Summary copied to clipboard!");
   };
 
+  const handleSyncFromGoogleSheet = async (targetUrl = null) => {
+    const urlToUse = String(
+      targetUrl || excelPathInput || connectedGoogleSheetUrl || "",
+    ).trim();
+    if (!urlToUse || !isGoogleSheetUrl(urlToUse)) {
+      alert(
+        "Please enter a valid Google Sheets URL (e.g., https://docs.google.com/spreadsheets/d/...).",
+      );
+      return;
+    }
+    setIsSyncingGoogleSheet(true);
+    setIsInspectingPath(true);
+    try {
+      saveGoogleSheetUrl(urlToUse);
+      setConnectedGoogleSheetUrl(urlToUse);
+      setExcelPathInput(urlToUse);
+
+      const csvText = await fetchGoogleSheetCsv(urlToUse);
+      const parsedMeta = parseGoogleSheetUrl(urlToUse);
+      const file = csvToFile(
+        csvText,
+        `Google_Sheet_${parsedMeta?.id?.slice(0, 8) || "Roster"}.csv`,
+      );
+      setSelectedRosterFile(file);
+      await processFileAndDeploy(file, null, activeSelectedDayObj.date);
+    } catch (err) {
+      console.error("Google Sheet Sync Error:", err);
+      alert(`Google Sheet Sync Error: ${err.message}`);
+    } finally {
+      setIsSyncingGoogleSheet(false);
+      setIsInspectingPath(false);
+    }
+  };
+
+  const handlePasteAndSyncFromClipboard = async () => {
+    setIsSyncingGoogleSheet(true);
+    setIsInspectingPath(true);
+    try {
+      const file = await pasteClipboardAsRosterFile();
+      setSelectedRosterFile(file);
+      setExcelPathInput("Clipboard Paste (Google Sheets)");
+      await processFileAndDeploy(file, null, activeSelectedDayObj.date);
+      alert(
+        `✅ Successfully synced clipboard roster data for ${activeSelectedDayObj.fullOfficialTitle}! Review staged assignments below and confirm.`,
+      );
+    } catch (err) {
+      console.error("Paste Sync Error:", err);
+      alert(`Paste & Sync Error: ${err.message}`);
+    } finally {
+      setIsSyncingGoogleSheet(false);
+      setIsInspectingPath(false);
+    }
+  };
+
   const handleInspectAndAutoDeploy = async () => {
     if (!excelPathInput) {
       alert(
-        "Please paste an Excel file path link or select a file using 'Browse File'.",
+        "Please paste an Excel file path link, Google Sheets URL, or select a file using 'Browse File'.",
       );
+      return;
+    }
+    if (isGoogleSheetUrl(excelPathInput)) {
+      await handleSyncFromGoogleSheet(excelPathInput);
       return;
     }
     setIsInspectingPath(true);
     try {
-      alert(`INSPECT & AUTO-DEPLOY initiated for path: ${excelPathInput}`);
+      if (selectedRosterFile) {
+        await processFileAndDeploy(
+          selectedRosterFile,
+          null,
+          activeSelectedDayObj.date,
+        );
+      } else {
+        alert(`INSPECT & AUTO-DEPLOY initiated for path: ${excelPathInput}`);
+      }
       if (onImportComplete) onImportComplete();
     } catch (err) {
       console.error(err);
@@ -4279,7 +4942,9 @@ Rules:
     const rawDutyId = String(dutyId || "").trim();
     if (rawDutyId && rawDutyId !== "UNASSIGNED" && rawDutyId !== "--") {
       ids.add(`gcc_deploy_${sched}_duty_${rawDutyId}`);
-      const normDutyId = String(parseInt(rawDutyId, 10) || rawDutyId || "").trim();
+      const normDutyId = String(
+        parseInt(rawDutyId, 10) || rawDutyId || "",
+      ).trim();
       const paddedDutyId = normDutyId ? normDutyId.padStart(2, "0") : "";
       ids.add(`gcc_deploy_${sched}_duty_${normDutyId}`);
       ids.add(`gcc_deploy_${sched}_duty_${paddedDutyId}`);
@@ -4309,11 +4974,15 @@ Rules:
         lastUpdated: serverTimestamp(),
       };
       for (const dId of docIds) {
-        await setDoc(doc(db, "crew_daily_deployment", dId), payload, { merge: true });
+        await setDoc(doc(db, "crew_daily_deployment", dId), payload, {
+          merge: true,
+        });
       }
       setFallbackDeployments((prev) =>
         prev.map((d) =>
-          String(d.dutyId).trim() === dutyId ? { ...d, status: "DISPATCHED" } : d,
+          String(d.dutyId).trim() === dutyId
+            ? { ...d, status: "DISPATCHED" }
+            : d,
         ),
       );
     } catch (error) {
@@ -4327,11 +4996,19 @@ Rules:
     const targetTrainIds = getLegTrainIds(targetDeployment);
     const targetDutyIdStr = String(targetDeployment.dutyId || "").trim();
     const targetEmpId = String(
-      targetDeployment.empId || targetDeployment.empNo || targetDeployment.employeeId || "",
+      targetDeployment.empId ||
+        targetDeployment.empNo ||
+        targetDeployment.employeeId ||
+        "",
     ).trim();
     const targetEmpName = String(
-      targetDeployment.empName || targetDeployment.name || targetDeployment.driverName || "",
-    ).trim().toUpperCase();
+      targetDeployment.empName ||
+        targetDeployment.name ||
+        targetDeployment.driverName ||
+        "",
+    )
+      .trim()
+      .toUpperCase();
 
     const seenCandidates = new Set();
     if (targetEmpId) seenCandidates.add(targetEmpId.toUpperCase());
@@ -4344,14 +5021,28 @@ Rules:
     //    A. Standbys & Operating Reserves (@Standby, @OR)
     // =========================================================================
     (consoleData.standbys || []).forEach((item, idx) => {
-      const empId = String(item.empNo || item.empId || `STBY_${idx + 1}`).trim();
+      const empId = String(
+        item.empNo || item.empId || `STBY_${idx + 1}`,
+      ).trim();
       const empName = String(item.name || item.empName || "").trim();
-      if (!empName || empName === "--" || empName.toUpperCase().includes("VACANT") || empName.toUpperCase().includes("UNASSIGNED")) return;
-      if (empName.toUpperCase() === targetEmpName || (empId && seenCandidates.has(empId.toUpperCase()))) return;
+      if (
+        !empName ||
+        empName === "--" ||
+        empName.toUpperCase().includes("VACANT") ||
+        empName.toUpperCase().includes("UNASSIGNED")
+      )
+        return;
+      if (
+        empName.toUpperCase() === targetEmpName ||
+        (empId && seenCandidates.has(empId.toUpperCase()))
+      )
+        return;
       if (empId) seenCandidates.add(empId.toUpperCase());
       seenCandidates.add(empName.toUpperCase());
 
-      const codeUpper = String(item.code || item.label || item.dutyId || "OR").trim().toUpperCase();
+      const codeUpper = String(item.code || item.label || item.dutyId || "OR")
+        .trim()
+        .toUpperCase();
       const isOR = codeUpper.startsWith("OR") || codeUpper.includes(" OR ");
       const dutyCode = item.code || item.label || (isOR ? "OR" : "STANDBY");
 
@@ -4364,8 +5055,13 @@ Rules:
         dutyId: dutyCode,
         trainId: "--",
         shift: item.time || "06:00 - 14:00",
-        signOnTime: item.time ? String(item.time).split("-")[0].trim() : "06:00",
-        signOffTime: item.time && item.time.includes("-") ? String(item.time).split("-")[1].trim() : "14:00",
+        signOnTime: item.time
+          ? String(item.time).split("-")[0].trim()
+          : "06:00",
+        signOffTime:
+          item.time && item.time.includes("-")
+            ? String(item.time).split("-")[1].trim()
+            : "14:00",
         signOnLocation: "PYID",
         signOffLocation: "PYID",
         status: "STANDBY",
@@ -4386,14 +5082,27 @@ Rules:
     // 1. B. Outstation Step-Back Operators (@STBK)
     // =========================================================================
     (consoleData.outstationStepbacks || []).forEach((item, idx) => {
-      const empId = String(item.empNo || item.empId || `STBK_${idx + 1}`).trim();
+      const empId = String(
+        item.empNo || item.empId || `STBK_${idx + 1}`,
+      ).trim();
       const empName = String(item.name || item.empName || "").trim();
-      if (!empName || empName === "--" || empName.toUpperCase().includes("VACANT")) return;
-      if (empName.toUpperCase() === targetEmpName || (empId && seenCandidates.has(empId.toUpperCase()))) return;
+      if (
+        !empName ||
+        empName === "--" ||
+        empName.toUpperCase().includes("VACANT")
+      )
+        return;
+      if (
+        empName.toUpperCase() === targetEmpName ||
+        (empId && seenCandidates.has(empId.toUpperCase()))
+      )
+        return;
       if (empId) seenCandidates.add(empId.toUpperCase());
       seenCandidates.add(empName.toUpperCase());
 
-      const stn = String(item.station || item.loc || "PYID").trim().toUpperCase();
+      const stn = String(item.station || item.loc || "PYID")
+        .trim()
+        .toUpperCase();
       poolList.push({
         id: `console_stbk_${empId}`,
         empId,
@@ -4403,7 +5112,9 @@ Rules:
         dutyId: `STBK (${stn})`,
         trainId: "--",
         shift: item.time || "06:00 - 14:00",
-        signOnTime: item.time ? String(item.time).split("-")[0].trim() : "06:00",
+        signOnTime: item.time
+          ? String(item.time).split("-")[0].trim()
+          : "06:00",
         signOffTime: "14:00",
         signOnLocation: stn,
         signOffLocation: stn,
@@ -4435,10 +5146,21 @@ Rules:
         const priority = isPro ? 85 : 80;
 
         list.forEach((item, idx) => {
-          const empId = String(item.empNo || item.empId || `${tag}_${idx + 1}`).trim();
+          const empId = String(
+            item.empNo || item.empId || `${tag}_${idx + 1}`,
+          ).trim();
           const empName = String(item.name || item.empName || "").trim();
-          if (!empName || empName === "--" || empName.toUpperCase().includes("VACANT")) return;
-          if (empName.toUpperCase() === targetEmpName || (empId && seenCandidates.has(empId.toUpperCase()))) return;
+          if (
+            !empName ||
+            empName === "--" ||
+            empName.toUpperCase().includes("VACANT")
+          )
+            return;
+          if (
+            empName.toUpperCase() === targetEmpName ||
+            (empId && seenCandidates.has(empId.toUpperCase()))
+          )
+            return;
           if (empId) seenCandidates.add(empId.toUpperCase());
           seenCandidates.add(empName.toUpperCase());
 
@@ -4477,10 +5199,15 @@ Rules:
       if (cDutyId === targetDutyIdStr) return;
       if (!candidate.empName || candidate.empName === "--") return;
       const nameUpper = String(candidate.empName || "").toUpperCase();
-      if (nameUpper.includes("VACANT") || nameUpper.includes("UNASSIGNED")) return;
+      if (nameUpper.includes("VACANT") || nameUpper.includes("UNASSIGNED"))
+        return;
 
       const cEmpId = String(candidate.empId || candidate.empNo || "").trim();
-      if (seenCandidates.has(nameUpper) || (cEmpId && seenCandidates.has(cEmpId.toUpperCase()))) return;
+      if (
+        seenCandidates.has(nameUpper) ||
+        (cEmpId && seenCandidates.has(cEmpId.toUpperCase()))
+      )
+        return;
 
       const cStatus = String(candidate.status || "").toUpperCase();
       if (
@@ -4502,16 +5229,26 @@ Rules:
       if (cEmpId) seenCandidates.add(cEmpId.toUpperCase());
 
       const candidateTrainIds = getLegTrainIds(candidate);
-      const sameTrainDuty = candidateTrainIds.some((tid) => targetTrainIds.includes(tid));
+      const sameTrainDuty = candidateTrainIds.some((tid) =>
+        targetTrainIds.includes(tid),
+      );
       const remainingHours = getRemainingHours(candidate);
 
       const resolvedType = String(
         resolveDutyType(candidate, currentDayType) || candidate.dutyType || "",
       ).toUpperCase();
-      const trainIdStr = String(candidate.trainId || "").trim().toUpperCase();
-      const shiftStr = String(candidate.shift || "").trim().toUpperCase();
-      const remarksStr = String(candidate.remarks || "").trim().toUpperCase();
-      const dutyIdStr = String(candidate.dutyId || "").trim().toUpperCase();
+      const trainIdStr = String(candidate.trainId || "")
+        .trim()
+        .toUpperCase();
+      const shiftStr = String(candidate.shift || "")
+        .trim()
+        .toUpperCase();
+      const remarksStr = String(candidate.remarks || "")
+        .trim()
+        .toUpperCase();
+      const dutyIdStr = String(candidate.dutyId || "")
+        .trim()
+        .toUpperCase();
 
       // Check if candidate is driving an active mainline passenger train
       // e.g. Train IDs like 201..233, A73, B4235, B57, B59, B60, M62PU, A1833, etc.
@@ -4520,30 +5257,50 @@ Rules:
         trainIdStr !== "--" &&
         trainIdStr !== "-" &&
         trainIdStr !== "UNASSIGNED" &&
-        !["STBY", "STANDBY", "STDBY", "STBK", "RD3", "RD-3", "TGTP", "PRO", "NPRO", "PILOT", "OR", "OR1", "OR2"].includes(trainIdStr) &&
+        ![
+          "STBY",
+          "STANDBY",
+          "STDBY",
+          "STBK",
+          "RD3",
+          "RD-3",
+          "TGTP",
+          "PRO",
+          "NPRO",
+          "PILOT",
+          "OR",
+          "OR1",
+          "OR2",
+        ].includes(trainIdStr) &&
         !trainIdStr.startsWith("ST") &&
         !trainIdStr.startsWith("PRO") &&
-        !trainIdStr.startsWith("OR")
+        !trainIdStr.startsWith("OR"),
       );
 
       // Standby detection (Scheduled Roster Non-Running Standby Duty)
       const isStandby = Boolean(
-        !isMainlineTrain && (
-          /\b(STBY|STANDBY|STDBY|STBK|RD-?3|TGTP|OR1|OR2)\b/i.test(resolvedType) ||
+        !isMainlineTrain &&
+        (/\b(STBY|STANDBY|STDBY|STBK|RD-?3|TGTP|OR1|OR2)\b/i.test(
+          resolvedType,
+        ) ||
           (/\bOR\b/i.test(resolvedType) && !/OPERATOR/i.test(resolvedType)) ||
-          /\b(STBY|STANDBY|STDBY|STBK|RD-?3|TGTP|OR1|OR2)\b/i.test(trainIdStr) ||
+          /\b(STBY|STANDBY|STDBY|STBK|RD-?3|TGTP|OR1|OR2)\b/i.test(
+            trainIdStr,
+          ) ||
           (/\bOR\b/i.test(trainIdStr) && !/OPERATOR/i.test(trainIdStr)) ||
-          /\b(STBY|STANDBY|STDBY|STBK|RD-?3|TGTP|OR1|OR2)\b/i.test(remarksStr) ||
+          /\b(STBY|STANDBY|STDBY|STBK|RD-?3|TGTP|OR1|OR2)\b/i.test(
+            remarksStr,
+          ) ||
           /\b(STBY|STANDBY|STDBY|STBK|RD-?3|TGTP|OR1|OR2)\b/i.test(shiftStr) ||
           dutyIdStr.startsWith("STBY") ||
-          dutyIdStr.startsWith("OR")
-        )
+          dutyIdStr.startsWith("OR")),
       );
 
       // Pro detection (Pilot Reserve)
       const isPro = Boolean(
-        !isMainlineTrain && !isStandby && (
-          resolvedType.includes("PRO") ||
+        !isMainlineTrain &&
+        !isStandby &&
+        (resolvedType.includes("PRO") ||
           resolvedType.includes("NPRO") ||
           resolvedType.includes("PILOT") ||
           trainIdStr.includes("PRO") ||
@@ -4552,19 +5309,19 @@ Rules:
           shiftStr.includes("NPRO") ||
           remarksStr.includes("PRO") ||
           remarksStr.includes("PILOT") ||
-          dutyIdStr.startsWith("PRO")
-        )
+          dutyIdStr.startsWith("PRO")),
       );
 
       // Buffer
       const isBuffer = Boolean(
-        !isMainlineTrain && !isStandby && !isPro && (
-          trainIdStr === "" ||
+        !isMainlineTrain &&
+        !isStandby &&
+        !isPro &&
+        (trainIdStr === "" ||
           trainIdStr === "--" ||
           trainIdStr === "UNASSIGNED" ||
           resolvedType.includes("BUFFER") ||
-          resolvedType.includes("EXTRA")
-        )
+          resolvedType.includes("EXTRA")),
       );
 
       let candidatePool = "ACTIVE_MAINLINE";
@@ -4576,13 +5333,19 @@ Rules:
 
       if (isStandby) {
         candidatePool = "STANDBY";
-        const subLabel = trainIdStr && trainIdStr !== "--" ? trainIdStr : (resolvedType || "Depot Reserve");
+        const subLabel =
+          trainIdStr && trainIdStr !== "--"
+            ? trainIdStr
+            : resolvedType || "Depot Reserve";
         poolLabel = `STANDBY (${subLabel})`;
         poolPriority = 80;
         poolReason = "Scheduled Roster Emergency Standby Crew (Priority 1)";
       } else if (isPro) {
         candidatePool = "PRO";
-        const subLabel = trainIdStr && trainIdStr !== "--" ? trainIdStr : (resolvedType || "Pilot Reserve");
+        const subLabel =
+          trainIdStr && trainIdStr !== "--"
+            ? trainIdStr
+            : resolvedType || "Pilot Reserve";
         poolLabel = `PRO PILOT (${subLabel})`;
         poolPriority = 65;
         poolReason = "Designated Depot Pilot Reserve Crew (Priority 1)";
@@ -4606,16 +5369,31 @@ Rules:
 
     return poolList
       .map((candidate) => {
-        const remainingHours = candidate.remainingHours !== undefined ? candidate.remainingHours : getRemainingHours(candidate);
+        const remainingHours =
+          candidate.remainingHours !== undefined
+            ? candidate.remainingHours
+            : getRemainingHours(candidate);
         const scores = {
           poolPriority: candidate.poolPriority || 10,
-          readiness: candidate.candidatePool === "STANDBY"
-            ? 40
-            : candidate.isSignedOn ? 35 : candidate.status === "DISPATCHED" ? 25 : 15,
+          readiness:
+            candidate.candidatePool === "STANDBY"
+              ? 40
+              : candidate.isSignedOn
+                ? 35
+                : candidate.status === "DISPATCHED"
+                  ? 25
+                  : 15,
           trainMatch: candidate.sameTrainDuty ? 25 : 0,
-          reliefWindow: Math.min(35, Math.max(0, Math.round(remainingHours * 4.375))),
+          reliefWindow: Math.min(
+            35,
+            Math.max(0, Math.round(remainingHours * 4.375)),
+          ),
         };
-        const totalScore = scores.poolPriority + scores.readiness + scores.trainMatch + scores.reliefWindow;
+        const totalScore =
+          scores.poolPriority +
+          scores.readiness +
+          scores.trainMatch +
+          scores.reliefWindow;
 
         return {
           ...candidate,
@@ -4656,7 +5434,11 @@ Rules:
         {
           empId: deployment.empId || deployment.empNo,
           empNo: deployment.empNo || deployment.empId,
-          name: deployment.driverName || deployment.operatorName || deployment.empName || deployment.name,
+          name:
+            deployment.driverName ||
+            deployment.operatorName ||
+            deployment.empName ||
+            deployment.name,
           dutyId: deployment.dutyId,
           shift: deployment.shift,
         },
@@ -4679,7 +5461,9 @@ Rules:
             ? `gcc_deploy_${currentDayType.toLowerCase()}_duty_${deployment.dutyId}`
             : `gcc_deploy_${currentDayType.toLowerCase()}_extra_${deployment.empId}`;
 
-        const normDutyId = String(parseInt(deployment.dutyId, 10) || deployment.dutyId || "").trim();
+        const normDutyId = String(
+          parseInt(deployment.dutyId, 10) || deployment.dutyId || "",
+        ).trim();
         const paddedDutyId = normDutyId ? normDutyId.padStart(2, "0") : "";
         const sched = normalizeScheduleType(currentDayType).toLowerCase();
         const possibleDutyDocIds = new Set([docId]);
@@ -4697,7 +5481,9 @@ Rules:
         const isCurrentlyBO =
           deployment.status === "BOOKED_OFF_VACANT" ||
           deployment.status === "BOOKED_OFF" ||
-          String(deployment.remarks || "").toUpperCase().includes("BOOKED OFF");
+          String(deployment.remarks || "")
+            .toUpperCase()
+            .includes("BOOKED OFF");
 
         let newStatus = eventType;
         let newRemarks =
@@ -4727,11 +5513,9 @@ Rules:
         };
 
         for (const dId of possibleDutyDocIds) {
-          await setDoc(
-            doc(db, "crew_daily_deployment", dId),
-            updatePayload,
-            { merge: true },
-          );
+          await setDoc(doc(db, "crew_daily_deployment", dId), updatePayload, {
+            merge: true,
+          });
         }
 
         // Update fallback / local deployment state
@@ -4756,13 +5540,11 @@ Rules:
         setConsoleData((prev) => {
           let updatedNR = (prev.notReporting || []).filter(
             (e) =>
-              String(e.empNo || e.empId).trim() !== empId &&
-              e.name !== empName,
+              String(e.empNo || e.empId).trim() !== empId && e.name !== empName,
           );
           let updatedAB = (prev.absents || []).filter(
             (e) =>
-              String(e.empNo || e.empId).trim() !== empId &&
-              e.name !== empName,
+              String(e.empNo || e.empId).trim() !== empId && e.name !== empName,
           );
           let updatedBO = (prev.bookedOff || []).filter(
             (b) =>
@@ -4798,16 +5580,27 @@ Rules:
           const next = enforceSingleDutyRule(rawUpdated);
 
           const todayStr = new Date().toISOString().split("T")[0];
+          const effectiveTargetDate =
+            activeSelectedDateStr || deployedRosterInfo?.dateStr || todayStr;
+          const isCurrentDay = effectiveTargetDate === todayStr;
+
           setDoc(
-            doc(db, "roster_desk_console", "current"),
-            { notReporting: next.notReporting, absents: next.absents, bookedOff: next.bookedOff },
-            { merge: true },
-          ).catch(console.warn);
-          setDoc(
-            doc(db, "dispatch_excel_cache", todayStr),
+            doc(db, "dispatch_excel_cache", effectiveTargetDate),
             { notReporting: next.notReporting, absents: next.absents },
             { merge: true },
           ).catch(console.warn);
+
+          if (isCurrentDay) {
+            setDoc(
+              doc(db, "roster_desk_console", "current"),
+              {
+                notReporting: next.notReporting,
+                absents: next.absents,
+                bookedOff: next.bookedOff,
+              },
+              { merge: true },
+            ).catch(console.warn);
+          }
 
           try {
             if (typeof window !== "undefined" && window.localStorage) {
@@ -4978,11 +5771,9 @@ Rules:
         lastUpdated: serverTimestamp(),
       };
       for (const tDocId of targetDocIds) {
-        await setDoc(
-          doc(db, "crew_daily_deployment", tDocId),
-          targetPayload,
-          { merge: true },
-        );
+        await setDoc(doc(db, "crew_daily_deployment", tDocId), targetPayload, {
+          merge: true,
+        });
       }
 
       // 4. Update local fallbackDeployments state immediately for both duties
@@ -5011,7 +5802,10 @@ Rules:
           return d;
         });
 
-        if (!foundRelieverInDeployments && (recommendedCandidate.isConsoleStandby || candDutyId)) {
+        if (
+          !foundRelieverInDeployments &&
+          (recommendedCandidate.isConsoleStandby || candDutyId)
+        ) {
           updated.unshift({
             id: `reliever_${candEmpId || Date.now()}`,
             dutyId: candDutyId,
@@ -5055,7 +5849,9 @@ Rules:
       const isEmergency =
         deployment.status === "EMERGENCY" ||
         deployment.status === "EMERGENCY_DECLARED" ||
-        (activeAbnormalEvent && String(activeAbnormalEvent.deployment?.dutyId) === String(deployment.dutyId));
+        (activeAbnormalEvent &&
+          String(activeAbnormalEvent.deployment?.dutyId) ===
+            String(deployment.dutyId));
 
       const dutyId1 = String(deployment.dutyId || "").trim();
       const dutyId2 = String(
@@ -5073,9 +5869,10 @@ Rules:
       const targetDutyId = isReliever ? dutyId2 : dutyId1;
       const relieverDutyId = isReliever ? dutyId1 : dutyId2;
 
-      const confirmMsg = isEmergency && !isTarget && !isReliever
-        ? `Reset emergency incident for Duty #${targetDutyId}? Duty will be restored to Active status.`
-        : `Reset & Undo Relief assignment between Duty #${relieverDutyId || "Reliever"} and Duty #${targetDutyId || "Target"}? Both operators will be restored to Active status.`;
+      const confirmMsg =
+        isEmergency && !isTarget && !isReliever
+          ? `Reset emergency incident for Duty #${targetDutyId}? Duty will be restored to Active status.`
+          : `Reset & Undo Relief assignment between Duty #${relieverDutyId || "Reliever"} and Duty #${targetDutyId || "Target"}? Both operators will be restored to Active status.`;
       if (!window.confirm(confirmMsg)) return;
 
       // 1. Reset Reliever Duty
@@ -5105,7 +5902,8 @@ Rules:
       // 2. Reset Target Duty
       if (targetDutyId) {
         const targetEmpId = String(
-          (isTarget || isEmergency ? deployment.empId : pairedDuty?.empId) || "",
+          (isTarget || isEmergency ? deployment.empId : pairedDuty?.empId) ||
+            "",
         );
         const tgtDocIds = getPossibleDutyDocIds(targetDutyId, targetEmpId);
         const tgtResetPayload = {
@@ -5232,17 +6030,29 @@ Rules:
     let candidate = deployments.find(
       (d) =>
         String(d.dutyId).trim().toUpperCase() === queryStr ||
-        String(d.empId || d.empNo || "").trim().toUpperCase() === queryStr ||
-        String(d.empName || d.name || "").trim().toUpperCase().includes(queryStr),
+        String(d.empId || d.empNo || "")
+          .trim()
+          .toUpperCase() === queryStr ||
+        String(d.empName || d.name || "")
+          .trim()
+          .toUpperCase()
+          .includes(queryStr),
     );
 
     // 2. Try finding in consoleData.standbys
     if (!candidate && consoleData.standbys) {
       const stby = (consoleData.standbys || []).find(
         (s) =>
-          String(s.code || s.label || s.dutyId || "").trim().toUpperCase() === queryStr ||
-          String(s.empNo || s.empId || "").trim().toUpperCase() === queryStr ||
-          String(s.name || s.empName || "").trim().toUpperCase().includes(queryStr),
+          String(s.code || s.label || s.dutyId || "")
+            .trim()
+            .toUpperCase() === queryStr ||
+          String(s.empNo || s.empId || "")
+            .trim()
+            .toUpperCase() === queryStr ||
+          String(s.name || s.empName || "")
+            .trim()
+            .toUpperCase()
+            .includes(queryStr),
       );
       if (stby) {
         candidate = {
@@ -5260,9 +6070,16 @@ Rules:
     if (!candidate && consoleData.outstationStepbacks) {
       const stbk = (consoleData.outstationStepbacks || []).find(
         (s) =>
-          String(s.station || s.loc || "").trim().toUpperCase() === queryStr ||
-          String(s.empNo || s.empId || "").trim().toUpperCase() === queryStr ||
-          String(s.name || "").trim().toUpperCase().includes(queryStr),
+          String(s.station || s.loc || "")
+            .trim()
+            .toUpperCase() === queryStr ||
+          String(s.empNo || s.empId || "")
+            .trim()
+            .toUpperCase() === queryStr ||
+          String(s.name || "")
+            .trim()
+            .toUpperCase()
+            .includes(queryStr),
       );
       if (stbk) {
         candidate = {
@@ -5277,14 +6094,21 @@ Rules:
     }
 
     if (!candidate) {
-      return alert(`Candidate "${overrideDutyId}" not found in Roster or Standby Console.`);
+      return alert(
+        `Candidate "${overrideDutyId}" not found in Roster or Standby Console.`,
+      );
     }
 
     // Convert to structure expected by executeRelief
     const candidateAdapter = {
       ...candidate,
       score: "OVERRIDE",
-      scoreBreakdown: { poolPriority: 100, readiness: 40, trainMatch: 0, reliefWindow: 0 },
+      scoreBreakdown: {
+        poolPriority: 100,
+        readiness: 40,
+        trainMatch: 0,
+        reliefWindow: 0,
+      },
       reason: "Manual GCC Supervisor Override",
     };
     await executeRelief(candidateAdapter);
@@ -5625,7 +6449,8 @@ Rules:
             onClick={() => setActiveTab("PUBLISHER")}
             className={`px-4 py-1.5 text-xs font-bold rounded tracking-wider transition-colors flex items-center gap-1.5 ${activeTab === "PUBLISHER" ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black shadow-sm" : "text-emerald-400 hover:text-emerald-300"}`}
           >
-            <FileSpreadsheet className="h-3.5 w-3.5" /> ROSTER SPREADSHEET (GOOGLE SHEETS)
+            <FileSpreadsheet className="h-3.5 w-3.5" /> ROSTER SPREADSHEET
+            (GOOGLE SHEETS)
           </button>
         </div>
       </div>
@@ -5687,7 +6512,9 @@ Rules:
                           CONFIRM & SAVE
                         </strong>{" "}
                         to publish, or{" "}
-                        <strong className="text-rose-400">DISCARD DRAFT (CANCEL)</strong>{" "}
+                        <strong className="text-rose-400">
+                          DISCARD DRAFT (CANCEL)
+                        </strong>{" "}
                         to cancel and abort deployment.
                       </p>
                     </div>
@@ -5792,6 +6619,15 @@ Rules:
                           className={`h-1.5 w-1.5 rounded-full bg-${color}-400`}
                         />
                         {label}: <span className="font-black">{count}</span>
+                      </span>
+                    ))}
+                    {Object.entries(stagedRoster.customRegisters || {}).map(([cName, cList]) => (
+                      <span
+                        key={cName}
+                        className="bg-cyan-950/80 border border-cyan-500/50 text-cyan-200 text-[10px] font-black px-2.5 py-1 rounded-lg flex items-center gap-1.5 shadow-sm"
+                      >
+                        <Sparkles className="h-3 w-3 text-cyan-400 animate-pulse" />
+                        {cName}: <span className="font-black text-cyan-300">{(cList || []).length}</span>
                       </span>
                     ))}
                   </div>
@@ -5925,6 +6761,117 @@ Rules:
                     ))}
                   </div>
 
+                  {/* DYNAMIC CUSTOM OPERATIONAL CATEGORIES PREVIEW */}
+                  {Object.entries(stagedRoster.customRegisters || {}).filter(
+                    ([catTitle]) =>
+                      catTitle &&
+                      !isDateOrTimeValue(catTitle) &&
+                      !isJunkOrWatermarkText(catTitle) &&
+                      !isStandardAuxMarker(catTitle) &&
+                      !/^(Indv Duties|CC Duty|Compulsory GH|Print Wd|20\.9 TO 26\.9|Day|Line-1)$/i.test(catTitle.trim())
+                  ).length > 0 && (
+                    <div className="bg-slate-950/90 border-b border-cyan-900/60 p-4 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                        <div className="text-xs font-black text-cyan-400 uppercase tracking-widest flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-cyan-400" />
+                          DYNAMIC CUSTOM ROSTER REGISTERS —{" "}
+                          {
+                            Object.entries(stagedRoster.customRegisters).filter(
+                              ([catTitle]) =>
+                                catTitle &&
+                                !isDateOrTimeValue(catTitle) &&
+                                !isJunkOrWatermarkText(catTitle) &&
+                                !isStandardAuxMarker(catTitle) &&
+                                !/^(Indv Duties|CC Duty|Compulsory GH|Print Wd|20\.9 TO 26\.9|Day|Line-1)$/i.test(catTitle.trim())
+                            ).length
+                          }{" "}
+                          New Operational Header(s) Detected
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          Auto-created and ready for deployment to Desk Console
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {Object.entries(stagedRoster.customRegisters).map(([catTitle, rawItems]) => {
+                          if (
+                            !catTitle ||
+                            isDateOrTimeValue(catTitle) ||
+                            isJunkOrWatermarkText(catTitle) ||
+                            isStandardAuxMarker(catTitle) ||
+                            /^(Indv Duties|CC Duty|Compulsory GH|Print Wd|20\.9 TO 26\.9|Day|Line-1)$/i.test(catTitle.trim())
+                          ) {
+                            return null;
+                          }
+                          const items = (rawItems || []).filter((it) => {
+                            const r = String(it.remarks || "");
+                            const inf = String(it.info || "");
+                            if (r.includes("From sheet:") || inf.includes("From sheet:")) return false;
+                            if (isJunkOrWatermarkText(it.name)) return false;
+                            return true;
+                          });
+                          if (items.length === 0) return null;
+                          const regCrew = (items || []).filter((it) => !isJmd(it)).length;
+                          const jmdCrew = (items || []).filter((it) => isJmd(it)).length;
+                          return (
+                            <div
+                              key={catTitle}
+                              className="bg-slate-900/90 border border-cyan-800/50 rounded-xl p-3 space-y-2 shadow-sm"
+                            >
+                              <div className="flex justify-between items-center border-b border-slate-800 pb-1.5">
+                                <span className="font-bold text-xs text-cyan-300 truncate" title={catTitle}>
+                                  ✨ {catTitle}
+                                </span>
+                                <span className="text-[10px] font-mono font-bold bg-cyan-950 text-cyan-300 px-2 py-0.5 rounded border border-cyan-800/60 shrink-0">
+                                  {(items || []).length} Staff
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] font-mono text-slate-400">
+                                <span className="text-emerald-400 font-semibold">BMRCL: {regCrew}</span>
+                                <span>•</span>
+                                <span className="text-amber-400 font-semibold">JMD: {jmdCrew}</span>
+                              </div>
+                              <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                                {(items || []).length === 0 ? (
+                                  <div className="text-[10px] text-slate-500 italic">No operators assigned</div>
+                                ) : (
+                                  (items || []).map((cOp, cIdx) => (
+                                    <div
+                                      key={cIdx}
+                                      className="bg-slate-955 border border-slate-800 p-1.5 rounded flex items-center justify-between text-[10px]"
+                                    >
+                                      <div className="truncate max-w-[140px]">
+                                        <div className="font-bold text-slate-200">{cOp.name || "--"}</div>
+                                        <div className="text-[9px] text-cyan-400 font-mono">
+                                          {cOp.time || cOp.info || "General Shift"}
+                                        </div>
+                                      </div>
+                                      <div className="text-right shrink-0">
+                                        <span className="font-mono text-cyan-300 font-bold">
+                                          #{cOp.empNo || cOp.empId || "--"}
+                                        </span>
+                                        <div>
+                                          <span
+                                            className={`text-[8px] px-1 py-0.2 rounded font-bold ${
+                                              isJmd(cOp)
+                                                ? "bg-amber-950 text-amber-300 border border-amber-800/60"
+                                                : "bg-emerald-950 text-emerald-300 border border-emerald-800/60"
+                                            }`}
+                                          >
+                                            {isJmd(cOp) ? "JMD" : "BMRCL"}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Bottom action strip */}
                   <div className="bg-slate-900/80 px-4 py-2.5 flex items-center justify-between text-[10px] text-slate-500 font-mono">
                     <span>
@@ -6015,27 +6962,67 @@ Rules:
                 {rollingDays.map((d, idx) => {
                   const isSelected = idx === activeRosterDayOffset;
                   const typeStyles = {
-                    SUNDAY:  { sel: 'bg-orange-600 text-white shadow-lg shadow-orange-950/60 ring-2 ring-orange-400', idle: 'bg-slate-950 text-slate-400 hover:bg-orange-950/30 hover:text-orange-300', badge: 'text-orange-400 bg-orange-950/60 border-orange-700/40' },
-                    SATURDAY:{ sel: 'bg-violet-600 text-white shadow-lg shadow-violet-950/60 ring-2 ring-violet-400', idle: 'bg-slate-950 text-slate-400 hover:bg-violet-950/30 hover:text-violet-300', badge: 'text-violet-400 bg-violet-950/60 border-violet-700/40' },
-                    MONDAY:  { sel: 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/60 ring-2 ring-emerald-400', idle: 'bg-slate-950 text-slate-400 hover:bg-emerald-950/30 hover:text-emerald-300', badge: 'text-emerald-400 bg-emerald-950/60 border-emerald-700/40' },
-                    WEEKDAY: { sel: 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/60 ring-2 ring-emerald-400', idle: 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white', badge: 'text-cyan-400 bg-cyan-950/60 border-cyan-700/40' },
+                    SUNDAY: {
+                      sel: "bg-orange-600 text-white shadow-lg shadow-orange-950/60 ring-2 ring-orange-400",
+                      idle: "bg-slate-950 text-slate-400 hover:bg-orange-950/30 hover:text-orange-300",
+                      badge:
+                        "text-orange-400 bg-orange-950/60 border-orange-700/40",
+                    },
+                    SATURDAY: {
+                      sel: "bg-violet-600 text-white shadow-lg shadow-violet-950/60 ring-2 ring-violet-400",
+                      idle: "bg-slate-950 text-slate-400 hover:bg-violet-950/30 hover:text-violet-300",
+                      badge:
+                        "text-violet-400 bg-violet-950/60 border-violet-700/40",
+                    },
+                    MONDAY: {
+                      sel: "bg-emerald-600 text-white shadow-lg shadow-emerald-950/60 ring-2 ring-emerald-400",
+                      idle: "bg-slate-950 text-slate-400 hover:bg-emerald-950/30 hover:text-emerald-300",
+                      badge:
+                        "text-emerald-400 bg-emerald-950/60 border-emerald-700/40",
+                    },
+                    WEEKDAY: {
+                      sel: "bg-emerald-600 text-white shadow-lg shadow-emerald-950/60 ring-2 ring-emerald-400",
+                      idle: "bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white",
+                      badge: "text-cyan-400 bg-cyan-950/60 border-cyan-700/40",
+                    },
                   };
                   const ts = typeStyles[d.scheduleType] || typeStyles.WEEKDAY;
-                  const displayType = d.scheduleType === 'MONDAY' ? 'WEEKDAY' : d.scheduleType;
+                  const displayType = d.scheduleType;
                   return (
                     <button
                       key={d.dateStr}
                       type="button"
-                      onClick={() => setActiveRosterDayOffset(idx)}
+                      onClick={() => {
+                        setActiveRosterDayOffset(idx);
+                        if (setActiveDay) {
+                          setActiveDay(d.scheduleType);
+                        } else {
+                          setLocalDayType(d.scheduleType);
+                        }
+                      }}
                       className={`flex flex-col items-center px-3.5 py-2.5 text-xs font-mono font-bold transition shrink-0 border-r border-slate-800 last:border-r-0 ${isSelected ? ts.sel : ts.idle}`}
                     >
-                      <span className={`text-[9px] uppercase tracking-widest font-black ${isSelected ? 'text-white/70' : 'text-slate-500'}`}>
+                      <span
+                        className={`text-[9px] uppercase tracking-widest font-black ${isSelected ? "text-white/70" : "text-slate-500"}`}
+                      >
                         {d.badge}
                       </span>
-                      <span className="text-base font-black leading-tight mt-0.5">{d.dayOfMonth}</span>
-                      <span className={`text-[10px] font-bold ${isSelected ? 'text-white/90' : 'text-slate-400'}`}>{d.monthShort}</span>
-                      <span className={`text-[9px] ${isSelected ? 'text-white/60' : 'text-slate-500'}`}>{d.shortDay}</span>
-                      <span className={`mt-1.5 text-[8px] px-1.5 py-0.5 rounded-sm font-black uppercase border ${isSelected ? 'bg-black/25 border-white/20 text-white/75' : ts.badge}`}>
+                      <span className="text-base font-black leading-tight mt-0.5">
+                        {d.dayOfMonth}
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold ${isSelected ? "text-white/90" : "text-slate-400"}`}
+                      >
+                        {d.monthShort}
+                      </span>
+                      <span
+                        className={`text-[9px] ${isSelected ? "text-white/60" : "text-slate-500"}`}
+                      >
+                        {d.shortDay}
+                      </span>
+                      <span
+                        className={`mt-1.5 text-[8px] px-1.5 py-0.5 rounded-sm font-black uppercase border ${isSelected ? "bg-black/25 border-white/20 text-white/75" : ts.badge}`}
+                      >
                         {displayType}
                       </span>
                     </button>
@@ -6048,35 +7035,146 @@ Rules:
                 const offset = activeRosterDayOffset;
                 const d = activeSelectedDayObj;
                 const configs = [
-                  { icon: '⚡', label: "TODAY'S ROSTER", sub: `Deploying for current operational day`, color: 'bg-amber-950/50 border-amber-600/30 text-amber-300' },
-                  { icon: '📅', label: 'NEXT DAY ROSTER', sub: `Standard next-day advance deployment`, color: 'bg-emerald-950/50 border-emerald-600/30 text-emerald-300' },
-                  { icon: '📅', label: 'DAY AFTER TOMORROW', sub: `2-day advance deployment`, color: 'bg-cyan-950/50 border-cyan-600/30 text-cyan-300' },
+                  {
+                    icon: "⚡",
+                    label: "TODAY'S ROSTER",
+                    sub: `Deploying for current operational day`,
+                    color: "bg-amber-950/50 border-amber-600/30 text-amber-300",
+                  },
+                  {
+                    icon: "📅",
+                    label: "NEXT DAY ROSTER",
+                    sub: `Standard next-day advance deployment`,
+                    color:
+                      "bg-emerald-950/50 border-emerald-600/30 text-emerald-300",
+                  },
+                  {
+                    icon: "📅",
+                    label: "DAY AFTER TOMORROW",
+                    sub: `2-day advance deployment`,
+                    color: "bg-cyan-950/50 border-cyan-600/30 text-cyan-300",
+                  },
                 ];
-                const cfg = offset <= 2
-                  ? configs[offset]
-                  : { icon: '🗓', label: `D+${offset} ADVANCE PLANNING`, sub: `${offset}-day advance deployment`, color: 'bg-slate-900 border-slate-700/50 text-slate-300' };
+                const cfg =
+                  offset <= 2
+                    ? configs[offset]
+                    : {
+                        icon: "🗓",
+                        label: `D+${offset} ADVANCE PLANNING`,
+                        sub: `${offset}-day advance deployment`,
+                        color:
+                          "bg-slate-900 border-slate-700/50 text-slate-300",
+                      };
                 return (
-                  <div className={`px-3 py-2 flex items-center gap-2 text-[10px] font-mono ${cfg.color}`}>
+                  <div
+                    className={`px-3 py-2 flex items-center gap-2 text-[10px] font-mono ${cfg.color}`}
+                  >
                     <span className="text-sm leading-none">{cfg.icon}</span>
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-black uppercase tracking-wider">{cfg.label}</span>
+                      <span className="font-black uppercase tracking-wider">
+                        {cfg.label}
+                      </span>
                       <span className="opacity-60">—</span>
-                      <span className="font-normal opacity-70">{cfg.sub} • {d.fullOfficialTitle}</span>
+                      <span className="font-normal opacity-70">
+                        {cfg.sub} • {d.fullOfficialTitle}
+                      </span>
                     </div>
                   </div>
                 );
               })()}
             </div>
 
-            {/* ── Step 2 — Select Roster File ── */}
+            {/* ── Step 2 — Select Roster File or Google Sheet Link ── */}
             <div className="bg-slate-950/80 border border-slate-700 rounded-xl overflow-hidden">
-              <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-wider text-emerald-400">
-                <UploadCloud className="w-3.5 h-3.5" />
-                Step 2 — Select Roster File
-                <span className="text-slate-500 font-normal normal-case ml-1 tracking-normal">Supports .xlsx · .xls · .xlsb · .xlsm · .csv · .json · .pdf</span>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-3 py-2 bg-slate-900 border-b border-slate-800 gap-1.5">
+                <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-emerald-400">
+                  <UploadCloud className="w-3.5 h-3.5" />
+                  Step 2 — Select Roster File or Google Sheet Link
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Google Sheets Live URL · .xlsx · .xls · .csv · .json · .pdf
+                </span>
               </div>
 
               <div className="p-3 space-y-2.5">
+                {/* Google Sheet Quick Connection Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-emerald-950/30 border border-emerald-500/30 rounded-lg text-xs font-mono">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-5 h-5 rounded flex items-center justify-center text-white text-[10px] font-bold shadow-sm"
+                      style={{ backgroundColor: "#0F9D58" }}
+                    >
+                      田
+                    </div>
+                    <span className="text-[11px] font-bold text-emerald-300">
+                      Google Sheets Enterprise Live Sync:
+                    </span>
+                    {connectedGoogleSheetUrl ? (
+                      <span className="text-[10px] text-slate-400 truncate max-w-[200px] sm:max-w-[320px]">
+                        {connectedGoogleSheetUrl}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-500 italic">
+                        Paste your Google Sheet link below to connect
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {connectedGoogleSheetUrl && (
+                      <a
+                        href={connectedGoogleSheetUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold transition flex items-center gap-1 border border-slate-700"
+                        title="Open connected Google Sheet in a new browser tab to edit roster"
+                      >
+                        <ExternalLink className="w-3 h-3 text-emerald-400" />
+                        <span>Open Sheet ↗</span>
+                      </a>
+                    )}
+                    <a
+                      href={getCreateGoogleSheetUrl()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 text-[10px] transition border border-slate-800 flex items-center gap-1"
+                      title="Create a new Google Sheet"
+                    >
+                      <Plus className="w-3 h-3 text-emerald-400" />
+                      <span>New Sheet ↗</span>
+                    </a>
+                    {(isGoogleSheetUrl(excelPathInput) || connectedGoogleSheetUrl) && (
+                      <button
+                        type="button"
+                        onClick={() => handleSyncFromGoogleSheet()}
+                        disabled={isSyncingGoogleSheet}
+                        className="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-[10px] uppercase tracking-wider transition shadow flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                        title="Fetch live roster data from Google Sheet and stage for dispatch"
+                      >
+                        {isSyncingGoogleSheet ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <RefreshCw className="w-3 h-3" />
+                        )}
+                        <span>
+                          {isSyncingGoogleSheet
+                            ? "Syncing Sheet…"
+                            : "⚡ Sync Live Google Sheet"}
+                        </span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handlePasteAndSyncFromClipboard}
+                      disabled={isSyncingGoogleSheet}
+                      className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 font-bold text-[10px] transition border border-emerald-500/40 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                      title="Instantly paste copied rows from Google Sheets (Ctrl+A then Ctrl+C in sheets) and sync directly"
+                    >
+                      <Copy className="w-3 h-3 text-emerald-400" />
+                      <span>📋 Paste &amp; Sync</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="flex flex-col md:flex-row gap-2 items-stretch">
                   <div className="relative flex-1 w-full">
                     <input
@@ -6084,11 +7182,37 @@ Rules:
                       name="automateddispatchgat-i9"
                       type="text"
                       value={excelPathInput}
-                      onChange={(e) => setExcelPathInput(e.target.value)}
-                      placeholder="Paste file path or URL here…"
-                      className="w-full h-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setExcelPathInput(val);
+                        if (isGoogleSheetUrl(val)) {
+                          saveGoogleSheetUrl(val);
+                          setConnectedGoogleSheetUrl(val);
+                        }
+                      }}
+                      placeholder="Paste Google Sheets URL or Excel file path here…"
+                      className={`w-full h-full bg-slate-950 border rounded-lg px-3 py-2 text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none transition ${
+                        isGoogleSheetUrl(excelPathInput)
+                          ? "border-emerald-500 ring-1 ring-emerald-500/50"
+                          : "border-slate-700 focus:border-emerald-500"
+                      }`}
                     />
                   </div>
+                  {isGoogleSheetUrl(excelPathInput) && (
+                    <button
+                      type="button"
+                      onClick={() => handleSyncFromGoogleSheet(excelPathInput)}
+                      disabled={isSyncingGoogleSheet}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-xs px-4 py-2.5 rounded-lg cursor-pointer flex items-center gap-1.5 shrink-0 transition shadow justify-center uppercase tracking-wider"
+                    >
+                      {isSyncingGoogleSheet ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4" />
+                      )}
+                      <span>Sync Live Sheet</span>
+                    </button>
+                  )}
                   <label
                     className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs px-4 py-2.5 rounded-lg cursor-pointer border border-slate-700 flex items-center gap-1.5 shrink-0 transition justify-center"
                     title="Supported: Excel (.xlsx/.xls), CSV, JSON, PDF (AI-extracted via Gemini)"
@@ -6118,13 +7242,22 @@ Rules:
                   <div className="flex items-center gap-2 px-3 py-2 bg-emerald-950/40 border border-emerald-600/30 rounded-lg">
                     <CheckCircle className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
                     <div className="flex-1 min-w-0 text-[10px] font-mono">
-                      <span className="text-emerald-300 font-black">{selectedRosterFile.name}</span>
-                      <span className="text-emerald-400/60 ml-2">({(selectedRosterFile.size / 1024).toFixed(1)} KB)</span>
-                      <span className="text-emerald-400/50 ml-2">· Ready for {activeSelectedDayObj.displayLabel}</span>
+                      <span className="text-emerald-300 font-black">
+                        {selectedRosterFile.name}
+                      </span>
+                      <span className="text-emerald-400/60 ml-2">
+                        ({(selectedRosterFile.size / 1024).toFixed(1)} KB)
+                      </span>
+                      <span className="text-emerald-400/50 ml-2">
+                        · Ready for {activeSelectedDayObj.displayLabel}
+                      </span>
                     </div>
                     <button
                       type="button"
-                      onClick={() => { setSelectedRosterFile(null); setExcelPathInput(''); }}
+                      onClick={() => {
+                        setSelectedRosterFile(null);
+                        setExcelPathInput("");
+                      }}
                       className="text-slate-500 hover:text-rose-400 transition text-[10px] shrink-0 font-mono"
                       title="Clear selected file"
                     >
@@ -6132,9 +7265,25 @@ Rules:
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/60 border border-slate-700/50 rounded-lg text-[10px] font-mono text-slate-500 italic">
-                    <FileSpreadsheet className="h-3.5 w-3.5 shrink-0 text-slate-600" />
-                    No file selected — browse above or paste a path, then press INSPECT &amp; DEPLOY below
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-900/60 border border-slate-700/50 rounded-lg text-[10px] font-mono text-slate-500 italic">
+                    <div className="flex items-center gap-2">
+                      <FileSpreadsheet className="h-3.5 w-3.5 shrink-0 text-slate-600" />
+                      <span>
+                        Paste Google Sheets URL or browse an Excel file above, then press INSPECT &amp; DEPLOY
+                      </span>
+                    </div>
+                    {connectedGoogleSheetUrl && !excelPathInput && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExcelPathInput(connectedGoogleSheetUrl);
+                          handleSyncFromGoogleSheet(connectedGoogleSheetUrl);
+                        }}
+                        className="not-italic text-emerald-400 hover:text-emerald-300 text-[10px] font-bold underline cursor-pointer"
+                      >
+                        Load Saved Google Sheet →
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -6144,28 +7293,45 @@ Rules:
             {(() => {
               const canInspect = !!selectedRosterFile && !isInspectingPath;
               const d = activeSelectedDayObj;
-              const displayType = d.scheduleType === 'MONDAY' ? 'WEEKDAY' : d.scheduleType;
+              const displayType = d.scheduleType;
               const gradients = {
-                SUNDAY:  'from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 shadow-orange-950/60',
-                SATURDAY:'from-violet-600 to-purple-500 hover:from-violet-500 hover:to-purple-400 shadow-violet-950/60',
-                MONDAY:  'from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-emerald-950/60',
-                WEEKDAY: 'from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-emerald-950/60',
+                SUNDAY:
+                  "from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 shadow-orange-950/60",
+                SATURDAY:
+                  "from-violet-600 to-purple-500 hover:from-violet-500 hover:to-purple-400 shadow-violet-950/60",
+                MONDAY:
+                  "from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-emerald-950/60",
+                WEEKDAY:
+                  "from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-emerald-950/60",
               };
               const grad = gradients[d.scheduleType] || gradients.WEEKDAY;
-              const dayLabel = d.badge === 'TODAY'
-                ? 'TODAY'
-                : d.badge === 'TOMORROW'
-                  ? 'TOMORROW'
-                  : `${d.shortDay.toUpperCase()} ${d.dayOfMonth} ${d.monthShort.toUpperCase()}`;
+              const dayLabel =
+                d.badge === "TODAY"
+                  ? "TODAY"
+                  : d.badge === "TOMORROW"
+                    ? "TOMORROW"
+                    : `${d.shortDay.toUpperCase()} ${d.dayOfMonth} ${d.monthShort.toUpperCase()}`;
               return (
                 <div className="flex flex-col sm:flex-row items-center gap-3">
                   <button
                     type="button"
-                    onClick={() => processFileAndDeploy(selectedRosterFile, null, activeSelectedDayObj.date)}
+                    onClick={() =>
+                      processFileAndDeploy(
+                        selectedRosterFile,
+                        null,
+                        activeSelectedDayObj.date,
+                      )
+                    }
                     disabled={!canInspect}
-                    title={!selectedRosterFile ? 'Select a roster file first (Step 2)' : `Inspect & deploy roster for ${d.displayLabel}`}
+                    title={
+                      !selectedRosterFile
+                        ? "Select a roster file first (Step 2)"
+                        : `Inspect & deploy roster for ${d.displayLabel}`
+                    }
                     className={`flex-1 bg-gradient-to-r ${grad} text-slate-950 font-black text-xs px-6 py-3.5 rounded-xl shadow-md flex items-center justify-center gap-2.5 uppercase tracking-wider transition-all ${
-                      canInspect ? 'cursor-pointer opacity-100' : 'opacity-35 cursor-not-allowed'
+                      canInspect
+                        ? "cursor-pointer opacity-100"
+                        : "opacity-35 cursor-not-allowed"
                     }`}
                   >
                     {isInspectingPath ? (
@@ -6176,8 +7342,7 @@ Rules:
                     <span className="text-sm">
                       {isInspectingPath
                         ? `Inspecting ${d.badge} Roster…`
-                        : `INSPECT & DEPLOY — ${dayLabel} (${displayType})`
-                      }
+                        : `INSPECT & DEPLOY — ${dayLabel} (${displayType})`}
                     </span>
                   </button>
                   {!selectedRosterFile && (
@@ -6194,7 +7359,8 @@ Rules:
               <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2">
                 <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
                   <span className="font-bold text-emerald-400 uppercase">
-                    Detected Sheets in Workbook ({detectedWorkbookSheets.length}):
+                    Detected Sheets in Workbook ({detectedWorkbookSheets.length}
+                    ):
                   </span>
                   <span>Click sheet to parse & deploy day-wise</span>
                 </div>
@@ -6204,12 +7370,20 @@ Rules:
                       key={idx}
                       type="button"
                       onClick={() => {
-                        processFileAndDeploy(selectedRosterFile, sh.sheetName, sh.dateStr ? new Date(sh.dateStr) : null);
+                        processFileAndDeploy(
+                          selectedRosterFile,
+                          sh.sheetName,
+                          sh.dateStr ? new Date(sh.dateStr) : null,
+                        );
                       }}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-800 text-slate-200 hover:text-white text-xs font-mono font-bold border border-slate-700 transition"
                     >
                       <span>{sh.sheetName}</span>
-                      {sh.dayName && <span className="text-[10px] text-emerald-400 font-normal">({sh.dayName})</span>}
+                      {sh.dayName && (
+                        <span className="text-[10px] text-emerald-400 font-normal">
+                          ({sh.dayName})
+                        </span>
+                      )}
                       <span className="text-[10px] bg-black/40 px-1.5 py-0.2 rounded text-slate-300">
                         {sh.rowCount} rows
                       </span>
@@ -6273,22 +7447,33 @@ Rules:
                   <button
                     type="button"
                     onClick={async () => {
-                      const targetDateStr = deployedRosterInfo?.dateStr || activeSelectedDateStr;
+                      const targetDateStr =
+                        deployedRosterInfo?.dateStr || activeSelectedDateStr;
                       const nextStatus = !isPublishedToOperators;
                       setIsPublishedToOperators(nextStatus);
-                      await setDoc(doc(db, "dispatch_excel_cache", targetDateStr), {
-                        isPublishedForOperators: nextStatus,
-                        publishedAt: serverTimestamp(),
-                      }, { merge: true });
+                      await setDoc(
+                        doc(db, "dispatch_excel_cache", targetDateStr),
+                        {
+                          isPublishedForOperators: nextStatus,
+                          publishedAt: serverTimestamp(),
+                        },
+                        { merge: true },
+                      );
                     }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition border ${
-                      isPublishedToOperators 
-                        ? "bg-emerald-900/90 text-emerald-300 border-emerald-500" 
+                      isPublishedToOperators
+                        ? "bg-emerald-900/90 text-emerald-300 border-emerald-500"
                         : "bg-amber-950/80 text-amber-300 border-amber-500"
                     }`}
                   >
-                    <Radio className={`w-3.5 h-3.5 ${isPublishedToOperators ? "text-emerald-400 animate-pulse" : "text-amber-400"}`} />
-                    <span>{isPublishedToOperators ? "● PUBLISHED TO TOs" : "○ UNPUBLISHED"}</span>
+                    <Radio
+                      className={`w-3.5 h-3.5 ${isPublishedToOperators ? "text-emerald-400 animate-pulse" : "text-amber-400"}`}
+                    />
+                    <span>
+                      {isPublishedToOperators
+                        ? "● PUBLISHED TO TOs"
+                        : "○ UNPUBLISHED"}
+                    </span>
                   </button>
                   <span className="bg-emerald-900/90 text-emerald-300 text-[10px] font-bold px-3 py-1 rounded-lg border border-emerald-600 uppercase tracking-widest shadow">
                     DEPLOYED DATE:{" "}
@@ -6462,68 +7647,76 @@ Rules:
                       Recommendations
                     </h4>
                     {/* Pool Filter Tabs */}
-                    {activeAbnormalEvent.recommendations && activeAbnormalEvent.recommendations.length > 0 && (
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <button
-                          type="button"
-                          onClick={() => setReliefPoolFilter("PRIORITY")}
-                          className={`px-2.5 py-1 rounded text-[10px] font-mono uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
-                            reliefPoolFilter === "PRIORITY"
-                              ? "bg-emerald-500 text-slate-950 font-black shadow-md"
-                              : "bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200"
-                          }`}
-                        >
-                          🛡️ Standby & Pro (
-                          {
-                            activeAbnormalEvent.recommendations.filter(
-                              (r) => r.candidatePool === "STANDBY" || r.candidatePool === "PRO",
-                            ).length
-                          }
-                          )
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setReliefPoolFilter("ACTIVE")}
-                          className={`px-2.5 py-1 rounded text-[10px] font-mono uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
-                            reliefPoolFilter === "ACTIVE"
-                              ? "bg-cyan-500 text-slate-950 font-black shadow-md"
-                              : "bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200"
-                          }`}
-                        >
-                          🚆 Active Mainline (
-                          {
-                            activeAbnormalEvent.recommendations.filter(
-                              (r) => r.candidatePool === "ACTIVE_MAINLINE",
-                            ).length
-                          }
-                          )
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setReliefPoolFilter("ALL")}
-                          className={`px-2.5 py-1 rounded text-[10px] font-mono uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
-                            reliefPoolFilter === "ALL"
-                              ? "bg-purple-500 text-slate-950 font-black shadow-md"
-                              : "bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200"
-                          }`}
-                        >
-                          ⭐ All ({activeAbnormalEvent.recommendations.length})
-                        </button>
-                      </div>
-                    )}
+                    {activeAbnormalEvent.recommendations &&
+                      activeAbnormalEvent.recommendations.length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => setReliefPoolFilter("PRIORITY")}
+                            className={`px-2.5 py-1 rounded text-[10px] font-mono uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
+                              reliefPoolFilter === "PRIORITY"
+                                ? "bg-emerald-500 text-slate-950 font-black shadow-md"
+                                : "bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200"
+                            }`}
+                          >
+                            🛡️ Standby & Pro (
+                            {
+                              activeAbnormalEvent.recommendations.filter(
+                                (r) =>
+                                  r.candidatePool === "STANDBY" ||
+                                  r.candidatePool === "PRO",
+                              ).length
+                            }
+                            )
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setReliefPoolFilter("ACTIVE")}
+                            className={`px-2.5 py-1 rounded text-[10px] font-mono uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
+                              reliefPoolFilter === "ACTIVE"
+                                ? "bg-cyan-500 text-slate-950 font-black shadow-md"
+                                : "bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200"
+                            }`}
+                          >
+                            🚆 Active Mainline (
+                            {
+                              activeAbnormalEvent.recommendations.filter(
+                                (r) => r.candidatePool === "ACTIVE_MAINLINE",
+                              ).length
+                            }
+                            )
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setReliefPoolFilter("ALL")}
+                            className={`px-2.5 py-1 rounded text-[10px] font-mono uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
+                              reliefPoolFilter === "ALL"
+                                ? "bg-purple-500 text-slate-950 font-black shadow-md"
+                                : "bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200"
+                            }`}
+                          >
+                            ⭐ All ({activeAbnormalEvent.recommendations.length}
+                            )
+                          </button>
+                        </div>
+                      )}
                   </div>
 
                   {(() => {
                     const allRecs = activeAbnormalEvent.recommendations || [];
                     const priorityRecs = allRecs.filter(
-                      (r) => r.candidatePool === "STANDBY" || r.candidatePool === "PRO",
+                      (r) =>
+                        r.candidatePool === "STANDBY" ||
+                        r.candidatePool === "PRO",
                     );
                     const activeRecs = allRecs.filter(
                       (r) => r.candidatePool === "ACTIVE_MAINLINE",
                     );
                     const displayedRecs =
                       reliefPoolFilter === "PRIORITY"
-                        ? (priorityRecs.length > 0 ? priorityRecs : allRecs)
+                        ? priorityRecs.length > 0
+                          ? priorityRecs
+                          : allRecs
                         : reliefPoolFilter === "ACTIVE"
                           ? activeRecs
                           : allRecs;
@@ -6671,7 +7864,8 @@ Rules:
                   <div className="bg-slate-950 border border-slate-800 rounded-lg p-4">
                     <p className="text-[10px] text-slate-500 mb-3 leading-relaxed">
                       If algorithmic recommendations are unsuitable, GCC may
-                      manually designate a relief Duty ID or Emp No from Standby/Mainline.
+                      manually designate a relief Duty ID or Emp No from
+                      Standby/Mainline.
                     </p>
                     <label
                       className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1"
@@ -6702,7 +7896,7 @@ Rules:
                     onClick={async () => {
                       if (
                         window.confirm(
-                          `Reset and clear incident on Duty #${activeAbnormalEvent.deployment.dutyId}? This will restore the duty to normal Active status and cancel the event.`
+                          `Reset and clear incident on Duty #${activeAbnormalEvent.deployment.dutyId}? This will restore the duty to normal Active status and cancel the event.`,
                         )
                       ) {
                         await handleResetRelief(activeAbnormalEvent.deployment);
@@ -6711,7 +7905,8 @@ Rules:
                     className="w-full mt-2 bg-rose-950/70 hover:bg-rose-900 text-rose-300 hover:text-white border border-rose-700/80 rounded py-2 text-xs font-black tracking-wider uppercase flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow"
                     title="Clear emergency/incident and restore duty to normal Active"
                   >
-                    <RotateCcw className="h-3.5 w-3.5" /> RESET / CANCEL INCIDENT
+                    <RotateCcw className="h-3.5 w-3.5" /> RESET / CANCEL
+                    INCIDENT
                   </button>
 
                   <button
@@ -6980,21 +8175,38 @@ Rules:
 
                       const hasValidDriver = Boolean(
                         (d.empName || d.name || d.operatorName) &&
-                        !String(d.empName || d.name || d.operatorName).toUpperCase().includes("VACANT") &&
-                        !String(d.empName || d.name || d.operatorName).toUpperCase().includes("UNASSIGNED") &&
+                        !String(d.empName || d.name || d.operatorName)
+                          .toUpperCase()
+                          .includes("VACANT") &&
+                        !String(d.empName || d.name || d.operatorName)
+                          .toUpperCase()
+                          .includes("UNASSIGNED") &&
                         (d.empId || d.empNo || d.employeeId || displayId) &&
-                        String(d.empId || d.empNo || d.employeeId || displayId).trim() !== "--" &&
-                        String(d.empId || d.empNo || d.employeeId || displayId).trim() !== "UNASSIGNED" &&
-                        String(d.empId || d.empNo || d.employeeId || displayId).trim() !== "0" &&
-                        String(d.empId || d.empNo || d.employeeId || displayId).trim() !== ""
+                        String(
+                          d.empId || d.empNo || d.employeeId || displayId,
+                        ).trim() !== "--" &&
+                        String(
+                          d.empId || d.empNo || d.employeeId || displayId,
+                        ).trim() !== "UNASSIGNED" &&
+                        String(
+                          d.empId || d.empNo || d.employeeId || displayId,
+                        ).trim() !== "0" &&
+                        String(
+                          d.empId || d.empNo || d.employeeId || displayId,
+                        ).trim() !== "",
                       );
 
                       const isBookedOffVacant = Boolean(
                         !hasValidDriver &&
                         (d.status === "BOOKED_OFF_VACANT" ||
-                          String(d.empName || "").toUpperCase().includes("VACANT") ||
-                          (String(d.remarks || "").toUpperCase().includes("BOOKED OFF") && !hasValidDriver) ||
-                          d.status === "BOOKED_OFF")
+                          String(d.empName || "")
+                            .toUpperCase()
+                            .includes("VACANT") ||
+                          (String(d.remarks || "")
+                            .toUpperCase()
+                            .includes("BOOKED OFF") &&
+                            !hasValidDriver) ||
+                          d.status === "BOOKED_OFF"),
                       );
                       const isUnassigned = !hasValidDriver;
                       const isSearchMatch = Boolean(
@@ -7335,11 +8547,13 @@ Rules:
                               {isBookedOffVacant
                                 ? "--"
                                 : highlightMatch(
-                                    (d.empId && d.empId !== "--" && d.empId !== "UNASSIGNED")
+                                    d.empId &&
+                                      d.empId !== "--" &&
+                                      d.empId !== "UNASSIGNED"
                                       ? d.empId
-                                      : (d.employeeId && d.employeeId !== "--")
+                                      : d.employeeId && d.employeeId !== "--"
                                         ? d.employeeId
-                                        : (displayId && displayId !== "--")
+                                        : displayId && displayId !== "--"
                                           ? displayId
                                           : "--",
                                     searchQuery,
@@ -7385,7 +8599,8 @@ Rules:
                                 name={`engine_trigger_${d.dutyId || d.id}`}
                                 aria-label={`Engine Triggers for Duty ${d.dutyId}`}
                                 value={
-                                  d.status === "NOT_REPORTING" || d.status === "NR"
+                                  d.status === "NOT_REPORTING" ||
+                                  d.status === "NR"
                                     ? "NOT_REPORTING"
                                     : d.status === "ABSENT" || d.status === "AB"
                                       ? "ABSENT"
@@ -7399,7 +8614,8 @@ Rules:
                                 }}
                                 disabled={!!activeAbnormalEvent}
                                 className={`text-[10px] font-black tracking-wider uppercase px-2 py-1 rounded border outline-none transition-all cursor-pointer shadow-sm ${
-                                  d.status === "NOT_REPORTING" || d.status === "NR"
+                                  d.status === "NOT_REPORTING" ||
+                                  d.status === "NR"
                                     ? "bg-rose-950/90 border-rose-500/60 text-rose-300"
                                     : d.status === "ABSENT" || d.status === "AB"
                                       ? "bg-red-950/90 border-red-500/60 text-red-300"
@@ -7412,10 +8628,18 @@ Rules:
                                 title="Algorithmic Shift Validation & Relief Engine Trigger"
                               >
                                 <option value="">⚡ Engine Trigger...</option>
-                                <option value="CHANGE">🔄 CHANGE (Reassign / Swap)</option>
-                                <option value="MOVE">⇄ MOVE (Transfer Desk)</option>
-                                <option value="BOOK_OFF">⛔ BOOK OFF (Fault / Incident)</option>
-                                <option value="NOT_REPORTING">🔴 Not Reported (NR)</option>
+                                <option value="CHANGE">
+                                  🔄 CHANGE (Reassign / Swap)
+                                </option>
+                                <option value="MOVE">
+                                  ⇄ MOVE (Transfer Desk)
+                                </option>
+                                <option value="BOOK_OFF">
+                                  ⛔ BOOK OFF (Fault / Incident)
+                                </option>
+                                <option value="NOT_REPORTING">
+                                  🔴 Not Reported (NR)
+                                </option>
                                 <option value="ABSENT">⛔ Absent (AB)</option>
                                 <option value="EMERGENCY">🚨 Emergency</option>
                                 <option value="INCIDENT">⚠️ Incident</option>
@@ -7423,16 +8647,24 @@ Rules:
 
                                 {/* Dynamic Relief & Dispatch Actions */}
                                 {d.status === "RELIEF_DISPATCHED" && (
-                                  <option value="RESET_RELIEF">↺ Undo Relief (Restore Operator)</option>
+                                  <option value="RESET_RELIEF">
+                                    ↺ Undo Relief (Restore Operator)
+                                  </option>
                                 )}
                                 {d.status === "RELIEVED" && (
                                   <>
-                                    <option value="RESET_RELIEF">↺ Undo Relief (Restore Duty)</option>
-                                    <option value="EMERGENCY">🚨 Re-trigger Relief</option>
+                                    <option value="RESET_RELIEF">
+                                      ↺ Undo Relief (Restore Duty)
+                                    </option>
+                                    <option value="EMERGENCY">
+                                      🚨 Re-trigger Relief
+                                    </option>
                                   </>
                                 )}
                                 {d.status === "DISPATCHED" && (
-                                  <option value="UNDO_DISPATCH">↺ Revoke Dispatch</option>
+                                  <option value="UNDO_DISPATCH">
+                                    ↺ Revoke Dispatch
+                                  </option>
                                 )}
                                 {(d.status === "NOT_REPORTING" ||
                                   d.status === "NR" ||
@@ -7442,10 +8674,14 @@ Rules:
                                   d.status === "EMERGENCY_DECLARED" ||
                                   d.status === "BOOKED_OFF_VACANT" ||
                                   isBookedOffVacant ||
-                                  String(d.remarks || "").toUpperCase().includes("BOOKED OFF") ||
+                                  String(d.remarks || "")
+                                    .toUpperCase()
+                                    .includes("BOOKED OFF") ||
                                   d.status === "RELIEF_DISPATCHED" ||
                                   d.status === "RELIEVED") && (
-                                  <option value="RESET">🔄 Reset to Active</option>
+                                  <option value="RESET">
+                                    🔄 Reset to Active
+                                  </option>
                                 )}
                               </select>
                             </div>
@@ -7476,7 +8712,8 @@ Rules:
                                     className="bg-amber-600 hover:bg-amber-500 text-slate-950 font-black px-2.5 py-1 rounded text-[9px] tracking-wider uppercase shadow flex items-center gap-1 cursor-pointer transition-colors"
                                     title="Undo relief dispatch and restore operator to normal duty"
                                   >
-                                    <RotateCcw className="h-3 w-3" /> UNDO RELIEF
+                                    <RotateCcw className="h-3 w-3" /> UNDO
+                                    RELIEF
                                   </button>
                                 </div>
                               ) : d.status === "RELIEVED" ? (
@@ -7494,21 +8731,26 @@ Rules:
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => handleAbnormalEvent(d, "EMERGENCY")}
+                                    onClick={() =>
+                                      handleAbnormalEvent(d, "EMERGENCY")
+                                    }
                                     className="bg-rose-600 hover:bg-rose-500 text-white font-black px-2 py-1 rounded text-[9px] tracking-wider uppercase shadow flex items-center gap-1 cursor-pointer transition-colors"
                                     title="Re-open relief recommendations for this duty"
                                   >
                                     🔁 RE-RELIEVE
                                   </button>
                                 </div>
-                              ) : d.status === "EMERGENCY" || d.status === "EMERGENCY_DECLARED" ? (
+                              ) : d.status === "EMERGENCY" ||
+                                d.status === "EMERGENCY_DECLARED" ? (
                                 <div className="flex items-center gap-1.5 flex-wrap justify-end">
                                   <span className="text-[9px] bg-rose-955 text-rose-300 border border-rose-600/70 px-2 py-0.5 rounded font-mono font-bold animate-pulse">
                                     🚨 EMERGENCY
                                   </span>
                                   <button
                                     type="button"
-                                    onClick={() => handleAbnormalEvent(d, "EMERGENCY")}
+                                    onClick={() =>
+                                      handleAbnormalEvent(d, "EMERGENCY")
+                                    }
                                     className="bg-rose-600 hover:bg-rose-500 text-white font-black px-2.5 py-1 rounded text-[9px] tracking-wider uppercase shadow flex items-center gap-1 cursor-pointer transition-colors"
                                     title="Open Algorithmic Relief recommendations for this emergency duty"
                                   >
@@ -7526,7 +8768,8 @@ Rules:
                               ) : d.status === "DISPATCHED" ? (
                                 <div className="flex items-center gap-1">
                                   <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-1 pl-1">
-                                    <CheckCircle className="h-3 w-3 text-emerald-500" /> DISPATCHED
+                                    <CheckCircle className="h-3 w-3 text-emerald-500" />{" "}
+                                    DISPATCHED
                                   </span>
                                   <button
                                     type="button"
@@ -7589,8 +8832,11 @@ Rules:
                         : "bg-slate-955 border-amber-500/40 text-amber-300 hover:bg-slate-850"
                     }`}
                   >
-                    Co-Operators & 2nd Crew ({consoleData.coOperators?.length || 0})
-                    {consoleSearchQuery.trim() && filteredCoOperators.length > 0 && ` 🎯${filteredCoOperators.length}`}
+                    Co-Operators & 2nd Crew (
+                    {consoleData.coOperators?.length || 0})
+                    {consoleSearchQuery.trim() &&
+                      filteredCoOperators.length > 0 &&
+                      ` 🎯${filteredCoOperators.length}`}
                   </button>
                   <button
                     type="button"
@@ -7605,8 +8851,11 @@ Rules:
                         : "bg-slate-955 border-slate-800 text-amber-400 hover:bg-slate-850"
                     }`}
                   >
-                    Crew Controllers ({consoleData.controlDesks?.length || 0}/10)
-                    {consoleSearchQuery.trim() && filteredControlDesks.length > 0 && ` 🎯${filteredControlDesks.length}`}
+                    Crew Controllers ({consoleData.controlDesks?.length || 0}
+                    /10)
+                    {consoleSearchQuery.trim() &&
+                      filteredControlDesks.length > 0 &&
+                      ` 🎯${filteredControlDesks.length}`}
                   </button>
                   <button
                     type="button"
@@ -7622,7 +8871,9 @@ Rules:
                     }`}
                   >
                     Leave & Rest ({consoleData.leaves?.length || 0}/50)
-                    {consoleSearchQuery.trim() && filteredLeaves.length > 0 && ` 🎯${filteredLeaves.length}`}
+                    {consoleSearchQuery.trim() &&
+                      filteredLeaves.length > 0 &&
+                      ` 🎯${filteredLeaves.length}`}
                   </button>
                   <button
                     type="button"
@@ -7638,7 +8889,9 @@ Rules:
                     }`}
                   >
                     Standby ({consoleData.standbys?.length || 0}/50)
-                    {consoleSearchQuery.trim() && filteredStandbys.length > 0 && ` 🎯${filteredStandbys.length}`}
+                    {consoleSearchQuery.trim() &&
+                      filteredStandbys.length > 0 &&
+                      ` 🎯${filteredStandbys.length}`}
                   </button>
                   <button
                     type="button"
@@ -7654,7 +8907,9 @@ Rules:
                     }`}
                   >
                     STBK ({consoleData.outstationStepbacks?.length || 0}/20)
-                    {consoleSearchQuery.trim() && filteredStepbacks.length > 0 && ` 🎯${filteredStepbacks.length}`}
+                    {consoleSearchQuery.trim() &&
+                      filteredStepbacks.length > 0 &&
+                      ` 🎯${filteredStepbacks.length}`}
                   </button>
                   <button
                     type="button"
@@ -7670,7 +8925,9 @@ Rules:
                     }`}
                   >
                     CRT ({consoleData.crtTraining?.length || 0}/15)
-                    {consoleSearchQuery.trim() && filteredCrt.length > 0 && ` 🎯${filteredCrt.length}`}
+                    {consoleSearchQuery.trim() &&
+                      filteredCrt.length > 0 &&
+                      ` 🎯${filteredCrt.length}`}
                   </button>
                   <button
                     type="button"
@@ -7686,7 +8943,9 @@ Rules:
                     }`}
                   >
                     BMRTI ({consoleData.bmrtiTraining?.length || 0}/50)
-                    {consoleSearchQuery.trim() && filteredBmrti.length > 0 && ` 🎯${filteredBmrti.length}`}
+                    {consoleSearchQuery.trim() &&
+                      filteredBmrti.length > 0 &&
+                      ` 🎯${filteredBmrti.length}`}
                   </button>
                   <button
                     type="button"
@@ -7702,7 +8961,9 @@ Rules:
                     }`}
                   >
                     Weekly Off ({consoleData.weeklyOffs?.length || 0}/50)
-                    {consoleSearchQuery.trim() && filteredWeeklyOffs.length > 0 && ` 🎯${filteredWeeklyOffs.length}`}
+                    {consoleSearchQuery.trim() &&
+                      filteredWeeklyOffs.length > 0 &&
+                      ` 🎯${filteredWeeklyOffs.length}`}
                   </button>
                   <button
                     type="button"
@@ -7718,7 +8979,9 @@ Rules:
                     }`}
                   >
                     REL ({consoleData.relievedOperators?.length || 0}/10)
-                    {consoleSearchQuery.trim() && filteredRel.length > 0 && ` 🎯${filteredRel.length}`}
+                    {consoleSearchQuery.trim() &&
+                      filteredRel.length > 0 &&
+                      ` 🎯${filteredRel.length}`}
                   </button>
                   <button
                     type="button"
@@ -7734,7 +8997,9 @@ Rules:
                     }`}
                   >
                     PME ({consoleData.pmeOperators?.length || 0}/20)
-                    {consoleSearchQuery.trim() && filteredPme.length > 0 && ` 🎯${filteredPme.length}`}
+                    {consoleSearchQuery.trim() &&
+                      filteredPme.length > 0 &&
+                      ` 🎯${filteredPme.length}`}
                   </button>
                   <button
                     type="button"
@@ -7750,7 +9015,9 @@ Rules:
                     }`}
                   >
                     LRD ({consoleData.routeLearning?.length || 0}/20)
-                    {consoleSearchQuery.trim() && filteredLrd.length > 0 && ` 🎯${filteredLrd.length}`}
+                    {consoleSearchQuery.trim() &&
+                      filteredLrd.length > 0 &&
+                      ` 🎯${filteredLrd.length}`}
                   </button>
                   <button
                     type="button"
@@ -7766,7 +9033,9 @@ Rules:
                     }`}
                   >
                     OD ({consoleData.onDuty?.length || 0}/20)
-                    {consoleSearchQuery.trim() && filteredOd.length > 0 && ` 🎯${filteredOd.length}`}
+                    {consoleSearchQuery.trim() &&
+                      filteredOd.length > 0 &&
+                      ` 🎯${filteredOd.length}`}
                   </button>
                   <button
                     type="button"
@@ -7782,7 +9051,9 @@ Rules:
                     }`}
                   >
                     NR ({consoleData.notReporting?.length || 0}/20)
-                    {consoleSearchQuery.trim() && filteredNr.length > 0 && ` 🎯${filteredNr.length}`}
+                    {consoleSearchQuery.trim() &&
+                      filteredNr.length > 0 &&
+                      ` 🎯${filteredNr.length}`}
                   </button>
                   <button
                     type="button"
@@ -7798,7 +9069,9 @@ Rules:
                     }`}
                   >
                     AB ({consoleData.absents?.length || 0}/20)
-                    {consoleSearchQuery.trim() && filteredAbsents.length > 0 && ` 🎯${filteredAbsents.length}`}
+                    {consoleSearchQuery.trim() &&
+                      filteredAbsents.length > 0 &&
+                      ` 🎯${filteredAbsents.length}`}
                   </button>
                   <button
                     type="button"
@@ -7814,37 +9087,71 @@ Rules:
                     }`}
                   >
                     BO ({consoleData.bookedOff?.length || 0}/20)
-                    {consoleSearchQuery.trim() && filteredBo.length > 0 && ` 🎯${filteredBo.length}`}
+                    {consoleSearchQuery.trim() &&
+                      filteredBo.length > 0 &&
+                      ` 🎯${filteredBo.length}`}
                   </button>
                   {Object.keys(consoleData.customRegisters || {}).map(
                     (tagName) => {
-                      const matchCount = (
-                        consoleData.customRegisters[tagName] || []
-                      ).filter(matchesConsoleSearch).length;
+                      if (
+                        !tagName ||
+                        isDateOrTimeValue(tagName) ||
+                        isJunkOrWatermarkText(tagName) ||
+                        isStandardAuxMarker(tagName) ||
+                        /^(Indv Duties|CC Duty|Compulsory GH|Print Wd|20\.9 TO 26\.9|Day|Line-1)$/i.test(tagName.trim())
+                      ) {
+                        return null;
+                      }
+                      const list = (consoleData.customRegisters[tagName] || []).filter((op) => {
+                        const r = String(op.remarks || "");
+                        const inf = String(op.info || "");
+                        if (r.includes("From sheet:") || inf.includes("From sheet:")) return false;
+                        if (isJunkOrWatermarkText(op.name)) return false;
+                        return true;
+                      });
+                      if (list.length === 0) return null;
+                      const matchCount = list.filter(matchesConsoleSearch).length;
+                      const isActive = consoleFilterCategory === tagName;
                       return (
                         <button
                           key={tagName}
                           type="button"
                           onClick={() =>
-                            setConsoleFilterCategory(
-                              consoleFilterCategory === tagName ? "ALL" : tagName,
-                            )
+                            setConsoleFilterCategory(isActive ? "ALL" : tagName)
                           }
-                          className={`px-2 py-0.5 rounded border transition-all cursor-pointer font-bold ${
-                            consoleFilterCategory === tagName
-                              ? "bg-cyan-500 text-slate-950 border-cyan-400 ring-2 ring-cyan-400 shadow-sm"
-                              : "bg-slate-955 border-cyan-800 text-cyan-300 hover:bg-slate-850"
+                          className={`px-2 py-0.5 rounded border transition-all cursor-pointer font-bold flex items-center gap-1 ${
+                            isActive
+                              ? "bg-cyan-400 text-slate-950 border-cyan-300 ring-2 ring-cyan-400 shadow-md"
+                              : "bg-slate-955 border-cyan-700/60 text-cyan-300 hover:bg-slate-850 hover:border-cyan-500"
                           }`}
+                          title={`Operational Category: ${tagName}`}
                         >
-                          {tagName} (
-                          {consoleData.customRegisters[tagName]?.length || 0})
-                          {consoleSearchQuery.trim() &&
-                            matchCount > 0 &&
-                            ` 🎯${matchCount}`}
+                          <Sparkles className="h-2.5 w-2.5 text-cyan-300" />
+                          <span>{tagName}</span>
+                          <span className="opacity-90">({list.length})</span>
+                          {consoleSearchQuery.trim() && matchCount > 0 && (
+                            <span className="text-amber-300 font-black">🎯{matchCount}</span>
+                          )}
                         </button>
                       );
                     },
                   )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newTitle = window.prompt(
+                        "Enter Title for New Operational Header / Category\n(e.g. TEMPORARY WHTT / CC, CAB INSPECTION, SHUNTING PILOT):"
+                      );
+                      if (newTitle && newTitle.trim()) {
+                        handleAddNewCustomCategory(newTitle.trim());
+                      }
+                    }}
+                    className="px-2.5 py-0.5 rounded border border-dashed border-cyan-500/70 bg-cyan-950/40 text-cyan-300 hover:bg-cyan-900/60 hover:border-cyan-400 text-[10px] font-black cursor-pointer flex items-center gap-1 transition-all shadow-sm"
+                    title="Deploy a new custom header / category to the desk console"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>NEW HEADER</span>
+                  </button>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -7881,7 +9188,9 @@ Rules:
                         <h3 className="text-sm font-black text-amber-300 uppercase tracking-wider flex items-center gap-2">
                           <span>DAILY SHIFT & CREW POSITION REPORT</span>
                           <span className="text-slate-600">/</span>
-                          <span className="text-amber-400 text-xs font-mono font-bold">PREPARE DAILY POSITION REPORT</span>
+                          <span className="text-amber-400 text-xs font-mono font-bold">
+                            PREPARE DAILY POSITION REPORT
+                          </span>
                         </h3>
                         {isAutoSyncReport && !isManuallyEdited ? (
                           <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-mono font-black animate-pulse">
@@ -7896,7 +9205,8 @@ Rules:
                         )}
                       </div>
                       <p className="text-[11px] text-slate-400 mt-0.5">
-                        Live real-time position validation across BMRCL TO & (JMD Contract TD) cadres.
+                        Live real-time position validation across BMRCL TO &
+                        (JMD Contract TD) cadres.
                       </p>
                     </div>
                   </div>
@@ -7992,9 +9302,7 @@ Rules:
                       className="bg-emerald-600 hover:bg-emerald-500 text-slate-955 font-black px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
                     >
                       <CheckCircle className="h-3.5 w-3.5" />
-                      <span>
-                        {isSavingReport ? "SAVING..." : "SAVE CLOUD"}
-                      </span>
+                      <span>{isSavingReport ? "SAVING..." : "SAVE CLOUD"}</span>
                     </button>
                     <button
                       type="button"
@@ -8015,14 +9323,23 @@ Rules:
                     </span>
                     <div className="flex items-baseline gap-1.5 mt-1">
                       <span className="text-xl font-black text-emerald-300 font-mono">
-                        {String(positionStats.presentBmrcl.length).padStart(2, "0")}
+                        {String(positionStats.presentBmrcl.length).padStart(
+                          2,
+                          "0",
+                        )}
                       </span>
                       <span className="text-sm font-black text-amber-400 font-mono">
-                        ({String(positionStats.presentJmd.length).padStart(2, "0")})
+                        (
+                        {String(positionStats.presentJmd.length).padStart(
+                          2,
+                          "0",
+                        )}
+                        )
                       </span>
                     </div>
                     <span className="text-[9px] text-slate-400 font-mono mt-0.5">
-                      BMRCL TO <span className="text-amber-300 font-bold">(JMD TD)</span>
+                      BMRCL TO{" "}
+                      <span className="text-amber-300 font-bold">(JMD TD)</span>
                     </span>
                   </div>
 
@@ -8033,14 +9350,23 @@ Rules:
                     </span>
                     <div className="flex items-baseline gap-1.5 mt-1">
                       <span className="text-xl font-black text-cyan-300 font-mono">
-                        {String(positionStats.stbyBmrcl.length + positionStats.stbkBmrcl.length).padStart(2, "0")}
+                        {String(
+                          positionStats.stbyBmrcl.length +
+                            positionStats.stbkBmrcl.length,
+                        ).padStart(2, "0")}
                       </span>
                       <span className="text-sm font-black text-amber-400 font-mono">
-                        ({String(positionStats.stbyJmd.length + positionStats.stbkJmd.length).padStart(2, "0")})
+                        (
+                        {String(
+                          positionStats.stbyJmd.length +
+                            positionStats.stbkJmd.length,
+                        ).padStart(2, "0")}
+                        )
                       </span>
                     </div>
                     <span className="text-[9px] text-slate-400 font-mono mt-0.5">
-                      BMRCL TO <span className="text-amber-300 font-bold">(JMD TD)</span>
+                      BMRCL TO{" "}
+                      <span className="text-amber-300 font-bold">(JMD TD)</span>
                     </span>
                   </div>
 
@@ -8051,14 +9377,23 @@ Rules:
                     </span>
                     <div className="flex items-baseline gap-1.5 mt-1">
                       <span className="text-xl font-black text-indigo-300 font-mono">
-                        {String(positionStats.restCoBmrcl.length).padStart(2, "0")}
+                        {String(positionStats.restCoBmrcl.length).padStart(
+                          2,
+                          "0",
+                        )}
                       </span>
                       <span className="text-sm font-black text-amber-400 font-mono">
-                        ({String(positionStats.restCoJmd.length).padStart(2, "0")})
+                        (
+                        {String(positionStats.restCoJmd.length).padStart(
+                          2,
+                          "0",
+                        )}
+                        )
                       </span>
                     </div>
                     <span className="text-[9px] text-slate-400 font-mono mt-0.5">
-                      BMRCL TO <span className="text-amber-300 font-bold">(JMD TD)</span>
+                      BMRCL TO{" "}
+                      <span className="text-amber-300 font-bold">(JMD TD)</span>
                     </span>
                   </div>
 
@@ -8077,16 +9412,19 @@ Rules:
                         ).padStart(2, "0")}
                       </span>
                       <span className="text-sm font-black text-amber-400 font-mono">
-                        ({String(
+                        (
+                        {String(
                           positionStats.leaveJmd.length +
                             positionStats.hplJmd.length +
                             positionStats.abJmd.length +
                             positionStats.boJmd.length,
-                        ).padStart(2, "0")})
+                        ).padStart(2, "0")}
+                        )
                       </span>
                     </div>
                     <span className="text-[9px] text-slate-400 font-mono mt-0.5">
-                      BMRCL TO <span className="text-amber-300 font-bold">(JMD TD)</span>
+                      BMRCL TO{" "}
+                      <span className="text-amber-300 font-bold">(JMD TD)</span>
                     </span>
                   </div>
 
@@ -8109,7 +9447,8 @@ Rules:
                         ).padStart(2, "0")}
                       </span>
                       <span className="text-sm font-black text-amber-400 font-mono">
-                        ({String(
+                        (
+                        {String(
                           positionStats.crtJmd.length +
                             positionStats.bmrtiJmd.length +
                             positionStats.pmeJmd.length +
@@ -8118,7 +9457,8 @@ Rules:
                             positionStats.crrcJmd.length +
                             positionStats.r6Jmd.length +
                             positionStats.relR5Jmd.length,
-                        ).padStart(2, "0")})
+                        ).padStart(2, "0")}
+                        )
                       </span>
                     </div>
                     <span className="text-[9px] text-slate-400 font-mono mt-0.5">
@@ -8140,7 +9480,10 @@ Rules:
                       </span>
                     </div>
                     <span className="text-[9px] text-amber-200/80 font-mono mt-0.5">
-                      Combined: <strong className="text-white">{positionStats.totalBmrcl + positionStats.totalJmd}</strong>
+                      Combined:{" "}
+                      <strong className="text-white">
+                        {positionStats.totalBmrcl + positionStats.totalJmd}
+                      </strong>
                     </span>
                   </div>
                 </div>
@@ -8184,7 +9527,9 @@ Rules:
                           aria-label="Search individual crew positions"
                           type="text"
                           value={individualSearchQuery}
-                          onChange={(e) => setIndividualSearchQuery(e.target.value)}
+                          onChange={(e) =>
+                            setIndividualSearchQuery(e.target.value)
+                          }
                           placeholder="Search individual positions (Name, Emp ID, Duty #, Train #, Station, Cadre)..."
                           className="w-full bg-slate-900 border border-slate-750 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/40 rounded-lg py-1.5 pl-8 pr-7 text-xs text-slate-200 placeholder-slate-500 font-mono outline-none"
                         />
@@ -8203,14 +9548,35 @@ Rules:
                       {/* Filter Chips */}
                       <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
                         {[
-                          { id: "ALL", label: `All (${positionStats.allIndividualPositions.length})` },
-                          { id: "MAINLINE", label: `Mainline (${positionStats.presentBmrcl.length + positionStats.presentJmd.length})` },
-                          { id: "STANDBY", label: `Standby/STBK (${positionStats.stbyBmrcl.length + positionStats.stbkBmrcl.length + positionStats.stbyJmd.length + positionStats.stbkJmd.length})` },
-                          { id: "REST", label: `Rest/Off (${positionStats.restCoBmrcl.length + positionStats.restCoJmd.length})` },
-                          { id: "LEAVES", label: `Leaves/AB (${positionStats.leaveBmrcl.length + positionStats.hplBmrcl.length + positionStats.leaveJmd.length + positionStats.hplJmd.length})` },
+                          {
+                            id: "ALL",
+                            label: `All (${positionStats.allIndividualPositions.length})`,
+                          },
+                          {
+                            id: "MAINLINE",
+                            label: `Mainline (${positionStats.presentBmrcl.length + positionStats.presentJmd.length})`,
+                          },
+                          {
+                            id: "STANDBY",
+                            label: `Standby/STBK (${positionStats.stbyBmrcl.length + positionStats.stbkBmrcl.length + positionStats.stbyJmd.length + positionStats.stbkJmd.length})`,
+                          },
+                          {
+                            id: "REST",
+                            label: `Rest/Off (${positionStats.restCoBmrcl.length + positionStats.restCoJmd.length})`,
+                          },
+                          {
+                            id: "LEAVES",
+                            label: `Leaves/AB (${positionStats.leaveBmrcl.length + positionStats.hplBmrcl.length + positionStats.leaveJmd.length + positionStats.hplJmd.length})`,
+                          },
                           { id: "TRAINING", label: "Training & Special" },
-                          { id: "BMRCL", label: `BMRCL Cadre (${positionStats.totalBmrcl})` },
-                          { id: "JMD", label: `(JMD TD Cadre) (${positionStats.totalJmd})` },
+                          {
+                            id: "BMRCL",
+                            label: `BMRCL Cadre (${positionStats.totalBmrcl})`,
+                          },
+                          {
+                            id: "JMD",
+                            label: `(JMD TD Cadre) (${positionStats.totalJmd})`,
+                          },
                         ].map((chip) => (
                           <button
                             key={chip.id}
@@ -8238,8 +9604,12 @@ Rules:
                             <th className="py-2.5 px-3">#</th>
                             <th className="py-2.5 px-3">Position / Duty</th>
                             <th className="py-2.5 px-3">Train #</th>
-                            <th className="py-2.5 px-3">Assigned Operator & Emp ID</th>
-                            <th className="py-2.5 px-3">Cadre (BMRCL / [JMD])</th>
+                            <th className="py-2.5 px-3">
+                              Assigned Operator & Emp ID
+                            </th>
+                            <th className="py-2.5 px-3">
+                              Cadre (BMRCL / [JMD])
+                            </th>
                             <th className="py-2.5 px-3">Shift / Timings</th>
                             <th className="py-2.5 px-3">Base / Station</th>
                             <th className="py-2.5 px-3">Deployment Status</th>
@@ -8273,7 +9643,9 @@ Rules:
                                       {pos.trainId}
                                     </span>
                                   ) : (
-                                    <span className="text-slate-600 text-xs">--</span>
+                                    <span className="text-slate-600 text-xs">
+                                      --
+                                    </span>
                                   )}
                                 </td>
                                 <td className="py-2 px-3">
@@ -8319,15 +9691,20 @@ Rules:
                                 <td className="py-2 px-3">
                                   <span
                                     className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                      pos.status.includes("DEPLOYED") || pos.status === "ACTIVE"
+                                      pos.status.includes("DEPLOYED") ||
+                                      pos.status === "ACTIVE"
                                         ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                                        : pos.status.includes("STANDBY") || pos.status.includes("STEPBACK")
-                                        ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-                                        : pos.status.includes("REST") || pos.status.includes("OFF")
-                                        ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                                        : pos.status.includes("LEAVE") || pos.status.includes("AB") || pos.status.includes("BO")
-                                        ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
-                                        : "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                                        : pos.status.includes("STANDBY") ||
+                                            pos.status.includes("STEPBACK")
+                                          ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                                          : pos.status.includes("REST") ||
+                                              pos.status.includes("OFF")
+                                            ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                                            : pos.status.includes("LEAVE") ||
+                                                pos.status.includes("AB") ||
+                                                pos.status.includes("BO")
+                                              ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                                              : "bg-purple-500/20 text-purple-300 border border-purple-500/30"
                                     }`}
                                   >
                                     {pos.status}
@@ -8341,7 +9718,8 @@ Rules:
                                 colSpan={8}
                                 className="py-8 text-center text-slate-500 font-sans"
                               >
-                                No individual positions found matching the active search or category filters.
+                                No individual positions found matching the
+                                active search or category filters.
                               </td>
                             </tr>
                           )}
@@ -8383,7 +9761,8 @@ Rules:
                 {consoleSearchQuery.trim() && (
                   <span className="text-[11px] text-amber-300 font-bold bg-amber-950/60 px-2.5 py-1 rounded border border-amber-800/60 flex items-center gap-1.5 shadow-sm">
                     <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping"></span>
-                    Found {totalConsoleMatches} match{totalConsoleMatches === 1 ? "" : "es"}
+                    Found {totalConsoleMatches} match
+                    {totalConsoleMatches === 1 ? "" : "es"}
                   </span>
                 )}
                 {consoleFilterCategory !== "ALL" && (
@@ -8433,7 +9812,9 @@ Rules:
                     No crew members found matching "{consoleSearchQuery}"
                   </h3>
                   <p className="text-slate-400 text-xs font-mono max-w-md mx-auto">
-                    Checked across all 15+ desk registers (BMRTI, CRT, Co-Operators, Standby, Stepbacks, Leaves, Weekly Offs, NR, AB, etc.).
+                    Checked across all 15+ desk registers (BMRTI, CRT,
+                    Co-Operators, Standby, Stepbacks, Leaves, Weekly Offs, NR,
+                    AB, etc.).
                   </p>
                   <button
                     type="button"
@@ -8453,7 +9834,8 @@ Rules:
                   consoleFilterCategory === "CO_OP") && (
                   <div
                     className={`bg-slate-955 border rounded-xl p-3 space-y-2 col-span-1 md:col-span-2 lg:col-span-2 shadow-lg transition-all ${
-                      consoleSearchQuery.trim() && filteredCoOperators.length > 0
+                      consoleSearchQuery.trim() &&
+                      filteredCoOperators.length > 0
                         ? "border-amber-400 ring-2 ring-amber-400/30"
                         : "border-amber-500/30"
                     }`}
@@ -8499,7 +9881,9 @@ Rules:
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => openTransferModal(item, "coOperators")}
+                                onClick={() =>
+                                  openTransferModal(item, "coOperators")
+                                }
                                 className="text-[10px] font-mono text-amber-400 hover:text-white bg-amber-950/60 hover:bg-amber-800/80 px-1.5 py-0.5 rounded border border-amber-800/50 cursor-pointer flex items-center gap-1 transition-all"
                                 title="Transfer / Move this operator"
                               >
@@ -8531,7 +9915,8 @@ Rules:
                   consoleFilterCategory === "CC") && (
                   <div
                     className={`bg-slate-955 border rounded-xl p-3 space-y-2 transition-all ${
-                      consoleSearchQuery.trim() && filteredControlDesks.length > 0
+                      consoleSearchQuery.trim() &&
+                      filteredControlDesks.length > 0
                         ? "border-amber-400 ring-2 ring-amber-400/30"
                         : "border-slate-800 hover:border-amber-500/40"
                     }`}
@@ -8549,7 +9934,8 @@ Rules:
                       </span>
                     </div>
                     <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
-                      {filteredControlDesks && filteredControlDesks.length > 0 ? (
+                      {filteredControlDesks &&
+                      filteredControlDesks.length > 0 ? (
                         filteredControlDesks.map((item, idx) => (
                           <div
                             key={idx}
@@ -8571,7 +9957,9 @@ Rules:
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => openTransferModal(item, "controlDesks")}
+                                onClick={() =>
+                                  openTransferModal(item, "controlDesks")
+                                }
                                 className="text-[10px] font-mono text-amber-400 hover:text-white bg-amber-950/60 hover:bg-amber-800/80 px-1.5 py-0.5 rounded border border-amber-800/50 cursor-pointer flex items-center gap-1 transition-all"
                                 title="Transfer / Move this controller"
                               >
@@ -8605,8 +9993,11 @@ Rules:
                               className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
                             >
                               <div>
-                                CC{(consoleData.controlDesks?.length || 0) + i + 1} •
-                                --
+                                CC
+                                {(consoleData.controlDesks?.length || 0) +
+                                  i +
+                                  1}{" "}
+                                • --
                               </div>
                               <span className="text-[10px]">06:00 • --</span>
                             </div>
@@ -8668,7 +10059,9 @@ Rules:
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => openTransferModal(item, "leaves")}
+                                onClick={() =>
+                                  openTransferModal(item, "leaves")
+                                }
                                 className="text-[10px] font-mono text-cyan-400 hover:text-white bg-cyan-950/60 hover:bg-cyan-800/80 px-1.5 py-0.5 rounded border border-cyan-800/50 cursor-pointer flex items-center gap-1 transition-all"
                                 title="Recall from Leave / Transfer operator"
                               >
@@ -8693,7 +10086,10 @@ Rules:
                           {
                             length: Math.max(
                               0,
-                              Math.min(5, 50 - (consoleData.leaves?.length || 0)),
+                              Math.min(
+                                5,
+                                50 - (consoleData.leaves?.length || 0),
+                              ),
                             ),
                           },
                           (_, i) => (
@@ -8757,7 +10153,9 @@ Rules:
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => openTransferModal(item, "standbys")}
+                                onClick={() =>
+                                  openTransferModal(item, "standbys")
+                                }
                                 className="text-[10px] font-mono text-emerald-400 hover:text-white bg-emerald-950/60 hover:bg-emerald-800/80 px-1.5 py-0.5 rounded border border-emerald-800/50 cursor-pointer flex items-center gap-1 transition-all"
                                 title="Deploy Standby to active duty / Transfer operator"
                               >
@@ -8782,7 +10180,10 @@ Rules:
                           {
                             length: Math.max(
                               0,
-                              Math.min(5, 50 - (consoleData.standbys?.length || 0)),
+                              Math.min(
+                                5,
+                                50 - (consoleData.standbys?.length || 0),
+                              ),
                             ),
                           },
                           (_, i) => (
@@ -8849,7 +10250,9 @@ Rules:
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => openTransferModal(item, "outstationStepbacks")}
+                                onClick={() =>
+                                  openTransferModal(item, "outstationStepbacks")
+                                }
                                 className="text-[10px] font-mono text-purple-400 hover:text-white bg-purple-950/60 hover:bg-purple-800/80 px-1.5 py-0.5 rounded border border-purple-800/50 cursor-pointer flex items-center gap-1 transition-all"
                                 title="Deploy Stepback to active duty / Transfer operator"
                               >
@@ -8874,7 +10277,12 @@ Rules:
                           {
                             length: Math.max(
                               0,
-                              Math.min(5, 20 - (consoleData.outstationStepbacks?.length || 0)),
+                              Math.min(
+                                5,
+                                20 -
+                                  (consoleData.outstationStepbacks?.length ||
+                                    0),
+                              ),
                             ),
                           },
                           (_, i) => (
@@ -8940,7 +10348,9 @@ Rules:
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => openTransferModal(item, "crtTraining")}
+                                onClick={() =>
+                                  openTransferModal(item, "crtTraining")
+                                }
                                 className="text-[10px] font-mono text-teal-400 hover:text-white bg-teal-950/60 hover:bg-teal-800/80 px-1.5 py-0.5 rounded border border-teal-800/50 cursor-pointer flex items-center gap-1 transition-all"
                                 title="Transfer / Deploy operator"
                               >
@@ -8965,7 +10375,10 @@ Rules:
                           {
                             length: Math.max(
                               0,
-                              Math.min(5, 15 - (consoleData.crtTraining?.length || 0)),
+                              Math.min(
+                                5,
+                                15 - (consoleData.crtTraining?.length || 0),
+                              ),
                             ),
                           },
                           (_, i) => (
@@ -9023,28 +10436,30 @@ Rules:
                               <div className="font-bold text-slate-200 flex items-center gap-1.5">
                                 <span>{item.name || item.empName}</span>
                               </div>
-                                <div className="text-[10px] text-slate-400 font-mono">
-                                  {safeFormatExcelDate(
-                                    item.date || item.time || "BMRTI",
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <button
-                                  type="button"
-                                  onClick={() => openTransferModal(item, "bmrtiTraining")}
-                                  className="text-[10px] font-mono text-sky-400 hover:text-white bg-sky-950/60 hover:bg-sky-800/80 px-1.5 py-0.5 rounded border border-sky-800/50 cursor-pointer flex items-center gap-1 transition-all"
-                                  title="Transfer / Deploy operator"
-                                >
-                                  <ArrowRightLeft className="h-2.5 w-2.5" />
-                                  <span>Move</span>
-                                </button>
-                                <span className="text-[10px] text-sky-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
-                                  #{item.empNo || item.empId || "--"}
-                                </span>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {safeFormatExcelDate(
+                                  item.date || item.time || "BMRTI",
+                                )}
                               </div>
                             </div>
-                          ))
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  openTransferModal(item, "bmrtiTraining")
+                                }
+                                className="text-[10px] font-mono text-sky-400 hover:text-white bg-sky-950/60 hover:bg-sky-800/80 px-1.5 py-0.5 rounded border border-sky-800/50 cursor-pointer flex items-center gap-1 transition-all"
+                                title="Transfer / Deploy operator"
+                              >
+                                <ArrowRightLeft className="h-2.5 w-2.5" />
+                                <span>Move</span>
+                              </button>
+                              <span className="text-[10px] text-sky-400 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                                #{item.empNo || item.empId || "--"}
+                              </span>
+                            </div>
+                          </div>
+                        ))
                       ) : (
                         <div className="p-3 bg-slate-900/40 border border-slate-850 rounded text-center text-slate-500 text-xs font-mono">
                           {consoleSearchQuery.trim()
@@ -9057,7 +10472,10 @@ Rules:
                           {
                             length: Math.max(
                               0,
-                              Math.min(5, 50 - (consoleData.bmrtiTraining?.length || 0)),
+                              Math.min(
+                                5,
+                                50 - (consoleData.bmrtiTraining?.length || 0),
+                              ),
                             ),
                           },
                           (_, i) => (
@@ -9121,7 +10539,9 @@ Rules:
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => openTransferModal(item, "weeklyOffs")}
+                                onClick={() =>
+                                  openTransferModal(item, "weeklyOffs")
+                                }
                                 className="text-[10px] font-mono text-rose-400 hover:text-white bg-rose-950/60 hover:bg-rose-800/80 px-1.5 py-0.5 rounded border border-rose-800/50 cursor-pointer flex items-center gap-1 transition-all"
                                 title="Recall from Weekly Off (OT) / Deploy operator"
                               >
@@ -9146,7 +10566,10 @@ Rules:
                           {
                             length: Math.max(
                               0,
-                              Math.min(5, 50 - (consoleData.weeklyOffs?.length || 0)),
+                              Math.min(
+                                5,
+                                50 - (consoleData.weeklyOffs?.length || 0),
+                              ),
                             ),
                           },
                           (_, i) => (
@@ -9210,7 +10633,9 @@ Rules:
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => openTransferModal(item, "relievedOperators")}
+                                onClick={() =>
+                                  openTransferModal(item, "relievedOperators")
+                                }
                                 className="text-[10px] font-mono text-fuchsia-400 hover:text-white bg-fuchsia-950/60 hover:bg-fuchsia-800/80 px-1.5 py-0.5 rounded border border-fuchsia-800/50 cursor-pointer flex items-center gap-1 transition-all"
                                 title="Transfer / Deploy operator"
                               >
@@ -9235,7 +10660,11 @@ Rules:
                           {
                             length: Math.max(
                               0,
-                              Math.min(5, 10 - (consoleData.relievedOperators?.length || 0)),
+                              Math.min(
+                                5,
+                                10 -
+                                  (consoleData.relievedOperators?.length || 0),
+                              ),
                             ),
                           },
                           (_, i) => (
@@ -9301,7 +10730,9 @@ Rules:
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => openTransferModal(item, "pmeOperators")}
+                                onClick={() =>
+                                  openTransferModal(item, "pmeOperators")
+                                }
                                 className="text-[10px] font-mono text-lime-400 hover:text-white bg-lime-950/60 hover:bg-lime-800/80 px-1.5 py-0.5 rounded border border-lime-800/50 cursor-pointer flex items-center gap-1 transition-all"
                                 title="Transfer / Deploy operator"
                               >
@@ -9326,7 +10757,10 @@ Rules:
                           {
                             length: Math.max(
                               0,
-                              Math.min(5, 20 - (consoleData.pmeOperators?.length || 0)),
+                              Math.min(
+                                5,
+                                20 - (consoleData.pmeOperators?.length || 0),
+                              ),
                             ),
                           },
                           (_, i) => (
@@ -9392,7 +10826,9 @@ Rules:
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => openTransferModal(item, "routeLearning")}
+                                onClick={() =>
+                                  openTransferModal(item, "routeLearning")
+                                }
                                 className="text-[10px] font-mono text-indigo-400 hover:text-white bg-indigo-950/60 hover:bg-indigo-800/80 px-1.5 py-0.5 rounded border border-indigo-800/50 cursor-pointer flex items-center gap-1 transition-all"
                                 title="Transfer / Deploy operator"
                               >
@@ -9417,7 +10853,10 @@ Rules:
                           {
                             length: Math.max(
                               0,
-                              Math.min(5, 20 - (consoleData.routeLearning?.length || 0)),
+                              Math.min(
+                                5,
+                                20 - (consoleData.routeLearning?.length || 0),
+                              ),
                             ),
                           },
                           (_, i) => (
@@ -9476,7 +10915,9 @@ Rules:
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => openTransferModal(item, "notReporting")}
+                                onClick={() =>
+                                  openTransferModal(item, "notReporting")
+                                }
                                 className="text-[10px] font-mono text-rose-400 hover:text-white bg-rose-950/60 hover:bg-rose-800/80 px-1.5 py-0.5 rounded border border-rose-800/50 cursor-pointer flex items-center gap-1 transition-all"
                                 title="Transfer / Deploy operator"
                               >
@@ -9501,7 +10942,10 @@ Rules:
                           {
                             length: Math.max(
                               0,
-                              Math.min(5, 20 - (consoleData.notReporting?.length || 0)),
+                              Math.min(
+                                5,
+                                20 - (consoleData.notReporting?.length || 0),
+                              ),
                             ),
                           },
                           (_, i) => (
@@ -9560,7 +11004,9 @@ Rules:
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => openTransferModal(item, "absents")}
+                                onClick={() =>
+                                  openTransferModal(item, "absents")
+                                }
                                 className="text-[10px] font-mono text-red-400 hover:text-white bg-red-950/60 hover:bg-red-800/80 px-1.5 py-0.5 rounded border border-red-800/50 cursor-pointer flex items-center gap-1 transition-all"
                                 title="Transfer / Deploy operator"
                               >
@@ -9585,7 +11031,10 @@ Rules:
                           {
                             length: Math.max(
                               0,
-                              Math.min(5, 20 - (consoleData.absents?.length || 0)),
+                              Math.min(
+                                5,
+                                20 - (consoleData.absents?.length || 0),
+                              ),
                             ),
                           },
                           (_, i) => (
@@ -9651,7 +11100,9 @@ Rules:
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => openTransferModal(item, "onDuty")}
+                                onClick={() =>
+                                  openTransferModal(item, "onDuty")
+                                }
                                 className="text-[10px] font-mono text-amber-400 hover:text-white bg-amber-950/60 hover:bg-amber-800/80 px-1.5 py-0.5 rounded border border-amber-800/50 cursor-pointer flex items-center gap-1 transition-all"
                                 title="Deploy OD to active duty / Transfer operator"
                               >
@@ -9676,7 +11127,10 @@ Rules:
                           {
                             length: Math.max(
                               0,
-                              Math.min(5, 20 - (consoleData.onDuty?.length || 0)),
+                              Math.min(
+                                5,
+                                20 - (consoleData.onDuty?.length || 0),
+                              ),
                             ),
                           },
                           (_, i) => (
@@ -9738,13 +11192,20 @@ Rules:
                                 </span>
                               </div>
                               <div className="text-[10px] text-rose-300/80 font-mono flex items-center gap-1">
-                                <span className="text-rose-400 font-semibold">{item.faultCategory || "FAULT"}</span>
+                                <span className="text-rose-400 font-semibold">
+                                  {item.faultCategory || "FAULT"}
+                                </span>
                                 <span>•</span>
-                                <span className="truncate max-w-[130px]">{item.reason || item.remarks || "Booked off"}</span>
+                                <span className="truncate max-w-[130px]">
+                                  {item.reason || item.remarks || "Booked off"}
+                                </span>
                               </div>
                               {item.relieverName && (
                                 <div className="text-[9px] text-emerald-400 font-mono flex items-center gap-1">
-                                  <span>Relieved by: {item.relieverName} (#{item.relieverId || "--"})</span>
+                                  <span>
+                                    Relieved by: {item.relieverName} (#
+                                    {item.relieverId || "--"})
+                                  </span>
                                 </div>
                               )}
                             </div>
@@ -9755,7 +11216,9 @@ Rules:
                               <div className="flex items-center gap-1.5">
                                 <button
                                   type="button"
-                                  onClick={() => openTransferModal(item, "bookedOff")}
+                                  onClick={() =>
+                                    openTransferModal(item, "bookedOff")
+                                  }
                                   className="text-[9px] font-bold text-cyan-400 hover:text-white bg-cyan-950/60 hover:bg-cyan-800/80 px-1 py-0.2 rounded border border-cyan-800/50 cursor-pointer flex items-center gap-0.5 transition-all"
                                   title="Transfer / Move this operator to another register or active duty"
                                 >
@@ -9763,7 +11226,9 @@ Rules:
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleRestoreBookedOffOperator(item)}
+                                  onClick={() =>
+                                    handleRestoreBookedOffOperator(item)
+                                  }
                                   className="text-[9px] font-bold text-slate-400 hover:text-emerald-400 underline cursor-pointer"
                                   title="Restore back to active duty"
                                 >
@@ -9784,9 +11249,26 @@ Rules:
                   </div>
                 )}
 
-              {/* 15+. Dynamic Custom Section Cards (e.g. CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)) */}
+              {/* 15+. Dynamic Custom Section Cards (e.g. Temporary WHTT / CC) */}
               {Object.keys(consoleData.customRegisters || {}).map((tagName) => {
-                const list = consoleData.customRegisters[tagName] || [];
+                if (
+                  !tagName ||
+                  isDateOrTimeValue(tagName) ||
+                  isJunkOrWatermarkText(tagName) ||
+                  isStandardAuxMarker(tagName) ||
+                  /^(Indv Duties|CC Duty|Compulsory GH|Print Wd|20\.9 TO 26\.9|Day|Line-1)$/i.test(tagName.trim())
+                ) {
+                  return null;
+                }
+                const list = (consoleData.customRegisters[tagName] || []).filter((op) => {
+                  const opRemarks = String(op.remarks || "");
+                  const opInfo = String(op.info || "");
+                  if (opRemarks.includes("From sheet:") || opInfo.includes("From sheet:")) return false;
+                  if (isJunkOrWatermarkText(op.name)) return false;
+                  return true;
+                });
+                if (list.length === 0) return null;
+
                 const filteredCustomList = list.filter(matchesConsoleSearch);
                 if (
                   consoleFilterCategory !== "ALL" &&
@@ -9802,79 +11284,165 @@ Rules:
                   return null;
                 }
 
+                const regCrew = filteredCustomList.filter((item) => !isJmd(item)).length;
+                const jmdCrew = filteredCustomList.filter((item) => isJmd(item)).length;
+
                 return (
                   <div
                     key={tagName}
-                    className={`bg-slate-955 border rounded-xl p-3 space-y-2 transition-all ${
+                    className={`bg-slate-955 border rounded-xl p-3 space-y-2.5 transition-all shadow-lg ${
                       consoleSearchQuery.trim() && filteredCustomList.length > 0
                         ? "border-cyan-400 ring-2 ring-cyan-400/30"
-                        : "border-cyan-900/40 hover:border-cyan-500/40"
+                        : "border-cyan-900/40 hover:border-cyan-500/50"
                     }`}
                   >
-                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                      <span className="text-xs font-bold text-cyan-300 uppercase truncate" title={tagName}>
-                        {tagName} ({filteredCustomList.length}
-                        {consoleSearchQuery.trim() ? ` / ${list.length}` : ""})
-                      </span>
-                      <span className="text-[10px] bg-cyan-950/60 text-cyan-300 px-2 py-0.5 rounded border border-cyan-800/40 font-mono font-bold shrink-0">
-                        {filteredCustomList.length} / 20
-                      </span>
+                    {/* Card Header with Exact Title & Badges */}
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2 gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Sparkles className="h-4 w-4 text-cyan-400 shrink-0" />
+                        <span
+                          className="text-xs font-black text-cyan-300 uppercase tracking-wide truncate"
+                          title={tagName}
+                        >
+                          {tagName}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[10px] bg-cyan-950/80 text-cyan-300 px-2 py-0.5 rounded border border-cyan-800/60 font-mono font-bold">
+                          {filteredCustomList.length} Staff
+                        </span>
+                      </div>
                     </div>
-                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+
+                    {/* Cadre Breakdown & Quick Actions Bar */}
+                    <div className="flex items-center justify-between text-[10px] font-mono border-b border-slate-850 pb-1.5 gap-1 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span className="text-emerald-400 font-bold flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                          BMRCL: {regCrew}
+                        </span>
+                        <span className="text-slate-600">|</span>
+                        <span className="text-amber-400 font-bold flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                          JMD: {jmdCrew}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const text =
+                              `${tagName.toUpperCase()} ROSTER (${filteredCustomList.length} Operators):\n` +
+                              filteredCustomList
+                                .map(
+                                  (op, i) =>
+                                    `${i + 1}) ${op.name || "Staff"} (#${op.empNo || op.empId || "--"}) - ${op.time || op.info || "General Shift"} [${isJmd(op) ? "JMD" : "BMRCL"}]`,
+                                )
+                                .join("\n");
+                            navigator.clipboard.writeText(text);
+                            alert(`📋 Copied ${tagName} staff list to clipboard!`);
+                          }}
+                          className="text-[9px] px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:text-white transition flex items-center gap-0.5 cursor-pointer"
+                          title="Copy staff roster to clipboard"
+                        >
+                          <Copy className="h-2.5 w-2.5" />
+                          <span>Copy</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openTransferModal(null, tagName)}
+                          className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-800/60 transition flex items-center gap-0.5 cursor-pointer font-bold"
+                          title={`Assign / Transfer operator into ${tagName}`}
+                        >
+                          <Plus className="h-2.5 w-2.5" />
+                          <span>Add</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Operators List */}
+                    <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1 text-xs">
                       {filteredCustomList && filteredCustomList.length > 0 ? (
-                        filteredCustomList.map((item, idx) => (
-                          <div
-                            key={idx}
-                            className={`border p-2 rounded flex justify-between items-center transition-all ${
-                              consoleSearchQuery.trim()
-                                ? "bg-cyan-950/30 border-cyan-500/50"
-                                : "bg-slate-900 border-slate-800"
-                            }`}
-                          >
-                            <div>
-                              <div className="font-bold text-slate-200">
-                                {item.name}
+                        filteredCustomList.map((item, idx) => {
+                          const empId = item.empNo || item.empId || "--";
+                          const cadre = isJmd(item) ? "JMD" : "BMRCL";
+                          return (
+                            <div
+                              key={idx}
+                              className={`border p-2 rounded-lg flex justify-between items-center transition-all ${
+                                consoleSearchQuery.trim()
+                                  ? "bg-cyan-950/30 border-cyan-500/50"
+                                  : "bg-slate-900/90 border-slate-800 hover:border-slate-700"
+                              }`}
+                            >
+                              <div className="space-y-0.5 min-w-0 pr-2">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-bold text-slate-100 truncate max-w-[130px]">
+                                    {item.name || item.empName || "Staff"}
+                                  </span>
+                                  <span
+                                    className={`text-[8px] font-black px-1.5 py-0.2 rounded border font-mono ${
+                                      cadre === "JMD"
+                                        ? "bg-amber-950 text-amber-300 border-amber-800/60"
+                                        : "bg-emerald-950 text-emerald-300 border-emerald-800/60"
+                                    }`}
+                                  >
+                                    {cadre}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-cyan-400 font-mono">
+                                  {item.time || item.fromTime || item.info || "General Shift"}
+                                  {item.station && item.station !== "PYID" && (
+                                    <span className="text-slate-400 ml-1">• {item.station}</span>
+                                  )}
+                                  {item.remarks && (
+                                    <span className="text-slate-400 ml-1">• {item.remarks}</span>
+                                  )}
+                                </div>
                               </div>
-                              <div className="text-[10px] text-cyan-400 font-mono">
-                                {item.info || item.tag || ""}
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => openTransferModal(item, tagName)}
+                                  className="text-[10px] font-mono text-cyan-400 hover:text-white bg-cyan-950/60 hover:bg-cyan-800/80 px-2 py-0.5 rounded border border-cyan-800/50 cursor-pointer flex items-center gap-1 transition-all"
+                                  title="Transfer / Deploy operator"
+                                >
+                                  <ArrowRightLeft className="h-2.5 w-2.5" />
+                                  <span>Move</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleRemoveOperatorFromCustomCategory(tagName, item)
+                                  }
+                                  className="text-[10px] font-mono text-rose-400 hover:text-rose-200 bg-rose-950/40 hover:bg-rose-900/60 px-1.5 py-0.5 rounded border border-rose-900/50 cursor-pointer transition-all"
+                                  title="Unassign from this category"
+                                >
+                                  ✕
+                                </button>
+                                <span className="text-[10px] text-cyan-300 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
+                                  #{empId}
+                                </span>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => openTransferModal(item, tagName)}
-                                className="text-[10px] font-mono text-cyan-400 hover:text-white bg-cyan-950/60 hover:bg-cyan-800/80 px-1.5 py-0.5 rounded border border-cyan-800/50 cursor-pointer flex items-center gap-1 transition-all"
-                                title="Transfer / Deploy operator"
-                              >
-                                <ArrowRightLeft className="h-2.5 w-2.5" />
-                                <span>Move</span>
-                              </button>
-                              <span className="text-[10px] text-cyan-300 font-bold font-mono bg-slate-955 px-2 py-0.5 rounded border border-slate-800">
-                                #{item.empNo || item.empId || "--"}
-                              </span>
-                            </div>
-                          </div>
-                        ))
+                          );
+                        })
                       ) : (
-                        <div className="p-3 bg-slate-900/40 border border-slate-850 rounded text-center text-slate-500 text-xs font-mono">
-                          {consoleSearchQuery.trim()
-                            ? `No operators in ${tagName} matching "${consoleSearchQuery}"`
-                            : "No operators recorded."}
+                        <div className="p-4 bg-slate-900/40 border border-slate-850 rounded-lg text-center text-slate-500 text-xs font-mono space-y-1">
+                          <div>
+                            {consoleSearchQuery.trim()
+                              ? `No operators matching "${consoleSearchQuery}"`
+                              : `No operators currently in ${tagName}`}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => openTransferModal(null, tagName)}
+                            className="text-[10px] text-cyan-400 hover:underline cursor-pointer inline-flex items-center gap-1"
+                          >
+                            <Plus className="h-3 w-3" /> Assign an operator now
+                          </button>
                         </div>
                       )}
-                      {!consoleSearchQuery.trim() &&
-                        Array.from(
-                          { length: Math.max(0, Math.min(5, 20 - list.length)) },
-                          (_, i) => (
-                            <div
-                              key={i}
-                              className="bg-slate-900/40 border border-slate-850 p-1.5 rounded flex justify-between items-center text-slate-500"
-                            >
-                              <div>--</div>
-                              <span className="text-[10px]">{tagName}</span>
-                            </div>
-                          ),
-                        )}
                     </div>
                   </div>
                 );
@@ -9906,7 +11474,8 @@ Rules:
                       </span>
                     </h2>
                     <p className="text-xs text-slate-400 font-mono">
-                      BMRCL Line 2 Peenya Industry Depot • Train Faults, BA Unfitness, Medical & Safety Book-Offs
+                      BMRCL Line 2 Peenya Industry Depot • Train Faults, BA
+                      Unfitness, Medical & Safety Book-Offs
                     </p>
                   </div>
                 </div>
@@ -9937,32 +11506,52 @@ Rules:
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-800/80">
               <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
                 <div>
-                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total Booked Off</div>
+                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    Total Booked Off
+                  </div>
                   <div className="text-lg font-black text-white font-mono">
                     {(consoleData.bookedOff || []).length}
                   </div>
                 </div>
-                <div className="p-2 bg-rose-500/10 rounded-lg text-rose-400 text-xs font-bold">BO</div>
+                <div className="p-2 bg-rose-500/10 rounded-lg text-rose-400 text-xs font-bold">
+                  BO
+                </div>
               </div>
 
               <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
                 <div>
-                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Relieved with Replacement</div>
+                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    Relieved with Replacement
+                  </div>
                   <div className="text-lg font-black text-emerald-400 font-mono">
-                    {(consoleData.bookedOff || []).filter((b) => Boolean(b.relieverName)).length}
+                    {
+                      (consoleData.bookedOff || []).filter((b) =>
+                        Boolean(b.relieverName),
+                      ).length
+                    }
                   </div>
                 </div>
-                <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400 text-xs font-bold">STAFFED</div>
+                <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400 text-xs font-bold">
+                  STAFFED
+                </div>
               </div>
 
               <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
                 <div>
-                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Pending Relief / Vacant Duties</div>
+                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    Pending Relief / Vacant Duties
+                  </div>
                   <div className="text-lg font-black text-rose-400 font-mono">
-                    {(consoleData.bookedOff || []).filter((b) => !b.relieverName).length}
+                    {
+                      (consoleData.bookedOff || []).filter(
+                        (b) => !b.relieverName,
+                      ).length
+                    }
                   </div>
                 </div>
-                <div className="p-2 bg-rose-500/10 rounded-lg text-rose-400 text-xs font-bold">VACANT</div>
+                <div className="p-2 bg-rose-500/10 rounded-lg text-rose-400 text-xs font-bold">
+                  VACANT
+                </div>
               </div>
             </div>
           </div>
@@ -9994,18 +11583,31 @@ Rules:
             <div className="text-xs text-slate-400 font-mono flex items-center gap-2 justify-end">
               <span>Showing:</span>
               <span className="font-bold text-white font-mono">
-                {(consoleData.bookedOff || []).filter((item) => {
-                  if (!bookedOffViewSearch.trim()) return true;
-                  const q = bookedOffViewSearch.toLowerCase();
-                  return (
-                    (item.name || item.empName || "").toLowerCase().includes(q) ||
-                    (item.empNo || item.empId || "").toLowerCase().includes(q) ||
-                    String(item.dutyId || "").toLowerCase().includes(q) ||
-                    String(item.trainId || "").toLowerCase().includes(q) ||
-                    (item.reason || item.remarks || "").toLowerCase().includes(q) ||
-                    (item.relieverName || "").toLowerCase().includes(q)
-                  );
-                }).length} / {(consoleData.bookedOff || []).length}
+                {
+                  (consoleData.bookedOff || []).filter((item) => {
+                    if (!bookedOffViewSearch.trim()) return true;
+                    const q = bookedOffViewSearch.toLowerCase();
+                    return (
+                      (item.name || item.empName || "")
+                        .toLowerCase()
+                        .includes(q) ||
+                      (item.empNo || item.empId || "")
+                        .toLowerCase()
+                        .includes(q) ||
+                      String(item.dutyId || "")
+                        .toLowerCase()
+                        .includes(q) ||
+                      String(item.trainId || "")
+                        .toLowerCase()
+                        .includes(q) ||
+                      (item.reason || item.remarks || "")
+                        .toLowerCase()
+                        .includes(q) ||
+                      (item.relieverName || "").toLowerCase().includes(q)
+                    );
+                  }).length
+                }{" "}
+                / {(consoleData.bookedOff || []).length}
               </span>
             </div>
           </div>
@@ -10032,11 +11634,21 @@ Rules:
                       if (!bookedOffViewSearch.trim()) return true;
                       const q = bookedOffViewSearch.toLowerCase();
                       return (
-                        (item.name || item.empName || "").toLowerCase().includes(q) ||
-                        (item.empNo || item.empId || "").toLowerCase().includes(q) ||
-                        String(item.dutyId || "").toLowerCase().includes(q) ||
-                        String(item.trainId || "").toLowerCase().includes(q) ||
-                        (item.reason || item.remarks || "").toLowerCase().includes(q) ||
+                        (item.name || item.empName || "")
+                          .toLowerCase()
+                          .includes(q) ||
+                        (item.empNo || item.empId || "")
+                          .toLowerCase()
+                          .includes(q) ||
+                        String(item.dutyId || "")
+                          .toLowerCase()
+                          .includes(q) ||
+                        String(item.trainId || "")
+                          .toLowerCase()
+                          .includes(q) ||
+                        (item.reason || item.remarks || "")
+                          .toLowerCase()
+                          .includes(q) ||
                         (item.relieverName || "").toLowerCase().includes(q)
                       );
                     });
@@ -10090,10 +11702,14 @@ Rules:
                                 <span>{item.name || item.empName}</span>
                               </div>
                               <div className="text-[11px] text-slate-400 font-mono">
-                                Emp ID: <span className="text-rose-300 font-bold">#{item.empNo || item.empId || "--"}</span>
+                                Emp ID:{" "}
+                                <span className="text-rose-300 font-bold">
+                                  #{item.empNo || item.empId || "--"}
+                                </span>
                               </div>
                               <div className="text-[10px] text-slate-500">
-                                {item.designation || "Train Operator"} • Peenya Depot
+                                {item.designation || "Train Operator"} • Peenya
+                                Depot
                               </div>
                             </div>
                           </td>
@@ -10110,7 +11726,8 @@ Rules:
                                 )}
                               </div>
                               <div className="text-[10px] text-slate-400 font-mono">
-                                Shift: {item.startTime || "--"} - {item.endTime || "--"}
+                                Shift: {item.startTime || "--"} -{" "}
+                                {item.endTime || "--"}
                               </div>
                             </div>
                           </td>
@@ -10122,7 +11739,9 @@ Rules:
                                 </span>
                               </div>
                               <div className="text-[11px] text-slate-300">
-                                {item.reason || item.remarks || "Booked off from active duty"}
+                                {item.reason ||
+                                  item.remarks ||
+                                  "Booked off from active duty"}
                               </div>
                             </div>
                           </td>
@@ -10134,7 +11753,8 @@ Rules:
                                   <span>{item.relieverName}</span>
                                 </div>
                                 <div className="text-[10px] text-slate-400 font-mono">
-                                  Emp #{item.relieverId || "--"} • {item.relieverSource || "Standby"}
+                                  Emp #{item.relieverId || "--"} •{" "}
+                                  {item.relieverSource || "Standby"}
                                 </div>
                               </div>
                             ) : isVacantDuty ? (
@@ -10162,27 +11782,34 @@ Rules:
                               <button
                                 type="button"
                                 onClick={() => {
-                                  const targetDep = deduplicatedDeployments.find(
-                                    (d) => String(d.dutyId) === String(item.dutyId),
-                                  ) || {
-                                    dutyId: item.dutyId,
-                                    trainId: item.trainId,
-                                    empName: item.name || item.empName,
-                                    empId: item.empNo || item.empId,
-                                  };
+                                  const targetDep =
+                                    deduplicatedDeployments.find(
+                                      (d) =>
+                                        String(d.dutyId) ===
+                                        String(item.dutyId),
+                                    ) || {
+                                      dutyId: item.dutyId,
+                                      trainId: item.trainId,
+                                      empName: item.name || item.empName,
+                                      empId: item.empNo || item.empId,
+                                    };
                                   openAssignDriverModal(targetDep);
                                 }}
                                 className="px-2.5 py-1 rounded text-[11px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition cursor-pointer flex items-center gap-1"
                                 title="Assign or Change Replacement Driver"
                               >
                                 <Repeat className="h-3 w-3" />
-                                {item.relieverName ? "Change Reliever" : "Assign Reliever"}
+                                {item.relieverName
+                                  ? "Change Reliever"
+                                  : "Assign Reliever"}
                               </button>
 
                               {/* Restore to Duty */}
                               <button
                                 type="button"
-                                onClick={() => handleRestoreBookedOffOperator(item)}
+                                onClick={() =>
+                                  handleRestoreBookedOffOperator(item)
+                                }
                                 className="px-2.5 py-1 rounded text-[11px] font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 transition cursor-pointer flex items-center gap-1"
                                 title="Restore back to active duty if cleared"
                               >
@@ -10208,8 +11835,13 @@ Rules:
           <div className="bg-slate-900 border border-amber-500/40 rounded-xl p-6 max-w-xl w-full space-y-4 shadow-2xl">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <div>
-                <h3 className={`text-sm font-black flex items-center gap-2 uppercase tracking-wider ${swapOperationType === "EXCHANGE" ? "text-purple-400" : "text-amber-400"}`}>
-                  <Repeat className="h-4 w-4" /> {swapOperationType === "EXCHANGE" ? "DUTY EXCHANGE (SHIFT EXCHANGE)" : "SWAP DUTIES (CC/GCC/ALS)"}
+                <h3
+                  className={`text-sm font-black flex items-center gap-2 uppercase tracking-wider ${swapOperationType === "EXCHANGE" ? "text-purple-400" : "text-amber-400"}`}
+                >
+                  <Repeat className="h-4 w-4" />{" "}
+                  {swapOperationType === "EXCHANGE"
+                    ? "DUTY EXCHANGE (SHIFT EXCHANGE)"
+                    : "SWAP DUTIES (CC/GCC/ALS)"}
                 </h3>
                 <div className="text-[10px] text-slate-400 font-mono mt-0.5">
                   BMRCL LINE 2 PEENYA DEPOT ROSTER DESK CONSOLE
@@ -10237,8 +11869,7 @@ Rules:
                     : "text-slate-400 hover:text-slate-200 font-bold"
                 }`}
               >
-                <Repeat className="h-3.5 w-3.5" />
-                2 Operators (Pair)
+                <Repeat className="h-3.5 w-3.5" />2 Operators (Pair)
               </button>
               <button
                 type="button"
@@ -10249,8 +11880,7 @@ Rules:
                     : "text-slate-400 hover:text-emerald-300 font-bold"
                 }`}
               >
-                <RefreshCw className="h-3.5 w-3.5" />
-                3 Operators (Triple Swap)
+                <RefreshCw className="h-3.5 w-3.5" />3 Operators (Triple Swap)
               </button>
             </div>
 
@@ -10266,7 +11896,9 @@ Rules:
                 }`}
               >
                 <Repeat className="h-3.5 w-3.5" />
-                {swapMode === "TRIPLE" ? "Triple Swap (CC / GCC)" : "Duty Swap (CC / GCC)"}
+                {swapMode === "TRIPLE"
+                  ? "Triple Swap (CC / GCC)"
+                  : "Duty Swap (CC / GCC)"}
               </button>
               <button
                 type="button"
@@ -10278,7 +11910,9 @@ Rules:
                 }`}
               >
                 <ArrowRight className="h-3.5 w-3.5" />
-                {swapMode === "TRIPLE" ? "Triple Exchange (Shift Exch)" : "Duty Exchange (Shift Exch)"}
+                {swapMode === "TRIPLE"
+                  ? "Triple Exchange (Shift Exch)"
+                  : "Duty Exchange (Shift Exch)"}
               </button>
             </div>
 
@@ -10313,7 +11947,8 @@ Rules:
                   className="block text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1"
                   htmlFor="automateddispatchgat-i21"
                 >
-                  First Duty / Operator {swapMode === "TRIPLE" ? "(Operator 1 ➔ Takes Duty 2)" : ""}
+                  First Duty / Operator{" "}
+                  {swapMode === "TRIPLE" ? "(Operator 1 ➔ Takes Duty 2)" : ""}
                 </label>
                 <select
                   id="automateddispatchgat-i21"
@@ -10324,7 +11959,10 @@ Rules:
                 >
                   <option value="">-- Select Operator 1 / Duty --</option>
                   {filteredSwappableGroups.map((group) => (
-                    <optgroup key={group.categoryKey || group.groupLabel} label={group.groupLabel}>
+                    <optgroup
+                      key={group.categoryKey || group.groupLabel}
+                      label={group.groupLabel}
+                    >
                       {group.items.map((item) => (
                         <option key={item.id} value={item.id}>
                           {item.label}
@@ -10341,7 +11979,8 @@ Rules:
                   className="block text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1"
                   htmlFor="automateddispatchgat-i22"
                 >
-                  Second Duty / Operator {swapMode === "TRIPLE" ? "(Operator 2 ➔ Takes Duty 3)" : ""}
+                  Second Duty / Operator{" "}
+                  {swapMode === "TRIPLE" ? "(Operator 2 ➔ Takes Duty 3)" : ""}
                 </label>
                 <select
                   id="automateddispatchgat-i22"
@@ -10352,7 +11991,10 @@ Rules:
                 >
                   <option value="">-- Select Operator 2 / Duty --</option>
                   {filteredSwappableGroups.map((group) => (
-                    <optgroup key={group.categoryKey || group.groupLabel} label={group.groupLabel}>
+                    <optgroup
+                      key={group.categoryKey || group.groupLabel}
+                      label={group.groupLabel}
+                    >
                       {group.items.map((item) => (
                         <option key={item.id} value={item.id}>
                           {item.label}
@@ -10381,7 +12023,10 @@ Rules:
                   >
                     <option value="">-- Select Operator 3 / Duty --</option>
                     {filteredSwappableGroups.map((group) => (
-                      <optgroup key={group.categoryKey || group.groupLabel} label={group.groupLabel}>
+                      <optgroup
+                        key={group.categoryKey || group.groupLabel}
+                        label={group.groupLabel}
+                      >
                         {group.items.map((item) => (
                           <option key={item.id} value={item.id}>
                             {item.label}
@@ -10394,66 +12039,83 @@ Rules:
               )}
 
               {/* Visual Preview Card: Triple Rotation */}
-              {swapMode === "TRIPLE" && (swapDuty1 || swapDuty2 || swapDuty3) && (
-                <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2 text-xs">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 text-[10px] text-slate-400 font-mono">
-                    <span className="text-emerald-400 font-bold uppercase flex items-center gap-1">
-                      <RefreshCw className="h-3 w-3" /> Triple Cyclic Rotation (3 Duties):
-                    </span>
-                    <span className="text-slate-500">1 ➔ 2 ➔ 3 ➔ 1</span>
+              {swapMode === "TRIPLE" &&
+                (swapDuty1 || swapDuty2 || swapDuty3) && (
+                  <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2 text-xs">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 text-[10px] text-slate-400 font-mono">
+                      <span className="text-emerald-400 font-bold uppercase flex items-center gap-1">
+                        <RefreshCw className="h-3 w-3" /> Triple Cyclic Rotation
+                        (3 Duties):
+                      </span>
+                      <span className="text-slate-500">1 ➔ 2 ➔ 3 ➔ 1</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {/* Operator 1 */}
+                      <div className="bg-slate-900 border border-slate-800 rounded p-2">
+                        <div className="text-[10px] text-amber-400 font-bold uppercase tracking-wider truncate">
+                          {findSwappableEntity(swapDuty1)?.category ||
+                            "Operator 1"}
+                        </div>
+                        <div className="font-bold text-slate-200 truncate mt-0.5">
+                          {findSwappableEntity(swapDuty1)?.empName || "--"}
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-mono truncate">
+                          ID: #{findSwappableEntity(swapDuty1)?.empId || "--"} •
+                          Duty: {findSwappableEntity(swapDuty1)?.dutyId || "--"}
+                        </div>
+                        <div className="mt-1.5 pt-1 border-t border-slate-800 text-[9px] text-amber-300 font-bold flex items-center gap-1">
+                          ➔ Takes Duty:{" "}
+                          <span className="font-mono text-cyan-400 font-black">
+                            {findSwappableEntity(swapDuty2)?.dutyId || "Duty 2"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Operator 2 */}
+                      <div className="bg-slate-900 border border-slate-800 rounded p-2">
+                        <div className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider truncate">
+                          {findSwappableEntity(swapDuty2)?.category ||
+                            "Operator 2"}
+                        </div>
+                        <div className="font-bold text-slate-200 truncate mt-0.5">
+                          {findSwappableEntity(swapDuty2)?.empName || "--"}
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-mono truncate">
+                          ID: #{findSwappableEntity(swapDuty2)?.empId || "--"} •
+                          Duty: {findSwappableEntity(swapDuty2)?.dutyId || "--"}
+                        </div>
+                        <div className="mt-1.5 pt-1 border-t border-slate-800 text-[9px] text-cyan-300 font-bold flex items-center gap-1">
+                          ➔ Takes Duty:{" "}
+                          <span className="font-mono text-purple-400 font-black">
+                            {findSwappableEntity(swapDuty3)?.dutyId || "Duty 3"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Operator 3 */}
+                      <div className="bg-slate-900 border border-slate-800 rounded p-2">
+                        <div className="text-[10px] text-purple-400 font-bold uppercase tracking-wider truncate">
+                          {findSwappableEntity(swapDuty3)?.category ||
+                            "Operator 3"}
+                        </div>
+                        <div className="font-bold text-slate-200 truncate mt-0.5">
+                          {findSwappableEntity(swapDuty3)?.empName || "--"}
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-mono truncate">
+                          ID: #{findSwappableEntity(swapDuty3)?.empId || "--"} •
+                          Duty: {findSwappableEntity(swapDuty3)?.dutyId || "--"}
+                        </div>
+                        <div className="mt-1.5 pt-1 border-t border-slate-800 text-[9px] text-purple-300 font-bold flex items-center gap-1">
+                          ➔ Takes Duty:{" "}
+                          <span className="font-mono text-amber-400 font-black">
+                            {findSwappableEntity(swapDuty1)?.dutyId || "Duty 1"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {/* Operator 1 */}
-                    <div className="bg-slate-900 border border-slate-800 rounded p-2">
-                      <div className="text-[10px] text-amber-400 font-bold uppercase tracking-wider truncate">
-                        {findSwappableEntity(swapDuty1)?.category || "Operator 1"}
-                      </div>
-                      <div className="font-bold text-slate-200 truncate mt-0.5">
-                        {findSwappableEntity(swapDuty1)?.empName || "--"}
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-mono truncate">
-                        ID: #{findSwappableEntity(swapDuty1)?.empId || "--"} • Duty: {findSwappableEntity(swapDuty1)?.dutyId || "--"}
-                      </div>
-                      <div className="mt-1.5 pt-1 border-t border-slate-800 text-[9px] text-amber-300 font-bold flex items-center gap-1">
-                        ➔ Takes Duty: <span className="font-mono text-cyan-400 font-black">{findSwappableEntity(swapDuty2)?.dutyId || "Duty 2"}</span>
-                      </div>
-                    </div>
-
-                    {/* Operator 2 */}
-                    <div className="bg-slate-900 border border-slate-800 rounded p-2">
-                      <div className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider truncate">
-                        {findSwappableEntity(swapDuty2)?.category || "Operator 2"}
-                      </div>
-                      <div className="font-bold text-slate-200 truncate mt-0.5">
-                        {findSwappableEntity(swapDuty2)?.empName || "--"}
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-mono truncate">
-                        ID: #{findSwappableEntity(swapDuty2)?.empId || "--"} • Duty: {findSwappableEntity(swapDuty2)?.dutyId || "--"}
-                      </div>
-                      <div className="mt-1.5 pt-1 border-t border-slate-800 text-[9px] text-cyan-300 font-bold flex items-center gap-1">
-                        ➔ Takes Duty: <span className="font-mono text-purple-400 font-black">{findSwappableEntity(swapDuty3)?.dutyId || "Duty 3"}</span>
-                      </div>
-                    </div>
-
-                    {/* Operator 3 */}
-                    <div className="bg-slate-900 border border-slate-800 rounded p-2">
-                      <div className="text-[10px] text-purple-400 font-bold uppercase tracking-wider truncate">
-                        {findSwappableEntity(swapDuty3)?.category || "Operator 3"}
-                      </div>
-                      <div className="font-bold text-slate-200 truncate mt-0.5">
-                        {findSwappableEntity(swapDuty3)?.empName || "--"}
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-mono truncate">
-                        ID: #{findSwappableEntity(swapDuty3)?.empId || "--"} • Duty: {findSwappableEntity(swapDuty3)?.dutyId || "--"}
-                      </div>
-                      <div className="mt-1.5 pt-1 border-t border-slate-800 text-[9px] text-purple-300 font-bold flex items-center gap-1">
-                        ➔ Takes Duty: <span className="font-mono text-amber-400 font-black">{findSwappableEntity(swapDuty1)?.dutyId || "Duty 1"}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+                )}
 
               {/* Pair Preview Card */}
               {swapMode !== "TRIPLE" && (swapDuty1 || swapDuty2) && (
@@ -10466,12 +12128,15 @@ Rules:
                       {findSwappableEntity(swapDuty1)?.empName || "--"}
                     </div>
                     <div className="text-[10px] text-slate-400 font-mono truncate">
-                      ID: #{findSwappableEntity(swapDuty1)?.empId || "--"} • Duty: {findSwappableEntity(swapDuty1)?.dutyId || "--"}
+                      ID: #{findSwappableEntity(swapDuty1)?.empId || "--"} •
+                      Duty: {findSwappableEntity(swapDuty1)?.dutyId || "--"}
                     </div>
                   </div>
 
                   <div className="flex justify-center items-center py-1">
-                    <div className={`p-1.5 rounded-full border ${swapOperationType === "EXCHANGE" ? "bg-purple-500/20 text-purple-400 border-purple-500/30" : "bg-amber-500/20 text-amber-400 border-amber-500/30"}`}>
+                    <div
+                      className={`p-1.5 rounded-full border ${swapOperationType === "EXCHANGE" ? "bg-purple-500/20 text-purple-400 border-purple-500/30" : "bg-amber-500/20 text-amber-400 border-amber-500/30"}`}
+                    >
                       <Repeat className="h-4 w-4" />
                     </div>
                   </div>
@@ -10484,7 +12149,8 @@ Rules:
                       {findSwappableEntity(swapDuty2)?.empName || "--"}
                     </div>
                     <div className="text-[10px] text-slate-400 font-mono truncate">
-                      ID: #{findSwappableEntity(swapDuty2)?.empId || "--"} • Duty: {findSwappableEntity(swapDuty2)?.dutyId || "--"}
+                      ID: #{findSwappableEntity(swapDuty2)?.empId || "--"} •
+                      Duty: {findSwappableEntity(swapDuty2)?.dutyId || "--"}
                     </div>
                   </div>
                 </div>
@@ -10505,7 +12171,12 @@ Rules:
                 onClick={handleExecuteSwap}
                 disabled={
                   swapMode === "TRIPLE"
-                    ? !swapDuty1 || !swapDuty2 || !swapDuty3 || swapDuty1 === swapDuty2 || swapDuty2 === swapDuty3 || swapDuty1 === swapDuty3
+                    ? !swapDuty1 ||
+                      !swapDuty2 ||
+                      !swapDuty3 ||
+                      swapDuty1 === swapDuty2 ||
+                      swapDuty2 === swapDuty3 ||
+                      swapDuty1 === swapDuty3
                     : !swapDuty1 || !swapDuty2 || swapDuty1 === swapDuty2
                 }
                 className={`px-4 py-1.5 rounded text-xs font-black uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
@@ -10515,8 +12186,12 @@ Rules:
                 }`}
               >
                 {swapMode === "TRIPLE"
-                  ? (swapOperationType === "EXCHANGE" ? "CONFIRM TRIPLE EXCHANGE" : "CONFIRM TRIPLE SWAP")
-                  : (swapOperationType === "EXCHANGE" ? "CONFIRM EXCHANGE" : "CONFIRM SWAP")}
+                  ? swapOperationType === "EXCHANGE"
+                    ? "CONFIRM TRIPLE EXCHANGE"
+                    : "CONFIRM TRIPLE SWAP"
+                  : swapOperationType === "EXCHANGE"
+                    ? "CONFIRM EXCHANGE"
+                    : "CONFIRM SWAP"}
               </button>
             </div>
           </div>
@@ -10524,11 +12199,28 @@ Rules:
       )}
 
       {showOfficialGccSheetModal && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
-          <div className="w-full max-w-6xl max-h-[95vh] rounded-2xl overflow-hidden shadow-2xl bg-slate-950 border border-slate-800 flex flex-col">
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-start justify-center pt-[2cm] pb-4 px-1 sm:px-3 md:px-5 animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowOfficialGccSheetModal(false);
+          }}
+        >
+          <div className="w-full max-w-[98vw] 2xl:max-w-[1550px] h-[calc(100vh-2.4cm)] rounded-2xl overflow-hidden shadow-2xl bg-[#070b14] border-2 border-slate-700 flex flex-col relative">
+            {/* Top-Right High-Contrast Close Button */}
+            <button
+              type="button"
+              onClick={() => setShowOfficialGccSheetModal(false)}
+              className="absolute top-2 right-2 sm:top-2.5 sm:right-3 z-50 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-mono font-black text-xs transition shadow-2xl flex items-center gap-1.5 cursor-pointer border border-rose-400 hover:scale-105 active:scale-95"
+              title="Close Roster Sheet Window (Esc)"
+            >
+              <X className="w-4 h-4 stroke-[3]" />
+              <span>CLOSE</span>
+            </button>
             <OfficialGccRosterSheetView
               userRole="CONTROLLER"
-              initialDateStr={deployedRosterInfo?.dateStr || activeSelectedDateStr}
+              initialDateStr={
+                activeSelectedDateStr || deployedRosterInfo?.dateStr
+              }
               onClose={() => setShowOfficialGccSheetModal(false)}
               isModal={true}
             />
@@ -10556,7 +12248,8 @@ Rules:
                     </span>
                   </h3>
                   <div className="text-[11px] text-slate-400 font-mono">
-                    BMRCL Line 2 Peenya Depot • Fault / Incident Book-Off & Operational Relief
+                    BMRCL Line 2 Peenya Depot • Fault / Incident Book-Off &
+                    Operational Relief
                   </div>
                 </div>
               </div>
@@ -10576,40 +12269,94 @@ Rules:
             {/* Target Duty & Operator Card */}
             <div className="bg-slate-955 border border-slate-800 rounded-xl p-3.5 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div>
-                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Current Operator</div>
-                <div className="font-bold text-white text-sm truncate">{bookOffTargetDuty.empName || bookOffTargetDuty.name}</div>
-                <div className="text-[10px] text-rose-400 font-mono">Emp #{bookOffTargetDuty.empId || bookOffTargetDuty.empNo || "--"}</div>
+                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+                  Current Operator
+                </div>
+                <div className="font-bold text-white text-sm truncate">
+                  {bookOffTargetDuty.empName || bookOffTargetDuty.name}
+                </div>
+                <div className="text-[10px] text-rose-400 font-mono">
+                  Emp #
+                  {bookOffTargetDuty.empId || bookOffTargetDuty.empNo || "--"}
+                </div>
               </div>
               <div>
-                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Duty & Train</div>
-                <div className="font-black text-amber-300 font-mono">Duty #{bookOffTargetDuty.dutyId}</div>
-                <div className="text-[10px] text-indigo-300 font-mono">Train {bookOffTargetDuty.trainId || "--"}</div>
+                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+                  Duty & Train
+                </div>
+                <div className="font-black text-amber-300 font-mono">
+                  Duty #{bookOffTargetDuty.dutyId}
+                </div>
+                <div className="text-[10px] text-indigo-300 font-mono">
+                  Train {bookOffTargetDuty.trainId || "--"}
+                </div>
               </div>
               <div>
-                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Shift Timing</div>
-                <div className="font-mono text-slate-200">{bookOffTargetDuty.startTime || "--"} - {bookOffTargetDuty.endTime || "--"}</div>
-                <div className="text-[10px] text-slate-400 font-mono">Sign On: {bookOffTargetDuty.signOnTime || bookOffTargetDuty.startTime || "--"}</div>
+                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+                  Shift Timing
+                </div>
+                <div className="font-mono text-slate-200">
+                  {bookOffTargetDuty.startTime || "--"} -{" "}
+                  {bookOffTargetDuty.endTime || "--"}
+                </div>
+                <div className="text-[10px] text-slate-400 font-mono">
+                  Sign On:{" "}
+                  {bookOffTargetDuty.signOnTime ||
+                    bookOffTargetDuty.startTime ||
+                    "--"}
+                </div>
               </div>
               <div>
-                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Depot / Station</div>
-                <div className="font-bold text-slate-300">{bookOffTargetDuty.sourceStation || "PUTH"}</div>
-                <div className="text-[10px] text-emerald-400">Mainline Service</div>
+                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+                  Depot / Station
+                </div>
+                <div className="font-bold text-slate-300">
+                  {bookOffTargetDuty.sourceStation || "PUTH"}
+                </div>
+                <div className="text-[10px] text-emerald-400">
+                  Mainline Service
+                </div>
               </div>
             </div>
 
             {/* Fault Category Selection */}
             <div className="space-y-2">
               <div className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                1. Select Fault / Incident Category <span className="text-rose-400">*</span>
+                1. Select Fault / Incident Category{" "}
+                <span className="text-rose-400">*</span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[
-                  { key: "TRAIN_FAULT", label: "🛠️ Train Fault / Tech", desc: "Traction/Brake failure" },
-                  { key: "SAFETY_INCIDENT", label: "🚨 Safety / Incident", desc: "Signal / Track / SPAD" },
-                  { key: "MEDICAL_BA", label: "🩺 Medical / BA Unfit", desc: "Sickness / Breathalyzer" },
-                  { key: "FATIGUE_HOURS", label: "⏱️ Hours Exceeded", desc: "Fatigue / Exceeded duty" },
-                  { key: "PERSONAL_EMERGENCY", label: "⚠️ Emergency", desc: "Personal urgent leave" },
-                  { key: "OCC_ORDER", label: "📝 OCC / CC Order", desc: "Operational instruction" },
+                  {
+                    key: "TRAIN_FAULT",
+                    label: "🛠️ Train Fault / Tech",
+                    desc: "Traction/Brake failure",
+                  },
+                  {
+                    key: "SAFETY_INCIDENT",
+                    label: "🚨 Safety / Incident",
+                    desc: "Signal / Track / SPAD",
+                  },
+                  {
+                    key: "MEDICAL_BA",
+                    label: "🩺 Medical / BA Unfit",
+                    desc: "Sickness / Breathalyzer",
+                  },
+                  {
+                    key: "FATIGUE_HOURS",
+                    label: "⏱️ Hours Exceeded",
+                    desc: "Fatigue / Exceeded duty",
+                  },
+                  {
+                    key: "PERSONAL_EMERGENCY",
+                    label: "⚠️ Emergency",
+                    desc: "Personal urgent leave",
+                  },
+                  {
+                    key: "OCC_ORDER",
+                    label: "📝 OCC / CC Order",
+                    desc: "Operational instruction",
+                  },
                 ].map((cat) => (
                   <button
                     key={cat.key}
@@ -10630,8 +12377,12 @@ Rules:
 
             {/* Remarks / Incident Description */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block" htmlFor="bookoff-incident-details">
-                2. Incident Details / Remarks <span className="text-rose-400">*</span>
+              <label
+                className="text-xs font-bold text-slate-300 uppercase tracking-wider block"
+                htmlFor="bookoff-incident-details"
+              >
+                2. Incident Details / Remarks{" "}
+                <span className="text-rose-400">*</span>
               </label>
               <textarea
                 id="bookoff-incident-details"
@@ -10647,7 +12398,10 @@ Rules:
             {/* Relief / Replacement Option */}
             <div className="space-y-3 pt-2 border-t border-slate-800">
               <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 cursor-pointer select-none" htmlFor="bookoff-assign-relief">
+                <label
+                  className="flex items-center gap-2 cursor-pointer select-none"
+                  htmlFor="bookoff-assign-relief"
+                >
                   <input
                     id="bookoff-assign-relief"
                     name="bookoff_assign_relief"
@@ -10661,7 +12415,10 @@ Rules:
                           setSelectedReliever({
                             id: firstStandby.empNo || firstStandby.empId,
                             name: firstStandby.name || firstStandby.empName,
-                            dutyId: firstStandby.duty || firstStandby.code || "Standby",
+                            dutyId:
+                              firstStandby.duty ||
+                              firstStandby.code ||
+                              "Standby",
                             source: "STANDBY",
                             ...firstStandby,
                           });
@@ -10714,7 +12471,8 @@ Rules:
                         (consoleData.standbys || []).map((stb, idx) => {
                           const isSelected =
                             selectedReliever &&
-                            String(selectedReliever.id) === String(stb.empNo || stb.empId);
+                            String(selectedReliever.id) ===
+                              String(stb.empNo || stb.empId);
                           return (
                             <div
                               key={idx}
@@ -10741,7 +12499,8 @@ Rules:
                                   </span>
                                 </div>
                                 <div className="text-[10px] text-slate-400 font-mono">
-                                  Station: {stb.station || stb.info || "PUTH"} • Ready
+                                  Station: {stb.station || stb.info || "PUTH"} •
+                                  Ready
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
@@ -10757,7 +12516,8 @@ Rules:
                         })
                       ) : (
                         <div className="p-3 bg-slate-900/60 border border-slate-800 rounded-lg text-center text-xs text-slate-400 font-mono">
-                          No standby operators currently on roster. Switch to "Available Crew Registry".
+                          No standby operators currently on roster. Switch to
+                          "Available Crew Registry".
                         </div>
                       )}
                     </div>
@@ -10772,7 +12532,9 @@ Rules:
                           type="text"
                           placeholder="Search available crew by Name or Emp ID..."
                           value={bookOffRelieverSearch}
-                          onChange={(e) => setBookOffRelieverSearch(e.target.value)}
+                          onChange={(e) =>
+                            setBookOffRelieverSearch(e.target.value)
+                          }
                           className="w-full pl-8 pr-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
                         />
                       </div>
@@ -10810,7 +12572,9 @@ Rules:
                                 }`}
                               >
                                 <div>
-                                  <span className="font-bold text-xs">{crew.name}</span>
+                                  <span className="font-bold text-xs">
+                                    {crew.name}
+                                  </span>
                                   <span className="text-[10px] text-slate-500 ml-2 font-mono">
                                     {crew.designation || "TO"}
                                   </span>
@@ -10837,10 +12601,14 @@ Rules:
                         <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0" />
                         <div>
                           <div className="text-xs font-bold text-white">
-                            Selected Reliever: <span className="text-emerald-300">{selectedReliever.name}</span>
+                            Selected Reliever:{" "}
+                            <span className="text-emerald-300">
+                              {selectedReliever.name}
+                            </span>
                           </div>
                           <div className="text-[10px] text-slate-400 font-mono">
-                            Emp #{selectedReliever.id} • Will take over Duty #{bookOffTargetDuty.dutyId} immediately
+                            Emp #{selectedReliever.id} • Will take over Duty #
+                            {bookOffTargetDuty.dutyId} immediately
                           </div>
                         </div>
                       </div>
@@ -10858,7 +12626,13 @@ Rules:
                 <div className="bg-rose-950/20 border border-rose-900/50 rounded-xl p-3 flex items-start gap-2.5">
                   <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
                   <div className="text-xs text-rose-300/90 leading-relaxed">
-                    <span className="font-bold">Duty #{bookOffTargetDuty.dutyId} will be marked as VACANT:</span> The operator will be moved to the Booked Off Register, and this duty will require an operator before departure. You can assign a replacement driver later anytime from the Live Gate or Booked Off Register.
+                    <span className="font-bold">
+                      Duty #{bookOffTargetDuty.dutyId} will be marked as VACANT:
+                    </span>{" "}
+                    The operator will be moved to the Booked Off Register, and
+                    this duty will require an operator before departure. You can
+                    assign a replacement driver later anytime from the Live Gate
+                    or Booked Off Register.
                   </div>
                 </div>
               )}
@@ -10880,7 +12654,10 @@ Rules:
               <button
                 type="button"
                 onClick={handleExecuteBookOff}
-                disabled={isSubmittingBookOff || (bookOffAssignRelief && !selectedReliever)}
+                disabled={
+                  isSubmittingBookOff ||
+                  (bookOffAssignRelief && !selectedReliever)
+                }
                 className="px-5 py-2 rounded-lg text-xs font-black uppercase tracking-wider bg-rose-600 hover:bg-rose-500 text-white transition shadow-lg flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmittingBookOff ? (
@@ -10949,12 +12726,20 @@ Rules:
             {/* Target Duty Summary Card */}
             <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 grid grid-cols-3 gap-2 text-xs">
               <div>
-                <div className="text-[10px] text-slate-500 uppercase font-bold">Duty & Train</div>
-                <div className="font-black text-amber-300 font-mono">Duty #{assignTargetDuty.dutyId}</div>
-                <div className="text-[10px] text-indigo-300 font-mono">Train {assignTargetDuty.trainId || "--"}</div>
+                <div className="text-[10px] text-slate-500 uppercase font-bold">
+                  Duty & Train
+                </div>
+                <div className="font-black text-amber-300 font-mono">
+                  Duty #{assignTargetDuty.dutyId}
+                </div>
+                <div className="text-[10px] text-indigo-300 font-mono">
+                  Train {assignTargetDuty.trainId || "--"}
+                </div>
               </div>
               <div>
-                <div className="text-[10px] text-slate-500 uppercase font-bold">Current Operator</div>
+                <div className="text-[10px] text-slate-500 uppercase font-bold">
+                  Current Operator
+                </div>
                 <div className="font-bold text-white truncate">
                   {assignTargetDuty.empName || "VACANT"}
                 </div>
@@ -10963,9 +12748,12 @@ Rules:
                 </div>
               </div>
               <div>
-                <div className="text-[10px] text-slate-500 uppercase font-bold">Shift Hours</div>
+                <div className="text-[10px] text-slate-500 uppercase font-bold">
+                  Shift Hours
+                </div>
                 <div className="font-mono text-slate-300">
-                  {assignTargetDuty.startTime || "--"} - {assignTargetDuty.endTime || "--"}
+                  {assignTargetDuty.startTime || "--"} -{" "}
+                  {assignTargetDuty.endTime || "--"}
                 </div>
                 <div className="text-[10px] text-emerald-400">
                   {assignTargetDuty.sourceStation || "PUTH"}
@@ -11002,21 +12790,45 @@ Rules:
               {/* Source Tabs */}
               <div className="flex gap-1.5 overflow-x-auto pb-1 text-[11px] font-bold">
                 {[
-                  { key: "STANDBY", label: `⏱️ Standbys (${consoleData.standbys?.length || 0})` },
-                  { key: "STBK", label: `🔄 Stepback (${consoleData.outstationStepbacks?.length || 0})` },
-                  { key: "OR", label: `🛡️ OR / OD (${consoleData.onDuty?.length || 0})` },
-                  { key: "CC", label: `🎧 CC (${consoleData.controlDesks?.length || 0})` },
-                  { key: "WO", label: `📅 Weekly Off (${consoleData.weeklyOffs?.length || 0})` },
-                  { key: "LEAVE", label: `📝 Leaves (${consoleData.leaves?.length || 0})` },
+                  {
+                    key: "STANDBY",
+                    label: `⏱️ Standbys (${consoleData.standbys?.length || 0})`,
+                  },
+                  {
+                    key: "STBK",
+                    label: `🔄 Stepback (${consoleData.outstationStepbacks?.length || 0})`,
+                  },
+                  {
+                    key: "OR",
+                    label: `🛡️ OR / OD (${consoleData.onDuty?.length || 0})`,
+                  },
+                  {
+                    key: "CC",
+                    label: `🎧 CC (${consoleData.controlDesks?.length || 0})`,
+                  },
+                  {
+                    key: "WO",
+                    label: `📅 Weekly Off (${consoleData.weeklyOffs?.length || 0})`,
+                  },
+                  {
+                    key: "LEAVE",
+                    label: `📝 Leaves (${consoleData.leaves?.length || 0})`,
+                  },
                   {
                     key: "MAINLINE",
                     label: `🚆 Active Duties (${
                       (deduplicatedDeployments || []).filter(
-                        (d) => d.empId && d.empId !== "--" && String(d.dutyId) !== String(assignTargetDuty.dutyId),
+                        (d) =>
+                          d.empId &&
+                          d.empId !== "--" &&
+                          String(d.dutyId) !== String(assignTargetDuty.dutyId),
                       ).length
                     })`,
                   },
-                  { key: "CREW_POOL", label: `👥 Master Pool (${availableCrewPool.length})` },
+                  {
+                    key: "CREW_POOL",
+                    label: `👥 Master Pool (${availableCrewPool.length})`,
+                  },
                 ].map((tab) => (
                   <button
                     key={tab.key}
@@ -11057,19 +12869,22 @@ Rules:
                       };
                     });
                   } else if (assignDriverType === "STBK") {
-                    list = (consoleData.outstationStepbacks || []).map((item, idx) => {
-                      const clean = sanitizeConsoleItem(item);
-                      return {
-                        id: clean.empNo || clean.empId || `stbk_${idx}`,
-                        name: clean.name || clean.empName,
-                        dutyId: clean.duty || clean.code || `Stepback #${idx + 1}`,
-                        station: clean.station || clean.info || "PUTH",
-                        time: clean.time || "06:30 - 15:00",
-                        source: "STBK",
-                        sourceLabel: "Stepback Crew (1Stbk / 2Stbk)",
-                        rawItem: clean,
-                      };
-                    });
+                    list = (consoleData.outstationStepbacks || []).map(
+                      (item, idx) => {
+                        const clean = sanitizeConsoleItem(item);
+                        return {
+                          id: clean.empNo || clean.empId || `stbk_${idx}`,
+                          name: clean.name || clean.empName,
+                          dutyId:
+                            clean.duty || clean.code || `Stepback #${idx + 1}`,
+                          station: clean.station || clean.info || "PUTH",
+                          time: clean.time || "06:30 - 15:00",
+                          source: "STBK",
+                          sourceLabel: "Stepback Crew (1Stbk / 2Stbk)",
+                          rawItem: clean,
+                        };
+                      },
+                    );
                   } else if (assignDriverType === "OR") {
                     list = (consoleData.onDuty || []).map((item, idx) => {
                       const clean = sanitizeConsoleItem(item);
@@ -11130,7 +12945,8 @@ Rules:
                     list = (deduplicatedDeployments || [])
                       .filter(
                         (d) =>
-                          String(d.dutyId) !== String(assignTargetDuty.dutyId) &&
+                          String(d.dutyId) !==
+                            String(assignTargetDuty.dutyId) &&
                           d.empId &&
                           d.empId !== "--",
                       )
@@ -11162,7 +12978,9 @@ Rules:
                     if (!q) return true;
                     return (
                       (c.name || "").toLowerCase().includes(q) ||
-                      String(c.id || "").toLowerCase().includes(q) ||
+                      String(c.id || "")
+                        .toLowerCase()
+                        .includes(q) ||
                       (c.dutyId || "").toLowerCase().includes(q) ||
                       (c.station || "").toLowerCase().includes(q) ||
                       (c.sourceLabel || "").toLowerCase().includes(q)
@@ -11181,7 +12999,8 @@ Rules:
 
                   return filtered.slice(0, 30).map((c, idx) => {
                     const isSelected =
-                      selectedReliever && String(selectedReliever.id) === String(c.id);
+                      selectedReliever &&
+                      String(selectedReliever.id) === String(c.id);
                     return (
                       <div
                         key={idx}
@@ -11200,7 +13019,9 @@ Rules:
                             </span>
                           </div>
                           <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5">
-                            <span className="text-emerald-400 font-semibold">{c.sourceLabel}</span>
+                            <span className="text-emerald-400 font-semibold">
+                              {c.sourceLabel}
+                            </span>
                             <span>•</span>
                             <span>{c.station}</span>
                             <span>•</span>
@@ -11229,13 +13050,24 @@ Rules:
                     <div>
                       <div className="text-xs font-bold text-white flex items-center gap-2">
                         <span>Assigning:</span>
-                        <span className="text-emerald-300 font-mono font-black text-sm">{selectedReliever.name}</span>
+                        <span className="text-emerald-300 font-mono font-black text-sm">
+                          {selectedReliever.name}
+                        </span>
                         <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800 px-1.5 py-0.2 rounded font-mono">
                           Emp #{selectedReliever.id}
                         </span>
                       </div>
                       <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                        Source: <span className="text-amber-300 font-bold">{selectedReliever.sourceLabel || selectedReliever.source}</span> • Will be assigned to <span className="text-white font-bold">Duty #{assignTargetDuty.dutyId}</span> (Train {assignTargetDuty.trainId || "--"})
+                        Source:{" "}
+                        <span className="text-amber-300 font-bold">
+                          {selectedReliever.sourceLabel ||
+                            selectedReliever.source}
+                        </span>{" "}
+                        • Will be assigned to{" "}
+                        <span className="text-white font-bold">
+                          Duty #{assignTargetDuty.dutyId}
+                        </span>{" "}
+                        (Train {assignTargetDuty.trainId || "--"})
                       </div>
                     </div>
                   </div>
@@ -11303,7 +13135,8 @@ Rules:
                     TRANSFER OPERATOR ACROSS ROSTER PAGES
                   </h3>
                   <div className="text-[11px] text-slate-400 font-mono">
-                    BMRCL Line 2 Peenya Depot • Move Operator to Any Register or Active Duty
+                    BMRCL Line 2 Peenya Depot • Move Operator to Any Register or
+                    Active Duty
                   </div>
                 </div>
               </div>
@@ -11322,7 +13155,10 @@ Rules:
             {/* Operator Selection (If none pre-selected) */}
             {!transferTargetOperator ? (
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block" htmlFor="transfer-search-query">
+                <label
+                  className="text-xs font-bold text-slate-300 uppercase tracking-wider block"
+                  htmlFor="transfer-search-query"
+                >
                   1. Select Train Operator to Transfer
                 </label>
                 <div className="relative">
@@ -11344,7 +13180,9 @@ Rules:
                       const q = transferSearchQuery.toLowerCase();
                       return (
                         (e.empName || "").toLowerCase().includes(q) ||
-                        String(e.empId || "").toLowerCase().includes(q) ||
+                        String(e.empId || "")
+                          .toLowerCase()
+                          .includes(q) ||
                         (e.label || "").toLowerCase().includes(q) ||
                         (e.category || "").toLowerCase().includes(q)
                       );
@@ -11357,14 +13195,19 @@ Rules:
                           setTransferTargetOperator({
                             empId: item.empId,
                             empName: item.empName,
-                            currentCategory: item.type === "MAINLINE" ? "MAINLINE" : item.catKey || item.category,
+                            currentCategory:
+                              item.type === "MAINLINE"
+                                ? "MAINLINE"
+                                : item.catKey || item.category,
                             rawItem: item,
                           })
                         }
                         className="p-2 bg-slate-955 border border-slate-800 hover:border-indigo-500/60 rounded-lg flex justify-between items-center cursor-pointer transition"
                       >
                         <div>
-                          <span className="font-bold text-xs text-white">{item.empName}</span>
+                          <span className="font-bold text-xs text-white">
+                            {item.empName}
+                          </span>
                           <span className="text-[10px] text-indigo-300 font-mono ml-2 bg-indigo-950/60 px-1.5 py-0.2 rounded border border-indigo-800/40">
                             {item.category}: {item.dutyId || "--"}
                           </span>
@@ -11389,7 +13232,10 @@ Rules:
                     </span>
                   </div>
                   <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                    Currently stationed in: <span className="text-amber-300 font-bold">{transferTargetOperator.currentCategory}</span>
+                    Currently stationed in:{" "}
+                    <span className="text-amber-300 font-bold">
+                      {transferTargetOperator.currentCategory}
+                    </span>
                   </div>
                 </div>
                 <button
@@ -11409,16 +13255,44 @@ Rules:
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
                 {[
-                  { key: "MAINLINE", label: "🚆 Active Duty", desc: "Mainline Train" },
-                  { key: "STANDBY", label: "⏱️ Standby", desc: "Ready for duty" },
+                  {
+                    key: "MAINLINE",
+                    label: "🚆 Active Duty",
+                    desc: "Mainline Train",
+                  },
+                  {
+                    key: "STANDBY",
+                    label: "⏱️ Standby",
+                    desc: "Ready for duty",
+                  },
                   { key: "STBK", label: "🔄 Stepback", desc: "1Stbk / 2Stbk" },
-                  { key: "OR", label: "🛡️ OR / OD", desc: "Outstation Reserve" },
-                  { key: "CC", label: "🎧 Control Desk", desc: "CC1 / CC2 / CC3" },
+                  {
+                    key: "OR",
+                    label: "🛡️ OR / OD",
+                    desc: "Outstation Reserve",
+                  },
+                  {
+                    key: "CC",
+                    label: "🎧 Control Desk",
+                    desc: "CC1 / CC2 / CC3",
+                  },
                   { key: "WO", label: "📅 Weekly Off", desc: "Scheduled Rest" },
                   { key: "LEAVE", label: "📝 Leave", desc: "CL / EL / L" },
-                  { key: "CRT", label: "🎓 CRT Training", desc: "Training Desk" },
-                  { key: "BO", label: "⛔ Booked Off", desc: "Relieved / Fault" },
-                  { key: "NR", label: "⚠️ Not Reporting", desc: "Absence Tracker" },
+                  {
+                    key: "CRT",
+                    label: "🎓 CRT Training",
+                    desc: "Training Desk",
+                  },
+                  {
+                    key: "BO",
+                    label: "⛔ Booked Off",
+                    desc: "Relieved / Fault",
+                  },
+                  {
+                    key: "NR",
+                    label: "⚠️ Not Reporting",
+                    desc: "Absence Tracker",
+                  },
                 ].map((dest) => (
                   <button
                     key={dest.key}
@@ -11440,7 +13314,10 @@ Rules:
             {/* Destination Specific Input */}
             {transferDestinationCategory === "MAINLINE" ? (
               <div className="bg-slate-955 border border-slate-800 rounded-xl p-3 space-y-2 text-xs">
-                <label className="text-xs font-bold text-amber-300 uppercase tracking-wider block" htmlFor="transfer-target-duty">
+                <label
+                  className="text-xs font-bold text-amber-300 uppercase tracking-wider block"
+                  htmlFor="transfer-target-duty"
+                >
                   Select Target Mainline Duty Number
                 </label>
                 <select
@@ -11452,23 +13329,33 @@ Rules:
                 >
                   <option value="">Select Duty #...</option>
                   {(deduplicatedDeployments || []).map((d) => {
-                    const isVacant = d.status === "BOOKED_OFF_VACANT" || d.empId === "--" || !d.empId;
+                    const isVacant =
+                      d.status === "BOOKED_OFF_VACANT" ||
+                      d.empId === "--" ||
+                      !d.empId;
                     return (
                       <option key={d.dutyId} value={d.dutyId}>
-                        Duty #{d.dutyId} (Train {d.trainId || "--"}) — {isVacant ? "⚠️ VACANT - DRIVER REQUIRED" : `${d.empName || "Staff"} (#${d.empId})`}
+                        Duty #{d.dutyId} (Train {d.trainId || "--"}) —{" "}
+                        {isVacant
+                          ? "⚠️ VACANT - DRIVER REQUIRED"
+                          : `${d.empName || "Staff"} (#${d.empId})`}
                       </option>
                     );
                   })}
                 </select>
                 <p className="text-[10px] text-slate-400 font-mono">
-                  The operator will be assigned to this duty in the Live Gate and Crew Deployment register.
+                  The operator will be assigned to this duty in the Live Gate
+                  and Crew Deployment register.
                 </p>
               </div>
             ) : null}
 
             {/* Remarks / Reason */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block" htmlFor="transfer-reason">
+              <label
+                className="text-xs font-bold text-slate-300 uppercase tracking-wider block"
+                htmlFor="transfer-reason"
+              >
                 3. Reason / Authorization Remarks (Optional)
               </label>
               <input
