@@ -212,7 +212,14 @@ export default function OfficialGccRosterSheetView({
   };
 
   const rawDuties = rosterData?.duties || rosterData?.deployments || [];
-  const isPublished = Boolean(rosterData?.isPublishedForOperators !== false && rawDuties.length > 0);
+  // isPublished: true only if the Firestore doc explicitly sets the flag to true.
+  // We do NOT gate on rawDuties.length — tomorrow's doc may have duties under a
+  // different key or may not have synced yet, and a controller must still be able
+  // to publish/unpublish it.
+  const isPublished = Boolean(
+    rosterData !== null &&
+    rosterData?.isPublishedForOperators === true
+  );
   const dutiesList = useMemo(() => {
     if (!rawDuties || rawDuties.length === 0) return [];
     let list = rawDuties.map(d => {
@@ -484,7 +491,7 @@ export default function OfficialGccRosterSheetView({
           {['CONTROLLER', 'CREW_CONTROLLER', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && (
             <button
               onClick={handleTogglePublish}
-              disabled={publishing || dutiesList.length === 0}
+              disabled={publishing}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold transition shadow cursor-pointer ${
                 isPublished 
                   ? 'bg-emerald-950 border border-emerald-500 text-emerald-300 hover:bg-rose-950 hover:text-rose-300 hover:border-rose-500'

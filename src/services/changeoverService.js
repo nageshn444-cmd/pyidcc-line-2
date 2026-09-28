@@ -2301,9 +2301,16 @@ export const CHANGEOVER_TABLE = {
 
 // ─── Helper: get the changeover table key ────────────────────────
 function getTableKey(currentDay, nextDay) {
-  // Normalise nextDay alias: MONDAY maps to MONDAY
   const cd = currentDay.toUpperCase();
   const nd = nextDay.toUpperCase();
+
+  // ── Canonical key aliases ──────────────────────────────────────────────────
+  // Regular Monday Night → Weekday Morning uses the same changeover roster
+  // as Monday GH Night → Weekday Morning (duties 51–65, identical times).
+  // Both route to MONDAY_GH__WEEKDAY so we maintain a single source of truth.
+  if (cd === "MONDAY" && nd === "WEEKDAY") return "MONDAY_GH__WEEKDAY";
+
+  // ── Fallback: direct key ───────────────────────────────────────────────────
   return `${cd}__${nd}`;
 }
 
@@ -2562,11 +2569,13 @@ export const triggerChangeover = async (currentDay, nextDay, operatorAssignments
   const coTable = CHANGEOVER_TABLE[tableKey];
 
   if (!coTable) {
+    const allKeys = [
+      ...Object.keys(CHANGEOVER_TABLE).map((k) => k.replace("__", "→")),
+      "MONDAY→WEEKDAY (alias → MONDAY_GH→WEEKDAY)",
+    ].join(", ");
     throw new Error(
-      `No changeover table found for: ${currentDay} → ${nextDay}.\n` +
-        `Supported combinations: ${Object.keys(CHANGEOVER_TABLE)
-          .map((k) => k.replace("__", "→"))
-          .join(", ")}`,
+      `No changeover table found for: ${currentDay} → ${nextDay} (resolved key: ${tableKey}).\n` +
+        `Supported combinations: ${allKeys}`,
     );
   }
 

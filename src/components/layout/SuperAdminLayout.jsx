@@ -1671,16 +1671,15 @@ export default function SuperAdminLayout({
                 <span className="bg-slate-800 text-slate-400 text-xs px-4 py-1.5 rounded-full font-bold shadow-inner">V 2.0 INTEGRATED</span>
               </div>
 
-              {/* BMRCL Line-2 Automatic Train ID Swap & Crew Relief Decision Engine */}
-              <div>
-                <TrainSwapControl />
-              </div>
+              {/* Train ID Swap Engine lives in its own dedicated tab → TRAIN_SWAP */}
 
+              {/* MULTIMODAL GCC ROSTER INGESTION FRAMEWORK — hidden per request
               {!isTrainOperator && (
                 <div className="pt-2">
                   <GccRosterUploader />
                 </div>
               )}
+              */}
             </div>
           ) : activeTab === 'TRAIN_SWAP' ? (
             <div className="space-y-6">
