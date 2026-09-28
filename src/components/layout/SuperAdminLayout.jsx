@@ -1,14 +1,14 @@
-import React, { useState, useRef, useMemo, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useRef, useMemo, useEffect, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../../firebase';
 import { writeBatch, doc, serverTimestamp, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { provisioningService } from '../../services/ProvisioningService';
 import { 
-  Shield, Users, Activity, Table, CalendarClock, GraduationCap, 
-  Settings, Key, AlertTriangle, Sparkles, LayoutGrid, Search, Maximize2, 
-  Minimize2, CheckSquare, FileText, ClipboardList, RefreshCw, Cpu, 
+  Users, Activity, Table, CalendarClock, 
+  Settings, AlertTriangle, Sparkles, LayoutGrid, Search, Maximize2, 
+  Minimize2, FileText, ClipboardList, RefreshCw, 
   Train, Calendar, Radio, ShieldAlert, Trash2, RotateCcw, UploadCloud,
-  MessageSquare, BookOpen, Calculator, Sliders, Repeat, Clock, Copy, Plus, ArrowRightLeft
+  Calculator, Sliders, Repeat, Clock, Copy, Plus, ArrowRightLeft
 } from 'lucide-react';
 
 import { lazyWithRetry } from '../../utils/lazyWithRetry';
@@ -30,13 +30,11 @@ const LeaveRequestManager        = lazyWithRetry(() => import('../LeaveRequestMa
 const GCCControl                 = lazyWithRetry(() => import('../GCCControl'));
 const TORequestForm              = lazyWithRetry(() => import('../TORequestForm'));
 const EmergencyReliefEngine      = lazyWithRetry(() => import('../EmergencyReliefEngine'));
-const GccRosterUploader          = lazyWithRetry(() => import('../GccRosterUploader'));
 const RollingStockFaultLog       = lazyWithRetry(() => import('../RollingStockFaultLog'));
 const PerformanceMetrics         = lazyWithRetry(() => import('../PerformanceMetrics'));
 const CrewKMCalculatorSuite      = lazyWithRetry(() => import('../kmcalc/CrewKMCalculatorSuite'));
 const JmdDrivingHours            = lazyWithRetry(() => import('../JmdDrivingHours'));
 const LeaveBookOffManager        = lazyWithRetry(() => import('../LeaveBookOffManager'));
-const ShiftHandoverReportView    = lazyWithRetry(() => import('../ShiftHandoverReportView'));
 const ChangeoverLink             = lazyWithRetry(() => import('../admin/ChangeoverLink'));
 const ChangeoverDashboard        = lazyWithRetry(() => import('../admin/ChangeoverDashboard'));
 const AIFaultReportingPage       = lazyWithRetry(() => import('../../pages/AIFaultReportingPage'));
@@ -75,7 +73,7 @@ export default function SuperAdminLayout({
   unifiedRows,
   liveIncidents,
   deployments,
-  attendanceLogs,
+  attendanceLogs: _attendanceLogs,
   loading,
   fetchLiveData,
   activeDay,
@@ -101,7 +99,7 @@ export default function SuperAdminLayout({
   handleWttBulkSave,
   handleDeleteTripRow,
   addDelayToTime,
-  handleRosterReset: providedHandleRosterReset,
+  handleRosterReset: _providedHandleRosterReset,
   handleUpdateMasterWeekdayLinks,
   handleGccRosterUpload,
   targetTid,
@@ -644,7 +642,7 @@ export default function SuperAdminLayout({
       });
 
       if (reqs.length > 0) {
-        setActiveRequestPopup(prev => {
+        setActiveRequestPopup(_prev => {
           const active = reqs.find(r => !dismissedPopupIds.has(r.requestId));
           return active || null;
         });
@@ -799,6 +797,7 @@ export default function SuperAdminLayout({
     if (visible.length > 0 && !visible.some(item => item.id === activeTab)) {
       setActiveTab(visible[0].id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [permissions, activeTab]);
 
   return (
@@ -864,7 +863,7 @@ export default function SuperAdminLayout({
       <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
         
         {/* Top Control Bar */}
-        <header className="h-16 bg-[var(--header-bg)] backdrop-blur-md border-b border-[var(--border-color)] px-3 lg:px-6 flex items-center justify-between sticky top-0 z-30 shrink-0 shadow-sm">
+        <header className="h-16 bg-(--header-bg) backdrop-blur-md border-b border-(--border-color) px-3 lg:px-6 flex items-center justify-between sticky top-0 z-30 shrink-0 shadow-sm">
           <div className="flex items-center gap-2 lg:gap-3">
             {/* Mobile Hamburger */}
             <button
@@ -967,7 +966,7 @@ export default function SuperAdminLayout({
             {/* AI Assistant Trigger */}
             <button 
               onClick={() => setIsAiOpen(true)}
-              className="flex items-center gap-1.5 bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-slate-950 font-black text-[10px] px-3.5 py-1.5 rounded-lg transition shadow-lg shadow-cyan-900/10 uppercase tracking-widest"
+              className="flex items-center gap-1.5 bg-linear-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-slate-950 font-black text-[10px] px-3.5 py-1.5 rounded-lg transition shadow-lg shadow-cyan-900/10 uppercase tracking-widest"
             >
               <Sparkles className="h-3.5 w-3.5" />
               <span>Ask AI</span>
@@ -1177,7 +1176,7 @@ export default function SuperAdminLayout({
                   <span>DYNAMIC CONTROL ROSTER OPERATIONAL MONITOR TERMINAL</span>
                 </div>
                 {(selectedRowIds.length > 0 || clipboard.length > 0) && (
-                  <div className="px-4 py-3 bg-slate-950 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4 font-mono text-xs border-t border-slate-800/55">
+                  <div className="px-4 py-3 bg-slate-950 border-y border-slate-800 flex flex-wrap items-center justify-between gap-4 font-mono text-xs">
                     <div className="flex items-center gap-3 text-slate-300">
                       <span className="bg-amber-500/10 text-amber-400 border border-amber-500/35 px-2 py-0.5 rounded font-bold uppercase tracking-wider text-[10px]">
                         {selectedRowIds.length} Selected
@@ -1298,9 +1297,9 @@ export default function SuperAdminLayout({
                   <table className="w-full text-left border-collapse font-mono text-[11px] min-w-[3050px] table-fixed">
                     <thead>
                       <tr className="bg-slate-950/80 border-b border-slate-800 text-slate-400 text-center font-bold uppercase tracking-wider">
-                        {!isTrainOperator && <th className="w-[60px] bg-slate-950">Kill</th>}
-                        <th className="w-[80px] bg-slate-950 border-r border-slate-800">Duty ID</th>
-                        <th className="w-[150px] bg-slate-950 border-r border-slate-800 text-emerald-400">Train Operator</th>
+                        {!isTrainOperator && <th className="w-15 bg-slate-950">Kill</th>}
+                        <th className="w-20 bg-slate-950 border-r border-slate-800">Duty ID</th>
+                        <th className="w-37.5 bg-slate-950 border-r border-slate-800 text-emerald-400">Train Operator</th>
                         <th colSpan="8" className="py-2 border-r border-slate-800 text-blue-400 bg-blue-950/5">LEG 1: Primary Sign-On Duty Frame</th>
                         <th colSpan="7" className="py-2 border-r border-slate-800 text-amber-400 bg-amber-950/5">LEG 2: Mid-Shift Operational Workings</th>
                         <th colSpan="7" className="py-2 border-r border-slate-800 text-cyan-400 bg-cyan-950/5">LEG 3: Secondary Handover Working Loop</th>
@@ -1309,7 +1308,7 @@ export default function SuperAdminLayout({
                       </tr>
                     <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 text-center font-semibold">
                       {!isTrainOperator && (
-                        <th className="py-2 px-1 border-r border-slate-800 text-center w-[60px] select-none">
+                        <th className="py-2 px-1 border-r border-slate-800 text-center w-15 select-none">
                           <input id="superadminlayout-i8" name="superadminlayout-i8"
                             type="checkbox"
                             checked={finalRosterLinks.length > 0 && selectedRowIds.length === finalRosterLinks.length}
@@ -1318,8 +1317,8 @@ export default function SuperAdminLayout({
                           />
                         </th>
                       )}
-                      <th className="py-2 px-2 border-r border-slate-800/50 w-[80px]">Duty ID</th>
-                      <th className="py-2 px-2 border-r border-slate-800/50 w-[150px]">Operator Name</th>
+                      <th className="py-2 px-2 border-r border-slate-800/50 w-20">Duty ID</th>
+                      <th className="py-2 px-2 border-r border-slate-800/50 w-37.5">Operator Name</th>
                       {headers.map((hdr, idx) => {
                         // Section borders logic
                         const isSectionEnd = ['leg1Km', 'leg2Km', 'leg3Km', 'leg4Km', 'leg1HandoverLoc', 'leg2ArrLoc', 'leg3ArrLoc', 'leg4FinalArrLoc'].includes(hdr.key);
@@ -1470,7 +1469,7 @@ export default function SuperAdminLayout({
                                 customStyle,
                                 isPasteMode ? 'cursor-crosshair' : 'cursor-pointer',
                                 isFlashing ? 'bg-emerald-500/30 transition-colors' : '',
-                                isSelected && !isFlashing ? 'bg-blue-500/20 outline outline-1 outline-blue-400/60' : '',
+                                isSelected && !isFlashing ? 'bg-blue-500/20 outline-1 outline-blue-400/60' : '',
                                 !isSelected && !isFlashing ? 'hover:bg-slate-850/40' : '',
                               ].join(' ')}
                             >
@@ -1512,7 +1511,7 @@ export default function SuperAdminLayout({
                             )}
                             <td className={`py-2 px-2 text-center border-r border-slate-800 font-bold text-blue-400 sticky left-0 z-10 shadow-sm ${stickyDutyBgClass}`}>{duty.dutyId}</td>
                             <td className={`py-2 px-2 text-center border-r border-slate-800 relative group ${matchedDeploy?.isExchanged ? 'bg-yellow-500/10 border-l border-r border-yellow-500/20' : ''}`}>
-                              <div className="font-bold text-emerald-400 text-[11px] truncate max-w-[145px]">{operatorName}</div>
+                              <div className="font-bold text-emerald-400 text-[11px] truncate max-w-36.25">{operatorName}</div>
                               {operatorId && operatorId !== '--' && (
                                 <div className="text-[9px] text-slate-500 font-mono mt-0.5">ID: {operatorId}</div>
                               )}
@@ -1562,13 +1561,13 @@ export default function SuperAdminLayout({
                 <>
                   {/* Invisible backdrop to dismiss */}
                   <div
-                    className="fixed inset-0 z-[90]"
+                    className="fixed inset-0 z-90"
                     onClick={handleContextMenuDismiss}
                     onContextMenu={(e) => { e.preventDefault(); handleContextMenuDismiss(); }}
                   />
                   {/* Floating menu */}
                   <div
-                    className="fixed z-[91] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1.5 min-w-[210px] font-mono text-xs"
+                    className="fixed z-91 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1.5 min-w-52.5 font-mono text-xs"
                     style={{ top: contextMenu.y, left: contextMenu.x }}
                   >
                     <div className="px-2 py-1 text-[9px] text-slate-500 font-bold uppercase tracking-wider border-b border-slate-800 mb-1">
@@ -1739,7 +1738,7 @@ export default function SuperAdminLayout({
 
       {/* ── REAL-TIME NEW LOGIN REQUEST POPUP ── */}
       {activeRequestPopup && (
-        <div className="fixed bottom-6 right-6 z-[60] w-full max-w-sm bg-slate-900/95 border-2 border-amber-500/80 rounded-2xl p-6 shadow-[0_0_50px_rgba(245,158,11,0.25)] backdrop-blur-md text-slate-100 font-mono flex flex-col gap-4 animate-bounce-short">
+        <div className="fixed bottom-6 right-6 z-60 w-full max-w-sm bg-slate-900/95 border-2 border-amber-500/80 rounded-2xl p-6 shadow-[0_0_50px_rgba(245,158,11,0.25)] backdrop-blur-md text-slate-100 font-mono flex flex-col gap-4 animate-bounce-short">
           <div className="flex items-center gap-2 text-amber-400 border-b border-slate-800 pb-3">
             <AlertTriangle className="h-5 w-5 animate-pulse text-amber-500" />
             <h3 className="text-xs font-black tracking-widest uppercase">NEW LOGIN REQUEST</h3>
@@ -1829,7 +1828,7 @@ export default function SuperAdminLayout({
 
       {/* ── REJECTION REASON MODAL ── */}
       {showRejectReasonModal && activeRequestPopup && (
-        <div className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm flex justify-center items-center p-4">
+        <div className="fixed inset-0 z-70 bg-black/80 backdrop-blur-sm flex justify-center items-center p-4">
           <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4 font-mono">
             <div className="flex items-center gap-2 text-rose-500 border-b border-slate-850 pb-2">
               <ShieldAlert size={20} />

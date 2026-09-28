@@ -85,7 +85,7 @@ import {
   swapOperatorsInConsoleData,
   transferOperatorInConsoleData,
 } from "../services/RosterService";
-import { getRolling7Days } from "../utils/rosterDateUtils";
+import { getRolling7Days, getScheduleTypeFromDate } from "../utils/rosterDateUtils";
 import RosterPublisherBoard from "./RosterPublisherBoard";
 import OfficialGccRosterSheetView from "./common/OfficialGccRosterSheetView";
 
@@ -171,7 +171,7 @@ const JMD_NAMES = new Set(
   ),
 );
 
-export function isJmd(record) {
+function isJmd(record) {
   if (!record) return false;
   if (record.isJmd === true || record.isJMD === true) return true;
   const idStr = String(
@@ -216,7 +216,7 @@ if (typeof window !== "undefined") {
 }
 
 // ── Real-Time BMRCL & JMD Crew Position & Individual Deployment Calculation Engine ──
-export const calculateDetailedCrewPositions = (
+const calculateDetailedCrewPositions = (
   dayType,
   deployments,
   consoleData,
@@ -1130,7 +1130,7 @@ const alignRecordWithRegistry = (record) => {
   return { ...record, empNo, employeeId: empNo, name };
 };
 
-export const sanitizeConsoleItem = (item) => {
+const sanitizeConsoleItem = (item) => {
   if (!item || typeof item !== "object") return item;
   let id = String(item.empNo || item.empId || item.employeeId || "").trim();
   let name = String(
@@ -1169,12 +1169,12 @@ export const sanitizeConsoleItem = (item) => {
   };
 };
 
-export const sanitizeConsoleList = (list) => {
+const sanitizeConsoleList = (list) => {
   if (!Array.isArray(list)) return [];
   return list.map(sanitizeConsoleItem);
 };
 
-export const sanitizeConsoleContainer = (obj) => {
+const sanitizeConsoleContainer = (obj) => {
   if (!obj || typeof obj !== "object") return obj;
   const result = { ...obj };
   const listKeys = [
@@ -1268,7 +1268,7 @@ const fileToGenerativePart = async (file) => {
 };
 
 // --- CONSTANTS & HELPERS ---
-const ABNORMAL_EVENT_TYPES = [
+const _ABNORMAL_EVENT_TYPES = [
   {
     id: "NOT_REPORTING",
     label: "NOT REPORTING",
@@ -1360,7 +1360,7 @@ export default function AutomatedDispatchGate({
   onAuthorize,
   onImportComplete,
 }) {
-  const opEngine = useOperationalEngine();
+  const _opEngine = useOperationalEngine();
   const [fallbackDeployments, setFallbackDeployments] = useState([]);
   const [fallbackLoading, setFallbackLoading] = useState(!providedDeployments);
 
@@ -1371,8 +1371,6 @@ export default function AutomatedDispatchGate({
   }, [activeDay]);
 
   const currentDayType = setActiveDay ? activeDay : localDayType;
-
-  const baseDeployments = providedDeployments || fallbackDeployments || [];
 
   const normalizeScheduleType = (type) => {
     const s = String(type || "")
@@ -1391,6 +1389,7 @@ export default function AutomatedDispatchGate({
 
   // ── STRICT EXCEL-ONLY DEPLOYMENTS (NO CREW REGISTRY FALLBACKS & STRICT DAY-TYPE ISOLATION) ──
   const deduplicatedDeployments = useMemo(() => {
+    const baseDeployments = providedDeployments || fallbackDeployments || [];
     const targetSched = normalizeScheduleType(currentDayType);
     const dayDeployments = (baseDeployments || []).filter((d) => {
       if (!d) return false;
@@ -1406,7 +1405,7 @@ export default function AutomatedDispatchGate({
 
     // Return the exact data parsed from the Excel sheet without altering names or injecting registry operators
     return rawDeduped;
-  }, [baseDeployments, currentDayType]);
+  }, [providedDeployments, fallbackDeployments, currentDayType]);
 
   const duplicateOperatorsMap = useMemo(() => {
     const counts = {};
@@ -1517,89 +1516,92 @@ export default function AutomatedDispatchGate({
   const [consoleSearchQuery, setConsoleSearchQuery] = useState("");
   const [consoleFilterCategory, setConsoleFilterCategory] = useState("ALL");
 
-  const matchesConsoleSearch = (item) => {
-    if (!consoleSearchQuery || !consoleSearchQuery.trim()) return true;
-    const q = consoleSearchQuery.trim().toLowerCase();
-    const name = String(item?.name || item?.empName || "").toLowerCase();
-    const empNo = String(item?.empNo || item?.empId || "").toLowerCase();
-    const duty = String(
-      item?.dutyId ||
-        item?.code ||
-        item?.type ||
-        item?.station ||
-        item?.tag ||
-        item?.info ||
-        item?.remark ||
-        "",
-    ).toLowerCase();
-    const train = String(item?.trainId || "").toLowerCase();
-    return (
-      name.includes(q) ||
-      empNo.includes(q) ||
-      duty.includes(q) ||
-      train.includes(q)
-    );
-  };
+  const matchesConsoleSearch = useCallback(
+    (item) => {
+      if (!consoleSearchQuery || !consoleSearchQuery.trim()) return true;
+      const q = consoleSearchQuery.trim().toLowerCase();
+      const name = String(item?.name || item?.empName || "").toLowerCase();
+      const empNo = String(item?.empNo || item?.empId || "").toLowerCase();
+      const duty = String(
+        item?.dutyId ||
+          item?.code ||
+          item?.type ||
+          item?.station ||
+          item?.tag ||
+          item?.info ||
+          item?.remark ||
+          "",
+      ).toLowerCase();
+      const train = String(item?.trainId || "").toLowerCase();
+      return (
+        name.includes(q) ||
+        empNo.includes(q) ||
+        duty.includes(q) ||
+        train.includes(q)
+      );
+    },
+    [consoleSearchQuery],
+  );
 
   const filteredCoOperators = useMemo(
     () => (consoleData.coOperators || []).filter(matchesConsoleSearch),
-    [consoleData.coOperators, consoleSearchQuery],
+    [consoleData.coOperators, matchesConsoleSearch],
   );
   const filteredControlDesks = useMemo(
     () => (consoleData.controlDesks || []).filter(matchesConsoleSearch),
-    [consoleData.controlDesks, consoleSearchQuery],
+    [consoleData.controlDesks, matchesConsoleSearch],
   );
   const filteredLeaves = useMemo(
     () => (consoleData.leaves || []).filter(matchesConsoleSearch),
-    [consoleData.leaves, consoleSearchQuery],
+    [consoleData.leaves, matchesConsoleSearch],
   );
   const filteredStandbys = useMemo(
     () => (consoleData.standbys || []).filter(matchesConsoleSearch),
-    [consoleData.standbys, consoleSearchQuery],
+    [consoleData.standbys, matchesConsoleSearch],
   );
   const filteredStepbacks = useMemo(
     () => (consoleData.outstationStepbacks || []).filter(matchesConsoleSearch),
-    [consoleData.outstationStepbacks, consoleSearchQuery],
+    [consoleData.outstationStepbacks, matchesConsoleSearch],
   );
   const filteredCrt = useMemo(
     () => (consoleData.crtTraining || []).filter(matchesConsoleSearch),
-    [consoleData.crtTraining, consoleSearchQuery],
+    [consoleData.crtTraining, matchesConsoleSearch],
   );
   const filteredBmrti = useMemo(
     () => (consoleData.bmrtiTraining || []).filter(matchesConsoleSearch),
-    [consoleData.bmrtiTraining, consoleSearchQuery],
+    [consoleData.bmrtiTraining, matchesConsoleSearch],
   );
   const filteredWeeklyOffs = useMemo(
     () => (consoleData.weeklyOffs || []).filter(matchesConsoleSearch),
-    [consoleData.weeklyOffs, consoleSearchQuery],
+    [consoleData.weeklyOffs, matchesConsoleSearch],
   );
   const filteredRel = useMemo(
     () => (consoleData.relievedOperators || []).filter(matchesConsoleSearch),
-    [consoleData.relievedOperators, consoleSearchQuery],
+    [consoleData.relievedOperators, matchesConsoleSearch],
   );
   const filteredPme = useMemo(
     () => (consoleData.pmeOperators || []).filter(matchesConsoleSearch),
-    [consoleData.pmeOperators, consoleSearchQuery],
+    [consoleData.pmeOperators, matchesConsoleSearch],
   );
   const filteredLrd = useMemo(
     () => (consoleData.routeLearning || []).filter(matchesConsoleSearch),
-    [consoleData.routeLearning, consoleSearchQuery],
+    [consoleData.routeLearning, matchesConsoleSearch],
   );
   const filteredNr = useMemo(
     () => (consoleData.notReporting || []).filter(matchesConsoleSearch),
-    [consoleData.notReporting, consoleSearchQuery],
+    [consoleData.notReporting, matchesConsoleSearch],
   );
   const filteredAbsents = useMemo(
     () => (consoleData.absents || []).filter(matchesConsoleSearch),
-    [consoleData.absents, consoleSearchQuery],
+    [consoleData.absents, matchesConsoleSearch],
   );
   const filteredOd = useMemo(
     () => (consoleData.onDuty || []).filter(matchesConsoleSearch),
-    [consoleData.onDuty, consoleSearchQuery],
+    [consoleData.onDuty, matchesConsoleSearch],
   );
   const filteredBo = useMemo(
     () => (consoleData.bookedOff || []).filter(matchesConsoleSearch),
-    [consoleData.bookedOff, consoleSearchQuery],
+    [consoleData.bookedOff, matchesConsoleSearch],
   );
 
   const totalConsoleMatches = useMemo(() => {
@@ -1641,7 +1643,7 @@ export default function AutomatedDispatchGate({
     filteredBo,
     filteredOd,
     consoleData.customRegisters,
-    consoleSearchQuery,
+    matchesConsoleSearch,
   ]);
 
   const [deployedRosterInfo, setDeployedRosterInfo] = useState(() => {
@@ -1659,7 +1661,7 @@ export default function AutomatedDispatchGate({
   // ── 7-Day Rolling Roster & Sheet Detection States ──
   const rollingDays = useMemo(() => getRolling7Days(new Date()), []);
   const [activeRosterDayOffset, setActiveRosterDayOffset] = useState(0);
-  const [activeWorkbook, setActiveWorkbook] = useState(null);
+  const [_activeWorkbook, setActiveWorkbook] = useState(null);
   const [detectedWorkbookSheets, setDetectedWorkbookSheets] = useState([]);
   const [showOfficialGccSheetModal, setShowOfficialGccSheetModal] =
     useState(false);
@@ -1921,7 +1923,7 @@ export default function AutomatedDispatchGate({
     }
   };
 
-  const handleEditEmpIdChange = (val) => {
+  const _handleEditEmpIdChange = (val) => {
     setEditEmpId(val);
     const match = BMRCL_CREW_REGISTRY.find(
       (c) => String(c.id) === String(val).trim(),
@@ -1931,7 +1933,7 @@ export default function AutomatedDispatchGate({
     }
   };
 
-  const handleExtraOpEmpIdChange = (val) => {
+  const _handleExtraOpEmpIdChange = (val) => {
     const match = BMRCL_CREW_REGISTRY.find(
       (c) => String(c.id) === String(val).trim(),
     );
@@ -1942,7 +1944,7 @@ export default function AutomatedDispatchGate({
     }));
   };
 
-  const handleStepbackEmpIdChange = (val) => {
+  const _handleStepbackEmpIdChange = (val) => {
     const match = BMRCL_CREW_REGISTRY.find(
       (c) => String(c.id) === String(val).trim(),
     );
@@ -1962,8 +1964,8 @@ export default function AutomatedDispatchGate({
   const [reliefPoolFilter, setReliefPoolFilter] = useState("PRIORITY"); // PRIORITY, ACTIVE, ALL
   const [savingEvent, setSavingEvent] = useState(false);
 
-  const [eventHistory, setEventHistory] = useState([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
+  const [_eventHistory, setEventHistory] = useState([]);
+  const [_historyLoading, setHistoryLoading] = useState(false);
 
   // Manual Override State
   const [overrideDutyId, setOverrideDutyId] = useState("");
@@ -1972,9 +1974,9 @@ export default function AutomatedDispatchGate({
   const [editingDeploymentId, setEditingDeploymentId] = useState(null);
   const [editName, setEditName] = useState("");
   const [editEmpId, setEditEmpId] = useState("");
-  const [editTrainId, setEditTrainId] = useState("");
-  const [editDutyId, setEditDutyId] = useState("");
-  const [savingEdit, setSavingEdit] = useState(false);
+  const [editTrainId, _setEditTrainId] = useState("");
+  const [editDutyId, _setEditDutyId] = useState("");
+  const [_savingEdit, setSavingEdit] = useState(false);
 
   // Extra Operator Input State
   const [newExtraOp, setNewExtraOp] = useState({
@@ -1996,7 +1998,7 @@ export default function AutomatedDispatchGate({
     endTime: "12:00",
   });
 
-  const [stepbacks, setStepbacks] = useState([]);
+  const [_stepbacks, setStepbacks] = useState([]);
 
   // ── Book Off & Immediate Driver Reassignment States ──
   const [showBookOffModal, setShowBookOffModal] = useState(false);
@@ -2059,9 +2061,9 @@ export default function AutomatedDispatchGate({
   );
   const [isSyncingGoogleSheet, setIsSyncingGoogleSheet] = useState(false);
   // GCC local Excel bridge connection state
-  const [gccBridgeStatus, setGccBridgeStatus] = useState("CHECKING");
-  const [gccBridgeFileName, setGccBridgeFileName] = useState("");
-  const [gccBridgeLastModified, setGccBridgeLastModified] = useState("");
+  const [_gccBridgeStatus, setGccBridgeStatus] = useState("CHECKING");
+  const [_gccBridgeFileName, setGccBridgeFileName] = useState("");
+  const [_gccBridgeLastModified, setGccBridgeLastModified] = useState("");
   const gccBridgeSignatureRef = useRef("");
 
   // Staging & Confirmation Engine States
@@ -2070,7 +2072,7 @@ export default function AutomatedDispatchGate({
   const [isRosterConfirmed, setIsRosterConfirmed] = useState(false);
 
   // Monthly Archive Retrieval States
-  const [historicalMonth, setHistoricalMonth] = useState(() =>
+  const [historicalMonth, _setHistoricalMonth] = useState(() =>
     new Date().toISOString().substring(0, 7),
   );
 
@@ -2244,21 +2246,21 @@ export default function AutomatedDispatchGate({
     element.click();
     document.body.removeChild(element);
   };
-  const [historicalRecords, setHistoricalRecords] = useState([]);
-  const [isLoadingArchives, setIsLoadingArchives] = useState(false);
-  const [selectedArchiveSnapshot, setSelectedArchiveSnapshot] = useState(null);
+  const [_historicalRecords, _setHistoricalRecords] = useState([]);
+  const [_isLoadingArchives, _setIsLoadingArchives] = useState(false);
+  const [_selectedArchiveSnapshot, _setSelectedArchiveSnapshot] = useState(null);
 
-  const handleLoadMonthlyArchiveData = async (mKey) => {
-    setIsLoadingArchives(true);
+  const _handleLoadMonthlyArchiveData = async (mKey) => {
+    _setIsLoadingArchives(true);
     try {
       const records = await rosterAutoClassifierService.fetchMonthlyArchiveData(
         mKey || historicalMonth,
       );
-      setHistoricalRecords(records);
+      _setHistoricalRecords(records);
     } catch (err) {
       console.error("Load Monthly Archive Error:", err);
     } finally {
-      setIsLoadingArchives(false);
+      _setIsLoadingArchives(false);
     }
   };
 
@@ -2371,7 +2373,9 @@ export default function AutomatedDispatchGate({
             JSON.stringify(consoleSnapshot),
           );
         }
-      } catch (e) {}
+      } catch (_e) {
+        /* ignore cache error */
+      }
 
       setIsRosterConfirmed(true);
       alert(
@@ -2472,6 +2476,7 @@ export default function AutomatedDispatchGate({
       cancelled = true;
       window.clearInterval(timer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleDiscardStagingDraft = () => {
@@ -2820,7 +2825,9 @@ Rules:
                 JSON.stringify(cleanConsoleObj),
               );
             }
-          } catch (e) {}
+          } catch (_e) {
+            /* ignore cache error */
+          }
           if (classifiedData.duties && classifiedData.duties.length > 0) {
             setFallbackDeployments(
               deduplicateDeployments(classifiedData.duties),
@@ -4223,7 +4230,9 @@ Rules:
             JSON.stringify(updatedConsole),
           );
         }
-      } catch (e) {}
+      } catch (_e) {
+        /* ignore cache error */
+      }
 
       setShowBookOffModal(false);
       setBookOffTargetDuty(null);
@@ -4398,7 +4407,9 @@ Rules:
             JSON.stringify(updatedConsole),
           );
         }
-      } catch (e) {}
+      } catch (_e) {
+        /* ignore cache error */
+      }
 
       setShowAssignDriverModal(false);
       setAssignTargetDuty(null);
@@ -4678,7 +4689,9 @@ Rules:
             JSON.stringify(updatedConsole),
           );
         }
-      } catch (e) {}
+      } catch (_e) {
+        /* ignore cache error */
+      }
 
       setShowTransferModal(false);
       setTransferTargetOperator(null);
@@ -4856,7 +4869,7 @@ Rules:
     }
   };
 
-  const handleInspectAndAutoDeploy = async () => {
+  const _handleInspectAndAutoDeploy = async () => {
     if (!excelPathInput) {
       alert(
         "Please paste an Excel file path link, Google Sheets URL, or select a file using 'Browse File'.",
@@ -5648,7 +5661,9 @@ Rules:
                 JSON.stringify(next),
               );
             }
-          } catch (err) {}
+          } catch (_err) {
+            /* ignore cache error */
+          }
 
           return next;
         });
@@ -6153,7 +6168,7 @@ Rules:
     await executeRelief(candidateAdapter);
   };
 
-  const handleSaveOperator = async (deploymentId) => {
+  const _handleSaveOperator = async (deploymentId) => {
     const original = deployments.find((d) => d.id === deploymentId);
     let finalTrainId = String(editTrainId || "UNASSIGNED").trim();
     let finalDutyId = String(editDutyId || "UNASSIGNED").trim();
@@ -6237,7 +6252,7 @@ Rules:
     return () => unsubscribe();
   }, []);
 
-  const handleAddExtraOperator = async (e) => {
+  const _handleAddExtraOperator = async (e) => {
     e.preventDefault();
     if (!newExtraOp.empId && !newExtraOp.empName) {
       alert("Please fill in Employee ID or Operator Name.");
@@ -6322,7 +6337,7 @@ Rules:
     }
   };
 
-  const handleAddStepback = async (e) => {
+  const _handleAddStepback = async (e) => {
     e.preventDefault();
     if ((!newStepback.empId && !newStepback.empName) || !newStepback.dutyId) {
       alert("Please fill in Duty ID and either Employee ID or Operator Name.");
@@ -6373,7 +6388,7 @@ Rules:
     }
   };
 
-  const handleDeleteStepback = async (id) => {
+  const _handleDeleteStepback = async (id) => {
     if (window.confirm("Remove this step-back duty?")) {
       try {
         await deleteDoc(doc(db, "stepback_duties", id));
@@ -6486,7 +6501,7 @@ Rules:
           </button>
           <button
             onClick={() => setActiveTab("PUBLISHER")}
-            className={`px-4 py-1.5 text-xs font-bold rounded tracking-wider transition-colors flex items-center gap-1.5 ${activeTab === "PUBLISHER" ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black shadow-sm" : "text-emerald-400 hover:text-emerald-300"}`}
+            className={`px-4 py-1.5 text-xs font-bold rounded tracking-wider transition-colors flex items-center gap-1.5 ${activeTab === "PUBLISHER" ? "bg-linear-to-r from-emerald-600 to-teal-600 text-white font-black shadow-sm" : "text-emerald-400 hover:text-emerald-300"}`}
           >
             <FileSpreadsheet className="h-3.5 w-3.5" /> ROSTER SPREADSHEET
             (GOOGLE SHEETS)
@@ -6522,7 +6537,7 @@ Rules:
               return (
                 <div className="border-2 border-amber-500 rounded-xl shadow-2xl font-mono overflow-hidden">
                   {/* Header Bar */}
-                  <div className="bg-gradient-to-r from-amber-950 via-slate-900 to-amber-950 px-4 py-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                  <div className="bg-linear-to-r from-amber-950 via-slate-900 to-amber-950 px-4 py-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="bg-amber-400 text-slate-950 px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1 shadow animate-pulse">
@@ -6569,7 +6584,7 @@ Rules:
                         type="button"
                         onClick={handleConfirmAndSaveToFirebase}
                         disabled={isSavingToFirebase}
-                        className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs px-5 py-2.5 rounded-lg shadow-xl transition-all uppercase tracking-wider flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                        className="bg-linear-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-955 font-black text-xs px-5 py-2.5 rounded-lg shadow-xl transition-all uppercase tracking-wider flex items-center gap-2 cursor-pointer disabled:opacity-50"
                       >
                         {isSavingToFirebase ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -6761,7 +6776,7 @@ Rules:
                     ].map(({ title, color, items }) => (
                       <div
                         key={title}
-                        className="bg-slate-950/60 p-3 min-h-[80px]"
+                        className="bg-slate-955/60 p-3 min-h-20"
                       >
                         <div
                           className={`text-[9px] font-black text-${color}-400 uppercase tracking-widest mb-1.5 flex items-center gap-1`}
@@ -6907,7 +6922,7 @@ Rules:
                                         key={cIdx}
                                         className="bg-slate-955 border border-slate-800 p-1.5 rounded flex items-center justify-between text-[10px]"
                                       >
-                                        <div className="truncate max-w-[140px]">
+                                        <div className="truncate max-w-35">
                                           <div className="font-bold text-slate-200">
                                             {cOp.name || "--"}
                                           </div>
@@ -7183,7 +7198,7 @@ Rules:
                       Google Sheets Enterprise Live Sync:
                     </span>
                     {connectedGoogleSheetUrl ? (
-                      <span className="text-[10px] text-slate-400 truncate max-w-[200px] sm:max-w-[320px]">
+                      <span className="text-[10px] text-slate-400 truncate max-w-50 sm:max-w-[320px]">
                         {connectedGoogleSheetUrl}
                       </span>
                     ) : (
@@ -7403,7 +7418,7 @@ Rules:
                         ? "Select a roster file first (Step 2)"
                         : `Inspect & deploy roster for ${d.displayLabel}`
                     }
-                    className={`flex-1 bg-gradient-to-r ${grad} text-slate-950 font-black text-xs px-6 py-3.5 rounded-xl shadow-md flex items-center justify-center gap-2.5 uppercase tracking-wider transition-all ${
+                    className={`flex-1 bg-linear-to-r ${grad} text-slate-950 font-black text-xs px-6 py-3.5 rounded-xl shadow-md flex items-center justify-center gap-2.5 uppercase tracking-wider transition-all ${
                       canInspect
                         ? "cursor-pointer opacity-100"
                         : "opacity-35 cursor-not-allowed"
@@ -7570,9 +7585,9 @@ Rules:
 
           {/* 2. Control Toolbar: Search, Filters, Duplicate Check & Actions */}
           <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl shadow-lg flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
+            <div className="flex flex-wrap items-center gap-3 flex-1 min-w-70">
               {/* Search Input */}
-              <div className="relative flex-1 min-w-[180px]">
+              <div className="relative flex-1 min-w-45">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500" />
                 <input
                   id="automateddispatchgat-i11"
@@ -9252,7 +9267,7 @@ Rules:
                 <button
                   type="button"
                   onClick={handleGenerateReport}
-                  className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-955 font-black text-xs px-3.5 py-2 rounded-lg transition-all shadow-lg flex items-center gap-1.5 shrink-0 uppercase tracking-wider cursor-pointer"
+                  className="bg-linear-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-955 font-black text-xs px-3.5 py-2 rounded-lg transition-all shadow-lg flex items-center gap-1.5 shrink-0 uppercase tracking-wider cursor-pointer"
                 >
                   <FileText className="h-4 w-4" />
                   <span>PREPARE DAILY POSITION REPORT</span>
@@ -9260,7 +9275,7 @@ Rules:
                 <button
                   type="button"
                   onClick={handleAutoDeployConsoleToAllPages}
-                  className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-955 font-black text-xs px-4 py-2 rounded-lg transition-all shadow-lg flex items-center gap-2 shrink-0 uppercase tracking-wider cursor-pointer"
+                  className="bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-955 font-black text-xs px-4 py-2 rounded-lg transition-all shadow-lg flex items-center gap-2 shrink-0 uppercase tracking-wider cursor-pointer"
                 >
                   <UploadCloud className="h-4 w-4" />
                   <span>AUTO-DEPLOY CONSOLE TO ALL PAGES</span>
@@ -9560,7 +9575,7 @@ Rules:
                     </span>
                   </div>
 
-                  <div className="bg-gradient-to-br from-amber-950/40 to-slate-900 border border-amber-500/50 rounded-xl p-2.5 flex flex-col justify-between shadow-inner">
+                  <div className="bg-linear-to-br from-amber-950/40 to-slate-900 border border-amber-500/50 rounded-xl p-2.5 flex flex-col justify-between shadow-inner">
                     <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider flex items-center justify-between">
                       <span>Total Active Crew</span>
                       <Users className="h-3 w-3 text-amber-400" />
@@ -9691,7 +9706,7 @@ Rules:
                     </div>
 
                     {/* Individual Positions Interactive Table */}
-                    <div className="overflow-x-auto max-h-[520px] rounded-lg border border-slate-800">
+                    <div className="overflow-x-auto max-h-130 rounded-lg border border-slate-800">
                       <table className="w-full text-left text-xs border-collapse">
                         <thead className="bg-slate-950 text-slate-400 font-mono uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-slate-800 shadow-sm">
                           <tr>
@@ -11290,7 +11305,7 @@ Rules:
                                   {item.faultCategory || "FAULT"}
                                 </span>
                                 <span>•</span>
-                                <span className="truncate max-w-[130px]">
+                                <span className="truncate max-w-32.5">
                                   {item.reason || item.remarks || "Booked off"}
                                 </span>
                               </div>
@@ -11485,7 +11500,7 @@ Rules:
                             >
                               <div className="space-y-0.5 min-w-0 pr-2">
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="font-bold text-slate-100 truncate max-w-[130px]">
+                                  <span className="font-bold text-slate-100 truncate max-w-32.5">
                                     {item.name || item.empName || "Staff"}
                                   </span>
                                   <span
@@ -12334,7 +12349,7 @@ Rules:
               className="absolute top-2 right-2 sm:top-2.5 sm:right-3 z-50 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-mono font-black text-xs transition shadow-2xl flex items-center gap-1.5 cursor-pointer border border-rose-400 hover:scale-105 active:scale-95"
               title="Close Roster Sheet Window (Esc)"
             >
-              <X className="w-4 h-4 stroke-[3]" />
+              <X className="w-4 h-4 stroke-3" />
               <span>CLOSE</span>
             </button>
             <OfficialGccRosterSheetView

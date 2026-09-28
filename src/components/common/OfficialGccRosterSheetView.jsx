@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  Calendar, CheckCircle, Clock, MapPin, Search, RefreshCw, 
-  Eye, Download, Share2, ShieldCheck, AlertCircle, Sparkles, 
-  ChevronRight, ChevronLeft, User, Award, Radio, FileSpreadsheet, X, Check, Filter
+  Calendar, Clock, MapPin, Search, RefreshCw, 
+  ShieldCheck, AlertCircle, Sparkles, 
+  Radio, X, Filter
 } from 'lucide-react';
 import { db } from '../../firebase';
-import { doc, collection, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 import { 
   getRolling7Days, 
   toDateIsoStr, 
@@ -211,16 +211,12 @@ export default function OfficialGccRosterSheetView({
     return { ...item, name, empName: name, empNo, empId: empNo };
   };
 
-  const rawDuties = rosterData?.duties || rosterData?.deployments || [];
-  // isPublished: true only if the Firestore doc explicitly sets the flag to true.
-  // We do NOT gate on rawDuties.length — tomorrow's doc may have duties under a
-  // different key or may not have synced yet, and a controller must still be able
-  // to publish/unpublish it.
   const isPublished = Boolean(
     rosterData !== null &&
     rosterData?.isPublishedForOperators === true
   );
   const dutiesList = useMemo(() => {
+    const rawDuties = rosterData?.duties || rosterData?.deployments || [];
     if (!rawDuties || rawDuties.length === 0) return [];
     let list = rawDuties.map(d => {
       const dutyId = String(d.dutyId || '').trim();
@@ -250,18 +246,20 @@ export default function OfficialGccRosterSheetView({
       });
     }
     return list;
-  }, [rawDuties]);
+  }, [rosterData?.duties, rosterData?.deployments]);
 
   const weeklyOffsList = useMemo(() => (rosterData?.weeklyOffs || []).map(sanitizeItem), [rosterData?.weeklyOffs]);
   const leavesList = useMemo(() => (rosterData?.leaves || []).map(sanitizeItem), [rosterData?.leaves]);
   const controlDesksList = useMemo(() => (rosterData?.controlDesks || []).map(sanitizeItem), [rosterData?.controlDesks]);
   const standbysList = useMemo(() => (rosterData?.standbys || []).map(sanitizeItem), [rosterData?.standbys]);
   const absentsList = useMemo(() => (rosterData?.absents || []).map(sanitizeItem), [rosterData?.absents]);
-  const notReportingList = useMemo(() => (rosterData?.notReporting || []).map(sanitizeItem), [rosterData?.notReporting]);
-  const customRegs = rosterData?.customRegisters || {};
-  const crrcTraining = customRegs['CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)'] || 
-                       customRegs['RS CRRC-DM Train 440kms Trg'] || 
-                       rosterData?.crtTraining || [];
+  const _notReportingList = useMemo(() => (rosterData?.notReporting || []).map(sanitizeItem), [rosterData?.notReporting]);
+  const customRegs = useMemo(() => rosterData?.customRegisters || {}, [rosterData?.customRegisters]);
+  const crrcTraining = useMemo(() => (
+    customRegs['CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)'] || 
+    customRegs['RS CRRC-DM Train 440kms Trg'] || 
+    rosterData?.crtTraining || []
+  ), [customRegs, rosterData?.crtTraining]);
 
   // Dedicated NGSA Train Operators List
   const ngsaList = useMemo(() => {
@@ -401,7 +399,7 @@ export default function OfficialGccRosterSheetView({
   }, [dutiesList, selectedDutyId]);
 
   // Universal search matcher helper
-  const matchesSearch = (item) => {
+  const matchesSearch = useCallback((item) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
     return (
@@ -409,7 +407,7 @@ export default function OfficialGccRosterSheetView({
       String(item.empNo || item.empId || '').toLowerCase().includes(q) ||
       String(item.station || item.code || item.dutyId || item.type || item.time || item.from || item.tag || '').toLowerCase().includes(q)
     );
-  };
+  }, [searchQuery]);
 
   // Search filtering across all desks and duties
   const filteredDuties = useMemo(() => {
@@ -426,14 +424,14 @@ export default function OfficialGccRosterSheetView({
     );
   }, [dutiesList, searchQuery]);
 
-  const filteredControlDesks = useMemo(() => controlDesksList.filter(matchesSearch), [controlDesksList, searchQuery]);
-  const filteredStepbacks = useMemo(() => stepbacksList.filter(matchesSearch), [stepbacksList, searchQuery]);
-  const filteredNgsa = useMemo(() => ngsaList.filter(matchesSearch), [ngsaList, searchQuery]);
-  const filteredStandbys = useMemo(() => standbysList.filter(matchesSearch), [standbysList, searchQuery]);
-  const filteredWeeklyOffs = useMemo(() => weeklyOffsList.filter(matchesSearch), [weeklyOffsList, searchQuery]);
-  const filteredLeaves = useMemo(() => leavesList.filter(matchesSearch), [leavesList, searchQuery]);
-  const filteredAbsents = useMemo(() => absentsList.filter(matchesSearch), [absentsList, searchQuery]);
-  const filteredBookedOff = useMemo(() => bookedOffList.filter(matchesSearch), [bookedOffList, searchQuery]);
+  const filteredControlDesks = useMemo(() => controlDesksList.filter(matchesSearch), [controlDesksList, matchesSearch]);
+  const filteredStepbacks = useMemo(() => stepbacksList.filter(matchesSearch), [stepbacksList, matchesSearch]);
+  const filteredNgsa = useMemo(() => ngsaList.filter(matchesSearch), [ngsaList, matchesSearch]);
+  const filteredStandbys = useMemo(() => standbysList.filter(matchesSearch), [standbysList, matchesSearch]);
+  const filteredWeeklyOffs = useMemo(() => weeklyOffsList.filter(matchesSearch), [weeklyOffsList, matchesSearch]);
+  const filteredLeaves = useMemo(() => leavesList.filter(matchesSearch), [leavesList, matchesSearch]);
+  const filteredAbsents = useMemo(() => absentsList.filter(matchesSearch), [absentsList, matchesSearch]);
+  const filteredBookedOff = useMemo(() => bookedOffList.filter(matchesSearch), [bookedOffList, matchesSearch]);
 
   // Close on Escape key press
   useEffect(() => {
@@ -512,7 +510,7 @@ export default function OfficialGccRosterSheetView({
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-black font-mono transition cursor-pointer shadow-lg border border-rose-400 hover:scale-105 active:scale-95 shrink-0"
               title="Close Roster Sheet Window (Esc)"
             >
-              <X className="w-4 h-4 stroke-[3]" />
+              <X className="w-4 h-4 stroke-3" />
               <span>CLOSE</span>
             </button>
           )}
@@ -808,7 +806,7 @@ export default function OfficialGccRosterSheetView({
 
       {/* ── MY INDIVIDUAL DUTY CALLOUT BANNER (if operator logged in) ── */}
       {myAssignment && (
-        <div className="bg-gradient-to-r from-amber-950/90 via-[#0e1628] to-amber-950/70 border-b border-amber-500/60 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0 shadow-lg animate-in fade-in duration-200">
+        <div className="bg-linear-to-r from-amber-950/90 via-[#0e1628] to-amber-950/70 border-b border-amber-500/60 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0 shadow-lg animate-in fade-in duration-200">
           <div className="flex items-center gap-2.5">
             <div className="p-1.5 bg-amber-500/20 border border-amber-400/50 rounded-lg text-amber-300">
               <Sparkles className="w-4 h-4 animate-spin text-amber-300" />
@@ -969,13 +967,13 @@ export default function OfficialGccRosterSheetView({
       {/* ── MAIN ROSTER SHEET CONTAINER ── */}
       <div className="flex-1 overflow-auto p-2 sm:p-4 bg-[#070b14] font-mono">
         {loading ? (
-          <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-400 gap-3">
+          <div className="flex flex-col items-center justify-center min-h-100 text-slate-400 gap-3">
             <RefreshCw className="w-8 h-8 text-emerald-400 animate-spin" />
             <span className="text-xs font-mono tracking-widest uppercase">Fetching Official GCC Published Roster...</span>
           </div>
         ) : !rosterData || dutiesList.length === 0 ? (
           /* Empty / Not Published Notice */
-          <div className="flex flex-col items-center justify-center min-h-[420px] max-w-lg mx-auto text-center p-6 bg-[#0e1628] border border-slate-800 rounded-2xl shadow-xl space-y-4">
+          <div className="flex flex-col items-center justify-center min-h-105 max-w-lg mx-auto text-center p-6 bg-[#0e1628] border border-slate-800 rounded-2xl shadow-xl space-y-4">
             <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-400">
               <AlertCircle className="w-10 h-10" />
             </div>
@@ -995,7 +993,7 @@ export default function OfficialGccRosterSheetView({
           </div>
         ) : (
           /* ── 1:1 EXACT OFFICIAL GCC ROSTER SHEET TABLE ── */
-          <div className="border border-slate-700/80 rounded-xl overflow-hidden shadow-2xl bg-[#0b1220] text-white min-w-[980px]">
+          <div className="border border-slate-700/80 rounded-xl overflow-hidden shadow-2xl bg-[#0b1220] text-white min-w-245">
             
             {/* 1. Official Green Title Banner (Exact match to Reference Image) */}
             <div className="bg-[#48752c] text-white py-2.5 px-4 text-center font-bold text-sm sm:text-base tracking-wider uppercase shadow-md flex items-center justify-between border-b border-[#3b6024]">
@@ -1201,7 +1199,7 @@ export default function OfficialGccRosterSheetView({
                               <span className={isCardSelected || isMe ? 'text-slate-900 font-bold' : 'text-cyan-300'}>
                                 {cc.time?.split('-')[0]?.trim()}
                               </span>
-                              <span className="font-extrabold truncate max-w-[120px] text-white">
+                              <span className="font-extrabold truncate max-w-30 text-white">
                                 {cc.name}
                               </span>
                               <span className={isCardSelected || isMe ? 'text-slate-950 font-black' : 'text-amber-300 font-bold'}>
@@ -1255,7 +1253,7 @@ export default function OfficialGccRosterSheetView({
                               }`}>
                                 {sb.station || 'STBK'}
                               </span>
-                              <span className="font-extrabold truncate max-w-[120px] text-white">
+                              <span className="font-extrabold truncate max-w-30 text-white">
                                 {sb.name}
                               </span>
                               <span className={isCardSelected || isMe ? 'text-slate-950 font-black' : 'text-amber-300 font-bold'}>
@@ -1309,7 +1307,7 @@ export default function OfficialGccRosterSheetView({
                               }`}>
                                 {ng.station || 'NGSA'}
                               </span>
-                              <span className={`font-extrabold truncate max-w-[120px] ${isCardSelected || isMe ? 'text-slate-950' : 'text-white'}`}>
+                              <span className={`font-extrabold truncate max-w-30 ${isCardSelected || isMe ? 'text-slate-950' : 'text-white'}`}>
                                 {ng.name}
                               </span>
                               <span className={isCardSelected || isMe ? 'text-slate-950 font-black' : 'text-amber-300 font-bold'}>
@@ -1363,7 +1361,7 @@ export default function OfficialGccRosterSheetView({
                               }`}>
                                 {or.code || 'OR'}
                               </span>
-                              <span className="font-extrabold truncate max-w-[130px] text-white">
+                              <span className="font-extrabold truncate max-w-32.5 text-white">
                                 {or.name}
                               </span>
                               <span className={isCardSelected || isMe ? 'text-slate-950 font-black' : 'text-amber-300 font-bold'}>
@@ -1414,7 +1412,7 @@ export default function OfficialGccRosterSheetView({
                                     : 'bg-[#121c34] hover:bg-[#1a284a] border-slate-700/80 text-white'
                               }`}
                             >
-                              <span className={`font-bold truncate max-w-[95px] ${isCardSelected || isMe ? 'text-slate-950' : 'text-white'}`}>
+                              <span className={`font-bold truncate max-w-23.75 ${isCardSelected || isMe ? 'text-slate-950' : 'text-white'}`}>
                                 {wo.name}
                               </span>
                               <span className={`text-[9px] font-mono font-black ${isCardSelected || isMe ? 'text-slate-950' : 'text-amber-300'}`}>
@@ -1465,7 +1463,7 @@ export default function OfficialGccRosterSheetView({
                               }`}>
                                 {lv.type || 'L'}
                               </span>
-                              <span className={`font-bold truncate max-w-[120px] ${isCardSelected || isMe ? 'text-slate-950' : 'text-white'}`}>
+                              <span className={`font-bold truncate max-w-30 ${isCardSelected || isMe ? 'text-slate-950' : 'text-white'}`}>
                                 {lv.name}
                               </span>
                               <span className={isCardSelected || isMe ? 'text-slate-950 font-black' : 'text-amber-300 font-bold'}>
@@ -1480,7 +1478,7 @@ export default function OfficialGccRosterSheetView({
                         {filteredAbsents.map((ab, i) => (
                           <div key={`ab_${i}`} className="p-1.5 rounded-lg bg-red-950/80 border border-red-500/80 text-[10px] font-mono flex items-center justify-between text-white">
                             <span className="font-black bg-red-500 text-black px-1.5 py-0.2 rounded text-[10px]">AB</span>
-                            <span className="font-bold truncate max-w-[120px] text-red-200">{ab.name}</span>
+                            <span className="font-bold truncate max-w-30 text-red-200">{ab.name}</span>
                             <span className="text-amber-300 font-bold">{ab.empNo}</span>
                           </div>
                         ))}
@@ -1526,7 +1524,7 @@ export default function OfficialGccRosterSheetView({
                               }`}>
                                 BO
                               </span>
-                              <span className={`font-extrabold truncate max-w-[120px] ${isCardSelected || isMe ? 'text-slate-950' : 'text-white'}`}>
+                              <span className={`font-extrabold truncate max-w-30 ${isCardSelected || isMe ? 'text-slate-950' : 'text-white'}`}>
                                 {bo.name}
                               </span>
                               <span className={isCardSelected || isMe ? 'text-slate-950 font-black' : 'text-amber-300 font-bold'}>
@@ -1568,7 +1566,7 @@ export default function OfficialGccRosterSheetView({
                                 : 'bg-[#121c34] hover:bg-[#1a284a] border-slate-700/80 text-white'
                             }`}
                           >
-                            <span className={`font-bold truncate max-w-[120px] ${isCardSelected ? 'text-slate-950' : 'text-white'}`}>
+                            <span className={`font-bold truncate max-w-30 ${isCardSelected ? 'text-slate-950' : 'text-white'}`}>
                               {trg.name}
                             </span>
                             <span className={isCardSelected ? 'text-slate-950 font-black' : 'text-amber-300 font-bold'}>
@@ -1602,7 +1600,7 @@ export default function OfficialGccRosterSheetView({
                   return (
                     <div key={catName} className="bg-[#0e1628] border border-slate-800 rounded-xl p-2.5 space-y-1.5 shadow-sm">
                       <div className="text-[10px] font-black uppercase text-amber-400 tracking-wider flex items-center justify-between border-b border-slate-700/80 pb-1.5">
-                        <span className="truncate max-w-[180px]">{catName}</span>
+                        <span className="truncate max-w-45">{catName}</span>
                         <span className="font-mono font-bold text-amber-400">{filteredDynamic.length} STAFF</span>
                       </div>
                       <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
@@ -1622,7 +1620,7 @@ export default function OfficialGccRosterSheetView({
                                   : 'bg-[#121c34] hover:bg-[#1a284a] border-slate-700/80 text-white'
                               }`}
                             >
-                              <span className="font-bold truncate max-w-[120px]">{sItem.name}</span>
+                              <span className="font-bold truncate max-w-30">{sItem.name}</span>
                               <span className={isCardSelected ? 'text-slate-950 font-black' : 'text-amber-300 font-bold'}>{sItem.empNo}</span>
                               <span className={isCardSelected ? 'text-slate-900 font-bold' : 'text-slate-400'}>{sItem.time || sItem.code || ''}</span>
                             </div>

@@ -741,7 +741,7 @@ export default function GoogleSheetsWorkspace({ userRole = 'CONTROLLER', initial
       tabIndex={0}
       onKeyDown={handleKeyDown}
       className={`flex flex-col select-none border rounded-xl overflow-hidden shadow-2xl transition-all outline-none ${
-        isFullscreen ? 'fixed inset-0 z-50 rounded-none' : 'h-[880px]'
+        isFullscreen ? 'fixed inset-0 z-50 rounded-none' : 'h-220'
       } ${
         isLight ? 'bg-[#FFFFFF] text-[#1F1F1F] border-[#E0E0E0]' : 'bg-[#1E2024] text-[#E8EAED] border-[#3C4043]'
       }`}
@@ -756,7 +756,7 @@ export default function GoogleSheetsWorkspace({ userRole = 'CONTROLLER', initial
           {/* Authentic Google Sheets Icon */}
           <div 
             onClick={() => setViewMode('STUDIO')}
-            className="w-10 h-10 rounded-lg flex items-center justify-center cursor-pointer shadow-sm hover:opacity-90 transition flex-shrink-0"
+            className="w-10 h-10 rounded-lg flex items-center justify-center cursor-pointer shadow-sm hover:opacity-90 transition shrink-0"
             style={{ backgroundColor: '#0F9D58' }}
             title="Google Sheets - Peenya Industry Depot Crew Control"
           >
@@ -960,7 +960,7 @@ export default function GoogleSheetsWorkspace({ userRole = 'CONTROLLER', initial
           <button
             onClick={handleSyncToDispatchCore}
             disabled={syncStatus === 'SYNCING'}
-            className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-md active:scale-95"
+            className="px-3 py-1.5 bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-md active:scale-95"
             title="Synchronize live spreadsheet with BMRCL Dispatch Core"
           >
             <RefreshCw size={12} className={syncStatus === 'SYNCING' ? 'animate-spin' : ''} />
@@ -994,7 +994,7 @@ export default function GoogleSheetsWorkspace({ userRole = 'CONTROLLER', initial
       <div className={`px-4 py-2 border-b flex flex-wrap items-center justify-between gap-2.5 text-xs font-mono ${
         isLight ? 'bg-[#EDF2FA] border-[#D3E3FD] text-[#001D35]' : 'bg-[#141618] border-[#2A2D32] text-emerald-300'
       }`}>
-        <div className="flex items-center gap-2 flex-1 min-w-[280px]">
+        <div className="flex items-center gap-2 flex-1 min-w-70">
           <div className="w-5 h-5 rounded flex items-center justify-center text-white text-[11px] font-black shrink-0" style={{ backgroundColor: '#0F9D58' }}>
             田
           </div>
@@ -1243,7 +1243,7 @@ export default function GoogleSheetsWorkspace({ userRole = 'CONTROLLER', initial
             <select
               value={activeCellData.fontFamily || 'Arial'}
               onChange={(e) => setCellFormatting('fontFamily', e.target.value)}
-              className={`bg-transparent px-2 py-1 text-xs rounded-full cursor-pointer focus:outline-none font-medium max-w-[100px] truncate ${
+              className={`bg-transparent px-2 py-1 text-xs rounded-full cursor-pointer focus:outline-none font-medium max-w-25 truncate ${
                 isLight ? 'hover:bg-[#E0E7F1] text-slate-700' : 'hover:bg-[#3C4043] text-slate-200'
               }`}
               title="Font family"
@@ -1537,7 +1537,7 @@ export default function GoogleSheetsWorkspace({ userRole = 'CONTROLLER', initial
         isLight ? 'bg-[#FFFFFF] border-[#E5E7EB]' : 'bg-[#181A1D] border-[#303338]'
       }`}>
         {/* Name Box (A1) */}
-        <div className={`px-2.5 py-1 rounded border font-mono font-bold text-center min-w-[55px] text-xs shadow-inner ${
+        <div className={`px-2.5 py-1 rounded border font-mono font-bold text-center min-w-13.75 text-xs shadow-inner ${
           isLight ? 'bg-[#F1F3F4] border-[#DADCE0] text-slate-800' : 'bg-[#282A2D] border-[#444746] text-white'
         }`}>
           {activeKey}
@@ -1675,7 +1675,7 @@ export default function GoogleSheetsWorkspace({ userRole = 'CONTROLLER', initial
                         className={`h-6 border-r border-b px-2 py-0.5 truncate cursor-cell relative ${
                           isLight ? 'border-[#E0E0E0]' : 'border-[#3C4043]'
                         } ${
-                          isFocused ? 'outline outline-2 outline-[#1A73E8] z-10' : ''
+                          isFocused ? 'outline-2 outline-[#1A73E8] z-10' : ''
                         }`}
                       >
                         {isFocused && isEditing ? (
@@ -1784,7 +1784,7 @@ export default function GoogleSheetsWorkspace({ userRole = 'CONTROLLER', initial
         </div>
 
         {/* Live Range Calculations Status Bar & Explore */}
-        <div className="flex items-center gap-3 font-sans text-xs text-slate-500 flex-shrink-0">
+        <div className="flex items-center gap-3 font-sans text-xs text-slate-500 shrink-0">
           {rangeStats ? (
             <div className={`flex items-center gap-2 px-3 py-1 rounded-full border font-bold text-xs ${
               isLight ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-emerald-950/60 border-emerald-700/60 text-emerald-300'

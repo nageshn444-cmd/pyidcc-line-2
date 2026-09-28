@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useState } from "react";
-import { FileSpreadsheet, Maximize2, Table, LayoutList, Globe } from "lucide-react";
+import { FileSpreadsheet, Table, LayoutList } from "lucide-react";
 import OfficialGccRosterSheetView from "./common/OfficialGccRosterSheetView";
 
 const GoogleSheetsWorkspace = lazy(() => import("./googleSheets/GoogleSheetsWorkspace"));
@@ -73,9 +73,9 @@ export default function RosterPublisherBoard({ userRole = "CONTROLLER", currentO
           />
         </div>
       ) : (
-        <div className="rounded-xl border border-slate-800 overflow-hidden shadow-2xl bg-slate-950 min-h-[860px]">
+        <div className="rounded-xl border border-slate-800 overflow-hidden shadow-2xl bg-slate-950 min-h-215">
           <Suspense fallback={
-            <div className="flex items-center justify-center min-h-[400px] text-slate-400 font-mono text-xs gap-2">
+            <div className="flex items-center justify-center min-h-100 text-slate-400 font-mono text-xs gap-2">
               <FileSpreadsheet className="w-5 h-5 text-emerald-400 animate-pulse" />
               <span>Loading Google Sheets Workspace with all functions & tools...</span>
             </div>

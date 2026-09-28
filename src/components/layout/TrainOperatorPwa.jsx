@@ -1,23 +1,26 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  Calendar, CheckCircle, FileText, User, ChevronRight, 
-  Clock, MapPin, ShieldAlert, Award, Compass, RefreshCw, Send, 
-  FileSpreadsheet, Sparkles, AlertCircle, Eye, Radio
+  Calendar, FileText, 
+  Clock, MapPin, ShieldAlert, Award, RefreshCw, Send, 
+  FileSpreadsheet, Sparkles, AlertCircle
 } from 'lucide-react';
 import { db } from '../../firebase';
 import { doc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { getRolling7Days, toDateIsoStr } from '../../utils/rosterDateUtils';
+import { getRolling7Days } from '../../utils/rosterDateUtils';
+import TORequestForm from '../TORequestForm';
+import ShiftExchange from '../ShiftExchange';
+import RosterPublisherBoard from '../RosterPublisherBoard';
 
 export default function TrainOperatorPwa({
-  liveTrainTrackingMap,
-  unifiedRows,
-  liveIncidents,
+  liveTrainTrackingMap: _liveTrainTrackingMap,
+  unifiedRows: _unifiedRows,
+  liveIncidents: _liveIncidents,
   deployments,
-  attendanceLogs,
-  loading,
+  attendanceLogs: _attendanceLogs,
+  loading: _loading,
   fetchLiveData,
   activeDay
 }) {
@@ -98,6 +101,7 @@ export default function TrainOperatorPwa({
     if (visible.length > 0 && !visible.includes(activeTab)) {
       setActiveTab(visible[0]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [permissions, activeTab]);
 
   const [profileForm, setProfileForm] = useState({
@@ -302,10 +306,10 @@ export default function TrainOperatorPwa({
   };
 
   return (
-    <div className={`min-h-screen bg-[var(--app-bg)] text-white font-mono flex flex-col justify-between max-w-md mx-auto border-x border-[var(--border-color)] shadow-2xl relative ${theme}`}>
+    <div className={`min-h-screen bg-(--app-bg) text-white font-mono flex flex-col justify-between max-w-md mx-auto border-x border-(--border-color) shadow-2xl relative ${theme}`}>
       
       {/* 1. Mobile Header */}
-      <header className="p-4 border-b border-[var(--border-color)] flex justify-between items-center sticky top-0 bg-[var(--header-bg)] backdrop-blur-md z-30">
+      <header className="p-4 border-b border-(--border-color) flex justify-between items-center sticky top-0 bg-(--header-bg) backdrop-blur-md z-30">
         <div className="flex items-center gap-2">
           <div className="w-2.5 h-2.5 rounded-full bg-cyan-500 animate-pulse"></div>
           <span className="text-xs font-black uppercase tracking-wider text-cyan-400">BMRCL PWA OPERATOR</span>
@@ -563,7 +567,7 @@ export default function TrainOperatorPwa({
                   /* Published Roster Card for Operator */
                   <div className="space-y-3">
                     {selectedDayAssignment?.type === 'DUTY' ? (
-                      <div className="border border-cyan-800/80 bg-gradient-to-b from-cyan-955/40 to-neutral-950 p-4 rounded-xl space-y-3 shadow-xl">
+                      <div className="border border-cyan-800/80 bg-linear-to-b from-cyan-955/40 to-neutral-950 p-4 rounded-xl space-y-3 shadow-xl">
                         <div className="flex justify-between items-center">
                           <span className="text-[10px] text-cyan-400 font-black uppercase tracking-widest flex items-center gap-1.5">
                             <Sparkles className="w-3.5 h-3.5" />
@@ -584,7 +588,7 @@ export default function TrainOperatorPwa({
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                          <div className="bg-neutral-900/80 p-2.5 rounded-lg border border-neutral-850 flex items-center gap-2">
+                          <div className="bg-neutral-900/80 p-2.5 rounded-lg border border-neutral-855 flex items-center gap-2">
                             <Clock className="h-4 w-4 text-cyan-400 shrink-0" />
                             <div>
                               <div className="text-[9px] text-neutral-500">SIGN-ON</div>
@@ -592,7 +596,7 @@ export default function TrainOperatorPwa({
                               <div className="text-[9px] text-cyan-400">{selectedDayAssignment.signOnLocation}</div>
                             </div>
                           </div>
-                          <div className="bg-neutral-900/80 p-2.5 rounded-lg border border-neutral-850 flex items-center gap-2">
+                          <div className="bg-neutral-900/80 p-2.5 rounded-lg border border-neutral-855 flex items-center gap-2">
                             <Clock className="h-4 w-4 text-rose-400 shrink-0" />
                             <div>
                               <div className="text-[9px] text-neutral-500">SIGN-OFF</div>
@@ -603,7 +607,7 @@ export default function TrainOperatorPwa({
                         </div>
 
                         {selectedDayAssignment.dutyType && (
-                          <div className="text-[11px] text-neutral-400 bg-neutral-900/60 px-2.5 py-1.5 rounded border border-neutral-850 flex justify-between font-mono">
+                          <div className="text-[11px] text-neutral-400 bg-neutral-900/60 px-2.5 py-1.5 rounded border border-neutral-855 flex justify-between font-mono">
                             <span>Service Type:</span>
                             <span className="text-white font-bold">{selectedDayAssignment.dutyType}</span>
                           </div>
@@ -618,7 +622,7 @@ export default function TrainOperatorPwa({
                         </button>
                       </div>
                     ) : selectedDayAssignment?.type === 'WEEKLY_OFF' ? (
-                      <div className="border border-emerald-800/80 bg-gradient-to-b from-emerald-955/40 to-neutral-950 p-5 rounded-xl space-y-3 text-center shadow-xl">
+                      <div className="border border-emerald-800/80 bg-linear-to-b from-emerald-955/40 to-neutral-950 p-5 rounded-xl space-y-3 text-center shadow-xl">
                         <div className="p-3 bg-emerald-500/20 border border-emerald-500/40 rounded-full inline-flex text-emerald-400">
                           <Award className="w-8 h-8" />
                         </div>
@@ -639,7 +643,7 @@ export default function TrainOperatorPwa({
                         </button>
                       </div>
                     ) : selectedDayAssignment?.type === 'LEAVE' ? (
-                      <div className="border border-rose-800/80 bg-gradient-to-b from-rose-955/40 to-neutral-950 p-5 rounded-xl space-y-3 text-center shadow-xl">
+                      <div className="border border-rose-800/80 bg-linear-to-b from-rose-955/40 to-neutral-950 p-5 rounded-xl space-y-3 text-center shadow-xl">
                         <div className="p-3 bg-rose-500/20 border border-rose-500/40 rounded-full inline-flex text-rose-400">
                           <AlertCircle className="w-8 h-8" />
                         </div>
@@ -660,7 +664,7 @@ export default function TrainOperatorPwa({
                         </button>
                       </div>
                     ) : selectedDayAssignment ? (
-                      <div className="border border-indigo-800/80 bg-gradient-to-b from-indigo-955/40 to-neutral-950 p-5 rounded-xl space-y-3 text-center shadow-xl">
+                      <div className="border border-indigo-800/80 bg-linear-to-b from-indigo-955/40 to-neutral-950 p-5 rounded-xl space-y-3 text-center shadow-xl">
                         <h4 className="text-base font-black text-indigo-300 uppercase tracking-wider">
                           SPECIAL ASSIGNMENT: {selectedDayAssignment.code || selectedDayAssignment.tag || selectedDayAssignment.type}
                         </h4>
@@ -857,7 +861,7 @@ export default function TrainOperatorPwa({
 
                 <button 
                   onClick={handleSaveProfile}
-                  className="w-full bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-black font-black py-2.5 rounded-lg text-[10px] uppercase tracking-widest transition shadow-lg flex items-center justify-center gap-1"
+                  className="w-full bg-linear-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-black font-black py-2.5 rounded-lg text-[10px] uppercase tracking-widest transition shadow-lg flex items-center justify-center gap-1"
                 >
                   <Send className="h-3 w-3" /> Save Details
                 </button>
