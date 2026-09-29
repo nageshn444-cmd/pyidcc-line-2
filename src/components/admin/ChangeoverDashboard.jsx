@@ -7,6 +7,11 @@ import {
 } from 'lucide-react';
 import { db } from '../../firebase';
 import { doc, getDoc, collection, onSnapshot, query } from 'firebase/firestore';
+import {
+  checkDeploymentExists,
+  validateDeploymentContext,
+  getDeploymentId,
+} from '../../services/deploymentService';
 
 const DAY_OPTIONS = [
   { value: 'SUNDAY',    label: 'Sunday' },
@@ -423,6 +428,18 @@ export default function ChangeoverDashboard({ onRefresh }) {
           operatorMap[r.dutyNo] = r.operator;
         }
       });
+
+      // Validate deployment context if a dated deployment exists in dispatch_deployments
+      try {
+        const check = await checkDeploymentExists(currentDate, currentDay);
+        if (check.exists && check.data) {
+          validateDeploymentContext(currentDate, check.data);
+        }
+      } catch (valErr) {
+        if (valErr.message && valErr.message.includes("DEPLOYMENT DATE MISMATCH")) {
+          throw valErr;
+        }
+      }
 
       const result = await triggerChangeover(currentDay, nextDay, operatorMap);
       setStatusMsg({ type: 'success', title: `Changeover Complete: ${currentDay} ➔ ${nextDay}`, text: result });

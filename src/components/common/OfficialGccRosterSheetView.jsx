@@ -16,6 +16,7 @@ import {
 } from '../../utils/rosterDateUtils';
 import { useAuth } from '../../context/AuthContext';
 import { resolveRealOperatorName } from '../../services/RosterAutoClassifierService';
+import { WEEKDAY_MASTER_LINKS } from '../../data/weekdayMasterLinks';
 
 export default function OfficialGccRosterSheetView({
   currentOperatorId = null,
@@ -229,7 +230,25 @@ export default function OfficialGccRosterSheetView({
         }
       }
       empName = resolveRealOperatorName(empName, empId);
-      return { ...d, empId, empName };
+
+      let signOffTime = d.signOffTime;
+      let signOffLocation = d.signOffLocation;
+      const signOnTime = d.signOnTime || '';
+      const isNightShift = signOnTime.startsWith('21:') || signOnTime.startsWith('22:') || signOnTime.startsWith('23:');
+      if ((!signOffTime || signOffTime === '06:00' || signOffTime === '--') && !isNightShift && dutyId) {
+        const paddedId = dutyId.padStart(2, '0');
+        const numId = dutyId.replace(/^0+/, '');
+        const mMatch = WEEKDAY_MASTER_LINKS.find(m => m.dutyId === paddedId || String(m.dutyNo) === numId);
+        if (mMatch && mMatch.signOffTime) {
+          const s = String(mMatch.signOffTime).trim();
+          signOffTime = s.length === 8 && s.endsWith(':00') ? s.substring(0, 5) : s;
+          if (!signOffLocation && mMatch.signOffLocation) {
+            signOffLocation = mMatch.signOffLocation;
+          }
+        }
+      }
+
+      return { ...d, empId, empName, signOffTime: signOffTime || d.signOffTime, signOffLocation: signOffLocation || d.signOffLocation };
     });
     if (!list.some(d => String(d.dutyId).trim() === '01' || String(d.dutyId).trim() === '1')) {
       list.unshift({
@@ -240,7 +259,7 @@ export default function OfficialGccRosterSheetView({
         dutyType: 'PR01',
         signOnTime: '06:00',
         signOnLocation: 'PYID',
-        signOffTime: '06:00',
+        signOffTime: '14:00',
         signOffLocation: 'PYID',
         status: 'ACTIVE'
       });

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test": "node --test deployment.test.js",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives",
     "preview": "vite preview",
     "deploy": "vite build && npx -y firebase-tools@latest deploy --only hosting,firestore",

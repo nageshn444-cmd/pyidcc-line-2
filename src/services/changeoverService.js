@@ -2700,13 +2700,19 @@ export const triggerChangeover = async (currentDay, nextDay, operatorAssignments
   await writeBatchInst.commit();
 
   // ── 4. Update system settings ──
+  const nowOperationalDate = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Asia/Kolkata",
+  });
   await setDoc(
     doc(db, "system_settings", "active_roster_config"),
     {
+      activeDeploymentId: `${nowOperationalDate}_${currentDay}`,
+      activeDeploymentDate: nowOperationalDate,
       activeDayType: "ACTIVE_RUN",
       currentDay: currentDay,
       nextDay: nextDay,
       lastChangeover: serverTimestamp(),
+      updatedAt: new Date().toISOString(),
     },
     { merge: true },
   );
@@ -2752,13 +2758,19 @@ export const revertToNormalRoster = async () => {
   await deleteBatch.commit();
 
   // Reset active_roster_config
+  const revertOperationalDate = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Asia/Kolkata",
+  });
   await setDoc(
     doc(db, "system_settings", "active_roster_config"),
     {
+      activeDeploymentId: `${revertOperationalDate}_WEEKDAY`,
+      activeDeploymentDate: revertOperationalDate,
       activeDayType: "WEEKDAY",
       currentDay: "WEEKDAY",
       nextDay: "SATURDAY",
       lastRevert: serverTimestamp(),
+      updatedAt: new Date().toISOString(),
     },
     { merge: true },
   );

@@ -10,6 +10,7 @@ import {
 import * as XLSX from "xlsx";
 import { BMRCL_CREW_REGISTRY } from "../data/bmrclCrewRegistry.js";
 import { EMPLOYEE_MASTER_REGISTRY } from "../data/employeeProfileMaster.js";
+import { WEEKDAY_MASTER_LINKS } from "../data/weekdayMasterLinks.js";
 import { db } from "../firebase.js";
 import {
   getScheduleTypeFromDate,
@@ -962,8 +963,32 @@ export const rosterAutoClassifierService = {
         const signOnPlace = String(row[3] || "").trim();
         const rawName = row[4];
         const rawEmpId = row[5];
-        const signOffTime = formatExcelTime(row[6]);
-        const signOffPlace = String(row[7] || "").trim();
+        let signOffTime = formatExcelTime(row[6]);
+        let signOffPlace = String(row[7] || "").trim();
+
+        // Prevent uniform 06:00 signOff fallback when row[6] is missing/blank or for morning duties
+        const isNightShift =
+          signOnTime &&
+          (signOnTime.startsWith("21:") ||
+            signOnTime.startsWith("22:") ||
+            signOnTime.startsWith("23:"));
+        const isInvalid0600 =
+          (!row[6] || row[6] === "" || signOffTime === "06:00") && !isNightShift;
+        if (isInvalid0600 && effectiveDutyStr) {
+          const dutyNum = String(effectiveDutyStr).replace(/^0+/, "");
+          const paddedId = String(effectiveDutyStr).padStart(2, "0");
+          const mMatch = WEEKDAY_MASTER_LINKS.find(
+            (m) => m.dutyId === paddedId || String(m.dutyNo) === dutyNum
+          );
+          if (mMatch && mMatch.signOffTime) {
+            const s = String(mMatch.signOffTime).trim();
+            signOffTime =
+              s.length === 8 && s.endsWith(":00") ? s.substring(0, 5) : s;
+            if (!signOffPlace && mMatch.signOffLocation) {
+              signOffPlace = mMatch.signOffLocation;
+            }
+          }
+        }
         const trainId =
           row[8] ||
           lastTrainNote ||
@@ -1110,6 +1135,9 @@ export const rosterAutoClassifierService = {
               remarks: isOrStepback ? "TGTP Stepback / Washroom Relieving" : "",
               dutyPurpose: isOrStepback ? "TGTP Stepback / Washroom Relieving" : "",
               extraColumns,
+              date: computedDateStr,
+              targetDate: computedDateStr,
+              deploymentDate: computedDateStr,
             });
           } else if (
             isNumeric &&
@@ -1788,9 +1816,15 @@ export const rosterAutoClassifierService = {
     try {
       if (typeof window !== "undefined" && window.localStorage) {
         window.localStorage.setItem(
-          "pyidcc_roster_desk_console_cache",
+          `pyidcc_roster_desk_console_cache_${dateStr}`,
           JSON.stringify(consoleSnapshot),
         );
+        if (dateStr === todayStr) {
+          window.localStorage.setItem(
+            "pyidcc_roster_desk_console_cache",
+            JSON.stringify(consoleSnapshot),
+          );
+        }
       }
     } catch (e) {
       console.warn("LocalStorage cache error:", e);
@@ -1801,21 +1835,48 @@ export const rosterAutoClassifierService = {
     );
     if (dutiesToDeploy.length > 0) {
       const batch = writeBatch(db);
+      const isForToday = dateStr === todayStr;
+
       for (const d of dutiesToDeploy) {
-        const docId = `gcc_deploy_${dayType.toLowerCase()}_duty_${d.dutyId}`;
+        const normId = String(parseInt(d.dutyId, 10) || d.dutyId).trim();
+        const paddedId = normId.padStart(2, "0");
+        const docPayload = {
+          ...d,
+          dutyId: paddedId,
+          date: dateStr,
+          targetDate: dateStr,
+          deploymentDate: dateStr,
+          scheduleType: dayType,
+          autoDeployed: true,
+          isLocked: true,
+          lastUpdated: serverTimestamp(),
+        };
+
+        // 1. Primary date-isolated document IDs (strictly independent per date):
         batch.set(
-          doc(db, "crew_daily_deployment", docId),
-          {
-            ...d,
-            date: dateStr,
-            targetDate: dateStr,
-            scheduleType: dayType,
-            autoDeployed: true,
-            isLocked: true,
-            lastUpdated: serverTimestamp(),
-          },
+          doc(db, "crew_daily_deployment", `gcc_deploy_${dateStr}_duty_${paddedId}`),
+          docPayload,
           { merge: true },
         );
+        batch.set(
+          doc(db, "crew_daily_deployment", `gcc_deploy_${dateStr}_duty_${normId}`),
+          docPayload,
+          { merge: true },
+        );
+
+        // 2. Only write to un-dated active dayType doc if deploying for TODAY:
+        if (isForToday) {
+          batch.set(
+            doc(db, "crew_daily_deployment", `gcc_deploy_${dayType.toLowerCase()}_duty_${paddedId}`),
+            docPayload,
+            { merge: true },
+          );
+          batch.set(
+            doc(db, "crew_daily_deployment", `gcc_deploy_${dayType.toLowerCase()}_duty_${normId}`),
+            docPayload,
+            { merge: true },
+          );
+        }
       }
       await batch.commit();
     }

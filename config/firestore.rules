@@ -395,5 +395,22 @@ service cloud.firestore {
       );
       allow delete: if isAdminOrController();
     }
+
+    // DISPATCH GATEWAY CORE — Date-Wise Deployment Architecture
+    match /dispatch_deployments/{documentId} {
+      allow read:           if isSignedIn();
+      allow write:          if isAdminOrController();
+    }
+
+    match /deployment_audit_logs/{documentId} {
+      allow read:           if isSignedIn();
+      allow create:         if isAdminOrController();
+      allow update, delete: if isOwner();
+    }
+
+    match /system_settings/{documentId} {
+      allow read:           if isSignedIn();
+      allow write:          if isAdminOrController();
+    }
   }
 }

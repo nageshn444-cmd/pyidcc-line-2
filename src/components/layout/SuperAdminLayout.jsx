@@ -113,6 +113,10 @@ export default function SuperAdminLayout({
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [selectedRosterDate, setSelectedRosterDate] = useState(() => 
+    new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
+  );
+  const dispatchGateRef = useRef(null);
 
   const defaultHeaders = [
     // Leg 1
@@ -551,9 +555,18 @@ export default function SuperAdminLayout({
   };
 
   const handleRosterReset = async () => {
-    if (!window.confirm(`Reset Daily Roster for ${activeDay}? This will clear all deployed operators for ${activeDay} from the database.`)) return;
+    // 1. If AutomatedDispatchGate is mounted, invoke its comprehensive date-aware reset engine
+    if (dispatchGateRef.current?.handleClearDailyRoster) {
+      await dispatchGateRef.current.handleClearDailyRoster();
+      return;
+    }
+
+    // 2. Fallback date-isolated reset
+    const targetDate = selectedRosterDate || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    if (!window.confirm(`Reset Daily Roster for ${activeDay} (${targetDate})? This will clear deployed operators for ${activeDay} on ${targetDate} only. Other dates will NOT be affected.`)) return;
     try {
-      const { collection, getDocs, writeBatch } = await import('firebase/firestore');
+      const { collection, getDocs, writeBatch, doc, deleteDoc, serverTimestamp } = await import('firebase/firestore');
       const { db } = await import('../../firebase');
       
       const snap = await getDocs(collection(db, 'crew_daily_deployment'));
@@ -562,15 +575,67 @@ export default function SuperAdminLayout({
 
       snap.docs.forEach(docSnap => {
         const data = docSnap.data();
-        const sched = String(data.scheduleType || '').toUpperCase();
-        if (!sched || sched === String(activeDay).toUpperCase() || sched === 'ACTIVE_RUN') {
+        const docDate = data.targetDate || data.date || data.deploymentDate;
+        if (docDate) {
+          const normDocDate = String(docDate).trim();
+          if (normDocDate !== targetDate) {
+            // Belongs to another date - PRESERVE IT!
+            return;
+          }
           batch.delete(docSnap.ref);
           count++;
+        } else {
+          // Check if docId contains a date
+          const idDateMatch = docSnap.id.match(/\d{4}-\d{2}-\d{2}/);
+          if (idDateMatch) {
+            if (idDateMatch[0] !== targetDate) return;
+            batch.delete(docSnap.ref);
+            count++;
+          } else if (targetDate === todayStr) {
+            const sched = String(data.scheduleType || '').toUpperCase();
+            if (!sched || sched === String(activeDay).toUpperCase() || sched === 'ACTIVE_RUN') {
+              batch.delete(docSnap.ref);
+              count++;
+            }
+          }
         }
       });
 
+      // Clear dispatch_deployments for targetDate
+      try {
+        const schedNorm = String(activeDay || 'WEEKDAY').toUpperCase();
+        await deleteDoc(doc(db, 'dispatch_deployments', `${targetDate}_${schedNorm}`));
+      } catch (_) {}
+
+      // Clear dispatch_excel_cache for targetDate
+      try {
+        const emptyDoc = {
+          controlDesks: [], leaves: [], standbys: [], outstationStepbacks: [],
+          crtTraining: [], bmrtiTraining: [], weeklyOffs: [], relievedOperators: [],
+          pmeOperators: [], routeLearning: [], notReporting: [], absents: [], bookedOff: [],
+          isExplicitlyCleared: true, updatedAt: serverTimestamp()
+        };
+        batch.set(doc(db, 'dispatch_excel_cache', targetDate), emptyDoc);
+        if (targetDate === todayStr) {
+          batch.set(doc(db, 'roster_desk_console', 'current'), emptyDoc);
+          batch.set(doc(db, 'roster_desk_console', 'latest'), emptyDoc);
+          batch.set(doc(db, 'dispatch_excel_cache', 'current'), emptyDoc);
+        }
+      } catch (_) {}
+
+      // Clear local storage for targetDate
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem(`pyidcc_roster_desk_console_cache_${targetDate}`);
+          if (targetDate === todayStr) {
+            window.localStorage.removeItem('pyidcc_roster_desk_console_cache');
+            window.localStorage.removeItem('pyidcc_roster_desk_meta');
+          }
+        }
+      } catch (_) {}
+
       await batch.commit();
-      alert(`Daily Roster for ${activeDay} reset successfully! Removed ${count} deployment records.`);
+      alert(`Daily Roster for ${activeDay} (${targetDate}) reset successfully! Removed ${count} deployment records.`);
       if (fetchLiveData) fetchLiveData();
     } catch (err) {
       console.error(err);
@@ -1027,15 +1092,18 @@ export default function SuperAdminLayout({
             <div className="space-y-4">
               <div className="flex justify-end gap-2 bg-slate-900 p-3 rounded-lg border border-slate-850">
                 <button onClick={handleRosterReset} className="flex items-center bg-rose-950/45 border border-rose-900/50 hover:bg-rose-900/30 transition px-3 py-1.5 rounded text-xs font-mono text-rose-400 font-bold uppercase tracking-wide">
-                  <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> RESET DAILY ROSTER
+                  <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> RESET DAILY ROSTER ({selectedRosterDate})
                 </button>
-                <div className="flex items-center bg-slate-950 border border-slate-800 px-3 py-1.5 rounded cursor-pointer relative hover:bg-slate-850 transition">
+                <div className="flex items-center bg-slate-950 border border-slate-850 px-3 py-1.5 rounded cursor-pointer relative hover:bg-slate-850 transition">
                   <UploadCloud className="h-3.5 w-3.5 mr-2 text-emerald-400" />
                   <span className="text-xs font-mono text-slate-300 font-bold uppercase tracking-wide">UPLOAD GCC ROSTER</span>
                   <input id="superadminlayout-i4" name="superadminlayout-i4" type="file" accept=".csv, .txt, .xlsx, .xls, .pdf, image/*" onChange={handleGccRosterUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
                 </div>
               </div>
               <AutomatedDispatchGate 
+                ref={dispatchGateRef}
+                selectedDate={selectedRosterDate}
+                onDateChange={setSelectedRosterDate}
                 deployments={deployments}
                 loading={loading}
                 activeDay={activeDay}

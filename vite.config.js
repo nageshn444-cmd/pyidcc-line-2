@@ -9,6 +9,9 @@ export default defineConfig({
       // fastRefresh MUST be true — setting false forces full-page reloads
       // on every save and is the primary HMR invalidation cause.
       fastRefresh: true,
+      babel: {
+        compact: false,
+      },
     }),
     {
       name: 'crew-registry-api',
