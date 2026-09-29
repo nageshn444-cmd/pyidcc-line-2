@@ -811,8 +811,7 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       runProcessing();
     });
 
-    const unsubEmployees = (activeTab === 'CREW' || activeTab === 'ADMIN')
-      ? onSnapshot(collection(db, "crewRegistry"), (snap) => {
+    const unsubEmployees = onSnapshot(collection(db, "crewRegistry"), (snap) => {
       if (snap.empty) {
         BMRCL_CREW_REGISTRY.length = 0;
         BMRCL_CREW_MASTER_BACKUP.forEach(emp => {
@@ -862,8 +861,7 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
         BMRCL_CREW_REGISTRY.push(emp);
       });
       runProcessing();
-    })
-      : () => {};
+    });
 
     return () => {
       if (animFrameId) cancelAnimationFrame(animFrameId);
