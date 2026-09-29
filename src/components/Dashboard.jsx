@@ -756,11 +756,12 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
     }
   };
 
-  // Real-time Firestore synchronization on mount / dependency changes
+  // Real-time Firestore synchronization.
+  // Render canonical Line-2 local data immediately; hydrate Firestore in background.
   useEffect(() => {
-    setLoading(true);
-    let wttData = [];
-    let linksData = [];
+    setLoading(false);
+    let wttData = WTT_MASTER_REGISTRY;
+    let linksData = activeDay === 'WEEKDAY' ? WEEKDAY_MASTER_LINKS : [];
     let deployData = [];
     let attData = [];
     let incData = [];
@@ -774,16 +775,22 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       });
     };
 
+    // First paint uses local master data; Firebase refresh runs in parallel.
+    runProcessing();
+
     const fetchBase = async () => {
       try {
-        const wttSnapshot = await getDocs(collection(db, "wtt_final_matrix"));
-        wttData = wttSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        const linksSnapshot = await getDocs(collection(db, "crew_final_links"));
-        linksData = linksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const [wttSnapshot, linksSnapshot] = await Promise.all([
+          getDocs(collection(db, "wtt_final_matrix")),
+          getDocs(collection(db, "crew_final_links"))
+        ]);
+        const remoteWtt = wttSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const remoteLinks = linksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        if (remoteWtt.length > 0) wttData = remoteWtt;
+        if (remoteLinks.length > 0) linksData = remoteLinks;
         runProcessing();
       } catch (err) {
-        console.error("Error loading base matrixes: ", err);
+        console.warn("Background WTT/link refresh failed; using local master data:", err);
       }
     };
     fetchBase();
@@ -804,7 +811,8 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       runProcessing();
     });
 
-    const unsubEmployees = onSnapshot(collection(db, "crewRegistry"), (snap) => {
+    const unsubEmployees = (activeTab === 'CREW' || activeTab === 'ADMIN')
+      ? onSnapshot(collection(db, "crewRegistry"), (snap) => {
       if (snap.empty) {
         BMRCL_CREW_REGISTRY.length = 0;
         BMRCL_CREW_MASTER_BACKUP.forEach(emp => {
@@ -854,7 +862,8 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
         BMRCL_CREW_REGISTRY.push(emp);
       });
       runProcessing();
-    });
+    })
+      : () => {};
 
     return () => {
       if (animFrameId) cancelAnimationFrame(animFrameId);
@@ -863,7 +872,7 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       unsubInc();
       unsubEmployees();
     };
-  }, [activeDay, activeTab]);
+  }, [activeDay]);
 
   // ── Real-Time Dynamic Ticker for Live Train & Reliever Tracking Handover ──
   // Re-evaluates handover times every 5 seconds so transitions (e.g. 10:58, 13:13) happen seamlessly
