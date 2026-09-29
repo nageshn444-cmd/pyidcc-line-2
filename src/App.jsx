@@ -10,8 +10,9 @@ import { lazyWithRetry } from './utils/lazyWithRetry';
 import OperationalErrorBoundary from './components/common/OperationalErrorBoundary';
 import OperatorRequestNotificationCenter from './components/common/OperatorRequestNotificationCenter';
 import GlobalAccessibilityMouseDock from './components/common/GlobalAccessibilityMouseDock';
+import Dashboard from './components/Dashboard';
 
-const Dashboard = lazyWithRetry(() => import('./components/Dashboard'));
+// Dashboard is the primary operational console; keep it in the stable app bundle.
 const Login = lazyWithRetry(() => import('./components/Login'));
 const ExcelWorkspace = lazyWithRetry(() => import('./pages/ExcelWorkspace'));
 const AIFaultReportingPage = lazyWithRetry(() => import('./pages/AIFaultReportingPage'));
