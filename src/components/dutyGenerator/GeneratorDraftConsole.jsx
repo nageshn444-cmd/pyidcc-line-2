@@ -2171,8 +2171,10 @@ export default function GeneratorDraftConsole({
             <form onSubmit={handleSaveCcReassignment} className="space-y-4">
               {/* Leave Option */}
               <div className="p-3 bg-indigo-950/30 border border-indigo-500/30 rounded-2xl space-y-2">
-                <label className="flex items-center gap-2.5 cursor-pointer">
+                <label htmlFor="mark-official-leave" className="flex items-center gap-2.5 cursor-pointer">
                   <input
+                    id="mark-official-leave"
+                    name="markOfficialLeave"
                     type="checkbox"
                     checked={markOfficialLeave}
                     onChange={(e) => setMarkOfficialLeave(e.target.checked)}
@@ -2184,8 +2186,10 @@ export default function GeneratorDraftConsole({
                 </label>
                 {markOfficialLeave && (
                   <div className="pt-2 border-t border-indigo-500/20 flex items-center gap-3">
-                    <label className="text-[11px] text-slate-300 font-medium">Leave Category:</label>
+                    <label htmlFor="cc-leave-category" className="text-[11px] text-slate-300 font-medium">Leave Category:</label>
                     <select
+                      id="cc-leave-category"
+                      name="ccLeaveCategory"
                       value={ccLeaveCategory}
                       onChange={(e) => setCcLeaveCategory(e.target.value)}
                       className="bg-slate-900 border border-indigo-500/40 rounded-lg px-2.5 py-1 text-xs text-indigo-300 font-bold"
@@ -2203,7 +2207,7 @@ export default function GeneratorDraftConsole({
               {/* Substitute Search & Selection */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-300">
+                  <label htmlFor="substitute-filter-text" className="text-xs font-bold text-slate-300">
                     Select Substitute Crew Member:
                   </label>
                   <span className="text-[10px] text-emerald-400 font-bold">
@@ -2214,7 +2218,10 @@ export default function GeneratorDraftConsole({
                 <div className="relative">
                   <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                   <input
+                    id="substitute-filter-text"
+                    name="substituteFilterText"
                     type="text"
+                    autoComplete="off"
                     value={substituteFilterText}
                     onChange={(e) => setSubstituteFilterText(e.target.value)}
                     placeholder="Search CC-Willing operator by name or Emp ID..."

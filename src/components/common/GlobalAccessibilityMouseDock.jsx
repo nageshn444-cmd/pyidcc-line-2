@@ -335,6 +335,8 @@ export default function GlobalAccessibilityMouseDock() {
                         <span>40px Max</span>
                       </div>
                       <input 
+                        id="accessibility-font-size-slider"
+                        name="accessibilityFontSizeSlider"
                         type="range"
                         min="12"
                         max="40"
@@ -434,6 +436,8 @@ export default function GlobalAccessibilityMouseDock() {
                         <span>200%</span>
                       </div>
                       <input 
+                        id="accessibility-zoom-slider"
+                        name="accessibilityZoomSlider"
                         type="range"
                         min="75"
                         max="200"

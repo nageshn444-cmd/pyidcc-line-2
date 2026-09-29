@@ -1,16 +1,15 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { triggerChangeover, revertToNormalRoster, CHANGEOVER_TABLE } from '../../services/changeoverService';
 import { 
-  RefreshCw, Play, Shield, Moon, Sun, Calendar, CheckCircle2, 
+  RefreshCw, Play, Shield, Moon, Sun, CheckCircle2, 
   ChevronDown, ChevronUp, Eye, X, AlertCircle, User, AlertTriangle, 
-  Search, Cpu, Check, Filter, Zap, Radio, Clock, MapPin, Route
+  Search, Cpu, Zap, Clock, Route
 } from 'lucide-react';
 import { db } from '../../firebase';
-import { doc, getDoc, collection, onSnapshot, query } from 'firebase/firestore';
+import { doc, getDoc, collection, onSnapshot } from 'firebase/firestore';
 import {
   checkDeploymentExists,
   validateDeploymentContext,
-  getDeploymentId,
 } from '../../services/deploymentService';
 
 const DAY_OPTIONS = [
@@ -103,7 +102,6 @@ export default function ChangeoverDashboard({ onRefresh }) {
   const [nextDay, setNextDay] = useState(() => resolveDefaultDayType(tomorrowStr));
 
   const [loading, setLoading] = useState(false);
-  const [lastConfig, setLastConfig] = useState(null);
   const [statusMsg, setStatusMsg] = useState(null);
   const [ghAccordionOpen, setGhAccordionOpen] = useState(false);
 
@@ -138,7 +136,6 @@ export default function ChangeoverDashboard({ onRefresh }) {
         const snap = await getDoc(doc(db, 'system_settings', 'active_roster_config'));
         if (snap.exists() && active) {
           const data = snap.data();
-          setLastConfig(data);
           if (data.currentDay) setCurrentDay(data.currentDay);
           if (data.nextDay) setNextDay(data.nextDay);
         }
@@ -222,7 +219,7 @@ export default function ChangeoverDashboard({ onRefresh }) {
 
   // ── Algorithmic Shift Validation & Relief Engine Operator Resolver ──
   // Resolves ONLY Night Shift active on-duty Train Operator for the duty number & day type
-  const resolveNightShiftOperator = (dutyNo, targetDay, targetDate) => {
+  const resolveNightShiftOperator = useCallback((dutyNo, targetDay, targetDate) => {
     const normTargetDuty = normalizeDutyNo(dutyNo);
     const targetSched = normalizeSched(targetDay);
 
@@ -342,7 +339,7 @@ export default function ChangeoverDashboard({ onRefresh }) {
       exchangedWith: exchangedWithInfo,
       source: "DISPATCH_GATEWAY_CORE",
     };
-  };
+  }, [shiftExchanges, liveDeployments, consoleData]);
 
   // ── Compute Preview Table Rows with Night Shift Train Operators ──
   const tableKey = `${currentDay}__${nextDay}`;
@@ -363,7 +360,7 @@ export default function ChangeoverDashboard({ onRefresh }) {
           ...row,
         };
       });
-  }, [tableKey, changeoverOverrides, liveDeployments, consoleData, shiftExchanges, currentDay, currentDate]);
+  }, [tableKey, changeoverOverrides, currentDay, currentDate, resolveNightShiftOperator]);
 
   const hasData = previewRows.length > 0;
 
@@ -597,7 +594,7 @@ export default function ChangeoverDashboard({ onRefresh }) {
             <button
               onClick={handlePerformChangeover}
               disabled={loading || !hasData}
-              className="w-full flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 disabled:from-slate-800 disabled:to-slate-700 text-slate-950 disabled:text-slate-500 px-4 py-2 rounded-lg font-black uppercase text-[11px] tracking-wider transition shadow-md cursor-pointer disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-1.5 bg-linear-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 disabled:from-slate-800 disabled:to-slate-700 text-slate-950 disabled:text-slate-500 px-4 py-2 rounded-lg font-black uppercase text-[11px] tracking-wider transition shadow-md cursor-pointer disabled:cursor-not-allowed"
             >
               <Play className="h-3.5 w-3.5 fill-current" /> Execute Changeover
             </button>
@@ -782,8 +779,8 @@ export default function ChangeoverDashboard({ onRefresh }) {
             <table className="w-full text-left text-[11px] font-mono border-collapse">
               <thead>
                 <tr className="bg-slate-950 text-slate-400 uppercase text-[9.5px] border-b border-slate-800 text-center font-bold">
-                  <th className="px-2.5 py-2 border-r border-slate-800 w-[55px]">Duty</th>
-                  <th className="px-3 py-2 border-r border-slate-800 text-cyan-400 bg-cyan-950/20 text-left min-w-[210px]">
+                  <th className="px-2.5 py-2 border-r border-slate-800 w-13.75">Duty</th>
+                  <th className="px-3 py-2 border-r border-slate-800 text-cyan-400 bg-cyan-950/20 text-left min-w-52.5">
                     Night Shift Train Operator (Dispatch Gateway Core)
                   </th>
                   <th colSpan="7" className="px-2.5 py-2 border-r border-slate-800 text-blue-400 bg-blue-950/20">
@@ -907,7 +904,7 @@ export default function ChangeoverDashboard({ onRefresh }) {
 
                                 {op.isSwapped && (op.swappedWith || op.swappedDutyId || op.remarks) && (
                                   <span
-                                    className="text-[8.5px] font-mono text-amber-300 font-bold bg-amber-950/60 border border-amber-500/40 px-1 py-0.2 rounded truncate max-w-[190px]"
+                                    className="text-[8.5px] font-mono text-amber-300 font-bold bg-amber-950/60 border border-amber-500/40 px-1 py-0.2 rounded truncate max-w-47.5"
                                     title={op.remarks || `Swapped with ${op.swappedWith || op.swappedDutyId}`}
                                   >
                                     {op.swappedDutyId ? `⇄ Duty #${op.swappedDutyId}` : (op.swappedWith ? `⇄ ${op.swappedWith}` : '⇄ Swapped')}
@@ -916,7 +913,7 @@ export default function ChangeoverDashboard({ onRefresh }) {
 
                                 {op.isExchanged && (op.exchangedWith || op.remarks) && (
                                   <span
-                                    className="text-[8.5px] font-mono text-purple-300 font-bold bg-purple-950/60 border border-purple-500/40 px-1 py-0.2 rounded truncate max-w-[190px]"
+                                    className="text-[8.5px] font-mono text-purple-300 font-bold bg-purple-950/60 border border-purple-500/40 px-1 py-0.2 rounded truncate max-w-47.5"
                                     title={op.remarks || `Exchanged with ${op.exchangedWith}`}
                                   >
                                     {op.exchangedWith ? `⇄ ${op.exchangedWith}` : (op.remarks && op.remarks.includes("Exchanged with") ? op.remarks : '⇄ Exchanged')}

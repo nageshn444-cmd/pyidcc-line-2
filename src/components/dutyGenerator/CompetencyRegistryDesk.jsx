@@ -885,10 +885,12 @@ function EditCrtModal({ operator, onClose, onSave }) {
           {/* Issue Date & Renewal Date (+6M Auto-Link) */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] font-bold text-slate-300 uppercase mb-1">
+              <label htmlFor="crt-valid-from" className="block text-[10px] font-bold text-slate-300 uppercase mb-1">
                 Current Validity Date (Issue)
               </label>
               <input
+                id="crt-valid-from"
+                name="crtValidFrom"
                 type="date"
                 required
                 value={formData.crtValidFrom}
@@ -899,10 +901,12 @@ function EditCrtModal({ operator, onClose, onSave }) {
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-cyan-300 uppercase mb-1">
+              <label htmlFor="crt-valid-till" className="block text-[10px] font-bold text-cyan-300 uppercase mb-1">
                 Next Renewal Date (+6 Months)
               </label>
               <input
+                id="crt-valid-till"
+                name="crtValidTill"
                 type="date"
                 required
                 value={formData.crtValidTill}
@@ -916,11 +920,14 @@ function EditCrtModal({ operator, onClose, onSave }) {
           {/* Certificate Number & Score */}
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
-              <label className="block text-[10px] font-bold text-slate-300 uppercase mb-1">
+              <label htmlFor="cert-no" className="block text-[10px] font-bold text-slate-300 uppercase mb-1">
                 CRT Certificate Number
               </label>
               <input
+                id="cert-no"
+                name="certNo"
                 type="text"
+                autoComplete="off"
                 required
                 value={formData.certNo}
                 onChange={(e) => setFormData(prev => ({ ...prev, certNo: e.target.value }))}
@@ -929,10 +936,12 @@ function EditCrtModal({ operator, onClose, onSave }) {
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-300 uppercase mb-1">
+              <label htmlFor="crt-score" className="block text-[10px] font-bold text-slate-300 uppercase mb-1">
                 Exam Score (%)
               </label>
               <input
+                id="crt-score"
+                name="crtScore"
                 type="number"
                 min="70"
                 max="100"
@@ -945,10 +954,12 @@ function EditCrtModal({ operator, onClose, onSave }) {
 
           {/* Competency Type */}
           <div>
-            <label className="block text-[10px] font-bold text-slate-300 uppercase mb-1">
+            <label htmlFor="crt-type" className="block text-[10px] font-bold text-slate-300 uppercase mb-1">
               Competency Qualification Type
             </label>
             <select
+              id="crt-type"
+              name="crtType"
               value={formData.crtType}
               onChange={(e) => setFormData(prev => ({ ...prev, crtType: e.target.value }))}
               className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:border-emerald-500 focus:outline-none"
@@ -962,11 +973,14 @@ function EditCrtModal({ operator, onClose, onSave }) {
 
           {/* Trainer / Authority */}
           <div>
-            <label className="block text-[10px] font-bold text-slate-300 uppercase mb-1">
+            <label htmlFor="crt-trainer" className="block text-[10px] font-bold text-slate-300 uppercase mb-1">
               Certifying Authority / Inspector
             </label>
             <input
+              id="crt-trainer"
+              name="crtTrainer"
               type="text"
+              autoComplete="name"
               value={formData.trainer}
               onChange={(e) => setFormData(prev => ({ ...prev, trainer: e.target.value }))}
               className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:border-emerald-500 focus:outline-none"
@@ -975,10 +989,12 @@ function EditCrtModal({ operator, onClose, onSave }) {
 
           {/* Remarks */}
           <div>
-            <label className="block text-[10px] font-bold text-slate-300 uppercase mb-1">
+            <label htmlFor="crt-remarks" className="block text-[10px] font-bold text-slate-300 uppercase mb-1">
               Safety Remarks / Certification Endorsement
             </label>
             <textarea
+              id="crt-remarks"
+              name="crtRemarks"
               rows="2"
               value={formData.remarks}
               onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}

@@ -1,5 +1,5 @@
 import { Download, FileSpreadsheet, Printer, Send, X, ShieldCheck } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { formatTo24HourTime } from "../../utils/timeHelpers";
 
 /**
@@ -29,7 +29,9 @@ export const getRosterDutyLinkTitle = (targetDate, dayType) => {
       if (dow === 1) return "Monday Link";
       if (dow === 0) return "Sunday Link";
       if (dow === 6) return "Saturday Link";
-    } catch {}
+    } catch (_e) {
+      /* ignore */
+    }
   }
 
   return "Weekday Link";
@@ -85,7 +87,9 @@ export const formatSheetHeaderDate = (dateStr) => {
         return `${day} ${months[d.getMonth()]} ${d.getFullYear()} ${days[d.getDay()]}`;
       }
     }
-  } catch {}
+  } catch (_e) {
+    /* ignore */
+  }
   return String(dateStr);
 };
 
@@ -172,7 +176,7 @@ export default function OfficialBMRCLDutySheet({
   pinkLine4Staff = [],
   specialDuties = [],
   traineeStaff = [],
-  reservePool = [],
+  _reservePool = [],
   loggedInUserName = "Chief Crew Controller (OCC-2)",
   onPrint,
   onExportExcel,
@@ -209,7 +213,9 @@ export default function OfficialBMRCLDutySheet({
         const yyyy = d.getFullYear();
         return `${dd}-${mm}-${yyyy}`;
       }
-    } catch {}
+    } catch (_e) {
+      /* ignore */
+    }
     return "27-09-2026";
   }, [targetDate]);
 
@@ -223,7 +229,9 @@ export default function OfficialBMRCLDutySheet({
         const monthIdx = parseInt(parts[1], 10) - 1;
         return `${day}-${months[monthIdx] || "Sep"}`;
       }
-    } catch {}
+    } catch (_e) {
+      /* ignore */
+    }
     return "28-Sep";
   }, [targetDate]);
 
@@ -240,14 +248,14 @@ export default function OfficialBMRCLDutySheet({
   const [editLeaveType, setEditLeaveType] = useState("CL");
 
   // Official Crew Controllers (Nagesh N, Deepa L, Rashmi) are strictly dedicated to CC Desk
-  const CC_OFFICIAL_NAMES = ['NAGESH N', 'DEEPA L', 'RASHMI'];
-  const CC_OFFICIAL_IDS = new Set(['20726', '20038', '20037']);
-  const isCCOfficial = (empNo, name) => {
+  const CC_OFFICIAL_NAMES = useMemo(() => ['NAGESH N', 'DEEPA L', 'RASHMI'], []);
+  const CC_OFFICIAL_IDS = useMemo(() => new Set(['20726', '20038', '20037']), []);
+  const isCCOfficial = useCallback((empNo, name) => {
     const sId = String(empNo || '').trim();
     const sName = String(name || '').trim().toUpperCase();
     if (CC_OFFICIAL_IDS.has(sId)) return true;
     return CC_OFFICIAL_NAMES.some(n => sName.includes(n));
-  };
+  }, [CC_OFFICIAL_NAMES, CC_OFFICIAL_IDS]);
 
   const handleOpenCcEdit = (slotCode, currentItem) => {
     setEditingCcSlot(slotCode);
@@ -971,6 +979,8 @@ export default function OfficialBMRCLDutySheet({
     trainingStaff,
     pinkLine4Staff,
     customCcOverrides,
+    isCCOfficial,
+    targetDateShort,
   ]);
 
   // Flatten Right-Side Sections into Rows matching Left Rows
@@ -1413,8 +1423,10 @@ export default function OfficialBMRCLDutySheet({
             <form onSubmit={handleSaveCcEdit} className="space-y-4">
               {/* Leave Toggle */}
               <div className="p-3 bg-indigo-950/30 border border-indigo-500/30 rounded-2xl space-y-2">
-                <label className="flex items-center gap-2.5 cursor-pointer">
+                <label htmlFor="edit-is-on-leave" className="flex items-center gap-2.5 cursor-pointer">
                   <input
+                    id="edit-is-on-leave"
+                    name="editIsOnLeave"
                     type="checkbox"
                     checked={editIsOnLeave}
                     onChange={(e) => setEditIsOnLeave(e.target.checked)}
@@ -1426,8 +1438,10 @@ export default function OfficialBMRCLDutySheet({
                 </label>
                 {editIsOnLeave && (
                   <div className="pt-2 border-t border-indigo-500/20 flex items-center gap-3">
-                    <label className="text-[11px] text-slate-300 font-medium">Leave Type:</label>
+                    <label htmlFor="edit-leave-type" className="text-[11px] text-slate-300 font-medium">Leave Type:</label>
                     <select
+                      id="edit-leave-type"
+                      name="editLeaveType"
                       value={editLeaveType}
                       onChange={(e) => setEditLeaveType(e.target.value)}
                       className="bg-slate-900 border border-indigo-500/40 rounded-lg px-2.5 py-1 text-xs text-indigo-300 font-bold"
@@ -1445,11 +1459,14 @@ export default function OfficialBMRCLDutySheet({
               {/* Substitute Staff Inputs */}
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="edit-staff-name" className="text-xs font-bold text-slate-300 block mb-1">
                     Assigned Staff Name {editIsOnLeave ? '(Substitute / Relief)' : ''}
                   </label>
                   <input
+                    id="edit-staff-name"
+                    name="editStaffName"
                     type="text"
+                    autoComplete="name"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                     placeholder="e.g. Chaitranjali UG or Nagesh N"
@@ -1459,11 +1476,14 @@ export default function OfficialBMRCLDutySheet({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                  <label htmlFor="edit-emp-no" className="text-xs font-bold text-slate-300 block mb-1">
                     Employee Number / ID
                   </label>
                   <input
+                    id="edit-emp-no"
+                    name="editEmpNo"
                     type="text"
+                    autoComplete="off"
                     value={editEmpNo}
                     onChange={(e) => setEditEmpNo(e.target.value)}
                     placeholder="e.g. 21723 or 20726"

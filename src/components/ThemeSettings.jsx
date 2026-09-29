@@ -263,6 +263,8 @@ export default function ThemeSettings() {
                 <span>40px</span>
               </div>
               <input 
+                id="theme-custom-font-size-slider"
+                name="themeCustomFontSizeSlider"
                 type="range"
                 min="12"
                 max="40"
@@ -334,6 +336,8 @@ export default function ThemeSettings() {
 
             {/* Zoom Preset Selector */}
             <select
+              id="theme-page-zoom-selector"
+              name="themePageZoomSelector"
               value={accessibility.pageZoom || 100}
               onChange={(e) => setAccessibility({ pageZoom: Number(e.target.value) })}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-medium"
@@ -356,6 +360,8 @@ export default function ThemeSettings() {
                 <span>200%</span>
               </div>
               <input 
+                id="theme-page-zoom-slider"
+                name="themePageZoomSlider"
                 type="range"
                 min="75"
                 max="200"
