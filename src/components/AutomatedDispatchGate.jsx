@@ -102,6 +102,7 @@ import {
   executeDeployment,
   formatOperationalDate,
   getDeploymentId,
+  toIndianDateStr,
 } from "../services/deploymentService";
 import {
   getRolling7Days,
@@ -1669,12 +1670,13 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
       }
     }
 
-    // 3. Fallback deployments (from date cache or Firestore query) ONLY if explicitly tagged with targetDeploymentDate
+    // 3. Fallback deployments (from date cache or Firestore query) for targetDeploymentDate
     const candidateDeployments = fallbackDeployments || [];
     const dateMatchedFallback = candidateDeployments.filter((d) => {
       if (!d) return false;
       const dDate = d.date || d.targetDate || d.deploymentDate;
-      return dDate === targetDeploymentDate;
+      const normDDate = dDate ? formatOperationalDate(dDate) : "";
+      return !normDDate || normDDate === targetDeploymentDate;
     });
 
     if (dateMatchedFallback.length > 0) {
@@ -2015,11 +2017,73 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
             );
             if (Array.isArray(depData.rosterData.duties)) {
               setFallbackDeployments(
-                deduplicateDeployments(depData.rosterData.duties),
+                deduplicateDeployments(
+                  depData.rosterData.duties.map((d) => ({
+                    ...d,
+                    date: targetDeploymentDate,
+                    deploymentDate: targetDeploymentDate,
+                  })),
+                ),
               );
             }
           }
         } else {
+          // Check if deployment history has a record matching this targetDeploymentDate
+          const altDate = toIndianDateStr(targetDeploymentDate);
+          const matchedFromHistory = (deploymentHistoryList || []).find((d) => {
+            const dDate = formatOperationalDate(
+              d.deploymentDate || d.date || d.targetDate,
+            );
+            return (
+              dDate === targetDeploymentDate ||
+              d.id === deploymentId ||
+              d.id === `${altDate}_${targetDayType}` ||
+              (d.id &&
+                (d.id.includes(targetDeploymentDate) ||
+                  (altDate && d.id.includes(altDate))))
+            );
+          });
+          if (matchedFromHistory && matchedFromHistory.rosterData) {
+            setCurrentDeploymentRecord(matchedFromHistory);
+            setConsoleData(
+              sanitizeConsoleContainer({
+                controlDesks: matchedFromHistory.rosterData.controlDesks || [],
+                coOperators: matchedFromHistory.rosterData.coOperators || [],
+                leaves: matchedFromHistory.rosterData.leaves || [],
+                standbys: matchedFromHistory.rosterData.standbys || [],
+                outstationStepbacks:
+                  matchedFromHistory.rosterData.outstationStepbacks || [],
+                crtTraining: matchedFromHistory.rosterData.crtTraining || [],
+                bmrtiTraining:
+                  matchedFromHistory.rosterData.bmrtiTraining || [],
+                weeklyOffs: matchedFromHistory.rosterData.weeklyOffs || [],
+                relievedOperators:
+                  matchedFromHistory.rosterData.relievedOperators || [],
+                pmeOperators: matchedFromHistory.rosterData.pmeOperators || [],
+                routeLearning:
+                  matchedFromHistory.rosterData.routeLearning || [],
+                notReporting: matchedFromHistory.rosterData.notReporting || [],
+                absents: matchedFromHistory.rosterData.absents || [],
+                bookedOff: matchedFromHistory.rosterData.bookedOff || [],
+                onDuty: matchedFromHistory.rosterData.onDuty || [],
+                customRegisters:
+                  matchedFromHistory.rosterData.customRegisters || {},
+              }),
+            );
+            if (Array.isArray(matchedFromHistory.rosterData.duties)) {
+              setFallbackDeployments(
+                deduplicateDeployments(
+                  matchedFromHistory.rosterData.duties.map((d) => ({
+                    ...d,
+                    date: targetDeploymentDate,
+                    deploymentDate: targetDeploymentDate,
+                  })),
+                ),
+              );
+            }
+            return;
+          }
+
           setCurrentDeploymentRecord(null);
           // When no deployment exists for target date and no staged roster active:
           // reset fallbackDeployments and consoleData to pristine empty state
@@ -2049,7 +2113,7 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
       },
     );
     return () => unsub();
-  }, [targetDeploymentDate, targetDayType]);
+  }, [targetDeploymentDate, targetDayType, deploymentHistoryList]);
 
   // Real-time listener for deployment history list
   useEffect(() => {
@@ -2109,12 +2173,92 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
       }
 
       const rosterPayload = {
-        duties: dutiesToDeploy,
         ...cleanConsole,
+        duties: dutiesToDeploy,
         date: targetDeploymentDate,
+        dateStr: targetDeploymentDate,
         dayType: targetDayType,
+        scheduleType: targetDayType,
       };
 
+      // 1. Auto deploy classified aux data and duties into official collections
+      try {
+        await rosterAutoClassifierService.autoDeployClassifiedData(
+          {
+            ...cleanConsole,
+            duties: dutiesToDeploy,
+            dateStr: targetDeploymentDate,
+            dayType: targetDayType,
+          },
+          "CrewController_01",
+          `Manual Deployment via DEPLOY ROSTER button for ${targetDeploymentDate}`,
+        );
+      } catch (classErr) {
+        console.warn("Classifier deployment warning:", classErr);
+      }
+
+      // 2. Deploy active train driving duties to crew_daily_deployment
+      if (dutiesToDeploy && dutiesToDeploy.length > 0) {
+        const dutyBatch = writeBatch(db);
+        dutiesToDeploy.forEach((d) => {
+          if (!d.dutyId) return;
+          const docId = `gcc_deploy_${targetDayType.toLowerCase()}_duty_${d.dutyId}`;
+          dutyBatch.set(
+            doc(db, "crew_daily_deployment", docId),
+            {
+              ...d,
+              dutyId: d.dutyId,
+              empId: d.empId || "--",
+              empName: d.empName || "--",
+              scheduleType: targetDayType,
+              date: targetDeploymentDate,
+              remarks: "Manual Deployment via DEPLOY ROSTER",
+              lastUpdated: serverTimestamp(),
+            },
+            { merge: true },
+          );
+        });
+        await dutyBatch.commit();
+      }
+
+      // 3. Cache in dispatch_excel_cache & roster_desk_console
+      const consoleSnapshot = {
+        date: targetDeploymentDate,
+        dayType: targetDayType,
+        sheetName:
+          stagedRoster?.sheetName ||
+          stagedRoster?.fileName ||
+          selectedRosterFile?.name ||
+          "Manual Deployment",
+        ...cleanConsole,
+        duties: dutiesToDeploy,
+        isExplicitlyCleared: false,
+        updatedAt: serverTimestamp(),
+      };
+      await setDoc(doc(db, "roster_desk_console", "current"), consoleSnapshot, {
+        merge: true,
+      });
+      await setDoc(doc(db, "roster_desk_console", "latest"), consoleSnapshot, {
+        merge: true,
+      });
+      await setDoc(
+        doc(db, "dispatch_excel_cache", targetDeploymentDate),
+        consoleSnapshot,
+        { merge: true },
+      );
+      const indDate = toIndianDateStr(targetDeploymentDate);
+      if (indDate && indDate !== targetDeploymentDate) {
+        await setDoc(doc(db, "dispatch_excel_cache", indDate), consoleSnapshot, {
+          merge: true,
+        });
+      }
+      await setDoc(
+        doc(db, "dispatch_excel_cache", "current"),
+        consoleSnapshot,
+        { merge: true },
+      );
+
+      // 4. Save official deployment record in dispatch_deployments
       const result = await executeDeployment({
         deploymentDate: targetDeploymentDate,
         dayType: targetDayType,
@@ -2133,10 +2277,37 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
         },
       });
 
+      // 5. Update latest deployment metadata
+      const meta = {
+        sheetName:
+          stagedRoster?.sheetName ||
+          stagedRoster?.fileName ||
+          selectedRosterFile?.name ||
+          targetDayType,
+        dateStr: targetDeploymentDate,
+        deployedCount: dutiesToDeploy.length,
+        woCount: cleanConsole?.weeklyOffs?.length || 0,
+        leaveCount: cleanConsole?.leaves?.length || 0,
+        relCount: cleanConsole?.relievedOperators?.length || 0,
+        deployedAt: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+      setDeployedRosterInfo(meta);
+      await setDoc(
+        doc(db, "roster_desk_console", "latest_deployment_meta"),
+        meta,
+        { merge: true },
+      );
+
+      setConsoleData(cleanConsole);
+      setFallbackDeployments(deduplicateDeployments(dutiesToDeploy));
       setStagedRoster(null);
+      setIsRosterConfirmed(true);
 
       alert(
-        `✅ Deployment Successful!\n\nDeployment ID: ${result.deploymentId}\nTarget Date: ${targetDeploymentDate}\nDay Type: ${targetDayType}\nVersion: ${result.version}`,
+        `✅ Deployment Successful!\n\nDeployment ID: ${result.deploymentId}\nTarget Date: ${targetDeploymentDate}\nDay Type: ${targetDayType}\nDuties Deployed: ${dutiesToDeploy.length}\nVersion: ${result.version}`,
       );
       if (onImportComplete) onImportComplete();
     } catch (err) {
@@ -2151,10 +2322,13 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
     (data) => {
       if (!data) return;
       const incomingDate = data.date || data.targetDate || data.deploymentDate;
+      const normIncomingDate = incomingDate
+        ? formatOperationalDate(incomingDate)
+        : "";
       if (
-        incomingDate &&
+        normIncomingDate &&
         targetDeploymentDate &&
-        incomingDate !== targetDeploymentDate
+        normIncomingDate !== targetDeploymentDate
       ) {
         return;
       }
@@ -2387,25 +2561,56 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
   // Real-time listener for whichever day is selected in Step 1 (Today, Tomorrow, Day After Tomorrow, etc.)
   useEffect(() => {
     if (!targetDeploymentDate) return;
+    const loadCacheData = (data) => {
+      mergeConsoleData(data);
+      if (Array.isArray(data.duties) && data.duties.length > 0) {
+        setFallbackDeployments(
+          deduplicateDeployments(
+            data.duties.map((d) => ({
+              ...d,
+              date: targetDeploymentDate,
+              deploymentDate: targetDeploymentDate,
+            })),
+          ),
+        );
+      }
+      if (data.isPublishedForOperators !== undefined) {
+        setIsPublishedToOperators(Boolean(data.isPublishedForOperators));
+      }
+    };
+
     const unsubTargetDate = onSnapshot(
       doc(db, "dispatch_excel_cache", targetDeploymentDate),
       (docSnap) => {
         if (docSnap.exists()) {
-          const data = docSnap.data();
-          mergeConsoleData(data);
-          if (Array.isArray(data.duties) && data.duties.length > 0) {
-            setFallbackDeployments(deduplicateDeployments(data.duties));
-          }
-          if (data.isPublishedForOperators !== undefined) {
-            setIsPublishedToOperators(Boolean(data.isPublishedForOperators));
-          }
+          loadCacheData(docSnap.data());
         }
       },
       (err) => {
         console.warn("Dispatch cache date listener error:", err);
       },
     );
-    return () => unsubTargetDate();
+
+    let unsubAltDate = null;
+    const altDate = toIndianDateStr(targetDeploymentDate);
+    if (altDate && altDate !== targetDeploymentDate) {
+      unsubAltDate = onSnapshot(
+        doc(db, "dispatch_excel_cache", altDate),
+        (docSnap) => {
+          if (docSnap.exists()) {
+            loadCacheData(docSnap.data());
+          }
+        },
+        (err) => {
+          console.warn("Dispatch cache alt date listener error:", err);
+        },
+      );
+    }
+
+    return () => {
+      unsubTargetDate();
+      if (unsubAltDate) unsubAltDate();
+    };
   }, [targetDeploymentDate, mergeConsoleData]);
 
   const handleDayTypeChange = (day) => {
@@ -3100,24 +3305,8 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
         });
         const parsedDuties = Array.from(parsedDutiesMap.values());
         if (parsedDuties.length > 0) {
-          const batch = writeBatch(db);
-          parsedDuties.forEach((d) => {
-            const docId = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${d.dutyId}`;
-            batch.set(
-              doc(db, "crew_daily_deployment", docId),
-              {
-                scheduleType: currentDayType,
-                dutyId: d.dutyId,
-                empId: d.empId || "--",
-                empName: d.empName || "--",
-                remarks: "JSON File Auto-Ingest",
-                lastUpdated: serverTimestamp(),
-              },
-              { merge: true },
-            );
-          });
-          await batch.commit();
           deployedDutiesCount = parsedDuties.length;
+          setFallbackDeployments(deduplicateDeployments(parsedDuties));
         }
         // Build a minimal classifiedData scaffold from JSON extras
         classifiedData = {
@@ -3244,27 +3433,8 @@ Rules:
         });
         const parsedDuties = Array.from(parsedDutiesMap.values());
         if (parsedDuties.length > 0) {
-          const batch = writeBatch(db);
-          parsedDuties.forEach((d) => {
-            const docId = `gcc_deploy_${currentDayType.toLowerCase()}_duty_${d.dutyId}`;
-            batch.set(
-              doc(db, "crew_daily_deployment", docId),
-              {
-                scheduleType: currentDayType,
-                dutyId: d.dutyId,
-                empId: d.empId || "--",
-                empName: d.empName || "--",
-                trainId: d.trainId || "UNASSIGNED",
-                signOnTime: d.signOnTime || "",
-                signOffTime: d.signOffTime || "",
-                remarks: "PDF AI Auto-Extracted via Gemini Vision",
-                lastUpdated: serverTimestamp(),
-              },
-              { merge: true },
-            );
-          });
-          await batch.commit();
           deployedDutiesCount = parsedDuties.length;
+          setFallbackDeployments(deduplicateDeployments(parsedDuties));
         }
         classifiedData = {
           duties: parsedDuties,
@@ -3387,45 +3557,6 @@ Rules:
             );
           }
 
-          // Auto-deploy classified data for this specific date
-          await rosterAutoClassifierService.autoDeployClassifiedData({
-            ...classifiedData,
-            dateStr: targetDateStr,
-            dayType: targetSchedType,
-            duties: classifiedData.duties,
-          });
-
-          // Save official deployment record in dispatch_deployments
-          try {
-            await executeDeployment({
-              deploymentDate: targetDateStr,
-              dayType: targetSchedType,
-              rosterData: {
-                duties: classifiedData.duties || [],
-                ...cleanConsoleObj,
-                date: targetDateStr,
-                dayType: targetSchedType,
-              },
-              sourceFile:
-                classifiedData.sheetName ||
-                targetSheetName ||
-                file?.name ||
-                "Excel Direct Ingest",
-              user: "CrewController_01",
-              forceReplace: true,
-              metadata: {
-                line: "Green Line",
-                totalDuties: classifiedData.duties?.length || 0,
-                totalTrainCrew: (classifiedData.duties?.length || 0) * 2,
-              },
-            });
-          } catch (depErr) {
-            console.warn(
-              "Auto executeDeployment on sheet load warning:",
-              depErr,
-            );
-          }
-
           setStagedRoster({
             ...classifiedData,
             dateStr: targetDateStr,
@@ -3433,7 +3564,7 @@ Rules:
             dayType: targetSchedType,
             fileName: file?.name || "Roster Sheet",
           });
-          setIsRosterConfirmed(true);
+          setIsRosterConfirmed(false);
           deployedDutiesCount = classifiedData.duties?.length || 0;
         } else {
           const parsedDutiesMap = new Map();
@@ -3529,28 +3660,21 @@ Rules:
           }
           const parsedDuties = Array.from(parsedDutiesMap.values());
           if (parsedDuties.length > 0) {
-            const batch = writeBatch(db);
             const deployScheduleType =
               classifiedData?.dayType ||
               effectiveScheduleType ||
               currentDayType;
-            parsedDuties.forEach((d) => {
-              const docId = `gcc_deploy_${deployScheduleType.toLowerCase()}_duty_${d.dutyId}`;
-              batch.set(
-                doc(db, "crew_daily_deployment", docId),
-                {
-                  scheduleType: deployScheduleType,
-                  dutyId: d.dutyId,
-                  empId: d.empId || "--",
-                  empName: d.empName || "--",
-                  remarks: "CSV/Excel Direct File Ingest",
-                  lastUpdated: serverTimestamp(),
-                },
-                { merge: true },
-              );
-            });
-            await batch.commit();
             deployedDutiesCount = parsedDuties.length;
+            setFallbackDeployments(deduplicateDeployments(parsedDuties));
+            setStagedRoster({
+              duties: parsedDuties,
+              sheetName: targetSheetName || file?.name || "Roster Sheet",
+              dateStr: activeSelectedDateStr,
+              date: activeSelectedDateStr,
+              dayType: deployScheduleType,
+              fileName: file?.name || "Roster Sheet",
+            });
+            setIsRosterConfirmed(false);
           }
         }
       } else {
@@ -3572,26 +3696,24 @@ Rules:
           woCount,
           leaveCount,
           relCount: classifiedData?.relievedOperators?.length || 0,
-          deployedAt: new Date().toLocaleTimeString([], {
+          stagedAt: new Date().toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
           }),
         };
         setDeployedRosterInfo(meta);
-        await setDoc(
-          doc(db, "roster_desk_console", "latest_deployment_meta"),
-          meta,
-          { merge: true },
-        );
         const fileTypeLabel = isJSON
           ? "JSON"
           : isPDF
             ? "PDF (AI-Extracted)"
             : "Excel/CSV";
         alert(
-          `✅ Date Roster Sheet [${fileTypeLabel}] (${extractedSheetName}) Parsed & Deployed!\nDeployed ${deployedDutiesCount} Operators | ${woCount} Weekly Off | ${leaveCount} Leave & Rest.`,
+          `📋 Date Roster Sheet [${fileTypeLabel}] (${extractedSheetName}) Parsed & Staged for ${targetDateStr}!\n\n` +
+          `• Duties Parsed: ${deployedDutiesCount}\n` +
+          `• Weekly Off: ${woCount}\n` +
+          `• Leave & Rest: ${leaveCount}\n\n` +
+          `⚠️ NOT DEPLOYED YET: Roster is staged in preview. Please click the "DEPLOY ROSTER" button in Step 1 to deploy manually.`
         );
-        if (onImportComplete) onImportComplete();
       } else {
         alert(
           `❌ Ingestion failed: No valid roster entries could be extracted from the ${isPDF ? "PDF (check Gemini AI response)" : isJSON ? "JSON" : "Excel/CSV"} file.`,
@@ -4066,7 +4188,15 @@ Rules:
   // Swappable entities combining Mainline Train Duties and all Roster Desk Console columns
   const allSwappableGroups = useMemo(() => {
     const groups = [];
-    const currentList = providedDeployments || fallbackDeployments || [];
+    const currentList =
+      deduplicatedDeployments && deduplicatedDeployments.length > 0
+        ? deduplicatedDeployments
+        : (fallbackDeployments || []).filter((d) => {
+            if (!d) return false;
+            const dDate = d.date || d.targetDate || d.deploymentDate;
+            const normD = dDate ? formatOperationalDate(dDate) : "";
+            return !normD || normD === targetDeploymentDate;
+          });
 
     // 1. Mainline Train Duties
     if (currentList && currentList.length > 0) {
@@ -4199,7 +4329,12 @@ Rules:
     }
 
     return groups;
-  }, [providedDeployments, fallbackDeployments, consoleData]);
+  }, [
+    deduplicatedDeployments,
+    fallbackDeployments,
+    targetDeploymentDate,
+    consoleData,
+  ]);
 
   // Flattened for easy lookup
   const allSwappableEntities = useMemo(() => {
@@ -4284,6 +4419,21 @@ Rules:
         },
         { merge: true },
       );
+
+      const altDate = toIndianDateStr(targetDeploymentDate);
+      if (altDate && altDate !== targetDeploymentDate) {
+        batch.set(
+          doc(db, "dispatch_excel_cache", altDate),
+          {
+            ...(updatedConsole || consoleData || {}),
+            duties: updatedDutyList,
+            dateStr: targetDeploymentDate,
+            dayType: targetDayType,
+            lastUpdated: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
 
       // 3. If today, also mirror to current cache
       const todayStr = formatOperationalDate(new Date());
@@ -4399,12 +4549,14 @@ Rules:
 
         const possibleDocIds = new Set();
         if (targetDeploymentDate) {
-          possibleDocIds.add(
-            `gcc_deploy_${targetDeploymentDate}_duty_${normId}`,
-          );
-          possibleDocIds.add(
-            `gcc_deploy_${targetDeploymentDate}_duty_${paddedId}`,
-          );
+          const isoD = formatOperationalDate(targetDeploymentDate);
+          const indD = toIndianDateStr(targetDeploymentDate);
+          possibleDocIds.add(`gcc_deploy_${isoD}_duty_${normId}`);
+          possibleDocIds.add(`gcc_deploy_${isoD}_duty_${paddedId}`);
+          if (indD && indD !== isoD) {
+            possibleDocIds.add(`gcc_deploy_${indD}_duty_${normId}`);
+            possibleDocIds.add(`gcc_deploy_${indD}_duty_${paddedId}`);
+          }
         }
         const todayIso = formatOperationalDate(new Date());
         if (targetDeploymentDate === todayIso) {
@@ -4458,7 +4610,8 @@ Rules:
         }
 
         if (isExchange) {
-          const todayDateStr = new Date().toISOString().split("T")[0];
+          const activeExchangeDate =
+            targetDeploymentDate || formatOperationalDate(new Date());
           const exRef = doc(collection(db, "shift_exchanges"));
           const exPayload = {
             isTriple: true,
@@ -4471,7 +4624,7 @@ Rules:
             operator3Id: String(item3.empId || ""),
             operator3Name: String(item3.empName || ""),
             operator3Duty: String(item3.dutyId || ""),
-            exchangeDate: todayDateStr,
+            exchangeDate: activeExchangeDate,
             status: "APPROVED",
             isOperational: true,
             approvedBy: "DISPATCH GATEWAY CORE (CC/GCC)",
@@ -4571,7 +4724,8 @@ Rules:
 
         // 5. If Duty Exchange, also record to shift_exchanges & shift_exchanges_operational
         if (isExchange) {
-          const todayDateStr = new Date().toISOString().split("T")[0];
+          const activeExchangeDate =
+            targetDeploymentDate || formatOperationalDate(new Date());
           const exRef = doc(collection(db, "shift_exchanges"));
           const exPayload = {
             operator1Id: String(item1.empId || ""),
@@ -4580,7 +4734,7 @@ Rules:
             operator2Id: String(item2.empId || ""),
             operator2Name: String(item2.empName || ""),
             operator2Duty: String(item2.dutyId || ""),
-            exchangeDate: todayDateStr,
+            exchangeDate: activeExchangeDate,
             status: "APPROVED",
             isOperational: true,
             approvedBy: "DISPATCH GATEWAY CORE (CC/GCC)",
@@ -4632,7 +4786,8 @@ Rules:
       if (updatedConsole) {
         newConsoleData.lastUpdated = serverTimestamp();
         const activeDateStr =
-          targetDeploymentDate || new Date().toISOString().split("T")[0];
+          targetDeploymentDate || formatOperationalDate(new Date());
+        const altActiveDateStr = toIndianDateStr(activeDateStr);
         const isCurrentDay =
           activeDateStr === formatOperationalDate(new Date());
 
@@ -4641,6 +4796,13 @@ Rules:
           newConsoleData,
           { merge: true },
         );
+        if (altActiveDateStr && altActiveDateStr !== activeDateStr) {
+          batch.set(
+            doc(db, "dispatch_excel_cache", altActiveDateStr),
+            newConsoleData,
+            { merge: true },
+          );
+        }
 
         if (isCurrentDay) {
           batch.set(doc(db, "roster_desk_console", "current"), newConsoleData, {
@@ -8150,7 +8312,6 @@ Rules:
                     <option value="MONDAY">MONDAY</option>
                     <option value="SATURDAY_GH">SATURDAY_GH</option>
                     <option value="SUNDAY">SUNDAY</option>
-                    <option value="SUNDAY_MONDAY">SUNDAY_MONDAY</option>
                   </select>
                 </div>
 
@@ -8501,7 +8662,7 @@ Rules:
               </div>
             </div>
 
-            {/* ── Step 3 — INSPECT & DEPLOY ── */}
+            {/* ── Step 3 — INSPECT & STAGE ROSTER (PREVIEW) ── */}
             {(() => {
               const canInspect = !!selectedRosterFile && !isInspectingPath;
               const d = activeSelectedDayObj;
@@ -8538,7 +8699,7 @@ Rules:
                     title={
                       !selectedRosterFile
                         ? "Select a roster file first (Step 2)"
-                        : `Inspect & deploy roster for ${d.displayLabel}`
+                        : `Inspect & stage roster preview for ${d.displayLabel}. Click DEPLOY ROSTER in Step 1 to deploy.`
                     }
                     className={`flex-1 bg-linear-to-r ${grad} text-slate-950 font-black text-xs px-6 py-3.5 rounded-xl shadow-md flex items-center justify-center gap-2.5 uppercase tracking-wider transition-all ${
                       canInspect
@@ -8554,7 +8715,7 @@ Rules:
                     <span className="text-sm">
                       {isInspectingPath
                         ? `Inspecting ${d.badge} Roster…`
-                        : `INSPECT & DEPLOY — ${dayLabel} (${displayType})`}
+                        : `INSPECT & STAGE ROSTER — ${dayLabel} (${displayType})`}
                     </span>
                   </button>
                   {!selectedRosterFile && (
@@ -8576,7 +8737,7 @@ Rules:
                       {detectedWorkbookSheets.length}):
                     </span>
                     <span className="hidden sm:inline">
-                      Click sheet to parse &amp; deploy day-wise
+                      Click sheet to parse &amp; stage day-wise
                     </span>
                   </div>
                   <button
@@ -8585,20 +8746,20 @@ Rules:
                       if (!selectedRosterFile || !activeWorkbook) return;
                       setIsDeployingGateway(true);
                       try {
-                        let totalDeployed = 0;
+                        let totalStaged = 0;
                         for (const sh of detectedWorkbookSheets) {
                           await processFileAndDeploy(
                             selectedRosterFile,
                             sh.sheetName,
                             sh.dateStr ? new Date(sh.dateStr) : null,
                           );
-                          totalDeployed++;
+                          totalStaged++;
                         }
                         alert(
-                          `✅ Successfully deployed all ${totalDeployed} sheets! Each date has been independently saved and isolated.`,
+                          `📋 All ${totalStaged} sheets parsed & staged in memory! Review duties below, then click "DEPLOY ROSTER" in Step 1 to deploy manually.`,
                         );
                       } catch (err) {
-                        alert("Error deploying all sheets: " + err.message);
+                        alert("Error inspecting sheets: " + err.message);
                       } finally {
                         setIsDeployingGateway(false);
                       }
@@ -8606,7 +8767,7 @@ Rules:
                     disabled={isDeployingGateway}
                     className="px-2.5 py-1 rounded bg-linear-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-slate-950 font-black text-[10px] uppercase tracking-wider transition shadow cursor-pointer disabled:opacity-50"
                   >
-                    ⚡ Deploy All {detectedWorkbookSheets.length} Sheets
+                    ⚡ Stage All {detectedWorkbookSheets.length} Sheets
                     (Independent Dates)
                   </button>
                 </div>
@@ -13157,6 +13318,79 @@ Rules:
               >
                 ✕
               </button>
+            </div>
+
+            {/* Target Date Selector Ribbon & Indicator */}
+            <div className="bg-slate-950/90 border border-amber-500/30 rounded-lg p-3 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2 text-xs font-mono">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-amber-400 shrink-0" />
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block">
+                      Active Operational Date for Swap / Exchange:
+                    </span>
+                    <span className="text-amber-300 font-black text-sm">
+                      {toIndianDateStr(targetDeploymentDate)} ({targetDeploymentDate})
+                    </span>
+                    <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">
+                      {targetDayType}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                  <label htmlFor="modal-date-picker" className="text-[10px] text-slate-400 font-bold uppercase">
+                    Select Date:
+                  </label>
+                  <input
+                    id="modal-date-picker"
+                    type="date"
+                    value={targetDeploymentDate}
+                    onChange={(e) => onDateSelectionChanged(e.target.value)}
+                    className="bg-slate-900 text-amber-300 border border-slate-700 focus:border-amber-500 rounded px-2 py-1 text-xs font-mono font-bold outline-none cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* Quick Rolling Day Pills */}
+              <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pt-0.5">
+                {rollingDays.map((d) => {
+                  const isCurrent = d.dateStr === targetDeploymentDate;
+                  return (
+                    <button
+                      key={d.dateStr}
+                      type="button"
+                      onClick={() => onDateSelectionChanged(d.dateStr)}
+                      className={`px-2 py-1 rounded text-[10px] font-mono font-bold transition whitespace-nowrap cursor-pointer flex items-center gap-1 ${
+                        isCurrent
+                          ? "bg-amber-500 text-slate-950 shadow font-black"
+                          : "bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800"
+                      }`}
+                    >
+                      <span>{d.chipLabel}</span>
+                      {isCurrent && <CheckCircle className="h-2.5 w-2.5" />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Notice if no entities available */}
+              {allSwappableEntities.length === 0 ? (
+                <div className="flex items-center gap-2 p-2 rounded bg-amber-950/40 border border-amber-600/40 text-[11px] text-amber-300 font-mono">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-400 animate-pulse" />
+                  <span>
+                    No duties or console staff deployed yet for <strong>{toIndianDateStr(targetDeploymentDate)}</strong>. Upload or deploy a roster for this date in Step 1, or select another date above.
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                  <span className="text-emerald-400 font-bold flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3" />
+                    {allSwappableEntities.length} swappable duties & console positions available for {toIndianDateStr(targetDeploymentDate)}
+                  </span>
+                  <span>{allSwappableGroups.length} categories loaded</span>
+                </div>
+              )}
             </div>
 
             {/* Mode Switcher: 2-OPERATOR PAIR vs 3-OPERATOR TRIPLE */}

@@ -105,17 +105,26 @@ async function safeGetDocs(colRef, customDb) {
 
 /**
  * Normalizes date to YYYY-MM-DD in Asia/Kolkata timezone
+ * Properly handles YYYY-MM-DD, DD-MM-YYYY, DD/MM/YYYY, DD.MM.YYYY, and Date objects
  */
 export function formatOperationalDate(dateInput) {
   if (!dateInput) {
     const d = new Date();
     return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   }
-  if (
-    typeof dateInput === "string" &&
-    /^\d{4}-\d{2}-\d{2}$/.test(dateInput.trim())
-  ) {
-    return dateInput.trim();
+  if (typeof dateInput === "string") {
+    const trimmed = dateInput.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+    // Handle DD-MM-YYYY, DD/MM/YYYY, DD.MM.YYYY
+    const ddmmyyyyMatch = trimmed.match(/^(\d{1,2})[-/. ](\d{1,2})[-/. ](\d{4})$/);
+    if (ddmmyyyyMatch) {
+      const day = ddmmyyyyMatch[1].padStart(2, "0");
+      const month = ddmmyyyyMatch[2].padStart(2, "0");
+      const year = ddmmyyyyMatch[3];
+      return `${year}-${month}-${day}`;
+    }
   }
   const d = new Date(dateInput);
   if (isNaN(d.getTime())) {
@@ -123,6 +132,19 @@ export function formatOperationalDate(dateInput) {
   }
   return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); // Canadian format gives YYYY-MM-DD reliably
 }
+
+/**
+ * Converts date to DD-MM-YYYY format (BMRCL standard)
+ */
+export function toIndianDateStr(dateInput) {
+  const iso = formatOperationalDate(dateInput);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const [y, m, d] = iso.split("-");
+    return `${d}-${m}-${y}`;
+  }
+  return iso;
+}
+
 
 /**
  * Automatically computes BMRCL day type based on calendar date rules

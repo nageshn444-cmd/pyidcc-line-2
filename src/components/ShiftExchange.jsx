@@ -11,6 +11,7 @@ import { normalizeCanonicalEmpId, OFFICIAL_PYID_ACTIVE_IDS } from '../utils/crew
 import { getCanonicalStaffName } from './dutyGenerator/CCWillingDeskModal';
 import { useAuth } from '../context/AuthContext';
 import { rosterService, swapOperatorsInConsoleData, rotateTripleOperatorsInConsoleData } from '../services/RosterService';
+import { formatOperationalDate, toIndianDateStr } from '../services/deploymentService';
 
 // Normalize duty ID: pad single digits to match Firestore doc ID format "01"
 const normalizeDutyId = (raw) => {
@@ -168,6 +169,41 @@ export default function ShiftExchange() {
       unsubDeploy();
     };
   }, []);
+
+  // 1b. Real-time sync for target exchangeDate when selected
+  useEffect(() => {
+    if (!formData.exchangeDate) return;
+    const normDate = formatOperationalDate(formData.exchangeDate);
+    const altDate = toIndianDateStr(normDate);
+
+    const loadDateData = (d) => {
+      if (!d) return;
+      setConsoleData(prev => ({ ...prev, ...d }));
+      if (Array.isArray(d.duties) && d.duties.length > 0) {
+        setDeployments(d.duties);
+      }
+    };
+
+    const unsubCacheTarget = onSnapshot(doc(db, "dispatch_excel_cache", normDate), (docSnap) => {
+      if (docSnap.exists()) {
+        loadDateData(docSnap.data());
+      }
+    });
+
+    let unsubCacheAlt = null;
+    if (altDate && altDate !== normDate) {
+      unsubCacheAlt = onSnapshot(doc(db, "dispatch_excel_cache", altDate), (docSnap) => {
+        if (docSnap.exists()) {
+          loadDateData(docSnap.data());
+        }
+      });
+    }
+
+    return () => {
+      unsubCacheTarget();
+      if (unsubCacheAlt) unsubCacheAlt();
+    };
+  }, [formData.exchangeDate]);
 
   // 2. Real-time sync with Active Crew & Maternity Console (crewRegistry) and JMD TD Console (jmd_crew_registry)
   useEffect(() => {
