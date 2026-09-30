@@ -546,7 +546,7 @@ export function findDutyAndTripFromRoster(dayType = DAY_TYPES.WEEKDAY, trainId, 
 // DISPATCH GATEWAY CORE & ROSTER DESK CONSOLE RELIEF RESOLVER
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function lookupDeployedOperatorFromCore(deployments = [], crewRegistry = [], dutyNo, dayType = DAY_TYPES.WEEKDAY) {
+export function lookupDeployedOperatorFromCore(deployments = [], crewRegistry = [], dutyNo, dayType = DAY_TYPES.WEEKDAY, options = {}) {
   const normDuty = normalizeDutyId(dutyNo);
   const unnormDuty = String(parseInt(dutyNo, 10));
   const activeCandidatePool = getActiveLine2CandidateRoster();
@@ -557,15 +557,35 @@ export function lookupDeployedOperatorFromCore(deployments = [], crewRegistry = 
     return dId === normDuty || dId === unnormDuty || dId === dutyNo;
   });
 
+  const strictDutyResolution = Boolean(options?.strict);
   let empId = deployed?.empId;
   let empName = deployed?.empName;
   let status = deployed?.status || 'ON_DUTY';
 
-  // 2. Validate against Active Candidate Roster (BMRCL Regular TOs + JMD Contract TDs)
+  // Validate against the active Line-2 driving roster.
+  // The safety-critical swap analysis must never invent an operator when a live
+  // duty deployment is missing or points to a non-driving/unknown person.
   const candidate = activeCandidatePool.find(c => String(c.empId) === String(empId));
 
+  if (strictDutyResolution && (!deployed || !empId || empId === '--' || empId === 'UNASSIGNED' || !candidate)) {
+    return {
+      empId: `UNRESOLVED_DUTY_${normDuty}`,
+      empName: `Unresolved Duty ${normDuty}`,
+      designation: 'Train Operator — deployment unresolved',
+      cadre: 'UNRESOLVED',
+      dutyId: normDuty,
+      isOnDuty: false,
+      isResolved: false,
+      dataQualityIssue: `No verified active Line-2 deployment was found for Duty ${normDuty}. The engine will not substitute another operator.`,
+      status: deployed?.status || 'UNRESOLVED',
+      currentLocation: deployed?.location || null,
+      restDuration: null
+    };
+  }
+
   if (!candidate && (!empId || empId === '--' || empId === 'UNASSIGNED')) {
-    // Select from active candidate roster safely
+    // Legacy/non-strict callers may still request a best-effort lookup. This path
+    // is intentionally unavailable to analyzeTrainSwap().
     const fallbackOp = activeCandidatePool.find(c => !c.isMaternity);
     if (fallbackOp) {
       empId = fallbackOp.empId;
@@ -585,6 +605,7 @@ export function lookupDeployedOperatorFromCore(deployments = [], crewRegistry = 
     cadre: profile.cadre || 'BMRCL Regular TO',
     dutyId: normDuty,
     isOnDuty: status !== 'ABSENT' && status !== 'NOT_REPORTING' && status !== 'OFF_DUTY',
+    isResolved: true,
     status,
     isJmd: Boolean(profile.isJmd),
     crtValidTill: profile.crtValidTill || '2027-06-30',
@@ -608,12 +629,13 @@ export function findDispatchCoreReliefPool(
   crewRegistry = [], 
   dayType = DAY_TYPES.WEEKDAY, 
   targetTimeSecs = null,
-  swapLocation = 'PYID'
+  swapLocation = 'PYID',
+  excludedEmpIds = []
 ) {
   const normDay = resolveActiveDayType(dayType);
   const activeCandidates = getActiveLine2CandidateRoster();
   const activeCandidatesMap = new Map(activeCandidates.map(c => [String(c.empId), c]));
-  const seenEmpIds = new Set();
+  const seenEmpIds = new Set((Array.isArray(excludedEmpIds) ? excludedEmpIds : []).map(id => String(id)));
   const candidates = [];
 
   const consoleData = getPeenyaDepotRosterDeskConsoleData();
@@ -767,37 +789,10 @@ export function findDispatchCoreReliefPool(
     }
   });
 
-  // 5. IF NO RESERVES IN ROSTER DESK, POPULATE CANONICAL ACTIVE TO RESERVES
-  if (candidates.length < 3) {
-    const backupActiveTOs = activeCandidates.filter(c => !c.isMaternity && !seenEmpIds.has(c.empId)).slice(0, 6);
-    backupActiveTOs.forEach((c, idx) => {
-      const isOR = idx < 2;
-      const isStby = idx >= 2 && idx < 4;
-      const roleName = isOR ? `OR-${idx + 1} Out Reliever` : isStby ? 'Rd-3 Standby Reserve' : 'PRO-1 Pilot Reliever';
-      const tier = isOR ? 'OR' : isStby ? 'STANDBY' : 'PRO';
-
-      candidates.push({
-        empId: c.empId,
-        empName: c.name,
-        designation: c.designation,
-        cadre: c.cadre,
-        dutyId: isOR ? `OR${idx + 1}` : isStby ? 'STBY1' : 'PRO1',
-        reliefRole: roleName,
-        poolTier: tier,
-        isOnDuty: true,
-        status: 'ON_DUTY',
-        crtValidTill: c.crtValidTill,
-        medicalValidTill: c.medicalValidTill,
-        pdcValidTill: c.pdcValidTill,
-        depotCompetency: true,
-        soloCertified: true,
-        currentLocation: idx % 2 === 0 ? 'PYID' : 'KGWA',
-        restDuration: 13.0,
-        source: 'ACTIVE_CANDIDATE_ROSTER_LINE2'
-      });
-    });
-  }
-
+  // 5. Never invent a reserve from the general active-crew master.
+  // An active TO is not automatically a verified relief operator. If the Roster Desk
+  // or Dispatch Core has no @OR/@Standby/@STBK/@PRO reserve, return an empty verified
+  // relief pool and require controller verification.
   // 6. Score & Rank Relief Candidates
   return candidates.map(c => {
     const score = scoreReliefCandidate(c, swapLocation, targetTimeSecs || 38400);
@@ -1013,8 +1008,8 @@ export async function analyzeTrainSwap({
   const dutyLinkA = findDutyAndTripFromRoster(normDay, trainAId, actualEtaASecs);
   const dutyLinkB = findDutyAndTripFromRoster(normDay, trainBId, actualEtaBSecs);
 
-  const opA = lookupDeployedOperatorFromCore(deployments, crewRegistry, dutyLinkA?.dutyNo || '07', normDay);
-  const opB = lookupDeployedOperatorFromCore(deployments, crewRegistry, dutyLinkB?.dutyNo || '12', normDay);
+  const opA = lookupDeployedOperatorFromCore(deployments, crewRegistry, dutyLinkA?.dutyNo || '07', normDay, { strict: true });
+  const opB = lookupDeployedOperatorFromCore(deployments, crewRegistry, dutyLinkB?.dutyNo || '12', normDay, { strict: true });
 
   opA.signOnTime = dutyLinkA?.sOnTime || '06:00:00';
   opA.expectedSignOff = dutyLinkA?.sOffTime || '14:00:00';
@@ -1076,7 +1071,45 @@ export async function analyzeTrainSwap({
   });
 
   // 7. ROSTER DESK CONSOLE RELIEF WATERFALL POOL (OR -> Standby -> STBK -> PRO)
-  const reliefPool = findDispatchCoreReliefPool(deployments, crewRegistry, normDay, actualEtaASecs, swapLocation);
+  const reliefPool = findDispatchCoreReliefPool(deployments, crewRegistry, normDay, actualEtaASecs, swapLocation, [opA.empId, opB.empId]);
+  const operatorAssignmentsResolved = Boolean(opA.isResolved && opB.isResolved);
+  const sameCurrentOperator = operatorAssignmentsResolved &&
+    opA.empId && opB.empId && String(opA.empId) === String(opB.empId);
+
+  // A Train ID swap changes the ID assigned to the physical rakes; it must never result
+  // in one operator being simultaneously assigned to both trains. When the live roster
+  // has a duplicate operator assignment, use the explicit service/depot intent to decide
+  // which side may retain the operator and require a verified reserve for the continuing
+  // passenger-service side. If no verified reserve exists, block execution.
+  let duplicateOperatorResolution = null;
+  if (sameCurrentOperator) {
+    if (intentA === TRAIN_INTENT_TYPES.CONTINUE_SERVICE && intentB === TRAIN_INTENT_TYPES.DEPOT) {
+      duplicateOperatorResolution = {
+        reliefTrainId: trainAId,
+        retainedTrainId: trainBId,
+        retainedOperator: opB,
+        reason: 'Duplicate live deployment detected; depot-bound duty retained and continuing-service train requires verified relief.'
+      };
+    } else if (intentB === TRAIN_INTENT_TYPES.CONTINUE_SERVICE && intentA === TRAIN_INTENT_TYPES.DEPOT) {
+      duplicateOperatorResolution = {
+        reliefTrainId: trainBId,
+        retainedTrainId: trainAId,
+        retainedOperator: opA,
+        reason: 'Duplicate live deployment detected; depot-bound duty retained and continuing-service train requires verified relief.'
+      };
+    } else {
+      hardRuleViolations.push(
+        `ROSTER COLLISION: Operator #${opA.empId} (${opA.empName}) is assigned to both Train ${trainAId} Duty ${opA.dutyId} and Train ${trainBId} Duty ${opB.dutyId}. Direct swap cannot be auto-committed.`
+      );
+    }
+  }
+
+  if (!operatorAssignmentsResolved) {
+    [opA, opB].filter(op => !op.isResolved).forEach(op => {
+      hardRuleViolations.push(op.dataQualityIssue || `Unable to verify deployment for Duty ${op.dutyId}.`);
+    });
+  }
+
   reliefPool.forEach(c => {
     candidateEvaluations.push({
       operatorId: c.empId,
@@ -1151,7 +1184,52 @@ export async function analyzeTrainSwap({
   const opAOverstayRisk = intentB === TRAIN_INTENT_TYPES.CONTINUE_SERVICE && opARemainingDutySecs < 5400;
   const isDepotSynergy = (intentB === TRAIN_INTENT_TYPES.DEPOT && String(dutyLinkA?.signOffLocation || '').includes('PYID'));
 
-  if (hardRuleViolations.length > 0) {
+  if (duplicateOperatorResolution) {
+    const relief = reliefPool[0] || null;
+    if (!relief) {
+      finalDecision = SWAP_DECISION_TYPES.SWAP_BLOCKED_BY_SAFETY_RULE;
+      reliefRequired = true;
+      reliefType = 'NO_VERIFIED_RELIEF';
+      explanation = `ROSTER COLLISION: the live roster assigns Operator ${opA.empName} (#${opA.empId}) to both Train ${trainAId} and Train ${trainBId}. Continuing-service Train ${duplicateOperatorResolution.reliefTrainId} has no verified reserve available at ${swapLocation}; controller verification is required before execution.`;
+      hardRuleViolations.push('NO_VERIFIED_RELIEF_AVAILABLE');
+      operatorActions.push({
+        trainId: duplicateOperatorResolution.reliefTrainId,
+        action: 'HOLD_FOR_VERIFIED_RELIEF',
+        operatorName: 'NO VERIFIED RELIEF',
+        reason: 'Do not auto-assign a normal active TO as a reserve.'
+      });
+      operatorActions.push({
+        trainId: duplicateOperatorResolution.retainedTrainId,
+        action: 'RETAIN_CURRENT_OPERATOR',
+        operatorName: duplicateOperatorResolution.retainedOperator.empName,
+        empId: duplicateOperatorResolution.retainedOperator.empId,
+        originDuty: duplicateOperatorResolution.retainedOperator.dutyId,
+        reason: 'Depot-bound side retained while the duplicate duty assignment is corrected.'
+      });
+    } else {
+      finalDecision = SWAP_DECISION_TYPES.SWAP_APPROVED_WITH_RELIEF;
+      reliefRequired = true;
+      reliefType = relief.poolTier || 'OR';
+      reliefOperator = relief;
+      explanation = `TRAIN ID SWAP WITH RELIEF: Train ${firstTrain.trainId} arrives ${firstTrain.timeStr}; Train ${secondTrain.trainId} arrives ${secondTrain.timeStr} at ${stationMeta.name}. The live roster contains a duplicate operator assignment, so ${relief.empName} (${relief.reliefRole || relief.cadre}) is assigned to continuing-service Train ${duplicateOperatorResolution.reliefTrainId}. Operator ${duplicateOperatorResolution.retainedOperator.empName} (Duty ${duplicateOperatorResolution.retainedOperator.dutyId}) remains with Train ${duplicateOperatorResolution.retainedTrainId} for the depot movement.`;
+      operatorActions.push({
+        trainId: duplicateOperatorResolution.reliefTrainId,
+        action: 'ASSIGN_RELIEF',
+        operatorName: relief.empName,
+        empId: relief.empId,
+        dutyNo: relief.dutyId,
+        reason: 'Verified Roster Desk reserve assigned because the same live operator was present on both source duties.'
+      });
+      operatorActions.push({
+        trainId: duplicateOperatorResolution.retainedTrainId,
+        action: 'RETAIN_CURRENT_OPERATOR',
+        operatorName: duplicateOperatorResolution.retainedOperator.empName,
+        empId: duplicateOperatorResolution.retainedOperator.empId,
+        originDuty: duplicateOperatorResolution.retainedOperator.dutyId,
+        reason: 'Depot-bound movement retained on the source duty.'
+      });
+    }
+  } else if (hardRuleViolations.length > 0) {
     finalDecision = SWAP_DECISION_TYPES.SWAP_BLOCKED_BY_SAFETY_RULE;
     reliefRequired = true;
     reliefType = 'EMERGENCY_STANDBY';
