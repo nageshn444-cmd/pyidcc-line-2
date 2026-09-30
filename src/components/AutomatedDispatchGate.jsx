@@ -2001,8 +2001,7 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
               coOperators: depData.rosterData.coOperators || [],
               leaves: depData.rosterData.leaves || [],
               standbys: depData.rosterData.standbys || [],
-              outstationStepbacks:
-                depData.rosterData.outstationStepbacks || [],
+              outstationStepbacks: depData.rosterData.outstationStepbacks || [],
               crtTraining: depData.rosterData.crtTraining || [],
               bmrtiTraining: depData.rosterData.bmrtiTraining || [],
               weeklyOffs: depData.rosterData.weeklyOffs || [],
@@ -2016,7 +2015,10 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
               customRegisters: depData.rosterData.customRegisters || {},
             }),
           );
-          if (Array.isArray(depData.rosterData.duties) && depData.rosterData.duties.length > 0) {
+          if (
+            Array.isArray(depData.rosterData.duties) &&
+            depData.rosterData.duties.length > 0
+          ) {
             setFallbackDeployments(
               deduplicateDeployments(
                 depData.rosterData.duties.map((d) => ({
@@ -2255,9 +2257,13 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
       );
       const indDate = toIndianDateStr(targetDeploymentDate);
       if (indDate && indDate !== targetDeploymentDate) {
-        await setDoc(doc(db, "dispatch_excel_cache", indDate), consoleSnapshot, {
-          merge: true,
-        });
+        await setDoc(
+          doc(db, "dispatch_excel_cache", indDate),
+          consoleSnapshot,
+          {
+            merge: true,
+          },
+        );
       }
       await setDoc(
         doc(db, "dispatch_excel_cache", "current"),
@@ -2374,7 +2380,7 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
           data.sheetName &&
           Array.isArray(data.duties) &&
           data.duties.length > 0 &&
-          !data.isPartialUpdate
+          !data.isPartialUpdate,
         );
 
         const rawNext = {
@@ -2384,9 +2390,7 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
           coOperators: Array.isArray(data.coOperators)
             ? data.coOperators
             : prev.coOperators || [],
-          leaves: Array.isArray(data.leaves)
-            ? data.leaves
-            : prev.leaves || [],
+          leaves: Array.isArray(data.leaves) ? data.leaves : prev.leaves || [],
           standbys: Array.isArray(data.standbys)
             ? data.standbys
             : prev.standbys || [],
@@ -2422,9 +2426,7 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
           bookedOff: Array.isArray(data.bookedOff)
             ? data.bookedOff
             : prev.bookedOff || [],
-          onDuty: Array.isArray(data.onDuty)
-            ? data.onDuty
-            : prev.onDuty || [],
+          onDuty: Array.isArray(data.onDuty) ? data.onDuty : prev.onDuty || [],
           customRegisters:
             data.customRegisters && typeof data.customRegisters === "object"
               ? data.customRegisters
@@ -2549,7 +2551,10 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
         setCurrentDeploymentRecord((prev) => {
           if (!prev) {
             return {
-              deploymentId: getDeploymentId(targetDeploymentDate, targetDayType),
+              deploymentId: getDeploymentId(
+                targetDeploymentDate,
+                targetDayType,
+              ),
               deploymentDate: targetDeploymentDate,
               dayType: targetDayType,
               rosterData: {
@@ -3703,10 +3708,10 @@ Rules:
             : "Excel/CSV";
         alert(
           `📋 Date Roster Sheet [${fileTypeLabel}] (${extractedSheetName}) Parsed & Staged for ${targetDateStr}!\n\n` +
-          `• Duties Parsed: ${deployedDutiesCount}\n` +
-          `• Weekly Off: ${woCount}\n` +
-          `• Leave & Rest: ${leaveCount}\n\n` +
-          `⚠️ NOT DEPLOYED YET: Roster is staged in preview. Please click the "DEPLOY ROSTER" button in Step 1 to deploy manually.`
+            `• Duties Parsed: ${deployedDutiesCount}\n` +
+            `• Weekly Off: ${woCount}\n` +
+            `• Leave & Rest: ${leaveCount}\n\n` +
+            `⚠️ NOT DEPLOYED YET: Roster is staged in preview. Please click the "DEPLOY ROSTER" button in Step 1 to deploy manually.`,
         );
       } else {
         alert(
@@ -4373,25 +4378,32 @@ Rules:
   }, [allSwappableGroups, swapSearchQuery]);
 
   // ── Universal Date-Isolated Mutation Persister ──
-  const persistDutyMutation = async (updatedDutyList, updatedConsole, affectedDutyIds = null) => {
+  const persistDutyMutation = async (
+    updatedDutyList,
+    updatedConsole,
+    affectedDutyIds = null,
+  ) => {
     if (!targetDeploymentDate) return;
     try {
       // 0. Safety Guard: Prevent clearing already deployed roster data
-      const existingDuties = (
-        currentDeploymentRecord?.rosterData?.duties?.length
+      const existingDuties =
+        (currentDeploymentRecord?.rosterData?.duties?.length
           ? currentDeploymentRecord.rosterData.duties
           : deduplicatedDeployments?.length
             ? deduplicatedDeployments
-            : fallbackDeployments
-      ) || [];
+            : fallbackDeployments) || [];
 
       let finalDutyList = updatedDutyList;
       if (!Array.isArray(finalDutyList) || finalDutyList.length === 0) {
         if (existingDuties.length > 0) {
-          console.warn("Safety guard: protected deployed roster against clearing. Retaining existing duties.");
+          console.warn(
+            "Safety guard: protected deployed roster against clearing. Retaining existing duties.",
+          );
           finalDutyList = existingDuties;
         } else {
-          console.warn("Safety guard: no duties found to mutate. Aborting mutation.");
+          console.warn(
+            "Safety guard: no duties found to mutate. Aborting mutation.",
+          );
           return;
         }
       }
@@ -4406,12 +4418,25 @@ Rules:
         ...existingRosterData,
         ...mergedConsole,
         // Ensure auxiliary arrays are preserved if missing from partial console update
-        controlDesks: mergedConsole.controlDesks?.length ? mergedConsole.controlDesks : (existingRosterData.controlDesks || consoleData.controlDesks || []),
-        coOperators: mergedConsole.coOperators?.length ? mergedConsole.coOperators : (existingRosterData.coOperators || consoleData.coOperators || []),
-        leaves: mergedConsole.leaves?.length ? mergedConsole.leaves : (existingRosterData.leaves || consoleData.leaves || []),
-        standbys: mergedConsole.standbys?.length ? mergedConsole.standbys : (existingRosterData.standbys || consoleData.standbys || []),
-        weeklyOffs: mergedConsole.weeklyOffs?.length ? mergedConsole.weeklyOffs : (existingRosterData.weeklyOffs || consoleData.weeklyOffs || []),
-        bookedOff: mergedConsole.bookedOff !== undefined ? mergedConsole.bookedOff : (existingRosterData.bookedOff || consoleData.bookedOff || []),
+        controlDesks: mergedConsole.controlDesks?.length
+          ? mergedConsole.controlDesks
+          : existingRosterData.controlDesks || consoleData.controlDesks || [],
+        coOperators: mergedConsole.coOperators?.length
+          ? mergedConsole.coOperators
+          : existingRosterData.coOperators || consoleData.coOperators || [],
+        leaves: mergedConsole.leaves?.length
+          ? mergedConsole.leaves
+          : existingRosterData.leaves || consoleData.leaves || [],
+        standbys: mergedConsole.standbys?.length
+          ? mergedConsole.standbys
+          : existingRosterData.standbys || consoleData.standbys || [],
+        weeklyOffs: mergedConsole.weeklyOffs?.length
+          ? mergedConsole.weeklyOffs
+          : existingRosterData.weeklyOffs || consoleData.weeklyOffs || [],
+        bookedOff:
+          mergedConsole.bookedOff !== undefined
+            ? mergedConsole.bookedOff
+            : existingRosterData.bookedOff || consoleData.bookedOff || [],
         duties: finalDutyList,
         date: targetDeploymentDate,
         dateStr: targetDeploymentDate,
@@ -4486,30 +4511,22 @@ Rules:
       );
 
       if (altDate && altDate !== targetDeploymentDate) {
-        batch.set(
-          doc(db, "dispatch_excel_cache", altDate),
-          cachePayload,
-          { merge: true },
-        );
+        batch.set(doc(db, "dispatch_excel_cache", altDate), cachePayload, {
+          merge: true,
+        });
       }
 
       // 3. ONLY update today's live desk console if targetDeploymentDate is today
       if (isToday) {
-        batch.set(
-          doc(db, "roster_desk_console", "current"),
-          cachePayload,
-          { merge: true },
-        );
-        batch.set(
-          doc(db, "roster_desk_console", "latest"),
-          cachePayload,
-          { merge: true },
-        );
-        batch.set(
-          doc(db, "dispatch_excel_cache", "current"),
-          cachePayload,
-          { merge: true },
-        );
+        batch.set(doc(db, "roster_desk_console", "current"), cachePayload, {
+          merge: true,
+        });
+        batch.set(doc(db, "roster_desk_console", "latest"), cachePayload, {
+          merge: true,
+        });
+        batch.set(doc(db, "dispatch_excel_cache", "current"), cachePayload, {
+          merge: true,
+        });
       }
 
       // Touch latest_deployment_meta to wake up listening client devices
@@ -4518,7 +4535,11 @@ Rules:
         {
           dateStr: targetDeploymentDate,
           lastMutation: serverTimestamp(),
-          lastUpdated: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+          lastUpdated: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }),
         },
         { merge: true },
       );
@@ -4549,7 +4570,9 @@ Rules:
       });
 
       if (dutiesToMirror.length > 0) {
-        const sched = normalizeScheduleType(targetDayType || currentDayType).toLowerCase();
+        const sched = normalizeScheduleType(
+          targetDayType || currentDayType,
+        ).toLowerCase();
         dutiesToMirror.forEach((d) => {
           const rawDId = String(d.dutyId).trim();
           const normDId = String(parseInt(rawDId, 10) || rawDId).trim();
@@ -4571,7 +4594,13 @@ Rules:
             isExchanged: Boolean(d.isExchanged),
             swappedWith: d.swappedWith || null,
             swappedDutyId: d.swappedDutyId || null,
-            remarks: d.remarks || (d.isSwapped ? "Swapped by CC" : d.isExchanged ? "Shift Exchanged" : "ACTIVE"),
+            remarks:
+              d.remarks ||
+              (d.isSwapped
+                ? "Swapped by CC"
+                : d.isExchanged
+                  ? "Shift Exchanged"
+                  : "ACTIVE"),
             scheduleType: targetDayType,
             date: targetDeploymentDate,
             deploymentDate: targetDeploymentDate,
@@ -4579,26 +4608,42 @@ Rules:
           };
 
           batch.set(
-            doc(db, "crew_daily_deployment", `gcc_deploy_${targetDeploymentDate}_duty_${rawDId}`),
+            doc(
+              db,
+              "crew_daily_deployment",
+              `gcc_deploy_${targetDeploymentDate}_duty_${rawDId}`,
+            ),
             dutyPayload,
             { merge: true },
           );
           if (paddedDId && paddedDId !== rawDId) {
             batch.set(
-              doc(db, "crew_daily_deployment", `gcc_deploy_${targetDeploymentDate}_duty_${paddedDId}`),
+              doc(
+                db,
+                "crew_daily_deployment",
+                `gcc_deploy_${targetDeploymentDate}_duty_${paddedDId}`,
+              ),
               dutyPayload,
               { merge: true },
             );
           }
           if (isToday) {
             batch.set(
-              doc(db, "crew_daily_deployment", `gcc_deploy_${sched}_duty_${rawDId}`),
+              doc(
+                db,
+                "crew_daily_deployment",
+                `gcc_deploy_${sched}_duty_${rawDId}`,
+              ),
               dutyPayload,
               { merge: true },
             );
             if (paddedDId && paddedDId !== rawDId) {
               batch.set(
-                doc(db, "crew_daily_deployment", `gcc_deploy_${sched}_duty_${paddedDId}`),
+                doc(
+                  db,
+                  "crew_daily_deployment",
+                  `gcc_deploy_${sched}_duty_${paddedDId}`,
+                ),
                 dutyPayload,
                 { merge: true },
               );
@@ -4990,18 +5035,18 @@ Rules:
       await batch.commit();
 
       // Persist swapped duties into date-specific dispatch_deployments record with safety fallback
-      const baseDuties = (
-        deduplicatedDeployments?.length
-          ? deduplicatedDeployments
-          : currentDeploymentRecord?.rosterData?.duties?.length
-            ? currentDeploymentRecord.rosterData.duties
-            : fallbackDeployments?.length
-              ? fallbackDeployments
-              : []
-      );
+      const baseDuties = deduplicatedDeployments?.length
+        ? deduplicatedDeployments
+        : currentDeploymentRecord?.rosterData?.duties?.length
+          ? currentDeploymentRecord.rosterData.duties
+          : fallbackDeployments?.length
+            ? fallbackDeployments
+            : [];
 
       if (!baseDuties || baseDuties.length === 0) {
-        alert("Cannot swap: No active deployed duties found for this date. Please ensure a roster is deployed.");
+        alert(
+          "Cannot swap: No active deployed duties found for this date. Please ensure a roster is deployed.",
+        );
         return;
       }
 
@@ -5078,11 +5123,13 @@ Rules:
         return d;
       });
 
-      const affectedIds = new Set([
-        item1.dutyId,
-        item2.dutyId,
-        ...(isTriple && item3 ? [item3.dutyId] : []),
-      ].filter(Boolean));
+      const affectedIds = new Set(
+        [
+          item1.dutyId,
+          item2.dutyId,
+          ...(isTriple && item3 ? [item3.dutyId] : []),
+        ].filter(Boolean),
+      );
 
       await persistDutyMutation(
         updatedDuties,
@@ -5540,15 +5587,13 @@ Rules:
       await batch.commit();
 
       // Persist to date-isolated dispatch_deployments with safety fallback
-      const baseDuties = (
-        deduplicatedDeployments?.length
-          ? deduplicatedDeployments
-          : currentDeploymentRecord?.rosterData?.duties?.length
-            ? currentDeploymentRecord.rosterData.duties
-            : fallbackDeployments?.length
-              ? fallbackDeployments
-              : []
-      );
+      const baseDuties = deduplicatedDeployments?.length
+        ? deduplicatedDeployments
+        : currentDeploymentRecord?.rosterData?.duties?.length
+          ? currentDeploymentRecord.rosterData.duties
+          : fallbackDeployments?.length
+            ? fallbackDeployments
+            : [];
 
       const updatedDuties = baseDuties.map((d) => {
         if (String(d.dutyId).trim() === String(deployment.dutyId).trim()) {
@@ -5589,10 +5634,12 @@ Rules:
         return d;
       });
 
-      const affectedIds = new Set([
-        deployment.dutyId,
-        (reliefSource === "MAINLINE" ? selectedReliever.dutyId : null),
-      ].filter(Boolean));
+      const affectedIds = new Set(
+        [
+          deployment.dutyId,
+          reliefSource === "MAINLINE" ? selectedReliever.dutyId : null,
+        ].filter(Boolean),
+      );
 
       await persistDutyMutation(updatedDuties, updatedConsole, affectedIds);
 
@@ -5871,18 +5918,19 @@ Rules:
       await batch.commit();
 
       // Compute updatedDuties and persist across all devices with safety fallback
-      const baseDuties = (
-        deduplicatedDeployments?.length
-          ? deduplicatedDeployments
-          : currentDeploymentRecord?.rosterData?.duties?.length
-            ? currentDeploymentRecord.rosterData.duties
-            : fallbackDeployments?.length
-              ? fallbackDeployments
-              : []
-      );
+      const baseDuties = deduplicatedDeployments?.length
+        ? deduplicatedDeployments
+        : currentDeploymentRecord?.rosterData?.duties?.length
+          ? currentDeploymentRecord.rosterData.duties
+          : fallbackDeployments?.length
+            ? fallbackDeployments
+            : [];
 
       const updatedDuties = baseDuties.map((d) => {
-        if (tgtCat === "MAINLINE" && String(d.dutyId) === String(transferTargetDutyId)) {
+        if (
+          tgtCat === "MAINLINE" &&
+          String(d.dutyId) === String(transferTargetDutyId)
+        ) {
           return {
             ...d,
             empName: opName,
@@ -5891,7 +5939,10 @@ Rules:
             isSignedOn: true,
           };
         }
-        if ((srcCat === "MAINLINE" || srcCat === "mainline") && String(d.dutyId) === String(op.rawItem?.dutyId || op.dutyId)) {
+        if (
+          (srcCat === "MAINLINE" || srcCat === "mainline") &&
+          String(d.dutyId) === String(op.rawItem?.dutyId || op.dutyId)
+        ) {
           return {
             ...d,
             empName: "VACANT - DRIVER REQUIRED",
@@ -5903,10 +5954,14 @@ Rules:
         return d;
       });
 
-      const affectedIds = new Set([
-        (tgtCat === "MAINLINE" ? transferTargetDutyId : null),
-        ((srcCat === "MAINLINE" || srcCat === "mainline") ? (op.rawItem?.dutyId || op.dutyId) : null),
-      ].filter(Boolean));
+      const affectedIds = new Set(
+        [
+          tgtCat === "MAINLINE" ? transferTargetDutyId : null,
+          srcCat === "MAINLINE" || srcCat === "mainline"
+            ? op.rawItem?.dutyId || op.dutyId
+            : null,
+        ].filter(Boolean),
+      );
 
       await persistDutyMutation(updatedDuties, updatedConsole, affectedIds);
 
@@ -5993,15 +6048,13 @@ Rules:
 
       await batch.commit();
 
-      const baseDuties = (
-        deduplicatedDeployments?.length
-          ? deduplicatedDeployments
-          : currentDeploymentRecord?.rosterData?.duties?.length
-            ? currentDeploymentRecord.rosterData.duties
-            : fallbackDeployments?.length
-              ? fallbackDeployments
-              : []
-      );
+      const baseDuties = deduplicatedDeployments?.length
+        ? deduplicatedDeployments
+        : currentDeploymentRecord?.rosterData?.duties?.length
+          ? currentDeploymentRecord.rosterData.duties
+          : fallbackDeployments?.length
+            ? fallbackDeployments
+            : [];
 
       const updatedDuties = baseDuties.map((d) => {
         if (String(d.dutyId).trim() === String(boItem.dutyId).trim()) {
@@ -6016,7 +6069,11 @@ Rules:
         return d;
       });
 
-      await persistDutyMutation(updatedDuties, updatedConsole, new Set([boItem.dutyId]));
+      await persistDutyMutation(
+        updatedDuties,
+        updatedConsole,
+        new Set([boItem.dutyId]),
+      );
       alert(`✅ Operator ${boItem.name} restored to Duty #${boItem.dutyId}!`);
       if (onImportComplete) onImportComplete();
     } catch (err) {
@@ -6943,15 +7000,13 @@ Rules:
           }
 
           // Persist status change to date-specific dispatch_deployments with safety fallback
-          const baseDuties = (
-            deduplicatedDeployments?.length
-              ? deduplicatedDeployments
-              : currentDeploymentRecord?.rosterData?.duties?.length
-                ? currentDeploymentRecord.rosterData.duties
-                : fallbackDeployments?.length
-                  ? fallbackDeployments
-                  : []
-          );
+          const baseDuties = deduplicatedDeployments?.length
+            ? deduplicatedDeployments
+            : currentDeploymentRecord?.rosterData?.duties?.length
+              ? currentDeploymentRecord.rosterData.duties
+              : fallbackDeployments?.length
+                ? fallbackDeployments
+                : [];
           const updatedDuties = baseDuties.map((d) =>
             String(d.dutyId) === String(deployment.dutyId)
               ? {
@@ -6963,7 +7018,11 @@ Rules:
                 }
               : d,
           );
-          persistDutyMutation(updatedDuties, next, new Set([deployment.dutyId]));
+          persistDutyMutation(
+            updatedDuties,
+            next,
+            new Set([deployment.dutyId]),
+          );
 
           return next;
         });
@@ -7183,7 +7242,9 @@ Rules:
       });
 
       // Persist relief to date-isolated dispatch_deployments with safety fallback
-      const baseDuties = deduplicatedDeployments?.length ? deduplicatedDeployments : currentDeploymentRecord?.rosterData?.duties || fallbackDeployments;
+      const baseDuties = deduplicatedDeployments?.length
+        ? deduplicatedDeployments
+        : currentDeploymentRecord?.rosterData?.duties || fallbackDeployments;
       const updatedRosterDuties = (baseDuties || []).map((d) => {
         if (String(d.dutyId).trim() === targetDutyId) {
           return {
@@ -7205,7 +7266,11 @@ Rules:
         }
         return d;
       });
-      persistDutyMutation(updatedRosterDuties, consoleData, new Set([targetDutyId, candDutyId]));
+      persistDutyMutation(
+        updatedRosterDuties,
+        consoleData,
+        new Set([targetDutyId, candDutyId]),
+      );
 
       alert(
         `✅ Relief Dispatched: ${candEmpName} (${candDutyId}) is now relieving Duty #${targetDutyId} (${targetEmpName}).`,
@@ -7356,7 +7421,9 @@ Rules:
       );
 
       // Persist reset relief to date-isolated dispatch_deployments
-      const baseDuties = deduplicatedDeployments?.length ? deduplicatedDeployments : currentDeploymentRecord?.rosterData?.duties || fallbackDeployments;
+      const baseDuties = deduplicatedDeployments?.length
+        ? deduplicatedDeployments
+        : currentDeploymentRecord?.rosterData?.duties || fallbackDeployments;
       const updatedRosterDuties = (baseDuties || []).map((d) => {
         const dId = String(d.dutyId).trim();
         if (dId === targetDutyId) {
@@ -7381,7 +7448,11 @@ Rules:
         }
         return d;
       });
-      persistDutyMutation(updatedRosterDuties, consoleData, new Set([targetDutyId, relieverDutyId].filter(Boolean)));
+      persistDutyMutation(
+        updatedRosterDuties,
+        consoleData,
+        new Set([targetDutyId, relieverDutyId].filter(Boolean)),
+      );
 
       if (activeAbnormalEvent) {
         setActiveAbnormalEvent(null);
@@ -13653,7 +13724,8 @@ Rules:
                       Active Operational Date for Swap / Exchange:
                     </span>
                     <span className="text-amber-300 font-black text-sm">
-                      {toIndianDateStr(targetDeploymentDate)} ({targetDeploymentDate})
+                      {toIndianDateStr(targetDeploymentDate)} (
+                      {targetDeploymentDate})
                     </span>
                     <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">
                       {targetDayType}
@@ -13662,7 +13734,10 @@ Rules:
                 </div>
 
                 <div className="flex items-center gap-1.5 self-end sm:self-auto">
-                  <label htmlFor="modal-date-picker" className="text-[10px] text-slate-400 font-bold uppercase">
+                  <label
+                    htmlFor="modal-date-picker"
+                    className="text-[10px] text-slate-400 font-bold uppercase"
+                  >
                     Select Date:
                   </label>
                   <input
@@ -13702,14 +13777,19 @@ Rules:
                 <div className="flex items-center gap-2 p-2 rounded bg-amber-950/40 border border-amber-600/40 text-[11px] text-amber-300 font-mono">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-400 animate-pulse" />
                   <span>
-                    No duties or console staff deployed yet for <strong>{toIndianDateStr(targetDeploymentDate)}</strong>. Upload or deploy a roster for this date in Step 1, or select another date above.
+                    No duties or console staff deployed yet for{" "}
+                    <strong>{toIndianDateStr(targetDeploymentDate)}</strong>.
+                    Upload or deploy a roster for this date in Step 1, or select
+                    another date above.
                   </span>
                 </div>
               ) : (
                 <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
                   <span className="text-emerald-400 font-bold flex items-center gap-1">
                     <CheckCircle className="h-3 w-3" />
-                    {allSwappableEntities.length} swappable duties & console positions available for {toIndianDateStr(targetDeploymentDate)}
+                    {allSwappableEntities.length} swappable duties & console
+                    positions available for{" "}
+                    {toIndianDateStr(targetDeploymentDate)}
                   </span>
                   <span>{allSwappableGroups.length} categories loaded</span>
                 </div>

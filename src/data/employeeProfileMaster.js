@@ -3090,7 +3090,7 @@ export const EMPLOYEE_MASTER_REGISTRY = [
   },
   {
     "empId": 22455,
-    "name": "Naveen Kumar KK",
+    "name": "Venkatesh N",
     "gender": "MALE",
     "fixedWo": "Monday",
     "specialProfile": "NORMAL",

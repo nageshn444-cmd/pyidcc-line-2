@@ -49,13 +49,23 @@ export default function TrainSwapControl() {
   const liveCrewRegistry = operationalEngine?.crewRegistry || [];
   const liveIncidents = operationalEngine?.liveIncidents || [];
 
-  // Active Candidate Roster for BMRCL Line 2: 171 Candidates (121 Regular TOs + 49 JMD TDs + 1 Maternity Leave TO)
+  // Active Candidate Roster for BMRCL Line 2: Candidates (Regular TOs + JMD TDs)
   const activeCandidateRoster = useMemo(() => getActiveLine2CandidateRoster(), []);
   const rosterDeskConsoleData = useMemo(() => getPeenyaDepotRosterDeskConsoleData(), []);
+
+  // Real-time synchronization with Dispatch Gateway Core deployments
+  const activeDeployments = useMemo(() => {
+    if (Array.isArray(liveDeployments) && liveDeployments.length > 0) return liveDeployments;
+    if (rosterDeskConsoleData?.duties && Array.isArray(rosterDeskConsoleData.duties) && rosterDeskConsoleData.duties.length > 0) {
+      return rosterDeskConsoleData.duties;
+    }
+    return [];
+  }, [liveDeployments, rosterDeskConsoleData]);
 
   const regularTOCount = useMemo(() => activeCandidateRoster.filter(c => !c.isJmd && !c.isMaternity).length, [activeCandidateRoster]);
   const jmdTDCount = useMemo(() => activeCandidateRoster.filter(c => c.isJmd).length, [activeCandidateRoster]);
   const maternityTOCount = useMemo(() => activeCandidateRoster.filter(c => c.isMaternity).length, [activeCandidateRoster]);
+
 
   // Active Day-Type State (WEEKDAY, MONDAY, SATURDAY, SUNDAY)
   const [selectedDayType, setSelectedDayType] = useState(() => resolveActiveDayType());
@@ -63,6 +73,8 @@ export default function TrainSwapControl() {
   // Input Controls
   const [trainA, setTrainA] = useState('216');
   const [trainB, setTrainB] = useState('218');
+  const [directionA, setDirectionA] = useState('UP');
+  const [directionB, setDirectionB] = useState('UP');
   const [swapLocation, setSwapLocation] = useState('PYID');
   const [intentA, setIntentA] = useState(TRAIN_INTENT_TYPES.CONTINUE_SERVICE);
   const [intentB, setIntentB] = useState(TRAIN_INTENT_TYPES.DEPOT);
@@ -82,6 +94,11 @@ export default function TrainSwapControl() {
   const [showOverrideModal, setShowOverrideModal] = useState(false);
   const [overrideReason, setOverrideReason] = useState('');
   const [overrideControllerId, setOverrideControllerId] = useState('CC_PYID_01');
+  const [showModifyModal, setShowModifyModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [selectedModifiedReliefId, setSelectedModifiedReliefId] = useState('');
+  const [rejectReasonText, setRejectReasonText] = useState('');
+  const [isRejectedState, setIsRejectedState] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionSuccess, setExecutionSuccess] = useState(false);
@@ -110,7 +127,7 @@ export default function TrainSwapControl() {
     }
 
     // 2. Query Link Roster for Duty details
-    const targetSecs = 38400; // ~10:40 AM
+    const targetSecs = (wttA?.timeSecs || timeToSeconds(etaA) || 38400);
     const dutyA = findDutyAndTripFromRoster(selectedDayType, trainA, targetSecs);
     const dutyB = findDutyAndTripFromRoster(selectedDayType, trainB, targetSecs);
 
@@ -127,17 +144,22 @@ export default function TrainSwapControl() {
       setIntentB(TRAIN_INTENT_TYPES.CONTINUE_SERVICE);
     }
 
-    // Look up live deployed operators from Dispatch Gateway Core
-    const opA = lookupDeployedOperatorFromCore(liveDeployments, liveCrewRegistry, dutyA?.dutyNo || '07', selectedDayType);
-    const opB = lookupDeployedOperatorFromCore(liveDeployments, liveCrewRegistry, dutyB?.dutyNo || '12', selectedDayType);
+    // Default duty fallback based on target time shift
+    const defaultDutyA = targetSecs >= 48600 && targetSecs < 77400 ? '35' : (targetSecs >= 77400 || targetSecs < 19800 ? '65' : '07');
+    const defaultDutyB = targetSecs >= 48600 && targetSecs < 77400 ? '55' : (targetSecs >= 77400 || targetSecs < 19800 ? '66' : '12');
 
-    showToast(`⚡ Synchronized with Core: Train ${trainA} [Duty ${dutyA?.dutyNo || '07'}: ${opA.empName}] | Train ${trainB} [Duty ${dutyB?.dutyNo || '12'}: ${opB.empName}]`);
-  }, [selectedDayType, trainA, trainB, swapLocation, liveDeployments, liveCrewRegistry]);
+    // Look up live deployed operators from Dispatch Gateway Core
+    const opA = lookupDeployedOperatorFromCore(activeDeployments, liveCrewRegistry, dutyA?.dutyNo || defaultDutyA, selectedDayType);
+    const opB = lookupDeployedOperatorFromCore(activeDeployments, liveCrewRegistry, dutyB?.dutyNo || defaultDutyB, selectedDayType);
+
+    showToast(`⚡ Synchronized with Core: Train ${trainA} [Duty ${dutyA?.dutyNo || defaultDutyA}: ${opA.empName}] | Train ${trainB} [Duty ${dutyB?.dutyNo || defaultDutyB}: ${opB.empName}]`);
+  }, [selectedDayType, trainA, trainB, swapLocation, etaA, activeDeployments, liveCrewRegistry]);
 
   // Perform Swap Analysis
   const handleAnalyzeSwap = useCallback(async () => {
     setLoading(true);
     setExecutionSuccess(false);
+    setIsRejectedState(false);
     try {
       const result = await analyzeTrainSwap({
         dayType: selectedDayType,
@@ -150,7 +172,9 @@ export default function TrainSwapControl() {
         delayB,
         intentA,
         intentB,
-        deployments: liveDeployments,
+        directionA,
+        directionB,
+        deployments: activeDeployments,
         crewRegistry: liveCrewRegistry,
         liveIncidents
       });
@@ -164,7 +188,8 @@ export default function TrainSwapControl() {
     }
   }, [
     selectedDayType, trainA, trainB, swapLocation, etaA, etaB,
-    delayA, delayB, intentA, intentB, liveDeployments, liveCrewRegistry, liveIncidents
+    delayA, delayB, intentA, intentB, directionA, directionB,
+    activeDeployments, liveCrewRegistry, liveIncidents
   ]);
 
   // Auto-run analysis when primary parameters change
@@ -203,6 +228,62 @@ export default function TrainSwapControl() {
       setIsExecuting(false);
     }
   };
+
+  // Modify Controller Assignment
+  const handleConfirmModification = () => {
+    if (!analysisResult) return;
+    const selectedCandidate = analysisResult.candidateEvaluations?.find(
+      c => c.operatorId === selectedModifiedReliefId
+    );
+    if (!selectedCandidate) {
+      showToast('Please select a valid candidate operator from the pool.');
+      return;
+    }
+
+    const updatedPlan = { ...analysisResult };
+    if (updatedPlan.finalPlan?.mainlineTrain) {
+      updatedPlan.finalPlan.mainlineTrain.operator = selectedCandidate.operatorName;
+      updatedPlan.finalPlan.mainlineTrain.empId = selectedCandidate.operatorId;
+    }
+    if (updatedPlan.reliefDecision) {
+      updatedPlan.reliefDecision.selectedRelief = {
+        name: selectedCandidate.operatorName,
+        empId: selectedCandidate.operatorId,
+        cadre: selectedCandidate.cadre,
+        type: selectedCandidate.candidateType,
+        priorityTier: selectedCandidate.priorityTier || 4,
+        source: 'MANUAL_CONTROLLER_OVERRIDE'
+      };
+      updatedPlan.reliefDecision.reason = `Controller manually modified relief: Assigned ${selectedCandidate.operatorName} (${selectedCandidate.cadre || selectedCandidate.candidateType})`;
+    }
+    updatedPlan.operatorActions = updatedPlan.operatorActions.map(act => {
+      if (act.action.includes('RELIEF') || act.action.includes('MAINLINE')) {
+        return {
+          ...act,
+          operatorName: selectedCandidate.operatorName,
+          empId: selectedCandidate.operatorId,
+          reason: `Manual Controller Selection: Assigned ${selectedCandidate.operatorName} (${selectedCandidate.cadre})`
+        };
+      }
+      return act;
+    });
+
+    setAnalysisResult(updatedPlan);
+    setShowModifyModal(false);
+    showToast(`✅ Plan modified: Assigned ${selectedCandidate.operatorName} (#${selectedCandidate.operatorId})`);
+  };
+
+  // Reject Recommendation
+  const handleConfirmRejection = () => {
+    if (!rejectReasonText.trim()) {
+      showToast('Please provide a reason for rejecting the recommendation.');
+      return;
+    }
+    setIsRejectedState(true);
+    setShowRejectModal(false);
+    showToast(`❌ Recommendation rejected: ${rejectReasonText}`);
+  };
+
 
   // Station Metadata
   const currentStation = useMemo(() => {
@@ -397,18 +478,31 @@ export default function TrainSwapControl() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">Train Intention After Swap</label>
-              <select
-                value={intentA}
-                onChange={e => setIntentA(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 text-xs font-bold focus:outline-none"
-              >
-                <option value={TRAIN_INTENT_TYPES.CONTINUE_SERVICE}>Continue Passenger Service (Mainline)</option>
-                <option value={TRAIN_INTENT_TYPES.DEPOT}>Proceed to Peenya Depot (Stabling)</option>
-                <option value={TRAIN_INTENT_TYPES.TERMINAL}>Terminate at Next Terminal Loop</option>
-                <option value={TRAIN_INTENT_TYPES.CHANGEOVER}>Night Service Changeover Run</option>
-              </select>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">Direction</label>
+                <select
+                  value={directionA}
+                  onChange={e => setDirectionA(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-cyan-300 font-bold focus:outline-none"
+                >
+                  <option value="UP">UP (Northbound / BIET)</option>
+                  <option value="DN">DN (Southbound / APTS)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">Train Intention</label>
+                <select
+                  value={intentA}
+                  onChange={e => setIntentA(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 text-xs font-bold focus:outline-none"
+                >
+                  <option value={TRAIN_INTENT_TYPES.CONTINUE_SERVICE}>Continue Service (Mainline)</option>
+                  <option value={TRAIN_INTENT_TYPES.DEPOT}>Proceed to Depot (Stabling)</option>
+                  <option value={TRAIN_INTENT_TYPES.TERMINAL}>Terminate at Loop</option>
+                  <option value={TRAIN_INTENT_TYPES.CHANGEOVER}>Changeover Run</option>
+                </select>
+              </div>
             </div>
 
             {/* Active Driver Preview from Core */}
@@ -550,18 +644,31 @@ export default function TrainSwapControl() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">Train Intention After Swap</label>
-              <select
-                value={intentB}
-                onChange={e => setIntentB(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 text-xs font-bold focus:outline-none"
-              >
-                <option value={TRAIN_INTENT_TYPES.DEPOT}>Proceed to Peenya Depot (Stabling)</option>
-                <option value={TRAIN_INTENT_TYPES.CONTINUE_SERVICE}>Continue Passenger Service (Mainline)</option>
-                <option value={TRAIN_INTENT_TYPES.TERMINAL}>Terminate at Next Terminal Loop</option>
-                <option value={TRAIN_INTENT_TYPES.CHANGEOVER}>Night Service Changeover Run</option>
-              </select>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">Direction</label>
+                <select
+                  value={directionB}
+                  onChange={e => setDirectionB(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-amber-300 font-bold focus:outline-none"
+                >
+                  <option value="UP">UP (Northbound / BIET)</option>
+                  <option value="DN">DN (Southbound / APTS)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">Train Intention</label>
+                <select
+                  value={intentB}
+                  onChange={e => setIntentB(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 text-xs font-bold focus:outline-none"
+                >
+                  <option value={TRAIN_INTENT_TYPES.DEPOT}>Proceed to Depot (Stabling)</option>
+                  <option value={TRAIN_INTENT_TYPES.CONTINUE_SERVICE}>Continue Service (Mainline)</option>
+                  <option value={TRAIN_INTENT_TYPES.TERMINAL}>Terminate at Loop</option>
+                  <option value={TRAIN_INTENT_TYPES.CHANGEOVER}>Changeover Run</option>
+                </select>
+              </div>
             </div>
 
             {/* Active Driver Preview from Core */}
@@ -616,13 +723,35 @@ export default function TrainSwapControl() {
         ))}
       </div>
 
-      {/* ── SUB-TAB 1: OPERATIONAL DECISION & PLAN ── */}
+      {/* ── SUB-TAB 1: OPERATIONAL DECISION & PLAN (Section 25) ── */}
       {activeSubTab === 'OVERVIEW' && analysisResult && (
         <div className="space-y-6">
           
+          {/* Destination Unverified Alert Banner (Section 4) */}
+          {analysisResult.unverifiedDestinationAlert && (
+            <div className="bg-rose-950/90 border-2 border-rose-500 rounded-2xl p-6 text-rose-200 space-y-2 animate-pulse shadow-2xl">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="h-6 w-6 text-rose-400" />
+                <h3 className="text-sm font-black uppercase tracking-wider text-rose-300">
+                  AUTOMATIC DECISION HALTED — DESTINATION UNVERIFIABLE
+                </h3>
+              </div>
+              <p className="text-sm font-black text-rose-100 font-sans">
+                TRAIN DESTINATION COULD NOT BE VERIFIED FROM OPERATIONAL DATA.
+              </p>
+              <p className="text-xs text-rose-300/90 font-sans">
+                WTT Timetable and Link Roster do not provide conclusive proof for both train destinations. Manual verification by Chief Crew Controller (GCC) is mandatory before authorizing any train or crew movement.
+              </p>
+            </div>
+          )}
+
           {/* Decision Outcome Banner */}
           <div className={`p-6 rounded-2xl border shadow-xl relative overflow-hidden ${
-            analysisResult.decision === SWAP_DECISION_TYPES.SWAP_APPROVED
+            isRejectedState
+              ? 'bg-rose-950/60 border-rose-600/50 text-rose-200'
+              : executionSuccess
+              ? 'bg-emerald-950/60 border-emerald-500/60 text-emerald-200'
+              : analysisResult.decision === SWAP_DECISION_TYPES.SWAP_APPROVED
               ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200'
               : analysisResult.decision === SWAP_DECISION_TYPES.SWAP_APPROVED_WITH_RELIEF
               ? 'bg-cyan-950/40 border-cyan-500/40 text-cyan-200'
@@ -632,152 +761,636 @@ export default function TrainSwapControl() {
           }`}>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="space-y-2">
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2.5 flex-wrap">
                   <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
-                    analysisResult.decision === SWAP_DECISION_TYPES.SWAP_APPROVED
-                      ? 'bg-emerald-500 text-slate-950'
+                    isRejectedState
+                      ? 'bg-rose-600 text-white'
+                      : executionSuccess
+                      ? 'bg-emerald-500 text-slate-950 font-black'
+                      : analysisResult.decision === SWAP_DECISION_TYPES.SWAP_APPROVED
+                      ? 'bg-emerald-500 text-slate-950 font-black'
                       : analysisResult.decision === SWAP_DECISION_TYPES.SWAP_APPROVED_WITH_RELIEF
-                      ? 'bg-cyan-500 text-slate-950'
+                      ? 'bg-cyan-500 text-slate-950 font-black'
                       : analysisResult.decision === SWAP_DECISION_TYPES.SWAP_REQUIRES_CONTROLLER_CONFIRMATION
-                      ? 'bg-amber-500 text-slate-950'
-                      : 'bg-rose-500 text-slate-950'
+                      ? 'bg-amber-500 text-slate-950 font-black'
+                      : 'bg-rose-500 text-slate-950 font-black'
                   }`}>
-                    {analysisResult.decision.replace(/_/g, ' ')}
+                    {isRejectedState ? 'REJECTED BY CONTROLLER' : executionSuccess ? 'APPROVED & COMMITTED TO CORE' : analysisResult.decision.replace(/_/g, ' ')}
                   </span>
+
+                  {analysisResult.decisionCase && (
+                    <span className="bg-slate-900/90 text-cyan-300 border border-cyan-500/40 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">
+                      {analysisResult.decisionCase}
+                    </span>
+                  )}
+
                   <span className="text-[11px] text-slate-400 font-mono">
                     Evaluated at {analysisResult.evaluatedAt}
                   </span>
                 </div>
 
-                <p className="text-sm font-bold text-slate-100 leading-relaxed max-w-4xl">
-                  {analysisResult.explanation}
+                <p className="text-sm font-bold text-slate-100 leading-relaxed max-w-4xl font-sans">
+                  {isRejectedState ? `Recommendation rejected by Controller. Reason: ${rejectReasonText || 'Operational veto.'}` : analysisResult.explanation}
                 </p>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-3 shrink-0">
+              {/* Action Buttons (Section 17 & 25) */}
+              <div className="flex items-center gap-2 shrink-0 flex-wrap">
                 <button
                   onClick={() => handleExecuteCommitToCore(false)}
-                  disabled={isExecuting || analysisResult.decision === SWAP_DECISION_TYPES.SWAP_BLOCKED_BY_SAFETY_RULE}
-                  className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-slate-950 font-black text-xs px-5 py-3 rounded-xl flex items-center gap-2 shadow-lg transition"
+                  disabled={isExecuting || isRejectedState || analysisResult.decision === SWAP_DECISION_TYPES.SWAP_BLOCKED_BY_SAFETY_RULE || analysisResult.unverifiedDestinationAlert}
+                  className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-slate-950 font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-lg transition"
+                  title="Approve and commit to Dispatch Gateway Core"
                 >
                   <Check size={16} />
-                  <span>{isExecuting ? 'Committing...' : 'Commit to Dispatch Core'}</span>
+                  <span>{isExecuting ? 'Committing...' : 'APPROVE'}</span>
+                </button>
+
+                <button
+                  onClick={() => setShowModifyModal(true)}
+                  disabled={isExecuting || isRejectedState}
+                  className="bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 font-black text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 transition"
+                  title="Modify proposed relief or train destinations"
+                >
+                  <RefreshCw size={14} />
+                  <span>MODIFY</span>
+                </button>
+
+                <button
+                  onClick={() => setShowRejectModal(true)}
+                  disabled={isExecuting || isRejectedState}
+                  className="bg-rose-950/80 hover:bg-rose-900 border border-rose-600/40 text-rose-300 font-black text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 transition"
+                  title="Reject recommendation with reason"
+                >
+                  <X size={15} />
+                  <span>REJECT</span>
                 </button>
 
                 <button
                   onClick={() => setShowOverrideModal(true)}
-                  className="bg-rose-950/60 hover:bg-rose-900 border border-rose-600/40 text-rose-300 font-black text-xs px-4 py-3 rounded-xl flex items-center gap-2 transition"
+                  className="bg-purple-950/60 hover:bg-purple-900 border border-purple-600/40 text-purple-300 font-black text-xs px-3 py-2.5 rounded-xl flex items-center gap-1.5 transition"
+                  title="OCC Controller Emergency Override"
                 >
-                  <AlertOctagon size={16} />
-                  <span>Emergency Override</span>
+                  <AlertOctagon size={14} />
+                  <span>OVERRIDE</span>
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Side-by-Side Comparison Matrix */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            
-            {/* Operator A Telemetry */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
-                  <h4 className="text-xs font-black uppercase text-cyan-400">Driver A: {analysisResult.trainA.operator?.empName}</h4>
-                </div>
-                <span className="text-[10px] text-slate-400 font-bold">Duty {analysisResult.trainA.dutyLink?.dutyNo || '07'}</span>
+          {/* ════════════════════════════════════════════════════════════
+              CARD 1: TRAIN ID SWAP (Section 3 & Section 25)
+             ════════════════════════════════════════════════════════════ */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Train size={18} className="text-cyan-400" />
+                <h3 className="text-xs font-black uppercase text-slate-100 tracking-wider">
+                  TRAIN ID SWAP — OPERATIONAL DATA RECONCILIATION
+                </h3>
               </div>
-
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-850">
-                  <span className="text-[10px] text-slate-500 font-bold uppercase block">Continuous Driving</span>
-                  <span className={`text-sm font-black ${
-                    analysisResult.breakAssessments?.opA?.status === BREAK_STATUS_TYPES.RED ? 'text-rose-400' :
-                    analysisResult.breakAssessments?.opA?.status === BREAK_STATUS_TYPES.AMBER ? 'text-amber-400' : 'text-emerald-400'
-                  }`}>
-                    {analysisResult.breakAssessments?.opA?.continuousMinutes || 180} mins
-                  </span>
-                  <span className="text-[9px] text-slate-500 block">Cap: 270m max</span>
-                </div>
-
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-850">
-                  <span className="text-[10px] text-slate-500 font-bold uppercase block">Rest Interval</span>
-                  <span className="text-sm font-black text-slate-100">
-                    {analysisResult.trainA.operator?.restDuration || 13.5}h
-                  </span>
-                  <span className="text-[9px] text-emerald-400 block">✓ Minimum 8h satisfied</span>
-                </div>
-
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-850">
-                  <span className="text-[10px] text-slate-500 font-bold uppercase block">CRT 6M Validity</span>
-                  <span className="text-xs font-bold text-slate-200">
-                    {analysisResult.trainA.operator?.crtValidTill || '2027-06-30'}
-                  </span>
-                  <span className="text-[9px] text-emerald-400 block">✓ Certified Valid</span>
-                </div>
-
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-850">
-                  <span className="text-[10px] text-slate-500 font-bold uppercase block">Cadre Verification</span>
-                  <span className="text-xs font-bold text-cyan-300">
-                    {analysisResult.trainA.operator?.isJmd ? 'JMD Contract TD' : 'BMRCL Regular TO'}
-                  </span>
-                  <span className="text-[9px] text-slate-500 block">Active Driving Crew</span>
-                </div>
-              </div>
+              <span className="text-[10px] bg-slate-950 border border-slate-800 text-slate-400 px-3 py-0.5 rounded font-mono">
+                SECTION 3 &amp; 25
+              </span>
             </div>
 
-            {/* Operator B Telemetry */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                  <h4 className="text-xs font-black uppercase text-amber-400">Driver B: {analysisResult.trainB.operator?.empName}</h4>
-                </div>
-                <span className="text-[10px] text-slate-400 font-bold">Duty {analysisResult.trainB.dutyLink?.dutyNo || '12'}</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-850">
-                  <span className="text-[10px] text-slate-500 font-bold uppercase block">Continuous Driving</span>
-                  <span className={`text-sm font-black ${
-                    analysisResult.breakAssessments?.opB?.status === BREAK_STATUS_TYPES.RED ? 'text-rose-400' :
-                    analysisResult.breakAssessments?.opB?.status === BREAK_STATUS_TYPES.AMBER ? 'text-amber-400' : 'text-emerald-400'
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              
+              {/* TRAIN 1 */}
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2.5 text-xs">
+                <div className="flex items-center justify-between border-b border-slate-850 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
+                    <h4 className="text-xs font-black text-cyan-400 uppercase tracking-wide">TRAIN 1</h4>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                    analysisResult.train1?.destination === 'DEPOT' ? 'bg-amber-950 text-amber-300 border border-amber-600/40' : 'bg-emerald-950 text-emerald-300 border border-emerald-600/40'
                   }`}>
-                    {analysisResult.breakAssessments?.opB?.continuousMinutes || 155} mins
+                    {analysisResult.train1?.destination || 'MAINLINE SERVICE'}
                   </span>
-                  <span className="text-[9px] text-slate-500 block">Cap: 270m max</span>
                 </div>
 
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-850">
-                  <span className="text-[10px] text-slate-500 font-bold uppercase block">Rest Interval</span>
-                  <span className="text-sm font-black text-slate-100">
-                    {analysisResult.trainB.operator?.restDuration || 11.0}h
-                  </span>
-                  <span className="text-[9px] text-emerald-400 block">✓ Minimum 8h satisfied</span>
-                </div>
-
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-850">
-                  <span className="text-[10px] text-slate-500 font-bold uppercase block">CRT 6M Validity</span>
-                  <span className="text-xs font-bold text-slate-200">
-                    {analysisResult.trainB.operator?.crtValidTill || '2027-02-28'}
-                  </span>
-                  <span className="text-[9px] text-emerald-400 block">✓ Certified Valid</span>
-                </div>
-
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-850">
-                  <span className="text-[10px] text-slate-500 font-bold uppercase block">Cadre Verification</span>
-                  <span className="text-xs font-bold text-amber-300">
-                    {analysisResult.trainB.operator?.isJmd ? 'JMD Contract TD' : 'BMRCL Regular TO'}
-                  </span>
-                  <span className="text-[9px] text-slate-500 block">Active Driving Crew</span>
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Physical Train:</span>
+                    <strong className="text-slate-100 font-mono text-sm">{analysisResult.train1?.physicalTrainId}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Current Train ID:</span>
+                    <strong className="text-cyan-400 font-mono text-sm">{analysisResult.train1?.trainId}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Current Location:</span>
+                    <strong className="text-slate-200">{swapLocation} {analysisResult.train1?.direction}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Platform:</span>
+                    <strong className="text-emerald-400">{analysisResult.train1?.platform}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Arrival Time (ETA):</span>
+                    <strong className="text-slate-100 font-mono">{analysisResult.train1?.timeStr}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Direction:</span>
+                    <strong className="text-slate-200">{analysisResult.train1?.direction === 'UP' ? 'UP (BIET)' : 'DN (APTS)'}</strong>
+                  </div>
+                  <div className="col-span-2 pt-1.5 border-t border-slate-850">
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Assigned Operator:</span>
+                    <div className="flex items-center justify-between">
+                      <strong className="text-slate-100 text-xs">
+                        #{analysisResult.train1?.operator?.empId} {analysisResult.train1?.operator?.empName}
+                      </strong>
+                      <span className="text-[9px] bg-slate-900 border border-slate-800 px-2 py-0.5 rounded text-cyan-300 font-mono font-bold">
+                        Duty {analysisResult.train1?.dutyLink?.dutyNo || '--'}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Operator Link:</span>
+                    <span className="text-slate-300 font-mono text-[10px]">Link {selectedDayType}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Current Trip:</span>
+                    <span className="text-slate-300 font-mono text-[10px]">
+                      Trip #{analysisResult.train1?.dutyLink?.tripIndex || 1} ({analysisResult.train1?.dutyLink?.activeTrip?.takeoverLocation || 'PYID'} ➔ {analysisResult.train1?.dutyLink?.activeTrip?.handoverLocation || 'APTS'})
+                    </span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Current Status:</span>
+                    <span className="text-emerald-400 font-bold">
+                      {analysisResult.train1?.operator?.status || 'DRIVING'}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
 
+              {/* TRAIN 2 */}
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2.5 text-xs">
+                <div className="flex items-center justify-between border-b border-slate-850 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                    <h4 className="text-xs font-black text-amber-400 uppercase tracking-wide">TRAIN 2</h4>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                    analysisResult.train2?.destination === 'DEPOT' ? 'bg-amber-950 text-amber-300 border border-amber-600/40' : 'bg-emerald-950 text-emerald-300 border border-emerald-600/40'
+                  }`}>
+                    {analysisResult.train2?.destination || 'MAINLINE SERVICE'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Physical Train:</span>
+                    <strong className="text-slate-100 font-mono text-sm">{analysisResult.train2?.physicalTrainId}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Current Train ID:</span>
+                    <strong className="text-amber-400 font-mono text-sm">{analysisResult.train2?.trainId}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Current Location:</span>
+                    <strong className="text-slate-200">{swapLocation} {analysisResult.train2?.direction}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Platform:</span>
+                    <strong className="text-emerald-400">{analysisResult.train2?.platform}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Arrival Time (ETA):</span>
+                    <strong className="text-slate-100 font-mono">{analysisResult.train2?.timeStr}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Direction:</span>
+                    <strong className="text-slate-200">{analysisResult.train2?.direction === 'UP' ? 'UP (BIET)' : 'DN (APTS)'}</strong>
+                  </div>
+                  <div className="col-span-2 pt-1.5 border-t border-slate-850">
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Assigned Operator:</span>
+                    <div className="flex items-center justify-between">
+                      <strong className="text-slate-100 text-xs">
+                        #{analysisResult.train2?.operator?.empId} {analysisResult.train2?.operator?.empName}
+                      </strong>
+                      <span className="text-[9px] bg-slate-900 border border-slate-800 px-2 py-0.5 rounded text-amber-300 font-mono font-bold">
+                        Duty {analysisResult.train2?.dutyLink?.dutyNo || '--'}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Operator Link:</span>
+                    <span className="text-slate-300 font-mono text-[10px]">Link {selectedDayType}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Current Trip:</span>
+                    <span className="text-slate-300 font-mono text-[10px]">
+                      Trip #{analysisResult.train2?.dutyLink?.tripIndex || 2} ({analysisResult.train2?.dutyLink?.activeTrip?.takeoverLocation || 'PYID'} ➔ {analysisResult.train2?.dutyLink?.activeTrip?.handoverLocation || 'APTS'})
+                    </span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Current Status:</span>
+                    <span className="text-emerald-400 font-bold">
+                      {analysisResult.train2?.operator?.status || 'DRIVING'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
           </div>
 
-          {/* Structured Operator Action Table */}
+          {/* ════════════════════════════════════════════════════════════
+              CARD 2: CREW ASSIGNMENT ANALYSIS (Section 5, 6, 25)
+             ════════════════════════════════════════════════════════════ */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Users size={18} className="text-emerald-400" />
+                <h3 className="text-xs font-black uppercase text-slate-100 tracking-wider">
+                  CREW ASSIGNMENT ANALYSIS — LOCATION &amp; AVAILABILITY
+                </h3>
+              </div>
+              <span className="text-[10px] bg-slate-950 border border-slate-800 text-slate-400 px-3 py-0.5 rounded font-mono">
+                SECTION 5, 6 &amp; 25
+              </span>
+            </div>
+
+            {/* Explicit Mapping Diagram (Section 5) */}
+            <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 space-y-2">
+              <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest block">
+                Explicit Entity Mapping (Physical Train ➔ Train ID ➔ Actual Operator ➔ Duty ➔ Link ➔ Trip)
+              </span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                <div className="p-3 bg-slate-900/80 rounded-lg border border-slate-800 flex items-center justify-between">
+                  <span className="text-cyan-400 font-bold">{analysisResult.train1?.physicalTrainId}</span>
+                  <ArrowRight size={13} className="text-slate-600" />
+                  <span className="text-slate-200">T-{analysisResult.train1?.trainId}</span>
+                  <ArrowRight size={13} className="text-slate-600" />
+                  <span className="text-emerald-300 font-bold">{analysisResult.train1?.operator?.empName}</span>
+                  <ArrowRight size={13} className="text-slate-600" />
+                  <span className="text-slate-400">D-{analysisResult.train1?.dutyLink?.dutyNo}</span>
+                  <ArrowRight size={13} className="text-slate-600" />
+                  <span className="text-amber-400 font-bold">Trp #{analysisResult.train1?.dutyLink?.tripIndex || 1}</span>
+                </div>
+                <div className="p-3 bg-slate-900/80 rounded-lg border border-slate-800 flex items-center justify-between">
+                  <span className="text-amber-400 font-bold">{analysisResult.train2?.physicalTrainId}</span>
+                  <ArrowRight size={13} className="text-slate-600" />
+                  <span className="text-slate-200">T-{analysisResult.train2?.trainId}</span>
+                  <ArrowRight size={13} className="text-slate-600" />
+                  <span className="text-emerald-300 font-bold">{analysisResult.train2?.operator?.empName}</span>
+                  <ArrowRight size={13} className="text-slate-600" />
+                  <span className="text-slate-400">D-{analysisResult.train2?.dutyLink?.dutyNo}</span>
+                  <ArrowRight size={13} className="text-slate-600" />
+                  <span className="text-cyan-400 font-bold">Trp #{analysisResult.train2?.dutyLink?.tripIndex || 2}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Depot Operator vs Mainline Operator Analysis */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              
+              {/* Depot Operator */}
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 space-y-2 text-xs">
+                <div className="flex items-center justify-between border-b border-slate-850 pb-2">
+                  <h4 className="text-xs font-black uppercase text-amber-400">Depot Operator</h4>
+                  <span className="text-[10px] text-slate-400 font-bold">
+                    Duty {analysisResult.crewAnalysis?.depotOperator?.dutyNo}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5 text-[11px]">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Operator Name:</span>
+                    <strong className="text-slate-100">{analysisResult.crewAnalysis?.depotOperator?.name} (#{analysisResult.crewAnalysis?.depotOperator?.empId})</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Current Location:</span>
+                    <strong className="text-amber-300">{analysisResult.crewAnalysis?.depotOperator?.currentLocation}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Current Train:</span>
+                    <strong className="text-slate-200">Train {analysisResult.crewAnalysis?.depotOperator?.currentTrain}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Operational Status:</span>
+                    <strong className="text-emerald-400">{analysisResult.crewAnalysis?.depotOperator?.status}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Availability:</span>
+                    <strong className="text-cyan-300">{analysisResult.crewAnalysis?.depotOperator?.availability}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mainline Operator */}
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 space-y-2 text-xs">
+                <div className="flex items-center justify-between border-b border-slate-850 pb-2">
+                  <h4 className="text-xs font-black uppercase text-cyan-400">Mainline Operator</h4>
+                  <span className="text-[10px] text-slate-400 font-bold">
+                    Duty {analysisResult.crewAnalysis?.mainlineOperator?.dutyNo}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5 text-[11px]">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Operator Name:</span>
+                    <strong className="text-slate-100">{analysisResult.crewAnalysis?.mainlineOperator?.name} (#{analysisResult.crewAnalysis?.mainlineOperator?.empId})</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Current Location:</span>
+                    <strong className="text-cyan-300">{analysisResult.crewAnalysis?.mainlineOperator?.currentLocation}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Current Train:</span>
+                    <strong className="text-slate-200">Train {analysisResult.crewAnalysis?.mainlineOperator?.currentTrain}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Operational Status:</span>
+                    <strong className="text-emerald-400">{analysisResult.crewAnalysis?.mainlineOperator?.status}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Availability:</span>
+                    <strong className="text-cyan-300">{analysisResult.crewAnalysis?.mainlineOperator?.availability}</strong>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* ════════════════════════════════════════════════════════════
+              CARD 3: RELIEF DECISION & WATERFALL (Section 8, 9, 16, 22, 25)
+             ════════════════════════════════════════════════════════════ */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={18} className="text-amber-400" />
+                <h3 className="text-xs font-black uppercase text-slate-100 tracking-wider">
+                  RELIEF DECISION &amp; 5-TIER PRIORITY WATERFALL
+                </h3>
+              </div>
+              <span className={`px-3 py-0.5 rounded text-[10px] font-black uppercase ${
+                analysisResult.reliefDecision?.reliefRequired ? 'bg-amber-950 text-amber-300 border border-amber-500/40' : 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
+              }`}>
+                RELIEF REQUIRED: {analysisResult.reliefDecision?.reliefRequired ? 'YES' : 'NO'}
+              </span>
+            </div>
+
+            {/* Waterfall Priority Tiers (Section 8 & 22) */}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
+              
+              {/* Priority 1 */}
+              <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Priority 1</span>
+                  <span className={`text-[9px] px-1.5 py-0.2 rounded font-black ${
+                    analysisResult.reliefDecision?.priorityWaterfall?.priority1_Actual?.status === 'AVAILABLE' ? 'bg-emerald-950 text-emerald-300' : 'bg-amber-950 text-amber-300'
+                  }`}>
+                    {analysisResult.reliefDecision?.priorityWaterfall?.priority1_Actual?.status}
+                  </span>
+                </div>
+                <strong className="text-slate-100 block text-xs">Actual Operator</strong>
+                <span className="text-[10px] text-slate-400 block truncate">
+                  {analysisResult.reliefDecision?.priorityWaterfall?.priority1_Actual?.operatorName}
+                </span>
+                {analysisResult.reliefDecision?.priorityWaterfall?.priority1_Actual?.expectedSignOff && (
+                  <span className="text-[9px] text-slate-500 font-mono block">
+                    Sign-Off: {analysisResult.reliefDecision.priorityWaterfall.priority1_Actual.expectedSignOff}
+                  </span>
+                )}
+              </div>
+
+              {/* Priority 2 */}
+              <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-cyan-400 uppercase">Priority 2</span>
+                  <span className={`text-[9px] px-1.5 py-0.2 rounded font-black ${
+                    analysisResult.reliefDecision?.priorityWaterfall?.priority2_PRO?.status === 'AVAILABLE' ? 'bg-emerald-950 text-emerald-300' : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    {analysisResult.reliefDecision?.priorityWaterfall?.priority2_PRO?.status}
+                  </span>
+                </div>
+                <strong className="text-slate-100 block text-xs">PRO (Pilot Reserve)</strong>
+                <span className="text-[10px] text-slate-400 block truncate">
+                  {analysisResult.reliefDecision?.priorityWaterfall?.priority2_PRO?.candidate}
+                </span>
+                {analysisResult.reliefDecision?.priorityWaterfall?.priority2_PRO?.expectedSignOff && (
+                  <span className="text-[9px] text-emerald-400 font-mono block">
+                    Sign-Off: {analysisResult.reliefDecision.priorityWaterfall.priority2_PRO.expectedSignOff} ({analysisResult.reliefDecision.priorityWaterfall.priority2_PRO.remainingMins}m left)
+                  </span>
+                )}
+              </div>
+
+              {/* Priority 3 */}
+              <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-cyan-400 uppercase">Priority 3</span>
+                  <span className={`text-[9px] px-1.5 py-0.2 rounded font-black ${
+                    analysisResult.reliefDecision?.priorityWaterfall?.priority3_OR?.status === 'AVAILABLE' ? 'bg-emerald-950 text-emerald-300' : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    {analysisResult.reliefDecision?.priorityWaterfall?.priority3_OR?.status}
+                  </span>
+                </div>
+                <strong className="text-slate-100 block text-xs">OR (Out-Reliever)</strong>
+                <span className="text-[10px] text-slate-400 block truncate">
+                  {analysisResult.reliefDecision?.priorityWaterfall?.priority3_OR?.candidate}
+                </span>
+                {analysisResult.reliefDecision?.priorityWaterfall?.priority3_OR?.expectedSignOff && (
+                  <span className="text-[9px] text-emerald-400 font-mono block">
+                    Sign-Off: {analysisResult.reliefDecision.priorityWaterfall.priority3_OR.expectedSignOff} ({analysisResult.reliefDecision.priorityWaterfall.priority3_OR.remainingMins}m left)
+                  </span>
+                )}
+              </div>
+
+              {/* Priority 4 */}
+              <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-amber-400 uppercase">Priority 4</span>
+                  <span className={`text-[9px] px-1.5 py-0.2 rounded font-black ${
+                    analysisResult.reliefDecision?.priorityWaterfall?.priority4_STANDBY?.status === 'AVAILABLE' ? 'bg-emerald-950 text-emerald-300' : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    {analysisResult.reliefDecision?.priorityWaterfall?.priority4_STANDBY?.status}
+                  </span>
+                </div>
+                <strong className="text-slate-100 block text-xs">STANDBY</strong>
+                <span className="text-[10px] text-slate-400 block truncate">
+                  {analysisResult.reliefDecision?.priorityWaterfall?.priority4_STANDBY?.candidate}
+                </span>
+                {analysisResult.reliefDecision?.priorityWaterfall?.priority4_STANDBY?.expectedSignOff && (
+                  <span className="text-[9px] text-emerald-400 font-mono block">
+                    Sign-Off: {analysisResult.reliefDecision.priorityWaterfall.priority4_STANDBY.expectedSignOff} ({analysisResult.reliefDecision.priorityWaterfall.priority4_STANDBY.remainingMins}m left)
+                  </span>
+                )}
+              </div>
+
+              {/* Priority 5 */}
+              <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Priority 5</span>
+                  <span className={`text-[9px] px-1.5 py-0.2 rounded font-black ${
+                    analysisResult.reliefDecision?.priorityWaterfall?.priority5_DutyTO?.status === 'AVAILABLE' ? 'bg-emerald-950 text-emerald-300' : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    {analysisResult.reliefDecision?.priorityWaterfall?.priority5_DutyTO?.status}
+                  </span>
+                </div>
+                <strong className="text-slate-100 block text-xs">Duty Train Operator</strong>
+                <span className="text-[10px] text-slate-400 block truncate">
+                  {analysisResult.reliefDecision?.priorityWaterfall?.priority5_DutyTO?.candidate}
+                </span>
+                {analysisResult.reliefDecision?.priorityWaterfall?.priority5_DutyTO?.expectedSignOff && (
+                  <span className="text-[9px] text-emerald-400 font-mono block">
+                    Sign-Off: {analysisResult.reliefDecision.priorityWaterfall.priority5_DutyTO.expectedSignOff} ({analysisResult.reliefDecision.priorityWaterfall.priority5_DutyTO.remainingMins}m left)
+                  </span>
+                )}
+              </div>
+
+            </div>
+
+            {/* Selected Relief Box */}
+            {analysisResult.reliefDecision?.reliefRequired && analysisResult.reliefDecision?.selectedRelief && (
+              <div className="p-4 bg-amber-950/40 border border-amber-500/40 rounded-xl text-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase text-amber-400">Selected Relief Candidate:</span>
+                  <span className="bg-amber-950 border border-amber-600/40 px-2.5 py-0.5 rounded text-[10px] font-black text-amber-300">
+                    Priority {analysisResult.reliefDecision.selectedRelief.priorityRank} ({analysisResult.reliefDecision.selectedRelief.poolTier})
+                  </span>
+                </div>
+                <div className="flex items-center justify-between font-mono">
+                  <strong className="text-amber-200 text-sm">
+                    {analysisResult.reliefDecision.selectedRelief.name} (#{analysisResult.reliefDecision.selectedRelief.empId})
+                  </strong>
+                  <span className="text-slate-300">
+                    {analysisResult.reliefDecision.selectedRelief.cadre} | Duty {analysisResult.reliefDecision.selectedRelief.dutyId}
+                  </span>
+                </div>
+                <p className="text-[11px] text-amber-200/90 font-sans">
+                  Relief Location: <strong className="text-white">{analysisResult.reliefDecision.reliefLocation}</strong>
+                </p>
+                {analysisResult.reliefDecision.selectedRelief.expectedSignOff && (
+                  <div className="flex items-center justify-between text-[11px] font-mono pt-1.5 border-t border-amber-500/20">
+                    <span className="text-amber-300 flex items-center gap-1">
+                      <span>Scheduled Sign-Off:</span>
+                      <strong className="text-emerald-300 font-bold">{analysisResult.reliefDecision.selectedRelief.expectedSignOff}</strong>
+                    </span>
+                    <span className="text-emerald-400 font-bold bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
+                      {analysisResult.reliefDecision.selectedRelief.remainingShiftMinutes ? `${analysisResult.reliefDecision.selectedRelief.remainingShiftMinutes} mins remaining on duty` : 'Within safe shift window'}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ════════════════════════════════════════════════════════════
+              CARD 4: FINAL PLAN (Section 24 & Section 25)
+             ════════════════════════════════════════════════════════════ */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <FileText size={18} className="text-emerald-400" />
+                <h3 className="text-xs font-black uppercase text-slate-100 tracking-wider">
+                  FINAL OPERATIONAL PLAN — DEPOT &amp; MAINLINE TRAIN
+                </h3>
+              </div>
+              <span className="text-[10px] bg-emerald-950 border border-emerald-500/40 text-emerald-300 px-3 py-0.5 rounded font-mono font-bold">
+                READY FOR EXECUTION
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              
+              {/* DEPOT TRAIN */}
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2 text-xs">
+                <div className="flex items-center justify-between border-b border-slate-850 pb-2">
+                  <h4 className="text-xs font-black text-amber-400 uppercase">DEPOT TRAIN</h4>
+                  <span className="text-[10px] bg-amber-950 text-amber-300 px-2 py-0.5 rounded font-bold">
+                    {analysisResult.finalPlan?.depotTrain?.status || 'STABLING'}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5 text-[11px]">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Train ID:</span>
+                    <strong className="text-slate-100 font-mono text-sm">{analysisResult.finalPlan?.depotTrain?.trainId || '--'}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Physical Train:</span>
+                    <strong className="text-slate-200 font-mono">{analysisResult.finalPlan?.depotTrain?.physicalTrain || '--'}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Assigned Operator:</span>
+                    <strong className="text-amber-300 font-bold">{analysisResult.finalPlan?.depotTrain?.operator || '--'} (#{analysisResult.finalPlan?.depotTrain?.empId || ''})</strong>
+                  </div>
+                  {analysisResult.finalPlan?.depotTrain?.expectedSignOff && (
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-slate-500">Scheduled Sign-Off:</span>
+                      <strong className="text-amber-200/90 font-mono">{analysisResult.finalPlan.depotTrain.expectedSignOff}</strong>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Departure Time:</span>
+                    <strong className="text-slate-100 font-mono">{analysisResult.finalPlan?.depotTrain?.departure || '--'}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Station:</span>
+                    <strong className="text-slate-200">{analysisResult.finalPlan?.depotTrain?.station || swapLocation}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Platform:</span>
+                    <strong className="text-emerald-400 font-bold">{analysisResult.finalPlan?.depotTrain?.platform || 'Depot Lead'}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* MAINLINE TRAIN */}
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2 text-xs">
+                <div className="flex items-center justify-between border-b border-slate-850 pb-2">
+                  <h4 className="text-xs font-black text-cyan-400 uppercase">MAINLINE TRAIN</h4>
+                  <span className="text-[10px] bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded font-bold">
+                    {analysisResult.finalPlan?.mainlineTrain?.status || 'IN SERVICE'}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5 text-[11px]">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Train ID:</span>
+                    <strong className="text-slate-100 font-mono text-sm">{analysisResult.finalPlan?.mainlineTrain?.trainId || '--'}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Physical Train:</span>
+                    <strong className="text-slate-200 font-mono">{analysisResult.finalPlan?.mainlineTrain?.physicalTrain || '--'}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Assigned Operator:</span>
+                    <strong className="text-cyan-300 font-bold">{analysisResult.finalPlan?.mainlineTrain?.operator || '--'} (#{analysisResult.finalPlan?.mainlineTrain?.empId || ''})</strong>
+                  </div>
+                  {analysisResult.finalPlan?.mainlineTrain?.expectedSignOff && (
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-slate-500">Scheduled Sign-Off:</span>
+                      <strong className="text-emerald-400 font-mono">
+                        {analysisResult.finalPlan.mainlineTrain.expectedSignOff} {analysisResult.finalPlan.mainlineTrain.remainingShiftMinutes ? `(${analysisResult.finalPlan.mainlineTrain.remainingShiftMinutes}m remaining)` : ''}
+                      </strong>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Next Service:</span>
+                    <strong className="text-slate-100 font-mono">{analysisResult.finalPlan?.mainlineTrain?.nextService || 'Green Line Service'}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Station:</span>
+                    <strong className="text-slate-200">{analysisResult.finalPlan?.mainlineTrain?.station || swapLocation}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-bold">Platform:</span>
+                    <strong className="text-emerald-400 font-bold">{analysisResult.finalPlan?.mainlineTrain?.platform || 'Platform 1 (UP)'}</strong>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* ════════════════════════════════════════════════════════════
+              CARD 5: OPERATOR MOVEMENT TABLE
+             ════════════════════════════════════════════════════════════ */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
             <h4 className="text-xs font-black uppercase tracking-wider text-slate-300 mb-4 flex items-center gap-2">
               <Zap size={15} className="text-emerald-400" />
@@ -792,23 +1405,35 @@ export default function TrainSwapControl() {
                     <th className="py-2.5 px-3">Required Action</th>
                     <th className="py-2.5 px-3">Assigned Operator</th>
                     <th className="py-2.5 px-3">Origin Duty</th>
+                    <th className="py-2.5 px-3">Platform</th>
                     <th className="py-2.5 px-3">Operational Rationale</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-850">
                   {analysisResult.operatorActions.map((act, idx) => (
                     <tr key={idx} className="hover:bg-slate-850/50 transition">
-                      <td className="py-3 px-3 font-black text-cyan-400">Train {act.trainId}</td>
+                      <td className="py-3 px-3 font-black text-cyan-400">Train {act.trainId} ({act.physicalTrainId || 'Rake'})</td>
                       <td className="py-3 px-3">
                         <span className="bg-slate-800 px-2.5 py-0.5 rounded text-[10px] font-black uppercase text-slate-200">
                           {act.action.replace(/_/g, ' ')}
                         </span>
                       </td>
-                      <td className="py-3 px-3 font-bold text-slate-100">
-                        {act.operatorName} {act.empId ? `(#${act.empId})` : ''}
+                      <td className="py-3 px-3">
+                        <div className="font-bold text-slate-100">
+                          {act.operatorName} {act.empId ? `(#${act.empId})` : ''}
+                        </div>
+                        {act.expectedSignOff && (
+                          <div className="text-[10px] text-emerald-400 font-mono flex items-center gap-1 mt-0.5">
+                            <span>Sign-Off: {act.expectedSignOff}</span>
+                            {act.remainingShiftMinutes ? <span className="text-slate-400">({act.remainingShiftMinutes}m left)</span> : null}
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-3 text-slate-400 font-mono">
                         Duty {act.originDuty || act.dutyNo || '--'}
+                      </td>
+                      <td className="py-3 px-3 text-emerald-400 font-bold">
+                        {act.platform || 'Platform 1 (UP)'}
                       </td>
                       <td className="py-3 px-3 text-slate-300">
                         {act.reason}
@@ -851,7 +1476,7 @@ export default function TrainSwapControl() {
               <div className="text-xs space-y-2 text-slate-300">
                 <div className="flex justify-between border-b border-slate-850 pb-1.5">
                   <span className="text-slate-500">Planned Arrival at {swapLocation}:</span>
-                  <span className="font-mono font-bold text-slate-200">{analysisResult.trainA.wttScheduledEta}:00</span>
+                  <span className="font-mono font-bold text-slate-200">{analysisResult?.trainA?.wttScheduledEta || etaA || '--'}:00</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-850 pb-1.5">
                   <span className="text-slate-500">Live Delay:</span>
@@ -859,7 +1484,7 @@ export default function TrainSwapControl() {
                 </div>
                 <div className="flex justify-between border-b border-slate-850 pb-1.5">
                   <span className="text-slate-500">Actual Adjusted Arrival:</span>
-                  <span className="font-mono font-bold text-cyan-300">{analysisResult.trainA.eta}</span>
+                  <span className="font-mono font-bold text-cyan-300">{analysisResult?.trainA?.eta || etaA}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-850 pb-1.5">
                   <span className="text-slate-500">Next Destination Intent:</span>
@@ -867,7 +1492,9 @@ export default function TrainSwapControl() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Scheduled Link Sign-Off:</span>
-                  <span className="font-mono text-slate-200">{analysisResult.trainA.operator?.expectedSignOff} ({analysisResult.trainA.dutyLink?.signOffLocation})</span>
+                  <span className="font-mono text-slate-200">
+                    {analysisResult?.trainA?.operator?.expectedSignOff || '--'} ({analysisResult?.trainA?.dutyLink?.signOffLocation || 'PYID'})
+                  </span>
                 </div>
               </div>
             </div>
@@ -880,7 +1507,7 @@ export default function TrainSwapControl() {
               <div className="text-xs space-y-2 text-slate-300">
                 <div className="flex justify-between border-b border-slate-850 pb-1.5">
                   <span className="text-slate-500">Planned Arrival at {swapLocation}:</span>
-                  <span className="font-mono font-bold text-slate-200">{analysisResult.trainB.wttScheduledEta}:00</span>
+                  <span className="font-mono font-bold text-slate-200">{analysisResult?.trainB?.wttScheduledEta || etaB || '--'}:00</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-850 pb-1.5">
                   <span className="text-slate-500">Live Delay:</span>
@@ -888,7 +1515,7 @@ export default function TrainSwapControl() {
                 </div>
                 <div className="flex justify-between border-b border-slate-850 pb-1.5">
                   <span className="text-slate-500">Actual Adjusted Arrival:</span>
-                  <span className="font-mono font-bold text-amber-300">{analysisResult.trainB.eta}</span>
+                  <span className="font-mono font-bold text-amber-300">{analysisResult?.trainB?.eta || etaB}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-850 pb-1.5">
                   <span className="text-slate-500">Next Destination Intent:</span>
@@ -896,7 +1523,9 @@ export default function TrainSwapControl() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Scheduled Link Sign-Off:</span>
-                  <span className="font-mono text-slate-200">{analysisResult.trainB.operator?.expectedSignOff} ({analysisResult.trainB.dutyLink?.signOffLocation})</span>
+                  <span className="font-mono text-slate-200">
+                    {analysisResult?.trainB?.operator?.expectedSignOff || '--'} ({analysisResult?.trainB?.dutyLink?.signOffLocation || 'PYID'})
+                  </span>
                 </div>
               </div>
             </div>
@@ -906,7 +1535,7 @@ export default function TrainSwapControl() {
           <div className="p-4 bg-emerald-950/20 border border-emerald-500/20 rounded-xl text-xs text-emerald-300 flex items-start gap-3">
             <CheckCircle2 size={18} className="shrink-0 mt-0.5 text-emerald-400" />
             <div>
-              <strong>Human Intelligence Rationale:</strong> The engine checks whether taking the next train causes the driver to sign off at a different station or beyond their maximum 8.0h shift. If Train {trainB} terminates at Peenya Depot and Operator {analysisResult.trainA.operator?.empName} signs off at PYID, swapping them produces zero deadheading and perfect shift completion.
+              <strong>Human Intelligence Rationale:</strong> The engine checks whether taking the next train causes the driver to sign off at a different station or beyond their maximum 8.0h shift. If Train {trainB} terminates at Peenya Depot and Operator {analysisResult?.trainA?.operator?.empName || 'Operator A'} signs off at PYID, swapping them produces zero deadheading and perfect shift completion.
             </div>
           </div>
         </div>
@@ -969,10 +1598,11 @@ export default function TrainSwapControl() {
                 <tr className="border-b border-slate-800 text-[10px] text-slate-500 uppercase tracking-widest">
                   <th className="py-2.5 px-3">Candidate / Driver</th>
                   <th className="py-2.5 px-3">Cadre &amp; Role</th>
-                  <th className="py-2.5 px-3">Weekly Off / Shift</th>
+                  <th className="py-2.5 px-3">Duty / Shift</th>
                   <th className="py-2.5 px-3">Base / Loc</th>
                   <th className="py-2.5 px-3">CRT Expiry (6M)</th>
                   <th className="py-2.5 px-3">Rest Interval</th>
+                  <th className="py-2.5 px-3">Sign-Off / Shift Window</th>
                   <th className="py-2.5 px-3">Suitability</th>
                 </tr>
               </thead>
@@ -1028,7 +1658,7 @@ export default function TrainSwapControl() {
                         </span>
                       ) : (
                         <span className="text-slate-300 text-[11px]">
-                          {cand.dutyId || cand.fixedWo || 'ACTIVE CREW'}
+                          Duty {cand.dutyId || cand.fixedWo || 'ACTIVE CREW'}
                         </span>
                       )}
                     </td>
@@ -1042,14 +1672,35 @@ export default function TrainSwapControl() {
                       {cand.restHours || 12}h rest
                     </td>
                     <td className="py-3 px-3">
+                      {cand.eligible ? (
+                        <div className="font-mono text-xs">
+                          <span className="text-emerald-400 font-bold block">{cand.expectedSignOff || '22:00:00'}</span>
+                          <span className="text-[10px] text-slate-400">
+                            {cand.remainingShiftMinutes ? `${cand.remainingShiftMinutes}m remaining` : 'On duty'}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="font-mono text-[11px]">
+                          <span className="text-rose-400 font-bold block">
+                            {cand.expectedSignOff ? `Sign-Off: ${cand.expectedSignOff}` : 'Disqualified'}
+                          </span>
+                          <span className="text-[9px] text-rose-300/80 block max-w-[170px] truncate" title={cand.rejectionReason}>
+                            {cand.signOffStatus === 'PAST_SCHEDULED_SIGN_OFF' ? 'Past sign-off' : (cand.rejectionReason || 'Ineligible')}
+                          </span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-3 px-3">
                       <div className="flex items-center gap-2">
                         <div className="w-16 h-2 bg-slate-800 rounded-full overflow-hidden">
                           <div
-                            className={`h-full ${cand.score >= 85 ? 'bg-emerald-500' : cand.score >= 60 ? 'bg-amber-500' : 'bg-rose-500'}`}
-                            style={{ width: `${cand.score}%` }}
+                            className={`h-full ${cand.eligible ? (cand.score >= 85 ? 'bg-emerald-500' : 'bg-amber-500') : 'bg-rose-600'}`}
+                            style={{ width: `${cand.eligible ? cand.score : 8}%` }}
                           />
                         </div>
-                        <span className="font-bold font-mono text-[11px]">{cand.score}%</span>
+                        <span className={`font-bold font-mono text-[11px] ${cand.eligible ? 'text-slate-100' : 'text-rose-400'}`}>
+                          {cand.eligible ? `${cand.score}%` : 'REJECTED'}
+                        </span>
                       </div>
                     </td>
                   </tr>
@@ -1243,8 +1894,163 @@ export default function TrainSwapControl() {
         </div>
       )}
 
+      {/* ── Modify Modal ── */}
+      {showModifyModal && analysisResult && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex justify-center items-center p-4">
+          <div className="w-full max-w-xl bg-slate-900 border border-cyan-500/40 rounded-2xl p-6 shadow-2xl space-y-4 font-mono">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2 text-cyan-400">
+                <RefreshCw size={18} />
+                <h3 className="text-sm font-black uppercase tracking-wider">Modify Crew Relief Assignment</h3>
+              </div>
+              <button
+                onClick={() => setShowModifyModal(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed font-sans">
+              Override the algorithmic relief assignment by manually selecting an alternative qualified operator from the verified Peenya crew pool.
+            </p>
+
+            <div className="space-y-3 text-xs">
+              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
+                <span className="text-[10px] text-slate-500 font-bold uppercase block">Current Engine Selection:</span>
+                <span className="text-amber-300 font-bold text-xs">
+                  {analysisResult.reliefDecision?.selectedRelief?.name || 'No Relief Selected'}
+                  {analysisResult.reliefDecision?.selectedRelief?.empId ? ` (#${analysisResult.reliefDecision.selectedRelief.empId})` : ''}
+                  {' '}[{analysisResult.reliefDecision?.selectedRelief?.type || 'N/A'}]
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-slate-400 font-bold uppercase mb-1.5">
+                  Select Alternative Relief Operator
+                </label>
+                <select
+                  value={selectedModifiedReliefId}
+                  onChange={e => setSelectedModifiedReliefId(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-slate-100 font-bold text-xs focus:outline-none focus:border-cyan-400"
+                >
+                  <option value="">-- Choose Candidate from Pool --</option>
+                  {(analysisResult.candidateEvaluations || []).map((cand) => (
+                    <option
+                      key={cand.operatorId}
+                      value={cand.operatorId}
+                    >
+                      {cand.priorityTier ? `Tier ${cand.priorityTier} | ` : ''}{cand.operatorName} (#{cand.operatorId}) - {cand.candidateType} ({cand.cadre || 'TO'}) {cand.isEligible ? '✓ Eligible' : '⚠️ Rule Warning'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedModifiedReliefId && (
+                <div className="bg-slate-950/80 p-3 rounded-xl border border-cyan-500/30 text-[11px] space-y-1">
+                  {(() => {
+                    const c = (analysisResult.candidateEvaluations || []).find(cand => cand.operatorId === selectedModifiedReliefId);
+                    if (!c) return null;
+                    return (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Selected:</span>
+                          <strong className="text-cyan-300">{c.operatorName} (#{c.operatorId})</strong>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Cadre / Type:</span>
+                          <strong className="text-slate-200">{c.candidateType} - {c.cadre}</strong>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Eligibility:</span>
+                          <span className={c.isEligible ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
+                            {c.isEligible ? 'Passed all safety checks' : `Flag: ${c.rejectionReason || 'Requires confirmation'}`}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowModifyModal(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmModification}
+                disabled={!selectedModifiedReliefId}
+                className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-slate-950 text-xs font-black flex items-center gap-1.5 shadow-lg shadow-cyan-900/30"
+              >
+                <Check size={14} />
+                <span>Save & Update Plan</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Reject Modal ── */}
+      {showRejectModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex justify-center items-center p-4">
+          <div className="w-full max-w-lg bg-slate-900 border border-rose-600/40 rounded-2xl p-6 shadow-2xl space-y-4 font-mono">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2 text-rose-400">
+                <X size={18} />
+                <h3 className="text-sm font-black uppercase tracking-wider">Reject Decision Recommendation</h3>
+              </div>
+              <button
+                onClick={() => setShowRejectModal(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed font-sans">
+              Rejecting this recommendation cancels the planned swap and relief execution. The rejection and your rationale will be recorded in the audit trail.
+            </p>
+
+            <div className="space-y-2 text-xs">
+              <label className="block text-[10px] text-slate-400 font-bold uppercase mb-1">
+                Operational Justification for Rejection
+              </label>
+              <textarea
+                rows="3"
+                value={rejectReasonText}
+                onChange={e => setRejectReasonText(e.target.value)}
+                placeholder="e.g. OCC rescheduled stabling to Peenya Loop; no crew relief required..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 text-xs focus:outline-none focus:border-rose-500"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowRejectModal(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmRejection}
+                disabled={!rejectReasonText.trim()}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white text-xs font-black flex items-center gap-1.5 shadow-lg shadow-rose-900/30"
+              >
+                <Check size={14} />
+                <span>Confirm Rejection</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Emergency Override Modal ── */}
       {showOverrideModal && (
+
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex justify-center items-center p-4">
           <div className="w-full max-w-lg bg-slate-900 border border-rose-600/40 rounded-2xl p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
