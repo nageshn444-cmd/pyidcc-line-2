@@ -2371,96 +2371,64 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
 
       setConsoleData((prev) => {
         const isFullDeployment = Boolean(
-          data.sheetName ||
-          data.date ||
-          data.dayType ||
-          data.updatedAt ||
-          Array.isArray(data.coOperators),
+          data.sheetName &&
+          Array.isArray(data.duties) &&
+          data.duties.length > 0 &&
+          !data.isPartialUpdate
         );
-        const has = (arr) => Array.isArray(arr) && arr.length > 0;
 
         const rawNext = {
           controlDesks: Array.isArray(data.controlDesks)
             ? data.controlDesks
-            : has(data.controlDesks)
-              ? data.controlDesks
-              : prev.controlDesks,
+            : prev.controlDesks || [],
           coOperators: Array.isArray(data.coOperators)
             ? data.coOperators
-            : isFullDeployment
-              ? []
-              : prev.coOperators,
+            : prev.coOperators || [],
           leaves: Array.isArray(data.leaves)
             ? data.leaves
-            : has(data.leaves)
-              ? data.leaves
-              : prev.leaves,
+            : prev.leaves || [],
           standbys: Array.isArray(data.standbys)
             ? data.standbys
-            : has(data.standbys)
-              ? data.standbys
-              : prev.standbys,
+            : prev.standbys || [],
           outstationStepbacks: Array.isArray(data.outstationStepbacks)
             ? data.outstationStepbacks
-            : has(data.outstationStepbacks)
-              ? data.outstationStepbacks
-              : prev.outstationStepbacks,
+            : prev.outstationStepbacks || [],
           crtTraining: Array.isArray(data.crtTraining)
             ? data.crtTraining
-            : has(data.crtTraining)
-              ? data.crtTraining
-              : prev.crtTraining,
+            : prev.crtTraining || [],
           bmrtiTraining: sanitizeBmrtiList(
             Array.isArray(data.bmrtiTraining)
               ? data.bmrtiTraining
-              : has(data.bmrtiTraining)
-                ? data.bmrtiTraining
-                : prev.bmrtiTraining,
+              : prev.bmrtiTraining || [],
           ),
           weeklyOffs: Array.isArray(data.weeklyOffs)
             ? data.weeklyOffs
-            : has(data.weeklyOffs)
-              ? data.weeklyOffs
-              : prev.weeklyOffs,
+            : prev.weeklyOffs || [],
           relievedOperators: Array.isArray(data.relievedOperators)
             ? data.relievedOperators
-            : has(data.relievedOperators)
-              ? data.relievedOperators
-              : prev.relievedOperators,
+            : prev.relievedOperators || [],
           pmeOperators: Array.isArray(data.pmeOperators)
             ? data.pmeOperators
-            : has(data.pmeOperators)
-              ? data.pmeOperators
-              : prev.pmeOperators,
+            : prev.pmeOperators || [],
           routeLearning: Array.isArray(data.routeLearning)
             ? data.routeLearning
-            : has(data.routeLearning)
-              ? data.routeLearning
-              : prev.routeLearning,
+            : prev.routeLearning || [],
           notReporting: Array.isArray(data.notReporting)
             ? data.notReporting
-            : has(data.notReporting)
-              ? data.notReporting
-              : prev.notReporting,
+            : prev.notReporting || [],
           absents: Array.isArray(data.absents)
             ? data.absents
-            : has(data.absents)
-              ? data.absents
-              : prev.absents,
+            : prev.absents || [],
           bookedOff: Array.isArray(data.bookedOff)
             ? data.bookedOff
-            : has(data.bookedOff)
-              ? data.bookedOff
-              : prev.bookedOff || [],
+            : prev.bookedOff || [],
           onDuty: Array.isArray(data.onDuty)
             ? data.onDuty
-            : has(data.onDuty)
-              ? data.onDuty
-              : prev.onDuty,
+            : prev.onDuty || [],
           customRegisters:
             data.customRegisters && typeof data.customRegisters === "object"
               ? data.customRegisters
-              : prev.customRegisters,
+              : prev.customRegisters || {},
         };
 
         const sanitizedIncoming = sanitizeConsoleContainer(rawNext);
@@ -4405,27 +4373,72 @@ Rules:
   }, [allSwappableGroups, swapSearchQuery]);
 
   // ── Universal Date-Isolated Mutation Persister ──
-  const persistDutyMutation = async (updatedDutyList, updatedConsole) => {
+  const persistDutyMutation = async (updatedDutyList, updatedConsole, affectedDutyIds = null) => {
     if (!targetDeploymentDate) return;
     try {
-      const batch = writeBatch(db);
-      const deploymentId = getDeploymentId(targetDeploymentDate, targetDayType);
-      const altDate = toIndianDateStr(targetDeploymentDate);
-      const altDeploymentId = altDate ? `${altDate}_${targetDayType}` : null;
-      const todayStr = formatOperationalDate(new Date());
-      const isToday = targetDeploymentDate === todayStr;
+      // 0. Safety Guard: Prevent clearing already deployed roster data
+      const existingDuties = (
+        currentDeploymentRecord?.rosterData?.duties?.length
+          ? currentDeploymentRecord.rosterData.duties
+          : deduplicatedDeployments?.length
+            ? deduplicatedDeployments
+            : fallbackDeployments
+      ) || [];
 
+      let finalDutyList = updatedDutyList;
+      if (!Array.isArray(finalDutyList) || finalDutyList.length === 0) {
+        if (existingDuties.length > 0) {
+          console.warn("Safety guard: protected deployed roster against clearing. Retaining existing duties.");
+          finalDutyList = existingDuties;
+        } else {
+          console.warn("Safety guard: no duties found to mutate. Aborting mutation.");
+          return;
+        }
+      }
+
+      // Optimistic local state update BEFORE awaiting network for instant UI response
+      const dedupedList = deduplicateDeployments(finalDutyList);
+      setFallbackDeployments(dedupedList);
+
+      const existingRosterData = currentDeploymentRecord?.rosterData || {};
       const mergedConsole = updatedConsole || consoleData || {};
       const newRosterData = {
-        ...(currentDeploymentRecord?.rosterData || {}),
+        ...existingRosterData,
         ...mergedConsole,
-        duties: updatedDutyList,
+        // Ensure auxiliary arrays are preserved if missing from partial console update
+        controlDesks: mergedConsole.controlDesks?.length ? mergedConsole.controlDesks : (existingRosterData.controlDesks || consoleData.controlDesks || []),
+        coOperators: mergedConsole.coOperators?.length ? mergedConsole.coOperators : (existingRosterData.coOperators || consoleData.coOperators || []),
+        leaves: mergedConsole.leaves?.length ? mergedConsole.leaves : (existingRosterData.leaves || consoleData.leaves || []),
+        standbys: mergedConsole.standbys?.length ? mergedConsole.standbys : (existingRosterData.standbys || consoleData.standbys || []),
+        weeklyOffs: mergedConsole.weeklyOffs?.length ? mergedConsole.weeklyOffs : (existingRosterData.weeklyOffs || consoleData.weeklyOffs || []),
+        bookedOff: mergedConsole.bookedOff !== undefined ? mergedConsole.bookedOff : (existingRosterData.bookedOff || consoleData.bookedOff || []),
+        duties: finalDutyList,
         date: targetDeploymentDate,
         dateStr: targetDeploymentDate,
         dayType: targetDayType,
         scheduleType: targetDayType,
         lastUpdated: serverTimestamp(),
       };
+
+      const deploymentId = getDeploymentId(targetDeploymentDate, targetDayType);
+      const altDate = toIndianDateStr(targetDeploymentDate);
+      const altDeploymentId = altDate ? `${altDate}_${targetDayType}` : null;
+      const todayStr = formatOperationalDate(new Date());
+      const isToday = targetDeploymentDate === todayStr;
+
+      setCurrentDeploymentRecord((prev) => ({
+        ...(prev || {}),
+        deploymentId,
+        deploymentDate: targetDeploymentDate,
+        dayType: targetDayType,
+        rosterData: newRosterData,
+      }));
+      if (updatedConsole) {
+        setConsoleData(updatedConsole);
+      }
+
+      // Fast atomic batch: writes under 10 documents total instead of 300+
+      const batch = writeBatch(db);
 
       // 1. Update dispatch_deployments for primary deploymentId
       const depRef = doc(db, "dispatch_deployments", deploymentId);
@@ -4462,11 +4475,7 @@ Rules:
 
       // 2. Update dispatch_excel_cache for targetDeploymentDate
       const cachePayload = {
-        ...mergedConsole,
-        duties: updatedDutyList,
-        dateStr: targetDeploymentDate,
-        dayType: targetDayType,
-        scheduleType: targetDayType,
+        ...newRosterData,
         lastUpdated: serverTimestamp(),
       };
 
@@ -4484,22 +4493,24 @@ Rules:
         );
       }
 
-      // 3. Update roster_desk_console and current cache
-      batch.set(
-        doc(db, "roster_desk_console", "current"),
-        cachePayload,
-        { merge: true },
-      );
-      batch.set(
-        doc(db, "roster_desk_console", "latest"),
-        cachePayload,
-        { merge: true },
-      );
-      batch.set(
-        doc(db, "dispatch_excel_cache", "current"),
-        cachePayload,
-        { merge: true },
-      );
+      // 3. ONLY update today's live desk console if targetDeploymentDate is today
+      if (isToday) {
+        batch.set(
+          doc(db, "roster_desk_console", "current"),
+          cachePayload,
+          { merge: true },
+        );
+        batch.set(
+          doc(db, "roster_desk_console", "latest"),
+          cachePayload,
+          { merge: true },
+        );
+        batch.set(
+          doc(db, "dispatch_excel_cache", "current"),
+          cachePayload,
+          { merge: true },
+        );
+      }
 
       // Touch latest_deployment_meta to wake up listening client devices
       batch.set(
@@ -4512,11 +4523,34 @@ Rules:
         { merge: true },
       );
 
-      // 4. Mirror active duties to crew_daily_deployment
-      if (Array.isArray(updatedDutyList) && updatedDutyList.length > 0) {
+      // 4. Targeted Mirroring to crew_daily_deployment (CHANGED DUTIES ONLY)
+      const existingMap = new Map();
+      existingDuties.forEach((d) => {
+        if (d.dutyId) existingMap.set(String(d.dutyId).trim(), d);
+      });
+
+      const affectedSet = affectedDutyIds
+        ? new Set(Array.from(affectedDutyIds).map((id) => String(id).trim()))
+        : null;
+
+      const dutiesToMirror = finalDutyList.filter((d) => {
+        if (!d.dutyId) return false;
+        const dId = String(d.dutyId).trim();
+        if (affectedSet && affectedSet.has(dId)) return true;
+        const oldD = existingMap.get(dId);
+        if (!oldD) return false;
+        return (
+          String(oldD.empId || "") !== String(d.empId || "") ||
+          String(oldD.empName || "") !== String(d.empName || "") ||
+          String(oldD.status || "") !== String(d.status || "") ||
+          Boolean(oldD.isSwapped) !== Boolean(d.isSwapped) ||
+          Boolean(oldD.isExchanged) !== Boolean(d.isExchanged)
+        );
+      });
+
+      if (dutiesToMirror.length > 0) {
         const sched = normalizeScheduleType(targetDayType || currentDayType).toLowerCase();
-        updatedDutyList.forEach((d) => {
-          if (!d.dutyId) return;
+        dutiesToMirror.forEach((d) => {
           const rawDId = String(d.dutyId).trim();
           const normDId = String(parseInt(rawDId, 10) || rawDId).trim();
           const paddedDId = normDId ? normDId.padStart(2, "0") : "";
@@ -4532,6 +4566,12 @@ Rules:
             signOffLocation: d.signOffLocation || "PYID",
             dutyType: d.dutyType || "--",
             status: d.status || "ACTIVE",
+            isSignedOn: Boolean(d.isSignedOn),
+            isSwapped: Boolean(d.isSwapped),
+            isExchanged: Boolean(d.isExchanged),
+            swappedWith: d.swappedWith || null,
+            swappedDutyId: d.swappedDutyId || null,
+            remarks: d.remarks || (d.isSwapped ? "Swapped by CC" : d.isExchanged ? "Shift Exchanged" : "ACTIVE"),
             scheduleType: targetDayType,
             date: targetDeploymentDate,
             deploymentDate: targetDeploymentDate,
@@ -4568,20 +4608,6 @@ Rules:
       }
 
       await batch.commit();
-
-      // 5. Update local state immediately
-      const dedupedList = deduplicateDeployments(updatedDutyList);
-      setFallbackDeployments(dedupedList);
-      setCurrentDeploymentRecord((prev) => ({
-        ...(prev || {}),
-        deploymentId,
-        deploymentDate: targetDeploymentDate,
-        dayType: targetDayType,
-        rosterData: newRosterData,
-      }));
-      if (updatedConsole) {
-        setConsoleData(updatedConsole);
-      }
     } catch (err) {
       console.warn("Failed to persist date-isolated duty mutation:", err);
     }
@@ -4954,10 +4980,32 @@ Rules:
         setConsoleData(newConsoleData);
       }
 
+      // Close modal and reset fields immediately for fast snappy response
+      setShowSwapModal(false);
+      setSwapDuty1("");
+      setSwapDuty2("");
+      setSwapDuty3("");
+      setSwapSearchQuery("");
+
       await batch.commit();
 
-      // Persist swapped duties into date-specific dispatch_deployments record
-      const updatedDuties = (deduplicatedDeployments || []).map((d) => {
+      // Persist swapped duties into date-specific dispatch_deployments record with safety fallback
+      const baseDuties = (
+        deduplicatedDeployments?.length
+          ? deduplicatedDeployments
+          : currentDeploymentRecord?.rosterData?.duties?.length
+            ? currentDeploymentRecord.rosterData.duties
+            : fallbackDeployments?.length
+              ? fallbackDeployments
+              : []
+      );
+
+      if (!baseDuties || baseDuties.length === 0) {
+        alert("Cannot swap: No active deployed duties found for this date. Please ensure a roster is deployed.");
+        return;
+      }
+
+      const updatedDuties = baseDuties.map((d) => {
         const normDId = normalizeDutyId(d.dutyId);
         if (isTriple) {
           if (
@@ -5030,9 +5078,16 @@ Rules:
         return d;
       });
 
+      const affectedIds = new Set([
+        item1.dutyId,
+        item2.dutyId,
+        ...(isTriple && item3 ? [item3.dutyId] : []),
+      ].filter(Boolean));
+
       await persistDutyMutation(
         updatedDuties,
         updatedConsole ? newConsoleData : consoleData,
+        affectedIds,
       );
 
       if (isTriple) {
@@ -5044,11 +5099,6 @@ Rules:
           `✅ ${isExchange ? "Duty Exchanged" : "Duties Swapped"} Successfully:\n${item1.label}\n↔\n${item2.label}`,
         );
       }
-      setShowSwapModal(false);
-      setSwapDuty1("");
-      setSwapDuty2("");
-      setSwapDuty3("");
-      setSwapSearchQuery("");
       if (onImportComplete) onImportComplete();
     } catch (err) {
       console.error(err);
@@ -5482,10 +5532,25 @@ Rules:
         });
       }
 
+      // Close modal immediately for fast snappy response
+      setShowAssignDriverModal(false);
+      setAssignTargetDuty(null);
+      setSelectedReliever(null);
+
       await batch.commit();
 
-      // Persist to date-isolated dispatch_deployments
-      const updatedDuties = (deduplicatedDeployments || []).map((d) => {
+      // Persist to date-isolated dispatch_deployments with safety fallback
+      const baseDuties = (
+        deduplicatedDeployments?.length
+          ? deduplicatedDeployments
+          : currentDeploymentRecord?.rosterData?.duties?.length
+            ? currentDeploymentRecord.rosterData.duties
+            : fallbackDeployments?.length
+              ? fallbackDeployments
+              : []
+      );
+
+      const updatedDuties = baseDuties.map((d) => {
         if (String(d.dutyId).trim() === String(deployment.dutyId).trim()) {
           return {
             ...d,
@@ -5523,11 +5588,14 @@ Rules:
         }
         return d;
       });
-      await persistDutyMutation(updatedDuties, updatedConsole);
 
-      setShowAssignDriverModal(false);
-      setAssignTargetDuty(null);
-      setSelectedReliever(null);
+      const affectedIds = new Set([
+        deployment.dutyId,
+        (reliefSource === "MAINLINE" ? selectedReliever.dutyId : null),
+      ].filter(Boolean));
+
+      await persistDutyMutation(updatedDuties, updatedConsole, affectedIds);
+
       alert(
         `✅ Driver ${relieverName} assigned to Duty #${deployment.dutyId} successfully from [${reliefSource}]!`,
       );
@@ -5796,10 +5864,24 @@ Rules:
         });
       }
 
+      // Close modal immediately for fast snappy response
+      setShowTransferModal(false);
+      setTransferTargetOperator(null);
+
       await batch.commit();
 
-      // Compute updatedDuties and persist across all devices
-      const updatedDuties = (deduplicatedDeployments || []).map((d) => {
+      // Compute updatedDuties and persist across all devices with safety fallback
+      const baseDuties = (
+        deduplicatedDeployments?.length
+          ? deduplicatedDeployments
+          : currentDeploymentRecord?.rosterData?.duties?.length
+            ? currentDeploymentRecord.rosterData.duties
+            : fallbackDeployments?.length
+              ? fallbackDeployments
+              : []
+      );
+
+      const updatedDuties = baseDuties.map((d) => {
         if (tgtCat === "MAINLINE" && String(d.dutyId) === String(transferTargetDutyId)) {
           return {
             ...d,
@@ -5821,10 +5903,13 @@ Rules:
         return d;
       });
 
-      await persistDutyMutation(updatedDuties, updatedConsole);
+      const affectedIds = new Set([
+        (tgtCat === "MAINLINE" ? transferTargetDutyId : null),
+        ((srcCat === "MAINLINE" || srcCat === "mainline") ? (op.rawItem?.dutyId || op.dutyId) : null),
+      ].filter(Boolean));
 
-      setShowTransferModal(false);
-      setTransferTargetOperator(null);
+      await persistDutyMutation(updatedDuties, updatedConsole, affectedIds);
+
       alert(
         `✅ Operator ${opName} successfully moved from [${srcCat}] to [${
           tgtCat === "MAINLINE" ? `Duty #${transferTargetDutyId}` : tgtCat
@@ -5908,7 +5993,17 @@ Rules:
 
       await batch.commit();
 
-      const updatedDuties = (deduplicatedDeployments || []).map((d) => {
+      const baseDuties = (
+        deduplicatedDeployments?.length
+          ? deduplicatedDeployments
+          : currentDeploymentRecord?.rosterData?.duties?.length
+            ? currentDeploymentRecord.rosterData.duties
+            : fallbackDeployments?.length
+              ? fallbackDeployments
+              : []
+      );
+
+      const updatedDuties = baseDuties.map((d) => {
         if (String(d.dutyId).trim() === String(boItem.dutyId).trim()) {
           return {
             ...d,
@@ -5921,7 +6016,7 @@ Rules:
         return d;
       });
 
-      await persistDutyMutation(updatedDuties, updatedConsole);
+      await persistDutyMutation(updatedDuties, updatedConsole, new Set([boItem.dutyId]));
       alert(`✅ Operator ${boItem.name} restored to Duty #${boItem.dutyId}!`);
       if (onImportComplete) onImportComplete();
     } catch (err) {
@@ -6847,8 +6942,17 @@ Rules:
             /* ignore cache error */
           }
 
-          // Persist status change to date-specific dispatch_deployments
-          const updatedDuties = (deduplicatedDeployments || []).map((d) =>
+          // Persist status change to date-specific dispatch_deployments with safety fallback
+          const baseDuties = (
+            deduplicatedDeployments?.length
+              ? deduplicatedDeployments
+              : currentDeploymentRecord?.rosterData?.duties?.length
+                ? currentDeploymentRecord.rosterData.duties
+                : fallbackDeployments?.length
+                  ? fallbackDeployments
+                  : []
+          );
+          const updatedDuties = baseDuties.map((d) =>
             String(d.dutyId) === String(deployment.dutyId)
               ? {
                   ...d,
@@ -6859,7 +6963,7 @@ Rules:
                 }
               : d,
           );
-          persistDutyMutation(updatedDuties, next);
+          persistDutyMutation(updatedDuties, next, new Set([deployment.dutyId]));
 
           return next;
         });
@@ -7078,6 +7182,31 @@ Rules:
         return updated;
       });
 
+      // Persist relief to date-isolated dispatch_deployments with safety fallback
+      const baseDuties = deduplicatedDeployments?.length ? deduplicatedDeployments : currentDeploymentRecord?.rosterData?.duties || fallbackDeployments;
+      const updatedRosterDuties = (baseDuties || []).map((d) => {
+        if (String(d.dutyId).trim() === targetDutyId) {
+          return {
+            ...d,
+            status: "RELIEVED",
+            relievedByDutyId: candDutyId,
+            relievedByEmpName: candEmpName,
+            relievedByEmpId: candEmpId,
+          };
+        }
+        if (String(d.dutyId).trim() === candDutyId) {
+          return {
+            ...d,
+            status: "RELIEF_DISPATCHED",
+            reliefTargetDuty: targetDutyId,
+            reliefTargetEmpName: targetEmpName,
+            reliefTargetEmpId: targetEmpId,
+          };
+        }
+        return d;
+      });
+      persistDutyMutation(updatedRosterDuties, consoleData, new Set([targetDutyId, candDutyId]));
+
       alert(
         `✅ Relief Dispatched: ${candEmpName} (${candDutyId}) is now relieving Duty #${targetDutyId} (${targetEmpName}).`,
       );
@@ -7225,6 +7354,34 @@ Rules:
           return d;
         }),
       );
+
+      // Persist reset relief to date-isolated dispatch_deployments
+      const baseDuties = deduplicatedDeployments?.length ? deduplicatedDeployments : currentDeploymentRecord?.rosterData?.duties || fallbackDeployments;
+      const updatedRosterDuties = (baseDuties || []).map((d) => {
+        const dId = String(d.dutyId).trim();
+        if (dId === targetDutyId) {
+          return {
+            ...d,
+            status: "ACTIVE",
+            relievedByDutyId: null,
+            relievedByEmpName: null,
+            relievedByEmpId: null,
+            remarks: "Active Deployment",
+          };
+        }
+        if (relieverDutyId && dId === relieverDutyId) {
+          return {
+            ...d,
+            status: "ACTIVE",
+            reliefTargetDuty: null,
+            reliefTargetEmpName: null,
+            reliefTargetEmpId: null,
+            remarks: "Active Deployment",
+          };
+        }
+        return d;
+      });
+      persistDutyMutation(updatedRosterDuties, consoleData, new Set([targetDutyId, relieverDutyId].filter(Boolean)));
 
       if (activeAbnormalEvent) {
         setActiveAbnormalEvent(null);
