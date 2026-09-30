@@ -3,14 +3,14 @@
 #   Skipped in CI — dist/ is pre-built by GitHub Actions job
 #   and injected via build-arg SKIP_BUILD=true
 # ─────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
 ARG SKIP_BUILD=false
 
 COPY package*.json ./
-RUN if [ "$SKIP_BUILD" = "false" ]; then npm ci --legacy-peer-deps; fi
+RUN if [ "$SKIP_BUILD" = "false" ]; then npm install --legacy-peer-deps && chmod +x node_modules/.bin/vite; fi
 
 COPY . .
 
