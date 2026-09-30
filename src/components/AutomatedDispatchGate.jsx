@@ -1984,52 +1984,64 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
     }
   }, [activeSelectedDateStr]);
 
-  // Real-time listener for current target date deployment record
+  // Real-time listener for current target date deployment record (listening to primary & alternate IDs)
   useEffect(() => {
     const deploymentId = getDeploymentId(targetDeploymentDate, targetDayType);
-    const unsub = onSnapshot(
+    const altDate = toIndianDateStr(targetDeploymentDate);
+    const altDeploymentId = altDate ? `${altDate}_${targetDayType}` : null;
+
+    const handleDepDocSnap = (docSnap) => {
+      if (docSnap && docSnap.exists()) {
+        const depData = docSnap.data();
+        setCurrentDeploymentRecord(depData);
+        if (depData.rosterData) {
+          setConsoleData(
+            sanitizeConsoleContainer({
+              controlDesks: depData.rosterData.controlDesks || [],
+              coOperators: depData.rosterData.coOperators || [],
+              leaves: depData.rosterData.leaves || [],
+              standbys: depData.rosterData.standbys || [],
+              outstationStepbacks:
+                depData.rosterData.outstationStepbacks || [],
+              crtTraining: depData.rosterData.crtTraining || [],
+              bmrtiTraining: depData.rosterData.bmrtiTraining || [],
+              weeklyOffs: depData.rosterData.weeklyOffs || [],
+              relievedOperators: depData.rosterData.relievedOperators || [],
+              pmeOperators: depData.rosterData.pmeOperators || [],
+              routeLearning: depData.rosterData.routeLearning || [],
+              notReporting: depData.rosterData.notReporting || [],
+              absents: depData.rosterData.absents || [],
+              bookedOff: depData.rosterData.bookedOff || [],
+              onDuty: depData.rosterData.onDuty || [],
+              customRegisters: depData.rosterData.customRegisters || {},
+            }),
+          );
+          if (Array.isArray(depData.rosterData.duties) && depData.rosterData.duties.length > 0) {
+            setFallbackDeployments(
+              deduplicateDeployments(
+                depData.rosterData.duties.map((d) => ({
+                  ...d,
+                  date: targetDeploymentDate,
+                  deploymentDate: targetDeploymentDate,
+                })),
+              ),
+            );
+          }
+        }
+        return true;
+      }
+      return false;
+    };
+
+    let hasReceivedLiveDoc = false;
+
+    const unsubPrimary = onSnapshot(
       doc(db, "dispatch_deployments", deploymentId),
       (docSnap) => {
-        if (docSnap.exists()) {
-          const depData = docSnap.data();
-          setCurrentDeploymentRecord(depData);
-          if (depData.rosterData) {
-            setConsoleData(
-              sanitizeConsoleContainer({
-                controlDesks: depData.rosterData.controlDesks || [],
-                coOperators: depData.rosterData.coOperators || [],
-                leaves: depData.rosterData.leaves || [],
-                standbys: depData.rosterData.standbys || [],
-                outstationStepbacks:
-                  depData.rosterData.outstationStepbacks || [],
-                crtTraining: depData.rosterData.crtTraining || [],
-                bmrtiTraining: depData.rosterData.bmrtiTraining || [],
-                weeklyOffs: depData.rosterData.weeklyOffs || [],
-                relievedOperators: depData.rosterData.relievedOperators || [],
-                pmeOperators: depData.rosterData.pmeOperators || [],
-                routeLearning: depData.rosterData.routeLearning || [],
-                notReporting: depData.rosterData.notReporting || [],
-                absents: depData.rosterData.absents || [],
-                bookedOff: depData.rosterData.bookedOff || [],
-                onDuty: depData.rosterData.onDuty || [],
-                customRegisters: depData.rosterData.customRegisters || {},
-              }),
-            );
-            if (Array.isArray(depData.rosterData.duties)) {
-              setFallbackDeployments(
-                deduplicateDeployments(
-                  depData.rosterData.duties.map((d) => ({
-                    ...d,
-                    date: targetDeploymentDate,
-                    deploymentDate: targetDeploymentDate,
-                  })),
-                ),
-              );
-            }
-          }
-        } else {
+        if (handleDepDocSnap(docSnap)) {
+          hasReceivedLiveDoc = true;
+        } else if (!hasReceivedLiveDoc) {
           // Check if deployment history has a record matching this targetDeploymentDate
-          const altDate = toIndianDateStr(targetDeploymentDate);
           const matchedFromHistory = (deploymentHistoryList || []).find((d) => {
             const dDate = formatOperationalDate(
               d.deploymentDate || d.date || d.targetDate,
@@ -2037,7 +2049,7 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
             return (
               dDate === targetDeploymentDate ||
               d.id === deploymentId ||
-              d.id === `${altDate}_${targetDayType}` ||
+              d.id === altDeploymentId ||
               (d.id &&
                 (d.id.includes(targetDeploymentDate) ||
                   (altDate && d.id.includes(altDate))))
@@ -2081,38 +2093,33 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
                 ),
               );
             }
-            return;
           }
-
-          setCurrentDeploymentRecord(null);
-          // When no deployment exists for target date and no staged roster active:
-          // reset fallbackDeployments and consoleData to pristine empty state
-          setFallbackDeployments([]);
-          setConsoleData({
-            controlDesks: [],
-            coOperators: [],
-            leaves: [],
-            standbys: [],
-            outstationStepbacks: [],
-            crtTraining: [],
-            bmrtiTraining: [],
-            weeklyOffs: [],
-            relievedOperators: [],
-            pmeOperators: [],
-            routeLearning: [],
-            notReporting: [],
-            absents: [],
-            bookedOff: [],
-            onDuty: [],
-            customRegisters: {},
-          });
         }
       },
       (err) => {
         console.warn("Deployment record listener warning:", err);
       },
     );
-    return () => unsub();
+
+    let unsubAlt = null;
+    if (altDeploymentId && altDeploymentId !== deploymentId) {
+      unsubAlt = onSnapshot(
+        doc(db, "dispatch_deployments", altDeploymentId),
+        (docSnap) => {
+          if (handleDepDocSnap(docSnap)) {
+            hasReceivedLiveDoc = true;
+          }
+        },
+        (err) => {
+          console.warn("Deployment alt record listener warning:", err);
+        },
+      );
+    }
+
+    return () => {
+      unsubPrimary();
+      if (unsubAlt) unsubAlt();
+    };
   }, [targetDeploymentDate, targetDayType, deploymentHistoryList]);
 
   // Real-time listener for deployment history list
@@ -2564,15 +2571,34 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
     const loadCacheData = (data) => {
       mergeConsoleData(data);
       if (Array.isArray(data.duties) && data.duties.length > 0) {
-        setFallbackDeployments(
-          deduplicateDeployments(
-            data.duties.map((d) => ({
-              ...d,
-              date: targetDeploymentDate,
+        const mappedDuties = data.duties.map((d) => ({
+          ...d,
+          date: targetDeploymentDate,
+          deploymentDate: targetDeploymentDate,
+        }));
+        const deduped = deduplicateDeployments(mappedDuties);
+        setFallbackDeployments(deduped);
+        setCurrentDeploymentRecord((prev) => {
+          if (!prev) {
+            return {
+              deploymentId: getDeploymentId(targetDeploymentDate, targetDayType),
               deploymentDate: targetDeploymentDate,
-            })),
-          ),
-        );
+              dayType: targetDayType,
+              rosterData: {
+                ...(data || {}),
+                duties: deduped,
+              },
+            };
+          }
+          return {
+            ...prev,
+            rosterData: {
+              ...(prev.rosterData || {}),
+              ...(data || {}),
+              duties: deduped,
+            },
+          };
+        });
       }
       if (data.isPublishedForOperators !== undefined) {
         setIsPublishedToOperators(Boolean(data.isPublishedForOperators));
@@ -4384,75 +4410,175 @@ Rules:
     try {
       const batch = writeBatch(db);
       const deploymentId = getDeploymentId(targetDeploymentDate, targetDayType);
+      const altDate = toIndianDateStr(targetDeploymentDate);
+      const altDeploymentId = altDate ? `${altDate}_${targetDayType}` : null;
+      const todayStr = formatOperationalDate(new Date());
+      const isToday = targetDeploymentDate === todayStr;
 
-      // 1. Update dispatch_deployments for targetDeploymentDate
-      const depRef = doc(db, "dispatch_deployments", deploymentId);
+      const mergedConsole = updatedConsole || consoleData || {};
       const newRosterData = {
         ...(currentDeploymentRecord?.rosterData || {}),
+        ...mergedConsole,
         duties: updatedDutyList,
-        ...(updatedConsole || consoleData || {}),
         date: targetDeploymentDate,
+        dateStr: targetDeploymentDate,
         dayType: targetDayType,
+        scheduleType: targetDayType,
+        lastUpdated: serverTimestamp(),
       };
+
+      // 1. Update dispatch_deployments for primary deploymentId
+      const depRef = doc(db, "dispatch_deployments", deploymentId);
       batch.set(
         depRef,
         {
           deploymentId,
           deploymentDate: targetDeploymentDate,
           dayType: targetDayType,
+          scheduleType: targetDayType,
           rosterData: newRosterData,
           updatedAt: new Date().toISOString(),
-        },
-        { merge: true },
-      );
-
-      // 2. Update dispatch_excel_cache for targetDeploymentDate
-      const cacheRef = doc(db, "dispatch_excel_cache", targetDeploymentDate);
-      batch.set(
-        cacheRef,
-        {
-          ...(updatedConsole || consoleData || {}),
-          duties: updatedDutyList,
-          dateStr: targetDeploymentDate,
-          dayType: targetDayType,
           lastUpdated: serverTimestamp(),
         },
         { merge: true },
       );
 
-      const altDate = toIndianDateStr(targetDeploymentDate);
-      if (altDate && altDate !== targetDeploymentDate) {
+      // 1b. Update dispatch_deployments for alternate deploymentId if different
+      if (altDeploymentId && altDeploymentId !== deploymentId) {
         batch.set(
-          doc(db, "dispatch_excel_cache", altDate),
+          doc(db, "dispatch_deployments", altDeploymentId),
           {
-            ...(updatedConsole || consoleData || {}),
-            duties: updatedDutyList,
-            dateStr: targetDeploymentDate,
+            deploymentId: altDeploymentId,
+            deploymentDate: targetDeploymentDate,
             dayType: targetDayType,
+            scheduleType: targetDayType,
+            rosterData: newRosterData,
+            updatedAt: new Date().toISOString(),
             lastUpdated: serverTimestamp(),
           },
           { merge: true },
         );
       }
 
-      // 3. If today, also mirror to current cache
-      const todayStr = formatOperationalDate(new Date());
-      if (targetDeploymentDate === todayStr) {
+      // 2. Update dispatch_excel_cache for targetDeploymentDate
+      const cachePayload = {
+        ...mergedConsole,
+        duties: updatedDutyList,
+        dateStr: targetDeploymentDate,
+        dayType: targetDayType,
+        scheduleType: targetDayType,
+        lastUpdated: serverTimestamp(),
+      };
+
+      batch.set(
+        doc(db, "dispatch_excel_cache", targetDeploymentDate),
+        cachePayload,
+        { merge: true },
+      );
+
+      if (altDate && altDate !== targetDeploymentDate) {
         batch.set(
-          doc(db, "dispatch_excel_cache", "current"),
-          {
-            ...(updatedConsole || consoleData || {}),
-            duties: updatedDutyList,
-            lastUpdated: serverTimestamp(),
-          },
+          doc(db, "dispatch_excel_cache", altDate),
+          cachePayload,
           { merge: true },
         );
+      }
+
+      // 3. Update roster_desk_console and current cache
+      batch.set(
+        doc(db, "roster_desk_console", "current"),
+        cachePayload,
+        { merge: true },
+      );
+      batch.set(
+        doc(db, "roster_desk_console", "latest"),
+        cachePayload,
+        { merge: true },
+      );
+      batch.set(
+        doc(db, "dispatch_excel_cache", "current"),
+        cachePayload,
+        { merge: true },
+      );
+
+      // Touch latest_deployment_meta to wake up listening client devices
+      batch.set(
+        doc(db, "roster_desk_console", "latest_deployment_meta"),
+        {
+          dateStr: targetDeploymentDate,
+          lastMutation: serverTimestamp(),
+          lastUpdated: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+        },
+        { merge: true },
+      );
+
+      // 4. Mirror active duties to crew_daily_deployment
+      if (Array.isArray(updatedDutyList) && updatedDutyList.length > 0) {
+        const sched = normalizeScheduleType(targetDayType || currentDayType).toLowerCase();
+        updatedDutyList.forEach((d) => {
+          if (!d.dutyId) return;
+          const rawDId = String(d.dutyId).trim();
+          const normDId = String(parseInt(rawDId, 10) || rawDId).trim();
+          const paddedDId = normDId ? normDId.padStart(2, "0") : "";
+
+          const dutyPayload = {
+            dutyId: d.dutyId,
+            empId: d.empId || "--",
+            empName: d.empName || "--",
+            trainId: d.trainId || "--",
+            signOnTime: d.signOnTime || "--",
+            signOffTime: d.signOffTime || "--",
+            signOnLocation: d.signOnLocation || "PYID",
+            signOffLocation: d.signOffLocation || "PYID",
+            dutyType: d.dutyType || "--",
+            status: d.status || "ACTIVE",
+            scheduleType: targetDayType,
+            date: targetDeploymentDate,
+            deploymentDate: targetDeploymentDate,
+            lastUpdated: serverTimestamp(),
+          };
+
+          batch.set(
+            doc(db, "crew_daily_deployment", `gcc_deploy_${targetDeploymentDate}_duty_${rawDId}`),
+            dutyPayload,
+            { merge: true },
+          );
+          if (paddedDId && paddedDId !== rawDId) {
+            batch.set(
+              doc(db, "crew_daily_deployment", `gcc_deploy_${targetDeploymentDate}_duty_${paddedDId}`),
+              dutyPayload,
+              { merge: true },
+            );
+          }
+          if (isToday) {
+            batch.set(
+              doc(db, "crew_daily_deployment", `gcc_deploy_${sched}_duty_${rawDId}`),
+              dutyPayload,
+              { merge: true },
+            );
+            if (paddedDId && paddedDId !== rawDId) {
+              batch.set(
+                doc(db, "crew_daily_deployment", `gcc_deploy_${sched}_duty_${paddedDId}`),
+                dutyPayload,
+                { merge: true },
+              );
+            }
+          }
+        });
       }
 
       await batch.commit();
 
-      // 4. Update local state
-      setFallbackDeployments(deduplicateDeployments(updatedDutyList));
+      // 5. Update local state immediately
+      const dedupedList = deduplicateDeployments(updatedDutyList);
+      setFallbackDeployments(dedupedList);
+      setCurrentDeploymentRecord((prev) => ({
+        ...(prev || {}),
+        deploymentId,
+        deploymentDate: targetDeploymentDate,
+        dayType: targetDayType,
+        rosterData: newRosterData,
+      }));
       if (updatedConsole) {
         setConsoleData(updatedConsole);
       }
@@ -5468,6 +5594,7 @@ Rules:
           { merge: true },
         );
       }
+      await persistDutyMutation(deduplicatedDeployments || [], updatedConsole);
     } catch (e) {
       console.warn("Error persisting new custom header:", e);
     }
@@ -5506,6 +5633,7 @@ Rules:
         },
         { merge: true },
       );
+      await persistDutyMutation(deduplicatedDeployments || [], updatedConsole);
     } catch (e) {
       console.warn("Error updating custom category after removal:", e);
     }
@@ -5669,17 +5797,31 @@ Rules:
       }
 
       await batch.commit();
-      setConsoleData(updatedConsole);
-      try {
-        if (typeof window !== "undefined" && window.localStorage) {
-          window.localStorage.setItem(
-            "pyidcc_roster_desk_console_cache",
-            JSON.stringify(updatedConsole),
-          );
+
+      // Compute updatedDuties and persist across all devices
+      const updatedDuties = (deduplicatedDeployments || []).map((d) => {
+        if (tgtCat === "MAINLINE" && String(d.dutyId) === String(transferTargetDutyId)) {
+          return {
+            ...d,
+            empName: opName,
+            empId: opId,
+            status: "ACTIVE",
+            isSignedOn: true,
+          };
         }
-      } catch (_e) {
-        /* ignore cache error */
-      }
+        if ((srcCat === "MAINLINE" || srcCat === "mainline") && String(d.dutyId) === String(op.rawItem?.dutyId || op.dutyId)) {
+          return {
+            ...d,
+            empName: "VACANT - DRIVER REQUIRED",
+            empId: "--",
+            status: "BOOKED_OFF_VACANT",
+            isSignedOn: false,
+          };
+        }
+        return d;
+      });
+
+      await persistDutyMutation(updatedDuties, updatedConsole);
 
       setShowTransferModal(false);
       setTransferTargetOperator(null);
@@ -5765,7 +5907,21 @@ Rules:
       }
 
       await batch.commit();
-      setConsoleData(updatedConsole);
+
+      const updatedDuties = (deduplicatedDeployments || []).map((d) => {
+        if (String(d.dutyId).trim() === String(boItem.dutyId).trim()) {
+          return {
+            ...d,
+            empName: boItem.name,
+            empId: boItem.empNo || boItem.empId,
+            status: "ACTIVE",
+            isSignedOn: true,
+          };
+        }
+        return d;
+      });
+
+      await persistDutyMutation(updatedDuties, updatedConsole);
       alert(`✅ Operator ${boItem.name} restored to Duty #${boItem.dutyId}!`);
       if (onImportComplete) onImportComplete();
     } catch (err) {
@@ -5888,27 +6044,37 @@ Rules:
     }
   };
 
-  // Fetch Deployments Fallback (used when AutomatedDispatchGate is standalone)
+  // Real-time listener for crew_daily_deployment across all devices
   useEffect(() => {
-    if (providedDeployments) {
-      setFallbackLoading(false);
-      return undefined;
-    }
-    const targetSched = normalizeScheduleType(currentDayType);
+    const targetSched = normalizeScheduleType(currentDayType || targetDayType);
     const q = query(collection(db, "crew_daily_deployment"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const raw = snapshot.docs
         .map((doc) => ({ id: doc.id, ...doc.data() }))
         .filter((d) => {
+          if (!d) return false;
+          const dDate = d.date || d.targetDate || d.deploymentDate;
+          if (dDate) {
+            return formatOperationalDate(dDate) === targetDeploymentDate;
+          }
           if (!d.scheduleType) return true;
           return normalizeScheduleType(d.scheduleType) === targetSched;
         });
-      // Deduplicate and strip invalid duty IDs at the source
-      setFallbackDeployments(deduplicateDeployments(raw));
+
+      if (raw.length > 0) {
+        const deduped = deduplicateDeployments(
+          raw.map((d) => ({
+            ...d,
+            date: targetDeploymentDate,
+            deploymentDate: targetDeploymentDate,
+          })),
+        );
+        setFallbackDeployments(deduped);
+      }
       setFallbackLoading(false);
     });
     return () => unsubscribe();
-  }, [providedDeployments, currentDayType]);
+  }, [currentDayType, targetDayType, targetDeploymentDate]);
 
   // Fetch Historical Events when History tab is active
   useEffect(() => {
