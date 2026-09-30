@@ -21,11 +21,14 @@ jobs:
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
+
+      - name: Normalize npm executable permissions
+        run: chmod +x node_modules/.bin/vite
 
       - name: Build production bundle
         run: npm run build
