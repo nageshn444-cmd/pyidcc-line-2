@@ -771,7 +771,72 @@ export default function LiveTrainPositionTracker({
     'g': 'ಜಿ',
     'h': 'ಹೆಚ್',
     'l': 'ಎಲ್',
-    'j': 'ಜೆ'
+    'j': 'ಜೆ',
+    'e': 'ಇ',
+    'f': 'ಎಫ್',
+    'i': 'ಐ',
+    'o': 'ಒ',
+    'u': 'ಯು',
+    'w': 'ಡಬ್ಲ್ಯೂ',
+    'x': 'ಎಕ್ಸ್',
+    'y': 'ವೈ',
+    'z': 'ಝಡ್',
+    'duty': 'ಡ್ಯೂಟಿ',
+    'ashish': 'ಆಶೀಶ್',
+    'jeeva': 'ಜೀವಾ',
+    'jeevan': 'ಜೀವನ್',
+    'baskar': 'ಭಾಸ್ಕರ್',
+    'bhaskar': 'ಭಾಸ್ಕರ್',
+    'dayanand': 'ದಯಾನಂದ್',
+    'shashi': 'ಶಶಿ',
+    'shashidhar': 'ಶಶಿಧರ್',
+    'jagadish': 'ಜಗದೀಶ್',
+    'kavya': 'ಕಾವ್ಯ',
+    'girish': 'ಗಿರೀಶ್',
+    'harisha': 'ಹರೀಶ್',
+    'swamy': 'ಸ್ವಾಮಿ',
+    'somesh': 'ಸೋಮೇಶ್',
+    'muralidhar': 'ಮುರಳೀಧರ್',
+    'murali': 'ಮುರಳಿ',
+    'santhosh': 'ಸಂತೋಷ್',
+    'siddu': 'ಸಿದ್ದು',
+    'siddaraju': 'ಸಿದ್ದರಾಜು',
+    'guru': 'ಗುರು',
+    'gururaj': 'ಗುರುರಾಜ್',
+    'raghu': 'ರಘು',
+    'lingaraju': 'ಲಿಂಗರಾಜು',
+    'shankar': 'ಶಂಕರ್',
+    'krishnamurthy': 'ಕೃಷ್ಣಮೂರ್ತಿ',
+    'mallikarjun': 'ಮಲ್ಲಿಕಾರ್ಜುನ್',
+    'manju': 'ಮಂಜು',
+    'prakash': 'ಪ್ರಕಾಶ್',
+    'channabasava': 'ಚನ್ನಬಸವ',
+    'basappa': 'ಬಸಪ್ಪ',
+    'sharan': 'ಶರಣ್',
+    'vinay': 'ವಿನಯ್',
+    'varun': 'ವರುಣ್',
+    'tarun': 'ತರುಣ್',
+    'chethan': 'ಚೇತನ್',
+    'anil': 'ಅನಿಲ್',
+    'sunita': 'ಸುನೀತಾ',
+    'geetha': 'ಗೀತಾ',
+    'sudha': 'ಸುಧಾ',
+    'shobha': 'ಶೋಭಾ',
+    'chaitra': 'ಚೈತ್ರಾ',
+    'gangadhar': 'ಗಂಗಾಧರ್',
+    'govind': 'ಗೋವಿಂದ್',
+    'siddharth': 'ಸಿದ್ಧಾರ್ಥ್',
+    'prathap': 'ಪ್ರತಾಪ್',
+    'praveena': 'ಪ್ರವೀಣ',
+    'sandesh': 'ಸಂದೇಶ್',
+    'rohit': 'ರೋಹಿತ್',
+    'amith': 'ಅಮಿತ್',
+    'amit': 'ಅಮಿತ್',
+    'rakesh': 'ರಾಕೇಶ್',
+    'bharath': 'ಭರತ್',
+    'tejas': 'ತೇಜಸ್',
+    'hemanth': 'ಹೇಮಂತ್',
+    'karthik': 'ಕಾರ್ತಿಕ್'
   };
 
   const formatOperatorNameKn = (name) => {
@@ -791,28 +856,15 @@ export default function LiveTrainPositionTracker({
       ? (window.speechSynthesis.getVoices() || []) 
       : [];
 
-    // Check if user has explicitly selected a voice in Voice Studio
-    if (selectedVoiceUri) {
-      const userPicked = allVoices.find(v => v.voiceURI === selectedVoiceUri || v.name === selectedVoiceUri);
-      if (userPicked) {
-        const isNativeKn = (userPicked.lang || '').toLowerCase().startsWith('kn') || (userPicked.name || '').toLowerCase().includes('kannada');
-        return {
-          nativeKnVoice: isNativeKn ? userPicked : null,
-          indianVoice: userPicked,
-          enVoice: userPicked
-        };
-      }
-    }
-
-    // 1. Look for native Kannada voice (Gagan, Sapna, Google Kannada, etc.)
-    const nativeKnVoice = allVoices.find(v => {
+    // 1. Look for native Kannada voice (Gagan, Sapna, Madhur, Google Kannada, etc.)
+    const autoKnVoice = allVoices.find(v => {
       const lang = (v.lang || '').toLowerCase().replace('_', '-');
       const name = (v.name || '').toLowerCase();
-      return lang.startsWith('kn') || name.includes('kannada') || name.includes('gagan') || name.includes('sapna');
+      return lang.startsWith('kn') || name.includes('kannada') || name.includes('gagan') || name.includes('sapna') || name.includes('madhur');
     });
 
     // 2. Look for cultured Indian voices (Neerja, Heera, Ravi, Prabhat, Google हिन्दी / Indian English)
-    const indianVoice = allVoices.find(v => {
+    const autoIndianVoice = allVoices.find(v => {
       const name = (v.name || '').toLowerCase();
       return name.includes('neerja') || name.includes('heera') || name.includes('ravi') || name.includes('prabhat');
     }) || allVoices.find(v => {
@@ -822,16 +874,29 @@ export default function LiveTrainPositionTracker({
     });
 
     // 3. Fallback voice (Prefer Indian voice over foreign voices, never foreign)
-    const fallbackEnVoice = indianVoice || allVoices.find(v => {
+    const fallbackEnVoice = autoIndianVoice || allVoices.find(v => {
       const l = (v.lang || '').toLowerCase();
       const n = (v.name || '').toLowerCase();
       return l.startsWith('en') && !n.includes('david') && !n.includes('zira') && !n.includes('mark');
     }) || allVoices.find(v => (v.lang || '').toLowerCase().startsWith('en')) || null;
 
+    // Check if user has explicitly selected a voice in Voice Studio
+    if (selectedVoiceUri) {
+      const userPicked = allVoices.find(v => v.voiceURI === selectedVoiceUri || v.name === selectedVoiceUri);
+      if (userPicked) {
+        const isNativeKn = (userPicked.lang || '').toLowerCase().startsWith('kn') || (userPicked.name || '').toLowerCase().includes('kannada');
+        return {
+          nativeKnVoice: isNativeKn ? userPicked : autoKnVoice,
+          indianVoice: userPicked,
+          enVoice: isNativeKn ? (autoIndianVoice || fallbackEnVoice) : userPicked
+        };
+      }
+    }
+
     return {
-      nativeKnVoice,
-      indianVoice,
-      enVoice: indianVoice || fallbackEnVoice
+      nativeKnVoice: autoKnVoice,
+      indianVoice: autoIndianVoice,
+      enVoice: autoIndianVoice || fallbackEnVoice
     };
   };
 
@@ -1001,6 +1066,13 @@ export default function LiveTrainPositionTracker({
         const playEnglish = () => {
           if (englishAnnounced) return;
           englishAnnounced = true;
+          window.__bmrcl_active_utterance = utterEn;
+          utterEn.onend = () => {
+            window.__bmrcl_active_utterance = null;
+          };
+          utterEn.onerror = () => {
+            window.__bmrcl_active_utterance = null;
+          };
           window.speechSynthesis.speak(utterEn);
         };
 
@@ -1022,8 +1094,9 @@ export default function LiveTrainPositionTracker({
           ? '/audio/kannada_sample_4_clear.mp3'
           : '/audio/kannada_7001_alert.mp3';
 
-        // When studio audio is selected and it's Train 7001 (or test), play high-fidelity studio recording directly
-        if (isStudioSelected && (String(trainId) === '7001' || !nativeKnVoice)) {
+        // Dedicated soundboard sample: ONLY play static studio audio recording for the dedicated soundboard test train ('7001')
+        // ALL real-time live trains (e.g. 201, 202, 203, etc.) MUST dynamically speak their real-time Train IDs and TO names!
+        if (isStudioSelected && String(trainId) === '7001') {
           try {
             const knAudio = new Audio(studioAudioSrc);
             knAudio.volume = effectiveVol;
@@ -1045,10 +1118,11 @@ export default function LiveTrainPositionTracker({
           }
         }
 
-        // Standard dynamic TTS path
+        // Standard dynamic TTS path for real-time live trains
         const speakViaTts = () => {
           let utterKn = null;
-          const shouldUseNativeScript = (kannadaStyleMode === 'script') || (kannadaStyleMode === 'auto' && Boolean(nativeKnVoice));
+          const shouldUseNativeScript = (kannadaStyleMode === 'script' && Boolean(nativeKnVoice)) || 
+                                        (kannadaStyleMode === 'auto' && Boolean(nativeKnVoice));
 
           if (shouldUseNativeScript) {
             const trainKn = formatTrainIdForSpeechKn(trainId);
@@ -1057,7 +1131,11 @@ export default function LiveTrainPositionTracker({
               ? `ಹಾಲಿ ರೈಲು ಚಾಲಕರಾದ ${knActive} ರವರ ಕರ್ತವ್ಯವು ಇನ್ನ ${minutesRemaining} ನಿಮಿಷಗಳಲ್ಲಿ ಮುಕ್ತಾಯವಾಗಲಿದೆ. ` 
               : `ರೈಲಿನ ಸಂಚಾರವು ಇನ್ನ ${minutesRemaining} ನಿಮಿಷಗಳಲ್ಲಿ ಪೂರ್ಣಗೊಳ್ಳಲಿದೆ. `;
             
-            const knTextScript = `ದಯವಿಟ್ಟು ಗಮನಿಸಿ. ರೈಲು ಸಂಖ್ಯೆ ${trainKn}, ${stInfo.nameKn} ನಿಲ್ದಾಣ, ಪ್ಲಾಟ್‌ಫಾರ್ಮ್ ಸಂಖ್ಯೆ ${platformNumber}. ${knActivePart}ಮುಂದಿನ ರೈಲು ಚಾಲಕರಾದ ${knDutyPart}${knReliever} ರವರು, ದಯವಿಟ್ಟು ಕರ್ತವ್ಯ ಹಸ್ತಾಂತರಕ್ಕೆ ಪ್ಲಾಟ್‌ಫಾರ್ಮ್‌ಗೆ ತಕ್ಷಣ ಆಗಮಿಸಿ.`;
+            const displayReliever = (knReliever.startsWith('ಡ್ಯೂಟಿ') || knReliever.toLowerCase().startsWith('duty'))
+              ? (knDutyPart || knReliever)
+              : `${knDutyPart}${knReliever}`;
+
+            const knTextScript = `ದಯವಿಟ್ಟು ಗಮನಿಸಿ. ರೈಲು ಸಂಖ್ಯೆ ${trainKn}, ${stInfo.nameKn} ನಿಲ್ದಾಣ, ಪ್ಲಾಟ್‌ಫಾರ್ಮ್ ಸಂಖ್ಯೆ ${platformNumber}. ${knActivePart}ಮುಂದಿನ ರೈಲು ಚಾಲಕರಾದ ${displayReliever} ರವರು, ದಯವಿಟ್ಟು ಕರ್ತವ್ಯ ಹಸ್ತಾಂತರಕ್ಕೆ ಪ್ಲಾಟ್‌ಫಾರ್ಮ್‌ಗೆ ತಕ್ಷಣ ಆಗಮಿಸಿ.`;
 
             utterKn = new SpeechSynthesisUtterance(knTextScript);
             if (nativeKnVoice) utterKn.voice = nativeKnVoice;
@@ -1073,7 +1151,11 @@ export default function LiveTrainPositionTracker({
               ? `Haali railu chaalakaraada ${enActive} avara karthavyavu, inna ${minutesRemaining} nimishagalalli mukthaayavaagalide. ` 
               : `Railina sanchaara inna ${minutesRemaining} nimishagalalli poornagollalide. `;
             
-            const knTextPhonetic = `Dayavittu gamanisi. Railu sankhye ${trainKnPhonetic}, ${stInfo.nameEn} nildaana, Platform sankhye ${platformNumber}. ${knActivePartPhonetic}Mundina railu chaalakaraada ${knDutyPartPhonetic}${enReliever} avaru, dayavittu karthavya hasthaantharakke platformge thakshana aagamisi.`;
+            const displayRelieverPhonetic = enReliever.toLowerCase().startsWith('duty')
+              ? (knDutyPartPhonetic || enReliever)
+              : `${knDutyPartPhonetic}${enReliever}`;
+
+            const knTextPhonetic = `Dayavittu gamanisi. Railu sankhye ${trainKnPhonetic}, ${stInfo.nameEn} nildaana, Platform sankhye ${platformNumber}. ${knActivePartPhonetic}Mundina railu chaalakaraada ${displayRelieverPhonetic} avaru, dayavittu karthavya hasthaantharakke platformge thakshana aagamisi.`;
 
             utterKn = new SpeechSynthesisUtterance(knTextPhonetic);
             if (targetVoice) utterKn.voice = targetVoice;
@@ -1083,11 +1165,14 @@ export default function LiveTrainPositionTracker({
             utterKn.volume = effectiveVol;
           }
 
+          window.__bmrcl_active_utterance = utterKn;
           utterKn.onend = () => {
+            window.__bmrcl_active_utterance = null;
             setTimeout(playEnglish, 300);
           };
           utterKn.onerror = (e) => {
             console.warn('[Kannada Speech Fallback]', e);
+            window.__bmrcl_active_utterance = null;
             playEnglish();
           };
 
