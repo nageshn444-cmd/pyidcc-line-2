@@ -3166,20 +3166,56 @@ export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType
           : WEEKDAY_RELIEF_ID_CHART_2024;
 
   const deployMap = new Map();
-  (allDeployments || []).forEach(d => {
-    const rawDuty = String(d.dutyId || d.dutyNo || '').trim();
-    if (!rawDuty) return;
-    const cleanDuty = rawDuty.replace(/^duty[_\s-]*/i, '');
-    const norm = /^[1-9]$/.test(cleanDuty) ? '0' + cleanDuty : cleanDuty;
-    const existing = deployMap.get(norm);
-    const hasValidName = d.empName && d.empName !== '--' && !d.empName.startsWith('Duty ') && !d.empName.startsWith('Train Operator');
-    if (!existing || (hasValidName && (!existing.empName || existing.empName === '--' || existing.empName.startsWith('Duty ')))) {
-      deployMap.set(norm, d);
-      if (/^0[1-9]$/.test(norm)) {
-        deployMap.set(norm.replace(/^0/, ''), d);
+
+  // Helper to ingest duties into deployMap
+  const ingestDeploymentList = (list) => {
+    (list || []).forEach(d => {
+      const rawDuty = String(d.dutyId || d.dutyNo || d.rawDutyId || '').trim();
+      if (!rawDuty) return;
+      const cleanDuty = rawDuty.replace(/^duty[_\s-]*/i, '');
+      const norm = /^[1-9]$/.test(cleanDuty) ? '0' + cleanDuty : cleanDuty;
+      const existing = deployMap.get(norm);
+      const candName = d.empName || d.name || d.operatorName;
+      const candId = d.empId || d.empNo || d.id;
+      const hasValidName = candName && candName !== '--' && candName !== '-' && !candName.startsWith('Duty ') && !candName.startsWith('Train Operator');
+      if (!existing || (hasValidName && (!existing.empName || existing.empName === '--' || existing.empName.startsWith('Duty ')))) {
+        const record = { ...d, empName: candName, empId: candId };
+        deployMap.set(norm, record);
+        if (/^0[1-9]$/.test(norm)) {
+          deployMap.set(norm.replace(/^0/, ''), record);
+        }
       }
+    });
+  };
+
+  // Ingest from AutomatedDispatchGate / Roster Desk Console cache in localStorage
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const cached = window.localStorage.getItem('pyidcc_roster_desk_console_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.onDuty) ingestDeploymentList(parsed.onDuty);
+        if (parsed?.duties) ingestDeploymentList(parsed.duties);
+        if (parsed?.controlDesks) ingestDeploymentList(parsed.controlDesks);
+      }
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const key = window.localStorage.key(i);
+        if (key && key.startsWith('pyidcc_roster_desk_console_cache_')) {
+          const val = window.localStorage.getItem(key);
+          if (val) {
+            const parsed = JSON.parse(val);
+            if (parsed?.onDuty) ingestDeploymentList(parsed.onDuty);
+            if (parsed?.duties) ingestDeploymentList(parsed.duties);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read console cache in buildLiveTrainTrackingMap', e);
     }
-  });
+  }
+
+  // Ingest explicitly provided deployments
+  ingestDeploymentList(allDeployments);
 
   const trainTimelineMap = {};
 
@@ -3205,15 +3241,20 @@ export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType
     let empName;
     let empId;
 
-    if (isExchanged && matchedDeploy?.empName && matchedDeploy.empName !== '--') {
+    // 1. PRIMARY SOURCE: Active train operator deployed to duty number in AutomatedDispatchGate / Dispatch Gateway Core
+    const hasValidDeploy = matchedDeploy?.empName && 
+      matchedDeploy.empName !== '--' && 
+      matchedDeploy.empName !== '-' && 
+      !matchedDeploy.empName.startsWith('Train Operator') && 
+      !matchedDeploy.empName.startsWith('Duty ') &&
+      !isJmdMisassigned;
+
+    if (hasValidDeploy) {
       empName = matchedDeploy.empName;
-      empId = matchedDeploy.empId || defaultRosterOp?.empId || '--';
+      empId = matchedDeploy.empId || matchedDeploy.empNo || '--';
     } else if (defaultRosterOp?.empName) {
       empName = defaultRosterOp.empName;
       empId = defaultRosterOp.empId || '--';
-    } else if (matchedDeploy?.empName && matchedDeploy.empName !== '--' && !isJmdMisassigned && !matchedDeploy.empName.startsWith('Train Operator') && !matchedDeploy.empName.startsWith('Duty ')) {
-      empName = matchedDeploy.empName;
-      empId = matchedDeploy.empId || '--';
     } else {
       empName = `Duty ${norm}`;
       empId = '--';

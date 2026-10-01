@@ -668,19 +668,21 @@ export function lookupDeployedOperatorFromCore(deployments = [], crewRegistry = 
     empName = null;
   }
 
-  // Canonical Duty Override: If this duty has an authoritative roster assignment and
-  // the live deployment is unassigned, empty, contains a JMD driver misassigned to regular duty, or carries an obsolete misassignment
   const isExchanged = Boolean(deployed?.isExchanged || deployed?.status === 'SWAPPED_BY_CC' || deployed?.status === 'RELIEF_DISPATCHED');
   const isJmdMisassigned = empId && String(empId).startsWith('88');
-  if (canonicalAssignment && (normDay === DAY_TYPES.WEEKDAY || normDay === DAY_TYPES.MONDAY)) {
-    if (!isExchanged && (!empId || empId === '--' || empId === 'UNASSIGNED' || isJmdMisassigned || String(empId) === '21994' || String(empId) === '22256' || (canonicalAssignment.empId && empId !== canonicalAssignment.empId))) {
-      empId = canonicalAssignment.empId;
-      empName = canonicalAssignment.empName;
-    }
-  }
+  const hasValidActiveDeployment = Boolean(
+    empName && 
+    empName !== '--' && 
+    empName !== '-' && 
+    empName !== 'UNASSIGNED' && 
+    !empName.toLowerCase().includes('unassigned') && 
+    !empName.startsWith('Train Operator') && 
+    !empName.startsWith('Duty ') &&
+    !isJmdMisassigned
+  );
 
-  // 2. Check cached Roster Desk Console duties (pyidcc_roster_desk_console_cache)
-  if (!empId || empId === '--' || empId === 'UNASSIGNED') {
+  // 2. Check cached Roster Desk Console duties (pyidcc_roster_desk_console_cache) from AutomatedDispatchGate
+  if (!hasValidActiveDeployment) {
     const consoleData = getPeenyaDepotRosterDeskConsoleData();
     if (consoleData?.duties && Array.isArray(consoleData.duties)) {
       const consoleMatch = consoleData.duties.find(d => {
@@ -688,10 +690,21 @@ export function lookupDeployedOperatorFromCore(deployments = [], crewRegistry = 
         const candEmpId = Number(d.empId || d.empNo);
         return (dId === normDuty || dId === unnormDuty) && !SUPERVISORY_NON_DRIVING_IDS.has(candEmpId);
       });
-      if (consoleMatch) {
+      if (consoleMatch && (consoleMatch.empName || consoleMatch.name)) {
         empId = consoleMatch.empId || consoleMatch.empNo;
         empName = consoleMatch.empName || consoleMatch.name;
         status = consoleMatch.status || 'ON_DUTY';
+      }
+    }
+    if ((!empName || empName === '--') && consoleData?.onDuty && Array.isArray(consoleData.onDuty)) {
+      const onDutyMatch = consoleData.onDuty.find(d => {
+        const dId = String(d.dutyId || d.dutyNo || '').trim();
+        return (dId === normDuty || dId === unnormDuty);
+      });
+      if (onDutyMatch && (onDutyMatch.empName || onDutyMatch.name)) {
+        empId = onDutyMatch.empId || onDutyMatch.empNo;
+        empName = onDutyMatch.empName || onDutyMatch.name;
+        status = onDutyMatch.status || 'ON_DUTY';
       }
     }
   }
@@ -709,6 +722,14 @@ export function lookupDeployedOperatorFromCore(deployments = [], crewRegistry = 
         empName = fromRegistry.name || fromRegistry.empName;
         status = fromRegistry.currentStatus || 'ON_DUTY';
       }
+    }
+  }
+
+  // 4. Fallback to canonical roster assignment ONLY if active deployed operator is not available
+  if (!empId || empId === '--' || empId === 'UNASSIGNED') {
+    if (canonicalAssignment) {
+      empId = canonicalAssignment.empId;
+      empName = canonicalAssignment.empName;
     }
   }
 
