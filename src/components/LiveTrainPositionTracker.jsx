@@ -128,6 +128,7 @@ export default function LiveTrainPositionTracker({
 
   // Kannada Voice Studio & Sample Selector state
   const [showVoiceSampleModal, setShowVoiceSampleModal] = useState(false);
+  const [studioSelectedTrainId, setStudioSelectedTrainId] = useState(null);
   const [selectedVoiceUri, setSelectedVoiceUri] = useState(() => {
     try {
       const saved = localStorage.getItem('pyidcc_selected_tts_voice') || '';
@@ -900,84 +901,6 @@ export default function LiveTrainPositionTracker({
     };
   };
 
-  // ── Voice Studio Sample Player ──
-  const playVoiceSample = (sampleType, voice = null, customRate = null, customPitch = null) => {
-    // 1. Cancel any active speech or playing audio
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    if (window.__bmrcl_active_audio) {
-      try {
-        window.__bmrcl_active_audio.pause();
-        window.__bmrcl_active_audio.currentTime = 0;
-      } catch (e) {}
-      window.__bmrcl_active_audio = null;
-    }
-
-    playMetroChime();
-
-    const vol = Math.max(0.1, Math.min(1.0, voiceVolume));
-
-    // Studio audio map for pure Kannada authentic voices (HD quality local studio audio)
-    const studioAudioMap = {
-      female_classical: '/audio/kannada_sample_1_female.mp3',
-      male_controller: '/audio/kannada_sample_2_male.mp3',
-      crew_control: '/audio/kannada_sample_3_depot.mp3',
-      phonetic_clear: '/audio/kannada_sample_4_clear.mp3',
-      native_bmrcl_kannada_hd: '/audio/kannada_7001_alert.mp3',
-      kannada_female: '/audio/kannada_sample_1_female.mp3',
-      kannada_male: '/audio/kannada_sample_2_male.mp3',
-      kannada_depot: '/audio/kannada_sample_3_depot.mp3',
-      kannada_clear: '/audio/kannada_sample_4_clear.mp3',
-    };
-
-    if (studioAudioMap[sampleType]) {
-      setTimeout(() => {
-        try {
-          const audio = new Audio(studioAudioMap[sampleType]);
-          audio.volume = vol;
-          window.__bmrcl_active_audio = audio;
-          audio.play().catch(err => {
-            console.warn('[BMRCL Audio Playback Error]', err);
-          });
-        } catch (e) {
-          console.warn('[BMRCL Audio Error]', e);
-        }
-      }, 300);
-      return;
-    }
-
-    // Otherwise, if testing a specific browser TTS voice:
-    setTimeout(() => {
-      const allVoices = window.speechSynthesis.getVoices() || [];
-      const rate = customRate || speechRate;
-      const pitch = customPitch || speechPitch;
-
-      let targetVoice = voice;
-      if (!targetVoice && selectedVoiceUri) {
-        targetVoice = allVoices.find(v => v.voiceURI === selectedVoiceUri || v.name === selectedVoiceUri);
-      }
-      if (!targetVoice) {
-        const auto = getBilingualVoices();
-        targetVoice = auto.nativeKnVoice || auto.indianVoice || auto.enVoice;
-      }
-
-      const isVoiceNativeKn = (targetVoice?.lang || '').toLowerCase().startsWith('kn') || (targetVoice?.name || '').toLowerCase().includes('kannada');
-      const text = isVoiceNativeKn 
-        ? `ದಯವಿಟ್ಟು ಗಮನಿಸಿ. ರೈಲು ಸಂಖ್ಯೆ ಏಳು ಸೊನ್ನೆ ಸೊನ್ನೆ ಒಂದು, ಪೀಣ್ಯ ಇಂಡಸ್ಟ್ರಿ ನಿಲ್ದಾಣಕ್ಕೆ ಆಗಮಿಸುತ್ತಿದೆ.` 
-        : `Dayavittu gamanisi. Railu sankhye Yelu Sonne Sonne Ondu, Peenya Industry nildaanakke aagamisutthide.`;
-
-      const utter = new SpeechSynthesisUtterance(text);
-      if (targetVoice) utter.voice = targetVoice;
-      utter.lang = isVoiceNativeKn ? (targetVoice?.lang || 'kn-IN') : (targetVoice?.lang || 'en-IN');
-      utter.rate = rate;
-      utter.pitch = pitch;
-      utter.volume = vol;
-
-      window.speechSynthesis.speak(utter);
-    }, 300);
-  };
-
   const triggerBilingualAnnouncement = (
     trainId, 
     direction, 
@@ -986,23 +909,27 @@ export default function LiveTrainPositionTracker({
     stationCode = 'PYID',
     relieverDutyNo = '--',
     activeDutyNo = '--',
-    minutesRemaining = 3
+    minutesRemaining = 3,
+    overrideVoice = null,
+    overrideRate = null,
+    overridePitch = null,
+    forceAnnouncement = false
   ) => {
     if (!voiceEnabled || isAudioMuted || !('speechSynthesis' in window)) return;
     
     const cleanReliever = String(relieverName || '').trim();
     const cleanActive = String(activeOperatorName || '').trim();
 
-    // STRICT OPERATIONAL RULE: If there is no verified reliever, DO NOT make any announcement!
-    const isVerifiedReliever = Boolean(
+    // STRICT OPERATIONAL RULE: Verified reliever check with support for duty-identified relievers (e.g. Duty 29)
+    const isDutyDesignation = cleanReliever.toLowerCase().startsWith('duty') || (relieverDutyNo && relieverDutyNo !== '--');
+    const isVerifiedReliever = forceAnnouncement || Boolean(
       cleanReliever && 
       cleanReliever !== '--' && 
       cleanReliever !== '-' && 
       cleanReliever !== 'Unassigned' && 
       !cleanReliever.toLowerCase().includes('unassigned') && 
       !cleanReliever.startsWith('Train Operator') &&
-      !cleanReliever.startsWith('Duty ') &&
-      (cleanReliever !== cleanActive || (relieverDutyNo && activeDutyNo && relieverDutyNo !== activeDutyNo && relieverDutyNo !== '--'))
+      (isDutyDesignation || cleanReliever !== cleanActive || (relieverDutyNo && activeDutyNo && relieverDutyNo !== activeDutyNo))
     );
 
     if (!isVerifiedReliever) {
@@ -1063,10 +990,14 @@ export default function LiveTrainPositionTracker({
         const enText = `Attention please. Train ${trainEn}, approaching ${stInfo.nameEn}, Platform ${platformNumber}. ${enActivePart}Next train operator ${displayRelieverEn}, please proceed to the platform immediately for train handover.`;
 
         const utterEn = new SpeechSynthesisUtterance(enText);
-        if (enVoice) utterEn.voice = enVoice;
-        utterEn.lang = enVoice?.lang || 'en-IN';
-        utterEn.rate = Math.min(1.0, speechRate + 0.03);
-        utterEn.pitch = speechPitch;
+        if (overrideVoice && ((overrideVoice.lang || '').includes('en') || (overrideVoice.lang || '').includes('IN'))) {
+          utterEn.voice = overrideVoice;
+        } else if (enVoice) {
+          utterEn.voice = enVoice;
+        }
+        utterEn.lang = utterEn.voice?.lang || enVoice?.lang || 'en-IN';
+        utterEn.rate = overrideRate !== null ? Math.min(1.0, overrideRate + 0.03) : Math.min(1.0, speechRate + 0.03);
+        utterEn.pitch = overridePitch !== null ? overridePitch : speechPitch;
         utterEn.volume = effectiveVol;
 
         // Chaining: Speak Civilized Local Kannada first, pause 300ms, then speak Indian English
@@ -1087,8 +1018,19 @@ export default function LiveTrainPositionTracker({
         // Standard dynamic TTS path for real-time live trains (100% dynamic SpeechSynthesis)
         const speakViaTts = () => {
           let utterKn = null;
-          const shouldUseNativeScript = (kannadaStyleMode === 'script' && Boolean(nativeKnVoice)) || 
-                                        (kannadaStyleMode === 'auto' && Boolean(nativeKnVoice));
+          const chosenKnVoice = (overrideVoice && ((overrideVoice.lang || '').toLowerCase().startsWith('kn') || (overrideVoice.name || '').toLowerCase().includes('kannada')))
+            ? overrideVoice
+            : nativeKnVoice;
+
+          const chosenFallbackVoice = (overrideVoice && !chosenKnVoice)
+            ? overrideVoice
+            : (indianVoice || enVoice);
+
+          const knRate = overrideRate !== null ? overrideRate : speechRate;
+          const knPitch = overridePitch !== null ? overridePitch : speechPitch;
+
+          const shouldUseNativeScript = (kannadaStyleMode === 'script' && Boolean(chosenKnVoice)) || 
+                                        (kannadaStyleMode === 'auto' && Boolean(chosenKnVoice));
 
           if (shouldUseNativeScript) {
             const trainKn = formatTrainIdForSpeechKn(cleanTrainDigits);
@@ -1108,13 +1050,12 @@ export default function LiveTrainPositionTracker({
             const knTextScript = `ದಯವಿಟ್ಟು ಗಮನಿಸಿ. ರೈಲು ಸಂಖ್ಯೆ ${trainKn}, ${stInfo.nameKn} ನಿಲ್ದಾಣ, ಪ್ಲಾಟ್‌ಫಾರ್ಮ್ ಸಂಖ್ಯೆ ${platformNumber}. ${knActivePart}ಮುಂದಿನ ರೈಲು ಚಾಲಕರಾದ ${displayReliever} ರವರು, ದಯವಿಟ್ಟು ಕರ್ತವ್ಯ ಹಸ್ತಾಂತರಕ್ಕೆ ಪ್ಲಾಟ್‌ಫಾರ್ಮ್‌ಗೆ ತಕ್ಷಣ ಆಗಮಿಸಿ.`;
 
             utterKn = new SpeechSynthesisUtterance(knTextScript);
-            if (nativeKnVoice) utterKn.voice = nativeKnVoice;
-            utterKn.lang = nativeKnVoice?.lang || 'kn-IN';
-            utterKn.rate = speechRate;
-            utterKn.pitch = speechPitch;
+            if (chosenKnVoice) utterKn.voice = chosenKnVoice;
+            utterKn.lang = chosenKnVoice?.lang || 'kn-IN';
+            utterKn.rate = knRate;
+            utterKn.pitch = knPitch;
             utterKn.volume = effectiveVol;
           } else {
-            const targetVoice = indianVoice || enVoice;
             const trainKnPhonetic = formatTrainIdForSpeechKnPhonetic(cleanTrainDigits);
             const knDutyPartPhonetic = relieverDutyNo && relieverDutyNo !== '--' ? `Duty ${relieverDutyNo}, ` : '';
             const displayActivePhonetic = enActive.toLowerCase().startsWith('duty')
@@ -1132,10 +1073,10 @@ export default function LiveTrainPositionTracker({
             const knTextPhonetic = `Dayavittu gamanisi. Railu sankhye ${trainKnPhonetic}, ${stInfo.nameEn} nildaana, Platform sankhye ${platformNumber}. ${knActivePartPhonetic}Mundina railu chaalakaraada ${displayRelieverPhonetic} avaru, dayavittu karthavya hasthaantharakke platformge thakshana aagamisi.`;
 
             utterKn = new SpeechSynthesisUtterance(knTextPhonetic);
-            if (targetVoice) utterKn.voice = targetVoice;
-            utterKn.lang = targetVoice?.lang || 'en-IN';
-            utterKn.rate = speechRate;
-            utterKn.pitch = speechPitch;
+            if (chosenFallbackVoice) utterKn.voice = chosenFallbackVoice;
+            utterKn.lang = chosenFallbackVoice?.lang || 'en-IN';
+            utterKn.rate = knRate;
+            utterKn.pitch = knPitch;
             utterKn.volume = effectiveVol;
           }
 
@@ -2518,19 +2459,21 @@ export default function LiveTrainPositionTracker({
   // Soundboard Test Button Function (Dynamically synced to Line-2 Station Relief Alert Center)
   const testVoiceAnnouncement = () => {
     const activeRelief = 
+      filteredReliefAlerts.find(a => a.shouldAnnounceReliever && (a.reliever?.name || a.relieverName)) ||
+      filteredReliefAlerts.find(a => a.hasReliever && (a.reliever?.name || a.relieverName)) ||
       liveTrainPositions.find(t => t.shouldAnnounceReliever && t.reliever?.name) ||
-      filteredReliefAlerts.find(a => a.hasReliever && a.reliever?.name) ||
       liveTrainPositions.find(t => t.hasReliever && t.reliever?.name) ||
+      filteredReliefAlerts[0] ||
       liveTrainPositions.find(t => !t.isStabling) ||
       liveTrainPositions[0];
 
     const targetTrainId = activeRelief?.particularTrainId || activeRelief?.trainId || '201';
     const targetDir = activeRelief?.direction || 'UP';
-    const targetReliever = activeRelief?.reliever?.name || 'Duty 29';
+    const targetReliever = activeRelief?.reliever?.name || activeRelief?.relieverName || 'Duty 29';
     const targetActive = activeRelief?.operatorName || 'Ashish Kumar';
     const targetStation = activeRelief?.scheduledHandoverStation || activeRelief?.stationCode || (stationFilter !== 'ALL' ? stationFilter : 'PYID');
-    const targetRelDuty = activeRelief?.reliever?.dutyNo || '29';
-    const targetActDuty = activeRelief?.dutyNo || '08';
+    const targetRelDuty = activeRelief?.reliever?.dutyNo || activeRelief?.relieverDuty || '29';
+    const targetActDuty = activeRelief?.dutyNo || activeRelief?.operatorDuty || '08';
     const targetMins = activeRelief?.timeRemainingMins || 3;
 
     playMetroChime();
@@ -2543,7 +2486,11 @@ export default function LiveTrainPositionTracker({
         targetStation,
         targetRelDuty,
         targetActDuty,
-        targetMins
+        targetMins,
+        null,
+        null,
+        null,
+        true
       );
       setHandoverToast({
         message: `🔔 Line-2 Live Relief Announcement: Train ${targetTrainId} (${targetStation}) • Active: ${targetActive} (Duty ${targetActDuty}) ➔ Reliever: ${targetReliever} (Duty ${targetRelDuty})`,
@@ -2551,6 +2498,114 @@ export default function LiveTrainPositionTracker({
       });
       setTimeout(() => setHandoverToast(null), 5000);
     }, 300);
+  };
+
+  // ── Active Live Relief Train for Voice Studio & Real-time Announcements ──
+  // Follows Line-2 Station Relief Alert Center (UP & DOWN Platforms)
+  const activeStudioReliefTrain = useMemo(() => {
+    if (studioSelectedTrainId) {
+      const foundInAlerts = filteredReliefAlerts.find(a => String(a.particularTrainId || a.trainId) === String(studioSelectedTrainId));
+      if (foundInAlerts) return foundInAlerts;
+      const foundInLive = liveTrainPositions.find(t => String(t.particularTrainId || t.trainId) === String(studioSelectedTrainId));
+      if (foundInLive) return foundInLive;
+    }
+    return (
+      filteredReliefAlerts.find(a => a.shouldAnnounceReliever && (a.reliever?.name || a.relieverName)) ||
+      filteredReliefAlerts.find(a => a.hasReliever && (a.reliever?.name || a.relieverName)) ||
+      liveTrainPositions.find(t => t.shouldAnnounceReliever && t.reliever?.name) ||
+      liveTrainPositions.find(t => t.hasReliever && t.reliever?.name) ||
+      filteredReliefAlerts[0] ||
+      liveTrainPositions.find(t => !t.isStabling) ||
+      liveTrainPositions[0] ||
+      null
+    );
+  }, [studioSelectedTrainId, filteredReliefAlerts, liveTrainPositions]);
+
+  // Candidate trains list from Line-2 Relief Alert Center & Active fleet for Voice Studio selection
+  const studioReliefCandidateTrains = useMemo(() => {
+    const list = [];
+    const seen = new Set();
+    filteredReliefAlerts.forEach(a => {
+      const id = String(a.particularTrainId || a.trainId);
+      if (!seen.has(id)) {
+        seen.add(id);
+        list.push(a);
+      }
+    });
+    liveTrainPositions.forEach(t => {
+      const id = String(t.particularTrainId || t.trainId);
+      if (!seen.has(id)) {
+        seen.add(id);
+        list.push(t);
+      }
+    });
+    return list;
+  }, [filteredReliefAlerts, liveTrainPositions]);
+
+  // ── Voice Studio Sample Player (Dynamically following Line-2 Relief Alert Center) ──
+  const playVoiceSample = (sampleType, voice = null, customRate = null, customPitch = null) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    if (window.__bmrcl_active_audio) {
+      try {
+        window.__bmrcl_active_audio.pause();
+        window.__bmrcl_active_audio.currentTime = 0;
+      } catch (e) {}
+      window.__bmrcl_active_audio = null;
+    }
+
+    const t = activeStudioReliefTrain;
+    const targetTrainId = t?.particularTrainId || t?.trainId || '201';
+    const targetDir = t?.direction || 'UP';
+    const targetReliever = t?.reliever?.name || t?.relieverName || 'Duty 29';
+    const targetActive = t?.operatorName || 'Ashish Kumar';
+    const targetStation = t?.scheduledHandoverStation || t?.stationCode || (stationFilter !== 'ALL' ? stationFilter : 'PYID');
+    const targetRelDuty = t?.reliever?.dutyNo || t?.relieverDuty || '29';
+    const targetActDuty = t?.dutyNo || t?.operatorDuty || '08';
+    const targetMins = t?.timeRemainingMins || 3;
+
+    let targetRate = customRate;
+    let targetPitch = customPitch;
+    let targetVoice = voice;
+
+    if (sampleType === 'female_classical' || sampleType === 'kannada_female') {
+      if (targetRate === null) targetRate = 0.82;
+      if (targetPitch === null) targetPitch = 1.05;
+    } else if (sampleType === 'male_controller' || sampleType === 'kannada_male') {
+      if (targetRate === null) targetRate = 0.86;
+      if (targetPitch === null) targetPitch = 0.90;
+    } else if (sampleType === 'crew_control' || sampleType === 'kannada_depot') {
+      if (targetRate === null) targetRate = 0.85;
+      if (targetPitch === null) targetPitch = 0.95;
+    } else if (sampleType === 'phonetic_clear' || sampleType === 'kannada_clear') {
+      if (targetRate === null) targetRate = 0.80;
+      if (targetPitch === null) targetPitch = 1.00;
+    } else if (sampleType === 'native_bmrcl_kannada_hd') {
+      if (targetRate === null) targetRate = 0.84;
+      if (targetPitch === null) targetPitch = 1.00;
+    }
+
+    triggerBilingualAnnouncement(
+      targetTrainId,
+      targetDir,
+      targetReliever,
+      targetActive,
+      targetStation,
+      targetRelDuty,
+      targetActDuty,
+      targetMins,
+      targetVoice,
+      targetRate,
+      targetPitch,
+      true // forceAnnouncement = true for Voice Studio preview
+    );
+
+    setHandoverToast({
+      message: `🎙️ Voice Studio Announcement: Train ${targetTrainId} (${targetStation}) • Active: ${targetActive} (Duty ${targetActDuty}) ➔ Reliever: ${targetReliever} (Duty ${targetRelDuty})`,
+      type: 'info'
+    });
+    setTimeout(() => setHandoverToast(null), 5000);
   };
 
   // Fleet-wide Day Timetable KM & Status Summary
@@ -6289,165 +6344,285 @@ export default function LiveTrainPositionTracker({
 
             {/* Modal Body */}
             <div className="p-4 overflow-y-auto space-y-5 text-xs font-sans">
+              {/* LIVE RELIEF TRAIN CONTEXT BANNER (Directly synced to Line-2 Station Relief Alert Center) */}
+              {(() => {
+                const curTId = activeStudioReliefTrain?.particularTrainId || activeStudioReliefTrain?.trainId || '201';
+                const curStCode = activeStudioReliefTrain?.scheduledHandoverStation || activeStudioReliefTrain?.stationCode || 'PYID';
+                const curSt = getStationInfo(curStCode);
+                const curDir = activeStudioReliefTrain?.direction || 'UP';
+                const curPlat = curDir === 'UP' ? '1' : '2';
+                const curActName = activeStudioReliefTrain?.operatorName || 'Ashish Kumar';
+                const curActDuty = activeStudioReliefTrain?.dutyNo || activeStudioReliefTrain?.operatorDuty || '08';
+                const curRelName = activeStudioReliefTrain?.reliever?.name || activeStudioReliefTrain?.relieverName || 'Duty 29';
+                const curRelDuty = activeStudioReliefTrain?.reliever?.dutyNo || activeStudioReliefTrain?.relieverDuty || '29';
+                const cleanDigits = String(curTId).replace(/\D/g, '') || String(curTId);
+                const trainKnSpoken = formatTrainIdForSpeechKn(cleanDigits);
+
+                return (
+                  <div className="bg-gradient-to-r from-amber-950/70 via-slate-900 to-cyan-950/70 p-3.5 rounded-xl border border-amber-500/40 shadow-lg space-y-2.5">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-2.5 w-2.5 relative">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                        </span>
+                        <span className="text-xs font-black text-amber-300 font-mono tracking-wider uppercase flex items-center gap-1.5">
+                          <span>🔔</span> Line-2 Station Relief Alert Center Synced
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-mono font-bold">
+                          Real-time Relief Follower
+                        </span>
+                      </div>
+
+                      {/* Dropdown to pick specific train from relief alert center / fleet if multiple */}
+                      {studioReliefCandidateTrains.length > 0 && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-slate-400 font-mono">Relieving Train:</span>
+                          <select
+                            value={String(studioSelectedTrainId || curTId)}
+                            onChange={(e) => setStudioSelectedTrainId(e.target.value)}
+                            className="bg-slate-900 text-amber-200 border border-amber-600/50 rounded px-2 py-1 text-[11px] font-mono font-bold focus:outline-none focus:border-amber-400"
+                          >
+                            {studioReliefCandidateTrains.map(ct => {
+                              const cid = String(ct.particularTrainId || ct.trainId);
+                              const cst = ct.scheduledHandoverStation || ct.stationCode || 'PYID';
+                              const cact = ct.operatorName || 'TO';
+                              const crel = ct.reliever?.name || ct.relieverName || 'Duty ' + (ct.reliever?.dutyNo || ct.relieverDuty || '--');
+                              return (
+                                <option key={cid} value={cid}>
+                                  Train {cid} ({cst}) • {cact} ➔ {crel}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Live Handover Details Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-slate-200 font-mono text-[11px]">
+                      <div className="bg-slate-950/80 p-2 rounded-lg border border-slate-800">
+                        <span className="text-[9px] text-slate-400 block">TRAIN ID & PLATFORM</span>
+                        <strong className="text-amber-300 text-xs">Train {curTId}</strong>
+                        <span className="text-[10px] text-slate-400 ml-1">({trainKnSpoken}) • P{curPlat}</span>
+                      </div>
+                      <div className="bg-slate-950/80 p-2 rounded-lg border border-slate-800">
+                        <span className="text-[9px] text-slate-400 block">HANDOVER STATION</span>
+                        <strong className="text-cyan-300 text-xs">{curSt.nameEn}</strong>
+                        <span className="text-[10px] text-cyan-400/80 ml-1">({curSt.nameKn})</span>
+                      </div>
+                      <div className="bg-slate-950/80 p-2 rounded-lg border border-slate-800">
+                        <span className="text-[9px] text-slate-400 block">ACTIVE TO (DUTY ENDING)</span>
+                        <strong className="text-slate-200 text-xs">{curActName}</strong>
+                        <span className="text-[10px] text-amber-400/90 ml-1">(Duty {curActDuty})</span>
+                      </div>
+                      <div className="bg-slate-950/80 p-2 rounded-lg border border-slate-800">
+                        <span className="text-[9px] text-emerald-400 block flex items-center gap-1">
+                          <CheckCircle2 size={10} /> NEXT RELIEVER TO
+                        </span>
+                        <strong className="text-emerald-300 text-xs">{curRelName}</strong>
+                        {curRelDuty && curRelDuty !== '--' && (
+                          <span className="text-[10px] text-emerald-400/90 ml-1">(Duty {curRelDuty})</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* SECTION 1: Curated BMRCL Local Kannada Voice Samples */}
-              <div>
-                <h4 className="text-xs font-black text-amber-300 uppercase tracking-wider font-mono flex items-center gap-2 mb-2.5">
-                  <Sparkles size={14} className="text-amber-400" /> Curated Local Kannada Voice Samples (Click to Listen)
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {/* Sample 1: Female Namma Metro */}
-                  <div className={`bg-slate-950 p-3.5 rounded-xl border transition flex flex-col justify-between gap-2.5 ${selectedVoiceUri === 'kannada_female' ? 'border-cyan-500 shadow-md shadow-cyan-950/50 bg-cyan-950/20' : 'border-slate-800 hover:border-cyan-500/50'}`}>
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="font-bold text-white text-xs flex items-center gap-1.5">
-                          <span>👩</span> BMRCL Namma Metro Female (ಶಾಂತ ನೈಸರ್ಗಿಕ ಧ್ವನಿ)
-                        </span>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-pink-950 text-pink-300 border border-pink-800 font-mono font-bold">
-                          Natural Flow • 0.82x
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 line-clamp-2 italic">
-                        "ದಯವಿಟ್ಟು ಗಮನಿಸಿ. ರೈಲು ಸಂಖ್ಯೆ ಏಳು ಸೊನ್ನೆ ಸೊನ್ನೆ ಒಂದು, ಪೀಣ್ಯ ಇಂಡಸ್ಟ್ರಿ ನಿಲ್ದಾಣ, ಪ್ಲಾಟ್‌ಫಾರ್ಮ್ ಸಂಖ್ಯೆ 1..."
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 pt-2 border-t border-slate-850">
-                      <button
-                        type="button"
-                        onClick={() => playVoiceSample('female_classical')}
-                        className="flex-1 py-1.5 bg-gradient-to-r from-pink-700 to-rose-700 hover:from-pink-600 hover:to-rose-600 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
-                      >
-                        <Volume2 size={13} /> ▶ Play Sample 1 (Female)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedVoiceUri('kannada_female');
-                          try { localStorage.setItem('pyidcc_selected_tts_voice', 'kannada_female'); } catch {}
-                        }}
-                        className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${
-                          selectedVoiceUri === 'kannada_female' ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                        }`}
-                      >
-                        {selectedVoiceUri === 'kannada_female' ? '✓ Active' : 'Select'}
-                      </button>
-                    </div>
-                  </div>
+              {(() => {
+                const curTId = activeStudioReliefTrain?.particularTrainId || activeStudioReliefTrain?.trainId || '201';
+                const curCleanDigits = String(curTId).replace(/\D/g, '') || String(curTId);
+                const curTrainKn = formatTrainIdForSpeechKn(curCleanDigits);
+                const curTrainPhonetic = formatTrainIdForSpeechKnPhonetic(curCleanDigits);
+                const curStCode = activeStudioReliefTrain?.scheduledHandoverStation || activeStudioReliefTrain?.stationCode || 'PYID';
+                const curSt = getStationInfo(curStCode);
+                const curDir = activeStudioReliefTrain?.direction || 'UP';
+                const curPlat = curDir === 'UP' ? '1' : '2';
+                const curActName = activeStudioReliefTrain?.operatorName || 'Ashish Kumar';
+                const curActDuty = activeStudioReliefTrain?.dutyNo || activeStudioReliefTrain?.operatorDuty || '08';
+                const curRelName = activeStudioReliefTrain?.reliever?.name || activeStudioReliefTrain?.relieverName || 'Duty 29';
+                const curRelDuty = activeStudioReliefTrain?.reliever?.dutyNo || activeStudioReliefTrain?.relieverDuty || '29';
 
-                  {/* Sample 2: Male Station Controller */}
-                  <div className={`bg-slate-950 p-3.5 rounded-xl border transition flex flex-col justify-between gap-2.5 ${selectedVoiceUri === 'kannada_male' ? 'border-cyan-500 shadow-md shadow-cyan-950/50 bg-cyan-950/20' : 'border-slate-800 hover:border-cyan-500/50'}`}>
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="font-bold text-white text-xs flex items-center gap-1.5">
-                          <span>👨</span> Station Controller Male (ಪುರುಷ ನಿಯಂತ್ರಕರ ಧ್ವನಿ)
-                        </span>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800 font-mono font-bold">
-                          Commanding • 0.86x
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 line-clamp-2 italic">
-                        "ಗೌರವಾನ್ವಿತ ರೈಲು ಚಾಲಕರ ಗಮನಕ್ಕೆ. ರೈಲು ಸಂಖ್ಯೆ ಏಳು ಸೊನ್ನೆ ಸೊನ್ನೆ ಒಂದು, ಪೀಣ್ಯ ಇಂಡಸ್ಟ್ರಿ ನಿಲ್ದಾಣ..."
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 pt-2 border-t border-slate-850">
-                      <button
-                        type="button"
-                        onClick={() => playVoiceSample('male_controller')}
-                        className="flex-1 py-1.5 bg-gradient-to-r from-blue-700 to-cyan-700 hover:from-blue-600 hover:to-cyan-600 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
-                      >
-                        <Volume2 size={13} /> ▶ Play Sample 2 (Male)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedVoiceUri('kannada_male');
-                          try { localStorage.setItem('pyidcc_selected_tts_voice', 'kannada_male'); } catch {}
-                        }}
-                        className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${
-                          selectedVoiceUri === 'kannada_male' ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                        }`}
-                      >
-                        {selectedVoiceUri === 'kannada_male' ? '✓ Active' : 'Select'}
-                      </button>
-                    </div>
-                  </div>
+                const curActKn = formatOperatorNameKn(curActName);
+                const curRelKn = formatOperatorNameKn(curRelName);
+                const curActEn = cleanOperatorNameEn(curActName);
+                const curRelEn = cleanOperatorNameEn(curRelName);
 
-                  {/* Sample 3: Depot Crew Control */}
-                  <div className={`bg-slate-950 p-3.5 rounded-xl border transition flex flex-col justify-between gap-2.5 ${selectedVoiceUri === 'kannada_depot' ? 'border-cyan-500 shadow-md shadow-cyan-950/50 bg-cyan-950/20' : 'border-slate-800 hover:border-cyan-500/50'}`}>
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="font-bold text-white text-xs flex items-center gap-1.5">
-                          <span>🏢</span> Peenya Depot Crew Control Official (ಕ್ರೂ ಕಂಟ್ರೋಲ್)
-                        </span>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-mono font-bold">
-                          Depot Standard • 0.85x
-                        </span>
+                return (
+                  <div>
+                    <h4 className="text-xs font-black text-amber-300 uppercase tracking-wider font-mono flex items-center gap-2 mb-2.5">
+                      <Sparkles size={14} className="text-amber-400" /> Curated Local Kannada Voice Samples (Click to Listen to Live Reliever Announcement)
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {/* Sample 1: Female Namma Metro */}
+                      <div className={`bg-slate-950 p-3.5 rounded-xl border transition flex flex-col justify-between gap-2.5 ${selectedVoiceUri === 'kannada_female' ? 'border-cyan-500 shadow-md shadow-cyan-950/50 bg-cyan-950/20' : 'border-slate-800 hover:border-cyan-500/50'}`}>
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                              <span>👩</span> BMRCL Namma Metro Female (ಶಾಂತ ನೈಸರ್ಗಿಕ ಧ್ವನಿ)
+                            </span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-pink-950 text-pink-300 border border-pink-800 font-mono font-bold">
+                              Natural Flow • 0.82x
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-amber-200/90 line-clamp-2 italic font-sans leading-relaxed">
+                            "ದಯವಿಟ್ಟು ಗಮನಿಸಿ. ರೈಲು ಸಂಖ್ಯೆ {curTrainKn}, {curSt.nameKn} ನಿಲ್ದಾಣ, ಪ್ಲಾಟ್‌ಫಾರ್ಮ್ ಸಂಖ್ಯೆ {curPlat}. ಹಾಲಿ ರೈಲು ಚಾಲಕರಾದ {curActKn} ರವರ ಕರ್ತವ್ಯವು ಇನ್ನ 3 ನಿಮಿಷಗಳಲ್ಲಿ ಮುಕ್ತಾಯವಾಗಲಿದೆ. ಮುಂದಿನ ರೈಲು ಚಾಲಕರಾದ {curRelKn} ರವರು, ದಯವಿಟ್ಟು ಕರ್ತವ್ಯ ಹಸ್ತಾಂತರಕ್ಕೆ ಪ್ಲಾಟ್‌ಫಾರ್ಮ್‌ಗೆ ತಕ್ಷಣ ಆಗಮಿಸಿ."
+                          </p>
+                          <p className="text-[9px] text-slate-500 font-mono mt-1 truncate">
+                            Dayavittu gamanisi. Railu sankhye {curTrainPhonetic}, {curSt.nameEn} nildaana...
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 pt-2 border-t border-slate-850">
+                          <button
+                            type="button"
+                            onClick={() => playVoiceSample('female_classical')}
+                            className="flex-1 py-1.5 bg-gradient-to-r from-pink-700 to-rose-700 hover:from-pink-600 hover:to-rose-600 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
+                          >
+                            <Volume2 size={13} /> ▶ Play Sample 1 (Female)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedVoiceUri('kannada_female');
+                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'kannada_female'); } catch {}
+                            }}
+                            className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${
+                              selectedVoiceUri === 'kannada_female' ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                            }`}
+                          >
+                            {selectedVoiceUri === 'kannada_female' ? '✓ Active' : 'Select'}
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-[11px] text-slate-400 line-clamp-2 italic">
-                        "ಪೀಣ್ಯ ಡಿಪೋ ಕ್ರೂ ಕಂಟ್ರೋಲ್ ಪ್ರಕಟಣೆ. ರೈಲು ಸಂಖ್ಯೆ ಏಳು ಸೊನ್ನೆ ಸೊನ್ನೆ ಒಂದು, ಪೀಣ್ಯ ಇಂಡಸ್ಟ್ರಿ ನಿಲ್ದಾಣಕ್ಕೆ ಆಗಮಿಸುತ್ತಿದೆ..."
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 pt-2 border-t border-slate-850">
-                      <button
-                        type="button"
-                        onClick={() => playVoiceSample('crew_control')}
-                        className="flex-1 py-1.5 bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-600 hover:to-teal-600 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
-                      >
-                        <Volume2 size={13} /> ▶ Play Sample 3 (Depot CC)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedVoiceUri('kannada_depot');
-                          try { localStorage.setItem('pyidcc_selected_tts_voice', 'kannada_depot'); } catch {}
-                        }}
-                        className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${
-                          selectedVoiceUri === 'kannada_depot' ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                        }`}
-                      >
-                        {selectedVoiceUri === 'kannada_depot' ? '✓ Active' : 'Select'}
-                      </button>
-                    </div>
-                  </div>
 
-                  {/* Sample 4: Clear Indian Tone */}
-                  <div className={`bg-slate-950 p-3.5 rounded-xl border transition flex flex-col justify-between gap-2.5 ${selectedVoiceUri === 'kannada_clear' ? 'border-cyan-500 shadow-md shadow-cyan-950/50 bg-cyan-950/20' : 'border-slate-800 hover:border-cyan-500/50'}`}>
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="font-bold text-white text-xs flex items-center gap-1.5">
-                          <span>🎙️</span> Clear Local Articulation (ಸ್ಪಷ್ಟ ಉಚ್ಚಾರಣೆ)
-                        </span>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 font-mono font-bold">
-                          Crisp Cadence • 0.80x
-                        </span>
+                      {/* Sample 2: Male Station Controller */}
+                      <div className={`bg-slate-950 p-3.5 rounded-xl border transition flex flex-col justify-between gap-2.5 ${selectedVoiceUri === 'kannada_male' ? 'border-cyan-500 shadow-md shadow-cyan-950/50 bg-cyan-950/20' : 'border-slate-800 hover:border-cyan-500/50'}`}>
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                              <span>👨</span> Station Controller Male (ಪುರುಷ ನಿಯಂತ್ರಕರ ಧ್ವನಿ)
+                            </span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800 font-mono font-bold">
+                              Commanding • 0.86x
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-cyan-200/90 line-clamp-2 italic font-sans leading-relaxed">
+                            "ಗೌರವಾನ್ವಿತ ರೈಲು ಚಾಲಕರ ಗಮನಕ್ಕೆ. ರೈಲು ಸಂಖ್ಯೆ {curTrainKn}, {curSt.nameKn} ನಿಲ್ದಾಣ, ಪ್ಲಾಟ್‌ಫಾರ್ಮ್ {curPlat}. ಹಾಲಿ ಚಾಲಕರು {curActKn}. ಮುಂದಿನ ಚಾಲಕರಾದ {curRelKn} ರವರು ತಕ್ಷಣ ಕರ್ತವ್ಯ ಹಸ್ತಾಂತರಕ್ಕೆ ಆಗಮಿಸಿ."
+                          </p>
+                          <p className="text-[9px] text-slate-500 font-mono mt-1 truncate">
+                            Station Controller: Train {curTId} at {curSt.nameEn} • Active: {curActEn} ➔ Reliever: {curRelEn}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 pt-2 border-t border-slate-850">
+                          <button
+                            type="button"
+                            onClick={() => playVoiceSample('male_controller')}
+                            className="flex-1 py-1.5 bg-gradient-to-r from-blue-700 to-cyan-700 hover:from-blue-600 hover:to-cyan-600 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
+                          >
+                            <Volume2 size={13} /> ▶ Play Sample 2 (Male)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedVoiceUri('kannada_male');
+                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'kannada_male'); } catch {}
+                            }}
+                            className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${
+                              selectedVoiceUri === 'kannada_male' ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                            }`}
+                          >
+                            {selectedVoiceUri === 'kannada_male' ? '✓ Active' : 'Select'}
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-[11px] text-slate-400 line-clamp-2 italic">
-                        "ದಯವಿಟ್ಟು ಗಮನಿಸಿ. ರೈಲು ಸಂಖ್ಯೆ ಏಳು ಸೊನ್ನೆ ಸೊನ್ನೆ ಒಂದು, ಪೀಣ್ಯ ಇಂಡಸ್ಟ್ರಿ ನಿಲ್ದಾಣ..."
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 pt-2 border-t border-slate-850">
-                      <button
-                        type="button"
-                        onClick={() => playVoiceSample('phonetic_clear')}
-                        className="flex-1 py-1.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
-                      >
-                        <Volume2 size={13} /> ▶ Play Sample 4 (Clear Tone)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedVoiceUri('kannada_clear');
-                          try { localStorage.setItem('pyidcc_selected_tts_voice', 'kannada_clear'); } catch {}
-                        }}
-                        className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${
-                          selectedVoiceUri === 'kannada_clear' ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                        }`}
-                      >
-                        {selectedVoiceUri === 'kannada_clear' ? '✓ Active' : 'Select'}
-                      </button>
+
+                      {/* Sample 3: Depot Crew Control */}
+                      <div className={`bg-slate-950 p-3.5 rounded-xl border transition flex flex-col justify-between gap-2.5 ${selectedVoiceUri === 'kannada_depot' ? 'border-cyan-500 shadow-md shadow-cyan-950/50 bg-cyan-950/20' : 'border-slate-800 hover:border-cyan-500/50'}`}>
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                              <span>🏢</span> Peenya Depot Crew Control Official (ಕ್ರೂ ಕಂಟ್ರೋಲ್)
+                            </span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-mono font-bold">
+                              Depot Standard • 0.85x
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-emerald-200/90 line-clamp-2 italic font-sans leading-relaxed">
+                            "ಪೀಣ್ಯ ಡಿಪೋ ಕ್ರೂ ಕಂಟ್ರೋಲ್ ಪ್ರಕಟಣೆ: ರೈಲು ಸಂಖ್ಯೆ {curTrainKn}, {curSt.nameKn} ನಿಲ್ದಾಣ. ಹಾಲಿ ಚಾಲಕರು {curActKn}, ರಿಲೀವರ್ {curRelKn} ರವರು ಕರ್ತವ್ಯ ಹಸ್ತಾಂತರಕ್ಕೆ ಹಾಜರಾಗಿ."
+                          </p>
+                          <p className="text-[9px] text-slate-500 font-mono mt-1 truncate">
+                            Peenya Depot CC: Handover Train {curTId} at {curSt.nameEn} • {curActEn} ➔ {curRelEn}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 pt-2 border-t border-slate-850">
+                          <button
+                            type="button"
+                            onClick={() => playVoiceSample('crew_control')}
+                            className="flex-1 py-1.5 bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-600 hover:to-teal-600 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
+                          >
+                            <Volume2 size={13} /> ▶ Play Sample 3 (Depot CC)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedVoiceUri('kannada_depot');
+                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'kannada_depot'); } catch {}
+                            }}
+                            className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${
+                              selectedVoiceUri === 'kannada_depot' ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                            }`}
+                          >
+                            {selectedVoiceUri === 'kannada_depot' ? '✓ Active' : 'Select'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Sample 4: Clear Indian Tone */}
+                      <div className={`bg-slate-950 p-3.5 rounded-xl border transition flex flex-col justify-between gap-2.5 ${selectedVoiceUri === 'kannada_clear' ? 'border-cyan-500 shadow-md shadow-cyan-950/50 bg-cyan-950/20' : 'border-slate-800 hover:border-cyan-500/50'}`}>
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                              <span>🎙️</span> Clear Local Articulation (ಸ್ಪಷ್ಟ ಉಚ್ಚಾರಣೆ)
+                            </span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 font-mono font-bold">
+                              Crisp Cadence • 0.80x
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-amber-200/90 line-clamp-2 italic font-sans leading-relaxed">
+                            "ಸ್ಪಷ್ಟ ಉಚ್ಚಾರಣೆ: ರೈಲು ಸಂಖ್ಯೆ {curTrainKn} ({curTrainPhonetic}), {curSt.nameKn} ({curSt.nameEn}) ಪ್ಲಾಟ್‌ಫಾರ್ಮ್ {curPlat}. ರಿಲೀವರ್ ಚಾಲಕರು {curRelKn}."
+                          </p>
+                          <p className="text-[9px] text-slate-500 font-mono mt-1 truncate">
+                            Attention please: Train {formatTrainIdForSpeechEn(curCleanDigits)}, approaching {curSt.nameEn}, P{curPlat} • {curRelEn}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 pt-2 border-t border-slate-850">
+                          <button
+                            type="button"
+                            onClick={() => playVoiceSample('phonetic_clear')}
+                            className="flex-1 py-1.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
+                          >
+                            <Volume2 size={13} /> ▶ Play Sample 4 (Clear Tone)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedVoiceUri('kannada_clear');
+                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'kannada_clear'); } catch {}
+                            }}
+                            className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${
+                              selectedVoiceUri === 'kannada_clear' ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                            }`}
+                          >
+                            {selectedVoiceUri === 'kannada_clear' ? '✓ Active' : 'Select'}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* SECTION 2: Voice Tuning (Speed & Pitch) */}
               <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-3">
