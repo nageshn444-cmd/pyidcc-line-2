@@ -127,33 +127,19 @@ export default function LiveTrainPositionTracker({
   const [idChartModalDayType, setIdChartModalDayType] = useState('WEEKDAY_2026');
   const [weekdayEdition, setWeekdayEdition] = useState('2024'); // '2024' (22/Nov/2024 - 79D) | '2026' (03/Sep/2026 - 75D)
 
-  // Kannada Voice Studio & Sample Selector state
+  // Public Address & English Voice Studio state
   const [showVoiceSampleModal, setShowVoiceSampleModal] = useState(false);
   const [studioSelectedTrainId, setStudioSelectedTrainId] = useState(null);
   const [selectedVoiceUri, setSelectedVoiceUri] = useState(() => {
     try {
       const saved = localStorage.getItem('pyidcc_selected_tts_voice') || '';
-      const lower = saved.toLowerCase();
-      // Purge any foreign non-Indian voices that were saved previously
-      if (lower && (lower.includes('david') || lower.includes('zira') || lower.includes('mark') || 
-                    lower.includes('deutsch') || lower.includes('español') || lower.includes('français') || 
-                    lower.includes('italiano') || lower.includes('日本語') || lower.includes('한국') || 
-                    lower.includes('русский') || lower.includes('普通话') || lower.includes('粤語') || 
-                    lower.includes('國語') || lower.includes('polski') || lower.includes('português') || 
-                    lower.includes('nederlands') || lower.includes('bahasa'))) {
-        localStorage.setItem('pyidcc_selected_tts_voice', 'native_bmrcl_kannada_hd');
-        return 'native_bmrcl_kannada_hd';
+      if (saved === 'native_bmrcl_kannada_hd') {
+        localStorage.setItem('pyidcc_selected_tts_voice', 'default_bmrcl_english');
+        return 'default_bmrcl_english';
       }
-      return saved || 'native_bmrcl_kannada_hd';
+      return saved || 'default_bmrcl_english';
     } catch {
-      return 'native_bmrcl_kannada_hd';
-    }
-  });
-  const [kannadaStyleMode, setKannadaStyleMode] = useState(() => {
-    try {
-      return localStorage.getItem('pyidcc_kannada_style_mode') || 'auto'; // 'auto' | 'script' | 'phonetic'
-    } catch {
-      return 'auto';
+      return 'default_bmrcl_english';
     }
   });
   const [speechRate, setSpeechRate] = useState(() => {
@@ -852,52 +838,68 @@ export default function LiveTrainPositionTracker({
     return knWords.join(' ');
   };
 
-  // Helper to discover the highest quality local Indian/Kannada voice available
+  // Helper to discover the highest quality English & Indian English voices available
   const getBilingualVoices = () => {
     const allVoices = (typeof window !== 'undefined' && 'speechSynthesis' in window) 
       ? (window.speechSynthesis.getVoices() || []) 
       : [];
 
-    // 1. Look for native Kannada voice (Gagan, Sapna, Madhur, Google Kannada, etc.)
-    const autoKnVoice = allVoices.find(v => {
-      const lang = (v.lang || '').toLowerCase().replace('_', '-');
-      const name = (v.name || '').toLowerCase();
-      return lang.startsWith('kn') || name.includes('kannada') || name.includes('gagan') || name.includes('sapna') || name.includes('madhur');
-    });
-
-    // 2. Look for cultured Indian voices (Neerja, Heera, Ravi, Prabhat, Google हिन्दी / Indian English)
+    // 1. Look for cultured Indian English voices (Neerja, Heera, Ravi, Prabhat, Indian English)
     const autoIndianVoice = allVoices.find(v => {
       const name = (v.name || '').toLowerCase();
       return name.includes('neerja') || name.includes('heera') || name.includes('ravi') || name.includes('prabhat');
     }) || allVoices.find(v => {
       const lang = (v.lang || '').toLowerCase().replace('_', '-');
       const name = (v.name || '').toLowerCase();
-      return lang === 'en-in' || lang === 'hi-in' || name.includes('india');
+      return lang === 'en-in' || name.includes('india');
     });
 
-    // 3. Fallback voice (Prefer Indian voice over foreign voices, never foreign)
+    // 2. Female voice
+    const femaleVoice = allVoices.find(v => {
+      const n = (v.name || '').toLowerCase();
+      const l = (v.lang || '').toLowerCase();
+      return (l.includes('en') || l.includes('in')) && (n.includes('female') || n.includes('heera') || n.includes('neerja') || n.includes('veena') || n.includes('zira'));
+    });
+
+    // 3. Male voice
+    const maleVoice = allVoices.find(v => {
+      const n = (v.name || '').toLowerCase();
+      const l = (v.lang || '').toLowerCase();
+      return (l.includes('en') || l.includes('in')) && (n.includes('male') || n.includes('ravi') || n.includes('prabhat') || n.includes('david'));
+    });
+
+    // 4. Fallback voice (Prefer Indian English voice over generic English)
     const fallbackEnVoice = autoIndianVoice || allVoices.find(v => {
       const l = (v.lang || '').toLowerCase();
-      const n = (v.name || '').toLowerCase();
-      return l.startsWith('en') && !n.includes('david') && !n.includes('zira') && !n.includes('mark');
-    }) || allVoices.find(v => (v.lang || '').toLowerCase().startsWith('en')) || null;
+      return l.startsWith('en');
+    }) || allVoices[0] || null;
+
+    if (selectedVoiceUri === 'english_female' || selectedVoiceUri === 'kannada_female') {
+      return { enVoice: femaleVoice || autoIndianVoice || fallbackEnVoice, indianVoice: autoIndianVoice || fallbackEnVoice };
+    }
+    if (selectedVoiceUri === 'english_male' || selectedVoiceUri === 'kannada_male') {
+      return { enVoice: maleVoice || autoIndianVoice || fallbackEnVoice, indianVoice: autoIndianVoice || fallbackEnVoice };
+    }
+    if (selectedVoiceUri === 'english_depot' || selectedVoiceUri === 'kannada_depot') {
+      return { enVoice: maleVoice || autoIndianVoice || fallbackEnVoice, indianVoice: autoIndianVoice || fallbackEnVoice };
+    }
+    if (selectedVoiceUri === 'english_clear' || selectedVoiceUri === 'kannada_clear') {
+      return { enVoice: autoIndianVoice || fallbackEnVoice, indianVoice: autoIndianVoice || fallbackEnVoice };
+    }
 
     // Check if user has explicitly selected a voice in Voice Studio
-    if (selectedVoiceUri) {
+    if (selectedVoiceUri && selectedVoiceUri !== 'default_bmrcl_english' && selectedVoiceUri !== 'native_bmrcl_kannada_hd') {
       const userPicked = allVoices.find(v => v.voiceURI === selectedVoiceUri || v.name === selectedVoiceUri);
       if (userPicked) {
-        const isNativeKn = (userPicked.lang || '').toLowerCase().startsWith('kn') || (userPicked.name || '').toLowerCase().includes('kannada');
         return {
-          nativeKnVoice: isNativeKn ? userPicked : autoKnVoice,
           indianVoice: userPicked,
-          enVoice: isNativeKn ? (autoIndianVoice || fallbackEnVoice) : userPicked
+          enVoice: userPicked
         };
       }
     }
 
     return {
-      nativeKnVoice: autoKnVoice,
-      indianVoice: autoIndianVoice,
+      indianVoice: autoIndianVoice || fallbackEnVoice,
       enVoice: autoIndianVoice || fallbackEnVoice
     };
   };
@@ -962,19 +964,17 @@ export default function LiveTrainPositionTracker({
           !cleanActive.startsWith('Train Operator')
         );
 
-        const { nativeKnVoice, indianVoice, enVoice } = getBilingualVoices();
+        const { indianVoice, enVoice } = getBilingualVoices();
 
         const effectiveVol = Math.max(0.1, Math.min(1.0, voiceVolume));
         const platformNumber = isUp ? '1' : '2';
 
         // Format Train ID and names dynamically
         const cleanTrainDigits = String(trainId || '').replace(/\D/g, '') || String(trainId || '');
-        const knReliever = formatOperatorNameKn(cleanReliever);
-        const knActive = formatOperatorNameKn(cleanActive);
         const enReliever = cleanOperatorNameEn(cleanReliever);
         const enActive = cleanOperatorNameEn(cleanActive);
 
-        // 2. English Announcement (Professional BMRCL Metro Operational Standard)
+        // English Announcement (Professional BMRCL Metro Operational Standard)
         const trainEn = formatTrainIdForSpeechEn(cleanTrainDigits);
         const enDutyPart = relieverDutyNo && relieverDutyNo !== '--' ? `Duty ${relieverDutyNo}, ` : '';
         const displayActiveEn = enActive.toLowerCase().startsWith('duty')
@@ -995,111 +995,26 @@ export default function LiveTrainPositionTracker({
           utterEn.voice = overrideVoice;
         } else if (enVoice) {
           utterEn.voice = enVoice;
+        } else if (indianVoice) {
+          utterEn.voice = indianVoice;
+        } else if (overrideVoice) {
+          utterEn.voice = overrideVoice;
         }
         utterEn.lang = utterEn.voice?.lang || enVoice?.lang || 'en-IN';
         utterEn.rate = overrideRate !== null ? Math.min(1.0, overrideRate + 0.03) : Math.min(1.0, speechRate + 0.03);
         utterEn.pitch = overridePitch !== null ? overridePitch : speechPitch;
         utterEn.volume = effectiveVol;
 
-        // Chaining: Speak Civilized Local Kannada first, pause 300ms, then speak Indian English
-        let englishAnnounced = false;
-        const playEnglish = () => {
-          if (englishAnnounced) return;
-          englishAnnounced = true;
-          window.__bmrcl_active_utterance = utterEn;
-          utterEn.onend = () => {
-            window.__bmrcl_active_utterance = null;
-          };
-          utterEn.onerror = () => {
-            window.__bmrcl_active_utterance = null;
-          };
-          window.speechSynthesis.speak(utterEn);
+        window.__bmrcl_active_utterance = utterEn;
+        utterEn.onend = () => {
+          window.__bmrcl_active_utterance = null;
+        };
+        utterEn.onerror = (e) => {
+          console.warn('[English Announcement Error]', e);
+          window.__bmrcl_active_utterance = null;
         };
 
-        // Standard dynamic TTS path for real-time live trains (100% dynamic SpeechSynthesis)
-        const speakViaTts = () => {
-          let utterKn = null;
-          const chosenKnVoice = (overrideVoice && ((overrideVoice.lang || '').toLowerCase().startsWith('kn') || (overrideVoice.name || '').toLowerCase().includes('kannada')))
-            ? overrideVoice
-            : nativeKnVoice;
-
-          const chosenFallbackVoice = (overrideVoice && !chosenKnVoice)
-            ? overrideVoice
-            : (indianVoice || enVoice);
-
-          const knRate = overrideRate !== null ? overrideRate : speechRate;
-          const knPitch = overridePitch !== null ? overridePitch : speechPitch;
-
-          const shouldUseNativeScript = (kannadaStyleMode === 'script' && Boolean(chosenKnVoice)) || 
-                                        (kannadaStyleMode === 'auto' && Boolean(chosenKnVoice));
-
-          if (shouldUseNativeScript) {
-            const trainKn = formatTrainIdForSpeechKn(cleanTrainDigits);
-            const knDutyPart = relieverDutyNo && relieverDutyNo !== '--' ? `ಡ್ಯೂಟಿ ${relieverDutyNo}, ` : '';
-            const displayActive = (knActive.startsWith('ಡ್ಯೂಟಿ') || knActive.toLowerCase().startsWith('duty'))
-              ? (activeDutyNo && activeDutyNo !== '--' ? `ಡ್ಯೂಟಿ ${activeDutyNo}` : knActive)
-              : knActive;
-
-            const knActivePart = hasActive 
-              ? `ಹಾಲಿ ರೈಲು ಚಾಲಕರಾದ ${displayActive} ರವರ ಕರ್ತವ್ಯವು ಇನ್ನ ${minutesRemaining} ನಿಮಿಷಗಳಲ್ಲಿ ಮುಕ್ತಾಯವಾಗಲಿದೆ. ` 
-              : `ರೈಲಿನ ಸಂಚಾರವು ಇನ್ನ ${minutesRemaining} ನಿಮಿಷಗಳಲ್ಲಿ ಪೂರ್ಣಗೊಳ್ಳಲಿದೆ. `;
-            
-            const displayReliever = (knReliever.startsWith('ಡ್ಯೂಟಿ') || knReliever.toLowerCase().startsWith('duty'))
-              ? (knDutyPart ? `ಡ್ಯೂಟಿ ${relieverDutyNo}` : knReliever)
-              : `${knDutyPart}${knReliever}`;
-
-            const knTextScript = `ದಯವಿಟ್ಟು ಗಮನಿಸಿ. ರೈಲು ಸಂಖ್ಯೆ ${trainKn}, ${stInfo.nameKn} ನಿಲ್ದಾಣ, ಪ್ಲಾಟ್‌ಫಾರ್ಮ್ ಸಂಖ್ಯೆ ${platformNumber}. ${knActivePart}ಮುಂದಿನ ರೈಲು ಚಾಲಕರಾದ ${displayReliever} ರವರು, ದಯವಿಟ್ಟು ಕರ್ತವ್ಯ ಹಸ್ತಾಂತರಕ್ಕೆ ಪ್ಲಾಟ್‌ಫಾರ್ಮ್‌ಗೆ ತಕ್ಷಣ ಆಗಮಿಸಿ.`;
-
-            utterKn = new SpeechSynthesisUtterance(knTextScript);
-            if (chosenKnVoice) utterKn.voice = chosenKnVoice;
-            utterKn.lang = chosenKnVoice?.lang || 'kn-IN';
-            utterKn.rate = knRate;
-            utterKn.pitch = knPitch;
-            utterKn.volume = effectiveVol;
-          } else {
-            const trainKnPhonetic = formatTrainIdForSpeechKnPhonetic(cleanTrainDigits);
-            const knDutyPartPhonetic = relieverDutyNo && relieverDutyNo !== '--' ? `Duty ${relieverDutyNo}, ` : '';
-            const displayActivePhonetic = enActive.toLowerCase().startsWith('duty')
-              ? (activeDutyNo && activeDutyNo !== '--' ? `Duty ${activeDutyNo}` : enActive)
-              : enActive;
-
-            const knActivePartPhonetic = hasActive 
-              ? `Haali railu chaalakaraada ${displayActivePhonetic} avara karthavyavu, inna ${minutesRemaining} nimishagalalli mukthaayavaagalide. ` 
-              : `Railina sanchaara inna ${minutesRemaining} nimishagalalli poornagollalide. `;
-            
-            const displayRelieverPhonetic = enReliever.toLowerCase().startsWith('duty')
-              ? (knDutyPartPhonetic ? `Duty ${relieverDutyNo}` : enReliever)
-              : `${knDutyPartPhonetic}${enReliever}`;
-
-            const knTextPhonetic = `Dayavittu gamanisi. Railu sankhye ${trainKnPhonetic}, ${stInfo.nameEn} nildaana, Platform sankhye ${platformNumber}. ${knActivePartPhonetic}Mundina railu chaalakaraada ${displayRelieverPhonetic} avaru, dayavittu karthavya hasthaantharakke platformge thakshana aagamisi.`;
-
-            utterKn = new SpeechSynthesisUtterance(knTextPhonetic);
-            if (chosenFallbackVoice) utterKn.voice = chosenFallbackVoice;
-            utterKn.lang = chosenFallbackVoice?.lang || 'en-IN';
-            utterKn.rate = knRate;
-            utterKn.pitch = knPitch;
-            utterKn.volume = effectiveVol;
-          }
-
-          window.__bmrcl_active_utterance = utterKn;
-          utterKn.onend = () => {
-            window.__bmrcl_active_utterance = null;
-            setTimeout(playEnglish, 300);
-          };
-          utterKn.onerror = (e) => {
-            console.warn('[Kannada Speech Fallback]', e);
-            window.__bmrcl_active_utterance = null;
-            playEnglish();
-          };
-
-          window.speechSynthesis.speak(utterKn);
-
-          setTimeout(() => {
-            if (!englishAnnounced) playEnglish();
-          }, 12000);
-        };
-
-        speakViaTts();
+        window.speechSynthesis.speak(utterEn);
       }, 350);
     } catch (err) {
       console.warn('Speech synthesis alert error:', err);
@@ -2679,20 +2594,35 @@ export default function LiveTrainPositionTracker({
     let targetPitch = customPitch;
     let targetVoice = voice;
 
-    if (sampleType === 'female_classical' || sampleType === 'kannada_female') {
-      if (targetRate === null) targetRate = 0.82;
-      if (targetPitch === null) targetPitch = 1.05;
-    } else if (sampleType === 'male_controller' || sampleType === 'kannada_male') {
-      if (targetRate === null) targetRate = 0.86;
-      if (targetPitch === null) targetPitch = 0.90;
-    } else if (sampleType === 'crew_control' || sampleType === 'kannada_depot') {
-      if (targetRate === null) targetRate = 0.85;
-      if (targetPitch === null) targetPitch = 0.95;
-    } else if (sampleType === 'phonetic_clear' || sampleType === 'kannada_clear') {
-      if (targetRate === null) targetRate = 0.80;
-      if (targetPitch === null) targetPitch = 1.00;
-    } else if (sampleType === 'native_bmrcl_kannada_hd') {
+    const allVoices = (typeof window !== 'undefined' && 'speechSynthesis' in window) 
+      ? (window.speechSynthesis.getVoices() || []) 
+      : [];
+
+    if (sampleType === 'english_female' || sampleType === 'female_classical' || sampleType === 'kannada_female') {
       if (targetRate === null) targetRate = 0.84;
+      if (targetPitch === null) targetPitch = 1.05;
+      if (!targetVoice) {
+        targetVoice = allVoices.find(v => {
+          const n = (v.name || '').toLowerCase();
+          const l = (v.lang || '').toLowerCase();
+          return (l.includes('en') || l.includes('in')) && (n.includes('female') || n.includes('heera') || n.includes('neerja') || n.includes('veena') || n.includes('zira'));
+        }) || null;
+      }
+    } else if (sampleType === 'english_male' || sampleType === 'male_controller' || sampleType === 'kannada_male') {
+      if (targetRate === null) targetRate = 0.88;
+      if (targetPitch === null) targetPitch = 0.95;
+      if (!targetVoice) {
+        targetVoice = allVoices.find(v => {
+          const n = (v.name || '').toLowerCase();
+          const l = (v.lang || '').toLowerCase();
+          return (l.includes('en') || l.includes('in')) && (n.includes('male') || n.includes('ravi') || n.includes('prabhat') || n.includes('david'));
+        }) || null;
+      }
+    } else if (sampleType === 'english_depot' || sampleType === 'crew_control' || sampleType === 'kannada_depot') {
+      if (targetRate === null) targetRate = 0.86;
+      if (targetPitch === null) targetPitch = 1.00;
+    } else if (sampleType === 'english_clear' || sampleType === 'phonetic_clear' || sampleType === 'kannada_clear' || sampleType === 'default_bmrcl_english' || sampleType === 'native_bmrcl_kannada_hd') {
+      if (targetRate === null) targetRate = 0.82;
       if (targetPitch === null) targetPitch = 1.00;
     }
 
@@ -3032,7 +2962,7 @@ export default function LiveTrainPositionTracker({
               {' | '}Station Approaches: <span className="text-amber-400 font-bold">{reliefStationAlerts.filter(a => !a.isDeparted).length}</span>
               {' | '}Relief in 3 Mins: <span className="text-emerald-400 font-bold">{liveTrainPositions.filter(t => t.shouldAnnounceReliever).length}</span>
               {' | '}Pos Source: <span className={`font-bold ${isLiveClock ? 'text-emerald-400' : 'text-amber-400'}`}>{isLiveClock ? 'LIVE 5s' : 'MANUAL'}</span>
-              {' | '}Voice: <span className={`font-bold ${voiceEnabled ? 'text-emerald-400' : 'text-rose-500'}`}>{voiceEnabled ? 'ACTIVE (KN+EN)' : 'MUTED'}</span>
+              {' | '}Voice: <span className={`font-bold ${voiceEnabled ? 'text-emerald-400' : 'text-rose-500'}`}>{voiceEnabled ? 'ACTIVE (EN)' : 'MUTED'}</span>
             </span>
           </div>
         </div>
@@ -3044,10 +2974,10 @@ export default function LiveTrainPositionTracker({
             className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded transition-colors ${
               voiceEnabled ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-950 text-rose-300 border border-rose-800'
             }`}
-            title="Toggle Bilingual Voice Announcements"
+            title="Toggle English Metro Voice Announcements"
           >
             {voiceEnabled ? <Volume2 className="h-3.5 w-3.5 text-emerald-400" /> : <VolumeX className="h-3.5 w-3.5 text-rose-400" />}
-            {voiceEnabled ? 'Voice ON (KN+EN)' : 'Voice MUTED'}
+            {voiceEnabled ? 'Voice ON (EN)' : 'Voice MUTED'}
           </button>
 
           <button
@@ -3062,7 +2992,7 @@ export default function LiveTrainPositionTracker({
             type="button"
             onClick={() => setShowVoiceSampleModal(true)}
             className="flex items-center gap-1 text-[9px] bg-amber-600/20 text-amber-300 border border-amber-500/40 hover:bg-amber-600/40 px-2 py-1 rounded font-bold transition shadow-sm"
-            title="Open Kannada Voice Studio: Preview Voice Samples & Select Preferred Local Announcer"
+            title="Open English Voice Studio: Preview Voice Samples & Select Preferred Metro Announcer"
           >
             <Sparkles className="h-3 w-3 text-amber-400" />
             <span>Voice Studio & Samples</span>
@@ -3801,7 +3731,7 @@ export default function LiveTrainPositionTracker({
             <button
               onClick={testVoiceAnnouncement}
               className="px-3 py-1.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 rounded-lg text-xs font-black font-mono flex items-center gap-1.5 shadow-md transition-all active:scale-95"
-              title="Test Web Audio API Station 2-Tone Melodic Chime & Bilingual Public Address Voice"
+              title="Test Web Audio API Station 2-Tone Melodic Chime & English Public Address Voice"
             >
               <Sparkles size={13} className="text-slate-950 animate-spin" />
               <span>TEST PA CHIME</span>
@@ -3812,7 +3742,7 @@ export default function LiveTrainPositionTracker({
               type="button"
               onClick={() => setShowVoiceSampleModal(true)}
               className="px-3 py-1.5 bg-gradient-to-r from-emerald-800 to-teal-800 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-xs font-black font-mono flex items-center gap-1.5 shadow-md transition-all active:scale-95 border border-emerald-500/40"
-              title="Open Kannada Voice Studio & Soundboard: Sample different local Kannada voices and pick your favorite"
+              title="Open English Voice Studio & Soundboard: Sample different Metro English voices and pick your favorite"
             >
               <Volume2 size={13} className="text-emerald-300" />
               <span>VOICE SAMPLES & STUDIO</span>
@@ -3915,7 +3845,7 @@ export default function LiveTrainPositionTracker({
           <div className="text-slate-300 flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping"></span>
             <span>
-              <strong>Real-Time 3-Min Reliever Announcement Engine:</strong> When the driving train operator's trip completes in the next <strong>3 minutes</strong>, the system triggers station PA chimes and announces the <strong>verified reliever operator</strong> in Kannada & English. If no reliever is rostered, announcements are strictly <strong>suppressed (muted)</strong>.
+              <strong>Real-Time 3-Min Reliever Announcement Engine:</strong> When the driving train operator's trip completes in the next <strong>3 minutes</strong>, the system triggers station PA chimes and announces the <strong>verified reliever operator</strong> in English. If no reliever is rostered, announcements are strictly <strong>suppressed (muted)</strong>.
             </span>
           </div>
           <div className="flex items-center gap-3 font-mono text-[10px]">
@@ -4533,7 +4463,7 @@ export default function LiveTrainPositionTracker({
                   <div className="flex items-center gap-2">
                     <span className="text-slate-400">Active: <strong className="text-slate-200">{log.operatorName}</strong> ({log.operatorDuty || '--'})</span>
                     <span className="text-emerald-400">➔ Next TO: <strong className="text-white">{log.relieverName}</strong> ({log.relieverDuty ? `Duty ${log.relieverDuty}` : log.relieverId})</span>
-                    <span className="px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 text-[8px] font-bold">BILINGUAL</span>
+                    <span className="px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 text-[8px] font-bold">ENGLISH PA</span>
                   </div>
                 </div>
               ))}
@@ -6420,7 +6350,7 @@ export default function LiveTrainPositionTracker({
         );
       })()}
 
-      {/* ── BMRCL Kannada Voice Studio & Samples Modal ── */}
+      {/* ── BMRCL Public Address & English Voice Studio Modal ── */}
       {showVoiceSampleModal && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-fadeIn">
           <div className="bg-slate-900 border border-cyan-800/80 rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden text-slate-200">
@@ -6432,13 +6362,13 @@ export default function LiveTrainPositionTracker({
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-white uppercase tracking-wider font-mono flex items-center gap-2">
-                    BMRCL Kannada & Bilingual Voice Studio
+                    BMRCL Public Address & English Voice Studio
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-700 font-bold">
-                      Local Civilized Language
+                      English Public Address
                     </span>
                   </h3>
                   <p className="text-[11px] text-slate-400">
-                    Preview voice samples, test local Indian & Kannada announcers, and select the best voice for your device
+                    Preview voice samples, test Indian & Metro English announcers, and select the best voice for your device
                   </p>
                 </div>
               </div>
@@ -6465,8 +6395,6 @@ export default function LiveTrainPositionTracker({
                 const curActDuty = activeStudioReliefTrain?.dutyNo || activeStudioReliefTrain?.operatorDuty || '08';
                 const curRelName = activeStudioReliefTrain?.reliever?.name || activeStudioReliefTrain?.relieverName || 'Duty 29';
                 const curRelDuty = activeStudioReliefTrain?.reliever?.dutyNo || activeStudioReliefTrain?.relieverDuty || '29';
-                const cleanDigits = String(curTId).replace(/\D/g, '') || String(curTId);
-                const trainKnSpoken = formatTrainIdForSpeechKn(cleanDigits);
 
                 return (
                   <div className="bg-gradient-to-r from-amber-950/70 via-slate-900 to-cyan-950/70 p-3.5 rounded-xl border border-amber-500/40 shadow-lg space-y-2.5">
@@ -6514,12 +6442,12 @@ export default function LiveTrainPositionTracker({
                       <div className="bg-slate-950/80 p-2 rounded-lg border border-slate-800">
                         <span className="text-[9px] text-slate-400 block">TRAIN ID & PLATFORM</span>
                         <strong className="text-amber-300 text-xs">Train {curTId}</strong>
-                        <span className="text-[10px] text-slate-400 ml-1">({trainKnSpoken}) • P{curPlat}</span>
+                        <span className="text-[10px] text-slate-400 ml-1">• Platform {curPlat}</span>
                       </div>
                       <div className="bg-slate-950/80 p-2 rounded-lg border border-slate-800">
                         <span className="text-[9px] text-slate-400 block">HANDOVER STATION</span>
                         <strong className="text-cyan-300 text-xs">{curSt.nameEn}</strong>
-                        <span className="text-[10px] text-cyan-400/80 ml-1">({curSt.nameKn})</span>
+                        <span className="text-[10px] text-cyan-400/80 ml-1">({curSt.code})</span>
                       </div>
                       <div className="bg-slate-950/80 p-2 rounded-lg border border-slate-800">
                         <span className="text-[9px] text-slate-400 block">ACTIVE TO (DUTY ENDING)</span>
@@ -6540,12 +6468,10 @@ export default function LiveTrainPositionTracker({
                 );
               })()}
 
-              {/* SECTION 1: Curated BMRCL Local Kannada Voice Samples */}
+              {/* SECTION 1: Curated BMRCL English Voice Samples */}
               {(() => {
                 const curTId = activeStudioReliefTrain?.particularTrainId || activeStudioReliefTrain?.trainId || '201';
                 const curCleanDigits = String(curTId).replace(/\D/g, '') || String(curTId);
-                const curTrainKn = formatTrainIdForSpeechKn(curCleanDigits);
-                const curTrainPhonetic = formatTrainIdForSpeechKnPhonetic(curCleanDigits);
                 const curStCode = activeStudioReliefTrain?.scheduledHandoverStation || activeStudioReliefTrain?.stationCode || 'PYID';
                 const curSt = getStationInfo(curStCode);
                 const curDir = activeStudioReliefTrain?.direction || 'UP';
@@ -6555,39 +6481,37 @@ export default function LiveTrainPositionTracker({
                 const curRelName = activeStudioReliefTrain?.reliever?.name || activeStudioReliefTrain?.relieverName || 'Duty 29';
                 const curRelDuty = activeStudioReliefTrain?.reliever?.dutyNo || activeStudioReliefTrain?.relieverDuty || '29';
 
-                const curActKn = formatOperatorNameKn(curActName);
-                const curRelKn = formatOperatorNameKn(curRelName);
                 const curActEn = cleanOperatorNameEn(curActName);
                 const curRelEn = cleanOperatorNameEn(curRelName);
 
                 return (
                   <div>
                     <h4 className="text-xs font-black text-amber-300 uppercase tracking-wider font-mono flex items-center gap-2 mb-2.5">
-                      <Sparkles size={14} className="text-amber-400" /> Curated Local Kannada Voice Samples (Click to Listen to Live Reliever Announcement)
+                      <Sparkles size={14} className="text-amber-400" /> Curated Metro English Voice Samples (Click to Listen to Live Reliever Announcement)
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {/* Sample 1: Female Namma Metro */}
-                      <div className={`bg-slate-950 p-3.5 rounded-xl border transition flex flex-col justify-between gap-2.5 ${selectedVoiceUri === 'kannada_female' ? 'border-cyan-500 shadow-md shadow-cyan-950/50 bg-cyan-950/20' : 'border-slate-800 hover:border-cyan-500/50'}`}>
+                      {/* Sample 1: Female Metro Announcer */}
+                      <div className={`bg-slate-950 p-3.5 rounded-xl border transition flex flex-col justify-between gap-2.5 ${selectedVoiceUri === 'english_female' ? 'border-cyan-500 shadow-md shadow-cyan-950/50 bg-cyan-950/20' : 'border-slate-800 hover:border-cyan-500/50'}`}>
                         <div>
                           <div className="flex items-center justify-between gap-2 mb-1">
                             <span className="font-bold text-white text-xs flex items-center gap-1.5">
-                              <span>👩</span> BMRCL Namma Metro Female (ಶಾಂತ ನೈಸರ್ಗಿಕ ಧ್ವನಿ)
+                              <span>👩</span> BMRCL Metro Female Announcer (Natural & Clear)
                             </span>
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-pink-950 text-pink-300 border border-pink-800 font-mono font-bold">
-                              Natural Flow • 0.82x
+                              Natural Flow • 0.84x
                             </span>
                           </div>
                           <p className="text-[11px] text-amber-200/90 line-clamp-2 italic font-sans leading-relaxed">
-                            "ದಯವಿಟ್ಟು ಗಮನಿಸಿ. ರೈಲು ಸಂಖ್ಯೆ {curTrainKn}, {curSt.nameKn} ನಿಲ್ದಾಣ, ಪ್ಲಾಟ್‌ಫಾರ್ಮ್ ಸಂಖ್ಯೆ {curPlat}. ಹಾಲಿ ರೈಲು ಚಾಲಕರಾದ {curActKn} ರವರ ಕರ್ತವ್ಯವು ಇನ್ನ 3 ನಿಮಿಷಗಳಲ್ಲಿ ಮುಕ್ತಾಯವಾಗಲಿದೆ. ಮುಂದಿನ ರೈಲು ಚಾಲಕರಾದ {curRelKn} ರವರು, ದಯವಿಟ್ಟು ಕರ್ತವ್ಯ ಹಸ್ತಾಂತರಕ್ಕೆ ಪ್ಲಾಟ್‌ಫಾರ್ಮ್‌ಗೆ ತಕ್ಷಣ ಆಗಮಿಸಿ."
+                            "Attention please. Train {formatTrainIdForSpeechEn(curCleanDigits)}, approaching {curSt.nameEn}, Platform {curPlat}. Current train operator {curActEn} (Duty {curActDuty}), duty will conclude in 3 minutes. Next train operator {curRelEn} (Duty {curRelDuty}), please proceed to the platform immediately for train handover."
                           </p>
                           <p className="text-[9px] text-slate-500 font-mono mt-1 truncate">
-                            Dayavittu gamanisi. Railu sankhye {curTrainPhonetic}, {curSt.nameEn} nildaana...
+                            Professional Station PA: Train {curTId} at {curSt.nameEn} • {curActEn} ➔ {curRelEn}
                           </p>
                         </div>
                         <div className="flex items-center gap-2 pt-2 border-t border-slate-850">
                           <button
                             type="button"
-                            onClick={() => playVoiceSample('female_classical')}
+                            onClick={() => playVoiceSample('english_female')}
                             className="flex-1 py-1.5 bg-gradient-to-r from-pink-700 to-rose-700 hover:from-pink-600 hover:to-rose-600 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
                           >
                             <Volume2 size={13} /> ▶ Play Sample 1 (Female)
@@ -6595,31 +6519,31 @@ export default function LiveTrainPositionTracker({
                           <button
                             type="button"
                             onClick={() => {
-                              setSelectedVoiceUri('kannada_female');
-                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'kannada_female'); } catch {}
+                              setSelectedVoiceUri('english_female');
+                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'english_female'); } catch {}
                             }}
                             className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${
-                              selectedVoiceUri === 'kannada_female' ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                              selectedVoiceUri === 'english_female' ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                             }`}
                           >
-                            {selectedVoiceUri === 'kannada_female' ? '✓ Active' : 'Select'}
+                            {selectedVoiceUri === 'english_female' ? '✓ Active' : 'Select'}
                           </button>
                         </div>
                       </div>
 
                       {/* Sample 2: Male Station Controller */}
-                      <div className={`bg-slate-950 p-3.5 rounded-xl border transition flex flex-col justify-between gap-2.5 ${selectedVoiceUri === 'kannada_male' ? 'border-cyan-500 shadow-md shadow-cyan-950/50 bg-cyan-950/20' : 'border-slate-800 hover:border-cyan-500/50'}`}>
+                      <div className={`bg-slate-950 p-3.5 rounded-xl border transition flex flex-col justify-between gap-2.5 ${selectedVoiceUri === 'english_male' ? 'border-cyan-500 shadow-md shadow-cyan-950/50 bg-cyan-950/20' : 'border-slate-800 hover:border-cyan-500/50'}`}>
                         <div>
                           <div className="flex items-center justify-between gap-2 mb-1">
                             <span className="font-bold text-white text-xs flex items-center gap-1.5">
-                              <span>👨</span> Station Controller Male (ಪುರುಷ ನಿಯಂತ್ರಕರ ಧ್ವನಿ)
+                              <span>👨</span> Station Controller Male (Authoritative & Crisp)
                             </span>
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800 font-mono font-bold">
-                              Commanding • 0.86x
+                              Commanding • 0.88x
                             </span>
                           </div>
                           <p className="text-[11px] text-cyan-200/90 line-clamp-2 italic font-sans leading-relaxed">
-                            "ಗೌರವಾನ್ವಿತ ರೈಲು ಚಾಲಕರ ಗಮನಕ್ಕೆ. ರೈಲು ಸಂಖ್ಯೆ {curTrainKn}, {curSt.nameKn} ನಿಲ್ದಾಣ, ಪ್ಲಾಟ್‌ಫಾರ್ಮ್ {curPlat}. ಹಾಲಿ ಚಾಲಕರು {curActKn}. ಮುಂದಿನ ಚಾಲಕರಾದ {curRelKn} ರವರು ತಕ್ಷಣ ಕರ್ತವ್ಯ ಹಸ್ತಾಂತರಕ್ಕೆ ಆಗಮಿಸಿ."
+                            "Attention Station Staff and Operators. Train {formatTrainIdForSpeechEn(curCleanDigits)}, approaching {curSt.nameEn}, Platform {curPlat}. Active operator {curActEn}. Next reliever operator {curRelEn} (Duty {curRelDuty}), report to platform immediately."
                           </p>
                           <p className="text-[9px] text-slate-500 font-mono mt-1 truncate">
                             Station Controller: Train {curTId} at {curSt.nameEn} • Active: {curActEn} ➔ Reliever: {curRelEn}
@@ -6628,7 +6552,7 @@ export default function LiveTrainPositionTracker({
                         <div className="flex items-center gap-2 pt-2 border-t border-slate-850">
                           <button
                             type="button"
-                            onClick={() => playVoiceSample('male_controller')}
+                            onClick={() => playVoiceSample('english_male')}
                             className="flex-1 py-1.5 bg-gradient-to-r from-blue-700 to-cyan-700 hover:from-blue-600 hover:to-cyan-600 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
                           >
                             <Volume2 size={13} /> ▶ Play Sample 2 (Male)
@@ -6636,31 +6560,31 @@ export default function LiveTrainPositionTracker({
                           <button
                             type="button"
                             onClick={() => {
-                              setSelectedVoiceUri('kannada_male');
-                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'kannada_male'); } catch {}
+                              setSelectedVoiceUri('english_male');
+                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'english_male'); } catch {}
                             }}
                             className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${
-                              selectedVoiceUri === 'kannada_male' ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                              selectedVoiceUri === 'english_male' ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                             }`}
                           >
-                            {selectedVoiceUri === 'kannada_male' ? '✓ Active' : 'Select'}
+                            {selectedVoiceUri === 'english_male' ? '✓ Active' : 'Select'}
                           </button>
                         </div>
                       </div>
 
                       {/* Sample 3: Depot Crew Control */}
-                      <div className={`bg-slate-950 p-3.5 rounded-xl border transition flex flex-col justify-between gap-2.5 ${selectedVoiceUri === 'kannada_depot' ? 'border-cyan-500 shadow-md shadow-cyan-950/50 bg-cyan-950/20' : 'border-slate-800 hover:border-cyan-500/50'}`}>
+                      <div className={`bg-slate-950 p-3.5 rounded-xl border transition flex flex-col justify-between gap-2.5 ${selectedVoiceUri === 'english_depot' ? 'border-cyan-500 shadow-md shadow-cyan-950/50 bg-cyan-950/20' : 'border-slate-800 hover:border-cyan-500/50'}`}>
                         <div>
                           <div className="flex items-center justify-between gap-2 mb-1">
                             <span className="font-bold text-white text-xs flex items-center gap-1.5">
-                              <span>🏢</span> Peenya Depot Crew Control Official (ಕ್ರೂ ಕಂಟ್ರೋಲ್)
+                              <span>🏢</span> Peenya Depot Crew Control Official (Operational Alert)
                             </span>
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-mono font-bold">
-                              Depot Standard • 0.85x
+                              Depot Standard • 0.86x
                             </span>
                           </div>
                           <p className="text-[11px] text-emerald-200/90 line-clamp-2 italic font-sans leading-relaxed">
-                            "ಪೀಣ್ಯ ಡಿಪೋ ಕ್ರೂ ಕಂಟ್ರೋಲ್ ಪ್ರಕಟಣೆ: ರೈಲು ಸಂಖ್ಯೆ {curTrainKn}, {curSt.nameKn} ನಿಲ್ದಾಣ. ಹಾಲಿ ಚಾಲಕರು {curActKn}, ರಿಲೀವರ್ {curRelKn} ರವರು ಕರ್ತವ್ಯ ಹಸ್ತಾಂತರಕ್ಕೆ ಹಾಜರಾಗಿ."
+                            "Peenya Depot Crew Control Broadcast: Train {formatTrainIdForSpeechEn(curCleanDigits)} arriving at {curSt.nameEn}. Outgoing operator {curActEn} (Duty {curActDuty}), incoming operator {curRelEn} (Duty {curRelDuty}), initiate handover protocol."
                           </p>
                           <p className="text-[9px] text-slate-500 font-mono mt-1 truncate">
                             Peenya Depot CC: Handover Train {curTId} at {curSt.nameEn} • {curActEn} ➔ {curRelEn}
@@ -6669,7 +6593,7 @@ export default function LiveTrainPositionTracker({
                         <div className="flex items-center gap-2 pt-2 border-t border-slate-850">
                           <button
                             type="button"
-                            onClick={() => playVoiceSample('crew_control')}
+                            onClick={() => playVoiceSample('english_depot')}
                             className="flex-1 py-1.5 bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-600 hover:to-teal-600 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
                           >
                             <Volume2 size={13} /> ▶ Play Sample 3 (Depot CC)
@@ -6677,31 +6601,31 @@ export default function LiveTrainPositionTracker({
                           <button
                             type="button"
                             onClick={() => {
-                              setSelectedVoiceUri('kannada_depot');
-                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'kannada_depot'); } catch {}
+                              setSelectedVoiceUri('english_depot');
+                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'english_depot'); } catch {}
                             }}
                             className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${
-                              selectedVoiceUri === 'kannada_depot' ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                              selectedVoiceUri === 'english_depot' ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                             }`}
                           >
-                            {selectedVoiceUri === 'kannada_depot' ? '✓ Active' : 'Select'}
+                            {selectedVoiceUri === 'english_depot' ? '✓ Active' : 'Select'}
                           </button>
                         </div>
                       </div>
 
-                      {/* Sample 4: Clear Indian Tone */}
-                      <div className={`bg-slate-950 p-3.5 rounded-xl border transition flex flex-col justify-between gap-2.5 ${selectedVoiceUri === 'kannada_clear' ? 'border-cyan-500 shadow-md shadow-cyan-950/50 bg-cyan-950/20' : 'border-slate-800 hover:border-cyan-500/50'}`}>
+                      {/* Sample 4: Clear Metro Articulation */}
+                      <div className={`bg-slate-950 p-3.5 rounded-xl border transition flex flex-col justify-between gap-2.5 ${selectedVoiceUri === 'english_clear' ? 'border-cyan-500 shadow-md shadow-cyan-950/50 bg-cyan-950/20' : 'border-slate-800 hover:border-cyan-500/50'}`}>
                         <div>
                           <div className="flex items-center justify-between gap-2 mb-1">
                             <span className="font-bold text-white text-xs flex items-center gap-1.5">
-                              <span>🎙️</span> Clear Local Articulation (ಸ್ಪಷ್ಟ ಉಚ್ಚಾರಣೆ)
+                              <span>🎙️</span> Clear Metro Articulation (Indian English Accent)
                             </span>
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 font-mono font-bold">
-                              Crisp Cadence • 0.80x
+                              Crisp Cadence • 0.82x
                             </span>
                           </div>
                           <p className="text-[11px] text-amber-200/90 line-clamp-2 italic font-sans leading-relaxed">
-                            "ಸ್ಪಷ್ಟ ಉಚ್ಚಾರಣೆ: ರೈಲು ಸಂಖ್ಯೆ {curTrainKn} ({curTrainPhonetic}), {curSt.nameKn} ({curSt.nameEn}) ಪ್ಲಾಟ್‌ಫಾರ್ಮ್ {curPlat}. ರಿಲೀವರ್ ಚಾಲಕರು {curRelKn}."
+                            "Attention please. Train {formatTrainIdForSpeechEn(curCleanDigits)}, approaching {curSt.nameEn}, Platform {curPlat}. Duty {curActDuty} concludes in 3 minutes. Next operator {curRelEn}, please take charge at platform."
                           </p>
                           <p className="text-[9px] text-slate-500 font-mono mt-1 truncate">
                             Attention please: Train {formatTrainIdForSpeechEn(curCleanDigits)}, approaching {curSt.nameEn}, P{curPlat} • {curRelEn}
@@ -6710,7 +6634,7 @@ export default function LiveTrainPositionTracker({
                         <div className="flex items-center gap-2 pt-2 border-t border-slate-850">
                           <button
                             type="button"
-                            onClick={() => playVoiceSample('phonetic_clear')}
+                            onClick={() => playVoiceSample('english_clear')}
                             className="flex-1 py-1.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
                           >
                             <Volume2 size={13} /> ▶ Play Sample 4 (Clear Tone)
@@ -6718,14 +6642,14 @@ export default function LiveTrainPositionTracker({
                           <button
                             type="button"
                             onClick={() => {
-                              setSelectedVoiceUri('kannada_clear');
-                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'kannada_clear'); } catch {}
+                              setSelectedVoiceUri('english_clear');
+                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'english_clear'); } catch {}
                             }}
                             className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${
-                              selectedVoiceUri === 'kannada_clear' ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                              selectedVoiceUri === 'english_clear' ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                             }`}
                           >
-                            {selectedVoiceUri === 'kannada_clear' ? '✓ Active' : 'Select'}
+                            {selectedVoiceUri === 'english_clear' ? '✓ Active' : 'Select'}
                           </button>
                         </div>
                       </div>
@@ -6793,89 +6717,60 @@ export default function LiveTrainPositionTracker({
                   </div>
                 </div>
 
-                {/* Pronunciation Style Selector */}
-                <div className="pt-2 border-t border-slate-850 flex items-center justify-between flex-wrap gap-2">
-                  <span className="text-xs font-bold text-slate-300">Kannada Text Engine Mode:</span>
-                  <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800 font-mono text-[10px]">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setKannadaStyleMode('auto');
-                        try { localStorage.setItem('pyidcc_kannada_style_mode', 'auto'); } catch {}
-                      }}
-                      className={`px-2.5 py-1 rounded font-bold transition ${
-                        kannadaStyleMode === 'auto' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white'
-                      }`}
-                      title="Automatically chooses Pure Kannada Script if native voice exists, or Indian Phonetics for Heera/Ravi"
-                    >
-                      Auto (Recommended)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setKannadaStyleMode('phonetic');
-                        try { localStorage.setItem('pyidcc_kannada_style_mode', 'phonetic'); } catch {}
-                      }}
-                      className={`px-2.5 py-1 rounded font-bold transition ${
-                        kannadaStyleMode === 'phonetic' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
-                      }`}
-                      title="Always use Indian Phonetics (prevents robotic AI accent on Windows)"
-                    >
-                      Indian Phonetic (Anti-Robotic)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setKannadaStyleMode('script');
-                        try { localStorage.setItem('pyidcc_kannada_style_mode', 'script'); } catch {}
-                      }}
-                      className={`px-2.5 py-1 rounded font-bold transition ${
-                        kannadaStyleMode === 'script' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
-                      }`}
-                      title="Always send pure Kannada script"
-                    >
-                      Pure Kannada Script
-                    </button>
+                {/* Announcement Engine Status */}
+                <div className="pt-2 border-t border-slate-850 flex items-center justify-between flex-wrap gap-2 text-xs">
+                  <span className="font-bold text-slate-300 flex items-center gap-1.5">
+                    <Megaphone size={13} className="text-cyan-400" /> Public Address Mode:
+                  </span>
+                  <div className="flex items-center gap-1.5 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800 font-mono text-[11px] text-emerald-400 font-bold">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    English Only (BMRCL Metro Operational Standard)
                   </div>
                 </div>
               </div>
 
-              {/* SECTION 3: Select from Kannada & Indian Local Voices Only */}
+              {/* SECTION 3: Select from English & Indian Local Voices */}
               {(() => {
-                const filteredKannadaVoices = (browserVoicesList || []).filter(v => {
+                const filteredEnglishVoices = (browserVoicesList || []).filter(v => {
                   const lang = (v.lang || '').toLowerCase();
                   const name = (v.name || '').toLowerCase();
 
-                  // Strict exclusion of non-Indian / foreign languages
-                  const foreignPrefixes = ['de', 'ja', 'es', 'fr', 'ru', 'zh', 'ko', 'nl', 'pl', 'pt', 'id', 'it', 'en-us', 'en-gb', 'en-au', 'en-ca', 'en-nz', 'en-za', 'en-ie', 'tr', 'ar', 'sv', 'da', 'fi', 'nb', 'el', 'cs', 'hu', 'ro', 'th', 'vi'];
-                  const isForeign = foreignPrefixes.some(p => lang === p || lang.startsWith(p + '-') || lang.startsWith(p + '_'));
-                  if (isForeign) {
-                    const isExplicitIndian = name.includes('india') || name.includes('kannada') || name.includes('heera') || name.includes('ravi') || name.includes('neerja');
-                    if (!isExplicitIndian) return false;
-                  }
+                  // Include English voices (en-IN, en-GB, en-US, etc.) and Indian locale voices
+                  const isEn = lang.startsWith('en') || name.includes('english');
+                  const isIndian = lang.includes('in') || name.includes('heera') || name.includes('ravi') || 
+                                   name.includes('neerja') || name.includes('prabhat') || name.includes('veena') || name.includes('india');
 
-                  // Include ONLY Kannada or Indian Regional voices
-                  const isKn = lang.startsWith('kn') || name.includes('kannada') || name.includes('gagan') || name.includes('sapna');
-                  const isIndian = lang.includes('en-in') || lang.includes('hi-in') || lang.includes('kn-in') || 
-                                   name.includes('heera') || name.includes('ravi') || name.includes('neerja') || 
-                                   name.includes('prabhat') || name.includes('india') || name.includes('veena') || name.includes('kalpana');
+                  return isEn || isIndian;
+                });
 
-                  return isKn || isIndian;
+                // Sort so Indian English (en-IN, Neerja, Heera, Ravi) appear first
+                filteredEnglishVoices.sort((a, b) => {
+                  const aName = (a.name || '').toLowerCase();
+                  const bName = (b.name || '').toLowerCase();
+                  const aLang = (a.lang || '').toLowerCase();
+                  const bLang = (b.lang || '').toLowerCase();
+
+                  const aIsInd = aLang.includes('in') || aName.includes('india') || aName.includes('heera') || aName.includes('ravi') || aName.includes('neerja');
+                  const bIsInd = bLang.includes('in') || bName.includes('india') || bName.includes('heera') || bName.includes('ravi') || bName.includes('neerja');
+
+                  if (aIsInd && !bIsInd) return -1;
+                  if (!aIsInd && bIsInd) return 1;
+                  return a.name.localeCompare(b.name);
                 });
 
                 const activeVoiceLabel = 
-                  selectedVoiceUri === 'native_bmrcl_kannada_hd' ? '🌟 BMRCL Kannada Studio Announcer'
-                  : selectedVoiceUri === 'kannada_female' ? '👩 BMRCL Female (Sample 1)'
-                  : selectedVoiceUri === 'kannada_male' ? '👨 Station Controller Male (Sample 2)'
-                  : selectedVoiceUri === 'kannada_depot' ? '🏢 Peenya Depot CC (Sample 3)'
-                  : selectedVoiceUri === 'kannada_clear' ? '🎙️ Clear Local Articulation (Sample 4)'
-                  : selectedVoiceUri || '🌟 BMRCL Kannada Studio Announcer (Default)';
+                  selectedVoiceUri === 'english_female' ? '👩 BMRCL Female (Sample 1)'
+                  : selectedVoiceUri === 'english_male' ? '👨 Station Controller Male (Sample 2)'
+                  : selectedVoiceUri === 'english_depot' ? '🏢 Peenya Depot CC (Sample 3)'
+                  : selectedVoiceUri === 'english_clear' ? '🎙️ Clear Metro Articulation (Sample 4)'
+                  : (selectedVoiceUri === 'default_bmrcl_english' || selectedVoiceUri === 'native_bmrcl_kannada_hd') ? '⭐ BMRCL English Official Metro Announcer (Default)'
+                  : selectedVoiceUri || '⭐ BMRCL English Official Metro Announcer (Default)';
 
                 return (
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
                       <h4 className="text-xs font-black text-amber-300 uppercase tracking-wider font-mono flex items-center gap-2">
-                        <span>🎙️</span> Kannada & Indian Local Voices Only (ಕನ್ನಡ ಮತ್ತು ಸ್ಥಳೀಯ ಧ್ವನಿಗಳು)
+                        <span>🎙️</span> English & Indian Local Device Voices (Pure English Audio)
                       </h4>
                       <span className="text-[10px] text-slate-400">
                         Active: <strong className="text-amber-300">{activeVoiceLabel}</strong>
@@ -6883,50 +6778,50 @@ export default function LiveTrainPositionTracker({
                     </div>
 
                     <div className="bg-slate-950 rounded-xl border border-slate-800 divide-y divide-slate-850 max-h-56 overflow-y-auto font-mono text-xs">
-                      {/* Primary Option: Native BMRCL Studio Kannada Announcer (Pure Studio Audio) */}
-                      <div className={`p-3 flex items-center justify-between gap-3 ${(!selectedVoiceUri || selectedVoiceUri === 'native_bmrcl_kannada_hd') ? 'bg-amber-950/40 border-l-4 border-amber-500' : 'hover:bg-slate-900'}`}>
+                      {/* Primary Option: BMRCL English Official Metro Announcer */}
+                      <div className={`p-3 flex items-center justify-between gap-3 ${(!selectedVoiceUri || selectedVoiceUri === 'default_bmrcl_english' || selectedVoiceUri === 'native_bmrcl_kannada_hd') ? 'bg-cyan-950/40 border-l-4 border-cyan-500' : 'hover:bg-slate-900'}`}>
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-amber-200">⭐ BMRCL Kannada Official Studio Announcer (ಶುದ್ಧ ಕನ್ನಡ ಧ್ವನಿ)</span>
+                            <span className="font-bold text-cyan-200">⭐ BMRCL English Official Metro Announcer</span>
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-bold">
-                              Recommended • Pure Kannada
+                              Recommended • Pure English PA
                             </span>
                           </div>
                           <p className="text-[10px] text-slate-300 font-sans mt-0.5">
-                            Authentic Bangalore Metro announcer voice • 100% Civilized Kannada pronunciation • Zero foreign accent
+                            Authentic Bangalore Metro English station handover announcements • Clear operational articulation
                           </p>
-                          <p className="text-[9px] text-amber-400/80 font-mono mt-0.5">
-                            Built-in HD Studio Audio • Works offline & on any Windows/Mobile device without speech packs
+                          <p className="text-[9px] text-cyan-400/80 font-mono mt-0.5">
+                            Indian English Standard • Supports offline playback on any Windows or Mobile device
                           </p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <button
                             type="button"
-                            onClick={() => playVoiceSample('native_bmrcl_kannada_hd')}
-                            className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-slate-950 rounded font-bold text-[11px] flex items-center gap-1 shadow transition active:scale-95"
-                            title="Listen to Studio Kannada Voice"
+                            onClick={() => playVoiceSample('english_clear')}
+                            className="px-2.5 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded font-bold text-[11px] flex items-center gap-1 shadow transition active:scale-95"
+                            title="Listen to Metro English Voice"
                           >
                             <Volume2 size={13} /> Test
                           </button>
                           <button
                             type="button"
                             onClick={() => {
-                              setSelectedVoiceUri('native_bmrcl_kannada_hd');
-                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'native_bmrcl_kannada_hd'); } catch {}
+                              setSelectedVoiceUri('default_bmrcl_english');
+                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'default_bmrcl_english'); } catch {}
                             }}
                             className={`px-3 py-1.5 rounded font-bold text-[11px] transition ${
-                              (!selectedVoiceUri || selectedVoiceUri === 'native_bmrcl_kannada_hd') ? 'bg-amber-500 text-slate-950 font-black' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                              (!selectedVoiceUri || selectedVoiceUri === 'default_bmrcl_english' || selectedVoiceUri === 'native_bmrcl_kannada_hd') ? 'bg-cyan-500 text-slate-950 font-black' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                             }`}
                           >
-                            {(!selectedVoiceUri || selectedVoiceUri === 'native_bmrcl_kannada_hd') ? '✓ Active' : 'Select'}
+                            {(!selectedVoiceUri || selectedVoiceUri === 'default_bmrcl_english' || selectedVoiceUri === 'native_bmrcl_kannada_hd') ? '✓ Active' : 'Select'}
                           </button>
                         </div>
                       </div>
 
-                      {/* List of Voices (Only Kannada & Indian Regional Voices, 0 foreign voices) */}
-                      {filteredKannadaVoices.length > 0 ? (
-                        filteredKannadaVoices.map((v, idx) => {
-                          const isKn = (v.lang || '').toLowerCase().startsWith('kn') || (v.name || '').toLowerCase().includes('kannada');
+                      {/* List of Voices (English & Indian Local Voices) */}
+                      {filteredEnglishVoices.length > 0 ? (
+                        filteredEnglishVoices.map((v, idx) => {
+                          const isInd = (v.lang || '').toLowerCase().includes('in') || (v.name || '').toLowerCase().includes('india') || (v.name || '').toLowerCase().includes('heera') || (v.name || '').toLowerCase().includes('neerja') || (v.name || '').toLowerCase().includes('ravi');
                           const isSelected = selectedVoiceUri === v.voiceURI || selectedVoiceUri === v.name;
 
                           return (
@@ -6934,13 +6829,13 @@ export default function LiveTrainPositionTracker({
                               <div className="truncate mr-2">
                                 <div className="flex items-center gap-2">
                                   <span className="font-bold text-white truncate max-w-xs">{v.name}</span>
-                                  {isKn ? (
-                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-800 font-bold shrink-0">
-                                      🗣️ Native Kannada
+                                  {isInd ? (
+                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-bold shrink-0">
+                                      🇮🇳 Indian English
                                     </span>
                                   ) : (
-                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-bold shrink-0">
-                                      🇮🇳 Indian Local
+                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700 font-bold shrink-0">
+                                      🌐 English ({v.lang})
                                     </span>
                                   )}
                                 </div>
@@ -6975,7 +6870,7 @@ export default function LiveTrainPositionTracker({
                         })
                       ) : (
                         <div className="p-3 text-center text-slate-400 text-xs font-sans">
-                          <span>💡 All foreign languages (English US/UK, Japanese, German, Spanish, French, etc.) have been filtered out. Only Kannada & local Indian voices are loaded. The <strong>BMRCL Kannada Studio Announcer</strong> above is active.</span>
+                          <span>💡 English device voices are loaded. The <strong>BMRCL English Official Metro Announcer</strong> above is active.</span>
                         </div>
                       )}
                     </div>
