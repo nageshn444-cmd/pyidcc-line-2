@@ -1039,20 +1039,28 @@ export default function LiveTrainPositionTracker({
         const effectiveVol = Math.max(0.1, Math.min(1.0, voiceVolume));
         const platformNumber = isUp ? '1' : '2';
 
-        // Names formatting
+        // Format Train ID and names dynamically
+        const cleanTrainDigits = String(trainId || '').replace(/\D/g, '') || String(trainId || '');
         const knReliever = formatOperatorNameKn(cleanReliever);
         const knActive = formatOperatorNameKn(cleanActive);
         const enReliever = cleanOperatorNameEn(cleanReliever);
         const enActive = cleanOperatorNameEn(cleanActive);
 
         // 2. English Announcement (Professional BMRCL Metro Operational Standard)
-        const trainEn = formatTrainIdForSpeechEn(trainId);
+        const trainEn = formatTrainIdForSpeechEn(cleanTrainDigits);
         const enDutyPart = relieverDutyNo && relieverDutyNo !== '--' ? `Duty ${relieverDutyNo}, ` : '';
+        const displayActiveEn = enActive.toLowerCase().startsWith('duty')
+          ? (activeDutyNo && activeDutyNo !== '--' ? `Duty ${activeDutyNo}` : enActive)
+          : enActive;
+        const displayRelieverEn = enReliever.toLowerCase().startsWith('duty')
+          ? (enDutyPart ? `Duty ${relieverDutyNo}` : enReliever)
+          : `${enDutyPart}${enReliever}`;
+
         const enActivePart = hasActive 
-          ? `Current train operator ${enActive}, duty will conclude in ${minutesRemaining} minutes. ` 
+          ? `Current train operator ${displayActiveEn}, duty will conclude in ${minutesRemaining} minutes. ` 
           : `Train trip will be completed in ${minutesRemaining} minutes. `;
         
-        const enText = `Attention please. Train ${trainEn}, approaching ${stInfo.nameEn}, Platform ${platformNumber}. ${enActivePart}Next train operator ${enDutyPart}${enReliever}, please proceed to the platform immediately for train handover.`;
+        const enText = `Attention please. Train ${trainEn}, approaching ${stInfo.nameEn}, Platform ${platformNumber}. ${enActivePart}Next train operator ${displayRelieverEn}, please proceed to the platform immediately for train handover.`;
 
         const utterEn = new SpeechSynthesisUtterance(enText);
         if (enVoice) utterEn.voice = enVoice;
@@ -1076,63 +1084,25 @@ export default function LiveTrainPositionTracker({
           window.speechSynthesis.speak(utterEn);
         };
 
-        // Check if Studio Kannada Audio is active
-        const isStudioSelected = !selectedVoiceUri || 
-          selectedVoiceUri === 'native_bmrcl_kannada_hd' || 
-          selectedVoiceUri === 'kannada_female' || 
-          selectedVoiceUri === 'kannada_male' || 
-          selectedVoiceUri === 'kannada_depot' || 
-          selectedVoiceUri === 'kannada_clear';
-
-        const studioAudioSrc = (selectedVoiceUri === 'kannada_female')
-          ? '/audio/kannada_sample_1_female.mp3'
-          : (selectedVoiceUri === 'kannada_male')
-          ? '/audio/kannada_sample_2_male.mp3'
-          : (selectedVoiceUri === 'kannada_depot')
-          ? '/audio/kannada_sample_3_depot.mp3'
-          : (selectedVoiceUri === 'kannada_clear')
-          ? '/audio/kannada_sample_4_clear.mp3'
-          : '/audio/kannada_7001_alert.mp3';
-
-        // Dedicated soundboard sample: ONLY play static studio audio recording for the dedicated soundboard test train ('7001')
-        // ALL real-time live trains (e.g. 201, 202, 203, etc.) MUST dynamically speak their real-time Train IDs and TO names!
-        if (isStudioSelected && String(trainId) === '7001') {
-          try {
-            const knAudio = new Audio(studioAudioSrc);
-            knAudio.volume = effectiveVol;
-            window.__bmrcl_active_audio = knAudio;
-            knAudio.onended = () => {
-              setTimeout(playEnglish, 300);
-            };
-            knAudio.onerror = (e) => {
-              console.warn('[Kannada Studio Audio Error, fallback to TTS]', e);
-              speakViaTts();
-            };
-            knAudio.play().catch(err => {
-              console.warn('[Kannada Audio Autoplay blocked, falling back to TTS]', err);
-              speakViaTts();
-            });
-            return;
-          } catch (e) {
-            console.warn('[Audio Init Error]', e);
-          }
-        }
-
-        // Standard dynamic TTS path for real-time live trains
+        // Standard dynamic TTS path for real-time live trains (100% dynamic SpeechSynthesis)
         const speakViaTts = () => {
           let utterKn = null;
           const shouldUseNativeScript = (kannadaStyleMode === 'script' && Boolean(nativeKnVoice)) || 
                                         (kannadaStyleMode === 'auto' && Boolean(nativeKnVoice));
 
           if (shouldUseNativeScript) {
-            const trainKn = formatTrainIdForSpeechKn(trainId);
+            const trainKn = formatTrainIdForSpeechKn(cleanTrainDigits);
             const knDutyPart = relieverDutyNo && relieverDutyNo !== '--' ? `ಡ್ಯೂಟಿ ${relieverDutyNo}, ` : '';
+            const displayActive = (knActive.startsWith('ಡ್ಯೂಟಿ') || knActive.toLowerCase().startsWith('duty'))
+              ? (activeDutyNo && activeDutyNo !== '--' ? `ಡ್ಯೂಟಿ ${activeDutyNo}` : knActive)
+              : knActive;
+
             const knActivePart = hasActive 
-              ? `ಹಾಲಿ ರೈಲು ಚಾಲಕರಾದ ${knActive} ರವರ ಕರ್ತವ್ಯವು ಇನ್ನ ${minutesRemaining} ನಿಮಿಷಗಳಲ್ಲಿ ಮುಕ್ತಾಯವಾಗಲಿದೆ. ` 
+              ? `ಹಾಲಿ ರೈಲು ಚಾಲಕರಾದ ${displayActive} ರವರ ಕರ್ತವ್ಯವು ಇನ್ನ ${minutesRemaining} ನಿಮಿಷಗಳಲ್ಲಿ ಮುಕ್ತಾಯವಾಗಲಿದೆ. ` 
               : `ರೈಲಿನ ಸಂಚಾರವು ಇನ್ನ ${minutesRemaining} ನಿಮಿಷಗಳಲ್ಲಿ ಪೂರ್ಣಗೊಳ್ಳಲಿದೆ. `;
             
             const displayReliever = (knReliever.startsWith('ಡ್ಯೂಟಿ') || knReliever.toLowerCase().startsWith('duty'))
-              ? (knDutyPart || knReliever)
+              ? (knDutyPart ? `ಡ್ಯೂಟಿ ${relieverDutyNo}` : knReliever)
               : `${knDutyPart}${knReliever}`;
 
             const knTextScript = `ದಯವಿಟ್ಟು ಗಮನಿಸಿ. ರೈಲು ಸಂಖ್ಯೆ ${trainKn}, ${stInfo.nameKn} ನಿಲ್ದಾಣ, ಪ್ಲಾಟ್‌ಫಾರ್ಮ್ ಸಂಖ್ಯೆ ${platformNumber}. ${knActivePart}ಮುಂದಿನ ರೈಲು ಚಾಲಕರಾದ ${displayReliever} ರವರು, ದಯವಿಟ್ಟು ಕರ್ತವ್ಯ ಹಸ್ತಾಂತರಕ್ಕೆ ಪ್ಲಾಟ್‌ಫಾರ್ಮ್‌ಗೆ ತಕ್ಷಣ ಆಗಮಿಸಿ.`;
@@ -1145,14 +1115,18 @@ export default function LiveTrainPositionTracker({
             utterKn.volume = effectiveVol;
           } else {
             const targetVoice = indianVoice || enVoice;
-            const trainKnPhonetic = formatTrainIdForSpeechKnPhonetic(trainId);
+            const trainKnPhonetic = formatTrainIdForSpeechKnPhonetic(cleanTrainDigits);
             const knDutyPartPhonetic = relieverDutyNo && relieverDutyNo !== '--' ? `Duty ${relieverDutyNo}, ` : '';
+            const displayActivePhonetic = enActive.toLowerCase().startsWith('duty')
+              ? (activeDutyNo && activeDutyNo !== '--' ? `Duty ${activeDutyNo}` : enActive)
+              : enActive;
+
             const knActivePartPhonetic = hasActive 
-              ? `Haali railu chaalakaraada ${enActive} avara karthavyavu, inna ${minutesRemaining} nimishagalalli mukthaayavaagalide. ` 
+              ? `Haali railu chaalakaraada ${displayActivePhonetic} avara karthavyavu, inna ${minutesRemaining} nimishagalalli mukthaayavaagalide. ` 
               : `Railina sanchaara inna ${minutesRemaining} nimishagalalli poornagollalide. `;
             
             const displayRelieverPhonetic = enReliever.toLowerCase().startsWith('duty')
-              ? (knDutyPartPhonetic || enReliever)
+              ? (knDutyPartPhonetic ? `Duty ${relieverDutyNo}` : enReliever)
               : `${knDutyPartPhonetic}${enReliever}`;
 
             const knTextPhonetic = `Dayavittu gamanisi. Railu sankhye ${trainKnPhonetic}, ${stInfo.nameEn} nildaana, Platform sankhye ${platformNumber}. ${knActivePartPhonetic}Mundina railu chaalakaraada ${displayRelieverPhonetic} avaru, dayavittu karthavya hasthaantharakke platformge thakshana aagamisi.`;
@@ -1190,27 +1164,6 @@ export default function LiveTrainPositionTracker({
     }
   };
 
-  // Soundboard Test Button Function
-  const testVoiceAnnouncement = () => {
-    playMetroChime();
-    setTimeout(() => {
-      triggerBilingualAnnouncement(
-        '7001',
-        'UP',
-        'Ramesh Kumar S',
-        'Sheela S',
-        stationFilter !== 'ALL' ? stationFilter : 'PYID',
-        '24',
-        '80',
-        3
-      );
-      setHandoverToast({
-        message: '🔔 Testing Local Civilized BMRCL Announcement: Train 7001 • Kannada + English (Local Indian Voice)',
-        type: 'info'
-      });
-      setTimeout(() => setHandoverToast(null), 5000);
-    }, 300);
-  };
 
   // ── Operational Action: 1-Click Platform Handover Confirmation ──
   const handleConfirmHandover = async (train) => {
@@ -2562,6 +2515,44 @@ export default function LiveTrainPositionTracker({
     });
   }, [reliefStationAlerts, stationFilter, trackFilter]);
 
+  // Soundboard Test Button Function (Dynamically synced to Line-2 Station Relief Alert Center)
+  const testVoiceAnnouncement = () => {
+    const activeRelief = 
+      liveTrainPositions.find(t => t.shouldAnnounceReliever && t.reliever?.name) ||
+      filteredReliefAlerts.find(a => a.hasReliever && a.reliever?.name) ||
+      liveTrainPositions.find(t => t.hasReliever && t.reliever?.name) ||
+      liveTrainPositions.find(t => !t.isStabling) ||
+      liveTrainPositions[0];
+
+    const targetTrainId = activeRelief?.particularTrainId || activeRelief?.trainId || '201';
+    const targetDir = activeRelief?.direction || 'UP';
+    const targetReliever = activeRelief?.reliever?.name || 'Duty 29';
+    const targetActive = activeRelief?.operatorName || 'Ashish Kumar';
+    const targetStation = activeRelief?.scheduledHandoverStation || activeRelief?.stationCode || (stationFilter !== 'ALL' ? stationFilter : 'PYID');
+    const targetRelDuty = activeRelief?.reliever?.dutyNo || '29';
+    const targetActDuty = activeRelief?.dutyNo || '08';
+    const targetMins = activeRelief?.timeRemainingMins || 3;
+
+    playMetroChime();
+    setTimeout(() => {
+      triggerBilingualAnnouncement(
+        targetTrainId,
+        targetDir,
+        targetReliever,
+        targetActive,
+        targetStation,
+        targetRelDuty,
+        targetActDuty,
+        targetMins
+      );
+      setHandoverToast({
+        message: `🔔 Line-2 Live Relief Announcement: Train ${targetTrainId} (${targetStation}) • Active: ${targetActive} (Duty ${targetActDuty}) ➔ Reliever: ${targetReliever} (Duty ${targetRelDuty})`,
+        type: 'info'
+      });
+      setTimeout(() => setHandoverToast(null), 5000);
+    }, 300);
+  };
+
   // Fleet-wide Day Timetable KM & Status Summary
   const fleetKmSummary = useMemo(() => {
     let totalAssignedKm = 0;
@@ -2895,33 +2886,9 @@ export default function LiveTrainPositionTracker({
           </button>
 
           <button
-            onClick={() => {
-              const testAlert = liveTrainPositions.find(t => t.shouldAnnounceReliever) || 
-                                liveTrainPositions.find(t => t.isVerifiedReliever) || 
-                                filteredReliefAlerts.find(a => a.hasReliever) || 
-                                reliefStationAlerts.find(a => a.hasReliever);
-              if (testAlert && testAlert.reliever?.name) {
-                triggerBilingualAnnouncement(
-                  '7001', 
-                  testAlert.direction || 'UP', 
-                  testAlert.reliever.name, 
-                  testAlert.operatorName || 'Sheela S', 
-                  testAlert.scheduledHandoverStation || testAlert.stationCode || 'PYID',
-                  testAlert.reliever.dutyNo || '24',
-                  testAlert.dutyNo || '80',
-                  3
-                );
-              } else {
-                triggerBilingualAnnouncement('7001', 'UP', 'Ramesh Kumar S', 'Sheela S', 'PYID', '24', '80', 3);
-              }
-              setHandoverToast({
-                message: '🔔 Testing Local Civilized BMRCL Announcement: Train 7001 • Kannada + English (Local Indian Voice)',
-                type: 'info'
-              });
-              setTimeout(() => setHandoverToast(null), 5000);
-            }}
-            className="flex items-center gap-1 text-[9px] bg-cyan-600/20 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-600/40 px-2 py-1 rounded font-bold transition"
-            title="Test Local Civilized BMRCL Public Address: Train 7001 with Local Indian Voice"
+            onClick={testVoiceAnnouncement}
+            className="flex items-center gap-1 text-[9px] bg-cyan-600/20 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-600/40 px-2 py-1 rounded font-bold transition shadow-sm"
+            title="Test Line-2 Reliever Announcement with Real-Time Train ID and Train Operator"
           >
             <Megaphone className="h-3 w-3 text-cyan-400" /> Test Voice (3-Min Alert)
           </button>
