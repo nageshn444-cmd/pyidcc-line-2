@@ -596,13 +596,13 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
         isValidDutyId(l.dutyId)
       );
 
-      // WEEKDAY SCHEDULE: If DB has no links, or has stale/outdated roster (e.g. not 75 duties, or Duty 3 has old train 209, or Duty 2 has old Rd3 Stby),
-      // seamlessly use the new canonical WEEKDAY_MASTER_LINKS from Weekday link.xlsx WEF 03/Sep/2026.
+      // WEEKDAY SCHEDULE: If DB has no links, or has stale/outdated roster (e.g. not 79 duties, or Duty 2 has old TGTP Stby),
+      // seamlessly use the new canonical WEEKDAY_MASTER_LINKS from weekday old link.xlsx WEF 22/Nov/2024 (79 Duties).
       if (targetSchedule === 'WEEKDAY') {
         const isDbStale = rawDayLinks.length === 0 || 
-          rawDayLinks.length !== 75 || 
-          rawDayLinks.some(l => (normalizeDutyId(l.dutyId) === '03' || normalizeDutyId(l.dutyId) === '3') && (l.trainId === '209' || l.leg1TrainNo === '209')) ||
-          rawDayLinks.some(l => (normalizeDutyId(l.dutyId) === '02' || normalizeDutyId(l.dutyId) === '2') && (l.trainId === 'Rd3 Stby' || l.signOnLocation === 'PYID'));
+          rawDayLinks.length !== 79 || 
+          rawDayLinks.some(l => (normalizeDutyId(l.dutyId) === '02' || normalizeDutyId(l.dutyId) === '2') && l.signOnLocation === 'TGTP') ||
+          rawDayLinks.some(l => (normalizeDutyId(l.dutyId) === '03' || normalizeDutyId(l.dutyId) === '3') && (l.trainId === '209' || l.leg1TrainNo === '209'));
         if (isDbStale) {
           rawDayLinks = WEEKDAY_MASTER_LINKS;
         }
@@ -1245,7 +1245,7 @@ Format the response strictly as a single JSON object.`;
   };
 
   const handleUpdateMasterWeekdayLinks = async () => {
-    if (!window.confirm("Update and save Weekday Link Roster with new schedule (75 Duties, WEF 03/Sep/2026)? This will overwrite old weekday links in database.")) return;
+    if (!window.confirm("Update and save Weekday Link Roster with verified schedule (79 Duties, WEF 22/Nov/2024)? This will overwrite old weekday links in database.")) return;
     try {
       setLoading(true);
       const batch = writeBatch(db);
@@ -1256,19 +1256,19 @@ Format the response strictly as a single JSON object.`;
           lastModified: serverTimestamp()
         }, { merge: true });
       });
-      // Delete any obsolete duty IDs 76 to 99
-      for (let i = 76; i <= 99; i++) {
+      // Delete any obsolete duty IDs > 79
+      for (let i = 80; i <= 99; i++) {
         batch.delete(doc(db, 'crew_final_links', `link_weekday_duty_${i}`));
         batch.delete(doc(db, 'crew_final_links', `link_weekday_${i}`));
       }
       await batch.commit();
-      alert("✅ Weekday Link Roster successfully updated and saved to database with new 75 duties (WEF 03/Sep/2026)!");
+      alert("✅ Weekday Link Roster successfully updated and saved to database with verified 79 duties (WEF 22/Nov/2024)!");
       fetchLiveData();
     } catch (err) {
       console.error("Failed to update weekday links in database:", err);
       // Still refresh local view with master links
       setLinks(WEEKDAY_MASTER_LINKS);
-      alert(`⚠️ Local Weekday Link view refreshed with new 75 duties. Database sync: ${err.message}`);
+      alert(`⚠️ Local Weekday Link view refreshed with verified 79 duties. Database sync: ${err.message}`);
     } finally {
       setLoading(false);
     }

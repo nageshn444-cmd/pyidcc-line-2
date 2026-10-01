@@ -35,11 +35,18 @@ export default function ReliefTracking({
 }) {
   // View mode: 'CARDS' | 'ID_CHART' | 'DUTY_SUMMARY'
   const [viewMode, setViewMode] = useState('CARDS');
+  const [weekdayEdition, setWeekdayEdition] = useState('2024'); // '2024' (Updated Weekday Link - 79D) | '2026' (03/Sep/2026 - 75D)
 
   // Dynamically resolve ID chart, metadata, and duty legs for the active day type
   const activeDayData = useMemo(() => {
+    const raw = String(activeDay || 'WEEKDAY').toUpperCase();
+    if (raw === 'WEEKDAY' || raw === 'MON' || raw === 'MONDAY') {
+      if (raw === 'WEEKDAY') {
+        return getReliefIdChartForDay(weekdayEdition === '2024' ? 'WEEKDAY_2024' : 'WEEKDAY_2026');
+      }
+    }
     return getReliefIdChartForDay(activeDay);
-  }, [activeDay]);
+  }, [activeDay, weekdayEdition]);
 
   const activeChart = activeDayData.chart;
   const activeMeta = activeDayData.meta;
@@ -174,6 +181,34 @@ export default function ReliefTracking({
               <span className="px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-700/60 text-[9px] font-black uppercase font-mono">
                 {activeMeta.badge || `${activeMeta.dayType} LINK`}
               </span>
+              {(String(activeDay).toUpperCase() === 'WEEKDAY' || String(activeDay).toUpperCase() === 'MON' || String(activeDay).toUpperCase() === 'MONDAY') && (
+                <div className="flex items-center bg-slate-950 border border-cyan-800/80 p-0.5 rounded-lg text-xs font-mono">
+                  <button
+                    type="button"
+                    onClick={() => setWeekdayEdition('2026')}
+                    className={`px-2 py-0.5 rounded text-[10px] font-black transition-all ${
+                      weekdayEdition === '2026'
+                        ? 'bg-cyan-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Weekday Link 03/Sep/2026 (BIET-APTS) - 75 Duties from Official Photo"
+                  >
+                    03/Sep/2026 (75D)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWeekdayEdition('2024')}
+                    className={`px-2 py-0.5 rounded text-[10px] font-black transition-all ${
+                      weekdayEdition === '2024'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Weekday Link 22/Nov/2024 (APTS-BIET) - 79 Duties Timetable Roster"
+                  >
+                    22/Nov/2024 (79D)
+                  </button>
+                </div>
+              )}
               <span className="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700/60 text-[9px] font-black uppercase font-mono flex items-center gap-1">
                 <ShieldCheck size={11} className="text-emerald-400" />
                 ALSTOM ATS RELIEF ENGINE
@@ -582,12 +617,17 @@ export default function ReliefTracking({
       {/* ─────────────────────────────────────────────────────────────────── */}
       {viewMode === 'DUTY_SUMMARY' && (
         <div className="space-y-3">
-          <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex justify-between items-center text-xs">
-            <span className="text-white font-bold">
-              Duty Roster Leg Sequence (Derived from {activeMeta.title})
-            </span>
-            <span className="text-[10px] text-slate-400">
-              Total Duties: {Object.keys(activeDutyLegs).length}
+          <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex justify-between items-center text-xs flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-white font-bold">
+                Duty Roster Leg Sequence (Derived from {activeMeta.title})
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold font-mono">
+                {activeMeta.edition === '2024' ? '79 Duties Master' : '75 Duties Official'}
+              </span>
+            </div>
+            <span className="text-[10px] text-slate-400 font-mono">
+              Total Duties: <strong className="text-cyan-400">{Object.keys(activeDutyLegs).length}</strong>
             </span>
           </div>
 
@@ -601,47 +641,105 @@ export default function ReliefTracking({
 
               // Find active leg
               const activeLeg = legs.find(l => currentTimeSecs >= l.startSec && currentTimeSecs <= l.endSec);
+              const meta = legs.meta;
+
+              // Find assigned operator from live tracking
+              const normD = dutyNo.padStart(2, '0');
+              const liveOpMatch = Object.values(liveTrainTrackingMap).find(t => 
+                t.current?.dutyId === normD || t.nextReliver?.dutyId === normD || t.previous?.dutyId === normD
+              );
+              const liveOp = liveOpMatch?.current?.dutyId === normD ? liveOpMatch.current 
+                          : liveOpMatch?.nextReliver?.dutyId === normD ? liveOpMatch.nextReliver 
+                          : null;
+              const hasLiveOp = Boolean(liveOp?.empName && liveOp.empName !== '--' && !liveOp.empName.startsWith('Train Operator') && !liveOp.empName.startsWith('Duty '));
 
               return (
                 <div 
                   key={`duty-card-${dutyNo}`}
-                  className={`p-3 rounded-xl border transition-all ${
+                  className={`p-3 rounded-xl border transition-all flex flex-col justify-between ${
                     activeLeg 
                       ? 'bg-emerald-950/20 border-emerald-500/50 shadow-md ring-1 ring-emerald-500/30' 
                       : 'bg-slate-950 border-slate-800 hover:border-slate-700'
                   }`}
                 >
-                  <div className="flex items-center justify-between border-b border-slate-850 pb-2 mb-2">
-                    <span className="text-xs font-black text-cyan-400">
-                      DUTY {dutyNo}
-                    </span>
-                    <span className="text-[9.5px] px-2 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-800">
-                      {legs.length} Leg{legs.length > 1 ? 's' : ''}
-                    </span>
+                  <div>
+                    {/* Header: Duty Number & Shift Badge */}
+                    <div className="flex items-center justify-between border-b border-slate-850 pb-2 mb-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-black text-cyan-400">
+                          DUTY {dutyNo}
+                        </span>
+                        {meta?.dutyType && (
+                          <span className={`text-[8.5px] font-black px-1.5 py-0.5 rounded border uppercase ${
+                            meta.dutyType === 'N' || meta.dutyType === 'NPRO'
+                              ? 'bg-purple-950/80 text-purple-300 border-purple-800'
+                              : meta.dutyType === 'B'
+                              ? 'bg-amber-950/80 text-amber-300 border-amber-800'
+                              : 'bg-cyan-950/80 text-cyan-300 border-cyan-800'
+                          }`}>
+                            {meta.dutyType} SHIFT
+                          </span>
+                        )}
+                        {meta?.remarks && meta.remarks !== '--' && !meta.remarks.startsWith('DUTY') && (
+                          <span className="text-[8px] font-mono text-slate-400 truncate max-w-[65px]" title={meta.remarks}>
+                            {meta.remarks}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[9.5px] px-2 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-800 font-bold">
+                        {legs.length} Leg{legs.length > 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    {/* Sign On / Off Times */}
+                    {meta?.signOnTime && (
+                      <div className="text-[8.5px] text-slate-400 font-mono mb-2 flex items-center justify-between bg-slate-900/40 px-2 py-1 rounded border border-slate-850/60">
+                        <span>ON: <strong className="text-slate-200">{meta.signOnTime}</strong> ({meta.signOnLocation || 'PYID'})</span>
+                        <span className="text-slate-600">➔</span>
+                        <span>OFF: <strong className="text-slate-200">{meta.signOffTime}</strong> ({meta.signOffLocation || 'PYID'})</span>
+                      </div>
+                    )}
+
+                    {/* Ordered Train Legs */}
+                    <div className="space-y-1.5">
+                      {legs.map((leg, idx) => {
+                        const isLegActive = currentTimeSecs >= leg.startSec && currentTimeSecs <= leg.endSec;
+                        return (
+                          <div 
+                            key={`leg-${dutyNo}-${idx}`}
+                            className={`p-1.5 rounded-lg flex items-center justify-between text-[10px] ${
+                              isLegActive 
+                                ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40' 
+                                : 'bg-slate-900/60 text-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <Train size={11} className={isLegActive ? 'text-emerald-400' : 'text-slate-500'} />
+                              <strong className="text-white">T-{leg.trainId}</strong>
+                            </div>
+                            <span className="font-mono text-[9px] text-slate-400">
+                              {leg.from} ➔ {leg.to}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    {legs.map((leg, idx) => {
-                      const isLegActive = currentTimeSecs >= leg.startSec && currentTimeSecs <= leg.endSec;
-                      return (
-                        <div 
-                          key={`leg-${dutyNo}-${idx}`}
-                          className={`p-1.5 rounded-lg flex items-center justify-between text-[10px] ${
-                            isLegActive 
-                              ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40' 
-                              : 'bg-slate-900/60 text-slate-300'
-                          }`}
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <Train size={11} className={isLegActive ? 'text-emerald-400' : 'text-slate-500'} />
-                            <strong className="text-white">T-{leg.trainId}</strong>
-                          </div>
-                          <span className="font-mono text-[9px] text-slate-400">
-                            {leg.from} ➔ {leg.to}
-                          </span>
-                        </div>
-                      );
-                    })}
+                  {/* Footer: KM, Driving Hours & Assigned Operator */}
+                  <div className="mt-2.5 pt-2 border-t border-slate-850 space-y-1">
+                    {meta && (meta.totalKm > 0 || (meta.drivingHrs && meta.drivingHrs !== '00:00')) && (
+                      <div className="flex items-center justify-between text-[8.5px] font-mono text-slate-400">
+                        <span>KM: <strong className="text-emerald-400">{meta.totalKm} km</strong></span>
+                        <span>DRIVE: <strong className="text-cyan-300">{meta.drivingHrs}</strong></span>
+                      </div>
+                    )}
+                    {hasLiveOp && (
+                      <div className="text-[8.5px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-800/60 text-emerald-300 flex items-center justify-between">
+                        <span className="truncate">TO: <strong>{liveOp.empName}</strong></span>
+                        <span className="text-[7.5px] font-black uppercase text-emerald-400">ACTIVE</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               );

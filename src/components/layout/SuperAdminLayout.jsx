@@ -1226,9 +1226,9 @@ export default function SuperAdminLayout({
                         <button 
                           onClick={handleUpdateMasterWeekdayLinks} 
                           className="flex items-center bg-blue-950/40 hover:bg-blue-900/50 text-blue-400 border border-blue-800/85 hover:border-blue-700 px-2.5 py-1.5 rounded text-[10px] font-mono font-bold uppercase tracking-wide transition-all shadow-[0_0_10px_rgba(59,130,246,0.15)]"
-                          title="Update and save new Weekday Link Roster (WEF 03/Sep/2026, 75 Duties) to database"
+                          title="Update and save Weekday Link Roster (WEF 22/Nov/2024, 79 Duties) to database"
                         >
-                          <RefreshCw className="h-3 w-3 mr-1 text-blue-400" /> Update Weekday Link (75 Duties)
+                          <RefreshCw className="h-3 w-3 mr-1 text-blue-400" /> Update Weekday Link (79 Duties)
                         </button>
                       )}
                     </>

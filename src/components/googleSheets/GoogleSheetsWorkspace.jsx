@@ -238,7 +238,7 @@ function buildReliefIdChartSheet() {
     bold: true, bg: '#0F9D58', color: '#FFFFFF', align: 'center', fontSize: 11
   };
 
-  const trainIds = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10'];
+  const trainIds = WEEKDAY_RELIEF_ID_CHART_META?.trains || Object.keys(WEEKDAY_RELIEF_ID_CHART);
   let colOffset = 0;
 
   trainIds.forEach((tid) => {
