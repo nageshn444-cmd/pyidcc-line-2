@@ -2195,9 +2195,9 @@ export const WEEKDAY_RELIEF_ID_CHART_2024_META = {
   trains: ["201","202","203","204","205","206","207","208","209","210","211","212","213","214","215","216","217","218","219","220","221","222","223","Couns","Ntest"]
 };
 
-// Default canonical Weekday ID chart (aliased to 2026 matching physical control sheet)
-export const WEEKDAY_RELIEF_ID_CHART = WEEKDAY_RELIEF_ID_CHART_2026;
-export const WEEKDAY_RELIEF_ID_CHART_META = WEEKDAY_RELIEF_ID_CHART_2026_META;
+// Default canonical Master ID Chart for Weekday (WEF 22/Nov/2024 for TT 20/Nov/2024 APTS-BIET - 79 Duties)
+export const WEEKDAY_RELIEF_ID_CHART = WEEKDAY_RELIEF_ID_CHART_2024;
+export const WEEKDAY_RELIEF_ID_CHART_META = WEEKDAY_RELIEF_ID_CHART_2024_META;
 
 // ============================================================================
 // 2. MONDAY 04:00hrs SERVICE RELIEF ID CHART (WEF 06/Jan/2025 APTS - BIET)
@@ -3044,7 +3044,7 @@ export const SUNDAY_DUTY_LEGS_FROM_ID_CHART = buildDutyLegsFromChart(SUNDAY_RELI
 
 // Aggregated Registries for Multi-Day Support
 export const ALL_RELIEF_ID_CHARTS = {
-  WEEKDAY: WEEKDAY_RELIEF_ID_CHART_2026,
+  WEEKDAY: WEEKDAY_RELIEF_ID_CHART_2024,
   WEEKDAY_2026: WEEKDAY_RELIEF_ID_CHART_2026,
   WEEKDAY_2024: WEEKDAY_RELIEF_ID_CHART_2024,
   MONDAY: MONDAY_RELIEF_ID_CHART,
@@ -3053,18 +3053,18 @@ export const ALL_RELIEF_ID_CHARTS = {
 };
 
 export const ALL_RELIEF_ID_CHART_METAS = {
-  WEEKDAY: WEEKDAY_RELIEF_ID_CHART_2026_META,
-  WEEKDAY_2026: WEEKDAY_RELIEF_ID_CHART_2026_META,
+  WEEKDAY: WEEKDAY_RELIEF_ID_CHART_2024_META,
   WEEKDAY_2024: WEEKDAY_RELIEF_ID_CHART_2024_META,
+  WEEKDAY_2026: WEEKDAY_RELIEF_ID_CHART_2026_META,
   MONDAY: MONDAY_RELIEF_ID_CHART_META,
   SATURDAY: SATURDAY_RELIEF_ID_CHART_META,
   SUNDAY: SUNDAY_RELIEF_ID_CHART_META
 };
 
 export const ALL_DUTY_LEGS_FROM_ID_CHARTS = {
-  WEEKDAY: WEEKDAY_DUTY_LEGS_2026_FROM_ID_CHART,
-  WEEKDAY_2026: WEEKDAY_DUTY_LEGS_2026_FROM_ID_CHART,
+  WEEKDAY: WEEKDAY_DUTY_LEGS_2024_FROM_ID_CHART,
   WEEKDAY_2024: WEEKDAY_DUTY_LEGS_2024_FROM_ID_CHART,
+  WEEKDAY_2026: WEEKDAY_DUTY_LEGS_2026_FROM_ID_CHART,
   MONDAY: MONDAY_DUTY_LEGS_FROM_ID_CHART,
   SATURDAY: SATURDAY_DUTY_LEGS_FROM_ID_CHART,
   SUNDAY: SUNDAY_DUTY_LEGS_FROM_ID_CHART
@@ -3087,15 +3087,6 @@ export function normalizeScheduleDay(dayType = 'WEEKDAY') {
  */
 export function getReliefIdChartForDay(dayType = 'WEEKDAY') {
   const str = String(dayType || '').toUpperCase().trim();
-  if (str.includes('2024') || str.includes('22.11') || str.includes('79')) {
-    return {
-      dayType: 'WEEKDAY_2024',
-      edition: '2024',
-      chart: WEEKDAY_RELIEF_ID_CHART_2024,
-      meta: WEEKDAY_RELIEF_ID_CHART_2024_META,
-      dutyLegs: WEEKDAY_DUTY_LEGS_2024_FROM_ID_CHART
-    };
-  }
   if (str.includes('2026') || str.includes('03/SEP') || str.includes('75')) {
     return {
       dayType: 'WEEKDAY_2026',
@@ -3130,12 +3121,13 @@ export function getReliefIdChartForDay(dayType = 'WEEKDAY') {
       dutyLegs: MONDAY_DUTY_LEGS_FROM_ID_CHART
     };
   }
+  // Default is Master ID Chart (Line 2 Weekday Link - 79 Duties)
   return {
     dayType: 'WEEKDAY',
-    edition: '2026',
-    chart: WEEKDAY_RELIEF_ID_CHART_2026,
-    meta: WEEKDAY_RELIEF_ID_CHART_2026_META,
-    dutyLegs: WEEKDAY_DUTY_LEGS_2026_FROM_ID_CHART
+    edition: '2024',
+    chart: WEEKDAY_RELIEF_ID_CHART_2024,
+    meta: WEEKDAY_RELIEF_ID_CHART_2024_META,
+    dutyLegs: WEEKDAY_DUTY_LEGS_2024_FROM_ID_CHART
   };
 }
 
@@ -3168,9 +3160,9 @@ export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType
       ? SATURDAY_RELIEF_ID_CHART 
       : isMonday
         ? MONDAY_RELIEF_ID_CHART
-        : (dStr.includes('2024') || dStr.includes('79'))
-          ? WEEKDAY_RELIEF_ID_CHART_2024
-          : WEEKDAY_RELIEF_ID_CHART_2026;
+        : (dStr.includes('2026') || dStr.includes('75'))
+          ? WEEKDAY_RELIEF_ID_CHART_2026
+          : WEEKDAY_RELIEF_ID_CHART_2024;
 
   const deployMap = new Map();
   (allDeployments || []).forEach(d => {

@@ -35,18 +35,11 @@ export default function ReliefTracking({
 }) {
   // View mode: 'CARDS' | 'ID_CHART' | 'DUTY_SUMMARY'
   const [viewMode, setViewMode] = useState('CARDS');
-  const [weekdayEdition, setWeekdayEdition] = useState('2024'); // '2024' (Updated Weekday Link - 79D) | '2026' (03/Sep/2026 - 75D)
 
-  // Dynamically resolve ID chart, metadata, and duty legs for the active day type
+  // Dynamically resolve ID chart, metadata, and duty legs for the active day type (Authoritative Master ID Chart: 79 Duties)
   const activeDayData = useMemo(() => {
-    const raw = String(activeDay || 'WEEKDAY').toUpperCase();
-    if (raw === 'WEEKDAY' || raw === 'MON' || raw === 'MONDAY') {
-      if (raw === 'WEEKDAY') {
-        return getReliefIdChartForDay(weekdayEdition === '2024' ? 'WEEKDAY_2024' : 'WEEKDAY_2026');
-      }
-    }
-    return getReliefIdChartForDay(activeDay);
-  }, [activeDay, weekdayEdition]);
+    return getReliefIdChartForDay(activeDay || 'WEEKDAY');
+  }, [activeDay]);
 
   const activeChart = activeDayData.chart;
   const activeMeta = activeDayData.meta;
@@ -90,10 +83,73 @@ export default function ReliefTracking({
     return activeMeta.trains || Object.keys(activeChart);
   }, [activeMeta, activeChart]);
 
+  // Dynamic Real-Time Live Train & Reliever Tracking derived strictly from the active Master ID Chart
+  const effectiveLiveTrackingMap = useMemo(() => {
+    const map = {};
+    const evalSecs = currentTimeSecs;
+
+    trainColumns.forEach(trainId => {
+      const legs = activeChart[trainId] || [];
+      if (legs.length === 0) return;
+
+      const timeline = legs.map(l => {
+        const normDuty = String(l.duty || '').padStart(2, '0');
+        const startSec = timeStringToSeconds(l.from);
+        let endSec = timeStringToSeconds(l.to);
+        if (endSec < startSec) endSec += 24 * 3600;
+
+        // Overlay deployed driver name if exists
+        const propTracking = liveTrainTrackingMap[trainId] || liveTrainTrackingMap[normalizeTrackTrainId(trainId)];
+        const matchedOp = (propTracking?.current?.dutyId === normDuty) ? propTracking.current
+                        : (propTracking?.nextReliver?.dutyId === normDuty) ? propTracking.nextReliver
+                        : (propTracking?.previous?.dutyId === normDuty) ? propTracking.previous
+                        : Object.values(liveTrainTrackingMap).find(t => t?.current?.dutyId === normDuty || t?.nextReliver?.dutyId === normDuty || t?.previous?.dutyId === normDuty)?.current;
+
+        const empName = (matchedOp?.empName && matchedOp.empName !== '--' && !matchedOp.empName.startsWith('Train Operator') && !matchedOp.empName.startsWith('Duty '))
+          ? matchedOp.empName
+          : `Duty ${normDuty}`;
+
+        return {
+          dutyId: normDuty,
+          empName,
+          empId: matchedOp?.empId || '--',
+          startSec,
+          endSec,
+          startStr: l.from,
+          endStr: l.to,
+          isExchanged: matchedOp?.isExchanged || false,
+          originalEmpName: matchedOp?.originalEmpName || '',
+          originalEmpId: matchedOp?.originalEmpId || ''
+        };
+      }).sort((a, b) => a.startSec - b.startSec);
+
+      const current = timeline.find(leg => evalSecs >= leg.startSec && evalSecs <= leg.endSec) || null;
+      const finished = timeline.filter(leg => leg.endSec < (current ? current.startSec + 300 : evalSecs));
+      const previous = finished.length > 0 ? finished[finished.length - 1] : null;
+
+      let nextReliver = null;
+      if (current) {
+        const futureLegs = timeline.filter(leg => leg.startSec >= current.endSec - 300 && leg.dutyId !== current.dutyId);
+        nextReliver = futureLegs[0] || timeline.find(leg => leg.startSec > current.startSec && leg.dutyId !== current.dutyId) || null;
+      } else {
+        nextReliver = timeline.find(leg => leg.startSec > evalSecs) || null;
+      }
+
+      map[trainId] = {
+        current,
+        previous,
+        nextReliver,
+        allLegs: timeline
+      };
+    });
+
+    return map;
+  }, [activeChart, trainColumns, currentTimeSecs, liveTrainTrackingMap]);
+
   // Filter keys based on search and duty inputs for the CARDS view
   const finalTrackingKeys = useMemo(() => {
     return trainColumns.filter(tid => {
-      const tracking = liveTrainTrackingMap[tid] || liveTrainTrackingMap[normalizeTrackTrainId(tid)];
+      const tracking = effectiveLiveTrackingMap[tid] || effectiveLiveTrackingMap[normalizeTrackTrainId(tid)];
       const prev = tracking?.previous;
       const curr = tracking?.current;
       const next = tracking?.nextReliver;
@@ -119,7 +175,7 @@ export default function ReliefTracking({
 
       return matchesGeneral && matchesDuty;
     });
-  }, [liveTrainTrackingMap, trainColumns, searchTerm, dutySearch]);
+  }, [effectiveLiveTrackingMap, trainColumns, searchTerm, dutySearch]);
 
   // Filtered train columns for the ID CHART view
   const filteredIdChartColumns = useMemo(() => {
@@ -136,7 +192,7 @@ export default function ReliefTracking({
         trainId.toLowerCase().includes(genQuery) ||
         legs.some(l => {
           const normDuty = String(l.duty).padStart(2, '0');
-          const trackingOp = liveTrainTrackingMap[trainId]?.current || liveTrainTrackingMap[trainId]?.nextReliver;
+          const trackingOp = effectiveLiveTrackingMap[trainId]?.current || effectiveLiveTrackingMap[trainId]?.nextReliver;
           return normDuty.includes(genQuery) || String(l.duty).includes(genQuery) ||
                  (trackingOp?.dutyId === normDuty && trackingOp.empName?.toLowerCase().includes(genQuery));
         })
@@ -149,7 +205,7 @@ export default function ReliefTracking({
 
       return matchesGen && matchesDuty;
     });
-  }, [trainColumns, selectedTrainCol, searchTerm, dutySearch, liveTrainTrackingMap, activeChart]);
+  }, [trainColumns, selectedTrainCol, searchTerm, dutySearch, effectiveLiveTrackingMap, activeChart]);
 
   // Dynamically compute the maximum number of rows needed across all visible columns
   const maxRowsInChart = useMemo(() => {
@@ -181,34 +237,10 @@ export default function ReliefTracking({
               <span className="px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-700/60 text-[9px] font-black uppercase font-mono">
                 {activeMeta.badge || `${activeMeta.dayType} LINK`}
               </span>
-              {(String(activeDay).toUpperCase() === 'WEEKDAY' || String(activeDay).toUpperCase() === 'MON' || String(activeDay).toUpperCase() === 'MONDAY') && (
-                <div className="flex items-center bg-slate-950 border border-cyan-800/80 p-0.5 rounded-lg text-xs font-mono">
-                  <button
-                    type="button"
-                    onClick={() => setWeekdayEdition('2026')}
-                    className={`px-2 py-0.5 rounded text-[10px] font-black transition-all ${
-                      weekdayEdition === '2026'
-                        ? 'bg-cyan-600 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                    title="Weekday Link 03/Sep/2026 (BIET-APTS) - 75 Duties from Official Photo"
-                  >
-                    03/Sep/2026 (75D)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setWeekdayEdition('2024')}
-                    className={`px-2 py-0.5 rounded text-[10px] font-black transition-all ${
-                      weekdayEdition === '2024'
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                    title="Weekday Link 22/Nov/2024 (APTS-BIET) - 79 Duties Timetable Roster"
-                  >
-                    22/Nov/2024 (79D)
-                  </button>
-                </div>
-              )}
+              <span className="px-2 py-0.5 rounded-full bg-blue-950 text-blue-300 border border-blue-700/60 text-[9px] font-black uppercase font-mono flex items-center gap-1">
+                <Sparkles size={10} className="text-blue-400" />
+                MASTER ID CHART (79 DUTIES)
+              </span>
               <span className="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700/60 text-[9px] font-black uppercase font-mono flex items-center gap-1">
                 <ShieldCheck size={11} className="text-emerald-400" />
                 ALSTOM ATS RELIEF ENGINE
@@ -324,7 +356,7 @@ export default function ReliefTracking({
       {viewMode === 'CARDS' && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 max-h-[640px] overflow-y-auto pr-1 custom-scrollbar">
           {finalTrackingKeys.map(tid => {
-            const tracking = liveTrainTrackingMap[tid];
+            const tracking = effectiveLiveTrackingMap[tid] || effectiveLiveTrackingMap[normalizeTrackTrainId(tid)];
             const prev = tracking?.previous;
             const curr = tracking?.current;
             const next = tracking?.nextReliver;
@@ -344,9 +376,13 @@ export default function ReliefTracking({
                     <Train className="h-4 w-4 text-cyan-400 group-hover:scale-110 transition-transform" />
                     <span className="font-black text-slate-100 text-xs tracking-wider">TRAIN ID: {tid}</span>
                   </div>
-                  {curr && (
+                  {curr ? (
                     <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping"></span> ACTIVE FLEET
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded bg-slate-800/50 text-slate-400 border border-slate-700/40 text-[9px] font-mono">
+                      OFF-PEAK / STABLED
                     </span>
                   )}
                 </div>
@@ -468,6 +504,55 @@ export default function ReliefTracking({
 
                 </div>
 
+                {/* Master ID Chart Leg Sequence Timeline */}
+                {tracking?.allLegs && tracking.allLegs.length > 0 && (
+                  <div className="mt-3 pt-2.5 border-t border-slate-800/80">
+                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span className="flex items-center gap-1 text-cyan-400 font-bold">
+                        <Layers size={11} className="text-cyan-400" />
+                        Master ID Chart Leg Chain
+                      </span>
+                      <span className="text-[8px] text-slate-500 font-mono">
+                        {tracking.allLegs.length} Shift Legs
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
+                      {tracking.allLegs.map((leg, lIdx) => {
+                        const isCurrentLeg = curr?.dutyId === leg.dutyId && curr?.startStr === leg.startStr;
+                        const isPastLeg = leg.endSec < currentTimeSecs;
+                        const isNextLeg = next?.dutyId === leg.dutyId && next?.startStr === leg.startStr;
+                        return (
+                          <div
+                            key={`leg-${leg.dutyId}-${lIdx}`}
+                            className={`shrink-0 px-2 py-1 rounded text-[9px] font-mono border transition-all ${
+                              isCurrentLeg
+                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500 font-black shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+                                : isNextLeg
+                                ? 'bg-amber-500/10 text-amber-300 border-amber-600/50 font-bold'
+                                : isPastLeg
+                                ? 'bg-slate-900/60 text-slate-500 border-slate-850'
+                                : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
+                            }`}
+                            title={`Duty ${leg.dutyId}: ${leg.startStr} - ${leg.endStr} (${leg.empName})`}
+                          >
+                            <div className="flex items-center gap-1">
+                              <span className={`font-black ${
+                                isCurrentLeg ? 'text-emerald-400' : isNextLeg ? 'text-amber-400' : 'text-cyan-400'
+                              }`}>
+                                D{leg.dutyId}
+                              </span>
+                              <span className="text-[8px] text-slate-400">{leg.startStr}</span>
+                              {isCurrentLeg && (
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
               </div>
             );
           })}
@@ -559,7 +644,7 @@ export default function ReliefTracking({
                         const isDutyMatched = dutySearch && normDuty.includes(dutySearch.trim().replace(/^d/i, ''));
 
                         // Look up operator name if available in live tracking
-                        const tracking = liveTrainTrackingMap[trainId] || liveTrainTrackingMap[normalizeTrackTrainId(trainId)];
+                        const tracking = effectiveLiveTrackingMap[trainId] || effectiveLiveTrackingMap[normalizeTrackTrainId(trainId)];
                         const matchedOp = (tracking?.current?.dutyId === normDuty) ? tracking.current
                                         : (tracking?.nextReliver?.dutyId === normDuty) ? tracking.nextReliver
                                         : (tracking?.previous?.dutyId === normDuty) ? tracking.previous
@@ -645,7 +730,7 @@ export default function ReliefTracking({
 
               // Find assigned operator from live tracking
               const normD = dutyNo.padStart(2, '0');
-              const liveOpMatch = Object.values(liveTrainTrackingMap).find(t => 
+              const liveOpMatch = Object.values(effectiveLiveTrackingMap).find(t => 
                 t.current?.dutyId === normD || t.nextReliver?.dutyId === normD || t.previous?.dutyId === normD
               );
               const liveOp = liveOpMatch?.current?.dutyId === normD ? liveOpMatch.current 
