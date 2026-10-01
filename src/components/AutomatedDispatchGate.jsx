@@ -37,6 +37,7 @@ import {
   RotateCcw,
   Search,
   Settings,
+  Shield,
   ShieldAlert,
   Sparkles,
   Train,
@@ -108,8 +109,17 @@ import {
   getRolling7Days,
   getScheduleTypeFromDate,
 } from "../utils/rosterDateUtils";
+import { 
+  buildLiveTrainTrackingMap, 
+  getReliefIdChartForDay, 
+  normalizeScheduleDay, 
+  normalizeTrackTrainId,
+  timeStringToSeconds 
+} from "../data/weekdayReliefIdChartRegistry";
+import ReliefTracking from "./ReliefTracking";
 import RosterPublisherBoard from "./RosterPublisherBoard";
 import OfficialGccRosterSheetView from "./common/OfficialGccRosterSheetView";
+import { buildCanonicalDutiesForDate } from "../data/canonicalDayLinksRegistry";
 
 // ── Duty ID Utilities (shared with Dashboard) ──
 // Format Excel decimal/string times (e.g. 0.29166 -> 07:00)
@@ -1561,6 +1571,7 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
   const [targetDayType, setTargetDayType] = useState(() =>
     calculateDefaultDayType(targetDeploymentDate),
   );
+  const userExplicitDayTypeRef = useRef(false);
   const [currentDeploymentRecord, setCurrentDeploymentRecord] = useState(null);
   const [deploymentHistoryList, setDeploymentHistoryList] = useState([]);
   const [showDeploymentHistory, setShowDeploymentHistory] = useState(false);
@@ -1573,21 +1584,46 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
 
   useEffect(() => {
     setLocalDayType(activeDay);
+    if (activeDay) {
+      const norm = normalizeScheduleType(activeDay);
+      setTargetDayType(norm);
+    }
   }, [activeDay]);
 
   const currentDayType =
     targetDayType || (setActiveDay ? activeDay : localDayType);
 
+  const normalizeScheduleType = (type) => {
+    const s = String(type || "")
+      .trim()
+      .toUpperCase();
+    if (
+      s === "SAT & GH" ||
+      s === "GH" ||
+      s === "SATURDAY & GH" ||
+      s === "SATURDAY_GH" ||
+      s === "SATURDAY"
+    ) {
+      return "SATURDAY";
+    }
+    if (s.includes("SUN")) return "SUNDAY";
+    if (s.includes("MON")) return "MONDAY";
+    if (s.includes("WEEKDAY")) return "WEEKDAY";
+    return s || "WEEKDAY";
+  };
+
   const onDateSelectionChanged = useCallback(
     (newDate) => {
       const formatted = formatOperationalDate(newDate);
       setTargetDeploymentDate(formatted);
-      const computedDayType = calculateDefaultDayType(formatted);
-      setTargetDayType(computedDayType);
-      if (setActiveDay) {
-        setActiveDay(computedDayType);
-      } else {
-        setLocalDayType(computedDayType);
+      if (!userExplicitDayTypeRef.current) {
+        const computedDayType = calculateDefaultDayType(formatted);
+        setTargetDayType(computedDayType);
+        if (setActiveDay) {
+          setActiveDay(computedDayType);
+        } else {
+          setLocalDayType(computedDayType);
+        }
       }
       const matchIdx = rollingDays.findIndex((d) => d.dateStr === formatted);
       if (matchIdx !== -1) {
@@ -1623,27 +1659,14 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
   }, [propSelectedDate, targetDeploymentDate, onDateSelectionChanged]);
 
   const onDayTypeSelectionChanged = (newDayType) => {
-    setTargetDayType(newDayType);
+    userExplicitDayTypeRef.current = true;
+    const norm = normalizeScheduleType(newDayType);
+    setTargetDayType(norm);
     if (setActiveDay) {
-      setActiveDay(newDayType);
+      setActiveDay(norm);
     } else {
-      setLocalDayType(newDayType);
+      setLocalDayType(norm);
     }
-  };
-
-  const normalizeScheduleType = (type) => {
-    const s = String(type || "")
-      .trim()
-      .toUpperCase();
-    if (
-      s === "SAT & GH" ||
-      s === "GH" ||
-      s === "SATURDAY & GH" ||
-      s === "SATURDAY"
-    ) {
-      return "SATURDAY";
-    }
-    return s;
   };
 
   // ── STRICT DATE-WISE DEPLOYMENT ISOLATION (NO CROSS-DATE BLEED) ──
@@ -1705,9 +1728,16 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
       }
     }
 
-    // 5. If no deployment exists for this date and day type, return empty array!
-    // Never allow duties from another date (e.g. 29-09-2026) to bleed into 30-09-2026
-    return [];
+    // 5. Fallback: If no custom deployment exists in database for this date and day type, load canonical link duties!
+    // This allows the controller to deploy any schedule type (e.g. SATURDAY & GH) on ANY date (e.g. Friday)!
+    const activeSched = normalizeScheduleType(
+      targetDayType || currentDayType || "WEEKDAY",
+    );
+    const canonicalDuties = buildCanonicalDutiesForDate(
+      activeSched,
+      targetDeploymentDate,
+    );
+    return deduplicateDeployments(canonicalDuties);
   }, [
     currentDeploymentRecord,
     stagedRoster,
@@ -1979,8 +2009,10 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
   useEffect(() => {
     if (activeSelectedDateStr) {
       setTargetDeploymentDate(formatOperationalDate(activeSelectedDateStr));
-      const autoDay = calculateDefaultDayType(activeSelectedDateStr);
-      setTargetDayType(autoDay);
+      if (!userExplicitDayTypeRef.current) {
+        const autoDay = calculateDefaultDayType(activeSelectedDateStr);
+        setTargetDayType(autoDay);
+      }
     }
   }, [activeSelectedDateStr]);
 
@@ -2171,7 +2203,9 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
       const dutiesToDeploy =
         stagedRoster?.duties && stagedRoster.duties.length > 0
           ? stagedRoster.duties
-          : deduplicatedDeployments || [];
+          : deduplicatedDeployments && deduplicatedDeployments.length > 0
+          ? deduplicatedDeployments
+          : buildCanonicalDutiesForDate(targetDayType, targetDeploymentDate);
 
       if (dutiesToDeploy.length === 0) {
         alert(
@@ -2726,6 +2760,41 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
   const [transferReason, setTransferReason] = useState("");
   const [transferSearchQuery, setTransferSearchQuery] = useState("");
   const [isSubmittingTransfer, setIsSubmittingTransfer] = useState(false);
+
+  // ── Live Train Operator Relief Matrix States (Sunday, Monday, Saturday & GH, Weekday) ──
+  const [reliefSimulatedTime, setReliefSimulatedTime] = useState(null);
+  const [reliefScheduleDay, setReliefScheduleDay] = useState(() => 
+    normalizeScheduleDay(targetDayType || currentDayType || "WEEKDAY")
+  );
+
+  useEffect(() => {
+    if (targetDayType) {
+      setReliefScheduleDay(normalizeScheduleDay(targetDayType));
+    }
+  }, [targetDayType]);
+
+  const activeDeploymentDuties = useMemo(() => {
+    return (deduplicatedDeployments?.length
+      ? deduplicatedDeployments
+      : currentDeploymentRecord?.rosterData?.duties?.length
+        ? currentDeploymentRecord.rosterData.duties
+        : fallbackDeployments) || [];
+  }, [deduplicatedDeployments, currentDeploymentRecord, fallbackDeployments]);
+
+  // Compute Live Train Tracking Map following Live Train Operator Relief Matrix
+  // and active deployed train operators from DISPATCH GATEWAY CORE
+  const dispatchLiveTrackingMap = useMemo(() => {
+    let evalSecs;
+    if (reliefSimulatedTime) {
+      const parts = reliefSimulatedTime.split(":").map(Number);
+      evalSecs = (parts[0] || 0) * 3600 + (parts[1] || 0) * 60;
+    } else {
+      const now = new Date();
+      evalSecs = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    }
+    const dayType = reliefScheduleDay || normalizeScheduleDay(targetDayType || currentDayType || "WEEKDAY");
+    return buildLiveTrainTrackingMap(activeDeploymentDuties, evalSecs, dayType);
+  }, [activeDeploymentDuties, reliefSimulatedTime, reliefScheduleDay, targetDayType, currentDayType]);
 
   // Set of actively assigned operator IDs to prevent double-booking
   const activeOperatorIdSet = useMemo(() => {
@@ -3500,10 +3569,12 @@ Rules:
           const targetDateStr = formatOperationalDate(
             targetDate || classifiedData.dateStr || effectiveTargetDate,
           );
-          const targetSchedType =
+          const targetSchedType = normalizeScheduleType(
             classifiedData.dayType ||
-            calculateDefaultDayType(targetDateStr) ||
-            effectiveScheduleType;
+            (userExplicitDayTypeRef.current ? targetDayType : null) ||
+            effectiveScheduleType ||
+            calculateDefaultDayType(targetDateStr)
+          );
 
           // Tag duties with explicit date & schedule
           if (classifiedData.duties) {
@@ -3807,44 +3878,38 @@ Rules:
       // 1. Collect crew_daily_deployment docs to delete STRICTLY for this target date
       const snap = await getDocs(collection(db, "crew_daily_deployment"));
       const deployRefsToDelete = [];
+      const altDate = toIndianDateStr(targetDate);
 
       snap.docs.forEach((docSnap) => {
         const data = docSnap.data();
-        const docDate = data.targetDate || data.date || data.deploymentDate;
+        const docDate = data.targetDate || data.date || data.deploymentDate || data.dateStr;
+        const docIdLower = docSnap.id.toLowerCase();
+        const targetSchedLower = targetSched.toLowerCase();
+        const rawTargetLower = rawTargetDay.toLowerCase();
+
         if (docDate) {
           const normDocDate = formatOperationalDate(docDate);
-          if (normDocDate !== targetDate) {
-            // Belongs to a different date - PRESERVE IT!
+          if (normDocDate === targetDate || docDate === targetDate || (altDate && docDate === altDate)) {
+            deployRefsToDelete.push(docSnap.ref);
             return;
           }
+        }
+
+        // Check if docId contains target date
+        const idDateMatch = docSnap.id.match(/\d{4}-\d{2}-\d{2}/);
+        if (idDateMatch && idDateMatch[0] === targetDate) {
           deployRefsToDelete.push(docSnap.ref);
-        } else {
-          // Check if docId contains a date
-          const idDateMatch = docSnap.id.match(/\d{4}-\d{2}-\d{2}/);
-          if (idDateMatch) {
-            if (idDateMatch[0] !== targetDate) {
-              // Belongs to a different date in docId - PRESERVE IT!
-              return;
-            }
+          return;
+        }
+
+        // Also if docId starts with gcc_deploy_ and matches target schedule/day
+        if (
+          docIdLower.startsWith("gcc_deploy_") &&
+          (docIdLower.includes(targetSchedLower) || docIdLower.includes(rawTargetLower) || docIdLower.includes("duty"))
+        ) {
+          const normDocDate = docDate ? formatOperationalDate(docDate) : "";
+          if (!normDocDate || normDocDate === targetDate || normDocDate === todayStr) {
             deployRefsToDelete.push(docSnap.ref);
-          } else if (targetDate === todayStr) {
-            // Legacy doc with no date anywhere: only match if targetDate is today AND matches schedule
-            const sched = String(data.scheduleType || "")
-              .trim()
-              .toUpperCase();
-            const docIdLower = docSnap.id.toLowerCase();
-            const targetSchedLower = targetSched.toLowerCase();
-            const rawTargetLower = rawTargetDay.toLowerCase();
-            const matchesSchedule =
-              normalizeScheduleType(data.scheduleType) === targetSched ||
-              sched === targetSched ||
-              sched === rawTargetDay ||
-              sched === "ACTIVE_RUN" ||
-              docIdLower.includes(targetSchedLower) ||
-              docIdLower.includes(rawTargetLower);
-            if (matchesSchedule) {
-              deployRefsToDelete.push(docSnap.ref);
-            }
           }
         }
       });
@@ -3857,9 +3922,9 @@ Rules:
         const attRefsToDelete = [];
         attSnap.docs.forEach((docSnap) => {
           const data = docSnap.data();
-          const docDate = data.targetDate || data.date;
+          const docDate = data.targetDate || data.date || data.dateStr;
           if (docDate) {
-            if (formatOperationalDate(docDate) === targetDate) {
+            if (formatOperationalDate(docDate) === targetDate || docDate === targetDate || (altDate && docDate === altDate)) {
               attRefsToDelete.push(docSnap.ref);
             }
           } else if (targetDate === todayStr) {
@@ -3876,17 +3941,34 @@ Rules:
         console.warn("Could not clear crew_live_attendance:", attErr);
       }
 
-      // 3. Delete this date's deployment record from dispatch_deployments
+      // 3. Delete all deployment records matching targetDate from dispatch_deployments
       try {
-        const deploymentId = getDeploymentId(targetDate, targetDayType);
-        await deleteDoc(doc(db, "dispatch_deployments", deploymentId));
+        const depSnap = await getDocs(collection(db, "dispatch_deployments"));
+        const depDeletes = [];
+        depSnap.docs.forEach((docSnap) => {
+          const docId = docSnap.id;
+          const data = docSnap.data();
+          const docDate = data.deploymentDate || data.targetDate || data.date || data.dateStr;
+          const normDDate = docDate ? formatOperationalDate(docDate) : "";
+          if (
+            normDDate === targetDate ||
+            docDate === targetDate ||
+            (altDate && docDate === altDate) ||
+            docId.startsWith(targetDate) ||
+            (altDate && docId.startsWith(altDate))
+          ) {
+            depDeletes.push(docSnap.ref);
+          }
+        });
+        await deleteDocRefsInBatches(depDeletes);
       } catch (depErr) {
-        console.warn("Could not delete dispatch_deployments doc:", depErr);
+        console.warn("Could not delete dispatch_deployments docs:", depErr);
       }
 
-      // 4. Clear console cache for this date ONLY
+      // 4. Clear console cache and deployment metadata in Firestore
       const emptyConsoleDoc = {
         controlDesks: [],
+        coOperators: [],
         leaves: [],
         standbys: [],
         outstationStepbacks: [],
@@ -3899,6 +3981,8 @@ Rules:
         notReporting: [],
         absents: [],
         bookedOff: [],
+        onDuty: [],
+        customRegisters: {},
         isExplicitlyCleared: true,
         updatedAt: serverTimestamp(),
       };
@@ -3908,43 +3992,52 @@ Rules:
         doc(db, "dispatch_excel_cache", targetDate),
         emptyConsoleDoc,
       );
-
-      // ONLY clear current/latest if targetDate is today!
-      if (targetDate === todayStr) {
+      if (altDate) {
         metaBatch.set(
-          doc(db, "roster_desk_console", "current"),
-          emptyConsoleDoc,
-        );
-        metaBatch.set(
-          doc(db, "roster_desk_console", "latest"),
-          emptyConsoleDoc,
-        );
-        metaBatch.delete(
-          doc(db, "roster_desk_console", "latest_deployment_meta"),
-        );
-        metaBatch.set(
-          doc(db, "dispatch_excel_cache", "current"),
+          doc(db, "dispatch_excel_cache", altDate),
           emptyConsoleDoc,
         );
       }
+      metaBatch.set(
+        doc(db, "roster_desk_console", "current"),
+        emptyConsoleDoc,
+      );
+      metaBatch.set(
+        doc(db, "roster_desk_console", "latest"),
+        emptyConsoleDoc,
+      );
+      metaBatch.delete(
+        doc(db, "roster_desk_console", "latest_deployment_meta"),
+      );
+      metaBatch.set(
+        doc(db, "dispatch_excel_cache", "current"),
+        emptyConsoleDoc,
+      );
       await metaBatch.commit();
 
-      // 5. Clear local storage for this target date
+      // 5. Clear all local storage caches
       try {
         if (typeof window !== "undefined" && window.localStorage) {
-          window.localStorage.removeItem(
-            `pyidcc_roster_desk_console_cache_${targetDate}`,
-          );
-          if (targetDate === todayStr) {
-            window.localStorage.removeItem("pyidcc_roster_desk_console_cache");
-            window.localStorage.removeItem("pyidcc_roster_desk_meta");
+          window.localStorage.removeItem(`pyidcc_roster_desk_console_cache_${targetDate}`);
+          if (altDate) {
+            window.localStorage.removeItem(`pyidcc_roster_desk_console_cache_${altDate}`);
+          }
+          window.localStorage.removeItem("pyidcc_roster_desk_console_cache");
+          window.localStorage.removeItem("pyidcc_roster_desk_meta");
+          window.localStorage.removeItem(`pyidcc_roster_desk_meta_${targetDate}`);
+          if (altDate) {
+            window.localStorage.removeItem(`pyidcc_roster_desk_meta_${altDate}`);
           }
         }
       } catch (e) {
         console.warn("Could not clear cache on reset", e);
       }
 
-      // 6. Reset component state immediately
+      // 6. Reset all component states immediately
+      setCurrentDeploymentRecord(null);
+      setStagedRoster(null);
+      setIsRosterConfirmed(false);
+      setSelectedRosterFile(null);
       setDeployedRosterInfo(null);
       setFallbackDeployments([]);
       setConsoleData({
@@ -6394,6 +6487,60 @@ Rules:
     const poolList = [];
 
     // =========================================================================
+    // 0. LIVE TRAIN OPERATOR RELIEF MATRIX: OFFICIAL SCHEDULED RELIEVER FOR THIS TRAIN
+    //    Finds the upcoming reliever from the official Relief Matrix for active schedule day
+    //    (SUNDAY, MONDAY, SATURDAY & GH, WEEKDAY) using the active deployed operator name.
+    // =========================================================================
+    targetTrainIds.forEach((rawTid) => {
+      const cleanTid = normalizeTrackTrainId(rawTid) || String(rawTid).trim();
+      const tracking = dispatchLiveTrackingMap[cleanTid] || dispatchLiveTrackingMap[rawTid];
+      if (tracking?.nextReliver) {
+        const rel = tracking.nextReliver;
+        const relDutyId = String(rel.dutyId || "").trim();
+        const relEmpName = String(rel.empName || "").trim();
+        const relEmpId = String(rel.empId || "").trim();
+
+        const hasValidName = relEmpName && 
+          relEmpName !== "--" && 
+          relEmpName !== "-" && 
+          !relEmpName.toLowerCase().includes("unassigned") &&
+          !relEmpName.startsWith("Train Operator") && 
+          !relEmpName.startsWith("Duty ");
+
+        if (hasValidName && relEmpName.toUpperCase() !== targetEmpName) {
+          if (!seenCandidates.has(relEmpName.toUpperCase())) {
+            seenCandidates.add(relEmpName.toUpperCase());
+            if (relEmpId && relEmpId !== "--") seenCandidates.add(relEmpId.toUpperCase());
+
+            poolList.unshift({
+              id: `live_matrix_reliever_${cleanTid}_${relDutyId}_${relEmpId}`,
+              empId: relEmpId,
+              empNo: relEmpId,
+              empName: relEmpName,
+              name: relEmpName,
+              dutyId: relDutyId,
+              trainId: cleanTid,
+              shift: `${rel.startStr || "--"} - ${rel.endStr || "--"}`,
+              signOnTime: rel.startStr || "06:00",
+              signOffTime: rel.endStr || "14:00",
+              signOnLocation: "PYID",
+              signOffLocation: "PYID",
+              status: "SCHEDULED_RELIEVER",
+              isSignedOn: true,
+              candidatePool: "SCHEDULED_RELIEVER",
+              poolLabel: `SCHEDULED RELIEVER (Duty ${relDutyId})`,
+              poolPriority: 120, // Top Priority: Designated Timetable Handover Reliever
+              reason: `Official Scheduled Reliever for Train ${cleanTid} from Live Relief Matrix (${rel.startStr || "Upcoming"} at Handover Platform) — Active Operator: ${relEmpName}`,
+              isScheduledReliever: true,
+              source: "LIVE_TRAIN_OPERATOR_RELIEF_MATRIX",
+              remainingHours: 7.5,
+            });
+          }
+        }
+      }
+    });
+
+    // =========================================================================
     // 1. INGEST STANDBY CREW FROM BMRCL LINE 2 PEENYA DEPOT ROSTER DESK CONSOLE
     //    A. Standbys & Operating Reserves (@Standby, @OR)
     // =========================================================================
@@ -7957,12 +8104,83 @@ Rules:
             <FileSpreadsheet className="h-3.5 w-3.5" /> ROSTER SPREADSHEET
             (GOOGLE SHEETS)
           </button>
+          <button
+            onClick={() => setActiveTab("RELIEF_MATRIX")}
+            className={`px-4 py-1.5 text-xs font-bold rounded tracking-wider transition-colors flex items-center gap-1.5 ${activeTab === "RELIEF_MATRIX" ? "bg-cyan-500 text-slate-950 font-black shadow-md" : "text-cyan-400 hover:text-cyan-300"}`}
+            title="Live Train Operator Relief Matrix for all day types (Sunday, Monday, Saturday & GH, Weekday)"
+          >
+            <Shield className="h-3.5 w-3.5" />
+            LIVE RELIEF MATRIX
+          </button>
         </div>
       </div>
 
       {activeTab === "PUBLISHER" && (
         <div className="space-y-4">
           <RosterPublisherBoard userRole="CONTROLLER" />
+        </div>
+      )}
+
+      {activeTab === "RELIEF_MATRIX" && (
+        <div className="space-y-4 font-mono">
+          <div className="bg-slate-900 border border-cyan-800/60 rounded-xl p-4 shadow-xl flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-cyan-950 border border-cyan-700/60 text-cyan-400">
+                <Radio className="h-5 w-5 animate-pulse" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-white tracking-wider flex items-center gap-2">
+                  LIVE TRAIN OPERATOR RELIEF MATRIX • DISPATCH GATEWAY CORE
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  Real-time Current Driving Train Operators &amp; Next Relievers • Synced with Active Deployments
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5 text-xs text-slate-300 font-bold bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-lg">
+                <span className="text-slate-400">Day Schedule:</span>
+                <select
+                  value={reliefScheduleDay}
+                  onChange={(e) => setReliefScheduleDay(e.target.value)}
+                  className="bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-cyan-300 font-black font-mono cursor-pointer outline-none"
+                >
+                  <option value="WEEKDAY">WEEKDAY (79 Duties)</option>
+                  <option value="MONDAY">MONDAY (04:00hrs Service)</option>
+                  <option value="SATURDAY">SATURDAY &amp; GH</option>
+                  <option value="SUNDAY">SUNDAY</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-lg text-xs">
+                <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="text-slate-400">Time:</span>
+                <input
+                  type="time"
+                  value={reliefSimulatedTime || ""}
+                  placeholder="Live"
+                  onChange={(e) => setReliefSimulatedTime(e.target.value || null)}
+                  className="bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-cyan-300 font-mono font-bold text-xs"
+                />
+                {reliefSimulatedTime && (
+                  <button
+                    type="button"
+                    onClick={() => setReliefSimulatedTime(null)}
+                    className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-700 px-1.5 py-0.5 rounded font-black hover:bg-emerald-900 cursor-pointer"
+                  >
+                    LIVE
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <ReliefTracking
+            liveTrainTrackingMap={dispatchLiveTrackingMap}
+            activeDay={reliefScheduleDay}
+            simulatedTime={reliefSimulatedTime}
+          />
         </div>
       )}
 
@@ -8698,13 +8916,13 @@ Rules:
                   </label>
                   <select
                     id="targetDayType"
-                    value={targetDayType}
+                    value={normalizeScheduleType(targetDayType)}
                     onChange={(e) => onDayTypeSelectionChanged(e.target.value)}
                     className="w-full bg-slate-950 text-cyan-300 border border-slate-700 focus:border-cyan-500 rounded-lg px-3 py-2 text-xs font-bold font-mono outline-none transition"
                   >
                     <option value="WEEKDAY">WEEKDAY</option>
                     <option value="MONDAY">MONDAY</option>
-                    <option value="SATURDAY_GH">SATURDAY_GH</option>
+                    <option value="SATURDAY">SATURDAY &amp; GH</option>
                     <option value="SUNDAY">SUNDAY</option>
                   </select>
                 </div>
@@ -9461,6 +9679,23 @@ Rules:
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <button
                             type="button"
+                            onClick={() => setReliefPoolFilter("SCHEDULED")}
+                            className={`px-2.5 py-1 rounded text-[10px] font-mono uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
+                              reliefPoolFilter === "SCHEDULED"
+                                ? "bg-cyan-500 text-slate-950 font-black shadow-md"
+                                : "bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200"
+                            }`}
+                          >
+                            🚆 Scheduled Reliever (
+                            {
+                              activeAbnormalEvent.recommendations.filter(
+                                (r) => r.candidatePool === "SCHEDULED_RELIEVER",
+                              ).length
+                            }
+                            )
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setReliefPoolFilter("PRIORITY")}
                             className={`px-2.5 py-1 rounded text-[10px] font-mono uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
                               reliefPoolFilter === "PRIORITY"
@@ -9513,8 +9748,12 @@ Rules:
 
                   {(() => {
                     const allRecs = activeAbnormalEvent.recommendations || [];
+                    const scheduledRecs = allRecs.filter(
+                      (r) => r.candidatePool === "SCHEDULED_RELIEVER",
+                    );
                     const priorityRecs = allRecs.filter(
                       (r) =>
+                        r.candidatePool === "SCHEDULED_RELIEVER" ||
                         r.candidatePool === "STANDBY" ||
                         r.candidatePool === "PRO",
                     );
@@ -9522,13 +9761,15 @@ Rules:
                       (r) => r.candidatePool === "ACTIVE_MAINLINE",
                     );
                     const displayedRecs =
-                      reliefPoolFilter === "PRIORITY"
-                        ? priorityRecs.length > 0
-                          ? priorityRecs
-                          : allRecs
-                        : reliefPoolFilter === "ACTIVE"
-                          ? activeRecs
-                          : allRecs;
+                      reliefPoolFilter === "SCHEDULED"
+                        ? scheduledRecs
+                        : reliefPoolFilter === "PRIORITY"
+                          ? priorityRecs.length > 0
+                            ? priorityRecs
+                            : allRecs
+                          : reliefPoolFilter === "ACTIVE"
+                            ? activeRecs
+                            : allRecs;
 
                     if (displayedRecs.length === 0) {
                       return (
@@ -9572,7 +9813,11 @@ Rules:
                             </span>
 
                             {/* Pool Badge */}
-                            {rec.candidatePool === "STANDBY" ? (
+                            {rec.candidatePool === "SCHEDULED_RELIEVER" ? (
+                              <span className="bg-cyan-950 text-cyan-300 border border-cyan-500 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                                🚆 {rec.poolLabel || "SCHEDULED RELIEVER"}
+                              </span>
+                            ) : rec.candidatePool === "STANDBY" ? (
                               <span className="bg-emerald-950 text-emerald-300 border border-emerald-600 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-sm">
                                 🛡️ {rec.poolLabel || "STANDBY"}
                               </span>
@@ -10392,7 +10637,7 @@ Rules:
 
                           {/* Train ID */}
                           <td className="p-3 font-bold text-cyan-300">
-                            {d.trainId || "--"}
+                            <div>{d.trainId || "--"}</div>
                           </td>
 
                           {/* Shift Progress */}

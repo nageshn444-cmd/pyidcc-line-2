@@ -30,8 +30,6 @@ import {
   buildLiveTrainTrackingMap, 
   WEEKDAY_RELIEF_ID_CHART, 
   WEEKDAY_RELIEF_ID_CHART_META,
-  WEEKDAY_RELIEF_ID_CHART_2026,
-  WEEKDAY_RELIEF_ID_CHART_2026_META,
   WEEKDAY_RELIEF_ID_CHART_2024,
   WEEKDAY_RELIEF_ID_CHART_2024_META,
   MONDAY_RELIEF_ID_CHART,
@@ -133,12 +131,12 @@ export default function LiveTrainPositionTracker({
   // Local manual handover overrides (in-memory immediate reactivity)
   const [manualHandoverOverrides, setManualHandoverOverrides] = useState({});
 
-  // Master Reliever ID Chart Modal state (supports WEEKDAY 03/Sep/2026, 22/Nov/2024, MONDAY, SATURDAY & GH, SUNDAY)
+  // Master Reliever ID Chart Modal state (supports WEEKDAY 22/Nov/2024 79 Duties, MONDAY, SATURDAY & GH, SUNDAY)
   const [showReliefIdChartModal, setShowReliefIdChartModal] = useState(false);
   const [idChartModalSearch, setIdChartModalSearch] = useState('');
   const [idChartSelectedTrain, setIdChartSelectedTrain] = useState('ALL');
-  const [idChartModalDayType, setIdChartModalDayType] = useState('WEEKDAY_2026');
-  const [weekdayEdition, setWeekdayEdition] = useState('2024'); // '2024' (22/Nov/2024 - 79D) | '2026' (03/Sep/2026 - 75D)
+  const [idChartModalDayType, setIdChartModalDayType] = useState('WEEKDAY_2024');
+  const [weekdayEdition, setWeekdayEdition] = useState('2024'); // Canonical 22/Nov/2024 (79 Duties)
 
   // Public Address & English Voice Studio state
   const [showVoiceSampleModal, setShowVoiceSampleModal] = useState(false);
@@ -1303,9 +1301,7 @@ export default function LiveTrainPositionTracker({
   // ── Unified Dynamic Train Tracking Map identical to Live Train Operator Relief Matrix ──
   const dynamicTrainTrackingMap = useMemo(() => {
     const rawSchedule = (activeSchedule || 'WEEKDAY').toUpperCase();
-    const currentSchedule = rawSchedule === 'WEEKDAY'
-      ? (weekdayEdition === '2024' ? 'WEEKDAY_2024' : 'WEEKDAY_2026')
-      : rawSchedule;
+    const currentSchedule = rawSchedule === 'WEEKDAY' ? 'WEEKDAY_2024' : rawSchedule;
     const evalSecs = timeToSecondsNormalized(simulatedTime);
 
     // 1. Unified deployments from link roster & daily deployment according to day type
@@ -1467,7 +1463,7 @@ export default function LiveTrainPositionTracker({
 
         // Strictly keep only the official Reliever ID Chart trains for current schedule day type (WEEKDAY, MONDAY, SATURDAY & GH, SUNDAY)
         const activeDayChartObj = getReliefIdChartForDay(currentSchedule);
-        const dayChart = activeDayChartObj?.chart || (weekdayEdition === '2024' ? WEEKDAY_RELIEF_ID_CHART_2024 : WEEKDAY_RELIEF_ID_CHART_2026);
+        const dayChart = activeDayChartObj?.chart || WEEKDAY_RELIEF_ID_CHART_2024;
         if (dayChart && !dayChart[normId] && !dayChart[tid]) {
           return;
         }
@@ -3360,7 +3356,7 @@ export default function LiveTrainPositionTracker({
                   type="button"
                   onClick={() => {
                     const targetModalDay = activeSchedule === 'WEEKDAY'
-                      ? (weekdayEdition === '2024' ? 'WEEKDAY_2024' : 'WEEKDAY_2026')
+                      ? 'WEEKDAY_2024'
                       : normalizeScheduleDay(activeSchedule);
                     setIdChartModalDayType(targetModalDay);
                     setShowReliefIdChartModal(true);
@@ -3369,7 +3365,7 @@ export default function LiveTrainPositionTracker({
                   title={`View Official Master Reliever ID Chart for ${activeSchedule} (Synced to Loaded Day Type)`}
                 >
                   <Table size={12} className="text-cyan-400" />
-                  <span>ID Chart ({activeSchedule === 'WEEKDAY' ? (weekdayEdition === '2024' ? '22/Nov/2024' : '03/Sep/2026') : normalizeScheduleDay(activeSchedule)})</span>
+                  <span>ID Chart ({activeSchedule === 'WEEKDAY' ? '22/Nov/2024' : normalizeScheduleDay(activeSchedule)})</span>
                 </button>
               </div>
 
@@ -3860,7 +3856,7 @@ export default function LiveTrainPositionTracker({
             <button
               onClick={() => {
                 const targetModalDay = activeSchedule === 'WEEKDAY'
-                  ? (weekdayEdition === '2024' ? 'WEEKDAY_2024' : 'WEEKDAY_2026')
+                  ? 'WEEKDAY_2024'
                   : normalizeScheduleDay(activeSchedule);
                 setIdChartModalDayType(targetModalDay);
                 setShowReliefIdChartModal(true);
@@ -3869,7 +3865,7 @@ export default function LiveTrainPositionTracker({
               title={`View Official Master Reliever ID Chart for ${activeSchedule} (Synced to Alstom ATS Relief Engine)`}
             >
               <Table size={13} className="text-cyan-200" />
-              <span>ID CHART ({activeSchedule === 'WEEKDAY' ? (weekdayEdition === '2024' ? '22/Nov/2024' : '03/Sep/2026') : normalizeScheduleDay(activeSchedule)})</span>
+              <span>ID CHART ({activeSchedule === 'WEEKDAY' ? '22/Nov/2024' : normalizeScheduleDay(activeSchedule)})</span>
             </button>
 
             {/* Alert View Mode (Combined vs Split Platforms) */}
@@ -6333,8 +6329,7 @@ export default function LiveTrainPositionTracker({
                   {/* Day Type Switcher Tabs */}
                   <div className="flex flex-wrap items-center bg-slate-900 border border-slate-800 p-1 rounded-xl gap-1">
                     {[
-                      { key: 'WEEKDAY_2026', label: 'Weekday (03/Sep/2026)', sub: '75 Duties' },
-                      { key: 'WEEKDAY_2024', label: 'Weekday (22/Nov/2024)', sub: '79 Duties' },
+                      { key: 'WEEKDAY_2024', label: 'Weekday Link', sub: '22/Nov/2024 • 79 Duties' },
                       { key: 'MONDAY', label: 'Monday (04:00)', sub: '06/Jan/2025' },
                       { key: 'SATURDAY', label: 'Saturday & GH', sub: '15/Mar/2025' },
                       { key: 'SUNDAY', label: 'Sunday Link', sub: '08/Dec/2024' }
@@ -6345,8 +6340,7 @@ export default function LiveTrainPositionTracker({
                         onClick={() => {
                           setIdChartModalDayType(tab.key);
                           setIdChartSelectedTrain('ALL');
-                          if (tab.key === 'WEEKDAY_2026') setWeekdayEdition('2026');
-                          if (tab.key === 'WEEKDAY_2024') setWeekdayEdition('2024');
+                          setWeekdayEdition('2024');
                         }}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
                           idChartModalDayType === tab.key

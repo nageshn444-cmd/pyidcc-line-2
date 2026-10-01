@@ -33,6 +33,12 @@ import { EMPLOYEE_MASTER_REGISTRY } from '../data/employeeProfileMaster';
 import { OFFICIAL_JMD_TD_REGISTRY } from '../data/jmdCrewMaster';
 import { OFFICIAL_PYID_ACTIVE_IDS, normalizeCanonicalEmpId } from '../utils/crewRegistryDataMerger';
 import { WEEKDAY_MASTER_DUTY_ROSTER, getOperatorForDuty } from '../data/weekdayMasterDutyRoster';
+import { 
+  getReliefIdChartForDay, 
+  normalizeScheduleDay, 
+  normalizeTrackTrainId,
+  timeStringToSeconds 
+} from '../data/weekdayReliefIdChartRegistry';
 
 // ── BMRCL Line-2 Station Master (Green Line Only) ──
 export const GREEN_LINE_STATIONS = [
@@ -570,8 +576,80 @@ export function getWttStationTiming(dayType = DAY_TYPES.WEEKDAY, trainId, statio
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function findDutyAndTripFromRoster(dayType = DAY_TYPES.WEEKDAY, trainId, targetTimeSecs) {
-  const normTid = String(trainId).trim();
+  const normTid = normalizeTrackTrainId(trainId) || String(trainId).trim();
+  const normDay = normalizeScheduleDay(dayType);
 
+  // 1. PRIMARY: Query official Live Train Operator Relief Matrix for active day type
+  // (WEEKDAY, MONDAY, SATURDAY & GH, SUNDAY)
+  const dayChartObj = getReliefIdChartForDay(normDay);
+  const chart = dayChartObj?.chart;
+  if (chart) {
+    const legs = chart[normTid] || chart[String(trainId).trim()] || chart[String(parseInt(normTid, 10))];
+    if (Array.isArray(legs) && legs.length > 0) {
+      let activeLegIndex = -1;
+      if (targetTimeSecs !== null) {
+        for (let i = 0; i < legs.length; i++) {
+          const l = legs[i];
+          const startSec = timeStringToSeconds(l.from);
+          let endSec = timeStringToSeconds(l.to);
+          if (endSec < startSec) endSec += 24 * 3600;
+
+          if (targetTimeSecs >= startSec - 600 && targetTimeSecs <= endSec + 600) {
+            activeLegIndex = i;
+            break;
+          }
+        }
+      }
+
+      if (activeLegIndex < 0) {
+        activeLegIndex = 0;
+      }
+
+      const activeLeg = legs[activeLegIndex];
+      const nextLeg = legs[activeLegIndex + 1] || null;
+
+      const normDuty = String(activeLeg.duty || '').padStart(2, '0');
+      const nextNormDuty = nextLeg ? String(nextLeg.duty || '').padStart(2, '0') : null;
+
+      return {
+        dutyNo: normDuty,
+        normDutyNo: normDuty,
+        dutyType: 'MAINLINE',
+        tripIndex: activeLegIndex + 1,
+        totalTrips: legs.length,
+        activeTrip: {
+          trainNo: normTid,
+          timeFrm: activeLeg.from,
+          timeTo: activeLeg.to,
+          dutyNo: normDuty
+        },
+        nextTrip: nextLeg ? {
+          trainNo: normTid,
+          timeFrm: nextLeg.from,
+          timeTo: nextLeg.to,
+          dutyNo: nextNormDuty
+        } : null,
+        nextRelieverDutyNo: nextNormDuty,
+        nextRelieverHandoverTime: nextLeg?.from || null,
+        sOnTime: activeLeg.from,
+        sOffTime: activeLeg.to,
+        signOnLocation: 'PYID',
+        signOffLocation: 'PYID',
+        dutyHrs: '08:00:00',
+        drivingHrs: '05:30:00',
+        breakTime: '00:45:00',
+        allTrips: legs.map((l, idx) => ({
+          tripNo: idx + 1,
+          trainNo: normTid,
+          timeFrm: l.from,
+          timeTo: l.to,
+          dutyNo: String(l.duty || '').padStart(2, '0')
+        }))
+      };
+    }
+  }
+
+  // 2. FALLBACK: Preloaded duties for legacy compatibility
   for (const duty of PRELOADED_DUTIES) {
     if (!duty.trips || !Array.isArray(duty.trips)) continue;
 

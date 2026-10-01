@@ -233,8 +233,8 @@ function buildReliefIdChartSheet() {
   const data = {};
 
   data['A1'] = { 
-    raw: 'BMRCL LINE 2 — MASTER RELIEVER ID CHART (WEEKDAY 03/SEP/2026 BIET-APTS)', 
-    value: 'BMRCL LINE 2 — MASTER RELIEVER ID CHART (WEEKDAY 03/SEP/2026 BIET-APTS)', 
+    raw: 'BMRCL LINE 2 — MASTER RELIEVER ID CHART (WEEKDAY 22/NOV/2024 APTS-BIET)', 
+    value: 'BMRCL LINE 2 — MASTER RELIEVER ID CHART (WEEKDAY 22/NOV/2024 APTS-BIET)', 
     bold: true, bg: '#0F9D58', color: '#FFFFFF', align: 'center', fontSize: 11
   };
 
@@ -1849,7 +1849,7 @@ export default function GoogleSheetsWorkspace({ userRole = 'CONTROLLER', initial
                 onClick={() => {
                   const s = buildReliefIdChartSheet();
                   setWorkbook(prev => ({ ...prev, sheets: { ...prev.sheets, [s.id]: s }, activeSheetId: s.id }));
-                  alert('Gemini loaded the official 03/Sep/2026 BIET-APTS Relief ID Chart!');
+                  alert('Gemini loaded the official 22/Nov/2024 APTS-BIET Relief ID Chart!');
                   setIsGeminiDrawerOpen(false);
                 }}
                 className="w-full text-left p-3 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/30 hover:border-emerald-500 transition"

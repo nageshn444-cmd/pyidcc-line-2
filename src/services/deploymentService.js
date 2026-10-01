@@ -155,7 +155,7 @@ export function calculateDefaultDayType(dateInput) {
   const dayOfWeek = isNaN(d.getTime()) ? new Date().getDay() : d.getDay();
   if (dayOfWeek === 0) return "SUNDAY";
   if (dayOfWeek === 1) return "MONDAY";
-  if (dayOfWeek === 6) return "SATURDAY_GH";
+  if (dayOfWeek === 6) return "SATURDAY";
   return "WEEKDAY";
 }
 
@@ -164,7 +164,15 @@ export function calculateDefaultDayType(dateInput) {
  */
 export function getDeploymentId(deploymentDate, dayType) {
   const normDate = formatOperationalDate(deploymentDate);
-  const normDayType = String(dayType || "WEEKDAY").trim().toUpperCase();
+  let normDayType = String(dayType || "WEEKDAY").trim().toUpperCase();
+  if (
+    normDayType === "SATURDAY_GH" ||
+    normDayType === "SATURDAY & GH" ||
+    normDayType === "SAT & GH" ||
+    normDayType === "GH"
+  ) {
+    normDayType = "SATURDAY";
+  }
   return `${normDate}_${normDayType}`;
 }
 

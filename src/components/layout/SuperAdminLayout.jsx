@@ -100,6 +100,7 @@ export default function SuperAdminLayout({
   handleDeleteTripRow,
   addDelayToTime,
   handleRosterReset: _providedHandleRosterReset,
+  handleUpdateMasterScheduleLinks,
   handleUpdateMasterWeekdayLinks,
   handleGccRosterUpload,
   targetTid,
@@ -564,6 +565,9 @@ export default function SuperAdminLayout({
     // 2. Fallback date-isolated reset
     const targetDate = selectedRosterDate || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
     const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const altDate = targetDate.includes('-') && targetDate.split('-')[0].length === 4
+      ? targetDate.split('-').reverse().join('-')
+      : targetDate;
     if (!window.confirm(`Reset Daily Roster for ${activeDay} (${targetDate})? This will clear deployed operators for ${activeDay} on ${targetDate} only. Other dates will NOT be affected.`)) return;
     try {
       const { collection, getDocs, writeBatch, doc, deleteDoc, serverTimestamp } = await import('firebase/firestore');
@@ -575,61 +579,87 @@ export default function SuperAdminLayout({
 
       snap.docs.forEach(docSnap => {
         const data = docSnap.data();
-        const docDate = data.targetDate || data.date || data.deploymentDate;
+        const docDate = data.targetDate || data.date || data.deploymentDate || data.dateStr;
+        const docIdLower = docSnap.id.toLowerCase();
+        const schedNorm = String(activeDay || 'WEEKDAY').toLowerCase();
+
         if (docDate) {
           const normDocDate = String(docDate).trim();
-          if (normDocDate !== targetDate) {
-            // Belongs to another date - PRESERVE IT!
-            return;
-          }
-          batch.delete(docSnap.ref);
-          count++;
-        } else {
-          // Check if docId contains a date
-          const idDateMatch = docSnap.id.match(/\d{4}-\d{2}-\d{2}/);
-          if (idDateMatch) {
-            if (idDateMatch[0] !== targetDate) return;
+          if (normDocDate === targetDate || normDocDate === altDate) {
             batch.delete(docSnap.ref);
             count++;
-          } else if (targetDate === todayStr) {
-            const sched = String(data.scheduleType || '').toUpperCase();
-            if (!sched || sched === String(activeDay).toUpperCase() || sched === 'ACTIVE_RUN') {
-              batch.delete(docSnap.ref);
-              count++;
-            }
+            return;
+          }
+        }
+
+        // Check if docId contains a date
+        const idDateMatch = docSnap.id.match(/\d{4}-\d{2}-\d{2}/);
+        if (idDateMatch && idDateMatch[0] === targetDate) {
+          batch.delete(docSnap.ref);
+          count++;
+          return;
+        }
+
+        // Check if docId is gcc_deploy_*
+        if (docIdLower.startsWith('gcc_deploy_') && (docIdLower.includes(schedNorm) || docIdLower.includes('duty'))) {
+          const normDocDate = docDate ? String(docDate).trim() : "";
+          if (!normDocDate || normDocDate === targetDate || normDocDate === todayStr) {
+            batch.delete(docSnap.ref);
+            count++;
           }
         }
       });
 
-      // Clear dispatch_deployments for targetDate
+      // Clear all matching dispatch_deployments for targetDate
       try {
-        const schedNorm = String(activeDay || 'WEEKDAY').toUpperCase();
-        await deleteDoc(doc(db, 'dispatch_deployments', `${targetDate}_${schedNorm}`));
+        const depSnap = await getDocs(collection(db, 'dispatch_deployments'));
+        depSnap.docs.forEach(docSnap => {
+          const docId = docSnap.id;
+          const data = docSnap.data();
+          const docDate = data.deploymentDate || data.targetDate || data.date || data.dateStr;
+          const normDDate = docDate ? String(docDate).trim() : "";
+          if (
+            normDDate === targetDate ||
+            normDDate === altDate ||
+            docId.startsWith(targetDate) ||
+            (altDate && docId.startsWith(altDate))
+          ) {
+            batch.delete(docSnap.ref);
+          }
+        });
       } catch (_) {}
 
-      // Clear dispatch_excel_cache for targetDate
+      // Clear dispatch_excel_cache & roster_desk_console
       try {
         const emptyDoc = {
-          controlDesks: [], leaves: [], standbys: [], outstationStepbacks: [],
+          controlDesks: [], coOperators: [], leaves: [], standbys: [], outstationStepbacks: [],
           crtTraining: [], bmrtiTraining: [], weeklyOffs: [], relievedOperators: [],
           pmeOperators: [], routeLearning: [], notReporting: [], absents: [], bookedOff: [],
+          onDuty: [], customRegisters: {},
           isExplicitlyCleared: true, updatedAt: serverTimestamp()
         };
         batch.set(doc(db, 'dispatch_excel_cache', targetDate), emptyDoc);
-        if (targetDate === todayStr) {
-          batch.set(doc(db, 'roster_desk_console', 'current'), emptyDoc);
-          batch.set(doc(db, 'roster_desk_console', 'latest'), emptyDoc);
-          batch.set(doc(db, 'dispatch_excel_cache', 'current'), emptyDoc);
+        if (altDate) {
+          batch.set(doc(db, 'dispatch_excel_cache', altDate), emptyDoc);
         }
+        batch.set(doc(db, 'roster_desk_console', 'current'), emptyDoc);
+        batch.set(doc(db, 'roster_desk_console', 'latest'), emptyDoc);
+        batch.delete(doc(db, 'roster_desk_console', 'latest_deployment_meta'));
+        batch.set(doc(db, 'dispatch_excel_cache', 'current'), emptyDoc);
       } catch (_) {}
 
-      // Clear local storage for targetDate
+      // Clear all local storage caches unconditionally
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
           window.localStorage.removeItem(`pyidcc_roster_desk_console_cache_${targetDate}`);
-          if (targetDate === todayStr) {
-            window.localStorage.removeItem('pyidcc_roster_desk_console_cache');
-            window.localStorage.removeItem('pyidcc_roster_desk_meta');
+          if (altDate) {
+            window.localStorage.removeItem(`pyidcc_roster_desk_console_cache_${altDate}`);
+          }
+          window.localStorage.removeItem('pyidcc_roster_desk_console_cache');
+          window.localStorage.removeItem('pyidcc_roster_desk_meta');
+          window.localStorage.removeItem(`pyidcc_roster_desk_meta_${targetDate}`);
+          if (altDate) {
+            window.localStorage.removeItem(`pyidcc_roster_desk_meta_${altDate}`);
           }
         }
       } catch (_) {}
@@ -1222,13 +1252,20 @@ export default function SuperAdminLayout({
                       >
                         <RotateCcw className="h-3 w-3 mr-1 text-amber-500" /> Reset Headers
                       </button>
-                      {activeDay === 'WEEKDAY' && handleUpdateMasterWeekdayLinks && (
+                      {(handleUpdateMasterScheduleLinks || handleUpdateMasterWeekdayLinks) && (
                         <button 
-                          onClick={handleUpdateMasterWeekdayLinks} 
+                          onClick={() => {
+                            if (handleUpdateMasterScheduleLinks) {
+                              handleUpdateMasterScheduleLinks(activeDay);
+                            } else if (handleUpdateMasterWeekdayLinks) {
+                              handleUpdateMasterWeekdayLinks();
+                            }
+                          }} 
                           className="flex items-center bg-blue-950/40 hover:bg-blue-900/50 text-blue-400 border border-blue-800/85 hover:border-blue-700 px-2.5 py-1.5 rounded text-[10px] font-mono font-bold uppercase tracking-wide transition-all shadow-[0_0_10px_rgba(59,130,246,0.15)]"
-                          title="Update and save Weekday Link Roster (WEF 22/Nov/2024, 79 Duties) to database"
+                          title={`Update and save ${activeDay === 'SATURDAY' ? 'Saturday & GH (74 Duties)' : activeDay === 'SUNDAY' ? 'Sunday (64 Duties)' : activeDay === 'MONDAY' ? 'Monday (79 Duties)' : 'Weekday (79 Duties)'} Link Roster to database`}
                         >
-                          <RefreshCw className="h-3 w-3 mr-1 text-blue-400" /> Update Weekday Link (79 Duties)
+                          <RefreshCw className="h-3 w-3 mr-1 text-blue-400" />
+                          Update {activeDay === 'SATURDAY' ? 'Sat & GH Link (74 Duties)' : activeDay === 'SUNDAY' ? 'Sunday Link (64 Duties)' : activeDay === 'MONDAY' ? 'Monday Link (79 Duties)' : 'Weekday Link (79 Duties)'}
                         </button>
                       )}
                     </>
@@ -1750,7 +1787,7 @@ export default function SuperAdminLayout({
             </div>
           ) : activeTab === 'TRAIN_SWAP' ? (
             <div className="space-y-6">
-              <TrainSwapControl />
+              <TrainSwapControl activeDay={activeDay} setActiveDay={setActiveDay} />
             </div>
           ) : activeTab === 'EMERGENCY_RELIEF' ? (
             <EmergencyReliefEngine />

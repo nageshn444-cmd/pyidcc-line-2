@@ -43,7 +43,7 @@ import {
 } from 'lucide-react';
 import { useOperationalEngine } from '../context/OperationalEngine';
 
-export default function TrainSwapControl() {
+export default function TrainSwapControl({ activeDay, setActiveDay }) {
   const operationalEngine = useOperationalEngine();
   const liveDeployments = operationalEngine?.deployments || [];
   const liveCrewRegistry = operationalEngine?.crewRegistry || [];
@@ -68,7 +68,20 @@ export default function TrainSwapControl() {
 
 
   // Active Day-Type State (WEEKDAY, MONDAY, SATURDAY, SUNDAY)
-  const [selectedDayType, setSelectedDayType] = useState(() => resolveActiveDayType());
+  const [selectedDayType, setSelectedDayType] = useState(() => resolveActiveDayType(activeDay));
+
+  useEffect(() => {
+    if (activeDay) {
+      setSelectedDayType(resolveActiveDayType(activeDay));
+    }
+  }, [activeDay]);
+
+  const handleSelectDayType = (dt) => {
+    setSelectedDayType(dt);
+    if (setActiveDay) {
+      setActiveDay(dt);
+    }
+  };
 
   // Input Controls
   const [trainA, setTrainA] = useState('216');
@@ -377,7 +390,7 @@ export default function TrainSwapControl() {
             {Object.values(DAY_TYPES).map(dt => (
               <button
                 key={dt}
-                onClick={() => setSelectedDayType(dt)}
+                onClick={() => handleSelectDayType(dt)}
                 className={`px-3 py-1 rounded-lg text-xs font-black transition-all ${
                   selectedDayType === dt
                     ? 'bg-emerald-500 text-slate-950 shadow-md font-black ring-2 ring-emerald-400/50'

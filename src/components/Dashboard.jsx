@@ -23,7 +23,13 @@ const ViewerLayout            = lazyWithRetry(() => import('./layout/ViewerLayou
 
 // Data
 import { BMRCL_CREW_REGISTRY, BMRCL_CREW_MASTER_BACKUP } from '../data/bmrclCrewRegistry';
-import { WEEKDAY_MASTER_LINKS } from '../data/weekdayMasterLinks';
+import { 
+  WEEKDAY_MASTER_LINKS,
+  SATURDAY_MASTER_LINKS,
+  SUNDAY_MASTER_LINKS,
+  MONDAY_MASTER_LINKS,
+  getMasterLinksForDay
+} from '../data/canonicalDayLinksRegistry';
 import { getOperatorForDuty } from '../data/weekdayMasterDutyRoster';
 
 // ── Global Suspense fallback shown while lazy chunks download ──
@@ -597,16 +603,31 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
         isValidDutyId(l.dutyId)
       );
 
-      // WEEKDAY SCHEDULE: If DB has no links, or has stale/outdated roster (e.g. not 79 duties, or Duty 2 has old TGTP Stby),
-      // seamlessly use the new canonical WEEKDAY_MASTER_LINKS from weekday old link.xlsx WEF 22/Nov/2024 (79 Duties).
-      if (targetSchedule === 'WEEKDAY') {
-        const isDbStale = rawDayLinks.length === 0 || 
-          rawDayLinks.length !== 79 || 
+      // CANONICAL FALLBACK FOR ALL DAY TYPES (WEEKDAY, SATURDAY & GH, SUNDAY, MONDAY):
+      // If DB has no links for targetSchedule, load verified canonical master links from canonicalDayLinksRegistry!
+      if (rawDayLinks.length === 0) {
+        if (targetSchedule === 'SATURDAY') {
+          rawDayLinks = SATURDAY_MASTER_LINKS;
+        } else if (targetSchedule === 'SUNDAY') {
+          rawDayLinks = SUNDAY_MASTER_LINKS;
+        } else if (targetSchedule === 'MONDAY') {
+          rawDayLinks = MONDAY_MASTER_LINKS;
+        } else {
+          rawDayLinks = WEEKDAY_MASTER_LINKS;
+        }
+      } else if (targetSchedule === 'WEEKDAY') {
+        const isDbStale = rawDayLinks.length !== 79 || 
           rawDayLinks.some(l => (normalizeDutyId(l.dutyId) === '02' || normalizeDutyId(l.dutyId) === '2') && l.signOnLocation === 'TGTP') ||
           rawDayLinks.some(l => (normalizeDutyId(l.dutyId) === '03' || normalizeDutyId(l.dutyId) === '3') && (l.trainId === '209' || l.leg1TrainNo === '209'));
         if (isDbStale) {
           rawDayLinks = WEEKDAY_MASTER_LINKS;
         }
+      } else if (targetSchedule === 'SATURDAY' && rawDayLinks.length < 74) {
+        rawDayLinks = SATURDAY_MASTER_LINKS;
+      } else if (targetSchedule === 'SUNDAY' && rawDayLinks.length < 64) {
+        rawDayLinks = SUNDAY_MASTER_LINKS;
+      } else if (targetSchedule === 'MONDAY' && rawDayLinks.length < 79) {
+        rawDayLinks = MONDAY_MASTER_LINKS;
       }
 
       const dedupedLinks = deduplicateByDutyId(rawDayLinks);
@@ -615,10 +636,36 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       );
       setLinks(currentDayLinks);
 
+      // Merge active duties from AutomatedDispatchGate / Roster Desk Console cache
+      const effectiveDeployData = [...(deployData || [])];
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+          const cached = window.localStorage.getItem('pyidcc_roster_desk_console_cache');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            const cachedDuties = parsed?.duties || [];
+            if (Array.isArray(cachedDuties) && cachedDuties.length > 0) {
+              cachedDuties.forEach(cd => {
+                const normCdDuty = normalizeDutyId(cd.dutyId || cd.dutyNo);
+                if (!normCdDuty || normCdDuty === 'UNASSIGNED') return;
+                const idx = effectiveDeployData.findIndex(d => normalizeDutyId(d.dutyId || d.dutyNo) === normCdDuty);
+                if (idx >= 0) {
+                  effectiveDeployData[idx] = { ...effectiveDeployData[idx], ...cd, dutyId: normCdDuty };
+                } else {
+                  effectiveDeployData.push({ ...cd, dutyId: normCdDuty, scheduleType: targetSchedule });
+                }
+              });
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
       // Build deployments
       const activeDeployments = currentDayLinks.map(link => {
         const normLinkId = normalizeDutyId(link.dutyId);
-        const matchingGcc = deployData.find(d =>
+        const matchingGcc = effectiveDeployData.find(d =>
           normalizeDutyId(d.dutyId) === normLinkId &&
           normalizeScheduleType(d.scheduleType, d.id) === targetSchedule
         );
@@ -630,13 +677,30 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
         const isJmdMisassigned = matchingGcc?.empId && String(matchingGcc.empId).startsWith('88');
         const defaultOp = getOperatorForDuty(normLinkId);
 
+        // Strict Single-Duty validation: If Prakash P (22319) is on Duty 66 in matchingGcc,
+        // but Duty 69 is assigned to Prakash P, reject matchingGcc on Duty 66 and use defaultOp (Sooraj)
+        const isDuty66Mismatch = (normLinkId === '66' || normLinkId === '066') && 
+          (String(matchingGcc?.empId).trim() === '22319' || String(matchingGcc?.empName || '').toUpperCase().includes('PRAKASH'));
+
+        const hasValidGccDeploy = matchingGcc?.empName && 
+          matchingGcc.empName !== '--' && 
+          matchingGcc.empName !== '-' && 
+          !matchingGcc.empName.startsWith('Train Operator') && 
+          !matchingGcc.empName.startsWith('Duty ') &&
+          !isJmdMisassigned &&
+          !isDuty66Mismatch;
+
         const resolvedEmpId = (isOfficialSpecial && matchingGcc?.empId)
           ? matchingGcc.empId
-          : (defaultOp?.empId || (!isJmdMisassigned ? matchingGcc?.empId : null) || '--');
+          : hasValidGccDeploy
+            ? (matchingGcc.empId || matchingGcc.empNo || defaultOp?.empId || '--')
+            : (defaultOp?.empId || '--');
 
         const resolvedEmpName = (isOfficialSpecial && matchingGcc?.empName)
           ? matchingGcc.empName
-          : (defaultOp?.empName || (!isJmdMisassigned ? matchingGcc?.empName : null) || '--');
+          : hasValidGccDeploy
+            ? matchingGcc.empName
+            : (defaultOp?.empName || `Duty ${normLinkId}`);
 
         return {
           id: link.id,
@@ -679,7 +743,7 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       });
 
       const dedupedDeployData = deduplicateByDutyId(
-        deployData.filter(d => normalizeScheduleType(d.scheduleType, d.id) === targetSchedule)
+        effectiveDeployData.filter(d => normalizeScheduleType(d.scheduleType, d.id) === targetSchedule)
       );
       const linkedDutyIds = new Set(currentDayLinks.map(l => normalizeDutyId(l.dutyId)));
       const aiOnlyDeployments = dedupedDeployData
@@ -694,13 +758,24 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
           const isJmdMisassigned = d.empId && String(d.empId).startsWith('88');
           const defaultOp = getOperatorForDuty(normId);
 
+          const hasValidDeploy = d.empName && 
+            d.empName !== '--' && 
+            d.empName !== '-' && 
+            !d.empName.startsWith('Train Operator') && 
+            !d.empName.startsWith('Duty ') &&
+            !isJmdMisassigned;
+
           const resolvedEmpId = (isOfficialSpecial && d.empId)
             ? d.empId
-            : (defaultOp?.empId || (!isJmdMisassigned ? d.empId : null) || '--');
+            : hasValidDeploy
+              ? (d.empId || d.empNo || defaultOp?.empId || '--')
+              : (defaultOp?.empId || '--');
 
           const resolvedEmpName = (isOfficialSpecial && d.empName)
             ? d.empName
-            : (defaultOp?.empName || (!isJmdMisassigned ? d.empName : null) || '--');
+            : hasValidDeploy
+              ? d.empName
+              : (defaultOp?.empName || `Duty ${normId}`);
 
           return {
             id: d.id,
@@ -1211,14 +1286,32 @@ Format the response strictly as a single JSON object.`;
           console.warn("Could not clear crew_live_attendance on reset:", attErr);
         }
 
-        // 3. Clear dispatch_deployments for targetDate
+        // 3. Clear all dispatch_deployments for targetDate
+        const altDate = targetDate.includes('-') && targetDate.split('-')[0].length === 4
+          ? targetDate.split('-').reverse().join('-')
+          : targetDate;
         try {
-          await deleteDoc(doc(db, "dispatch_deployments", `${targetDate}_${targetSched}`));
+          const depSnap = await getDocs(collection(db, "dispatch_deployments"));
+          depSnap.docs.forEach((docSnap) => {
+            const docId = docSnap.id;
+            const data = docSnap.data();
+            const docDate = data.deploymentDate || data.targetDate || data.date || data.dateStr;
+            const normDDate = docDate ? formatOperationalDate(docDate) : "";
+            if (
+              normDDate === targetDate ||
+              normDDate === altDate ||
+              docId.startsWith(targetDate) ||
+              (altDate && docId.startsWith(altDate))
+            ) {
+              deleteDoc(docSnap.ref);
+            }
+          });
         } catch (_) {}
 
         // 4. Clear console cache docs
         const emptyConsoleDoc = {
           controlDesks: [],
+          coOperators: [],
           leaves: [],
           standbys: [],
           outstationStepbacks: [],
@@ -1231,27 +1324,35 @@ Format the response strictly as a single JSON object.`;
           notReporting: [],
           absents: [],
           bookedOff: [],
+          onDuty: [],
+          customRegisters: {},
           isExplicitlyCleared: true,
           updatedAt: serverTimestamp(),
         };
 
         const metaBatch = writeBatch(db);
         metaBatch.set(doc(db, "dispatch_excel_cache", targetDate), emptyConsoleDoc);
-        if (targetDate === todayStr) {
-          metaBatch.set(doc(db, "roster_desk_console", "current"), emptyConsoleDoc);
-          metaBatch.set(doc(db, "roster_desk_console", "latest"), emptyConsoleDoc);
-          metaBatch.delete(doc(db, "roster_desk_console", "latest_deployment_meta"));
-          metaBatch.set(doc(db, "dispatch_excel_cache", "current"), emptyConsoleDoc);
+        if (altDate) {
+          metaBatch.set(doc(db, "dispatch_excel_cache", altDate), emptyConsoleDoc);
         }
+        metaBatch.set(doc(db, "roster_desk_console", "current"), emptyConsoleDoc);
+        metaBatch.set(doc(db, "roster_desk_console", "latest"), emptyConsoleDoc);
+        metaBatch.delete(doc(db, "roster_desk_console", "latest_deployment_meta"));
+        metaBatch.set(doc(db, "dispatch_excel_cache", "current"), emptyConsoleDoc);
         await metaBatch.commit();
 
-        // 5. Clear local storage
+        // 5. Clear local storage unconditionally
         try {
           if (typeof window !== "undefined" && window.localStorage) {
             window.localStorage.removeItem(`pyidcc_roster_desk_console_cache_${targetDate}`);
-            if (targetDate === todayStr) {
-              window.localStorage.removeItem("pyidcc_roster_desk_console_cache");
-              window.localStorage.removeItem("pyidcc_roster_desk_meta");
+            if (altDate) {
+              window.localStorage.removeItem(`pyidcc_roster_desk_console_cache_${altDate}`);
+            }
+            window.localStorage.removeItem("pyidcc_roster_desk_console_cache");
+            window.localStorage.removeItem("pyidcc_roster_desk_meta");
+            window.localStorage.removeItem(`pyidcc_roster_desk_meta_${targetDate}`);
+            if (altDate) {
+              window.localStorage.removeItem(`pyidcc_roster_desk_meta_${altDate}`);
             }
           }
         } catch (e) {
@@ -1269,35 +1370,37 @@ Format the response strictly as a single JSON object.`;
     }
   };
 
-  const handleUpdateMasterWeekdayLinks = async () => {
-    if (!window.confirm("Update and save Weekday Link Roster with verified schedule (79 Duties, WEF 22/Nov/2024)? This will overwrite old weekday links in database.")) return;
+  const handleUpdateMasterScheduleLinks = async (targetDay = activeDay) => {
+    const normDay = normalizeScheduleType(targetDay);
+    const dayLinks = getMasterLinksForDay(normDay);
+    const dayLabel = normDay === 'SATURDAY' ? 'Saturday & GH' : normDay === 'SUNDAY' ? 'Sunday' : normDay === 'MONDAY' ? 'Monday' : 'Weekday';
+    const dutyCount = dayLinks.length;
+
+    if (!window.confirm(`Update and save ${dayLabel} Link Roster with verified schedule (${dutyCount} Duties) to database (crew_final_links)? This will synchronize the canonical ${dayLabel} link roster.`)) return;
     try {
       setLoading(true);
       const batch = writeBatch(db);
-      WEEKDAY_MASTER_LINKS.forEach(duty => {
+      dayLinks.forEach(duty => {
         const docRef = doc(db, 'crew_final_links', duty.id);
         batch.set(docRef, {
           ...duty,
           lastModified: serverTimestamp()
         }, { merge: true });
       });
-      // Delete any obsolete duty IDs > 79
-      for (let i = 80; i <= 99; i++) {
-        batch.delete(doc(db, 'crew_final_links', `link_weekday_duty_${i}`));
-        batch.delete(doc(db, 'crew_final_links', `link_weekday_${i}`));
-      }
+
       await batch.commit();
-      alert("✅ Weekday Link Roster successfully updated and saved to database with verified 79 duties (WEF 22/Nov/2024)!");
+      alert(`✅ ${dayLabel} Link Roster successfully updated and saved to database with verified ${dutyCount} duties!`);
       fetchLiveData();
     } catch (err) {
-      console.error("Failed to update weekday links in database:", err);
-      // Still refresh local view with master links
-      setLinks(WEEKDAY_MASTER_LINKS);
-      alert(`⚠️ Local Weekday Link view refreshed with verified 79 duties. Database sync: ${err.message}`);
+      console.error(`Failed to update ${normDay} links in database:`, err);
+      setLinks(dayLinks);
+      alert(`⚠️ Local ${dayLabel} Link view refreshed with verified ${dutyCount} duties. Database sync: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
+
+  const handleUpdateMasterWeekdayLinks = () => handleUpdateMasterScheduleLinks('WEEKDAY');
 
   const handleIncidentLogSubmit = async (e) => {
     e.preventDefault();
@@ -1510,6 +1613,7 @@ Format the response strictly as a single JSON object.`;
           handleDeleteTripRow={handleDeleteTripRow}
           addDelayToTime={addDelayToTime}
           handleRosterReset={handleRosterReset}
+          handleUpdateMasterScheduleLinks={handleUpdateMasterScheduleLinks}
           handleUpdateMasterWeekdayLinks={handleUpdateMasterWeekdayLinks}
           handleGccRosterUpload={handleGccRosterUpload}
           targetTid={targetTid}

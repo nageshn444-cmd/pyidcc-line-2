@@ -4,7 +4,7 @@
  * 
  * BMRCL LINE-2 (PEENYA DEPOT CREW CONTROL)
  * Live Train Operator Relief Matrix & Master Reliever ID Chart for WEEKDAY Link
- * dated 03/Sep/2026 (BIET-APTS)
+ * WEF 22/Nov/2024 for Time Table Dated 20/Nov/2024 (APTS - BIET) - 79 Duties
  * 
  * Synced to Alstom ATS Relief Engine • Verified Reliever-Only Handover System
  */
@@ -99,24 +99,73 @@ export default function ReliefTracking({
         let endSec = timeStringToSeconds(l.to);
         if (endSec < startSec) endSec += 24 * 3600;
 
-        // Overlay deployed driver name if exists, else fallback to verified canonical Master Duty Roster
+        // Overlay deployed driver name if exists, strictly matching the specific duty number (AutomatedDispatchGate priority)
         const propTracking = liveTrainTrackingMap[trainId] || liveTrainTrackingMap[normalizeTrackTrainId(trainId)];
-        const matchedOp = (propTracking?.current?.dutyId === normDuty) ? propTracking.current
+        let matchedOp = (propTracking?.current?.dutyId === normDuty) ? propTracking.current
                         : (propTracking?.nextReliver?.dutyId === normDuty) ? propTracking.nextReliver
                         : (propTracking?.previous?.dutyId === normDuty) ? propTracking.previous
-                        : Object.values(liveTrainTrackingMap).find(t => t?.current?.dutyId === normDuty || t?.nextReliver?.dutyId === normDuty || t?.previous?.dutyId === normDuty)?.current;
+                        : null;
+
+        // If not found on this train's immediate slots, find a train that specifically has this dutyId
+        if (!matchedOp) {
+          for (const t of Object.values(liveTrainTrackingMap || {})) {
+            if (t?.current?.dutyId === normDuty) { matchedOp = t.current; break; }
+            if (t?.nextReliver?.dutyId === normDuty) { matchedOp = t.nextReliver; break; }
+            if (t?.previous?.dutyId === normDuty) { matchedOp = t.previous; break; }
+          }
+        }
+
+        // Overlay active deployment from AutomatedDispatchGate / Roster Desk Console cache if not present in live map
+        let consoleMatchedOp = null;
+        if (!matchedOp || !matchedOp.empName || matchedOp.empName === '--' || matchedOp.empName.startsWith('Duty ')) {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            try {
+              const cached = window.localStorage.getItem('pyidcc_roster_desk_console_cache');
+              if (cached) {
+                const parsed = JSON.parse(cached);
+                const dutyList = parsed?.duties || [];
+                const found = dutyList.find(d => {
+                  const dId = String(d.dutyId || d.dutyNo || '').replace(/^duty[_\s-]*/i, '').padStart(2, '0');
+                  return dId === normDuty;
+                });
+                if (found && found.empName && found.empName !== '--' && !found.empName.startsWith('Duty ')) {
+                  consoleMatchedOp = found;
+                }
+              }
+            } catch (e) {
+              // ignore
+            }
+          }
+        }
+
+        const candidateOp = matchedOp || consoleMatchedOp;
+        const candidateDutyId = candidateOp?.dutyId ? String(candidateOp.dutyId).replace(/^duty[_\s-]*/i, '').padStart(2, '0') : null;
+        const candId = String(candidateOp?.empId || candidateOp?.empNo || '').trim();
+        const candName = String(candidateOp?.empName || '').trim().toUpperCase();
+
+        // Enforce Single Duty Rule & AutomatedDispatchGate consistency:
+        // Duty 66 is strictly Sooraj (22296); Prakash P (22319) is assigned to Duty 69
+        const isWrongDuty = candidateDutyId && candidateDutyId !== normDuty;
+        const isDuty66Mismatch = normDuty === '66' && (candId === '22319' || candName.includes('PRAKASH'));
+        const isJmdMisassigned = candId.startsWith('88');
 
         const defaultRosterOp = getOperatorForDuty(normDuty);
-        const isOfficialSpecial = Boolean(matchedOp?.isExchanged || matchedOp?.status === 'SWAPPED_BY_CC' || matchedOp?.status === 'RELIEF_DISPATCHED');
-        const isJmdMisassigned = matchedOp?.empId && String(matchedOp.empId).startsWith('88');
+        const hasValidDeploy = candidateOp?.empName && 
+          candidateOp.empName !== '--' && 
+          candidateOp.empName !== '-' && 
+          !candidateOp.empName.startsWith('Train Operator') && 
+          !candidateOp.empName.startsWith('Duty ') &&
+          !isWrongDuty &&
+          !isDuty66Mismatch &&
+          !isJmdMisassigned;
 
-        const empName = (isOfficialSpecial && matchedOp?.empName)
-          ? matchedOp.empName
-          : (defaultRosterOp?.empName || (!isJmdMisassigned ? matchedOp?.empName : null) || `Duty ${normDuty}`);
+        const empName = hasValidDeploy
+          ? (candidateOp.empName || candidateOp.name)
+          : (defaultRosterOp?.empName || `Duty ${normDuty}`);
 
-        const empId = (isOfficialSpecial && matchedOp?.empId)
-          ? matchedOp.empId
-          : (defaultRosterOp?.empId || (!isJmdMisassigned ? matchedOp?.empId : null) || '--');
+        const empId = hasValidDeploy
+          ? (candidateOp.empId || candidateOp.empNo || defaultRosterOp?.empId || '--')
+          : (defaultRosterOp?.empId || '--');
 
         return {
           dutyId: normDuty,
@@ -574,7 +623,7 @@ export default function ReliefTracking({
       )}
 
       {/* ─────────────────────────────────────────────────────────────────── */}
-      {/* VIEW 2: OFFICIAL MASTER WEEKDAY RELIEVER ID CHART TABLE (03/SEP/2026)*/}
+      {/* VIEW 2: OFFICIAL MASTER WEEKDAY RELIEVER ID CHART TABLE (22/NOV/2024)*/}
       {/* ─────────────────────────────────────────────────────────────────── */}
       {viewMode === 'ID_CHART' && (
         <div className="space-y-3">
@@ -659,14 +708,20 @@ export default function ReliefTracking({
                                         : (tracking?.previous?.dutyId === normDuty) ? tracking.previous
                                         : null;
                         const defaultRosterOp = getOperatorForDuty(normDuty);
-                        const isOfficialSpecial = Boolean(matchedOp?.isExchanged || matchedOp?.status === 'SWAPPED_BY_CC' || matchedOp?.status === 'RELIEF_DISPATCHED');
                         const isJmdMisassigned = matchedOp?.empId && String(matchedOp.empId).startsWith('88');
-                        const opDisplayName = (isOfficialSpecial && matchedOp?.empName)
+                        const hasValidDeploy = matchedOp?.empName && 
+                          matchedOp.empName !== '--' && 
+                          matchedOp.empName !== '-' && 
+                          !matchedOp.empName.startsWith('Train Operator') && 
+                          !matchedOp.empName.startsWith('Duty ') &&
+                          !isJmdMisassigned;
+
+                        const opDisplayName = hasValidDeploy
                           ? matchedOp.empName
-                          : (defaultRosterOp?.empName || (!isJmdMisassigned ? matchedOp?.empName : null) || '');
-                        const opDisplayId = (isOfficialSpecial && matchedOp?.empId)
-                          ? matchedOp.empId
-                          : (defaultRosterOp?.empId || (!isJmdMisassigned ? matchedOp?.empId : null) || '');
+                          : (defaultRosterOp?.empName || '');
+                        const opDisplayId = hasValidDeploy
+                          ? (matchedOp.empId || matchedOp.empNo || '')
+                          : (defaultRosterOp?.empId || '');
 
                         return (
                           <React.Fragment key={`cell-${trainId}-${rowIndex}`}>
@@ -726,7 +781,7 @@ export default function ReliefTracking({
                 Duty Roster Leg Sequence (Derived from {activeMeta.title})
               </span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold font-mono">
-                {activeMeta.edition === '2024' ? '79 Duties Master' : '75 Duties Official'}
+                79 Duties Master (WEF 22/Nov/2024)
               </span>
             </div>
             <span className="text-[10px] text-slate-400 font-mono">
