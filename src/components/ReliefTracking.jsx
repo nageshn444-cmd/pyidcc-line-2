@@ -24,6 +24,7 @@ import {
   timeStringToSeconds,
   normalizeTrackTrainId
 } from '../data/weekdayReliefIdChartRegistry';
+import { getOperatorForDuty, WEEKDAY_MASTER_DUTY_ROSTER } from '../data/weekdayMasterDutyRoster';
 
 export default function ReliefTracking({ 
   trackerSearchTerm, 
@@ -98,21 +99,28 @@ export default function ReliefTracking({
         let endSec = timeStringToSeconds(l.to);
         if (endSec < startSec) endSec += 24 * 3600;
 
-        // Overlay deployed driver name if exists
+        // Overlay deployed driver name if exists, else fallback to verified canonical Master Duty Roster
         const propTracking = liveTrainTrackingMap[trainId] || liveTrainTrackingMap[normalizeTrackTrainId(trainId)];
         const matchedOp = (propTracking?.current?.dutyId === normDuty) ? propTracking.current
                         : (propTracking?.nextReliver?.dutyId === normDuty) ? propTracking.nextReliver
                         : (propTracking?.previous?.dutyId === normDuty) ? propTracking.previous
                         : Object.values(liveTrainTrackingMap).find(t => t?.current?.dutyId === normDuty || t?.nextReliver?.dutyId === normDuty || t?.previous?.dutyId === normDuty)?.current;
 
-        const empName = (matchedOp?.empName && matchedOp.empName !== '--' && !matchedOp.empName.startsWith('Train Operator') && !matchedOp.empName.startsWith('Duty '))
+        const defaultRosterOp = getOperatorForDuty(normDuty);
+        const hasLiveOp = Boolean(matchedOp?.empName && matchedOp.empName !== '--' && !matchedOp.empName.startsWith('Train Operator') && !matchedOp.empName.startsWith('Duty '));
+
+        const empName = hasLiveOp
           ? matchedOp.empName
-          : `Duty ${normDuty}`;
+          : (defaultRosterOp?.empName || `Duty ${normDuty}`);
+
+        const empId = hasLiveOp
+          ? (matchedOp.empId && matchedOp.empId !== '--' ? matchedOp.empId : (defaultRosterOp?.empId || '--'))
+          : (defaultRosterOp?.empId || '--');
 
         return {
           dutyId: normDuty,
           empName,
-          empId: matchedOp?.empId || '--',
+          empId,
           startSec,
           endSec,
           startStr: l.from,
@@ -643,12 +651,16 @@ export default function ReliefTracking({
                         const normDuty = String(leg.duty).padStart(2, '0');
                         const isDutyMatched = dutySearch && normDuty.includes(dutySearch.trim().replace(/^d/i, ''));
 
-                        // Look up operator name if available in live tracking
+                        // Look up operator name if available in live tracking, else fallback to verified canonical Master Duty Roster
                         const tracking = effectiveLiveTrackingMap[trainId] || effectiveLiveTrackingMap[normalizeTrackTrainId(trainId)];
                         const matchedOp = (tracking?.current?.dutyId === normDuty) ? tracking.current
                                         : (tracking?.nextReliver?.dutyId === normDuty) ? tracking.nextReliver
                                         : (tracking?.previous?.dutyId === normDuty) ? tracking.previous
                                         : null;
+                        const defaultRosterOp = getOperatorForDuty(normDuty);
+                        const hasLiveName = matchedOp?.empName && matchedOp.empName !== '--' && !matchedOp.empName.startsWith('Duty ');
+                        const opDisplayName = hasLiveName ? matchedOp.empName : (defaultRosterOp?.empName || '');
+                        const opDisplayId = hasLiveName ? matchedOp.empId : (defaultRosterOp?.empId || '');
 
                         return (
                           <React.Fragment key={`cell-${trainId}-${rowIndex}`}>
@@ -668,7 +680,7 @@ export default function ReliefTracking({
                                 : isDutyMatched
                                 ? 'bg-cyan-950 text-cyan-300 font-black'
                                 : 'text-amber-400 font-black'
-                            }`} title={matchedOp ? `Operator: ${matchedOp.empName} (${matchedOp.empId})` : `Duty ${leg.duty}`}>
+                            }`} title={opDisplayName ? `Operator: ${opDisplayName} (${opDisplayId})` : `Duty ${leg.duty}`}>
                               <div className="flex flex-col items-center">
                                 <span className="text-[11px] leading-tight">
                                   {leg.duty}
@@ -678,9 +690,9 @@ export default function ReliefTracking({
                                     <span className="h-1 w-1 rounded-full bg-emerald-400 animate-ping"></span> LIVE
                                   </span>
                                 )}
-                                {matchedOp && (
-                                  <span className="text-[7px] text-slate-400 truncate max-w-[55px]">
-                                    {matchedOp.empName.split(' ')[0]}
+                                {opDisplayName && (
+                                  <span className="text-[7px] text-slate-300 truncate max-w-[58px]" title={`${opDisplayName} (${opDisplayId})`}>
+                                    {opDisplayName.split(' ')[0]}
                                   </span>
                                 )}
                               </div>
@@ -728,8 +740,9 @@ export default function ReliefTracking({
               const activeLeg = legs.find(l => currentTimeSecs >= l.startSec && currentTimeSecs <= l.endSec);
               const meta = legs.meta;
 
-              // Find assigned operator from live tracking
+              // Find assigned operator from live tracking, else fallback to verified canonical Master Duty Roster
               const normD = dutyNo.padStart(2, '0');
+              const defaultRosterOp = getOperatorForDuty(normD);
               const liveOpMatch = Object.values(effectiveLiveTrackingMap).find(t => 
                 t.current?.dutyId === normD || t.nextReliver?.dutyId === normD || t.previous?.dutyId === normD
               );
@@ -737,6 +750,8 @@ export default function ReliefTracking({
                           : liveOpMatch?.nextReliver?.dutyId === normD ? liveOpMatch.nextReliver 
                           : null;
               const hasLiveOp = Boolean(liveOp?.empName && liveOp.empName !== '--' && !liveOp.empName.startsWith('Train Operator') && !liveOp.empName.startsWith('Duty '));
+              const displayEmpName = hasLiveOp ? liveOp.empName : defaultRosterOp?.empName;
+              const displayEmpId = hasLiveOp ? liveOp.empId : defaultRosterOp?.empId;
 
               return (
                 <div 
@@ -819,10 +834,16 @@ export default function ReliefTracking({
                         <span>DRIVE: <strong className="text-cyan-300">{meta.drivingHrs}</strong></span>
                       </div>
                     )}
-                    {hasLiveOp && (
-                      <div className="text-[8.5px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-800/60 text-emerald-300 flex items-center justify-between">
-                        <span className="truncate">TO: <strong>{liveOp.empName}</strong></span>
-                        <span className="text-[7.5px] font-black uppercase text-emerald-400">ACTIVE</span>
+                    {(displayEmpName || hasLiveOp) && (
+                      <div className={`text-[8.5px] font-mono px-2 py-0.5 rounded border flex items-center justify-between ${
+                        hasLiveOp
+                          ? 'bg-emerald-950/60 border-emerald-800/60 text-emerald-300'
+                          : 'bg-slate-900 border-slate-800 text-slate-300'
+                      }`}>
+                        <span className="truncate">TO: <strong>{displayEmpName}</strong> {displayEmpId && displayEmpId !== '--' ? `(${displayEmpId})` : ''}</span>
+                        <span className={`text-[7.5px] font-black uppercase ${hasLiveOp ? 'text-emerald-400' : 'text-cyan-400'}`}>
+                          {hasLiveOp ? 'LIVE' : 'ROSTER'}
+                        </span>
                       </div>
                     )}
                   </div>

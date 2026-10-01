@@ -24,6 +24,7 @@ const ViewerLayout            = lazyWithRetry(() => import('./layout/ViewerLayou
 // Data
 import { BMRCL_CREW_REGISTRY, BMRCL_CREW_MASTER_BACKUP } from '../data/bmrclCrewRegistry';
 import { WEEKDAY_MASTER_LINKS } from '../data/weekdayMasterLinks';
+import { getOperatorForDuty } from '../data/weekdayMasterDutyRoster';
 
 // ── Global Suspense fallback shown while lazy chunks download ──
 const ModuleLoader = () => (
@@ -633,9 +634,13 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
           signOffLocation: matchingGcc?.signOffLocation || link.signOffLocation || '--',
           dutyType: matchingGcc?.dutyType || link.dutyType || '--',
           trainId: matchingGcc?.trainId || link.trainId,
-          empId: matchingGcc ? matchingGcc.empId : '--',
-          empName: matchingGcc ? matchingGcc.empName : '--',
-          remarks: matchingGcc ? matchingGcc.remarks : 'Pending GCC Load',
+          empId: (matchingGcc?.empName && matchingGcc.empName !== '--' && !matchingGcc.empName.startsWith('Train Operator') && !matchingGcc.empName.startsWith('Duty '))
+            ? matchingGcc.empId
+            : (getOperatorForDuty(normLinkId)?.empId || matchingGcc?.empId || '--'),
+          empName: (matchingGcc?.empName && matchingGcc.empName !== '--' && !matchingGcc.empName.startsWith('Train Operator') && !matchingGcc.empName.startsWith('Duty '))
+            ? matchingGcc.empName
+            : (getOperatorForDuty(normLinkId)?.empName || matchingGcc?.empName || '--'),
+          remarks: matchingGcc?.remarks || (getOperatorForDuty(normLinkId)?.empName ? 'Official Weekday Roster' : 'Pending GCC Load'),
           status: matchingGcc?.status || null,
           isSignedOn: !!matchedAtt,
           signOnTimestamp: matchedAtt ? matchedAtt.signOnTimeActual : null,

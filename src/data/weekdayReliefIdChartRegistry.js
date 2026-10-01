@@ -15,6 +15,7 @@
 
 import { DUTY_TEMPLATES_REGISTRY } from './dutyTemplatesRegistry.js';
 import { WEEKDAY_MASTER_LINKS } from './weekdayMasterLinks.js';
+import { getOperatorForDuty } from './weekdayMasterDutyRoster.js';
 
 // ============================================================================
 // 1A. WEEKDAY RELIEF ID CHART (dated 03/Sep/2026 BIET-APTS - 75 Duties)
@@ -3196,15 +3197,24 @@ export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType
 
     const norm = String(normDuty || '').replace(/^duty[_\s-]*/i, '').padStart(2, '0');
     const matchedDeploy = deployed || deployMap.get(norm) || deployMap.get(norm.replace(/^0/, ''));
+    const defaultRosterOp = getOperatorForDuty(norm);
 
-    const empName = (matchedDeploy?.empName && matchedDeploy.empName !== '--')
+    const hasLiveDeployName = matchedDeploy?.empName && matchedDeploy.empName !== '--' && !matchedDeploy.empName.startsWith('Train Operator') && !matchedDeploy.empName.startsWith('Duty ');
+
+    const empName = hasLiveDeployName
       ? matchedDeploy.empName
+      : defaultRosterOp?.empName
+      ? defaultRosterOp.empName
       : `Duty ${norm}`;
+
+    const empId = hasLiveDeployName
+      ? (matchedDeploy.empId && matchedDeploy.empId !== '--' ? matchedDeploy.empId : defaultRosterOp?.empId || '--')
+      : (defaultRosterOp?.empId || '--');
 
     trainTimelineMap[cleanTid].push({
       dutyId: norm,
       empName,
-      empId: matchedDeploy?.empId || '--',
+      empId,
       startSec,
       endSec,
       startStr: startStr && startStr.includes(':') && startStr.split(':').length === 2 ? `${startStr}:00` : (startStr || '--'),
