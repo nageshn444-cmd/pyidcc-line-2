@@ -626,6 +626,18 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
           normalizeDutyId(a.dutyId) === normLinkId &&
           normalizeScheduleType(a.scheduleType, a.id) === targetSchedule
         );
+        const isOfficialSpecial = Boolean(matchingGcc?.isExchanged || matchingGcc?.status === 'SWAPPED_BY_CC' || matchingGcc?.status === 'RELIEF_DISPATCHED');
+        const isJmdMisassigned = matchingGcc?.empId && String(matchingGcc.empId).startsWith('88');
+        const defaultOp = getOperatorForDuty(normLinkId);
+
+        const resolvedEmpId = (isOfficialSpecial && matchingGcc?.empId)
+          ? matchingGcc.empId
+          : (defaultOp?.empId || (!isJmdMisassigned ? matchingGcc?.empId : null) || '--');
+
+        const resolvedEmpName = (isOfficialSpecial && matchingGcc?.empName)
+          ? matchingGcc.empName
+          : (defaultOp?.empName || (!isJmdMisassigned ? matchingGcc?.empName : null) || '--');
+
         return {
           id: link.id,
           dutyId: normLinkId,
@@ -634,13 +646,9 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
           signOffLocation: matchingGcc?.signOffLocation || link.signOffLocation || '--',
           dutyType: matchingGcc?.dutyType || link.dutyType || '--',
           trainId: matchingGcc?.trainId || link.trainId,
-          empId: (matchingGcc?.empName && matchingGcc.empName !== '--' && !matchingGcc.empName.startsWith('Train Operator') && !matchingGcc.empName.startsWith('Duty '))
-            ? matchingGcc.empId
-            : (getOperatorForDuty(normLinkId)?.empId || matchingGcc?.empId || '--'),
-          empName: (matchingGcc?.empName && matchingGcc.empName !== '--' && !matchingGcc.empName.startsWith('Train Operator') && !matchingGcc.empName.startsWith('Duty '))
-            ? matchingGcc.empName
-            : (getOperatorForDuty(normLinkId)?.empName || matchingGcc?.empName || '--'),
-          remarks: matchingGcc?.remarks || (getOperatorForDuty(normLinkId)?.empName ? 'Official Weekday Roster' : 'Pending GCC Load'),
+          empId: resolvedEmpId,
+          empName: resolvedEmpName,
+          remarks: matchingGcc?.remarks || (defaultOp?.empName ? 'Official Weekday Roster' : 'Pending GCC Load'),
           status: matchingGcc?.status || null,
           isSignedOn: !!matchedAtt,
           signOnTimestamp: matchedAtt ? matchedAtt.signOnTimeActual : null,
@@ -682,6 +690,18 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
         .map(d => {
           const normId = normalizeDutyId(d.dutyId);
           const matchedAtt = attData.find(a => normalizeDutyId(a.dutyId) === normId && normalizeScheduleType(a.scheduleType, a.id) === targetSchedule);
+          const isOfficialSpecial = Boolean(d.isExchanged || d.status === 'SWAPPED_BY_CC' || d.status === 'RELIEF_DISPATCHED');
+          const isJmdMisassigned = d.empId && String(d.empId).startsWith('88');
+          const defaultOp = getOperatorForDuty(normId);
+
+          const resolvedEmpId = (isOfficialSpecial && d.empId)
+            ? d.empId
+            : (defaultOp?.empId || (!isJmdMisassigned ? d.empId : null) || '--');
+
+          const resolvedEmpName = (isOfficialSpecial && d.empName)
+            ? d.empName
+            : (defaultOp?.empName || (!isJmdMisassigned ? d.empName : null) || '--');
+
           return {
             id: d.id,
             dutyId: normId,
@@ -690,8 +710,8 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
             signOffLocation: d.signOffLocation || d.signOffPlace || '--',
             dutyType: d.dutyType || '--',
             trainId: d.trainId || '--',
-            empId: d.empId || '--',
-            empName: d.empName || '--',
+            empId: resolvedEmpId,
+            empName: resolvedEmpName,
             remarks: d.remarks || 'AI Ingest',
             status: d.status || null,
             isSignedOn: !!matchedAtt,

@@ -46,6 +46,7 @@ import {
 } from '../data/weekdayReliefIdChartRegistry';
 import AlstomAtsSystemView from './kmcalc/AlstomAtsSystemView';
 import { generate4DigitTrainId, formatParticularTrainId } from '../utils/trainIdResolver';
+import { WEEKDAY_MASTER_DUTY_ROSTER, getOperatorForDuty } from '../data/weekdayMasterDutyRoster';
 
 export default function LiveTrainPositionTracker({ 
   liveTrainTrackingMap: propLiveTrainTrackingMap = {}, 
@@ -1378,11 +1379,22 @@ export default function LiveTrainPositionTracker({
     const activeDeployments = currentDayLinks.map(link => {
       const normLinkId = normalizeDuty(link.dutyId);
       const matchingGcc = deployData.find(d => normalizeDuty(d.dutyId) === normLinkId);
+      const isOfficialSpecial = Boolean(matchingGcc?.isExchanged || matchingGcc?.status === 'SWAPPED_BY_CC' || matchingGcc?.status === 'RELIEF_DISPATCHED');
+      const isJmdMisassigned = matchingGcc?.empId && String(matchingGcc.empId).startsWith('88');
+      const defaultOp = getOperatorForDuty(normLinkId);
+
+      const resolvedEmpId = (isOfficialSpecial && matchingGcc?.empId)
+        ? matchingGcc.empId
+        : (defaultOp?.empId || (!isJmdMisassigned ? matchingGcc?.empId : null) || link.empId || '--');
+
+      const resolvedEmpName = (isOfficialSpecial && matchingGcc?.empName)
+        ? matchingGcc.empName
+        : (defaultOp?.empName || (!isJmdMisassigned ? matchingGcc?.empName : null) || link.empName || '--');
 
       return {
         dutyId: normLinkId,
-        empId: matchingGcc?.empId || link.empId || '--',
-        empName: matchingGcc?.empName || link.empName || '--',
+        empId: resolvedEmpId,
+        empName: resolvedEmpName,
         isExchanged: matchingGcc?.isExchanged || false,
         originalEmpId: matchingGcc?.originalEmpId || '',
         originalEmpName: matchingGcc?.originalEmpName || '',
@@ -1409,22 +1421,37 @@ export default function LiveTrainPositionTracker({
         const dDuty = normalizeDuty(d.dutyId || '');
         return dDuty && dDuty !== 'UNASSIGNED' && !linkedDutyIds.has(dDuty);
       })
-      .map(d => ({
-        dutyId: normalizeDuty(d.dutyId),
-        empId: d.empId || '--',
-        empName: d.empName || '--',
-        isExchanged: d.isExchanged || false,
-        originalEmpId: d.originalEmpId || '',
-        originalEmpName: d.originalEmpName || '',
-        rawLegs: d.rawLegs || {
-          l1Train: d.trainId || '--',
-          l1Start: d.signOnTime || '--',
-          l1End: '--',
-          l2Train: '--', l2Start: '--', l2End: '--',
-          l3Train: '--', l3Start: '--', l3End: '--',
-          l4Train: '--', l4Start: '--', l4End: '--'
-        }
-      }));
+      .map(d => {
+        const normD = normalizeDuty(d.dutyId);
+        const isOfficialSpecial = Boolean(d.isExchanged || d.status === 'SWAPPED_BY_CC' || d.status === 'RELIEF_DISPATCHED');
+        const isJmdMisassigned = d.empId && String(d.empId).startsWith('88');
+        const defaultOp = getOperatorForDuty(normD);
+
+        const resolvedEmpId = (isOfficialSpecial && d.empId)
+          ? d.empId
+          : (defaultOp?.empId || (!isJmdMisassigned ? d.empId : null) || '--');
+
+        const resolvedEmpName = (isOfficialSpecial && d.empName)
+          ? d.empName
+          : (defaultOp?.empName || (!isJmdMisassigned ? d.empName : null) || '--');
+
+        return {
+          dutyId: normD,
+          empId: resolvedEmpId,
+          empName: resolvedEmpName,
+          isExchanged: d.isExchanged || false,
+          originalEmpId: d.originalEmpId || '',
+          originalEmpName: d.originalEmpName || '',
+          rawLegs: d.rawLegs || {
+            l1Train: d.trainId || '--',
+            l1Start: d.signOnTime || '--',
+            l1End: '--',
+            l2Train: '--', l2Start: '--', l2End: '--',
+            l3Train: '--', l3Start: '--', l3End: '--',
+            l4Train: '--', l4Start: '--', l4End: '--'
+          }
+        };
+      });
 
     const allDeployments = [...activeDeployments, ...aiOnlyDeployments];
 
@@ -1449,27 +1476,53 @@ export default function LiveTrainPositionTracker({
           return;
         }
 
+        let verifiedLiveCurr = liveT.current;
+        if (liveT.current?.dutyId) {
+          const curDutyNorm = String(liveT.current.dutyId).replace(/^duty[_\s-]*/i, '').padStart(2, '0');
+          const dMaster = getOperatorForDuty(curDutyNorm);
+          const isExchanged = Boolean(liveT.current.isExchanged || liveT.current.status === 'SWAPPED_BY_CC' || liveT.current.status === 'RELIEF_DISPATCHED');
+          const isJmd = liveT.current.empId && String(liveT.current.empId).startsWith('88');
+          if (!isExchanged && dMaster?.empName && (isJmd || liveT.current.empName !== dMaster.empName)) {
+            verifiedLiveCurr = { ...liveT.current, empName: dMaster.empName, empId: dMaster.empId };
+          }
+        }
+
+        let verifiedLiveNext = liveT.nextReliver;
+        if (liveT.nextReliver?.dutyId) {
+          const relDutyNorm = String(liveT.nextReliver.dutyId).replace(/^duty[_\s-]*/i, '').padStart(2, '0');
+          const dMaster = getOperatorForDuty(relDutyNorm);
+          const isExchanged = Boolean(liveT.nextReliver.isExchanged || liveT.nextReliver.status === 'SWAPPED_BY_CC' || liveT.nextReliver.status === 'RELIEF_DISPATCHED');
+          const isJmd = liveT.nextReliver.empId && String(liveT.nextReliver.empId).startsWith('88');
+          if (!isExchanged && dMaster?.empName && (isJmd || liveT.nextReliver.empName !== dMaster.empName)) {
+            verifiedLiveNext = { ...liveT.nextReliver, empName: dMaster.empName, empId: dMaster.empId };
+          }
+        }
+
         if (!existing) {
-          calculatedTracking[normId] = liveT;
-          calculatedTracking[tid] = liveT;
+          calculatedTracking[normId] = {
+            ...liveT,
+            current: verifiedLiveCurr,
+            nextReliver: verifiedLiveNext
+          };
+          calculatedTracking[tid] = calculatedTracking[normId];
           return;
         }
 
-        const isLiveCurrValid = liveT.current?.empName && 
-          liveT.current.empName !== '--' && 
-          !liveT.current.empName.startsWith('Train Operator') &&
-          !liveT.current.empName.startsWith('Duty ');
+        const isLiveCurrValid = verifiedLiveCurr?.empName && 
+          verifiedLiveCurr.empName !== '--' && 
+          !verifiedLiveCurr.empName.startsWith('Train Operator') &&
+          !verifiedLiveCurr.empName.startsWith('Duty ');
 
-        const isLiveNextValid = liveT.nextReliver?.empName && 
-          liveT.nextReliver.empName !== '--' && 
-          !liveT.nextReliver.empName.startsWith('Train Operator') &&
-          !liveT.nextReliver.empName.startsWith('Duty ');
+        const isLiveNextValid = verifiedLiveNext?.empName && 
+          verifiedLiveNext.empName !== '--' && 
+          !verifiedLiveNext.empName.startsWith('Train Operator') &&
+          !verifiedLiveNext.empName.startsWith('Duty ');
 
         const merged = {
           ...existing,
-          current: isLiveCurrValid ? { ...existing.current, ...liveT.current } : (existing.current || liveT.current),
+          current: isLiveCurrValid ? { ...existing.current, ...verifiedLiveCurr } : (existing.current || verifiedLiveCurr),
           previous: liveT.previous || existing.previous,
-          nextReliver: isLiveNextValid ? { ...existing.nextReliver, ...liveT.nextReliver } : (existing.nextReliver || liveT.nextReliver)
+          nextReliver: isLiveNextValid ? { ...existing.nextReliver, ...verifiedLiveNext } : (existing.nextReliver || verifiedLiveNext)
         };
         calculatedTracking[normId] = merged;
         calculatedTracking[tid] = merged;
@@ -1652,21 +1705,36 @@ export default function LiveTrainPositionTracker({
 
         let operatorInfo;
         if (currentOp && currentOp.empName && currentOp.empName !== '--') {
+          const curDutyNorm = currentOp.dutyId ? String(currentOp.dutyId).replace(/^duty[_\s-]*/i, '').padStart(2, '0') : null;
+          const curMaster = curDutyNorm ? getOperatorForDuty(curDutyNorm) : null;
+          const isExchanged = Boolean(currentOp.isExchanged || currentOp.status === 'SWAPPED_BY_CC' || currentOp.status === 'RELIEF_DISPATCHED');
+          const isJmdMisassigned = currentOp.empId && String(currentOp.empId).startsWith('88');
+
+          const finalName = (!isExchanged && curMaster?.empName)
+            ? curMaster.empName
+            : (isJmdMisassigned && curMaster?.empName ? curMaster.empName : currentOp.empName);
+
+          const finalId = (!isExchanged && curMaster?.empId)
+            ? curMaster.empId
+            : (isJmdMisassigned && curMaster?.empId ? curMaster.empId : (currentOp.empId || '--'));
+
           operatorInfo = {
-            name: currentOp.empName,
-            id: currentOp.empId || '--',
+            name: finalName,
+            id: finalId,
             dutyNo: currentOp.dutyId || '--',
             startStr: currentOp.startStr || '--',
             endStr: currentOp.endStr || '--',
-            isExchanged: currentOp.isExchanged || false,
+            isExchanged,
             originalEmpName: currentOp.originalEmpName || ''
           };
         } else {
           const crewTrack = dailyCrewTracks.find(ct => String(ct.trainId).trim() === tId || String(ct.trainId).trim() === normTid);
           if (crewTrack?.currentOperator?.name) {
+            const ctDutyNorm = crewTrack.dutyNo ? String(crewTrack.dutyNo).replace(/^duty[_\s-]*/i, '').padStart(2, '0') : null;
+            const ctMaster = ctDutyNorm ? getOperatorForDuty(ctDutyNorm) : null;
             operatorInfo = {
-              name: crewTrack.currentOperator.name,
-              id: crewTrack.currentOperator.employeeId || '--',
+              name: ctMaster?.empName || crewTrack.currentOperator.name,
+              id: ctMaster?.empId || crewTrack.currentOperator.employeeId || '--',
               dutyNo: crewTrack.dutyNo || '--',
               startStr: '--',
               endStr: '--',
@@ -1688,14 +1756,27 @@ export default function LiveTrainPositionTracker({
 
         let reliever = null;
         if (relieverOp && relieverOp.empName && relieverOp.empName !== '--' && relieverOp.empName !== '-') {
+          const relDutyNorm = relieverOp.dutyId ? String(relieverOp.dutyId).replace(/^duty[_\s-]*/i, '').padStart(2, '0') : null;
+          const relMaster = relDutyNorm ? getOperatorForDuty(relDutyNorm) : null;
+          const isExchanged = Boolean(relieverOp.isExchanged || relieverOp.status === 'SWAPPED_BY_CC' || relieverOp.status === 'RELIEF_DISPATCHED');
+          const isJmdMisassigned = relieverOp.empId && String(relieverOp.empId).startsWith('88');
+
+          const finalRelName = (!isExchanged && relMaster?.empName)
+            ? relMaster.empName
+            : (isJmdMisassigned && relMaster?.empName ? relMaster.empName : relieverOp.empName);
+
+          const finalRelId = (!isExchanged && relMaster?.empId)
+            ? relMaster.empId
+            : (isJmdMisassigned && relMaster?.empId ? relMaster.empId : (relieverOp.empId || '--'));
+
           reliever = {
-            name: relieverOp.empName,
-            id: relieverOp.empId || '--',
+            name: finalRelName,
+            id: finalRelId,
             dutyNo: relieverOp.dutyId || '--',
             takeoverTime: relieverOp.startStr || '--',
             endTime: relieverOp.endStr || '--',
             startSec: relieverOp.startSec,
-            isExchanged: relieverOp.isExchanged || false,
+            isExchanged,
             originalEmpName: relieverOp.originalEmpName || ''
           };
         }
@@ -1970,16 +2051,45 @@ export default function LiveTrainPositionTracker({
 
       let reliever = null;
       if (relieverOp && relieverOp.empName && relieverOp.empName !== '--' && relieverOp.empName !== '-') {
+        const relDutyNorm = relieverOp.dutyId ? String(relieverOp.dutyId).replace(/^duty[_\s-]*/i, '').padStart(2, '0') : null;
+        const relMaster = relDutyNorm ? getOperatorForDuty(relDutyNorm) : null;
+        const isExchanged = Boolean(relieverOp.isExchanged || relieverOp.status === 'SWAPPED_BY_CC' || relieverOp.status === 'RELIEF_DISPATCHED');
+        const isJmd = relieverOp.empId && String(relieverOp.empId).startsWith('88');
+
+        const finalRelName = (!isExchanged && relMaster?.empName)
+          ? relMaster.empName
+          : (isJmd && relMaster?.empName ? relMaster.empName : relieverOp.empName);
+
+        const finalRelId = (!isExchanged && relMaster?.empId)
+          ? relMaster.empId
+          : (isJmd && relMaster?.empId ? relMaster.empId : (relieverOp.empId || '--'));
+
         reliever = {
-          name: relieverOp.empName,
-          id: relieverOp.empId || '--',
+          name: finalRelName,
+          id: finalRelId,
           dutyNo: relieverOp.dutyId || '--',
           takeoverTime: relieverOp.startStr || '--',
           endTime: relieverOp.endStr || '--',
           startSec: relieverOp.startSec,
-          isExchanged: relieverOp.isExchanged || false,
+          isExchanged,
           originalEmpName: relieverOp.originalEmpName || ''
         };
+      }
+
+      let stabCurName = currentOp?.empName;
+      let stabCurId = currentOp?.empId;
+      if (currentOp?.dutyId) {
+        const curDutyNorm = String(currentOp.dutyId).replace(/^duty[_\s-]*/i, '').padStart(2, '0');
+        const dMaster = getOperatorForDuty(curDutyNorm);
+        const isExchanged = Boolean(currentOp.isExchanged || currentOp.status === 'SWAPPED_BY_CC' || currentOp.status === 'RELIEF_DISPATCHED');
+        const isJmd = currentOp.empId && String(currentOp.empId).startsWith('88');
+        if (!isExchanged && dMaster?.empName) {
+          stabCurName = dMaster.empName;
+          stabCurId = dMaster.empId || stabCurId;
+        } else if (isJmd && dMaster?.empName) {
+          stabCurName = dMaster.empName;
+          stabCurId = dMaster.empId;
+        }
       }
 
       const isVerifiedReliever = Boolean(
@@ -2004,8 +2114,8 @@ export default function LiveTrainPositionTracker({
         computedTrainId: null,
         trainIdStatus: idResult.status,
         displayTrainId: `T-${particularIdStr} (STABLED)`,
-        operatorName: currentOp?.empName && currentOp.empName !== '--' ? currentOp.empName : `Train Operator ${tId}`,
-        operatorId: currentOp?.empId || '--',
+        operatorName: stabCurName && stabCurName !== '--' ? stabCurName : `Train Operator ${tId}`,
+        operatorId: stabCurId || '--',
         dutyNo: currentOp?.dutyId || '--',
         isExchanged: currentOp?.isExchanged || false,
         originalEmpName: currentOp?.originalEmpName || '',

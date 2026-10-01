@@ -107,15 +107,16 @@ export default function ReliefTracking({
                         : Object.values(liveTrainTrackingMap).find(t => t?.current?.dutyId === normDuty || t?.nextReliver?.dutyId === normDuty || t?.previous?.dutyId === normDuty)?.current;
 
         const defaultRosterOp = getOperatorForDuty(normDuty);
-        const hasLiveOp = Boolean(matchedOp?.empName && matchedOp.empName !== '--' && !matchedOp.empName.startsWith('Train Operator') && !matchedOp.empName.startsWith('Duty '));
+        const isOfficialSpecial = Boolean(matchedOp?.isExchanged || matchedOp?.status === 'SWAPPED_BY_CC' || matchedOp?.status === 'RELIEF_DISPATCHED');
+        const isJmdMisassigned = matchedOp?.empId && String(matchedOp.empId).startsWith('88');
 
-        const empName = hasLiveOp
+        const empName = (isOfficialSpecial && matchedOp?.empName)
           ? matchedOp.empName
-          : (defaultRosterOp?.empName || `Duty ${normDuty}`);
+          : (defaultRosterOp?.empName || (!isJmdMisassigned ? matchedOp?.empName : null) || `Duty ${normDuty}`);
 
-        const empId = hasLiveOp
-          ? (matchedOp.empId && matchedOp.empId !== '--' ? matchedOp.empId : (defaultRosterOp?.empId || '--'))
-          : (defaultRosterOp?.empId || '--');
+        const empId = (isOfficialSpecial && matchedOp?.empId)
+          ? matchedOp.empId
+          : (defaultRosterOp?.empId || (!isJmdMisassigned ? matchedOp?.empId : null) || '--');
 
         return {
           dutyId: normDuty,
@@ -658,9 +659,14 @@ export default function ReliefTracking({
                                         : (tracking?.previous?.dutyId === normDuty) ? tracking.previous
                                         : null;
                         const defaultRosterOp = getOperatorForDuty(normDuty);
-                        const hasLiveName = matchedOp?.empName && matchedOp.empName !== '--' && !matchedOp.empName.startsWith('Duty ');
-                        const opDisplayName = hasLiveName ? matchedOp.empName : (defaultRosterOp?.empName || '');
-                        const opDisplayId = hasLiveName ? matchedOp.empId : (defaultRosterOp?.empId || '');
+                        const isOfficialSpecial = Boolean(matchedOp?.isExchanged || matchedOp?.status === 'SWAPPED_BY_CC' || matchedOp?.status === 'RELIEF_DISPATCHED');
+                        const isJmdMisassigned = matchedOp?.empId && String(matchedOp.empId).startsWith('88');
+                        const opDisplayName = (isOfficialSpecial && matchedOp?.empName)
+                          ? matchedOp.empName
+                          : (defaultRosterOp?.empName || (!isJmdMisassigned ? matchedOp?.empName : null) || '');
+                        const opDisplayId = (isOfficialSpecial && matchedOp?.empId)
+                          ? matchedOp.empId
+                          : (defaultRosterOp?.empId || (!isJmdMisassigned ? matchedOp?.empId : null) || '');
 
                         return (
                           <React.Fragment key={`cell-${trainId}-${rowIndex}`}>
@@ -749,9 +755,14 @@ export default function ReliefTracking({
               const liveOp = liveOpMatch?.current?.dutyId === normD ? liveOpMatch.current 
                           : liveOpMatch?.nextReliver?.dutyId === normD ? liveOpMatch.nextReliver 
                           : null;
-              const hasLiveOp = Boolean(liveOp?.empName && liveOp.empName !== '--' && !liveOp.empName.startsWith('Train Operator') && !liveOp.empName.startsWith('Duty '));
-              const displayEmpName = hasLiveOp ? liveOp.empName : defaultRosterOp?.empName;
-              const displayEmpId = hasLiveOp ? liveOp.empId : defaultRosterOp?.empId;
+              const isOfficialSpecial = Boolean(liveOp?.isExchanged || liveOp?.status === 'SWAPPED_BY_CC' || liveOp?.status === 'RELIEF_DISPATCHED');
+              const isJmdMisassigned = liveOp?.empId && String(liveOp.empId).startsWith('88');
+              const displayEmpName = (isOfficialSpecial && liveOp?.empName)
+                ? liveOp.empName
+                : (defaultRosterOp?.empName || (!isJmdMisassigned ? liveOp?.empName : null));
+              const displayEmpId = (isOfficialSpecial && liveOp?.empId)
+                ? liveOp.empId
+                : (defaultRosterOp?.empId || (!isJmdMisassigned ? liveOp?.empId : null));
 
               return (
                 <div 

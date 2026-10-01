@@ -3199,17 +3199,25 @@ export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType
     const matchedDeploy = deployed || deployMap.get(norm) || deployMap.get(norm.replace(/^0/, ''));
     const defaultRosterOp = getOperatorForDuty(norm);
 
-    const hasLiveDeployName = matchedDeploy?.empName && matchedDeploy.empName !== '--' && !matchedDeploy.empName.startsWith('Train Operator') && !matchedDeploy.empName.startsWith('Duty ');
+    const isExchanged = Boolean(matchedDeploy?.isExchanged || matchedDeploy?.status === 'SWAPPED_BY_CC' || matchedDeploy?.status === 'RELIEF_DISPATCHED');
+    const isJmdMisassigned = matchedDeploy?.empId && String(matchedDeploy.empId).startsWith('88');
 
-    const empName = hasLiveDeployName
-      ? matchedDeploy.empName
-      : defaultRosterOp?.empName
-      ? defaultRosterOp.empName
-      : `Duty ${norm}`;
+    let empName;
+    let empId;
 
-    const empId = hasLiveDeployName
-      ? (matchedDeploy.empId && matchedDeploy.empId !== '--' ? matchedDeploy.empId : defaultRosterOp?.empId || '--')
-      : (defaultRosterOp?.empId || '--');
+    if (isExchanged && matchedDeploy?.empName && matchedDeploy.empName !== '--') {
+      empName = matchedDeploy.empName;
+      empId = matchedDeploy.empId || defaultRosterOp?.empId || '--';
+    } else if (defaultRosterOp?.empName) {
+      empName = defaultRosterOp.empName;
+      empId = defaultRosterOp.empId || '--';
+    } else if (matchedDeploy?.empName && matchedDeploy.empName !== '--' && !isJmdMisassigned && !matchedDeploy.empName.startsWith('Train Operator') && !matchedDeploy.empName.startsWith('Duty ')) {
+      empName = matchedDeploy.empName;
+      empId = matchedDeploy.empId || '--';
+    } else {
+      empName = `Duty ${norm}`;
+      empId = '--';
+    }
 
     trainTimelineMap[cleanTid].push({
       dutyId: norm,

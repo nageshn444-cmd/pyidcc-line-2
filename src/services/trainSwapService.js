@@ -32,6 +32,7 @@ import { BMRCL_CREW_MASTER_BACKUP } from '../data/bmrclCrewRegistry';
 import { EMPLOYEE_MASTER_REGISTRY } from '../data/employeeProfileMaster';
 import { OFFICIAL_JMD_TD_REGISTRY } from '../data/jmdCrewMaster';
 import { OFFICIAL_PYID_ACTIVE_IDS, normalizeCanonicalEmpId } from '../utils/crewRegistryDataMerger';
+import { WEEKDAY_MASTER_DUTY_ROSTER, getOperatorForDuty } from '../data/weekdayMasterDutyRoster';
 
 // ── BMRCL Line-2 Station Master (Green Line Only) ──
 export const GREEN_LINE_STATIONS = [
@@ -635,6 +636,7 @@ export function findDutyAndTripFromRoster(dayType = DAY_TYPES.WEEKDAY, trainId, 
  * Ensures official duty-to-operator assignments (e.g. Duty 35 -> Shamukha Rao B #22245, Duty 54 -> Venkatesh N #22455).
  */
 export const CANONICAL_WEEKDAY_DUTY_OPERATORS = {
+  ...WEEKDAY_MASTER_DUTY_ROSTER,
   '35': { empId: '22245', empName: 'Shamukha Rao B', dutyNo: '35' },
   '54': { empId: '22455', empName: 'Venkatesh N', dutyNo: '54' }
 };
@@ -648,7 +650,7 @@ export function lookupDeployedOperatorFromCore(deployments = [], crewRegistry = 
   const activeCandidatesMap = new Map(activeCandidatePool.map(c => [String(c.empId), c]));
 
   // Official Canonical Duty Assignment for BMRCL Line 2 Weekday Roster
-  const canonicalAssignment = CANONICAL_WEEKDAY_DUTY_OPERATORS[normDuty] || CANONICAL_WEEKDAY_DUTY_OPERATORS[unnormDuty];
+  const canonicalAssignment = CANONICAL_WEEKDAY_DUTY_OPERATORS[normDuty] || CANONICAL_WEEKDAY_DUTY_OPERATORS[unnormDuty] || getOperatorForDuty(normDuty);
 
   // 1. Check live deployments from Dispatch Gateway Core (crew_daily_deployment / dispatch_deployments)
   const deployed = (deployments || []).find(d => {
@@ -667,9 +669,11 @@ export function lookupDeployedOperatorFromCore(deployments = [], crewRegistry = 
   }
 
   // Canonical Duty Override: If this duty has an authoritative roster assignment and
-  // the live deployment is unassigned, empty, or carries an obsolete misassignment (e.g. 21994 on Duty 35 or 22256 on Duty 54)
+  // the live deployment is unassigned, empty, contains a JMD driver misassigned to regular duty, or carries an obsolete misassignment
+  const isExchanged = Boolean(deployed?.isExchanged || deployed?.status === 'SWAPPED_BY_CC' || deployed?.status === 'RELIEF_DISPATCHED');
+  const isJmdMisassigned = empId && String(empId).startsWith('88');
   if (canonicalAssignment && (normDay === DAY_TYPES.WEEKDAY || normDay === DAY_TYPES.MONDAY)) {
-    if (!empId || empId === '--' || empId === 'UNASSIGNED' || String(empId) === '21994' || String(empId) === '22256') {
+    if (!isExchanged && (!empId || empId === '--' || empId === 'UNASSIGNED' || isJmdMisassigned || String(empId) === '21994' || String(empId) === '22256' || (canonicalAssignment.empId && empId !== canonicalAssignment.empId))) {
       empId = canonicalAssignment.empId;
       empName = canonicalAssignment.empName;
     }
