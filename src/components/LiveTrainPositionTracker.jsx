@@ -40,7 +40,8 @@ import {
   SUNDAY_RELIEF_ID_CHART_META,
   getReliefIdChartForDay,
   normalizeScheduleDay,
-  normalizeTrackTrainId 
+  normalizeTrackTrainId,
+  resolveLiveRelieverOperator
 } from '../data/weekdayReliefIdChartRegistry';
 import AlstomAtsSystemView from './kmcalc/AlstomAtsSystemView';
 import { generate4DigitTrainId, formatParticularTrainId } from '../utils/trainIdResolver';
@@ -475,8 +476,9 @@ export default function LiveTrainPositionTracker({
 
   const normalizeDuty = (id) => {
     if (!id) return '';
-    const clean = String(id).replace(/^(duty|d)\s*/i, '').trim();
-    if (/^[1-9]$/.test(clean)) return '0' + clean;
+    const clean = String(id).replace(/^(duty|d)\s*[#]*/i, '').replace(/^#/, '').trim();
+    const num = parseInt(clean, 10);
+    if (!isNaN(num) && num >= 1 && num <= 99) return String(num).padStart(2, '0');
     return clean;
   };
 
@@ -1298,6 +1300,108 @@ export default function LiveTrainPositionTracker({
     }
   };
 
+  // ── Authoritative Dispatch Gateway Core Sync & Reactive Listeners ──
+  const [dispatchUpdateTrigger, setDispatchUpdateTrigger] = useState(0);
+  useEffect(() => {
+    const handleUpdate = () => setDispatchUpdateTrigger(prev => prev + 1);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('pyidcc_dispatch_deployments_updated', handleUpdate);
+      window.addEventListener('storage', handleUpdate);
+      return () => {
+        window.removeEventListener('pyidcc_dispatch_deployments_updated', handleUpdate);
+        window.removeEventListener('storage', handleUpdate);
+      };
+    }
+  }, []);
+
+  // Aggregated deployed duties directly from DISPATCH GATEWAY CORE
+  const dispatchGatewayDuties = useMemo(() => {
+    const list = [];
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const activeDeployRaw = window.localStorage.getItem('pyidcc_active_dispatch_deployments');
+        if (activeDeployRaw) {
+          const parsed = JSON.parse(activeDeployRaw);
+          if (Array.isArray(parsed) && parsed.length > 0) list.push(...parsed);
+        }
+        const cached = window.localStorage.getItem('pyidcc_roster_desk_console_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          const cDuties = parsed?.duties || parsed?.onDuty || parsed?.allDuties;
+          if (Array.isArray(cDuties) && cDuties.length > 0) list.push(...cDuties);
+        }
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const key = window.localStorage.key(i);
+          if (key && key.startsWith('pyidcc_roster_desk_console_cache_')) {
+            const raw = window.localStorage.getItem(key);
+            if (raw) {
+              const p = JSON.parse(raw);
+              const cDuties = p?.duties || p?.onDuty || p?.allDuties;
+              if (Array.isArray(cDuties) && cDuties.length > 0) list.push(...cDuties);
+            }
+          }
+        }
+      }
+    } catch (_e) {}
+    if (consoleDeskDuties && consoleDeskDuties.length > 0) {
+      list.push(...consoleDeskDuties);
+    }
+    if (dailyDeployments && dailyDeployments.length > 0) {
+      list.push(...dailyDeployments);
+    }
+    return list;
+  }, [consoleDeskDuties, dailyDeployments, dispatchUpdateTrigger]);
+
+  const { dispatchDutyOperatorMap, dispatchTrainOperatorMap } = useMemo(() => {
+    const byDuty = {};
+    const byTrain = {};
+
+    dispatchGatewayDuties.forEach(d => {
+      if (!d) return;
+      const rawDuty = String(d.dutyId || d.dutyNo || '').trim();
+      const normDuty = normalizeDuty(rawDuty);
+      const empName = String(
+        (d.operatorName && d.operatorName !== '--' && !d.operatorName.startsWith('Duty ') && !d.operatorName.startsWith('Train Operator'))
+          ? d.operatorName
+          : (d.empName && d.empName !== '--' && !d.empName.startsWith('Duty ') && !d.empName.startsWith('Train Operator'))
+          ? d.empName
+          : d.name || d.operatorName || d.empName || ''
+      ).trim();
+      const empId = String(d.operatorId || d.empId || d.empNo || d.id || '').trim();
+      const rawTrain = String(d.trainId || '').trim();
+
+      const isValidName = empName && 
+        empName !== '--' && 
+        empName !== '-' && 
+        !empName.toLowerCase().includes('unassigned') &&
+        !empName.toUpperCase().includes('VACANT') &&
+        !empName.startsWith('Train Operator') &&
+        !empName.startsWith('Duty ');
+
+      if (isValidName) {
+        const record = {
+          dutyNo: normDuty,
+          dutyId: normDuty,
+          operatorName: empName,
+          empName,
+          operatorId: empId || '--',
+          empId: empId || '--',
+          trainId: rawTrain && rawTrain !== '--' && rawTrain !== '-' ? rawTrain : undefined
+        };
+        if (normDuty && !byDuty[normDuty]) {
+          byDuty[normDuty] = record;
+        }
+        if (rawTrain && rawTrain !== '--' && rawTrain !== '-') {
+          if (!byTrain[rawTrain]) byTrain[rawTrain] = record;
+          const cleanTid = normalizeTrackTrainId(rawTrain);
+          if (cleanTid && !byTrain[cleanTid]) byTrain[cleanTid] = record;
+        }
+      }
+    });
+
+    return { dispatchDutyOperatorMap: byDuty, dispatchTrainOperatorMap: byTrain };
+  }, [dispatchGatewayDuties]);
+
   // ── Unified Dynamic Train Tracking Map identical to Live Train Operator Relief Matrix ──
   const dynamicTrainTrackingMap = useMemo(() => {
     const rawSchedule = (activeSchedule || 'WEEKDAY').toUpperCase();
@@ -1313,9 +1417,16 @@ export default function LiveTrainPositionTracker({
     }
 
     // Ingest all active deployed duties from AutomatedDispatchGate / Roster Desk Console
-    const allDeskDuties = [...consoleDeskDuties];
+    const allDeskDuties = [...dispatchGatewayDuties];
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
+        const activeDeployRaw = window.localStorage.getItem('pyidcc_active_dispatch_deployments');
+        if (activeDeployRaw) {
+          const parsed = JSON.parse(activeDeployRaw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            allDeskDuties.push(...parsed);
+          }
+        }
         const cached = window.localStorage.getItem('pyidcc_roster_desk_console_cache');
         if (cached) {
           const parsed = JSON.parse(cached);
@@ -1350,7 +1461,7 @@ export default function LiveTrainPositionTracker({
       deployData = dailyDeployments;
     }
 
-    const unifiedDeployList = [...allDeskDuties, ...deployData];
+    const unifiedDeployList = [...dispatchGatewayDuties, ...allDeskDuties, ...deployData];
 
     const activeDeployments = currentDayLinks.map(link => {
       const normLinkId = normalizeDuty(link.dutyId);
@@ -1362,19 +1473,26 @@ export default function LiveTrainPositionTracker({
       const defaultOp = getOperatorForDuty(normLinkId);
 
       // Active train operator deployed in AutomatedDispatchGate takes absolute priority
-      const hasActiveDeployed = matchingGcc?.empName && 
-        matchingGcc.empName !== '--' && 
-        matchingGcc.empName !== '-' && 
-        !matchingGcc.empName.toLowerCase().includes('unassigned') &&
-        !matchingGcc.empName.startsWith('Train Operator') &&
-        !matchingGcc.empName.startsWith('Duty ');
+      const candOpName = (matchingGcc?.operatorName && matchingGcc.operatorName !== '--' && !matchingGcc.operatorName.startsWith('Duty ') && !matchingGcc.operatorName.startsWith('Train Operator'))
+        ? matchingGcc.operatorName
+        : (matchingGcc?.empName && matchingGcc.empName !== '--' && !matchingGcc.empName.startsWith('Duty ') && !matchingGcc.empName.startsWith('Train Operator'))
+        ? matchingGcc.empName
+        : matchingGcc?.name || null;
+      const candOpId = matchingGcc?.operatorId || matchingGcc?.empId || matchingGcc?.empNo || null;
+
+      const hasActiveDeployed = Boolean(candOpName && 
+        candOpName !== '--' && 
+        candOpName !== '-' && 
+        !candOpName.toLowerCase().includes('unassigned') &&
+        !candOpName.startsWith('Train Operator') &&
+        !candOpName.startsWith('Duty '));
 
       const resolvedEmpId = hasActiveDeployed
-        ? matchingGcc.empId
+        ? (candOpId || matchingGcc?.empId || '--')
         : (link.empId || defaultOp?.empId || matchingGcc?.empId || '--');
 
       const resolvedEmpName = hasActiveDeployed
-        ? matchingGcc.empName
+        ? candOpName
         : (link.empName || defaultOp?.empName || matchingGcc?.empName || '--');
 
       return {
@@ -1412,19 +1530,26 @@ export default function LiveTrainPositionTracker({
         const isOfficialSpecial = Boolean(d.isExchanged || d.status === 'SWAPPED_BY_CC' || d.status === 'RELIEF_DISPATCHED');
         const defaultOp = getOperatorForDuty(normD);
 
-        const hasActiveDeployed = d.empName && 
-          d.empName !== '--' && 
-          d.empName !== '-' && 
-          !d.empName.toLowerCase().includes('unassigned') &&
-          !d.empName.startsWith('Train Operator') &&
-          !d.empName.startsWith('Duty ');
+        const candAiOpName = (d.operatorName && d.operatorName !== '--' && !d.operatorName.startsWith('Duty ') && !d.operatorName.startsWith('Train Operator'))
+          ? d.operatorName
+          : (d.empName && d.empName !== '--' && !d.empName.startsWith('Duty ') && !d.empName.startsWith('Train Operator'))
+          ? d.empName
+          : d.name || null;
+        const candAiOpId = d.operatorId || d.empId || d.empNo || null;
+
+        const hasActiveDeployed = Boolean(candAiOpName && 
+          candAiOpName !== '--' && 
+          candAiOpName !== '-' && 
+          !candAiOpName.toLowerCase().includes('unassigned') &&
+          !candAiOpName.startsWith('Train Operator') &&
+          !candAiOpName.startsWith('Duty '));
 
         const resolvedEmpId = hasActiveDeployed
-          ? d.empId
+          ? (candAiOpId || d.empId || '--')
           : (defaultOp?.empId || d.empId || '--');
 
         const resolvedEmpName = hasActiveDeployed
-          ? d.empName
+          ? candAiOpName
           : (defaultOp?.empName || d.empName || '--');
 
         return {
@@ -1470,7 +1595,8 @@ export default function LiveTrainPositionTracker({
 
         let verifiedLiveCurr = liveT.current;
         if (liveT.current?.dutyId) {
-          const curDutyNorm = String(liveT.current.dutyId).replace(/^duty[_\s-]*/i, '').padStart(2, '0');
+          const curDutyNorm = normalizeDuty(liveT.current.dutyId);
+          const dDeploy = dispatchDutyOperatorMap[curDutyNorm];
           const dMaster = getOperatorForDuty(curDutyNorm);
           const hasLiveCurName = liveT.current.empName && 
             liveT.current.empName !== '--' && 
@@ -1479,14 +1605,22 @@ export default function LiveTrainPositionTracker({
             !liveT.current.empName.startsWith('Train Operator') &&
             !liveT.current.empName.startsWith('Duty ');
 
-          if (!hasLiveCurName && dMaster?.empName) {
-            verifiedLiveCurr = { ...liveT.current, empName: dMaster.empName, empId: dMaster.empId };
+          const resolvedName = (dDeploy?.operatorName) ? dDeploy.operatorName
+            : hasLiveCurName ? liveT.current.empName
+            : (dDeploy?.operatorName || dMaster?.empName);
+          const resolvedId = (dDeploy?.operatorId) ? dDeploy.operatorId
+            : hasLiveCurName ? liveT.current.empId
+            : (dDeploy?.operatorId || dMaster?.empId);
+
+          if (resolvedName) {
+            verifiedLiveCurr = { ...liveT.current, empName: resolvedName, empId: resolvedId, dutyId: curDutyNorm };
           }
         }
 
         let verifiedLiveNext = liveT.nextReliver;
         if (liveT.nextReliver?.dutyId) {
-          const relDutyNorm = String(liveT.nextReliver.dutyId).replace(/^duty[_\s-]*/i, '').padStart(2, '0');
+          const relDutyNorm = normalizeDuty(liveT.nextReliver.dutyId);
+          const dDeploy = dispatchDutyOperatorMap[relDutyNorm];
           const dMaster = getOperatorForDuty(relDutyNorm);
           const hasLiveRelName = liveT.nextReliver.empName && 
             liveT.nextReliver.empName !== '--' && 
@@ -1495,8 +1629,15 @@ export default function LiveTrainPositionTracker({
             !liveT.nextReliver.empName.startsWith('Train Operator') &&
             !liveT.nextReliver.empName.startsWith('Duty ');
 
-          if (!hasLiveRelName && dMaster?.empName) {
-            verifiedLiveNext = { ...liveT.nextReliver, empName: dMaster.empName, empId: dMaster.empId };
+          const resolvedName = (dDeploy?.operatorName) ? dDeploy.operatorName
+            : hasLiveRelName ? liveT.nextReliver.empName
+            : (dDeploy?.operatorName || dMaster?.empName);
+          const resolvedId = (dDeploy?.operatorId) ? dDeploy.operatorId
+            : hasLiveRelName ? liveT.nextReliver.empId
+            : (dDeploy?.operatorId || dMaster?.empId);
+
+          if (resolvedName) {
+            verifiedLiveNext = { ...liveT.nextReliver, empName: resolvedName, empId: resolvedId, dutyId: relDutyNorm };
           }
         }
 
@@ -1532,7 +1673,7 @@ export default function LiveTrainPositionTracker({
     }
 
     return calculatedTracking;
-  }, [linkRoster, dailyDeployments, activeSchedule, weekdayEdition, simulatedTime, propLiveTrainTrackingMap]);
+  }, [linkRoster, dailyDeployments, activeSchedule, weekdayEdition, simulatedTime, propLiveTrainTrackingMap, dispatchGatewayDuties, dispatchDutyOperatorMap]);
 
   // ── Synchronized Rows according to RE-ALIGNED CHRONOLOGICAL MATRIX SHEET as per day type ──
   const matrixRows = useMemo(() => {
@@ -1705,29 +1846,54 @@ export default function LiveTrainPositionTracker({
 
         const prevOp = liveTracking.previous || tracking.previous || null;
 
-        let operatorInfo;
         const hasCurrentOpName = Boolean(
-          currentOp?.empName && 
-          currentOp.empName !== '--' && 
-          currentOp.empName !== '-' && 
+          currentOp?.empName &&
+          currentOp.empName !== '--' &&
+          currentOp.empName !== '-' &&
           !currentOp.empName.toLowerCase().includes('unassigned') &&
           !currentOp.empName.startsWith('Train Operator') &&
           !currentOp.empName.startsWith('Duty ')
         );
 
-        if (hasCurrentOpName) {
-          const isExchanged = Boolean(currentOp.isExchanged || currentOp.status === 'SWAPPED_BY_CC' || currentOp.status === 'RELIEF_DISPATCHED');
+        const hasRelieverOpName = Boolean(
+          relieverOp?.empName &&
+          relieverOp.empName !== '--' &&
+          relieverOp.empName !== '-' &&
+          !relieverOp.empName.toLowerCase().includes('unassigned') &&
+          !relieverOp.empName.startsWith('Train Operator') &&
+          !relieverOp.empName.startsWith('Duty ')
+        );
+
+        // 1. Authoritative resolution for Current Driving Operator strictly prioritizing DISPATCH GATEWAY CORE
+        const curDutyNorm = currentOp?.dutyId ? normalizeDuty(currentOp.dutyId) : null;
+        const dispatchDutyOp = curDutyNorm ? dispatchDutyOperatorMap[curDutyNorm] : null;
+        const dispatchTrainOp = dispatchTrainOperatorMap[tId] || dispatchTrainOperatorMap[normTid] || null;
+
+        const effectiveCurName = (dispatchDutyOp?.operatorName) ? dispatchDutyOp.operatorName
+          : (dispatchTrainOp?.operatorName) ? dispatchTrainOp.operatorName
+          : hasCurrentOpName ? currentOp.empName
+          : null;
+
+        const effectiveCurId = (dispatchDutyOp?.operatorId) ? dispatchDutyOp.operatorId
+          : (dispatchTrainOp?.operatorId) ? dispatchTrainOp.operatorId
+          : hasCurrentOpName ? currentOp.empId
+          : null;
+
+        const effectiveDutyNo = curDutyNorm || dispatchDutyOp?.dutyNo || dispatchTrainOp?.dutyNo || currentOp?.dutyId || '--';
+
+        let operatorInfo;
+        if (effectiveCurName) {
+          const isExchanged = Boolean(currentOp?.isExchanged || currentOp?.status === 'SWAPPED_BY_CC' || currentOp?.status === 'RELIEF_DISPATCHED');
           operatorInfo = {
-            name: currentOp.empName,
-            id: currentOp.empId || '--',
-            dutyNo: currentOp.dutyId || '--',
-            startStr: currentOp.startStr || '--',
-            endStr: currentOp.endStr || '--',
+            name: effectiveCurName,
+            id: effectiveCurId || '--',
+            dutyNo: effectiveDutyNo,
+            startStr: currentOp?.startStr || '--',
+            endStr: currentOp?.endStr || '--',
             isExchanged,
-            originalEmpName: currentOp.originalEmpName || ''
+            originalEmpName: currentOp?.originalEmpName || ''
           };
         } else {
-          const curDutyNorm = currentOp?.dutyId ? String(currentOp.dutyId).replace(/^duty[_\s-]*/i, '').padStart(2, '0') : null;
           const curMaster = curDutyNorm ? getOperatorForDuty(curDutyNorm) : null;
           const crewTrack = dailyCrewTracks.find(ct => String(ct.trainId).trim() === tId || String(ct.trainId).trim() === normTid);
 
@@ -1737,7 +1903,7 @@ export default function LiveTrainPositionTracker({
           operatorInfo = {
             name: fallbackName,
             id: fallbackId,
-            dutyNo: currentOp?.dutyId || crewTrack?.dutyNo || '--',
+            dutyNo: effectiveDutyNo !== '--' ? effectiveDutyNo : (crewTrack?.dutyNo || '--'),
             startStr: currentOp?.startStr || '--',
             endStr: currentOp?.endStr || '--',
             isExchanged: false,
@@ -1745,39 +1911,58 @@ export default function LiveTrainPositionTracker({
           };
         }
 
-        let reliever = null;
-        const hasRelieverOpName = Boolean(
-          relieverOp?.empName && 
-          relieverOp.empName !== '--' && 
-          relieverOp.empName !== '-' && 
-          !relieverOp.empName.toLowerCase().includes('unassigned') &&
-          !relieverOp.empName.startsWith('Train Operator') &&
-          !relieverOp.empName.startsWith('Duty ')
-        );
+        // 2. Authoritative resolution for Reliever strictly prioritizing DISPATCH GATEWAY CORE
+        // and Day-Type Aware Dynamic Reliever Resolution Pipeline
+        const dynamicReliever = resolveLiveRelieverOperator({
+          trainId: tId,
+          evalSecs,
+          currentDayType: activeSchedule || 'WEEKDAY',
+          wttReliefChartRegistry: getReliefIdChartForDay,
+          dispatchDutyOperatorMap,
+          staticMasterRoster: getOperatorForDuty
+        });
 
-        if (hasRelieverOpName) {
-          const isExchanged = Boolean(relieverOp.isExchanged || relieverOp.status === 'SWAPPED_BY_CC' || relieverOp.status === 'RELIEF_DISPATCHED');
+        const relDutyNorm = relieverOp?.dutyId 
+          ? normalizeDuty(relieverOp.dutyId) 
+          : (dynamicReliever?.dutyNo && dynamicReliever.dutyNo !== '--') 
+            ? normalizeDuty(dynamicReliever.dutyNo) 
+            : null;
+
+        const dispatchRelieverOp = relDutyNorm ? dispatchDutyOperatorMap[relDutyNorm] : null;
+
+        const effectiveRelName = (dispatchRelieverOp?.operatorName) ? dispatchRelieverOp.operatorName
+          : (dynamicReliever?.name && dynamicReliever.name !== 'UNASSIGNED') ? dynamicReliever.name
+          : hasRelieverOpName ? relieverOp.empName
+          : null;
+
+        const effectiveRelId = (dispatchRelieverOp?.operatorId) ? dispatchRelieverOp.operatorId
+          : (dynamicReliever?.id && dynamicReliever.id !== '--') ? dynamicReliever.id
+          : hasRelieverOpName ? relieverOp.empId
+          : null;
+
+        let reliever = null;
+        if (effectiveRelName) {
+          const isExchanged = Boolean(relieverOp?.isExchanged || dynamicReliever?.isExchanged || relieverOp?.status === 'SWAPPED_BY_CC' || relieverOp?.status === 'RELIEF_DISPATCHED');
           reliever = {
-            name: relieverOp.empName,
-            id: relieverOp.empId || '--',
-            dutyNo: relieverOp.dutyId || '--',
-            takeoverTime: relieverOp.startStr || '--',
-            endTime: relieverOp.endStr || '--',
-            startSec: relieverOp.startSec,
+            name: effectiveRelName,
+            id: effectiveRelId || '--',
+            dutyNo: relDutyNorm || dynamicReliever?.dutyNo || relieverOp?.dutyId || '--',
+            takeoverTime: relieverOp?.startStr || dynamicReliever?.takeoverTime || '--',
+            endTime: relieverOp?.endStr || dynamicReliever?.endTime || '--',
+            startSec: relieverOp?.startSec || dynamicReliever?.startSec || 999999,
             isExchanged,
-            originalEmpName: relieverOp.originalEmpName || ''
+            originalEmpName: relieverOp?.originalEmpName || ''
           };
-        } else if (relieverOp && relieverOp.dutyId) {
-          const relDutyNorm = String(relieverOp.dutyId).replace(/^duty[_\s-]*/i, '').padStart(2, '0');
+        } else if (relDutyNorm) {
           const relMaster = getOperatorForDuty(relDutyNorm);
           if (relMaster?.empName) {
             reliever = {
               name: relMaster.empName,
               id: relMaster.empId || '--',
-              dutyNo: relieverOp.dutyId || '--',
-              takeoverTime: relieverOp.startStr || '--',
-              endTime: relieverOp.endStr || '--',
-              startSec: relieverOp.startSec,
+              dutyNo: relDutyNorm,
+              takeoverTime: relieverOp?.startStr || dynamicReliever?.takeoverTime || '--',
+              endTime: relieverOp?.endStr || dynamicReliever?.endTime || '--',
+              startSec: relieverOp?.startSec || dynamicReliever?.startSec || 999999,
               isExchanged: false,
               originalEmpName: ''
             };
@@ -2052,7 +2237,25 @@ export default function LiveTrainPositionTracker({
           ? tracking.nextReliver
           : liveTracking.nextReliver || tracking.nextReliver || null;
 
-      let reliever = null;
+      // Authoritative resolution for Reliever strictly prioritizing DISPATCH GATEWAY CORE
+      // and Day-Type Aware Dynamic Reliever Resolution Pipeline
+      const dynamicRelieverStab = resolveLiveRelieverOperator({
+        trainId: tId,
+        evalSecs,
+        currentDayType: activeSchedule || 'WEEKDAY',
+        wttReliefChartRegistry: getReliefIdChartForDay,
+        dispatchDutyOperatorMap,
+        staticMasterRoster: getOperatorForDuty
+      });
+
+      const relDutyNormStab = relieverOp?.dutyId 
+        ? normalizeDuty(relieverOp.dutyId) 
+        : (dynamicRelieverStab?.dutyNo && dynamicRelieverStab.dutyNo !== '--') 
+          ? normalizeDuty(dynamicRelieverStab.dutyNo) 
+          : null;
+
+      const dispatchRelieverOpStab = relDutyNormStab ? dispatchDutyOperatorMap[relDutyNormStab] : null;
+
       const hasRelieverOpNameStab = Boolean(
         relieverOp?.empName && 
         relieverOp.empName !== '--' && 
@@ -2062,49 +2265,67 @@ export default function LiveTrainPositionTracker({
         !relieverOp.empName.startsWith('Duty ')
       );
 
-      if (hasRelieverOpNameStab) {
-        const isExchanged = Boolean(relieverOp.isExchanged || relieverOp.status === 'SWAPPED_BY_CC' || relieverOp.status === 'RELIEF_DISPATCHED');
+      const effectiveRelNameStab = (dispatchRelieverOpStab?.operatorName) ? dispatchRelieverOpStab.operatorName
+        : (dynamicRelieverStab?.name && dynamicRelieverStab.name !== 'UNASSIGNED') ? dynamicRelieverStab.name
+        : hasRelieverOpNameStab ? relieverOp.empName
+        : null;
+
+      const effectiveRelIdStab = (dispatchRelieverOpStab?.operatorId) ? dispatchRelieverOpStab.operatorId
+        : (dynamicRelieverStab?.id && dynamicRelieverStab.id !== '--') ? dynamicRelieverStab.id
+        : hasRelieverOpNameStab ? relieverOp.empId
+        : null;
+
+      let reliever = null;
+      if (effectiveRelNameStab) {
+        const isExchanged = Boolean(relieverOp?.isExchanged || dynamicRelieverStab?.isExchanged || relieverOp?.status === 'SWAPPED_BY_CC' || relieverOp?.status === 'RELIEF_DISPATCHED');
         reliever = {
-          name: relieverOp.empName,
-          id: relieverOp.empId || '--',
-          dutyNo: relieverOp.dutyId || '--',
-          takeoverTime: relieverOp.startStr || '--',
-          endTime: relieverOp.endStr || '--',
-          startSec: relieverOp.startSec,
+          name: effectiveRelNameStab,
+          id: effectiveRelIdStab || '--',
+          dutyNo: relDutyNormStab || dynamicRelieverStab?.dutyNo || relieverOp?.dutyId || '--',
+          takeoverTime: relieverOp?.startStr || dynamicRelieverStab?.takeoverTime || '--',
+          endTime: relieverOp?.endStr || dynamicRelieverStab?.endTime || '--',
+          startSec: relieverOp?.startSec || dynamicRelieverStab?.startSec || 999999,
           isExchanged,
-          originalEmpName: relieverOp.originalEmpName || ''
+          originalEmpName: relieverOp?.originalEmpName || ''
         };
-      } else if (relieverOp && relieverOp.dutyId) {
-        const relDutyNorm = String(relieverOp.dutyId).replace(/^duty[_\s-]*/i, '').padStart(2, '0');
-        const relMaster = getOperatorForDuty(relDutyNorm);
+      } else if (relDutyNormStab) {
+        const relMaster = getOperatorForDuty(relDutyNormStab);
         if (relMaster?.empName) {
           reliever = {
             name: relMaster.empName,
             id: relMaster.empId || '--',
-            dutyNo: relieverOp.dutyId || '--',
-            takeoverTime: relieverOp.startStr || '--',
-            endTime: relieverOp.endStr || '--',
-            startSec: relieverOp.startSec,
+            dutyNo: relDutyNormStab,
+            takeoverTime: relieverOp?.startStr || dynamicRelieverStab?.takeoverTime || '--',
+            endTime: relieverOp?.endStr || dynamicRelieverStab?.endTime || '--',
+            startSec: relieverOp?.startSec || dynamicRelieverStab?.startSec || 999999,
             isExchanged: false,
             originalEmpName: ''
           };
         }
       }
 
-      let stabCurName = currentOp?.empName;
-      let stabCurId = currentOp?.empId;
+      const curDutyNormStab = currentOp?.dutyId ? normalizeDuty(currentOp.dutyId) : null;
+      const dispatchDutyOpStab = curDutyNormStab ? dispatchDutyOperatorMap[curDutyNormStab] : null;
+      const dispatchTrainOpStab = dispatchTrainOperatorMap[tId] || dispatchTrainOperatorMap[normTid] || null;
+
       const hasStabCurName = Boolean(
-        stabCurName && 
-        stabCurName !== '--' && 
-        stabCurName !== '-' && 
-        !stabCurName.toLowerCase().includes('unassigned') &&
-        !stabCurName.startsWith('Train Operator') &&
-        !stabCurName.startsWith('Duty ')
+        currentOp?.empName &&
+        currentOp.empName !== '--' &&
+        currentOp.empName !== '-' &&
+        !currentOp.empName.toLowerCase().includes('unassigned') &&
+        !currentOp.empName.startsWith('Train Operator') &&
+        !currentOp.empName.startsWith('Duty ')
       );
 
-      if (!hasStabCurName && currentOp?.dutyId) {
-        const curDutyNorm = String(currentOp.dutyId).replace(/^duty[_\s-]*/i, '').padStart(2, '0');
-        const dMaster = getOperatorForDuty(curDutyNorm);
+      let stabCurName = dispatchDutyOpStab?.operatorName
+        || dispatchTrainOpStab?.operatorName
+        || (hasStabCurName ? currentOp.empName : null);
+      let stabCurId = dispatchDutyOpStab?.operatorId
+        || dispatchTrainOpStab?.operatorId
+        || (hasStabCurName ? currentOp.empId : null);
+
+      if (!stabCurName && curDutyNormStab) {
+        const dMaster = getOperatorForDuty(curDutyNormStab);
         if (dMaster?.empName) {
           stabCurName = dMaster.empName;
           stabCurId = dMaster.empId || stabCurId;

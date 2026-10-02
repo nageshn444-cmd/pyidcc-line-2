@@ -281,6 +281,8 @@ export const isValidOperatorName = (name) => {
   ) {
     return false;
   }
+  if (/\b(REFER|SECTION|SEE\s*OR)\b/i.test(s)) return false;
+  if (s.startsWith("CR") && /^\d+$/.test(s.slice(2))) return false;
   if (getStandardAuxCategory(s)) return false;
   if (/TEMPORAR.*WHT[TM]/i.test(s)) return false;
   if (/(TRAINING|TESTING|DEPOT|STATION|CONTROLLER|OFFICIAL|ROSTER)/i.test(s)) return false;
@@ -434,10 +436,33 @@ export const isStandbyOrOrDuty = (rawDutyStr, colBText) => {
   return standbyPattern.test(sA) || standbyPattern.test(sB);
 };
 
-export const isActiveTrainDuty = (dutyVal) => {
+export const extractDutyNumber = (dutyVal) => {
+  if (dutyVal === undefined || dutyVal === null) return null;
+  const s = String(dutyVal).trim();
+  // 1. Pure numeric duty: 1 to 999 (e.g. "01", "42", "105", "999")
+  if (/^\d{1,3}$/.test(s)) {
+    const n = parseInt(s, 10);
+    if (n > 0 && n <= 999) return n;
+  }
+  // 2. CR / CRRC prefixed duty: CR01 to CR999, CR1 to CR999 (e.g. "CR01", "CR42", "cr43", "CR-42", "CR 42", "CRRC42")
+  const crMatch = s.match(/^CR(?:RC)?[-\s]?(\d{1,3})$/i);
+  if (crMatch) {
+    const n = parseInt(crMatch[1], 10);
+    if (n > 0 && n <= 999) return n;
+  }
+  return null;
+};
+
+export const isCrrcDuty = (dutyVal) => {
   if (dutyVal === undefined || dutyVal === null) return false;
   const s = String(dutyVal).trim();
-  return /^\d{1,2}$/.test(s) && parseInt(s, 10) > 0;
+  return /^CR(?:RC)?[-\s]?\d{1,3}$/i.test(s);
+};
+
+export const isActiveTrainDuty = (dutyVal) => {
+  if (dutyVal === undefined || dutyVal === null) return false;
+  const num = extractDutyNumber(dutyVal);
+  return num !== null && num > 0 && num <= 999;
 };
 
 /**
@@ -514,8 +539,8 @@ export const enforceSingleDutyRule = (data) => {
   };
 
   // Operational Priority Order:
-  // 1. Primary Active Train Driving Duties (1-99)
-  const duties = [];
+  // 1. Primary Active Train Driving Duties (1-999, including CR duties)
+  const dutiesMap = new Map();
   let foundDuty01 = false;
   (data.duties || []).forEach((d) => {
     let empNo = d.empId || d.empNo;
@@ -526,14 +551,50 @@ export const enforceSingleDutyRule = (data) => {
     }
     name = resolveRealOperatorName(name, empNo);
     const updatedDuty = { ...d, empId: empNo, empName: name };
-    if (empNo && empNo !== "--" && empNo !== "UNASSIGNED") {
-      if (!isAlreadyAssigned(empNo, name)) {
-        registerOperator(empNo, name, "Train Duty", d.dutyId);
-        duties.push(updatedDuty);
+    const hasOp =
+      empNo &&
+      empNo !== "--" &&
+      empNo !== "UNASSIGNED" &&
+      name &&
+      name !== "UNASSIGNED";
+
+    if (!dutiesMap.has(normDuty)) {
+      if (hasOp) {
+        if (!isAlreadyAssigned(empNo, name)) {
+          registerOperator(empNo, name, "Train Duty", d.dutyId);
+          dutiesMap.set(normDuty, updatedDuty);
+        } else {
+          dutiesMap.set(normDuty, {
+            ...updatedDuty,
+            empId: "--",
+            empName: "UNASSIGNED",
+          });
+        }
+      } else {
+        dutiesMap.set(normDuty, updatedDuty);
       }
     } else {
-      duties.push(updatedDuty); // preserve unassigned duty slot
+      const existing = dutiesMap.get(normDuty);
+      const existingHasOp =
+        existing.empId &&
+        existing.empId !== "--" &&
+        existing.empId !== "UNASSIGNED" &&
+        existing.empName &&
+        existing.empName !== "UNASSIGNED";
+      if (!existingHasOp && hasOp) {
+        if (!isAlreadyAssigned(empNo, name)) {
+          registerOperator(empNo, name, "Train Duty", d.dutyId);
+          dutiesMap.set(normDuty, updatedDuty);
+        }
+      }
     }
+  });
+
+  const duties = Array.from(dutiesMap.values()).sort((a, b) => {
+    const numA = extractDutyNumber(a.dutyId) || parseInt(a.dutyId, 10) || 0;
+    const numB = extractDutyNumber(b.dutyId) || parseInt(b.dutyId, 10) || 0;
+    if (numA !== numB) return numA - numB;
+    return String(a.dutyId || "").localeCompare(String(b.dutyId || ""));
   });
 
   // 2. CRRC 4RS DM-DTG Training & Special Technical Programs
@@ -839,6 +900,93 @@ export const rosterAutoClassifierService = {
     let hasExplicitCoOperatorSection = false;
     let lastTrainNote = "";
 
+    // ── PRE-SCAN: Map CRRC Duty Operator Assignments (e.g. CR54-CR59 / CR01-CR100) ──
+    // In BMRCL rosters (e.g. Saturday 03 Oct), the main table lists CR54-CR59 with "Refer in OR Section",
+    // while the actual operators (Siddalingaswamy #22256, Madhu R #22465, etc.) are listed in a CRRC table
+    // on the right side (Cols J-O / 9-14) under "CRRC Duty for ID 215 & 219".
+    const crrcOperatorMap = new Map();
+    rows.forEach((r) => {
+      if (!Array.isArray(r) || r.length < 3) return;
+      for (let c = 0; c < r.length; c++) {
+        const cellStr = String(r[c] || "").trim();
+        const crMatch = cellStr.match(/^CR(?:RC)?[-\s]?(\d{1,3})$/i);
+        if (crMatch) {
+          const dutyNum = parseInt(crMatch[1], 10);
+          if (dutyNum > 0 && dutyNum <= 999) {
+            let foundName = "";
+            let foundEmpId = "";
+            let foundSignOnTime = "";
+            let foundSignOnPlace = "";
+            let foundSignOffTime = "";
+            let foundTrainId = "";
+
+            // Check next cell (c + 1) for time/station slash e.g. "06:00/ Depot"
+            const next1 = String(r[c + 1] || "").trim();
+            const timeSlash = next1.match(
+              /^(\d{1,2}:\d{2}(?::\d{2})?)\s*[/]\s*([A-Za-z0-9_-]+)/i,
+            );
+            if (timeSlash) {
+              foundSignOnTime = formatExcelTime(timeSlash[1]);
+              foundSignOnPlace = /^depot$/i.test(timeSlash[2])
+                ? "PYID"
+                : timeSlash[2];
+            } else if (isTimeValue(r[c + 1])) {
+              foundSignOnTime = formatExcelTime(r[c + 1]);
+            }
+
+            // Search nearby cells for Name, Emp ID, Sign-off Time, and Train ID
+            for (let offset = 1; offset <= 6 && c + offset < r.length; offset++) {
+              const val = r[c + offset];
+              if (val === undefined || val === null) continue;
+              const sVal = String(val).trim();
+              if (
+                !foundEmpId &&
+                /^(88\d{6}|(20|21|22)\d{3}|\d{4,6})$/.test(sVal)
+              ) {
+                foundEmpId = sVal;
+              } else if (
+                !foundName &&
+                isValidOperatorName(sVal) &&
+                !sVal.includes("/") &&
+                !isDateOrTimeValue(sVal)
+              ) {
+                foundName = sVal;
+              } else if (
+                !foundSignOffTime &&
+                offset >= 3 &&
+                isTimeValue(val) &&
+                !sVal.includes("/")
+              ) {
+                foundSignOffTime = formatExcelTime(val);
+              } else if (
+                !foundTrainId &&
+                offset >= 4 &&
+                /^[A-Z]\d{2,4}$/i.test(sVal)
+              ) {
+                foundTrainId = sVal;
+              }
+            }
+
+            if (foundName || foundEmpId) {
+              const empNo = resolveRealOperatorEmpId(foundName, foundEmpId);
+              const realName = resolveRealOperatorName(foundName, empNo);
+              crrcOperatorMap.set(dutyNum, {
+                dutyNum,
+                dutyId: dutyNum < 10 ? "0" + dutyNum : String(dutyNum),
+                rawDutyId: cellStr,
+                empName: realName,
+                empId: empNo !== "--" ? empNo : foundEmpId,
+                signOnTime: foundSignOnTime,
+                signOnPlace: foundSignOnPlace,
+                signOffTime: foundSignOffTime,
+                trainId: foundTrainId,
+              });
+            }
+          }
+        }
+      }
+    });
+
     rows.forEach((row, idx) => {
       if (idx < startDataRowIdx) return; // Skip title & header rows
 
@@ -957,26 +1105,68 @@ export const rosterAutoClassifierService = {
 
       if (effectiveDutyStr !== "") {
         const rawDutyUpper = effectiveDutyStr.toUpperCase();
-        const dutyType = colBText;
+        const parsedDutyNum = extractDutyNumber(effectiveDutyStr);
+        const isNumeric = parsedDutyNum !== null && parsedDutyNum > 0 && parsedDutyNum <= 999;
+        const isCrrc = isCrrcDuty(effectiveDutyStr) || isCrrcDuty(rawDutyStr);
+        const canonicalDutyId = isNumeric
+          ? (parsedDutyNum < 10 ? "0" + parsedDutyNum : String(parsedDutyNum))
+          : String(effectiveDutyStr);
 
-        const signOnTime = formatExcelTime(row[2]);
-        const signOnPlace = String(row[3] || "").trim();
-        const rawName = row[4];
-        const rawEmpId = row[5];
-        let signOffTime = formatExcelTime(row[6]);
-        let signOffPlace = String(row[7] || "").trim();
+        const col1Str = String(row[1] || "").trim();
+        const col2Str = String(row[2] || "").trim();
+        const col3Str = String(row[3] || "").trim();
+        const col4Str = String(row[4] || "").trim();
 
-        // Prevent uniform 06:00 signOff fallback when row[6] is missing/blank or for morning duties
+        // Check if Col 1 has time / station (e.g., "06:00/ Depot", "06:45/ Depot", "08:10/ PYID", "13:25/ KGWA")
+        // Or if Col 3 is 4-6 digit employee ID and Col 2 is employee name
+        const timeSlashStationMatch = col1Str.match(/^(\d{1,2}:\d{2}(?::\d{2})?)\s*[/]\s*([A-Za-z0-9_-]+)/i);
+        const col3IsEmpId = /^\d{4,6}$/.test(col3Str);
+        const col2IsName = col2Str.length >= 3 && !/^\d+$/.test(col2Str) && !isDateOrTimeValue(col2Str);
+        const isCompactFormat = Boolean(timeSlashStationMatch || (col3IsEmpId && col2IsName));
+
+        let signOnTime, signOnPlace, rawName, rawEmpId, signOffTime, signOffPlace, trainId, dutyType;
+
+        if (isCompactFormat) {
+          if (timeSlashStationMatch) {
+            signOnTime = formatExcelTime(timeSlashStationMatch[1]);
+            signOnPlace = timeSlashStationMatch[2];
+          } else {
+            signOnTime = formatExcelTime(row[1]);
+            signOnPlace = "PYID";
+          }
+          if (/^depot$/i.test(signOnPlace)) signOnPlace = "PYID";
+          rawName = row[2];
+          rawEmpId = row[3];
+          signOffTime = formatExcelTime(row[4]);
+          signOffPlace = String(row[5] || "").trim() || signOnPlace;
+          trainId = row[6] || (isCrrc ? "CRRC Train" : "UNASSIGNED");
+          dutyType = isCrrc ? "CRRC Train Duty" : colBText;
+        } else {
+          dutyType = colBText;
+          signOnTime = formatExcelTime(row[2]);
+          signOnPlace = String(row[3] || "").trim();
+          rawName = row[4];
+          rawEmpId = row[5];
+          signOffTime = formatExcelTime(row[6]);
+          signOffPlace = String(row[7] || "").trim();
+          trainId =
+            row[8] ||
+            lastTrainNote ||
+            (colBText && colBText.length < 15 ? colBText : "UNASSIGNED");
+        }
+
+        // Prevent uniform 06:00 signOff fallback when signOff is missing/blank or for morning duties
         const isNightShift =
           signOnTime &&
           (signOnTime.startsWith("21:") ||
             signOnTime.startsWith("22:") ||
             signOnTime.startsWith("23:"));
         const isInvalid0600 =
-          (!row[6] || row[6] === "" || signOffTime === "06:00") && !isNightShift;
-        if (isInvalid0600 && effectiveDutyStr) {
-          const dutyNum = String(effectiveDutyStr).replace(/^0+/, "");
-          const paddedId = String(effectiveDutyStr).padStart(2, "0");
+          (!signOffTime || signOffTime === "" || signOffTime === "06:00") && !isNightShift;
+        if (isInvalid0600 && effectiveDutyStr && !isCompactFormat) {
+          const parsedNum = extractDutyNumber(effectiveDutyStr);
+          const dutyNum = parsedNum !== null ? String(parsedNum) : String(effectiveDutyStr).replace(/^0+/, "");
+          const paddedId = parsedNum !== null ? (parsedNum < 10 ? "0" + parsedNum : String(parsedNum)) : String(effectiveDutyStr).padStart(2, "0");
           const mMatch = WEEKDAY_MASTER_LINKS.find(
             (m) => m.dutyId === paddedId || String(m.dutyNo) === dutyNum
           );
@@ -989,10 +1179,6 @@ export const rosterAutoClassifierService = {
             }
           }
         }
-        const trainId =
-          row[8] ||
-          lastTrainNote ||
-          (colBText && colBText.length < 15 ? colBText : "UNASSIGNED");
 
         let empName =
           rawName !== undefined &&
@@ -1007,15 +1193,48 @@ export const rosterAutoClassifierService = {
             ? String(rawEmpId).trim()
             : "--";
 
+        // CRRC Duty Operator Linking:
+        // In BMRCL rosters (e.g. Saturday 03 Oct), the main table lists CR54-CR59 with "Refer in OR Section",
+        // while the actual operators (Siddalingaswamy #22256, Madhu R #22465, etc.) are listed in a CRRC table
+        // on the right side. We merge the actual operator details from crrcOperatorMap!
+        if (parsedDutyNum && crrcOperatorMap.has(parsedDutyNum)) {
+          const crrcInfo = crrcOperatorMap.get(parsedDutyNum);
+          const nameNeedsOverride =
+            !isValidOperatorName(empName) ||
+            /\b(refer\s*in\s*or|refer|see\s*or|unassigned)\b/i.test(empName);
+          const empIdNeedsOverride =
+            !empId || empId === "--" || empId === "UNASSIGNED";
+
+          if (nameNeedsOverride || empIdNeedsOverride) {
+            if (crrcInfo.empName && crrcInfo.empName !== "UNASSIGNED") {
+              empName = crrcInfo.empName;
+            }
+            if (crrcInfo.empId && crrcInfo.empId !== "--") {
+              empId = crrcInfo.empId;
+            }
+            if (!signOnTime || signOnTime === "06:00") {
+              if (crrcInfo.signOnTime) signOnTime = crrcInfo.signOnTime;
+            }
+            if (!signOnPlace) {
+              if (crrcInfo.signOnPlace) signOnPlace = crrcInfo.signOnPlace;
+            }
+            if (!signOffTime || signOffTime === "06:00") {
+              if (crrcInfo.signOffTime) signOffTime = crrcInfo.signOffTime;
+            }
+            if ((!trainId || trainId === "UNASSIGNED") && crrcInfo.trainId) {
+              trainId = crrcInfo.trainId;
+            }
+          }
+        }
+
         // Auto-resolve known operator profiles
         empName = resolveRealOperatorName(empName, empId);
 
-        const isNumeric = isActiveTrainDuty(effectiveDutyStr);
         const isStandbyDutyRow =
           !isNumeric &&
           (isStandbyOrOrDuty(effectiveDutyStr, colBText) ||
             isStandbyOrOrDuty(rawDutyStr, colBText));
-        const numVal = isNumeric ? parseInt(effectiveDutyStr, 10) : 0;
+        const numVal = isNumeric ? parsedDutyNum : 0;
 
         if (isNumeric) {
           if (numVal > maxActiveDutyNumSoFar) {
@@ -1024,7 +1243,8 @@ export const rosterAutoClassifierService = {
             currentSectionBanner = "";
           } else if (
             numVal < maxActiveDutyNumSoFar &&
-            maxActiveDutyNumSoFar >= 60
+            maxActiveDutyNumSoFar >= 60 &&
+            !isCrrc
           ) {
             inSecondaryBlock = true;
           }
@@ -1048,7 +1268,7 @@ export const rosterAutoClassifierService = {
           !isNumeric &&
           ((currentSectionBanner &&
             /\b(CRRC|4RS|DM[-\s]?DTG)\b/i.test(currentSectionBanner)) ||
-            /\b(CRRC|4RS|DM[-\s]?DTG)\b/i.test(rawDutyUpper))
+            (/\b(CRRC|4RS|DM[-\s]?DTG)\b/i.test(rawDutyUpper) && !isCrrc))
         ) {
           // CRRC training section rows: NEVER add to Co-Operators or Primary Train Duties
           const crrcKey = "CRRC 4RS DM-DTG TRAINING AT PEENYA DEPOT (RBL)";
@@ -1071,7 +1291,7 @@ export const rosterAutoClassifierService = {
             dynamicExtraHeadersSet.add(crrcKey);
           }
         } else {
-          // 1. ACTIVE PRIMARY NUMERIC TRAIN DUTY (Duties 01 - 99)
+          // 1. ACTIVE PRIMARY NUMERIC TRAIN DUTY (Duties 01 - 999 and CR01 - CR999)
           if (isNumeric && !inSecondaryBlock) {
             maxActiveDutyNumSoFar = Math.max(maxActiveDutyNumSoFar, numVal);
 
@@ -1102,7 +1322,8 @@ export const rosterAutoClassifierService = {
                 notReporting.push({
                   name: empName,
                   empNo: empId,
-                  dutyId: String(effectiveDutyStr),
+                  dutyId: canonicalDutyId,
+                  rawDutyId: rawDutyStr || effectiveDutyStr,
                 });
             } else if (/\b(ABSENT|AB)\b/i.test(combinedRowStr)) {
               initialStatus = "ABSENT";
@@ -1110,7 +1331,8 @@ export const rosterAutoClassifierService = {
                 absents.push({
                   name: empName,
                   empNo: empId,
-                  dutyId: String(effectiveDutyStr),
+                  dutyId: canonicalDutyId,
+                  rawDutyId: rawDutyStr || effectiveDutyStr,
                 });
             }
 
@@ -1120,20 +1342,26 @@ export const rosterAutoClassifierService = {
               String(colBText || "").toUpperCase() === "OR1" ||
               String(colBText || "").toUpperCase() === "OR2";
 
+            const resolvedDutyType = String(dutyType || (isCrrc ? "CRRC Train Duty" : "")).trim();
+            const resolvedTrainId = String(trainId && trainId !== "UNASSIGNED" ? trainId : (isCrrc ? "CRRC Train" : trainId || "UNASSIGNED")).trim();
+
             duties.push({
-              dutyId: String(effectiveDutyStr).padStart(2, "0"),
-              dutyType: String(dutyType).trim(),
+              dutyId: canonicalDutyId,
+              rawDutyId: rawDutyStr || effectiveDutyStr,
+              dutyNo: parsedDutyNum,
+              isCrrc,
+              dutyType: resolvedDutyType,
               signOnTime,
               signOnLocation: signOnPlace || (isOrStepback ? "TGTP" : "PYID"),
               empName,
               empId,
               signOffTime,
               signOffLocation: signOffPlace || (isOrStepback ? "TGTP" : "PYID"),
-              trainId: String(trainId).trim(),
+              trainId: resolvedTrainId,
               scheduleType: dayType,
               status: initialStatus,
-              remarks: isOrStepback ? "TGTP Stepback / Washroom Relieving" : "",
-              dutyPurpose: isOrStepback ? "TGTP Stepback / Washroom Relieving" : "",
+              remarks: isOrStepback ? "TGTP Stepback / Washroom Relieving" : (isCrrc ? "CRRC Train Duty" : ""),
+              dutyPurpose: isOrStepback ? "TGTP Stepback / Washroom Relieving" : (isCrrc ? "CRRC Train Duty" : ""),
               extraColumns,
               date: computedDateStr,
               targetDate: computedDateStr,
@@ -1332,6 +1560,17 @@ export const rosterAutoClassifierService = {
       // Col 13 = "To" (time or date, e.g. 0.5833, "28-Sep", 46293)
       // Col 14 = Code / Remarks (e.g. "CC1", "1Stbk", "CRT", "OR1", "WO", "CL", "Ab", "ML", "HPL", "BO", "L1", "Rel")
       if (row.length > 8) {
+        // Skip CRRC Train Duty table rows in Section B (already linked to active primary train duties)
+        const col9Str = String(row[9] || "").trim();
+        const col8Str = String(row[8] || "").trim();
+        if (
+          isCrrcDuty(col9Str) ||
+          /^CR(?:RC)?[-\s]?\d{1,3}$/i.test(col9Str) ||
+          (isCrrcDuty(col8Str) && !isValidDutyId(row[0]))
+        ) {
+          return;
+        }
+
         // 1. Detect Category / Section Marker from candidate header cells in Col 9 & Col 8
         for (const cand of [row[9], row[8]]) {
           if (cand !== undefined && cand !== null && String(cand).trim() !== "") {
@@ -1646,6 +1885,39 @@ export const rosterAutoClassifierService = {
       }
     });
 
+    // Ensure all detected CRRC train duties from crrcOperatorMap are represented in duties
+    crrcOperatorMap.forEach((crrcInfo, dutyNum) => {
+      const alreadyInDuties = duties.some((d) => {
+        const dNum =
+          extractDutyNumber(d.dutyId) || extractDutyNumber(d.rawDutyId);
+        return dNum === dutyNum;
+      });
+      if (!alreadyInDuties) {
+        duties.push({
+          dutyId: crrcInfo.dutyId,
+          rawDutyId: crrcInfo.rawDutyId,
+          dutyNo: crrcInfo.dutyNum,
+          isCrrc: true,
+          dutyType: "CRRC Train Duty",
+          signOnTime: crrcInfo.signOnTime || "06:00",
+          signOnLocation: crrcInfo.signOnPlace || "PYID",
+          empName: crrcInfo.empName || "UNASSIGNED",
+          empId: crrcInfo.empId || "--",
+          signOffTime: crrcInfo.signOffTime || "14:00",
+          signOffLocation: crrcInfo.signOnPlace || "PYID",
+          trainId: crrcInfo.trainId || "CRRC Train",
+          scheduleType: dayType,
+          status: "PENDING",
+          remarks: "CRRC Train Duty",
+          dutyPurpose: "CRRC Train Duty",
+          extraColumns: {},
+          date: computedDateStr,
+          targetDate: computedDateStr,
+          deploymentDate: computedDateStr,
+        });
+      }
+    });
+
     // ONLY parse the selected single day's Excel sheet (e.g. 1.9 to 30.9). Do NOT scan other sheets in workbook.
     const dynamicExtraHeaders = Array.from(dynamicExtraHeadersSet);
 
@@ -1834,8 +2106,8 @@ export const rosterAutoClassifierService = {
       (d) => d && d.dutyId,
     );
     if (dutiesToDeploy.length > 0) {
-      const batch = writeBatch(db);
       const isForToday = dateStr === todayStr;
+      const dutyMap = new Map();
 
       for (const d of dutiesToDeploy) {
         const normId = String(parseInt(d.dutyId, 10) || d.dutyId).trim();
@@ -1853,32 +2125,54 @@ export const rosterAutoClassifierService = {
         };
 
         // 1. Primary date-isolated document IDs (strictly independent per date):
-        batch.set(
-          doc(db, "crew_daily_deployment", `gcc_deploy_${dateStr}_duty_${paddedId}`),
-          docPayload,
-          { merge: true },
-        );
-        batch.set(
-          doc(db, "crew_daily_deployment", `gcc_deploy_${dateStr}_duty_${normId}`),
-          docPayload,
-          { merge: true },
-        );
+        const primaryPath = `gcc_deploy_${dateStr}_duty_${paddedId}`;
+        dutyMap.set(primaryPath, {
+          ref: doc(db, "crew_daily_deployment", primaryPath),
+          data: docPayload,
+        });
+
+        if (normId !== paddedId) {
+          const normPath = `gcc_deploy_${dateStr}_duty_${normId}`;
+          dutyMap.set(normPath, {
+            ref: doc(db, "crew_daily_deployment", normPath),
+            data: docPayload,
+          });
+        }
+
+        // Index under CR prefix if this is a CRRC duty or rawDutyId has CR
+        if (d.isCrrc || /^CR/i.test(String(d.rawDutyId || ""))) {
+          const crPath = `gcc_deploy_${dateStr}_duty_CR${paddedId}`;
+          dutyMap.set(crPath, {
+            ref: doc(db, "crew_daily_deployment", crPath),
+            data: docPayload,
+          });
+        }
 
         // 2. Only write to un-dated active dayType doc if deploying for TODAY:
         if (isForToday) {
-          batch.set(
-            doc(db, "crew_daily_deployment", `gcc_deploy_${dayType.toLowerCase()}_duty_${paddedId}`),
-            docPayload,
-            { merge: true },
-          );
-          batch.set(
-            doc(db, "crew_daily_deployment", `gcc_deploy_${dayType.toLowerCase()}_duty_${normId}`),
-            docPayload,
-            { merge: true },
-          );
+          const todayPaddedPath = `gcc_deploy_${dayType.toLowerCase()}_duty_${paddedId}`;
+          dutyMap.set(todayPaddedPath, {
+            ref: doc(db, "crew_daily_deployment", todayPaddedPath),
+            data: docPayload,
+          });
+          if (normId !== paddedId) {
+            const todayNormPath = `gcc_deploy_${dayType.toLowerCase()}_duty_${normId}`;
+            dutyMap.set(todayNormPath, {
+              ref: doc(db, "crew_daily_deployment", todayNormPath),
+              data: docPayload,
+            });
+          }
         }
       }
-      await batch.commit();
+
+      // Safe chunked commit (max 100 ops per batch)
+      const dutyEntries = Array.from(dutyMap.values());
+      for (let i = 0; i < dutyEntries.length; i += 100) {
+        const chunk = dutyEntries.slice(i, i + 100);
+        const chunkBatch = writeBatch(db);
+        chunk.forEach(({ ref, data }) => chunkBatch.set(ref, data, { merge: true }));
+        await chunkBatch.commit();
+      }
     }
 
     // Comprehensive Cross-Page Deployment to Dedicated Registers:

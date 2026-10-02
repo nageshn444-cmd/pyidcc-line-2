@@ -10,9 +10,14 @@ import {
 } from 'lucide-react';
 import { BMRCL_CREW_REGISTRY } from '../data/bmrclCrewRegistry';
 
-// ── Utility: normalize duty ID ("1" → "01", "9" → "09") ──
+// ── Utility: normalize duty ID ("1" → "01", "9" → "09", "CR42" → "42") ──
 const normalizeDutyId = (id) => {
   const s = String(id || '').trim();
+  const crMatch = s.match(/^CR(?:RC)?[-\s]?(\d{1,3})$/i);
+  if (crMatch) {
+    const num = parseInt(crMatch[1], 10);
+    return num < 10 ? '0' + num : String(num);
+  }
   if (/^[1-9]$/.test(s)) return '0' + s;
   return s;
 };
@@ -70,9 +75,9 @@ const alignRecordWithRegistry = (record) => {
   let dutyNo = String(record.dutyNo || record.dutyId || '').trim();
   if (dutyNo) {
     const normalized = normalizeDutyId(dutyNo);
-    // Only keep if it passes the valid-duty-ID check (pure numeric 1-99 or CC/SB/RR/PRO prefix)
-    const isNumeric = /^\d{1,2}$/.test(normalized);
-    const isSpecial = /^(CC|SB|RR|PRO|EX|ST)\d+$/i.test(normalized);
+    // Only keep if it passes the valid-duty-ID check (pure numeric 1-999 or CC/SB/RR/PRO/CR prefix)
+    const isNumeric = /^\d{1,3}$/.test(normalized);
+    const isSpecial = /^(CC|SB|RR|PRO|EX|ST|CR)\d+$/i.test(normalized);
     dutyNo = (isNumeric || isSpecial) ? normalized : '';
   }
 

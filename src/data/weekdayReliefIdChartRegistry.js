@@ -2082,6 +2082,16 @@ export function buildWeekdayLiveTrainTrackingMap(allDeployments = [], evalSecs) 
  * @param {string} dayType - Schedule type: 'WEEKDAY', 'MONDAY', 'SATURDAY', 'SUNDAY', etc.
  * @returns {Object} { [trainId]: { current, previous, nextReliver } }
  */
+export function normalizeDutyId(raw) {
+  if (!raw) return '';
+  const clean = String(raw).replace(/^(duty|d)\s*[#]*/i, '').replace(/^#/, '').trim();
+  const num = parseInt(clean, 10);
+  if (!isNaN(num) && num >= 1 && num <= 99) {
+    return String(num).padStart(2, '0');
+  }
+  return clean;
+}
+
 export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType = 'WEEKDAY') {
   const normDay = normalizeScheduleDay(dayType);
   const isSunday = normDay === 'SUNDAY';
@@ -2104,14 +2114,17 @@ export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType
     (list || []).forEach(d => {
       const rawDuty = String(d.dutyId || d.dutyNo || d.rawDutyId || '').trim();
       if (!rawDuty) return;
-      const cleanDuty = rawDuty.replace(/^duty[_\s-]*/i, '');
-      const norm = /^[1-9]$/.test(cleanDuty) ? '0' + cleanDuty : cleanDuty;
+      const norm = normalizeDutyId(rawDuty);
       const existing = deployMap.get(norm);
-      const candName = d.empName || d.name || d.operatorName;
-      const candId = d.empId || d.empNo || d.id;
+      const candName = (d.operatorName && d.operatorName !== '--' && !d.operatorName.startsWith('Duty ') && !d.operatorName.startsWith('Train Operator'))
+        ? d.operatorName
+        : (d.empName && d.empName !== '--' && !d.empName.startsWith('Duty ') && !d.empName.startsWith('Train Operator'))
+        ? d.empName
+        : d.name || d.operatorName || d.empName;
+      const candId = d.operatorId || d.empId || d.empNo || d.id;
       const hasValidName = candName && candName !== '--' && candName !== '-' && !candName.startsWith('Duty ') && !candName.startsWith('Train Operator');
       if (forceOverwrite || !existing || (hasValidName && (!existing.empName || existing.empName === '--' || existing.empName.startsWith('Duty ')))) {
-        const record = { ...d, dutyId: norm, empName: candName, empId: candId };
+        const record = { ...d, dutyId: norm, empName: candName, operatorName: candName, empId: candId, operatorId: candId };
         deployMap.set(norm, record);
         if (/^0[1-9]$/.test(norm)) {
           deployMap.set(norm.replace(/^0/, ''), record);
@@ -2123,11 +2136,29 @@ export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType
   // 1. Ingest base duties from AutomatedDispatchGate / Roster Desk Console cache in localStorage
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
+      // Primary: Authoritative active deployments from DISPATCH GATEWAY CORE
+      const activeDispatchCache = window.localStorage.getItem('pyidcc_active_dispatch_deployments');
+      if (activeDispatchCache) {
+        const parsed = JSON.parse(activeDispatchCache);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          ingestDeploymentList(parsed, false);
+        }
+      }
       const cached = window.localStorage.getItem('pyidcc_roster_desk_console_cache');
       if (cached) {
         const parsed = JSON.parse(cached);
         // Only ingest active train driving duties, do not ingest onDuty or controlDesks into train driving map
         if (parsed?.duties) ingestDeploymentList(parsed.duties, false);
+      }
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const key = window.localStorage.key(i);
+        if (key && key.startsWith('pyidcc_roster_desk_console_cache_')) {
+          const raw = window.localStorage.getItem(key);
+          if (raw) {
+            const p = JSON.parse(raw);
+            if (p?.duties) ingestDeploymentList(p.duties, false);
+          }
+        }
       }
     } catch (e) {
       console.warn('Could not read console cache in buildLiveTrainTrackingMap', e);
@@ -2145,10 +2176,9 @@ export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType
   (allDeployments || []).forEach(d => {
     const rawDuty = String(d.dutyId || d.dutyNo || d.rawDutyId || '').trim();
     if (!rawDuty) return;
-    const cleanDuty = rawDuty.replace(/^duty[_\s-]*/i, '');
-    const norm = /^[1-9]$/.test(cleanDuty) ? '0' + cleanDuty : cleanDuty;
-    const empId = String(d.empId || d.empNo || d.id || '').trim();
-    const empName = String(d.empName || d.name || d.operatorName || '').trim().toUpperCase();
+    const norm = normalizeDutyId(rawDuty);
+    const empId = String(d.operatorId || d.empId || d.empNo || d.id || '').trim();
+    const empName = String(d.operatorName || d.empName || d.name || '').trim().toUpperCase();
     if (empId && empId !== '--' && empId !== 'UNASSIGNED') {
       authoritativeOperatorDutyMap.set(empId, norm);
     }
@@ -2159,7 +2189,7 @@ export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType
 
   // Purge any stale cross-duty contamination from deployMap
   for (const [dutyKey, record] of Array.from(deployMap.entries())) {
-    const normKey = String(dutyKey).padStart(2, '0');
+    const normKey = normalizeDutyId(dutyKey);
     const recId = String(record.empId || record.empNo || record.id || '').trim();
     const recName = String(record.empName || record.name || '').trim().toUpperCase();
 
@@ -2209,15 +2239,16 @@ export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType
     if (endSec < startSec) endSec += 24 * 3600;
 
     if (!trainTimelineMap[cleanTid]) trainTimelineMap[cleanTid] = [];
+    if (rawTid !== cleanTid && !trainTimelineMap[rawTid]) trainTimelineMap[rawTid] = [];
 
-    const norm = String(normDuty || '').replace(/^duty[_\s-]*/i, '').padStart(2, '0');
+    const norm = normalizeDutyId(normDuty);
     let matchedDeploy = deployed || deployMap.get(norm) || deployMap.get(norm.replace(/^0/, ''));
     const defaultRosterOp = getOperatorForDuty(norm);
 
     // Verify matchedDeploy operator does not belong to another duty
     if (matchedDeploy) {
-      const mId = String(matchedDeploy.empId || matchedDeploy.empNo || '').trim();
-      const mName = String(matchedDeploy.empName || matchedDeploy.name || '').trim().toUpperCase();
+      const mId = String(matchedDeploy.operatorId || matchedDeploy.empId || matchedDeploy.empNo || '').trim();
+      const mName = String(matchedDeploy.operatorName || matchedDeploy.empName || matchedDeploy.name || '').trim().toUpperCase();
       if ((norm === '66' && (mId === '22319' || mName.includes('PRAKASH'))) ||
           (mId && authoritativeOperatorDutyMap.has(mId) && authoritativeOperatorDutyMap.get(mId) !== norm) ||
           (mName && authoritativeOperatorDutyMap.has(mName) && authoritativeOperatorDutyMap.get(mName) !== norm)) {
@@ -2226,22 +2257,30 @@ export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType
     }
 
     const isExchanged = Boolean(matchedDeploy?.isExchanged || matchedDeploy?.status === 'SWAPPED_BY_CC' || matchedDeploy?.status === 'RELIEF_DISPATCHED');
-    const isJmdMisassigned = matchedDeploy?.empId && String(matchedDeploy.empId).startsWith('88');
 
     let empName;
     let empId;
 
     // 1. PRIMARY SOURCE: Active train operator deployed to duty number in AutomatedDispatchGate / Dispatch Gateway Core
-    const hasValidDeploy = matchedDeploy?.empName && 
-      matchedDeploy.empName !== '--' && 
-      matchedDeploy.empName !== '-' && 
-      !matchedDeploy.empName.startsWith('Train Operator') && 
-      !matchedDeploy.empName.startsWith('Duty ') &&
-      !isJmdMisassigned;
+    // The Operator Name column from DISPATCH GATEWAY CORE is authoritative — if an operator is deployed there,
+    // their name and ID must be used regardless of employee ID prefix (e.g. JMD '88' prefix operators are valid deployments)
+    const deployName = (matchedDeploy?.operatorName && matchedDeploy.operatorName !== '--' && !matchedDeploy.operatorName.startsWith('Duty ') && !matchedDeploy.operatorName.startsWith('Train Operator'))
+      ? matchedDeploy.operatorName
+      : (matchedDeploy?.empName && matchedDeploy.empName !== '--' && !matchedDeploy.empName.startsWith('Duty ') && !matchedDeploy.empName.startsWith('Train Operator'))
+      ? matchedDeploy.empName
+      : matchedDeploy?.name || null;
+
+    const deployId = matchedDeploy?.operatorId || matchedDeploy?.empId || matchedDeploy?.empNo || matchedDeploy?.id;
+
+    const hasValidDeploy = Boolean(deployName && 
+      deployName !== '--' && 
+      deployName !== '-' && 
+      !deployName.startsWith('Train Operator') && 
+      !deployName.startsWith('Duty '));
 
     if (hasValidDeploy) {
-      empName = matchedDeploy.empName;
-      empId = matchedDeploy.empId || matchedDeploy.empNo || '--';
+      empName = deployName;
+      empId = deployId || '--';
     } else if (defaultRosterOp?.empName) {
       empName = defaultRosterOp.empName;
       empId = defaultRosterOp.empId || '--';
@@ -2250,7 +2289,7 @@ export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType
       empId = '--';
     }
 
-    trainTimelineMap[cleanTid].push({
+    const legObj = {
       dutyId: norm,
       empName,
       empId,
@@ -2264,7 +2303,12 @@ export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType
       exchangeId: matchedDeploy?.exchangeId || '',
       approvedBy: matchedDeploy?.approvedBy || '',
       approvedDateTime: matchedDeploy?.approvedDateTime || ''
-    });
+    };
+
+    trainTimelineMap[cleanTid].push(legObj);
+    if (rawTid !== cleanTid) {
+      trainTimelineMap[rawTid].push(legObj);
+    }
   };
 
   // 1. Seed timeline from authoritative base chart for selected schedule
@@ -2274,13 +2318,16 @@ export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType
     });
   });
 
-  // 2. Overlay or integrate any dynamic/deployed rawLegs if provided
+  // 2. Overlay or integrate any dynamic/deployed rawLegs or direct train assignments from DISPATCH GATEWAY CORE
   (allDeployments || []).forEach(operator => {
     if (operator.rawLegs) {
       if (operator.rawLegs.l1Train && operator.rawLegs.l1Train !== '--') addLegToTimeline(operator.rawLegs.l1Train, operator.dutyId, operator.rawLegs.l1Start, operator.rawLegs.l1End, operator);
       if (operator.rawLegs.l2Train && operator.rawLegs.l2Train !== '--') addLegToTimeline(operator.rawLegs.l2Train, operator.dutyId, operator.rawLegs.l2Start, operator.rawLegs.l2End, operator);
       if (operator.rawLegs.l3Train && operator.rawLegs.l3Train !== '--') addLegToTimeline(operator.rawLegs.l3Train, operator.dutyId, operator.rawLegs.l3Start, operator.rawLegs.l3End, operator);
       if (operator.rawLegs.l4Train && operator.rawLegs.l4Train !== '--') addLegToTimeline(operator.rawLegs.l4Train, operator.dutyId, operator.rawLegs.l4Start, operator.rawLegs.l4End, operator);
+    } else if (operator.trainId && operator.trainId !== '--' && operator.trainId !== '-') {
+      // Direct train assignment from DISPATCH GATEWAY CORE
+      addLegToTimeline(operator.trainId, operator.dutyId, operator.signOnTime || '06:00', operator.signOffTime || '14:00', operator);
     }
   });
 
@@ -2349,4 +2396,124 @@ export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType
   });
 
   return calculatedTracking;
+}
+
+// ── DAY-TYPE AWARE & ACTIVE ROSTER RELIEVER RESOLUTION PIPELINE ──
+export function resolveLiveRelieverOperator({
+  trainId,
+  evalSecs,
+  currentDayType = 'WEEKDAY',
+  wttReliefChartRegistry,
+  dispatchDutyOperatorMap = {},
+  staticMasterRoster
+}) {
+  const normDay = normalizeScheduleDay(currentDayType || 'WEEKDAY');
+
+  // 1. Get the correct relief ID chart based on active day type
+  let dayTypeChart = null;
+  if (typeof wttReliefChartRegistry === 'function') {
+    const res = wttReliefChartRegistry(normDay);
+    dayTypeChart = res?.chart || res;
+  } else if (wttReliefChartRegistry && typeof wttReliefChartRegistry === 'object') {
+    dayTypeChart = wttReliefChartRegistry[normDay] || wttReliefChartRegistry['WEEKDAY'] || wttReliefChartRegistry;
+  }
+  if (!dayTypeChart) {
+    dayTypeChart = getReliefIdChartForDay(normDay).chart;
+  }
+
+  // 2. Find the active/reliever legs for this train ID based on evaluation seconds (evalSecs)
+  const cleanTid = normalizeTrackTrainId(trainId) || String(trainId || '').trim();
+  const rawTid = String(trainId || '').trim();
+
+  let trainLegs = [];
+  if (Array.isArray(dayTypeChart)) {
+    trainLegs = dayTypeChart.filter(r => {
+      const rTid = String(r.trainId || r.tid || '').trim();
+      return rTid === rawTid || rTid === cleanTid || normalizeTrackTrainId(rTid) === cleanTid;
+    });
+  } else if (dayTypeChart && typeof dayTypeChart === 'object') {
+    trainLegs = dayTypeChart[cleanTid] || dayTypeChart[rawTid] || [];
+  }
+
+  const formattedLegs = (trainLegs || []).map(leg => {
+    const rawDuty = leg.duty || leg.dutyId || leg.dutyNo || '';
+    const normDuty = normalizeDutyId(rawDuty);
+    const startSec = timeStringToSeconds(leg.timeFrom || leg.depTime || leg.from || leg.start);
+    let endSec = timeStringToSeconds(leg.timeTo || leg.arrTime || leg.to || leg.end);
+    if (endSec < startSec) endSec += 24 * 3600;
+    return {
+      ...leg,
+      dutyId: normDuty,
+      startSec,
+      endSec,
+      timeFrom: leg.timeFrom || leg.depTime || leg.from || '--',
+      timeTo: leg.timeTo || leg.arrTime || leg.to || '--'
+    };
+  }).sort((a, b) => a.startSec - b.startSec);
+
+  let currentLeg = null;
+  let relieverLeg = null;
+
+  for (let i = 0; i < formattedLegs.length; i++) {
+    const leg = formattedLegs[i];
+    if (evalSecs >= leg.startSec && evalSecs <= leg.endSec) {
+      currentLeg = leg;
+      if (i + 1 < formattedLegs.length) {
+        relieverLeg = formattedLegs[i + 1];
+      }
+      break;
+    }
+  }
+
+  if (!relieverLeg) {
+    if (currentLeg) {
+      relieverLeg = formattedLegs.find(leg => leg.startSec >= currentLeg.endSec - 300 && leg.dutyId !== currentLeg.dutyId) || null;
+    } else {
+      relieverLeg = formattedLegs.find(leg => leg.startSec > evalSecs) || null;
+    }
+  }
+
+  const relDutyRaw = relieverLeg?.dutyId || currentLeg?.nextDutyId || null;
+  const relDutyNorm = relDutyRaw ? normalizeDutyId(relDutyRaw) : null;
+
+  // 3. RESOLVE OPERATOR NAME FROM AUTHORITATIVE EXCEL / DISPATCH GATEWAY CORE
+  // Priority 1: Live active dispatch cache mapped from Excel auto-reader (pyidcc_active_dispatch_deployments)
+  const dispatchRelieverOp = relDutyNorm ? dispatchDutyOperatorMap[relDutyNorm] : null;
+
+  // Priority 2: Reliever record from dynamic tracking feed / leg operator
+  const liveFeedOp = relieverLeg?.operator || relieverLeg || null;
+
+  // Priority 3: Static baseline fallback
+  const staticFallbackOp = relDutyNorm
+    ? (typeof staticMasterRoster === 'function'
+        ? staticMasterRoster(relDutyNorm, normDay)
+        : staticMasterRoster?.[relDutyNorm] || getOperatorForDuty(relDutyNorm))
+    : null;
+
+  const effectiveRelName = 
+    dispatchRelieverOp?.operatorName || 
+    dispatchRelieverOp?.empName || 
+    (liveFeedOp?.empName && liveFeedOp.empName !== '--' && !liveFeedOp.empName.startsWith('Train Operator') && !liveFeedOp.empName.startsWith('Duty ') ? liveFeedOp.empName : null) || 
+    staticFallbackOp?.empName || 
+    staticFallbackOp?.name || 
+    null;
+
+  const effectiveRelId = 
+    dispatchRelieverOp?.operatorId || 
+    dispatchRelieverOp?.empId || 
+    (liveFeedOp?.empId && liveFeedOp.empId !== '--' ? liveFeedOp.empId : null) || 
+    staticFallbackOp?.empId || 
+    staticFallbackOp?.id || 
+    null;
+
+  return {
+    name: effectiveRelName || 'UNASSIGNED',
+    id: effectiveRelId || '--',
+    dutyNo: relDutyNorm || relDutyRaw || '--',
+    takeoverTime: relieverLeg?.timeFrom || relieverLeg?.depTime || relieverLeg?.from || '--',
+    endTime: relieverLeg?.timeTo || relieverLeg?.arrTime || relieverLeg?.to || '--',
+    startSec: relieverLeg?.startSec || 999999,
+    currentLegDutyNo: currentLeg?.dutyId || '--',
+    isExchanged: Boolean(dispatchRelieverOp?.isExchanged || liveFeedOp?.isExchanged)
+  };
 }

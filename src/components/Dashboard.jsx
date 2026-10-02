@@ -62,8 +62,14 @@ const fileToGenerativePart = async (file) => {
 const normalizeDutyId = (id) => {
   const s = String(id || '').trim();
   const clean = s.replace(/^duty[_\s-]*/i, '');
+  const crMatch = clean.match(/^CR(?:RC)?[-\s]?(\d{1,3})$/i);
+  if (crMatch) {
+    const num = parseInt(crMatch[1], 10);
+    return num < 10 ? '0' + num : String(num);
+  }
   if (/^[1-9]$/.test(clean)) return '0' + clean;
   if (/^\d{1,2}$/.test(clean)) return clean.padStart(2, '0');
+  if (/^\d{3}$/.test(clean)) return clean;
   return clean || s;
 };
 
@@ -83,14 +89,25 @@ const normalizeScheduleType = (type, docId = '') => {
 };
 
 // Validate: rejects malformed IDs like "6Z", "1A", empty strings, etc.
-// Valid forms: numeric-only (01, 02, 10, 11...) OR known special prefixes (CC, SB, RR, PRO)
+// Valid forms: numeric-only (01 to 999), CR01-CR999 OR known special prefixes (CC, SB, RR, PRO)
 const isValidDutyId = (id) => {
   const s = String(id || '').trim();
   if (!s || s === '--' || s === 'UNASSIGNED') return false;
-  // Accept: pure numeric (1-99)
-  if (/^\d{1,2}$/.test(s)) return true;
-  // Accept: special duty prefixes CC, SB, RR, PRO followed by digits
-  if (/^(CC|SB|RR|PRO|EX|ST)\d+$/i.test(s)) return true;
+  // Accept: pure numeric (1-999)
+  if (/^\d{1,3}$/.test(s)) {
+    const n = parseInt(s, 10);
+    return n > 0 && n <= 999;
+  }
+  // Accept: CR01 - CR999
+  if (/^CR(?:RC)?[-\s]?\d{1,3}$/i.test(s)) {
+    const m = s.match(/\d{1,3}/);
+    if (m) {
+      const n = parseInt(m[0], 10);
+      return n > 0 && n <= 999;
+    }
+  }
+  // Accept: special duty prefixes CC, SB, RR, PRO, EX, ST followed by digits
+  if (/^(CC|SB|RR|PRO|EX|ST|CR)\d+$/i.test(s)) return true;
   return false;
 };
 

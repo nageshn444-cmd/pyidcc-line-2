@@ -16,11 +16,49 @@ export class OperationalErrorBoundary extends React.Component {
     this.setState({ errorInfo });
   }
 
-  handleReset = () => {
+  handlePurgeAndReload = async () => {
+    try {
+      if (typeof window !== 'undefined' && window.indexedDB) {
+        if (typeof window.indexedDB.databases === 'function') {
+          const dbs = await window.indexedDB.databases();
+          for (const d of dbs) {
+            if (d.name && (d.name.includes('firestore') || d.name.includes('pyidline2crew'))) {
+              try {
+                window.indexedDB.deleteDatabase(d.name);
+              } catch (_) {}
+            }
+          }
+        }
+        try {
+          window.indexedDB.deleteDatabase('firestore/[DEFAULT]/pyidline2crew-41022/main');
+        } catch (_) {}
+      }
+      sessionStorage.clear();
+    } catch (e) {
+      console.warn('[OperationalErrorBoundary] Cache wipe error:', e);
+    }
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
+  };
+
+  handleReset = async () => {
+    const errorStr = String(this.state.error?.message || '') + ' ' + String(this.state.error?.stack || '');
+    const isFirestoreAssertionError =
+      errorStr.includes('INTERNAL ASSERTION FAILED') ||
+      errorStr.includes('b7de') ||
+      errorStr.includes('b815') ||
+      errorStr.includes('batchId');
+
     const isDynamicImportError = 
-      this.state.error?.message?.includes('Failed to fetch dynamically imported module') ||
-      this.state.error?.message?.includes('dynamically imported module') ||
-      this.state.error?.message?.includes('Loading chunk');
+      errorStr.includes('Failed to fetch dynamically imported module') ||
+      errorStr.includes('dynamically imported module') ||
+      errorStr.includes('Loading chunk');
+
+    if (isFirestoreAssertionError) {
+      await this.handlePurgeAndReload();
+      return;
+    }
 
     this.setState({ hasError: false, error: null, errorInfo: null });
     if (isDynamicImportError && typeof window !== 'undefined') {
@@ -34,10 +72,17 @@ export class OperationalErrorBoundary extends React.Component {
 
   render() {
     if (this.state.hasError) {
+      const errorStr = String(this.state.error?.message || '') + ' ' + String(this.state.error?.stack || '');
+      const isFirestoreAssertionError =
+        errorStr.includes('INTERNAL ASSERTION FAILED') ||
+        errorStr.includes('b7de') ||
+        errorStr.includes('b815') ||
+        errorStr.includes('batchId');
+
       const isDynamicImportError = 
-        this.state.error?.message?.includes('Failed to fetch dynamically imported module') ||
-        this.state.error?.message?.includes('dynamically imported module') ||
-        this.state.error?.message?.includes('Loading chunk');
+        errorStr.includes('Failed to fetch dynamically imported module') ||
+        errorStr.includes('dynamically imported module') ||
+        errorStr.includes('Loading chunk');
 
       return (
         <div className="min-h-[400px] flex items-center justify-center p-6 bg-slate-950 text-slate-100 font-sans">
@@ -51,13 +96,19 @@ export class OperationalErrorBoundary extends React.Component {
                   BMRCL PYIDCC • Fault Isolation Subsystem
                 </span>
                 <h2 className="text-xl font-black text-white">
-                  {isDynamicImportError ? 'Module Connection Re-sync Required' : 'Operational View Suspended'}
+                  {isFirestoreAssertionError
+                    ? 'Firestore Local Cache Desync Detected'
+                    : isDynamicImportError
+                    ? 'Module Connection Re-sync Required'
+                    : 'Operational View Suspended'}
                 </h2>
               </div>
             </div>
 
             <p className="text-sm text-slate-300">
-              {isDynamicImportError
+              {isFirestoreAssertionError
+                ? 'An interrupted mutation batch in the browser local IndexedDB cache caused a Firestore internal assertion failure (batchId). Purging the corrupted local cache will safely reconnect you with the live operational database without any data loss.'
+                : isDynamicImportError
                 ? 'A temporary dev server restart or network interruption prevented dynamic chunk loading. Click below to reconnect and resume.'
                 : 'An unexpected runtime error was caught in this console component. The rest of the crew control system remains protected.'}
             </p>
@@ -85,13 +136,25 @@ export class OperationalErrorBoundary extends React.Component {
                 Copy Diagnostic Trace
               </button>
 
-              <button
-                onClick={this.handleReset}
-                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-emerald-950/40"
-              >
-                <RefreshCw className="w-4 h-4" />
-                {isDynamicImportError ? 'Reload & Reconnect View' : 'Recover & Reconnect View'}
-              </button>
+              <div className="flex items-center gap-3">
+                {isFirestoreAssertionError ? (
+                  <button
+                    onClick={this.handlePurgeAndReload}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-rose-950/40"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Purge Local Cache & Reconnect
+                  </button>
+                ) : (
+                  <button
+                    onClick={this.handleReset}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-emerald-950/40"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    {isDynamicImportError ? 'Reload & Reconnect View' : 'Recover & Reconnect View'}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

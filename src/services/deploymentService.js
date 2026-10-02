@@ -260,24 +260,27 @@ export async function executeDeployment(
   // 1. Save date-specific deployment
   await safeSetDoc(docRef, payload, { merge: true }, customDb);
 
-  // 2. Update active deployment pointer
-  const activeConfigRef = getDocRef(
-    customDb,
-    "system_settings",
-    "active_roster_config"
-  );
-  await safeSetDoc(
-    activeConfigRef,
-    {
-      activeDeploymentId: deploymentId,
-      activeDeploymentDate: normDate,
-      activeDayType: normDayType,
-      updatedAt: nowIso,
-      updatedBy: user || "CrewController_01",
-    },
-    { merge: true },
-    customDb
-  );
+  // 2. Update active deployment pointer (only for today's operational day)
+  const todayIso = formatOperationalDate(new Date());
+  if (normDate === todayIso) {
+    const activeConfigRef = getDocRef(
+      customDb,
+      "system_settings",
+      "active_roster_config"
+    );
+    await safeSetDoc(
+      activeConfigRef,
+      {
+        activeDeploymentId: deploymentId,
+        activeDeploymentDate: normDate,
+        activeDayType: normDayType,
+        updatedAt: nowIso,
+        updatedBy: user || "CrewController_01",
+      },
+      { merge: true },
+      customDb
+    );
+  }
 
   // 3. Write audit log
   const auditLogsCol = getColRef(customDb, "deployment_audit_logs");

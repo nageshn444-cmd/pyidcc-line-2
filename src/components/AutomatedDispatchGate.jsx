@@ -11,6 +11,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
 } from "firebase/firestore";
 import {
@@ -60,6 +61,7 @@ import {
 import * as XLSX from "xlsx";
 import { useOperationalEngine } from "../context/OperationalEngine";
 import { BMRCL_CREW_REGISTRY } from "../data/bmrclCrewRegistry";
+import { buildCanonicalDutiesForDate } from "../data/canonicalDayLinksRegistry";
 import { DUTY_TEMPLATES_REGISTRY } from "../data/dutyTemplatesRegistry";
 import { OFFICIAL_JMD_TD_REGISTRY } from "../data/jmdCrewMaster";
 import {
@@ -68,6 +70,11 @@ import {
   SUNDAY_DUTY_TYPES,
 } from "../data/kmcalc/preloadedDuties";
 import { WEEKDAY_MASTER_LINKS } from "../data/weekdayMasterLinks";
+import {
+  buildLiveTrainTrackingMap,
+  normalizeScheduleDay,
+  normalizeTrackTrainId,
+} from "../data/weekdayReliefIdChartRegistry";
 import { db } from "../firebase";
 import {
   csvToFile,
@@ -109,17 +116,9 @@ import {
   getRolling7Days,
   getScheduleTypeFromDate,
 } from "../utils/rosterDateUtils";
-import { 
-  buildLiveTrainTrackingMap, 
-  getReliefIdChartForDay, 
-  normalizeScheduleDay, 
-  normalizeTrackTrainId,
-  timeStringToSeconds 
-} from "../data/weekdayReliefIdChartRegistry";
 import ReliefTracking from "./ReliefTracking";
 import RosterPublisherBoard from "./RosterPublisherBoard";
 import OfficialGccRosterSheetView from "./common/OfficialGccRosterSheetView";
-import { buildCanonicalDutiesForDate } from "../data/canonicalDayLinksRegistry";
 
 // ── Duty ID Utilities (shared with Dashboard) ──
 // Format Excel decimal/string times (e.g. 0.29166 -> 07:00)
@@ -191,11 +190,14 @@ const resolveSignOffTime = (duty, scheduleType = "WEEKDAY") => {
   }
 
   // Look up in WEEKDAY_MASTER_LINKS
-  const dutyIdNum = String(duty.dutyId || duty.dutyNo || "").replace(/^0+/, "");
-  const paddedDutyId = String(duty.dutyId || duty.dutyNo || "").padStart(
-    2,
-    "0",
-  );
+  const rawDutyStr = String(duty.dutyId || duty.dutyNo || duty.rawDutyId || "")
+    .replace(/^(duty|d)\s*[#]*/i, "")
+    .replace(/^#/, "")
+    .trim();
+  const crMatch = rawDutyStr.match(/^CR(?:RC)?[-\s]?(\d{1,3})$/i);
+  const dutyDigits = crMatch ? crMatch[1] : rawDutyStr.replace(/\D/g, "");
+  const dutyIdNum = dutyDigits.replace(/^0+/, "");
+  const paddedDutyId = dutyDigits.length === 1 ? "0" + dutyDigits : dutyDigits;
 
   const masterMatch = Array.isArray(WEEKDAY_MASTER_LINKS)
     ? WEEKDAY_MASTER_LINKS.find(
@@ -245,11 +247,14 @@ const resolveSignOffLocation = (duty, scheduleType = "WEEKDAY") => {
     return rawLoc;
   }
 
-  const dutyIdNum = String(duty.dutyId || duty.dutyNo || "").replace(/^0+/, "");
-  const paddedDutyId = String(duty.dutyId || duty.dutyNo || "").padStart(
-    2,
-    "0",
-  );
+  const rawDutyStr = String(duty.dutyId || duty.dutyNo || duty.rawDutyId || "")
+    .replace(/^(duty|d)\s*[#]*/i, "")
+    .replace(/^#/, "")
+    .trim();
+  const crMatch = rawDutyStr.match(/^CR(?:RC)?[-\s]?(\d{1,3})$/i);
+  const dutyDigits = crMatch ? crMatch[1] : rawDutyStr.replace(/\D/g, "");
+  const dutyIdNum = dutyDigits.replace(/^0+/, "");
+  const paddedDutyId = dutyDigits.length === 1 ? "0" + dutyDigits : dutyDigits;
 
   const masterMatch = Array.isArray(WEEKDAY_MASTER_LINKS)
     ? WEEKDAY_MASTER_LINKS.find(
@@ -295,6 +300,9 @@ const resolveDutyType = (d, dayType = "WEEKDAY") => {
   // 1. Direct explicit dutyType from Excel if present and not default placeholder
   if (d.dutyType && d.dutyType !== "--" && d.dutyType !== "PYID") {
     return String(d.dutyType).trim();
+  }
+  if (d.isCrrc || /^CR/i.test(String(d.rawDutyId || d.dutyId || ""))) {
+    return d.dutyType || "CRRC Train Duty";
   }
 
   const rawId = String(d.dutyId || "").trim();
@@ -569,13 +577,19 @@ const calculateDetailedCrewPositions = (dayType, deployments, consoleData) => {
   // Mainline Duties
   (activeMainlineDuties || []).forEach((d) => {
     const jmd = isJmd(d);
+    const isCr = Boolean(d.isCrrc || /^CR/i.test(String(d.rawDutyId || "")));
     allIndividualPositions.push({
       id: `mainline_${d.dutyId || Math.random()}`,
-      category: "Mainline Train Duty",
+      category: isCr ? "CRRC Train Duty" : "Mainline Train Duty",
       group: "MAINLINE",
-      dutyId: d.dutyId ? `Duty #${d.dutyId}` : "Driving Duty",
-      rawDutyId: d.dutyId,
-      trainId: d.trainId ? `Train ${d.trainId}` : "--",
+      dutyId: d.dutyId
+        ? isCr
+          ? `Duty #${d.dutyId} (CRRC)`
+          : `Duty #${d.dutyId}`
+        : "Driving Duty",
+      rawDutyId: d.rawDutyId || d.dutyId,
+      isCrrc: isCr,
+      trainId: d.trainId ? `Train ${d.trainId}` : isCr ? "CRRC Train" : "--",
       name: d.empName || d.name || "Operator",
       empId: d.empId || d.empNo || "--",
       isJmd: jmd,
@@ -1044,18 +1058,38 @@ const highlightMatch = (text, query) => {
   );
 };
 
-// Normalize: pad single-digit "1".."9" to "01".."09"
+// Normalize: pad single-digit "1".."9" to "01".."09", handle CR prefix (e.g. CR42 -> "42", CR01 -> "01")
 const normalizeDutyId = (id) => {
-  const s = String(id || "").trim();
+  let s = String(id || "")
+    .replace(/^(duty|d)\s*[#]*/i, "")
+    .replace(/^#/, "")
+    .trim();
+  const crMatch = s.match(/^CR(?:RC)?[-\s]?(\d{1,3})$/i);
+  if (crMatch) {
+    const num = parseInt(crMatch[1], 10);
+    return num < 10 ? "0" + num : String(num);
+  }
   if (/^[1-9]$/.test(s)) return "0" + s;
   return s;
 };
 
-// Validate: only allow numeric 1-99 or known special prefixes (CC, SB, RR, PRO, EX, ST)
+// Validate: allow numeric 1-999 or CR01-CR999 or known special prefixes (CC, SB, RR, PRO, EX, ST)
 const isValidDutyId = (id) => {
   const s = String(id || "").trim();
   if (!s || s === "--" || s === "UNASSIGNED") return false;
-  if (/^\d{1,2}$/.test(s)) return true;
+  // Pure numeric 1-999
+  if (/^\d{1,3}$/.test(s)) {
+    const n = parseInt(s, 10);
+    return n > 0 && n <= 999;
+  }
+  // CR01 - CR999
+  if (/^CR(?:RC)?[-\s]?\d{1,3}$/i.test(s)) {
+    const m = s.match(/\d{1,3}/);
+    if (m) {
+      const n = parseInt(m[0], 10);
+      return n > 0 && n <= 999;
+    }
+  }
   if (/^(CC|SB|RR|PRO|EX|ST)\d+$/i.test(s)) return true;
   return false;
 };
@@ -1161,7 +1195,14 @@ const deduplicateDeployments = (items) => {
     }
   }
 
-  return Array.from(seen.values());
+  return Array.from(seen.values()).sort((a, b) => {
+    const numA = parseInt(String(a.dutyId || "").replace(/\D/g, ""), 10);
+    const numB = parseInt(String(b.dutyId || "").replace(/\D/g, ""), 10);
+    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+    if (!isNaN(numA)) return -1;
+    if (!isNaN(numB)) return 1;
+    return String(a.dutyId || "").localeCompare(String(b.dutyId || ""));
+  });
 };
 
 const levenshteinDistance = (a, b) => {
@@ -1186,6 +1227,12 @@ const levenshteinDistance = (a, b) => {
 
 const findClosestRegistryEmployeeByName = (extractedName) => {
   if (!extractedName || extractedName === "--") return null;
+  if (
+    /\b(refer\s*in\s*or\s*section|refer|see\s*or|unassigned|vacant)\b/i.test(
+      extractedName,
+    )
+  )
+    return null;
   const cleanExtracted = extractedName.toLowerCase().replace(/[^a-z]/g, "");
   if (cleanExtracted.length < 3) return null;
   let bestMatch = null;
@@ -1213,7 +1260,9 @@ const findClosestRegistryEmployeeByName = (extractedName) => {
 
 const cleanOperatorName = (name) => {
   if (!name) return "";
-  return String(name).trim();
+  const s = String(name).trim();
+  if (/\b(refer\s*in\s*or\s*section|refer|see\s*or)\b/i.test(s)) return "";
+  return s;
 };
 
 const matchCrewMember = (idOrName) => {
@@ -1577,8 +1626,37 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
   const [showDeploymentHistory, setShowDeploymentHistory] = useState(false);
   const [isDeployingGateway, setIsDeployingGateway] = useState(false);
 
-  // Staging & Confirmation Engine States
-  const [stagedRoster, setStagedRoster] = useState(null);
+  // Staging & Confirmation Engine States (Multi-Day Map: dateStr -> stagedData)
+  const [stagedRostersByDate, setStagedRostersByDate] = useState({});
+  const stagedRoster = stagedRostersByDate[targetDeploymentDate] || null;
+
+  const setStagedRoster = useCallback(
+    (valOrFn) => {
+      setStagedRostersByDate((prev) => {
+        const current = prev[targetDeploymentDate] || null;
+        const nextVal =
+          typeof valOrFn === "function" ? valOrFn(current) : valOrFn;
+        if (!nextVal) {
+          const copy = { ...prev };
+          delete copy[targetDeploymentDate];
+          return copy;
+        }
+        return {
+          ...prev,
+          [targetDeploymentDate]: nextVal,
+        };
+      });
+    },
+    [targetDeploymentDate],
+  );
+
+  const stageRosterForDate = useCallback((dateStr, data) => {
+    const formatted = formatOperationalDate(dateStr);
+    setStagedRostersByDate((prev) => ({
+      ...prev,
+      [formatted]: data,
+    }));
+  }, []);
 
   const [localDayType, setLocalDayType] = useState(activeDay);
 
@@ -1613,11 +1691,33 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
   };
 
   const onDateSelectionChanged = useCallback(
-    (newDate) => {
+    (newDate, explicitDayType = null) => {
       const formatted = formatOperationalDate(newDate);
       setTargetDeploymentDate(formatted);
-      if (!userExplicitDayTypeRef.current) {
-        const computedDayType = calculateDefaultDayType(formatted);
+      if (explicitDayType) {
+        userExplicitDayTypeRef.current = true;
+        const norm = normalizeScheduleType(explicitDayType);
+        setTargetDayType(norm);
+        if (setActiveDay) {
+          setActiveDay(norm);
+        } else {
+          setLocalDayType(norm);
+        }
+      } else if (!userExplicitDayTypeRef.current) {
+        // Auto resolve dayType from historical deployment or staged data if available
+        const historyMatch = (deploymentHistoryList || []).find((d) => {
+          const dDate = formatOperationalDate(
+            d.deploymentDate || d.date || d.targetDate,
+          );
+          return dDate === formatted || (d.id && d.id.includes(formatted));
+        });
+        const stagedMatch = stagedRostersByDate[formatted];
+        const computedDayType =
+          historyMatch?.dayType ||
+          historyMatch?.scheduleType ||
+          stagedMatch?.dayType ||
+          stagedMatch?.scheduleType ||
+          calculateDefaultDayType(formatted);
         setTargetDayType(computedDayType);
         if (setActiveDay) {
           setActiveDay(computedDayType);
@@ -1633,15 +1733,70 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
       if (onDateChange) {
         onDateChange(formatted);
       }
-      // Clear staged roster if it does not belong to the selected date
-      setStagedRoster((prev) => {
-        if (prev && (prev.dateStr === formatted || prev.date === formatted)) {
-          return prev;
+
+      // Load staged roster for this target date if present; otherwise check history or clean state
+      const stagedForDate = stagedRostersByDate[formatted];
+      if (stagedForDate) {
+        setConsoleData(
+          enforceSingleDutyRule(sanitizeConsoleContainer(stagedForDate)),
+        );
+        if (stagedForDate.duties && stagedForDate.duties.length > 0) {
+          setFallbackDeployments(deduplicateDeployments(stagedForDate.duties));
         }
-        return null;
-      });
+      } else {
+        const historyMatch = (deploymentHistoryList || []).find((d) => {
+          const dDate = formatOperationalDate(
+            d.deploymentDate || d.date || d.targetDate,
+          );
+          return dDate === formatted || (d.id && d.id.includes(formatted));
+        });
+        if (historyMatch && historyMatch.rosterData) {
+          setCurrentDeploymentRecord(historyMatch);
+          if (historyMatch.dayType) {
+            setTargetDayType(normalizeScheduleType(historyMatch.dayType));
+          }
+          setConsoleData(
+            enforceSingleDutyRule(
+              sanitizeConsoleContainer(historyMatch.rosterData),
+            ),
+          );
+          if (historyMatch.rosterData.duties) {
+            setFallbackDeployments(
+              deduplicateDeployments(historyMatch.rosterData.duties),
+            );
+          }
+        } else {
+          // Strictly date-isolated blank slate: clear previous day's personnel
+          setCurrentDeploymentRecord(null);
+          setFallbackDeployments([]);
+          setConsoleData({
+            controlDesks: [],
+            coOperators: [],
+            leaves: [],
+            standbys: [],
+            outstationStepbacks: [],
+            crtTraining: [],
+            bmrtiTraining: [],
+            weeklyOffs: [],
+            relievedOperators: [],
+            pmeOperators: [],
+            routeLearning: [],
+            notReporting: [],
+            absents: [],
+            bookedOff: [],
+            onDuty: [],
+            customRegisters: {},
+          });
+        }
+      }
     },
-    [setActiveDay, rollingDays, onDateChange],
+    [
+      setActiveDay,
+      rollingDays,
+      onDateChange,
+      deploymentHistoryList,
+      stagedRostersByDate,
+    ],
   );
 
   const initialSyncedRef = useRef(false);
@@ -1667,6 +1822,27 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
     } else {
       setLocalDayType(norm);
     }
+    // Synchronize staged roster in memory so it deploys under the selected schedule type
+    setStagedRostersByDate((prev) => {
+      const cur = prev[targetDeploymentDate];
+      if (!cur) return prev;
+      return {
+        ...prev,
+        [targetDeploymentDate]: {
+          ...cur,
+          dayType: norm,
+          scheduleType: norm,
+          duties: (cur.duties || []).map((d) => ({
+            ...d,
+            dayType: norm,
+            scheduleType: norm,
+            date: targetDeploymentDate,
+            targetDate: targetDeploymentDate,
+            deploymentDate: targetDeploymentDate,
+          })),
+        },
+      };
+    });
   };
 
   // ── STRICT DATE-WISE DEPLOYMENT ISOLATION (NO CROSS-DATE BLEED) ──
@@ -2016,117 +2192,152 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
     }
   }, [activeSelectedDateStr]);
 
-  // Real-time listener for current target date deployment record (listening to primary & alternate IDs)
+  // Real-time listener for deployed roster record for the selected calendar date
   useEffect(() => {
-    const deploymentId = getDeploymentId(targetDeploymentDate, targetDayType);
-    const altDate = toIndianDateStr(targetDeploymentDate);
-    const altDeploymentId = altDate ? `${altDate}_${targetDayType}` : null;
+    const activeDate = formatOperationalDate(targetDeploymentDate);
+    const altDate = toIndianDateStr(activeDate);
 
-    const handleDepDocSnap = (docSnap) => {
-      if (docSnap && docSnap.exists()) {
-        const depData = docSnap.data();
-        setCurrentDeploymentRecord(depData);
-        if (depData.rosterData) {
-          setConsoleData(
-            sanitizeConsoleContainer({
-              controlDesks: depData.rosterData.controlDesks || [],
-              coOperators: depData.rosterData.coOperators || [],
-              leaves: depData.rosterData.leaves || [],
-              standbys: depData.rosterData.standbys || [],
-              outstationStepbacks: depData.rosterData.outstationStepbacks || [],
-              crtTraining: depData.rosterData.crtTraining || [],
-              bmrtiTraining: depData.rosterData.bmrtiTraining || [],
-              weeklyOffs: depData.rosterData.weeklyOffs || [],
-              relievedOperators: depData.rosterData.relievedOperators || [],
-              pmeOperators: depData.rosterData.pmeOperators || [],
-              routeLearning: depData.rosterData.routeLearning || [],
-              notReporting: depData.rosterData.notReporting || [],
-              absents: depData.rosterData.absents || [],
-              bookedOff: depData.rosterData.bookedOff || [],
-              onDuty: depData.rosterData.onDuty || [],
-              customRegisters: depData.rosterData.customRegisters || {},
-            }),
-          );
-          if (
-            Array.isArray(depData.rosterData.duties) &&
-            depData.rosterData.duties.length > 0
-          ) {
-            setFallbackDeployments(
-              deduplicateDeployments(
-                depData.rosterData.duties.map((d) => ({
-                  ...d,
-                  date: targetDeploymentDate,
-                  deploymentDate: targetDeploymentDate,
-                })),
-              ),
-            );
-          }
+    let isSubscribed = true;
+
+    // Listen to dispatch_deployments for any document deployed on this calendar date
+    const qDep = query(
+      collection(db, "dispatch_deployments"),
+      where("deploymentDate", "==", activeDate),
+    );
+
+    const unsubDep = onSnapshot(
+      qDep,
+      async (snap) => {
+        if (!isSubscribed) return;
+        let matched = null;
+        if (!snap.empty) {
+          const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          // Prioritize doc matching current targetDayType, else use first deployment on this date
+          matched =
+            docs.find(
+              (d) =>
+                normalizeScheduleType(d.dayType || d.scheduleType) ===
+                normalizeScheduleType(targetDayType),
+            ) || docs[0];
         }
-        return true;
-      }
-      return false;
-    };
 
-    let hasReceivedLiveDoc = false;
-
-    const unsubPrimary = onSnapshot(
-      doc(db, "dispatch_deployments", deploymentId),
-      (docSnap) => {
-        if (handleDepDocSnap(docSnap)) {
-          hasReceivedLiveDoc = true;
-        } else if (!hasReceivedLiveDoc) {
-          // Check if deployment history has a record matching this targetDeploymentDate
-          const matchedFromHistory = (deploymentHistoryList || []).find((d) => {
+        // If not found in snapshot query, check deploymentHistoryList
+        if (!matched && deploymentHistoryList?.length > 0) {
+          matched = deploymentHistoryList.find((d) => {
             const dDate = formatOperationalDate(
               d.deploymentDate || d.date || d.targetDate,
             );
             return (
-              dDate === targetDeploymentDate ||
-              d.id === deploymentId ||
-              d.id === altDeploymentId ||
-              (d.id &&
-                (d.id.includes(targetDeploymentDate) ||
-                  (altDate && d.id.includes(altDate))))
+              dDate === activeDate ||
+              (d.id && d.id.includes(activeDate)) ||
+              (altDate && d.id && d.id.includes(altDate))
             );
           });
-          if (matchedFromHistory && matchedFromHistory.rosterData) {
-            setCurrentDeploymentRecord(matchedFromHistory);
-            setConsoleData(
-              sanitizeConsoleContainer({
-                controlDesks: matchedFromHistory.rosterData.controlDesks || [],
-                coOperators: matchedFromHistory.rosterData.coOperators || [],
-                leaves: matchedFromHistory.rosterData.leaves || [],
-                standbys: matchedFromHistory.rosterData.standbys || [],
-                outstationStepbacks:
-                  matchedFromHistory.rosterData.outstationStepbacks || [],
-                crtTraining: matchedFromHistory.rosterData.crtTraining || [],
-                bmrtiTraining:
-                  matchedFromHistory.rosterData.bmrtiTraining || [],
-                weeklyOffs: matchedFromHistory.rosterData.weeklyOffs || [],
-                relievedOperators:
-                  matchedFromHistory.rosterData.relievedOperators || [],
-                pmeOperators: matchedFromHistory.rosterData.pmeOperators || [],
-                routeLearning:
-                  matchedFromHistory.rosterData.routeLearning || [],
-                notReporting: matchedFromHistory.rosterData.notReporting || [],
-                absents: matchedFromHistory.rosterData.absents || [],
-                bookedOff: matchedFromHistory.rosterData.bookedOff || [],
-                onDuty: matchedFromHistory.rosterData.onDuty || [],
-                customRegisters:
-                  matchedFromHistory.rosterData.customRegisters || {},
-              }),
+        }
+
+        // If still not found, check date-partitioned dispatch_excel_cache and roster_desk_console
+        if (!matched) {
+          try {
+            const [cacheSnap, consoleSnap] = await Promise.all([
+              getDoc(doc(db, "dispatch_excel_cache", activeDate)),
+              getDoc(doc(db, "roster_desk_console", `date_${activeDate}`)),
+            ]);
+            const cacheData = cacheSnap.exists() ? cacheSnap.data() : null;
+            const consoleDataSnap = consoleSnap.exists()
+              ? consoleSnap.data()
+              : null;
+            const recovered = cacheData || consoleDataSnap;
+            if (
+              recovered &&
+              !recovered.isExplicitlyCleared &&
+              ((recovered.duties && recovered.duties.length > 0) ||
+                (recovered.controlDesks && recovered.controlDesks.length > 0))
+            ) {
+              matched = {
+                id: `${activeDate}_${recovered.dayType || targetDayType || "WEEKDAY"}`,
+                deploymentDate: activeDate,
+                dayType: recovered.dayType || targetDayType || "WEEKDAY",
+                status: "DEPLOYED",
+                rosterData: recovered,
+              };
+            }
+          } catch (_e) {
+            /* ignore read error */
+          }
+        }
+
+        if (!isSubscribed) return;
+
+        if (matched && matched.rosterData) {
+          setCurrentDeploymentRecord(matched);
+          const recoveredDayType = normalizeScheduleType(
+            matched.dayType || matched.scheduleType || targetDayType,
+          );
+          if (
+            recoveredDayType &&
+            recoveredDayType !== normalizeScheduleType(targetDayType)
+          ) {
+            setTargetDayType(recoveredDayType);
+          }
+          setConsoleData(
+            enforceSingleDutyRule(sanitizeConsoleContainer(matched.rosterData)),
+          );
+          if (
+            Array.isArray(matched.rosterData.duties) &&
+            matched.rosterData.duties.length > 0
+          ) {
+            setFallbackDeployments(
+              deduplicateDeployments(
+                matched.rosterData.duties.map((d) => ({
+                  ...d,
+                  date: activeDate,
+                  deploymentDate: activeDate,
+                })),
+              ),
             );
-            if (Array.isArray(matchedFromHistory.rosterData.duties)) {
+          }
+        } else {
+          // Check if there is an in-memory staged draft for this active calendar date
+          const stagedForThisDate = stagedRostersByDate[activeDate];
+          if (stagedForThisDate) {
+            setCurrentDeploymentRecord({
+              status: "STAGED",
+              dateStr: activeDate,
+            });
+            setConsoleData(
+              enforceSingleDutyRule(
+                sanitizeConsoleContainer(stagedForThisDate),
+              ),
+            );
+            if (
+              stagedForThisDate.duties &&
+              stagedForThisDate.duties.length > 0
+            ) {
               setFallbackDeployments(
-                deduplicateDeployments(
-                  matchedFromHistory.rosterData.duties.map((d) => ({
-                    ...d,
-                    date: targetDeploymentDate,
-                    deploymentDate: targetDeploymentDate,
-                  })),
-                ),
+                deduplicateDeployments(stagedForThisDate.duties),
               );
             }
+          } else {
+            setCurrentDeploymentRecord(null);
+            // Strictly isolate date: reset console state so previous days do not bleed over
+            setConsoleData({
+              controlDesks: [],
+              coOperators: [],
+              leaves: [],
+              standbys: [],
+              outstationStepbacks: [],
+              crtTraining: [],
+              bmrtiTraining: [],
+              weeklyOffs: [],
+              relievedOperators: [],
+              pmeOperators: [],
+              routeLearning: [],
+              notReporting: [],
+              absents: [],
+              bookedOff: [],
+              onDuty: [],
+              customRegisters: {},
+            });
           }
         }
       },
@@ -2135,26 +2346,16 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
       },
     );
 
-    let unsubAlt = null;
-    if (altDeploymentId && altDeploymentId !== deploymentId) {
-      unsubAlt = onSnapshot(
-        doc(db, "dispatch_deployments", altDeploymentId),
-        (docSnap) => {
-          if (handleDepDocSnap(docSnap)) {
-            hasReceivedLiveDoc = true;
-          }
-        },
-        (err) => {
-          console.warn("Deployment alt record listener warning:", err);
-        },
-      );
-    }
-
     return () => {
-      unsubPrimary();
-      if (unsubAlt) unsubAlt();
+      isSubscribed = false;
+      unsubDep();
     };
-  }, [targetDeploymentDate, targetDayType, deploymentHistoryList]);
+  }, [
+    targetDeploymentDate,
+    targetDayType,
+    deploymentHistoryList,
+    stagedRostersByDate,
+  ]);
 
   // Real-time listener for deployment history list
   useEffect(() => {
@@ -2176,6 +2377,196 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
     return () => unsub();
   }, []);
 
+  // Reusable single-date deployment engine
+  const deploySingleRoster = async (
+    depDate,
+    depDayType,
+    sourceStagedData = null,
+  ) => {
+    const existing = await checkDeploymentExists(depDate, depDayType);
+    const forceReplace = existing.exists;
+
+    const sourceData =
+      sourceStagedData || stagedRostersByDate[depDate] || stagedRoster;
+    const cleanConsole = sourceData
+      ? sanitizeConsoleContainer(sourceData)
+      : sanitizeConsoleContainer(consoleData);
+
+    const dutiesToDeploy = (
+      sourceData?.duties && sourceData.duties.length > 0
+        ? sourceData.duties
+        : deduplicatedDeployments &&
+            deduplicatedDeployments.length > 0 &&
+            depDate === targetDeploymentDate
+          ? deduplicatedDeployments
+          : buildCanonicalDutiesForDate(depDayType, depDate)
+    ).map((d) => ({
+      ...d,
+      date: depDate,
+      targetDate: depDate,
+      deploymentDate: depDate,
+      scheduleType: depDayType,
+      dayType: depDayType,
+    }));
+
+    if (dutiesToDeploy.length === 0) {
+      throw new Error(
+        `No duties found to deploy for ${depDate} (${depDayType}).`,
+      );
+    }
+
+    const rosterPayload = {
+      ...cleanConsole,
+      duties: dutiesToDeploy,
+      date: depDate,
+      dateStr: depDate,
+      dayType: depDayType,
+      scheduleType: depDayType,
+    };
+
+    // 1. Auto deploy classified aux data and duties into official collections
+    try {
+      await rosterAutoClassifierService.autoDeployClassifiedData(
+        rosterPayload,
+        "CrewController_01",
+        `Deployment for ${depDate} (${depDayType})`,
+      );
+    } catch (classErr) {
+      console.warn("Classifier auto-deploy warning:", classErr);
+    }
+
+    // 2. Deploy active train driving duties to crew_daily_deployment
+    const dutyMap = new Map();
+    const todayIso = formatOperationalDate(new Date());
+
+    dutiesToDeploy.forEach((d) => {
+      if (!d.dutyId) return;
+      const dateDocId = `gcc_deploy_${depDate}_duty_${d.dutyId}`;
+      dutyMap.set(dateDocId, {
+        ref: doc(db, "crew_daily_deployment", dateDocId),
+        data: {
+          ...d,
+          dutyId: d.dutyId,
+          empId: d.empId || "--",
+          empName: d.empName || "--",
+          scheduleType: depDayType,
+          dayType: depDayType,
+          date: depDate,
+          remarks: `Deployment for ${depDate} (${depDayType})`,
+          lastUpdated: serverTimestamp(),
+        },
+      });
+
+      // If deploying for today, also write schedule-type doc ID for backwards compatibility
+      if (depDate === todayIso) {
+        const todayDocId = `gcc_deploy_${depDayType.toLowerCase()}_duty_${d.dutyId}`;
+        dutyMap.set(todayDocId, {
+          ref: doc(db, "crew_daily_deployment", todayDocId),
+          data: {
+            ...d,
+            dutyId: d.dutyId,
+            empId: d.empId || "--",
+            empName: d.empName || "--",
+            scheduleType: depDayType,
+            dayType: depDayType,
+            date: depDate,
+            remarks: `Deployment for ${depDate} (${depDayType})`,
+            lastUpdated: serverTimestamp(),
+          },
+        });
+      }
+    });
+
+    const dutyEntries = Array.from(dutyMap.values());
+    for (let i = 0; i < dutyEntries.length; i += 100) {
+      const chunk = dutyEntries.slice(i, i + 100);
+      const chunkBatch = writeBatch(db);
+      chunk.forEach(({ ref, data }) =>
+        chunkBatch.set(ref, data, { merge: true }),
+      );
+      await chunkBatch.commit();
+    }
+
+    // 3. Cache in dispatch_excel_cache & roster_desk_console
+    const consoleSnapshot = {
+      date: depDate,
+      dayType: depDayType,
+      scheduleType: depDayType,
+      sheetName:
+        sourceData?.sheetName ||
+        sourceData?.fileName ||
+        selectedRosterFile?.name ||
+        "Manual Deployment",
+      ...cleanConsole,
+      duties: dutiesToDeploy,
+      isExplicitlyCleared: false,
+      updatedAt: serverTimestamp(),
+    };
+
+    // Save to date-partitioned documents in Firestore
+    await setDoc(
+      doc(db, "roster_desk_console", `date_${depDate}`),
+      consoleSnapshot,
+      {
+        merge: true,
+      },
+    );
+    await setDoc(doc(db, "roster_desk_console", depDate), consoleSnapshot, {
+      merge: true,
+    });
+    await setDoc(doc(db, "dispatch_excel_cache", depDate), consoleSnapshot, {
+      merge: true,
+    });
+    const indDate = toIndianDateStr(depDate);
+    if (indDate && indDate !== depDate) {
+      await setDoc(doc(db, "dispatch_excel_cache", indDate), consoleSnapshot, {
+        merge: true,
+      });
+      await setDoc(
+        doc(db, "roster_desk_console", `date_${indDate}`),
+        consoleSnapshot,
+        {
+          merge: true,
+        },
+      );
+    }
+
+    if (depDate === todayIso) {
+      await setDoc(doc(db, "roster_desk_console", "current"), consoleSnapshot, {
+        merge: true,
+      });
+      await setDoc(doc(db, "roster_desk_console", "latest"), consoleSnapshot, {
+        merge: true,
+      });
+      await setDoc(
+        doc(db, "dispatch_excel_cache", "current"),
+        consoleSnapshot,
+        { merge: true },
+      );
+    }
+
+    // 4. Save official deployment record in dispatch_deployments
+    const result = await executeDeployment({
+      deploymentDate: depDate,
+      dayType: depDayType,
+      rosterData: rosterPayload,
+      sourceFile:
+        sourceData?.sheetName ||
+        sourceData?.fileName ||
+        selectedRosterFile?.name ||
+        "Direct UI Deployment",
+      user: "CrewController_01",
+      forceReplace,
+      metadata: {
+        line: "Green Line",
+        totalDuties: dutiesToDeploy.length,
+        totalTrainCrew: dutiesToDeploy.length * 2,
+      },
+    });
+
+    return { result, dutiesToDeploy, cleanConsole, consoleSnapshot };
+  };
+
   const handleDeployClick = async () => {
     setIsDeployingGateway(true);
     try {
@@ -2183,8 +2574,6 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
         targetDeploymentDate,
         targetDayType,
       );
-      let forceReplace = false;
-
       if (existing.exists) {
         const confirmed = window.confirm(
           `A deployment already exists for ${targetDeploymentDate} (${targetDayType}) [Version ${existing.data?.version || 1}].\n\nDo you want to REDEPLOY? (The version will increment to ${(existing.data?.version || 1) + 1} and write an immutable audit log).`,
@@ -2193,138 +2582,15 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
           setIsDeployingGateway(false);
           return;
         }
-        forceReplace = true;
       }
 
-      const cleanConsole = stagedRoster
-        ? sanitizeConsoleContainer(stagedRoster)
-        : sanitizeConsoleContainer(consoleData);
-
-      const dutiesToDeploy =
-        stagedRoster?.duties && stagedRoster.duties.length > 0
-          ? stagedRoster.duties
-          : deduplicatedDeployments && deduplicatedDeployments.length > 0
-          ? deduplicatedDeployments
-          : buildCanonicalDutiesForDate(targetDayType, targetDeploymentDate);
-
-      if (dutiesToDeploy.length === 0) {
-        alert(
-          `Cannot deploy: No duties found for ${targetDeploymentDate} (${targetDayType}). Please upload a roster file or stage a roster first.`,
-        );
-        setIsDeployingGateway(false);
-        return;
-      }
-
-      const rosterPayload = {
-        ...cleanConsole,
-        duties: dutiesToDeploy,
-        date: targetDeploymentDate,
-        dateStr: targetDeploymentDate,
-        dayType: targetDayType,
-        scheduleType: targetDayType,
-      };
-
-      // 1. Auto deploy classified aux data and duties into official collections
-      try {
-        await rosterAutoClassifierService.autoDeployClassifiedData(
-          {
-            ...cleanConsole,
-            duties: dutiesToDeploy,
-            dateStr: targetDeploymentDate,
-            dayType: targetDayType,
-          },
-          "CrewController_01",
-          `Manual Deployment via DEPLOY ROSTER button for ${targetDeploymentDate}`,
-        );
-      } catch (classErr) {
-        console.warn("Classifier deployment warning:", classErr);
-      }
-
-      // 2. Deploy active train driving duties to crew_daily_deployment
-      if (dutiesToDeploy && dutiesToDeploy.length > 0) {
-        const dutyBatch = writeBatch(db);
-        dutiesToDeploy.forEach((d) => {
-          if (!d.dutyId) return;
-          const docId = `gcc_deploy_${targetDayType.toLowerCase()}_duty_${d.dutyId}`;
-          dutyBatch.set(
-            doc(db, "crew_daily_deployment", docId),
-            {
-              ...d,
-              dutyId: d.dutyId,
-              empId: d.empId || "--",
-              empName: d.empName || "--",
-              scheduleType: targetDayType,
-              date: targetDeploymentDate,
-              remarks: "Manual Deployment via DEPLOY ROSTER",
-              lastUpdated: serverTimestamp(),
-            },
-            { merge: true },
-          );
-        });
-        await dutyBatch.commit();
-      }
-
-      // 3. Cache in dispatch_excel_cache & roster_desk_console
-      const consoleSnapshot = {
-        date: targetDeploymentDate,
-        dayType: targetDayType,
-        sheetName:
-          stagedRoster?.sheetName ||
-          stagedRoster?.fileName ||
-          selectedRosterFile?.name ||
-          "Manual Deployment",
-        ...cleanConsole,
-        duties: dutiesToDeploy,
-        isExplicitlyCleared: false,
-        updatedAt: serverTimestamp(),
-      };
-      await setDoc(doc(db, "roster_desk_console", "current"), consoleSnapshot, {
-        merge: true,
-      });
-      await setDoc(doc(db, "roster_desk_console", "latest"), consoleSnapshot, {
-        merge: true,
-      });
-      await setDoc(
-        doc(db, "dispatch_excel_cache", targetDeploymentDate),
-        consoleSnapshot,
-        { merge: true },
-      );
-      const indDate = toIndianDateStr(targetDeploymentDate);
-      if (indDate && indDate !== targetDeploymentDate) {
-        await setDoc(
-          doc(db, "dispatch_excel_cache", indDate),
-          consoleSnapshot,
-          {
-            merge: true,
-          },
-        );
-      }
-      await setDoc(
-        doc(db, "dispatch_excel_cache", "current"),
-        consoleSnapshot,
-        { merge: true },
+      const { result, dutiesToDeploy, cleanConsole } = await deploySingleRoster(
+        targetDeploymentDate,
+        targetDayType,
+        stagedRoster,
       );
 
-      // 4. Save official deployment record in dispatch_deployments
-      const result = await executeDeployment({
-        deploymentDate: targetDeploymentDate,
-        dayType: targetDayType,
-        rosterData: rosterPayload,
-        sourceFile:
-          stagedRoster?.sheetName ||
-          stagedRoster?.fileName ||
-          selectedRosterFile?.name ||
-          "Direct UI Deployment",
-        user: "CrewController_01",
-        forceReplace,
-        metadata: {
-          line: "Green Line",
-          totalDuties: dutiesToDeploy.length,
-          totalTrainCrew: dutiesToDeploy.length * 2,
-        },
-      });
-
-      // 5. Update latest deployment metadata
+      // Update latest deployment metadata
       const meta = {
         sheetName:
           stagedRoster?.sheetName ||
@@ -2350,8 +2616,27 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
 
       setConsoleData(cleanConsole);
       setFallbackDeployments(deduplicateDeployments(dutiesToDeploy));
-      setStagedRoster(null);
+      // Remove current date from staged drafts
+      setStagedRostersByDate((prev) => {
+        const copy = { ...prev };
+        delete copy[targetDeploymentDate];
+        return copy;
+      });
       setIsRosterConfirmed(true);
+
+      // Propagate chosen schedule type across application
+      if (setActiveDay) {
+        setActiveDay(targetDayType);
+      }
+      try {
+        localStorage.setItem("pyidcc_active_day_override", targetDayType);
+        localStorage.setItem(
+          "pyidcc_active_deployment_id",
+          result.deploymentId,
+        );
+      } catch (e) {
+        console.warn("Storage save warning:", e);
+      }
 
       alert(
         `✅ Deployment Successful!\n\nDeployment ID: ${result.deploymentId}\nTarget Date: ${targetDeploymentDate}\nDay Type: ${targetDayType}\nDuties Deployed: ${dutiesToDeploy.length}\nVersion: ${result.version}`,
@@ -2360,6 +2645,49 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
     } catch (err) {
       console.error("Deploy click error:", err);
       alert("Deployment Error: " + err.message);
+    } finally {
+      setIsDeployingGateway(false);
+    }
+  };
+
+  const handleDeployAllStagedDays = async () => {
+    const dates = Object.keys(stagedRostersByDate);
+    if (dates.length === 0) return;
+    if (
+      !window.confirm(
+        `Deploy all ${dates.length} staged roster days (${dates.join(", ")}) simultaneously? Each date will be held independently in Firestore.`,
+      )
+    ) {
+      return;
+    }
+    setIsDeployingGateway(true);
+    try {
+      const deployedSummaries = [];
+      for (const dStr of dates) {
+        const data = stagedRostersByDate[dStr];
+        if (!data) continue;
+        const schedType =
+          data.dayType || data.scheduleType || calculateDefaultDayType(dStr);
+        const { result, dutiesToDeploy } = await deploySingleRoster(
+          dStr,
+          schedType,
+          data,
+        );
+        deployedSummaries.push(
+          `• ${dStr} (${schedType}): ${dutiesToDeploy.length} Duties [ID: ${result.deploymentId}]`,
+        );
+      }
+      setStagedRostersByDate({});
+      setIsRosterConfirmed(true);
+      alert(
+        `✅ ALL ${deployedSummaries.length} STAGED ROSTER DAYS DEPLOYED SUCCESSFULLY!\n\n` +
+          deployedSummaries.join("\n") +
+          `\n\nAll dates are now independently preserved and viewable at any time.`,
+      );
+      if (onImportComplete) onImportComplete();
+    } catch (err) {
+      console.error("Batch deployment error:", err);
+      alert("Batch deployment error: " + err.message);
     } finally {
       setIsDeployingGateway(false);
     }
@@ -2763,8 +3091,8 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
 
   // ── Live Train Operator Relief Matrix States (Sunday, Monday, Saturday & GH, Weekday) ──
   const [reliefSimulatedTime, setReliefSimulatedTime] = useState(null);
-  const [reliefScheduleDay, setReliefScheduleDay] = useState(() => 
-    normalizeScheduleDay(targetDayType || currentDayType || "WEEKDAY")
+  const [reliefScheduleDay, setReliefScheduleDay] = useState(() =>
+    normalizeScheduleDay(targetDayType || currentDayType || "WEEKDAY"),
   );
 
   useEffect(() => {
@@ -2774,12 +3102,53 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
   }, [targetDayType]);
 
   const activeDeploymentDuties = useMemo(() => {
-    return (deduplicatedDeployments?.length
-      ? deduplicatedDeployments
-      : currentDeploymentRecord?.rosterData?.duties?.length
-        ? currentDeploymentRecord.rosterData.duties
-        : fallbackDeployments) || [];
+    return (
+      (deduplicatedDeployments?.length
+        ? deduplicatedDeployments
+        : currentDeploymentRecord?.rosterData?.duties?.length
+          ? currentDeploymentRecord.rosterData.duties
+          : fallbackDeployments) || []
+    );
   }, [deduplicatedDeployments, currentDeploymentRecord, fallbackDeployments]);
+
+  // Synchronize authoritative DISPATCH GATEWAY CORE deployed duties to localStorage & window event
+  // so LiveTrainPositionTracker, ReliefTracking, and train popups always use live Operator Name and Duty No
+  useEffect(() => {
+    if (activeDeploymentDuties && activeDeploymentDuties.length > 0) {
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          const formattedDuties = activeDeploymentDuties.map((d) => {
+            const rawDuty = d.dutyNo || d.dutyId || d.rawDutyId;
+            const normDuty = normalizeDutyId(rawDuty);
+            const opName = String(
+              d.operatorName || d.empName || d.name || "",
+            ).trim();
+            const opId = String(
+              d.operatorId || d.empId || d.empNo || d.id || "",
+            ).trim();
+            return {
+              ...d,
+              dutyId: normDuty || d.dutyId,
+              dutyNo: normDuty || d.dutyNo,
+              operatorName: opName || d.operatorName || d.empName,
+              empName: opName || d.empName || d.operatorName,
+              operatorId: opId || d.operatorId || d.empId,
+              empId: opId || d.empId || d.operatorId,
+            };
+          });
+          window.localStorage.setItem(
+            "pyidcc_active_dispatch_deployments",
+            JSON.stringify(formattedDuties),
+          );
+          window.dispatchEvent(
+            new CustomEvent("pyidcc_dispatch_deployments_updated", {
+              detail: { duties: formattedDuties },
+            }),
+          );
+        }
+      } catch (_e) {}
+    }
+  }, [activeDeploymentDuties]);
 
   // Compute Live Train Tracking Map following Live Train Operator Relief Matrix
   // and active deployed train operators from DISPATCH GATEWAY CORE
@@ -2790,11 +3159,20 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
       evalSecs = (parts[0] || 0) * 3600 + (parts[1] || 0) * 60;
     } else {
       const now = new Date();
-      evalSecs = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+      evalSecs =
+        now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
     }
-    const dayType = reliefScheduleDay || normalizeScheduleDay(targetDayType || currentDayType || "WEEKDAY");
+    const dayType =
+      reliefScheduleDay ||
+      normalizeScheduleDay(targetDayType || currentDayType || "WEEKDAY");
     return buildLiveTrainTrackingMap(activeDeploymentDuties, evalSecs, dayType);
-  }, [activeDeploymentDuties, reliefSimulatedTime, reliefScheduleDay, targetDayType, currentDayType]);
+  }, [
+    activeDeploymentDuties,
+    reliefSimulatedTime,
+    reliefScheduleDay,
+    targetDayType,
+    currentDayType,
+  ]);
 
   // Set of actively assigned operator IDs to prevent double-booking
   const activeOperatorIdSet = useMemo(() => {
@@ -3097,92 +3475,89 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
         customRegisters: mergedCustomRegisters,
       };
 
-      const dateStr =
-        targetDeploymentDate ||
+      const targetDateStr = formatOperationalDate(
         stagedRoster.dateStr ||
-        new Date().toISOString().split("T")[0];
-      const deployDayType =
-        targetDayType ||
+          stagedRoster.date ||
+          targetDeploymentDate ||
+          new Date(),
+      );
+      const deployDayType = normalizeScheduleType(
         stagedRoster.dayType ||
-        stagedRoster.scheduleType ||
-        currentDayType;
-      const consoleSnapshot = {
-        date: dateStr,
-        dayType: deployDayType,
-        sheetName:
-          stagedRoster.sheetName || stagedRoster.fileName || "Roster Sheet",
-        ...consoleObj,
-        isExplicitlyCleared: false,
-        updatedAt: serverTimestamp(),
-      };
+          stagedRoster.scheduleType ||
+          targetDayType ||
+          currentDayType,
+      );
 
-      await setDoc(doc(db, "roster_desk_console", "current"), consoleSnapshot, {
-        merge: true,
-      });
-      await setDoc(doc(db, "roster_desk_console", "latest"), consoleSnapshot, {
-        merge: true,
-      });
-      await setDoc(doc(db, "dispatch_excel_cache", dateStr), consoleSnapshot, {
-        merge: true,
-      });
+      const { result, dutiesToDeploy, cleanConsole } = await deploySingleRoster(
+        targetDateStr,
+        deployDayType,
+        {
+          ...stagedRoster,
+          ...consoleObj,
+          customRegisters: mergedCustomRegisters,
+        },
+      );
+
+      // Update latest deployment metadata
+      const meta = {
+        sheetName:
+          stagedRoster.sheetName ||
+          stagedRoster.fileName ||
+          selectedRosterFile?.name ||
+          deployDayType,
+        dateStr: targetDateStr,
+        deployedCount: dutiesToDeploy.length,
+        woCount: cleanConsole?.weeklyOffs?.length || 0,
+        leaveCount: cleanConsole?.leaves?.length || 0,
+        relCount: cleanConsole?.relievedOperators?.length || 0,
+        deployedAt: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+      setDeployedRosterInfo(meta);
       await setDoc(
-        doc(db, "dispatch_excel_cache", "current"),
-        consoleSnapshot,
+        doc(db, "roster_desk_console", "latest_deployment_meta"),
+        meta,
         { merge: true },
       );
 
-      await rosterAutoClassifierService.autoDeployClassifiedData(
-        stagedRoster,
-        "GCC Controller",
-        "Confirmed from Automated Dispatch Gate Staging Buffer",
-      );
-
-      // Date-Wise Deployment Architecture: dispatch_deployments/{deploymentDate}_{dayType}
-      try {
-        const deployDayType =
-          stagedRoster.dayType ||
-          stagedRoster.scheduleType ||
-          targetDayType ||
-          currentDayType;
-        await executeDeployment({
-          deploymentDate: dateStr,
-          dayType: deployDayType,
-          rosterData: consoleSnapshot,
-          sourceFile:
-            stagedRoster.sheetName ||
-            stagedRoster.fileName ||
-            selectedRosterFile?.name ||
-            "Confirmed Staging",
-          user: "CrewController_01",
-          forceReplace: true,
-          metadata: {
-            line: "Green Line",
-            totalDuties: (stagedRoster.duties || deduplicatedDeployments || [])
-              .length,
-            totalTrainCrew:
-              (stagedRoster.duties || deduplicatedDeployments || []).length * 2,
-          },
-        });
-      } catch (depErr) {
-        console.warn("Date-wise deployment record save warning:", depErr);
-      }
-
-      setConsoleData(consoleObj);
-      try {
-        if (typeof window !== "undefined" && window.localStorage) {
-          window.localStorage.setItem(
-            "pyidcc_roster_desk_console_cache",
-            JSON.stringify(consoleSnapshot),
-          );
-        }
-      } catch (_e) {
-        /* ignore cache error */
-      }
-
+      setConsoleData(cleanConsole);
+      setFallbackDeployments(deduplicateDeployments(dutiesToDeploy));
+      // Remove date from staged drafts
+      setStagedRostersByDate((prev) => {
+        const copy = { ...prev };
+        delete copy[targetDateStr];
+        return copy;
+      });
       setIsRosterConfirmed(true);
+
+      // Propagate chosen schedule type across application
+      if (setActiveDay) {
+        setActiveDay(deployDayType);
+      }
+      try {
+        localStorage.setItem("pyidcc_active_day_override", deployDayType);
+        localStorage.setItem(
+          "pyidcc_active_deployment_id",
+          result.deploymentId,
+        );
+        localStorage.setItem(
+          `pyidcc_roster_desk_console_cache_${targetDateStr}`,
+          JSON.stringify(cleanConsole),
+        );
+      } catch (e) {
+        console.warn("Storage save warning:", e);
+      }
+
       alert(
-        `✅ Official Day Roster for ${dateStr} successfully confirmed and saved to Firebase & Monthly Archives!`,
+        `✅ Deployment Successful for ${targetDateStr} (${deployDayType})!\n\n` +
+          `• Deployment ID: ${result.deploymentId}\n` +
+          `• Duties Deployed to crew_daily_deployment: ${dutiesToDeploy.length}\n` +
+          `• Console Desks & Leaves: Held independently in Firestore for ${targetDateStr}\n` +
+          `• Version: ${result.version}`,
       );
+      if (onImportComplete) onImportComplete();
     } catch (err) {
       console.error("Save to Firebase error:", err);
       alert("Failed to save roster to Firebase: " + err.message);
@@ -3284,6 +3659,13 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
   const handleDiscardStagingDraft = () => {
     setStagedRoster(null);
     setIsRosterConfirmed(false);
+  };
+
+  const handleDiscardAllStagingDrafts = () => {
+    if (window.confirm("Discard all staged drafts across all dates?")) {
+      setStagedRostersByDate({});
+      setIsRosterConfirmed(false);
+    }
   };
 
   const processFileAndDeploy = async (
@@ -3522,7 +3904,10 @@ Rules:
           onDuty: [],
           customRegisters: {},
         };
-        setStagedRoster({ ...classifiedData, fileName });
+        stageRosterForDate(activeSelectedDateStr, {
+          ...classifiedData,
+          fileName,
+        });
         setIsRosterConfirmed(false);
 
         // ─── EXCEL / CSV BRANCH (original logic) ─────────────────────────────────
@@ -3545,11 +3930,15 @@ Rules:
         }
 
         const effectiveTargetDate =
-          targetDate || activeSelectedDayObj.date || new Date();
+          targetDate ||
+          targetDeploymentDate ||
+          activeSelectedDayObj.date ||
+          new Date();
         const effectiveScheduleType =
+          targetDayType ||
+          currentDayType ||
           (activeSelectedDayObj && activeSelectedDayObj.scheduleType) ||
-          getScheduleTypeFromDate(effectiveTargetDate) ||
-          currentDayType;
+          getScheduleTypeFromDate(effectiveTargetDate);
 
         try {
           classifiedData = rosterAutoClassifierService.parseWorkbook(
@@ -3567,13 +3956,15 @@ Rules:
 
         if (classifiedData) {
           const targetDateStr = formatOperationalDate(
-            targetDate || classifiedData.dateStr || effectiveTargetDate,
+            classifiedData.dateStr || targetDate || effectiveTargetDate,
           );
+          // Explicit user-chosen schedule takes highest priority so controllers can deploy Saturday/GH or Sunday rosters on any day
           const targetSchedType = normalizeScheduleType(
-            classifiedData.dayType ||
             (userExplicitDayTypeRef.current ? targetDayType : null) ||
-            effectiveScheduleType ||
-            calculateDefaultDayType(targetDateStr)
+              classifiedData.dayType ||
+              targetDayType ||
+              effectiveScheduleType ||
+              calculateDefaultDayType(targetDateStr),
           );
 
           // Tag duties with explicit date & schedule
@@ -3584,11 +3975,12 @@ Rules:
               targetDate: targetDateStr,
               deploymentDate: targetDateStr,
               scheduleType: targetSchedType,
+              dayType: targetSchedType,
             }));
           }
 
           // Immediately sync UI date and day type controls
-          onDateSelectionChanged(targetDateStr);
+          onDateSelectionChanged(targetDateStr, targetSchedType);
           onDayTypeSelectionChanged(targetSchedType);
 
           const consoleObj = {
@@ -3627,7 +4019,7 @@ Rules:
             );
           }
 
-          setStagedRoster({
+          stageRosterForDate(targetDateStr, {
             ...classifiedData,
             dateStr: targetDateStr,
             date: targetDateStr,
@@ -3711,36 +4103,93 @@ Rules:
               const rawDutyStr = String(rawDuty).trim();
               const dutyId = normalizeDutyId(rawDutyStr);
               if (!dutyId || dutyId === "--" || dutyId === "DUTY") continue;
-              const empId =
+              let empId =
                 row[empColIdx] !== undefined && row[empColIdx] !== null
                   ? String(row[empColIdx]).trim()
                   : "";
-              const empName =
+              let empName =
                 row[nameColIdx] !== undefined && row[nameColIdx] !== null
                   ? String(row[nameColIdx]).trim()
                   : "";
+              let signOnTime = "";
+              let signOnPlace = "";
+              let signOffTime = "";
 
-              // Only active numeric duties (1-99) go to parsedDutiesMap for crew_daily_deployment
-              if (/^\d{1,2}$/.test(dutyId) && parseInt(dutyId, 10) > 0) {
+              // Detect compact layout e.g. Col 1="06:00/ Depot", Col 2="Name", Col 3="22256", Col 4="13:50"
+              const col1Str = String(row[1] || "").trim();
+              const col2Str = String(row[2] || "").trim();
+              const col3Str = String(row[3] || "").trim();
+              const col4Str = String(row[4] || "").trim();
+              const timeSlashMatch = col1Str.match(
+                /^(\d{1,2}:\d{2}(?::\d{2})?)\s*[/]\s*([A-Za-z0-9_-]+)/i,
+              );
+              const col3IsEmp = /^\d{4,6}$/.test(col3Str);
+              if (
+                timeSlashMatch ||
+                (col3IsEmp && col2Str.length >= 3 && !/^\d+$/.test(col2Str))
+              ) {
+                if (timeSlashMatch) {
+                  signOnTime = timeSlashMatch[1];
+                  signOnPlace = timeSlashMatch[2];
+                } else {
+                  signOnTime = col1Str;
+                  signOnPlace = "PYID";
+                }
+                if (/^depot$/i.test(signOnPlace)) signOnPlace = "PYID";
+                empName = col2Str;
+                empId = col3Str;
+                signOffTime = col4Str;
+              }
+
+              // Active duties 1-999 (including CR01-CR999 normalized to 01-999)
+              const parsedNum = parseInt(dutyId, 10);
+              if (!isNaN(parsedNum) && parsedNum > 0 && parsedNum <= 999) {
                 if (empId || empName) {
-                  parsedDutiesMap.set(dutyId, { dutyId, empId, empName });
+                  const isCrrc = /^CR/i.test(rawDutyStr);
+                  parsedDutiesMap.set(dutyId, {
+                    dutyId,
+                    rawDutyId: rawDutyStr,
+                    isCrrc,
+                    dutyType: isCrrc ? "CRRC Train Duty" : "",
+                    empId,
+                    empName,
+                    ...(signOnTime ? { signOnTime } : {}),
+                    ...(signOnPlace ? { signOnLocation: signOnPlace } : {}),
+                    ...(signOffTime ? { signOffTime } : {}),
+                  });
                 }
               }
             }
           }
-          const parsedDuties = Array.from(parsedDutiesMap.values());
+          const parsedDuties = Array.from(parsedDutiesMap.values()).sort(
+            (a, b) => {
+              const numA = parseInt(
+                String(a.dutyId || "").replace(/\D/g, ""),
+                10,
+              );
+              const numB = parseInt(
+                String(b.dutyId || "").replace(/\D/g, ""),
+                10,
+              );
+              if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+              return 0;
+            },
+          );
           if (parsedDuties.length > 0) {
             const deployScheduleType =
               classifiedData?.dayType ||
               effectiveScheduleType ||
               currentDayType;
             deployedDutiesCount = parsedDuties.length;
+            const fallbackDateStr = formatOperationalDate(
+              targetDate || effectiveTargetDate,
+            );
             setFallbackDeployments(deduplicateDeployments(parsedDuties));
-            setStagedRoster({
+            stageRosterForDate(fallbackDateStr, {
               duties: parsedDuties,
               sheetName: targetSheetName || file?.name || "Roster Sheet",
-              dateStr: activeSelectedDateStr,
-              date: activeSelectedDateStr,
+              dateStr: fallbackDateStr,
+              date: fallbackDateStr,
               dayType: deployScheduleType,
               fileName: file?.name || "Roster Sheet",
             });
@@ -3843,7 +4292,10 @@ Rules:
     );
     if (
       !window.confirm(
-        `Reset Daily Roster for ${targetDayType || currentDayType} (${targetDate})? This will clear deployed operators for ${targetDayType || currentDayType} on ${targetDate} only. Other dates will NOT be affected.`,
+        `⚠️ WIPE / RESET DATA FOR ${targetDayType || currentDayType} (${targetDate})?\n\n` +
+          `This will completely erase all deployed duties, attendance markers, desk console, leaves, and cached rosters for ${targetDate} ONLY.\n\n` +
+          `Other days (today / tomorrow / upcoming days) will NOT be affected.\n\n` +
+          `Click OK to wipe this date's data now.`,
       )
     ) {
       return;
@@ -3882,14 +4334,19 @@ Rules:
 
       snap.docs.forEach((docSnap) => {
         const data = docSnap.data();
-        const docDate = data.targetDate || data.date || data.deploymentDate || data.dateStr;
+        const docDate =
+          data.targetDate || data.date || data.deploymentDate || data.dateStr;
         const docIdLower = docSnap.id.toLowerCase();
         const targetSchedLower = targetSched.toLowerCase();
         const rawTargetLower = rawTargetDay.toLowerCase();
 
         if (docDate) {
           const normDocDate = formatOperationalDate(docDate);
-          if (normDocDate === targetDate || docDate === targetDate || (altDate && docDate === altDate)) {
+          if (
+            normDocDate === targetDate ||
+            docDate === targetDate ||
+            (altDate && docDate === altDate)
+          ) {
             deployRefsToDelete.push(docSnap.ref);
             return;
           }
@@ -3905,10 +4362,16 @@ Rules:
         // Also if docId starts with gcc_deploy_ and matches target schedule/day
         if (
           docIdLower.startsWith("gcc_deploy_") &&
-          (docIdLower.includes(targetSchedLower) || docIdLower.includes(rawTargetLower) || docIdLower.includes("duty"))
+          (docIdLower.includes(targetSchedLower) ||
+            docIdLower.includes(rawTargetLower) ||
+            docIdLower.includes("duty"))
         ) {
           const normDocDate = docDate ? formatOperationalDate(docDate) : "";
-          if (!normDocDate || normDocDate === targetDate || normDocDate === todayStr) {
+          if (
+            !normDocDate ||
+            normDocDate === targetDate ||
+            normDocDate === todayStr
+          ) {
             deployRefsToDelete.push(docSnap.ref);
           }
         }
@@ -3924,7 +4387,11 @@ Rules:
           const data = docSnap.data();
           const docDate = data.targetDate || data.date || data.dateStr;
           if (docDate) {
-            if (formatOperationalDate(docDate) === targetDate || docDate === targetDate || (altDate && docDate === altDate)) {
+            if (
+              formatOperationalDate(docDate) === targetDate ||
+              docDate === targetDate ||
+              (altDate && docDate === altDate)
+            ) {
               attRefsToDelete.push(docSnap.ref);
             }
           } else if (targetDate === todayStr) {
@@ -3948,7 +4415,8 @@ Rules:
         depSnap.docs.forEach((docSnap) => {
           const docId = docSnap.id;
           const data = docSnap.data();
-          const docDate = data.deploymentDate || data.targetDate || data.date || data.dateStr;
+          const docDate =
+            data.deploymentDate || data.targetDate || data.date || data.dateStr;
           const normDDate = docDate ? formatOperationalDate(docDate) : "";
           if (
             normDDate === targetDate ||
@@ -3965,7 +4433,7 @@ Rules:
         console.warn("Could not delete dispatch_deployments docs:", depErr);
       }
 
-      // 4. Clear console cache and deployment metadata in Firestore
+      // 4. Clear date-partitioned console cache and deployment metadata in Firestore
       const emptyConsoleDoc = {
         controlDesks: [],
         coOperators: [],
@@ -3992,48 +4460,80 @@ Rules:
         doc(db, "dispatch_excel_cache", targetDate),
         emptyConsoleDoc,
       );
+      metaBatch.set(
+        doc(db, "roster_desk_console", `date_${targetDate}`),
+        emptyConsoleDoc,
+      );
+      metaBatch.set(
+        doc(db, "roster_desk_console", targetDate),
+        emptyConsoleDoc,
+      );
       if (altDate) {
         metaBatch.set(
           doc(db, "dispatch_excel_cache", altDate),
           emptyConsoleDoc,
         );
+        metaBatch.set(
+          doc(db, "roster_desk_console", `date_${altDate}`),
+          emptyConsoleDoc,
+        );
+        metaBatch.set(doc(db, "roster_desk_console", altDate), emptyConsoleDoc);
       }
-      metaBatch.set(
-        doc(db, "roster_desk_console", "current"),
-        emptyConsoleDoc,
-      );
-      metaBatch.set(
-        doc(db, "roster_desk_console", "latest"),
-        emptyConsoleDoc,
-      );
-      metaBatch.delete(
-        doc(db, "roster_desk_console", "latest_deployment_meta"),
-      );
-      metaBatch.set(
-        doc(db, "dispatch_excel_cache", "current"),
-        emptyConsoleDoc,
-      );
+      // ONLY touch current/latest active console if wiping TODAY's roster
+      if (targetDate === todayStr) {
+        metaBatch.set(
+          doc(db, "roster_desk_console", "current"),
+          emptyConsoleDoc,
+        );
+        metaBatch.set(
+          doc(db, "roster_desk_console", "latest"),
+          emptyConsoleDoc,
+        );
+        metaBatch.delete(
+          doc(db, "roster_desk_console", "latest_deployment_meta"),
+        );
+        metaBatch.set(
+          doc(db, "dispatch_excel_cache", "current"),
+          emptyConsoleDoc,
+        );
+      }
       await metaBatch.commit();
 
-      // 5. Clear all local storage caches
+      // 5. Clear all local storage caches for this date
       try {
         if (typeof window !== "undefined" && window.localStorage) {
-          window.localStorage.removeItem(`pyidcc_roster_desk_console_cache_${targetDate}`);
+          window.localStorage.removeItem(
+            `pyidcc_roster_desk_console_cache_${targetDate}`,
+          );
           if (altDate) {
-            window.localStorage.removeItem(`pyidcc_roster_desk_console_cache_${altDate}`);
+            window.localStorage.removeItem(
+              `pyidcc_roster_desk_console_cache_${altDate}`,
+            );
           }
-          window.localStorage.removeItem("pyidcc_roster_desk_console_cache");
-          window.localStorage.removeItem("pyidcc_roster_desk_meta");
-          window.localStorage.removeItem(`pyidcc_roster_desk_meta_${targetDate}`);
+          if (targetDate === todayStr) {
+            window.localStorage.removeItem("pyidcc_roster_desk_console_cache");
+            window.localStorage.removeItem("pyidcc_roster_desk_meta");
+          }
+          window.localStorage.removeItem(
+            `pyidcc_roster_desk_meta_${targetDate}`,
+          );
           if (altDate) {
-            window.localStorage.removeItem(`pyidcc_roster_desk_meta_${altDate}`);
+            window.localStorage.removeItem(
+              `pyidcc_roster_desk_meta_${altDate}`,
+            );
           }
         }
       } catch (e) {
         console.warn("Could not clear cache on reset", e);
       }
 
-      // 6. Reset all component states immediately
+      // 6. Reset all component states and memory caches immediately
+      setStagedRostersByDate((prev) => {
+        const next = { ...prev };
+        delete next[targetDate];
+        if (altDate) delete next[altDate];
+        return next;
+      });
       setCurrentDeploymentRecord(null);
       setStagedRoster(null);
       setIsRosterConfirmed(false);
@@ -4060,7 +4560,7 @@ Rules:
       });
 
       alert(
-        `Daily Roster for ${targetDayType || currentDayType} (${targetDate}) Cleared Successfully. Removed ${deployRefsToDelete.length} record(s). Other dates are completely intact.`,
+        `🗑️ Wiped Data for ${targetDayType || currentDayType} (${targetDate}) Successfully.\n\nRemoved ${deployRefsToDelete.length} duty deployment record(s). All console and attendance entries for this date have been cleared.\n\nOther dates are completely intact.`,
       );
       if (onImportComplete) onImportComplete();
     } catch (err) {
@@ -6291,30 +6791,44 @@ Rules:
 
   // Real-time listener for crew_daily_deployment across all devices
   useEffect(() => {
+    const activeDate =
+      targetDeploymentDate || formatOperationalDate(new Date());
     const targetSched = normalizeScheduleType(currentDayType || targetDayType);
+    const todayIso = formatOperationalDate(new Date());
+    const isToday = activeDate === todayIso;
+
     const q = query(collection(db, "crew_daily_deployment"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const raw = snapshot.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() }))
+        .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
         .filter((d) => {
           if (!d) return false;
           const dDate = d.date || d.targetDate || d.deploymentDate;
           if (dDate) {
-            return formatOperationalDate(dDate) === targetDeploymentDate;
+            return formatOperationalDate(dDate) === activeDate;
           }
-          if (!d.scheduleType) return true;
-          return normalizeScheduleType(d.scheduleType) === targetSched;
+          const docIdDate = d.id?.match(/\d{4}-\d{2}-\d{2}/);
+          if (docIdDate) {
+            return docIdDate[0] === activeDate;
+          }
+          // Legacy records without date field: only assign to today if schedule matches
+          if (isToday && d.scheduleType) {
+            return normalizeScheduleType(d.scheduleType) === targetSched;
+          }
+          return false;
         });
 
       if (raw.length > 0) {
         const deduped = deduplicateDeployments(
           raw.map((d) => ({
             ...d,
-            date: targetDeploymentDate,
-            deploymentDate: targetDeploymentDate,
+            date: activeDate,
+            deploymentDate: activeDate,
           })),
         );
         setFallbackDeployments(deduped);
+      } else {
+        setFallbackDeployments([]);
       }
       setFallbackLoading(false);
     });
@@ -6493,24 +7007,27 @@ Rules:
     // =========================================================================
     targetTrainIds.forEach((rawTid) => {
       const cleanTid = normalizeTrackTrainId(rawTid) || String(rawTid).trim();
-      const tracking = dispatchLiveTrackingMap[cleanTid] || dispatchLiveTrackingMap[rawTid];
+      const tracking =
+        dispatchLiveTrackingMap[cleanTid] || dispatchLiveTrackingMap[rawTid];
       if (tracking?.nextReliver) {
         const rel = tracking.nextReliver;
         const relDutyId = String(rel.dutyId || "").trim();
         const relEmpName = String(rel.empName || "").trim();
         const relEmpId = String(rel.empId || "").trim();
 
-        const hasValidName = relEmpName && 
-          relEmpName !== "--" && 
-          relEmpName !== "-" && 
+        const hasValidName =
+          relEmpName &&
+          relEmpName !== "--" &&
+          relEmpName !== "-" &&
           !relEmpName.toLowerCase().includes("unassigned") &&
-          !relEmpName.startsWith("Train Operator") && 
+          !relEmpName.startsWith("Train Operator") &&
           !relEmpName.startsWith("Duty ");
 
         if (hasValidName && relEmpName.toUpperCase() !== targetEmpName) {
           if (!seenCandidates.has(relEmpName.toUpperCase())) {
             seenCandidates.add(relEmpName.toUpperCase());
-            if (relEmpId && relEmpId !== "--") seenCandidates.add(relEmpId.toUpperCase());
+            if (relEmpId && relEmpId !== "--")
+              seenCandidates.add(relEmpId.toUpperCase());
 
             poolList.unshift({
               id: `live_matrix_reliever_${cleanTid}_${relDutyId}_${relEmpId}`,
@@ -8133,7 +8650,8 @@ Rules:
                   LIVE TRAIN OPERATOR RELIEF MATRIX • DISPATCH GATEWAY CORE
                 </h3>
                 <p className="text-[11px] text-slate-400">
-                  Real-time Current Driving Train Operators &amp; Next Relievers • Synced with Active Deployments
+                  Real-time Current Driving Train Operators &amp; Next Relievers
+                  • Synced with Active Deployments
                 </p>
               </div>
             </div>
@@ -8160,7 +8678,9 @@ Rules:
                   type="time"
                   value={reliefSimulatedTime || ""}
                   placeholder="Live"
-                  onChange={(e) => setReliefSimulatedTime(e.target.value || null)}
+                  onChange={(e) =>
+                    setReliefSimulatedTime(e.target.value || null)
+                  }
                   className="bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-cyan-300 font-mono font-bold text-xs"
                 />
                 {reliefSimulatedTime && (
@@ -8203,12 +8723,32 @@ Rules:
           </div>
           <div className="badge-row flex items-center gap-1.5 text-slate-200 font-bold bg-slate-950 border border-slate-800 px-2.5 py-1 rounded">
             <span>🗓</span>
-            <span
-              id="badge-daytype"
-              className="text-cyan-300 font-mono uppercase"
+            <select
+              id="top-badge-daytype-select"
+              value={normalizeScheduleType(targetDayType)}
+              onChange={(e) => onDayTypeSelectionChanged(e.target.value)}
+              className="bg-transparent text-cyan-300 font-mono font-bold uppercase text-xs outline-none cursor-pointer hover:text-cyan-200 transition py-0.5"
+              title="Target schedule day type. Click to switch (e.g. run Saturday & GH timetable on a Friday General Holiday)"
             >
-              {targetDayType}
-            </span>
+              <option value="WEEKDAY" className="bg-slate-900 text-cyan-300">
+                WEEKDAY (79 Duties)
+              </option>
+              <option value="MONDAY" className="bg-slate-900 text-cyan-300">
+                MONDAY (79 Duties)
+              </option>
+              <option value="SATURDAY" className="bg-slate-900 text-cyan-300">
+                SATURDAY &amp; GH (74 Duties)
+              </option>
+              <option value="SUNDAY" className="bg-slate-900 text-cyan-300">
+                SUNDAY (64 Duties)
+              </option>
+            </select>
+            {normalizeScheduleType(targetDayType) !==
+              calculateDefaultDayType(targetDeploymentDate) && (
+              <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded font-black tracking-wider uppercase ml-1 animate-pulse">
+                GH / OVERRIDE
+              </span>
+            )}
           </div>
           <div className="badge-row flex items-center gap-1.5 text-slate-200 font-bold bg-slate-950 border border-slate-800 px-2.5 py-1 rounded">
             <span>🔑</span>
@@ -8234,6 +8774,15 @@ Rules:
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleClearDailyRoster}
+            className="flex items-center gap-1.5 text-xs font-mono font-bold px-3 py-1 rounded bg-rose-950/70 hover:bg-rose-900 text-rose-300 hover:text-white border border-rose-700/60 transition cursor-pointer"
+            title={`Wipe all deployed data, attendance, and console records for ${targetDeploymentDate} (${targetDayType}) if anything went wrong`}
+          >
+            <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+            <span>Wipe This Date</span>
+          </button>
           <button
             type="button"
             onClick={() => setShowDeploymentHistory((prev) => !prev)}
@@ -8808,26 +9357,38 @@ Rules:
                       <strong className="text-amber-400">NOT been saved</strong>{" "}
                       to Firebase yet. Review above and confirm.
                     </span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <button
                         type="button"
                         onClick={handleDiscardStagingDraft}
-                        className="bg-slate-900 hover:bg-rose-950 text-rose-400 hover:text-rose-300 font-bold text-xs px-3.5 py-1.5 rounded-lg border border-rose-500/40 transition flex items-center gap-1"
+                        className="bg-slate-900 hover:bg-rose-950 text-rose-400 hover:text-rose-300 font-bold text-xs px-3.5 py-1.5 rounded-lg border border-rose-500/40 transition flex items-center gap-1 cursor-pointer"
+                        title={`Discard staged draft for ${targetDeploymentDate} only`}
                       >
-                        ✕ DISCARD DRAFT (CANCEL)
+                        ✕ DISCARD DRAFT ({targetDeploymentDate})
                       </button>
+                      {Object.keys(stagedRostersByDate).length > 1 && (
+                        <button
+                          type="button"
+                          onClick={handleDiscardAllStagingDrafts}
+                          className="bg-slate-900 hover:bg-rose-950 text-rose-500 hover:text-rose-300 font-bold text-xs px-3 py-1.5 rounded-lg border border-rose-700/50 transition flex items-center gap-1 cursor-pointer"
+                          title="Discard all staged drafts across all dates"
+                        >
+                          ✕ DISCARD ALL (
+                          {Object.keys(stagedRostersByDate).length}) DRAFTS
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={handleConfirmAndSaveToFirebase}
                         disabled={isSavingToFirebase}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] px-4 py-1.5 rounded-lg transition disabled:opacity-50 flex items-center gap-1.5"
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-4 py-1.5 rounded-lg transition disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-md"
                       >
                         {isSavingToFirebase ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : (
-                          <CheckCircle className="h-3 w-3" />
+                          <CheckCircle className="h-3.5 w-3.5" />
                         )}
-                        CONFIRM & PUBLISH
+                        CONFIRM &amp; SAVE ({targetDeploymentDate})
                       </button>
                     </div>
                   </div>
@@ -8908,31 +9469,42 @@ Rules:
                 </div>
 
                 <div className="form-group flex-1 min-w-40">
-                  <label
-                    htmlFor="targetDayType"
-                    className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1"
-                  >
-                    DAY TYPE
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label
+                      htmlFor="targetDayType"
+                      className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider"
+                    >
+                      DAY TYPE
+                    </label>
+                    {normalizeScheduleType(targetDayType) !==
+                      calculateDefaultDayType(targetDeploymentDate) && (
+                      <span className="text-[9px] text-amber-400 font-mono font-bold uppercase">
+                        (GH Timetable Active)
+                      </span>
+                    )}
+                  </div>
                   <select
                     id="targetDayType"
                     value={normalizeScheduleType(targetDayType)}
                     onChange={(e) => onDayTypeSelectionChanged(e.target.value)}
                     className="w-full bg-slate-950 text-cyan-300 border border-slate-700 focus:border-cyan-500 rounded-lg px-3 py-2 text-xs font-bold font-mono outline-none transition"
                   >
-                    <option value="WEEKDAY">WEEKDAY</option>
-                    <option value="MONDAY">MONDAY</option>
-                    <option value="SATURDAY">SATURDAY &amp; GH</option>
-                    <option value="SUNDAY">SUNDAY</option>
+                    <option value="WEEKDAY">WEEKDAY (79 Duties)</option>
+                    <option value="MONDAY">MONDAY (79 Duties)</option>
+                    <option value="SATURDAY">
+                      SATURDAY &amp; GH (74 Duties)
+                    </option>
+                    <option value="SUNDAY">SUNDAY (64 Duties)</option>
                   </select>
                 </div>
 
-                <div className="shrink-0">
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
                   <button
                     type="button"
                     className="btn-primary flex items-center justify-center gap-1.5 px-4 py-2 bg-linear-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-lg shadow-md cursor-pointer transition disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={handleDeployClick}
                     disabled={isDeployingGateway}
+                    title={`Deploy roster for ${targetDeploymentDate} (${targetDayType})`}
                   >
                     {isDeployingGateway ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -8941,13 +9513,72 @@ Rules:
                     )}
                     <span>DEPLOY ROSTER</span>
                   </button>
+
+                  {Object.keys(stagedRostersByDate).length > 1 && (
+                    <button
+                      type="button"
+                      className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-linear-to-r from-cyan-600 to-blue-500 hover:from-cyan-500 hover:to-blue-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-lg shadow-md cursor-pointer transition disabled:opacity-50"
+                      onClick={handleDeployAllStagedDays}
+                      disabled={isDeployingGateway}
+                      title={`Deploy all ${Object.keys(stagedRostersByDate).length} staged days simultaneously`}
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>
+                        DEPLOY ALL ({Object.keys(stagedRostersByDate).length})
+                        DAYS
+                      </span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 hover:text-rose-100 border border-rose-700/60 hover:border-rose-500 font-bold text-xs uppercase tracking-wider rounded-lg shadow-sm cursor-pointer transition disabled:opacity-50"
+                    onClick={handleClearDailyRoster}
+                    disabled={isDeployingGateway}
+                    title={`Wipe/reset deployed duties, attendance, console, and cache for ${targetDeploymentDate} (${targetDayType}) if anything went wrong`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                    <span>WIPE DATA ({targetDeploymentDate})</span>
+                  </button>
                 </div>
               </div>
 
-              {/* Day Pills Row */}
+              {/* Day Pills Row with Live Date-Specific Status Badges */}
               <div className="flex items-stretch overflow-x-auto border-b border-slate-800 scrollbar-none">
                 {rollingDays.map((d, idx) => {
                   const isSelected = idx === activeRosterDayOffset;
+                  const depMatch = (deploymentHistoryList || []).find((dep) => {
+                    const depDate = formatOperationalDate(
+                      dep.deploymentDate || dep.date || dep.targetDate,
+                    );
+                    return (
+                      depDate === d.dateStr ||
+                      (dep.id && dep.id.includes(d.dateStr))
+                    );
+                  });
+                  const isDeployed = Boolean(depMatch);
+                  const stagedMatch = stagedRostersByDate[d.dateStr];
+                  const isStaged = Boolean(stagedMatch);
+                  const dutyCount = isDeployed
+                    ? depMatch.rosterData?.duties?.length ||
+                      depMatch.metadata?.totalDuties ||
+                      0
+                    : isStaged
+                      ? stagedMatch.duties?.length || 0
+                      : 0;
+
+                  const rawType = isDeployed
+                    ? depMatch.dayType ||
+                      depMatch.scheduleType ||
+                      d.scheduleType
+                    : isStaged
+                      ? stagedMatch.dayType ||
+                        stagedMatch.scheduleType ||
+                        d.scheduleType
+                      : isSelected
+                        ? targetDayType || d.scheduleType
+                        : d.scheduleType;
+                  const effectivePillType = normalizeScheduleType(rawType);
+
                   const typeStyles = {
                     SUNDAY: {
                       sel: "bg-orange-600 text-white shadow-lg shadow-orange-950/60 ring-2 ring-orange-400",
@@ -8973,8 +9604,16 @@ Rules:
                       badge: "text-cyan-400 bg-cyan-950/60 border-cyan-700/40",
                     },
                   };
-                  const ts = typeStyles[d.scheduleType] || typeStyles.WEEKDAY;
-                  const displayType = d.scheduleType;
+                  const ts =
+                    typeStyles[effectivePillType] || typeStyles.WEEKDAY;
+                  const displayType =
+                    effectivePillType === "SATURDAY"
+                      ? "SAT & GH"
+                      : effectivePillType;
+                  const isGhOverride =
+                    isSelected &&
+                    normalizeScheduleType(effectivePillType) !==
+                      calculateDefaultDayType(d.dateStr);
                   return (
                     <button
                       key={d.dateStr}
@@ -9004,10 +9643,44 @@ Rules:
                         {d.shortDay}
                       </span>
                       <span
-                        className={`mt-1.5 text-[8px] px-1.5 py-0.5 rounded-sm font-black uppercase border ${isSelected ? "bg-black/25 border-white/20 text-white/75" : ts.badge}`}
+                        className={`mt-1 text-[8px] px-1.5 py-0.5 rounded-sm font-black uppercase border ${isSelected ? "bg-black/25 border-white/20 text-white/75" : ts.badge}`}
                       >
                         {displayType}
+                        {isGhOverride ? " (GH)" : ""}
                       </span>
+
+                      {/* Live Date-Wise Hold & Deployment Status Badge */}
+                      {isDeployed ? (
+                        <span
+                          className={`mt-1 text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider flex items-center gap-1 ${
+                            isSelected
+                              ? "bg-emerald-950 text-emerald-300 border border-emerald-400"
+                              : "bg-emerald-950/70 text-emerald-400 border border-emerald-700/60"
+                          }`}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          <span>
+                            DEPLOYED{dutyCount > 0 ? ` (${dutyCount})` : ""}
+                          </span>
+                        </span>
+                      ) : isStaged ? (
+                        <span
+                          className={`mt-1 text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider flex items-center gap-1 animate-pulse ${
+                            isSelected
+                              ? "bg-amber-950 text-amber-300 border border-amber-400"
+                              : "bg-amber-950/70 text-amber-400 border border-amber-600/60"
+                          }`}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                          <span>
+                            STAGED{dutyCount > 0 ? ` (${dutyCount})` : ""}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="mt-1 text-[8px] px-1.5 py-0.5 rounded font-bold uppercase text-slate-500 border border-slate-800/80">
+                          PENDING
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -9278,7 +9951,11 @@ Rules:
             {(() => {
               const canInspect = !!selectedRosterFile && !isInspectingPath;
               const d = activeSelectedDayObj;
-              const displayType = d.scheduleType;
+              const effectiveDayType = targetDayType || d.scheduleType;
+              const displayType =
+                effectiveDayType === "SATURDAY"
+                  ? "SATURDAY & GH"
+                  : effectiveDayType;
               const gradients = {
                 SUNDAY:
                   "from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 shadow-orange-950/60",
@@ -9289,7 +9966,9 @@ Rules:
                 WEEKDAY:
                   "from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-emerald-950/60",
               };
-              const grad = gradients[d.scheduleType] || gradients.WEEKDAY;
+              const grad =
+                gradients[normalizeScheduleType(effectiveDayType)] ||
+                gradients.WEEKDAY;
               const dayLabel =
                 d.badge === "TODAY"
                   ? "TODAY"
@@ -9311,7 +9990,7 @@ Rules:
                     title={
                       !selectedRosterFile
                         ? "Select a roster file first (Step 2)"
-                        : `Inspect & stage roster preview for ${d.displayLabel}. Click DEPLOY ROSTER in Step 1 to deploy.`
+                        : `Inspect & stage roster preview for ${d.displayLabel} as ${displayType}. Click DEPLOY ROSTER in Step 1 to deploy.`
                     }
                     className={`flex-1 bg-linear-to-r ${grad} text-slate-950 font-black text-xs px-6 py-3.5 rounded-xl shadow-md flex items-center justify-center gap-2.5 uppercase tracking-wider transition-all ${
                       canInspect
@@ -9359,16 +10038,21 @@ Rules:
                       setIsDeployingGateway(true);
                       try {
                         let totalStaged = 0;
+                        const stagedDates = [];
                         for (const sh of detectedWorkbookSheets) {
+                          const sheetDate = sh.dateStr
+                            ? new Date(sh.dateStr)
+                            : null;
                           await processFileAndDeploy(
                             selectedRosterFile,
                             sh.sheetName,
-                            sh.dateStr ? new Date(sh.dateStr) : null,
+                            sheetDate,
                           );
                           totalStaged++;
+                          if (sh.dateStr) stagedDates.push(sh.dateStr);
                         }
                         alert(
-                          `📋 All ${totalStaged} sheets parsed & staged in memory! Review duties below, then click "DEPLOY ROSTER" in Step 1 to deploy manually.`,
+                          `📋 All ${totalStaged} sheets parsed & staged in memory across dates (${stagedDates.join(", ")})!\n\nUse the 7-day ribbon in Step 1 to switch between days and review each roster, or click "DEPLOY ALL (${totalStaged}) DAYS" in Step 1 to deploy all simultaneously.`,
                         );
                       } catch (err) {
                         alert("Error inspecting sheets: " + err.message);
@@ -10333,8 +11017,21 @@ Rules:
                                     : "text-xs font-black text-white bg-slate-800 border border-slate-700"
                                 }`}
                               >
-                                Duty #{d.dutyId}
+                                {d.isCrrc ||
+                                /^CR/i.test(
+                                  String(d.rawDutyId || d.dutyId || ""),
+                                )
+                                  ? `Duty #CR${d.dutyId}`
+                                  : `Duty #${d.dutyId}`}
                               </span>
+                              {(d.isCrrc ||
+                                /^CR/i.test(
+                                  String(d.rawDutyId || d.dutyId || ""),
+                                )) && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-black tracking-wider border shadow-sm bg-amber-950 text-amber-300 border-amber-500/70">
+                                  CRRC
+                                </span>
+                              )}
                               {displayDutyType && (
                                 <span
                                   className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-black tracking-wider border shadow-sm ${

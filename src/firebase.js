@@ -33,6 +33,81 @@ if (typeof window !== 'undefined') {
     }
     originalError.apply(console, args);
   };
+
+  // Intercept fatal Firestore internal assertion failure (e.g. b7de / b815 / batchId)
+  const isFatalFirestoreAssertion = (err) => {
+    const str = String(err?.message || err?.stack || err || '');
+    return (
+      str.includes('INTERNAL ASSERTION FAILED') ||
+      (str.includes('FIRESTORE') && (str.includes('b7de') || str.includes('b815') || str.includes('batchId')))
+    );
+  };
+
+  window.addEventListener('unhandledrejection', (event) => {
+    if (isFatalFirestoreAssertion(event.reason)) {
+      console.warn('[BMRCL Firestore Guard] Caught internal Firestore assertion error. Queuing local cache purge...', event.reason);
+      sessionStorage.setItem('__PYIDCC_PURGE_FIRESTORE__', '1');
+      try {
+        if (window.indexedDB) {
+          window.indexedDB.deleteDatabase('firestore/[DEFAULT]/pyidline2crew-41022/main');
+        }
+      } catch (_) {}
+    }
+  });
+
+  window.addEventListener('error', (event) => {
+    if (isFatalFirestoreAssertion(event.error)) {
+      console.warn('[BMRCL Firestore Guard] Caught internal Firestore error:', event.error);
+      sessionStorage.setItem('__PYIDCC_PURGE_FIRESTORE__', '1');
+      try {
+        if (window.indexedDB) {
+          window.indexedDB.deleteDatabase('firestore/[DEFAULT]/pyidline2crew-41022/main');
+        }
+      } catch (_) {}
+    }
+  });
+}
+
+// Self-healing check: if the previous run marked cache as corrupted, delete IndexedDB immediately
+if (typeof window !== 'undefined') {
+  const needsPurge = 
+    sessionStorage.getItem('__PYIDCC_PURGE_FIRESTORE__') === '1' ||
+    localStorage.getItem('__PYIDCC_FORCE_FIRESTORE_RESET__') === '1';
+
+  if (needsPurge) {
+    sessionStorage.removeItem('__PYIDCC_PURGE_FIRESTORE__');
+    localStorage.removeItem('__PYIDCC_FORCE_FIRESTORE_RESET__');
+    try {
+      if (window.indexedDB) {
+        window.indexedDB.deleteDatabase('firestore/[DEFAULT]/pyidline2crew-41022/main');
+      }
+    } catch (_) {}
+  }
+}
+
+export const purgeCorruptedFirestoreCache = async () => {
+  if (typeof window === 'undefined' || !window.indexedDB) return;
+  try {
+    if (typeof window.indexedDB.databases === 'function') {
+      const dbs = await window.indexedDB.databases();
+      for (const d of dbs) {
+        if (d.name && (d.name.includes('firestore') || d.name.includes('pyidline2crew'))) {
+          try {
+            window.indexedDB.deleteDatabase(d.name);
+          } catch (_) {}
+        }
+      }
+    }
+    try {
+      window.indexedDB.deleteDatabase('firestore/[DEFAULT]/pyidline2crew-41022/main');
+    } catch (_) {}
+  } catch (err) {
+    console.warn('[purgeCorruptedFirestoreCache]', err);
+  }
+};
+
+if (typeof window !== 'undefined') {
+  window.purgeFirestoreCache = purgeCorruptedFirestoreCache;
 }
 
 export const firebaseConfig = {

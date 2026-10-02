@@ -303,12 +303,16 @@ export class RosterService {
 
   async approveShiftExchange(ex, userProfile, finalRemarks) {
     const id = ex.id;
-    const isPureNumericDuty = (s) => /^\d{1,2}$/.test(String(s || '').trim());
+    const isPureNumericDuty = (s) => {
+      const str = String(s || '').trim();
+      return /^\d{1,3}$/.test(str) || /^CR(?:RC)?[-\s]?\d{1,3}$/i.test(str);
+    };
     const normalizeDutyId = (idStr) => {
       if (!idStr) return '';
       const s = String(idStr).trim();
       if (!isPureNumericDuty(s)) return s;
-      const num = parseInt(s, 10);
+      const crMatch = s.match(/^CR(?:RC)?[-\s]?(\d{1,3})$/i);
+      const num = crMatch ? parseInt(crMatch[1], 10) : parseInt(s, 10);
       return isNaN(num) ? s : `gcc_duty_${num}`;
     };
 
