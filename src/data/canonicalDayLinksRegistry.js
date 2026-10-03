@@ -7407,7 +7407,14 @@ export function buildCanonicalDutiesForDate(dayType = "WEEKDAY", targetDate = nu
 
   return links.map(link => {
     const rawDuty = String(link.dutyId || link.dutyNo || "").trim();
-    const normDuty = /^[1-9]$/.test(rawDuty) ? "0" + rawDuty : rawDuty;
+    const crMatch = rawDuty.match(/^CR(\d+)$/i);
+    let normDuty = rawDuty;
+    if (crMatch) {
+      const num = parseInt(crMatch[1], 10);
+      normDuty = `CR${num < 10 ? '0' + num : num}`;
+    } else if (/^[0-9]$/.test(rawDuty)) {
+      normDuty = "0" + rawDuty;
+    }
     const defaultOp = includeDefaultOperators ? getOperatorForDuty(normDuty) : null;
 
     return {

@@ -18,7 +18,7 @@ const normalizeDutyId = (id) => {
     const num = parseInt(crMatch[1], 10);
     return num < 10 ? '0' + num : String(num);
   }
-  if (/^[1-9]$/.test(s)) return '0' + s;
+  if (/^[0-9]$/.test(s)) return '0' + s;
   return s;
 };
 

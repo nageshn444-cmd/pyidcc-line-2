@@ -13,10 +13,15 @@ import { useAuth } from '../context/AuthContext';
 import { rosterService, swapOperatorsInConsoleData, rotateTripleOperatorsInConsoleData } from '../services/RosterService';
 import { formatOperationalDate, toIndianDateStr } from '../services/deploymentService';
 
-// Normalize duty ID: pad single digits to match Firestore doc ID format "01"
+// Normalize duty ID: pad single digits to match Firestore doc ID format "01", handle CR prefix (CR00 -> "00", CR42 -> "42")
 const normalizeDutyId = (raw) => {
   const s = String(raw || '').trim();
-  return ['1','2','3','4','5','6','7','8','9'].includes(s) ? '0' + s : s;
+  const crMatch = s.match(/^CR(?:RC)?[-\s]?(\d{1,3})$/i);
+  if (crMatch) {
+    const num = parseInt(crMatch[1], 10);
+    return num < 10 ? '0' + num : String(num);
+  }
+  return ['0','1','2','3','4','5','6','7','8','9'].includes(s) ? '0' + s : s;
 };
 
 const STATUS_OPTIONS = [

@@ -39,7 +39,13 @@ export function exportRosterToExcel({
     !['ML', 'HPL', 'CL', 'EL', 'WO', 'BOOK_OFF', 'SPECIAL_DUTY', 'TEST_TRACK'].includes(a.assignedDutyCode) &&
     !a.assignedDutyCode?.startsWith('CC') &&
     a.isStationStandby !== true
-  ).sort((a, b) => (parseInt(a.dutyNo, 10) || 0) - (parseInt(b.dutyNo, 10) || 0));
+  ).sort((a, b) => {
+    const na = String(a.dutyNo || a.dutyId || '').match(/\d+/);
+    const nb = String(b.dutyNo || b.dutyId || '').match(/\d+/);
+    const valA = na ? parseInt(na[0], 10) : 9999;
+    const valB = nb ? parseInt(nb[0], 10) : 9999;
+    return valA - valB;
+  });
 
   const ccDuties = propCC || assignments.filter(a => a.specialProfile === 'CC' || a.dutyType === 'CC' || a.role?.includes('CC') || a.assignedDutyCode?.startsWith('CC'));
   
@@ -92,7 +98,12 @@ export function exportRosterToExcel({
   };
 
   runningDuties.forEach((item, idx) => {
-    const dutyNumber = item.dutyNo || item.dutyId || (item.assignedDutyCode ? item.assignedDutyCode.replace(/^D-?/i, '') : '') || (idx + 1);
+    const rawD = (item.dutyNo !== undefined && item.dutyNo !== null && item.dutyNo !== '')
+      ? item.dutyNo
+      : ((item.dutyId !== undefined && item.dutyId !== null && item.dutyId !== '')
+        ? item.dutyId
+        : (item.assignedDutyCode ? item.assignedDutyCode.replace(/^D-?/i, '') : (idx + 1)));
+    const dutyNumber = rawD;
     trackStaff(item.empId || item.empNo, item.name);
     leftRows.push({
       isBanner: false,

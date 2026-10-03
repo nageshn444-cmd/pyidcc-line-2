@@ -67,7 +67,7 @@ const normalizeDutyId = (id) => {
     const num = parseInt(crMatch[1], 10);
     return num < 10 ? '0' + num : String(num);
   }
-  if (/^[1-9]$/.test(clean)) return '0' + clean;
+  if (/^[0-9]$/.test(clean)) return '0' + clean;
   if (/^\d{1,2}$/.test(clean)) return clean.padStart(2, '0');
   if (/^\d{3}$/.test(clean)) return clean;
   return clean || s;
@@ -89,21 +89,21 @@ const normalizeScheduleType = (type, docId = '') => {
 };
 
 // Validate: rejects malformed IDs like "6Z", "1A", empty strings, etc.
-// Valid forms: numeric-only (01 to 999), CR01-CR999 OR known special prefixes (CC, SB, RR, PRO)
+// Valid forms: numeric-only (00 to 999), CR00-CR999 OR known special prefixes (CC, SB, RR, PRO)
 const isValidDutyId = (id) => {
   const s = String(id || '').trim();
   if (!s || s === '--' || s === 'UNASSIGNED') return false;
-  // Accept: pure numeric (1-999)
+  // Accept: pure numeric (0-999)
   if (/^\d{1,3}$/.test(s)) {
     const n = parseInt(s, 10);
-    return n > 0 && n <= 999;
+    return n >= 0 && n <= 999;
   }
-  // Accept: CR01 - CR999
+  // Accept: CR00 - CR999
   if (/^CR(?:RC)?[-\s]?\d{1,3}$/i.test(s)) {
     const m = s.match(/\d{1,3}/);
     if (m) {
       const n = parseInt(m[0], 10);
-      return n > 0 && n <= 999;
+      return n >= 0 && n <= 999;
     }
   }
   // Accept: special duty prefixes CC, SB, RR, PRO, EX, ST followed by digits

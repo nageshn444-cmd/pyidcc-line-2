@@ -19,12 +19,18 @@ import { db } from "../../firebase";
 // Web Audio API Synthesizer - Crisp, Harmonic 3-Tone Control Room Chime
 const playRequestNotificationSound = (type = "DEFAULT") => {
   try {
+    const hasGesture = Boolean(
+      (typeof window !== "undefined" && window.__bmrcl_user_activated) ||
+      (typeof navigator !== "undefined" && navigator.userActivation?.hasBeenActive)
+    );
+    if (!hasGesture) return;
+
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextClass) return;
     const ctx = new AudioContextClass();
 
     if (ctx.state === "suspended") {
-      ctx.resume();
+      ctx.resume().catch(() => {});
     }
 
     const now = ctx.currentTime;

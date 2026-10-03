@@ -128,10 +128,14 @@ export const getDutyDisplayType = (item) => {
   if (item.role === "TRAINEE" || item.assignmentCategory === "TRAINEE")
     return "Trainee";
 
+  const rawDutyStr = String(item.dutyNo || item.dutyId || "").trim();
+  const isCrrc = item.isCrrc || /^CR/i.test(rawDutyStr) || /CRRC/i.test(code) || /CRRC/i.test(String(item.dutyType || ''));
+  if (isCrrc) return item.dutyType && item.dutyType !== '--' ? item.dutyType : "CRRC Train Duty";
+
   // Specific canonical BMRCL tags from train or location
   if (sOnLoc && sOnLoc !== "--") return sOnLoc;
   if (train && train !== "--" && train !== "0") return `Tr ${train}`;
-  return item.assignedDutyCode || item.dutyCode || `D-${num || ""}`;
+  return item.assignedDutyCode || item.dutyCode || (rawDutyStr ? (rawDutyStr.toUpperCase().startsWith("CR") ? rawDutyStr : `D-${rawDutyStr}`) : (Number.isFinite(num) ? `D-${num}` : "--"));
 };
 
 export const getSignOnDisplayLocation = (item) => {
@@ -304,11 +308,12 @@ export default function OfficialBMRCLDutySheet({
 
     // Standard Active Mainline Duties
     runningDuties.forEach((item, idx) => {
-      const dutyNumber =
-        item.dutyNo ||
-        item.dutyId ||
-        (item.assignedDutyCode ? item.assignedDutyCode.replace(/^D-?/i, "") : "") ||
-        (idx + 1);
+      const rawD = (item.dutyNo !== undefined && item.dutyNo !== null && item.dutyNo !== "")
+        ? item.dutyNo
+        : ((item.dutyId !== undefined && item.dutyId !== null && item.dutyId !== "")
+          ? item.dutyId
+          : (item.assignedDutyCode ? item.assignedDutyCode.replace(/^D-?/i, "") : (idx + 1)));
+      const dutyNumber = rawD;
 
       trackStaff(item.empId || item.empNo, item.name);
 

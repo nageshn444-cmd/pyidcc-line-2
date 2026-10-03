@@ -313,7 +313,8 @@ export class RosterService {
       if (!isPureNumericDuty(s)) return s;
       const crMatch = s.match(/^CR(?:RC)?[-\s]?(\d{1,3})$/i);
       const num = crMatch ? parseInt(crMatch[1], 10) : parseInt(s, 10);
-      return isNaN(num) ? s : `gcc_duty_${num}`;
+      const padded = !isNaN(num) && num < 10 ? '0' + num : String(num);
+      return isNaN(num) ? s : `gcc_duty_${padded}`;
     };
 
     const isTriple = Boolean(ex.isTriple && ex.operator3Id);

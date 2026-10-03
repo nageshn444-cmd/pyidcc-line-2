@@ -491,9 +491,25 @@ export default function LiveTrainPositionTracker({
   // ── Audio Context Management for Public Address Chime & Audio Autoplay Compliance ──
   const audioCtxRef = useRef(null);
 
+  // Check whether user has performed at least one valid gesture on the page to satisfy browser autoplay policies
+  const checkUserGestureActive = useCallback(() => {
+    if (typeof window === 'undefined') return false;
+    // Standard User Activation API (Chrome 72+, Edge 79+, Safari 16.4+)
+    if (typeof navigator !== 'undefined' && navigator.userActivation) {
+      return Boolean(navigator.userActivation.hasBeenActive);
+    }
+    // Fallback for older browsers
+    return Boolean(window.__bmrcl_user_activated);
+  }, []);
+
   // Helper to safely obtain or create a singleton AudioContext instance
   const getAudioContext = useCallback(() => {
     try {
+      if (typeof window === 'undefined') return null;
+      // Do not instantiate AudioContext unless user has actively interacted
+      if (!checkUserGestureActive()) {
+        return null;
+      }
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return null;
       if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
@@ -503,18 +519,35 @@ export default function LiveTrainPositionTracker({
     } catch {
       return null;
     }
-  }, []);
+  }, [checkUserGestureActive]);
 
-  // Unlock / resume AudioContext on the first user interaction (click/touch/key) to satisfy browser autoplay policies
+  // Unlock / resume AudioContext on the first genuine user interaction (click/touchend/key)
   useEffect(() => {
     const unlockAudio = () => {
-      const ctx = getAudioContext();
-      if (ctx && ctx.state === 'suspended') {
-        ctx.resume().catch(() => {});
+      // In modern browsers, verify user activation has actually been granted
+      if (typeof navigator !== 'undefined' && navigator.userActivation && !navigator.userActivation.hasBeenActive) {
+        return;
+      }
+      if (typeof window !== 'undefined') {
+        window.__bmrcl_user_activated = true;
+      }
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+          audioCtxRef.current = new AudioCtx();
+        }
+        if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+          audioCtxRef.current.resume().catch(() => {});
+        }
+      } catch {
+        // Silently ignore browser audio autoplay restrictions
       }
     };
 
-    const gestureEvents = ['click', 'touchstart', 'keydown', 'pointerdown'];
+    // Chrome Autoplay policy requires activating events: 'click', 'touchend', 'keydown'
+    // 'pointerdown' and 'touchstart' do NOT count as activating gestures in Chrome
+    const gestureEvents = ['click', 'touchend', 'keydown'];
     gestureEvents.forEach(evt => window.addEventListener(evt, unlockAudio, { capture: true, passive: true }));
 
     return () => {
@@ -523,7 +556,7 @@ export default function LiveTrainPositionTracker({
         audioCtxRef.current.close().catch(() => {});
       }
     };
-  }, [getAudioContext]);
+  }, []);
 
   // Tone generation synthesizer helper - only called when context is confirmed running
   const executeMetroChime = useCallback((ctx) => {
@@ -561,14 +594,15 @@ export default function LiveTrainPositionTracker({
   // ── Authentic Metro Station Melodic Chime (Web Audio API Synthesizer) ──
   const playMetroChime = useCallback(() => {
     if (isAudioMuted || voiceVolume <= 0) return;
+    // Autoplay compliance: Do not attempt chime if user has not yet interacted with the page
+    if (!checkUserGestureActive()) return;
+
     try {
       const ctx = getAudioContext();
       if (!ctx) return;
 
       if (ctx.state === 'suspended') {
-        // Attempt to resume if in response to user interaction or gesture.
-        // If autoplay blocks it (no prior user gesture), silently catch and DO NOT start oscillators
-        // to prevent Chrome "The AudioContext was not allowed to start" console errors.
+        // Attempt to resume only if user activation is active
         ctx.resume()
           .then(() => {
             if (ctx.state === 'running') {
@@ -581,10 +615,10 @@ export default function LiveTrainPositionTracker({
       } else if (ctx.state === 'running') {
         executeMetroChime(ctx);
       }
-    } catch (err) {
-      console.warn('AudioContext public address chime warning:', err);
+    } catch {
+      // AudioContext public address chime warning suppressed
     }
-  }, [isAudioMuted, voiceVolume, getAudioContext, executeMetroChime]);
+  }, [isAudioMuted, voiceVolume, getAudioContext, executeMetroChime, checkUserGestureActive]);
 
   // Pre-load Web Speech API voices so Kannada & Indian English voices are immediately available
   useEffect(() => {
@@ -955,6 +989,11 @@ export default function LiveTrainPositionTracker({
   ) => {
     if (!voiceEnabled || isAudioMuted || !('speechSynthesis' in window)) return;
     
+    // Autoplay compliance: Automated announcements are suppressed until the user has performed at least one interaction on the page
+    if (!forceAnnouncement && !checkUserGestureActive()) {
+      return;
+    }
+    
     const cleanReliever = String(relieverName || '').trim();
     const cleanActive = String(activeOperatorName || '').trim();
 
@@ -1044,15 +1083,22 @@ export default function LiveTrainPositionTracker({
         utterEn.onend = () => {
           window.__bmrcl_active_utterance = null;
         };
-        utterEn.onerror = (e) => {
-          console.warn('[English Announcement Error]', e);
+        utterEn.onerror = () => {
+          // Gracefully handle browser speech restrictions, cancellation, or interruption
           window.__bmrcl_active_utterance = null;
         };
 
-        window.speechSynthesis.speak(utterEn);
+        try {
+          // Only attempt speech if user activation has been granted or explicitly forced
+          if (forceAnnouncement || checkUserGestureActive()) {
+            window.speechSynthesis.speak(utterEn);
+          }
+        } catch {
+          // Autoplay / speech synthesis blocked prior to user interaction
+        }
       }, 350);
     } catch (err) {
-      console.warn('Speech synthesis alert error:', err);
+      console.debug('Speech synthesis notice:', err);
     }
   };
 

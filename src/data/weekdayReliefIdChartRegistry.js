@@ -2085,9 +2085,14 @@ export function buildWeekdayLiveTrainTrackingMap(allDeployments = [], evalSecs) 
 export function normalizeDutyId(raw) {
   if (!raw) return '';
   const clean = String(raw).replace(/^(duty|d)\s*[#]*/i, '').replace(/^#/, '').trim();
+  const crMatch = clean.match(/^CR(?:RC)?[-\s]?(\d{1,3})$/i);
+  if (crMatch) {
+    const num = parseInt(crMatch[1], 10);
+    return num < 10 ? '0' + num : String(num);
+  }
   const num = parseInt(clean, 10);
-  if (!isNaN(num) && num >= 1 && num <= 99) {
-    return String(num).padStart(2, '0');
+  if (!isNaN(num) && num >= 0 && num <= 999) {
+    return num < 10 ? '0' + num : String(num);
   }
   return clean;
 }

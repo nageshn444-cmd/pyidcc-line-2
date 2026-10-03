@@ -577,14 +577,18 @@ const calculateDetailedCrewPositions = (dayType, deployments, consoleData) => {
   // Mainline Duties
   (activeMainlineDuties || []).forEach((d) => {
     const jmd = isJmd(d);
-    const isCr = Boolean(d.isCrrc || /^CR/i.test(String(d.rawDutyId || "")));
+    const isCr = Boolean(
+      d.isCrrc ||
+      /^CR/i.test(String(d.rawDutyId || d.dutyId || "")) ||
+      (d.dutyType && /CRRC/i.test(String(d.dutyType))),
+    );
     allIndividualPositions.push({
       id: `mainline_${d.dutyId || Math.random()}`,
       category: isCr ? "CRRC Train Duty" : "Mainline Train Duty",
       group: "MAINLINE",
       dutyId: d.dutyId
         ? isCr
-          ? `Duty #${d.dutyId} (CRRC)`
+          ? `Duty #CR${String(d.dutyId).replace(/^CR/i, "")}`
           : `Duty #${d.dutyId}`
         : "Driving Duty",
       rawDutyId: d.rawDutyId || d.dutyId,
@@ -1058,7 +1062,7 @@ const highlightMatch = (text, query) => {
   );
 };
 
-// Normalize: pad single-digit "1".."9" to "01".."09", handle CR prefix (e.g. CR42 -> "42", CR01 -> "01")
+// Normalize: pad single-digit "0".."9" to "00".."09", handle CR prefix (e.g. CR42 -> "42", CR00 -> "00", CR01 -> "01")
 const normalizeDutyId = (id) => {
   let s = String(id || "")
     .replace(/^(duty|d)\s*[#]*/i, "")
@@ -1069,25 +1073,25 @@ const normalizeDutyId = (id) => {
     const num = parseInt(crMatch[1], 10);
     return num < 10 ? "0" + num : String(num);
   }
-  if (/^[1-9]$/.test(s)) return "0" + s;
+  if (/^[0-9]$/.test(s)) return "0" + s;
   return s;
 };
 
-// Validate: allow numeric 1-999 or CR01-CR999 or known special prefixes (CC, SB, RR, PRO, EX, ST)
+// Validate: allow numeric 0-999 or CR00-CR999 or known special prefixes (CC, SB, RR, PRO, EX, ST)
 const isValidDutyId = (id) => {
   const s = String(id || "").trim();
   if (!s || s === "--" || s === "UNASSIGNED") return false;
-  // Pure numeric 1-999
+  // Pure numeric 0-999
   if (/^\d{1,3}$/.test(s)) {
     const n = parseInt(s, 10);
-    return n > 0 && n <= 999;
+    return n >= 0 && n <= 999;
   }
-  // CR01 - CR999
+  // CR00 - CR999
   if (/^CR(?:RC)?[-\s]?\d{1,3}$/i.test(s)) {
     const m = s.match(/\d{1,3}/);
     if (m) {
       const n = parseInt(m[0], 10);
-      return n > 0 && n <= 999;
+      return n >= 0 && n <= 999;
     }
   }
   if (/^(CC|SB|RR|PRO|EX|ST)\d+$/i.test(s)) return true;
@@ -4041,9 +4045,7 @@ Rules:
               ? candidateSheets
               : workbook.SheetNames.filter(
                   (s) =>
-                    !/^(CRRC|INDV|CC DUTY|TOTAL|COMPULSORY|PRINT|ALS|440)/i.test(
-                      s,
-                    ),
+                    !/^(INDV|CC DUTY|TOTAL|COMPULSORY|PRINT|ALS|440)/i.test(s),
                 );
           for (const sheetName of sheetsToScan) {
             const sheet = workbook.Sheets[sheetName];
@@ -4089,6 +4091,94 @@ Rules:
                 break;
               }
             }
+            // PRE-SCAN: Map CRRC table assignments across all columns (e.g. "CRRC Duty for ID 215 & 219")
+            const crrcFallbackMap = new Map();
+            for (let i = 0; i < rows.length; i++) {
+              const r = rows[i];
+              if (!Array.isArray(r)) continue;
+              for (let c = 0; c < r.length; c++) {
+                const cellStr = String(r[c] || "").trim();
+                const crMatch = cellStr.match(/^CR(?:RC)?[-\s]?(\d{1,3})$/i);
+                if (crMatch) {
+                  const dutyNum = parseInt(crMatch[1], 10);
+                  const rowSliceText = r
+                    .slice(c, c + 8)
+                    .map((x) => String(x || ""))
+                    .join(" ");
+                  if (
+                    /\b(refer\s*in\s*or|refer|see\s*or)\b/i.test(rowSliceText)
+                  )
+                    continue;
+                  let fName = "";
+                  let fEmpId = "";
+                  let fSignOn = "";
+                  let fSignOnPlace = "";
+                  let fSignOff = "";
+                  let fTrain = "";
+                  const next1 = String(r[c + 1] || "").trim();
+                  const tmSlash = next1.match(
+                    /^(\d{1,2}:\d{2}(?::\d{2})?)\s*[/]\s*([A-Za-z0-9_-]+)/i,
+                  );
+                  if (tmSlash) {
+                    fSignOn = tmSlash[1];
+                    fSignOnPlace = /^depot$/i.test(tmSlash[2])
+                      ? "PYID"
+                      : tmSlash[2];
+                  }
+                  for (let off = 1; off <= 6 && c + off < r.length; off++) {
+                    const val = r[c + off];
+                    if (val === undefined || val === null) continue;
+                    const sVal = String(val).trim();
+                    if (!fEmpId && /^\d{4,6}$/.test(sVal)) {
+                      fEmpId = sVal;
+                    } else if (
+                      !fName &&
+                      sVal.length >= 3 &&
+                      !/^\d+$/.test(sVal) &&
+                      !sVal.includes("/") &&
+                      !/\b(refer|section|induct|pdc|up|dn|depot|pyid)\b/i.test(
+                        sVal,
+                      )
+                    ) {
+                      fName = sVal;
+                    } else if (
+                      !fSignOff &&
+                      off >= 3 &&
+                      /^\d{1,2}:\d{2}/.test(sVal) &&
+                      !sVal.includes("/")
+                    ) {
+                      fSignOff = sVal;
+                    } else if (
+                      !fTrain &&
+                      off >= 3 &&
+                      /^[A-Z]\d{2,4}$/i.test(sVal)
+                    ) {
+                      fTrain = sVal;
+                    }
+                  }
+                  if (fName || fEmpId) {
+                    const padded =
+                      dutyNum < 10 ? "0" + dutyNum : String(dutyNum);
+                    const info = {
+                      dutyNum,
+                      padded,
+                      dutyId: `CR${padded}`,
+                      empName: fName,
+                      empId: fEmpId,
+                      signOnTime: fSignOn,
+                      signOnLocation: fSignOnPlace,
+                      signOffTime: fSignOff,
+                      trainId: fTrain,
+                    };
+                    crrcFallbackMap.set(dutyNum, info);
+                    crrcFallbackMap.set(String(dutyNum), info);
+                    crrcFallbackMap.set(padded, info);
+                    crrcFallbackMap.set(`CR${padded}`, info);
+                  }
+                }
+              }
+            }
+
             const startIdx = headerRowIdx !== -1 ? headerRowIdx + 1 : 0;
             for (let i = startIdx; i < rows.length; i++) {
               const row = rows[i];
@@ -4141,13 +4231,46 @@ Rules:
                 signOffTime = col4Str;
               }
 
-              // Active duties 1-999 (including CR01-CR999 normalized to 01-999)
+              // Active duties 0-999 (including CR00-CR999 normalized to 00-999)
               const parsedNum = parseInt(dutyId, 10);
-              if (!isNaN(parsedNum) && parsedNum > 0 && parsedNum <= 999) {
+              if (!isNaN(parsedNum) && parsedNum >= 0 && parsedNum <= 999) {
+                const isCrrc =
+                  /^CR/i.test(rawDutyStr) ||
+                  /^CR/i.test(dutyId) ||
+                  (parsedNum >= 0 &&
+                    parsedNum <= 100 &&
+                    String(rawDuty).toUpperCase().includes("CR"));
+                const finalKey = isCrrc
+                  ? dutyId.toUpperCase().startsWith("CR")
+                    ? dutyId.toUpperCase()
+                    : `CR${dutyId}`
+                  : dutyId;
+
+                // Merge from CRRC pre-scan map if name is a placeholder or empId is missing
+                const crInfo =
+                  crrcFallbackMap.get(dutyId) ||
+                  crrcFallbackMap.get(parsedNum) ||
+                  crrcFallbackMap.get(finalKey);
+                if (crInfo) {
+                  if (
+                    /\b(refer\s*in\s*or|refer|see\s*or)\b/i.test(empName) ||
+                    !empName ||
+                    !empId
+                  ) {
+                    if (crInfo.empName) empName = crInfo.empName;
+                    if (crInfo.empId) empId = crInfo.empId;
+                    if (crInfo.signOnTime && !signOnTime)
+                      signOnTime = crInfo.signOnTime;
+                    if (crInfo.signOnLocation && !signOnPlace)
+                      signOnPlace = crInfo.signOnLocation;
+                    if (crInfo.signOffTime && !signOffTime)
+                      signOffTime = crInfo.signOffTime;
+                  }
+                }
+
                 if (empId || empName) {
-                  const isCrrc = /^CR/i.test(rawDutyStr);
-                  parsedDutiesMap.set(dutyId, {
-                    dutyId,
+                  parsedDutiesMap.set(finalKey, {
+                    dutyId: finalKey,
                     rawDutyId: rawDutyStr,
                     isCrrc,
                     dutyType: isCrrc ? "CRRC Train Duty" : "",
@@ -4160,6 +4283,25 @@ Rules:
                 }
               }
             }
+
+            // Ensure any CRRC table duties not in main column are also represented
+            crrcFallbackMap.forEach((info) => {
+              const k = info.dutyId;
+              if (!parsedDutiesMap.has(k)) {
+                parsedDutiesMap.set(k, {
+                  dutyId: k,
+                  rawDutyId: k,
+                  isCrrc: true,
+                  dutyType: "CRRC Train Duty",
+                  empId: info.empId,
+                  empName: info.empName,
+                  signOnTime: info.signOnTime || "06:00",
+                  signOnLocation: info.signOnLocation || "PYID",
+                  signOffTime: info.signOffTime || "14:00",
+                  trainId: info.trainId || "CRRC Train",
+                });
+              }
+            });
           }
           const parsedDuties = Array.from(parsedDutiesMap.values()).sort(
             (a, b) => {
@@ -11021,7 +11163,7 @@ Rules:
                                 /^CR/i.test(
                                   String(d.rawDutyId || d.dutyId || ""),
                                 )
-                                  ? `Duty #CR${d.dutyId}`
+                                  ? `Duty #CR${String(d.dutyId || "").replace(/^CR/i, "")}`
                                   : `Duty #${d.dutyId}`}
                               </span>
                               {(d.isCrrc ||
