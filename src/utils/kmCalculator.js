@@ -95,6 +95,14 @@ export function normalizeStationCode(rawCode) {
   if (c.includes("TALAGHATTAPURA") || c === "TGTP" || upDnStripped === "TGTP") return "TGTP";
   if (c.includes("ANJANAPURA") || c.includes("APTS") || c.includes("SILK") || upDnStripped === "APTS") return "APTS";
 
+  // Counselling conducted at Peenya Industry Depot Crew Control base -> 'PYID'
+  if (c.includes("COUNS")) return "PYID";
+
+  // 6 car stopping / short loop turn back at RVR
+  if (c.includes("6CAR") || c.includes("STOPPING")) {
+    if (c.includes("RVR")) return "RVR";
+  }
+
   return String(rawCode || "")
     .trim()
     .toUpperCase()
@@ -117,17 +125,19 @@ export function calculateDistance(fromStationCode, toStationCode) {
     return 13.08;
   }
 
-  // Operational Turn Back (TB / REV) destinations e.g. "RVR TB", "KGWA TB", "PUTH TB"
+  // Operational Turn Back (TB / REV / 6 CAR STOPPING) destinations e.g. "RVR TB", "RVR 6 car stopping", "KGWA TB", "PUTH TB"
   // Turn back travels from start station to the turn station, reverses, and returns to PYID crew base.
-  // E.g. DEPOT (-1.720 KM) to RVR TB (+14.180 KM) -> DEPOT to RVR (15.900 KM) + RVR to PYID (17.200 KM) = 33.100 KM
+  // E.g. Dpo-Rd3 (-1.720 KM + 2.0 KM induction) to RVR TB (+14.180 KM) -> 36.400 KM
   // E.g. PYID (-3.020 KM) to RVR TB (+14.180 KM) -> PYID to RVR (17.200 KM) + RVR to PYID (17.200 KM) = 34.400 KM
-  const isTurnBackTo = /\b(TB|T\/B|T\.B|TURN\s*BACK|TURNBACK|REV|REVERSING)\b/i.test(rawToStr) ||
+  const isTurnBackTo = /\b(TB|T\/B|T\.B|TURN\s*BACK|TURNBACK|REV|REVERSING|6\s*CAR\s*STOPPING|STOPPING)\b/i.test(rawToStr) ||
                        /[-_ ]TB$/i.test(rawToStr) ||
-                       /\(TB\)/i.test(rawToStr);
+                       /\(TB\)/i.test(rawToStr) ||
+                       rawToStr.includes("6 CAR STOPPING") ||
+                       rawToStr.includes("TURN BACK");
 
   if (isTurnBackTo) {
     let cleanToStr = rawToStr
-      .replace(/\b(TB|T\/B|T\.B|TURN\s*BACK|TURNBACK|REV|REVERSING)\b/gi, "")
+      .replace(/\b(TB|T\/B|T\.B|TURN\s*BACK|TURNBACK|REV|REVERSING|6\s*CAR\s*STOPPING|STOPPING)\b/gi, "")
       .replace(/[-_()]/g, " ")
       .trim();
     let turnNorm = normalizeStationCode(cleanToStr);
@@ -140,6 +150,17 @@ export function calculateDistance(fromStationCode, toStationCode) {
       else if (rawToStr.includes("NGSA")) turnNorm = "NGSA";
     }
 
+    if (turnNorm === "RVR") {
+      // Depot-Rd3 -> RVR Dn -> Turn Back at RVR 6 car stopping -> RVR -> PYID Up
+      // Depot induction (2.0 km) + PYID Rd3 -> RVR (17.20 km) + RVR -> PYID Up (17.20 km) = 36.40 KM
+      if (rawFromStr.includes("DPO") || rawFromStr.includes("DEPOT")) {
+        return 36.40;
+      }
+      if (rawFromStr.includes("PYID")) {
+        return 34.40;
+      }
+    }
+
     if (turnNorm) {
       let normFrom = normalizeStationCode(fromStationCode);
       if (normFrom === "BIET") normFrom = "BIET_BE";
@@ -150,8 +171,11 @@ export function calculateDistance(fromStationCode, toStationCode) {
       const pyidStn = MASTER_STATIONS.find((s) => s.code.toUpperCase() === "PYID");
 
       if (fromStn && turnStn && pyidStn) {
-        const dist1 = Math.abs(turnStn.chainage - fromStn.chainage);
+        let dist1 = Math.abs(turnStn.chainage - fromStn.chainage);
         const dist2 = Math.abs(pyidStn.chainage - turnStn.chainage);
+        if (normFrom === "DEPOT" && (rawFromStr.includes("RD3") || rawFromStr.includes("RD-3"))) {
+          dist1 = Math.abs(turnStn.chainage - pyidStn.chainage) + 2.0;
+        }
         return parseFloat((dist1 + dist2).toFixed(3));
       }
     }
@@ -435,11 +459,13 @@ export function calculateLegKmsFromWTT(
   // 1. Outbound leg: boardingStation -> turnBackStation (e.g. DEPOT -> RVR = 15.900 KM)
   // 2. Return leg: turnBackStation -> PYID (e.g. RVR -> PYID = 17.200 KM)
   // Total distance = 15.900 + 17.200 = 33.100 KM
-  const isTurnBackHand = /\b(TB|T\/B|T\.B|TURN\s*BACK|TURNBACK|REV|REVERSING)\b/i.test(handLower) ||
+  const isTurnBackHand = /\b(TB|T\/B|T\.B|TURN\s*BACK|TURNBACK|REV|REVERSING|6\s*CAR\s*STOPPING|STOPPING)\b/i.test(handLower) ||
                          /[-_ ]TB$/i.test(handLower.trim()) ||
                          /\(TB\)/i.test(handLower) ||
                          trainLower.includes("tb") ||
-                         trainLower.includes("turn back");
+                         trainLower.includes("turn back") ||
+                         handLower.includes("6 car stopping") ||
+                         handLower.includes("turn back at rvr");
 
   if (isTurnBackHand) {
     const isRvr = handLower.includes("rvr") || handLower.includes("r.v.") || handLower.includes("rvroad") ||
@@ -448,16 +474,26 @@ export function calculateLegKmsFromWTT(
     let turnStationCode = "RVR";
     if (!isRvr) {
       const cleanTurn = handLower
-        .replace(/\b(TB|T\/B|T\.B|TURN\s*BACK|TURNBACK|REV|REVERSING)\b/gi, "")
+        .replace(/\b(TB|T\/B|T\.B|TURN\s*BACK|TURNBACK|REV|REVERSING|6\s*CAR\s*STOPPING|STOPPING)\b/gi, "")
         .replace(/[-_()]/g, " ")
         .trim();
       turnStationCode = normalizeStationCode(cleanTurn) || "RVR";
     }
 
     const fromNorm = normalizeStationCode(takeoverLocation) || "DEPOT";
-    const dist1 = calculateDistance(fromNorm, turnStationCode);
-    const dist2 = calculateDistance(turnStationCode, "PYID");
-    const totalKm = parseFloat((dist1 + dist2).toFixed(3));
+    let totalKm = 0;
+    if (turnStationCode === "RVR") {
+      // Depot-Rd3 -> RVR Dn -> Turn back at RVR 6 car stopping -> RVR -> PYID Up = 36.40 KM
+      if (takeLower.includes("dpo") || takeLower.includes("depot")) {
+        totalKm = 36.40;
+      } else {
+        totalKm = 34.40;
+      }
+    } else {
+      const dist1 = calculateDistance(fromNorm, turnStationCode);
+      const dist2 = calculateDistance(turnStationCode, "PYID");
+      totalKm = parseFloat((dist1 + dist2).toFixed(3));
+    }
 
     if (totalKm > 0) {
       return {
@@ -472,10 +508,10 @@ export function calculateLegKmsFromWTT(
         alightingTime: arrTimeStr || "N/A",
         intermediateStations: [fromNorm, turnStationCode, "PYID"],
         segments: [
-          { fromStationCode: fromNorm, toStationCode: turnStationCode, calculatedKms: dist1 },
-          { fromStationCode: turnStationCode, toStationCode: "PYID", calculatedKms: dist2 },
+          { fromStationCode: fromNorm, toStationCode: turnStationCode, calculatedKms: parseFloat((totalKm / 2).toFixed(2)) },
+          { fromStationCode: turnStationCode, toStationCode: "PYID", calculatedKms: parseFloat((totalKm / 2).toFixed(2)) },
         ],
-        notes: `${turnStationCode} TB (Turn Back): ${fromNorm} → ${turnStationCode} (${dist1} KM) → PYID (${dist2} KM) = ${totalKm} KM`,
+        notes: `${turnStationCode} TB (Turn Back): ${fromNorm} → ${turnStationCode} → PYID = ${totalKm} KM`,
       };
     }
   }
@@ -582,6 +618,24 @@ export function calculateLegKmsFromWTT(
       pathStops = expandStationPath(pathStops);
       const seqResult = calculateSequenceDistance(pathStops);
       let finalKms = seqResult.totalExact > 0 ? parseFloat(seqResult.totalExact.toFixed(2)) : (seqResult.totalRounded || 0);
+
+      // RVR Turn Back short loop from Depot / PYID (turns back at RVR without continuing south to PUTH or APTS):
+      // depot - pyid rd3 (2.0 km) - rvr dn (17.20 km) - turn back at rvr 6 car stopping - rvr - pyid up (17.20 km) = 36.40 km
+      if (
+        pathStops.includes("RVR") &&
+        !pathStops.includes("PUTH") &&
+        !pathStops.includes("PUTH_BE") &&
+        !pathStops.includes("APTS") &&
+        !pathStops.includes("APTS_BE") &&
+        (pathStops[0] === "PYID" || pathStops[0] === "DEPOT") &&
+        pathStops[pathStops.length - 1] === "PYID"
+      ) {
+        if (takeLower.includes("dpo") || takeLower.includes("depot")) {
+          finalKms = 36.40;
+        } else {
+          finalKms = 34.40;
+        }
+      }
 
       if (finalKms > 150) {
         const directDist = calculateDistance(bStop.station, aStop.station);
@@ -1203,10 +1257,30 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
   }
 
   const getLegKm = (trainNo, fromLoc, toLoc, depTime, arrTime) => {
-    const rawTrain = String(trainNo || "").trim();
-    const trainLower = rawTrain.toLowerCase();
-    const fromLower = String(fromLoc || "").trim().toLowerCase();
-    const toLower = String(toLoc || "").trim().toLowerCase();
+    let rawTrain = String(trainNo || "").trim();
+    let trainLower = rawTrain.toLowerCase();
+    let fromLower = String(fromLoc || "").trim().toLowerCase();
+    let toLower = String(toLoc || "").trim().toLowerCase();
+    let effFrom = fromLoc;
+    let effTo = toLoc;
+
+    const hasNumericTrain = /\d{2,3}/.test(rawTrain);
+
+    // If Couns(...) is mentioned behind/after the trip (e.g. Couns(12:30), Couns(13:00)),
+    // do not treat the active train driving leg as non-running!
+    // Sanitize effFrom and effTo so counselling is stripped and mapped to PYID crew base.
+    if (/couns/i.test(fromLower)) {
+      if (hasNumericTrain) {
+        effFrom = "PYID";
+        fromLower = "pyid";
+      }
+    }
+    if (/couns/i.test(toLower)) {
+      if (hasNumericTrain) {
+        effTo = "PYID";
+        toLower = "pyid";
+      }
+    }
 
     // 1. NON-RUNNING EXCLUSIONS (return 0 KM)
     // Non-running: counselling, counseling, reserv, resv, ntest, n test, rd3 stby, rd3-stby, pro, protection, standby, stby, spare, reserve
@@ -1216,10 +1290,13 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
       "standby", "stby", "spare", "reserve", "training", "medical", "class"
     ];
 
-    const isPdc = isPdcTrip(rawTrain) || isPdcTrip(fromLoc) || isPdcTrip(toLoc);
+    const isPdc = isPdcTrip(rawTrain) || isPdcTrip(effFrom) || isPdcTrip(effTo);
 
-    const isNonRunning = isPdc || nonRunningKeywords.some(
-      (kw) => trainLower.includes(kw) || fromLower.includes(kw) || toLower.includes(kw)
+    // If train number is valid and real, fromLoc/toLoc having non-running keyword shouldn't void the whole trip unless train itself is non-running
+    const isNonRunning = isPdc || (
+      hasNumericTrain
+        ? nonRunningKeywords.some((kw) => trainLower === kw || trainLower.includes(kw))
+        : nonRunningKeywords.some((kw) => trainLower.includes(kw) || fromLower.includes(kw) || toLower.includes(kw))
     );
 
     if (isNonRunning || trainLower === "--" || trainLower === "-" || (!rawTrain && !depTime && !arrTime)) {
@@ -1240,14 +1317,14 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
     if (!isNoPdcLocation && isPureDepotRd3) return 2;
 
     // 3. WTT TIMETABLE SEARCH
-    const wttRes = calculateLegKmsFromWTT(rawTrain, fromLoc, toLoc, depTime, arrTime, normSchedule);
+    const wttRes = calculateLegKmsFromWTT(rawTrain, effFrom, effTo, depTime, arrTime, normSchedule);
     if (wttRes && typeof wttRes.calculatedKms === "number" && wttRes.calculatedKms > 0) {
       return Number(wttRes.calculatedKms.toFixed(2));
     }
 
     // 4. CHAINAGE DISTANCE FALLBACK IF LOCATIONS VALID
-    if (fromLoc && fromLoc !== "--" && toLoc && toLoc !== "--") {
-      const distRes = calculateDistance(fromLoc, toLoc);
+    if (effFrom && effFrom !== "--" && effTo && effTo !== "--") {
+      const distRes = calculateDistance(effFrom, effTo);
       if (typeof distRes === "number" && distRes > 0) {
         return Number(distRes.toFixed(2));
       }

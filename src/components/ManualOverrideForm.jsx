@@ -372,8 +372,8 @@ export default function ManualOverrideForm() {
                 className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs focus:border-amber-500 outline-none"
               >
                 <option value="">-- Select Operator --</option>
-                {BMRCL_CREW_REGISTRY.map(emp => (
-                  <option key={emp.id} value={emp.id}>{emp.name} ({emp.id})</option>
+                {BMRCL_CREW_REGISTRY.map((emp, idx) => (
+                  <option key={`override-emp-${emp.id || idx}-${idx}`} value={emp.id}>{emp.name} ({emp.id})</option>
                 ))}
               </select>
             </div>

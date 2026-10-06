@@ -748,8 +748,8 @@ export default function LeaveBookOffManager() {
           </div>
 
           <datalist id="crew-employees-leave">
-            {BMRCL_CREW_REGISTRY.map(c => (
-              <option key={c.id} value={c.id}>{c.id} - {c.name}</option>
+            {BMRCL_CREW_REGISTRY.map((c, idx) => (
+              <option key={`leave-crew-${c.id || idx}-${idx}`} value={c.id}>{c.id} - {c.name}</option>
             ))}
           </datalist>
 

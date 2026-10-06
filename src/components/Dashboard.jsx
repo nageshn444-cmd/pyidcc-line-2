@@ -335,6 +335,9 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
   const [exchangesData, setExchangesData] = useState([]);
   const [reportsSubTab, setReportsSubTab] = useState('PERFORMANCE'); // 'EXPORTS' or 'PERFORMANCE'
 
+  const liveWttDataRef = useRef(WTT_MASTER_REGISTRY);
+  const liveLinksDataRef = useRef(WEEKDAY_MASTER_LINKS);
+
   // Incident Control States
   const [targetTid, setTargetTid] = useState('');
   const [delayMinutes, setDelayMinutes] = useState('');
@@ -558,24 +561,25 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
 
   const processAndSyncData = (wttData, linksData, deployData, attData, incData) => {
     try {
-      // Build 100% complete working timetable dataset by combining WTT_MASTER_REGISTRY with live Firestore edits
-      const firestoreMap = new Map();
-      (wttData || []).forEach(d => { if (d && d.id) firestoreMap.set(String(d.id), d); });
-
-      const fullDataset = WTT_MASTER_REGISTRY.map(masterRow => {
-        const liveDoc = firestoreMap.get(String(masterRow.id));
-        return liveDoc ? { ...masterRow, ...liveDoc } : masterRow;
-      });
-
-      // Include custom rows added via Firestore
-      (wttData || []).forEach(d => {
-        if (d && d.id && !fullDataset.some(m => String(m.id) === String(d.id))) {
-          fullDataset.push(d);
-        }
-      });
-
       const targetSchedule = normalizeScheduleType(activeDay);
-      const dayTrips = fullDataset.filter(t => normalizeScheduleType(t.scheduleType, t.id) === targetSchedule);
+
+      // Check if liveWttDataRef / Firestore / state has uploaded or custom WTT timetable rows for targetSchedule
+      const sourceWtt = (liveWttDataRef.current && liveWttDataRef.current.length > 0) ? liveWttDataRef.current : wttData;
+      const uploadedTargetWtt = (sourceWtt || []).filter(d => 
+        normalizeScheduleType(d.scheduleType, d.id) === targetSchedule &&
+        (d.downTrip || d.upTrip) &&
+        !d.parentRowId // Exclude direct sub-trip copies
+      );
+
+      let dayTrips;
+      if (uploadedTargetWtt.length > 0) {
+        // High-fidelity uploaded timetable from management takes 100% full precedence for this day!
+        // Cleanly erases and replaces any previous scheduled times for this day!
+        dayTrips = uploadedTargetWtt;
+      } else {
+        // Fallback to in-memory WTT_MASTER_REGISTRY
+        dayTrips = WTT_MASTER_REGISTRY.filter(t => normalizeScheduleType(t.scheduleType, t.id) === targetSchedule);
+      }
 
       const getTripDirection = (trip) => {
         if (trip.stations) {
@@ -620,8 +624,10 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
         isValidDutyId(l.dutyId)
       );
 
-      // CANONICAL FALLBACK FOR ALL DAY TYPES (WEEKDAY, SATURDAY & GH, SUNDAY, MONDAY):
-      // If DB has no links for targetSchedule, load verified canonical master links from canonicalDayLinksRegistry!
+      // Check if DB has uploaded / custom links for this targetSchedule
+      const hasUploadedLinks = rawDayLinks.some(l => l.isUploaded === true);
+
+      // Fallback ONLY when database has zero links for this schedule day (initial load before upload)
       if (rawDayLinks.length === 0) {
         if (targetSchedule === 'SATURDAY') {
           rawDayLinks = SATURDAY_MASTER_LINKS;
@@ -632,23 +638,17 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
         } else {
           rawDayLinks = WEEKDAY_MASTER_LINKS;
         }
-      } else if (targetSchedule === 'WEEKDAY') {
-        const isDbStale = rawDayLinks.length !== 79 || 
-          rawDayLinks.some(l => (normalizeDutyId(l.dutyId) === '02' || normalizeDutyId(l.dutyId) === '2') && l.signOnLocation === 'TGTP') ||
-          rawDayLinks.some(l => (normalizeDutyId(l.dutyId) === '03' || normalizeDutyId(l.dutyId) === '3') && (l.trainId === '209' || l.leg1TrainNo === '209'));
-        if (isDbStale) {
-          rawDayLinks = WEEKDAY_MASTER_LINKS;
-        }
-      } else if (targetSchedule === 'SATURDAY' && rawDayLinks.length < 74) {
-        rawDayLinks = SATURDAY_MASTER_LINKS;
-      } else if (targetSchedule === 'SUNDAY' && rawDayLinks.length < 64) {
-        rawDayLinks = SUNDAY_MASTER_LINKS;
-      } else if (targetSchedule === 'MONDAY' && rawDayLinks.length < 79) {
-        rawDayLinks = MONDAY_MASTER_LINKS;
       }
 
       const dedupedLinks = deduplicateByDutyId(rawDayLinks);
-      const currentDayLinks = dedupedLinks.sort((a, b) =>
+      const currentDayLinks = dedupedLinks.map(l => {
+        const normId = normalizeDutyId(l.dutyId);
+        return {
+          ...l,
+          id: l.id || `link_${targetSchedule.toLowerCase()}_duty_${normId}`,
+          dutyId: normId
+        };
+      }).sort((a, b) =>
         String(a.dutyId).localeCompare(String(b.dutyId), undefined, { numeric: true })
       );
       setLinks(currentDayLinks);
@@ -855,25 +855,26 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
   const fetchLiveData = async () => {
     try {
       setLoading(true);
-      const wttSnapshot = await getDocs(collection(db, "wtt_final_matrix"));
+      const [wttSnapshot, linksSnapshot, deploySnapshot, attSnapshot, incSnapshot] = await Promise.all([
+        getDocs(collection(db, "wtt_final_matrix")),
+        getDocs(collection(db, "crew_final_links")),
+        getDocs(collection(db, "crew_daily_deployment")),
+        getDocs(collection(db, "crew_live_attendance")),
+        getDocs(collection(db, "wtt_live_incidents"))
+      ]);
       const wttData = wttSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-      const linksSnapshot = await getDocs(collection(db, "crew_final_links"));
       const linksData = linksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-      const deploySnapshot = await getDocs(collection(db, "crew_daily_deployment"));
       const deployData = deploySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-      const attSnapshot = await getDocs(collection(db, "crew_live_attendance"));
       const attData = attSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-      const incSnapshot = await getDocs(collection(db, "wtt_live_incidents"));
       const incData = incSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setLiveIncidents(incData);
 
+      if (wttData.length > 0) liveWttDataRef.current = wttData;
+      if (linksData.length > 0) liveLinksDataRef.current = linksData;
+
+      setLiveIncidents(incData);
       processAndSyncData(wttData, linksData, deployData, attData, incData);
     } catch (error) {
-      console.error(error);
+      console.error("fetchLiveData error:", error);
     } finally {
       setLoading(false);
     }
@@ -883,8 +884,8 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
   // Render canonical Line-2 local data immediately; hydrate Firestore in background.
   useEffect(() => {
     setLoading(false);
-    let wttData = WTT_MASTER_REGISTRY;
-    let linksData = activeDay === 'WEEKDAY' ? WEEKDAY_MASTER_LINKS : [];
+    let wttData = (liveWttDataRef.current && liveWttDataRef.current.length > 0) ? liveWttDataRef.current : WTT_MASTER_REGISTRY;
+    let linksData = (liveLinksDataRef.current && liveLinksDataRef.current.length > 0) ? liveLinksDataRef.current : (activeDay === 'WEEKDAY' ? WEEKDAY_MASTER_LINKS : []);
     let deployData = [];
     let attData = [];
     let incData = [];
@@ -898,7 +899,7 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       });
     };
 
-    // First paint uses local master data; Firebase refresh runs in parallel.
+    // First paint uses current active/cached data immediately
     runProcessing();
 
     const fetchBase = async () => {
@@ -909,8 +910,14 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
         ]);
         const remoteWtt = wttSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         const remoteLinks = linksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if (remoteWtt.length > 0) wttData = remoteWtt;
-        if (remoteLinks.length > 0) linksData = remoteLinks;
+        if (remoteWtt.length > 0) {
+          wttData = remoteWtt;
+          liveWttDataRef.current = remoteWtt;
+        }
+        if (remoteLinks.length > 0) {
+          linksData = remoteLinks;
+          liveLinksDataRef.current = remoteLinks;
+        }
         runProcessing();
       } catch (err) {
         console.warn("Background WTT/link refresh failed; using local master data:", err);
@@ -932,6 +939,22 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       incData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setLiveIncidents(incData);
       runProcessing();
+    });
+
+    const unsubWtt = onSnapshot(collection(db, "wtt_final_matrix"), (snap) => {
+      if (!snap.empty) {
+        wttData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        liveWttDataRef.current = wttData;
+        runProcessing();
+      }
+    });
+
+    const unsubLinks = onSnapshot(collection(db, "crew_final_links"), (snap) => {
+      if (!snap.empty) {
+        linksData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        liveLinksDataRef.current = linksData;
+        runProcessing();
+      }
     });
 
     const unsubEmployees = onSnapshot(collection(db, "crewRegistry"), (snap) => {
@@ -992,6 +1015,8 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       unsubAtt();
       unsubInc();
       unsubEmployees();
+      unsubWtt();
+      unsubLinks();
     };
   }, [activeDay]);
 
@@ -1419,6 +1444,49 @@ Format the response strictly as a single JSON object.`;
 
   const handleUpdateMasterWeekdayLinks = () => handleUpdateMasterScheduleLinks('WEEKDAY');
 
+  const handleWttImported = async ({ scheduleType, rows }) => {
+    const norm = normalizeScheduleType(scheduleType);
+    if (norm) setActiveDay(norm);
+
+    // 1. Purge live delay incidents for this schedule so trains are strictly on-schedule
+    setLiveIncidents(prev => prev.filter(i => normalizeScheduleType(i.scheduleType) !== norm));
+
+    // 2. Dynamically mutate in-memory WTT_MASTER_REGISTRY so the whole system reflects new scheduled times
+    try {
+      const remaining = WTT_MASTER_REGISTRY.filter(r => normalizeScheduleType(r.scheduleType, r.id) !== norm);
+      WTT_MASTER_REGISTRY.length = 0;
+      if (Array.isArray(rows) && rows.length > 0) {
+        WTT_MASTER_REGISTRY.push(...remaining, ...rows);
+      } else {
+        WTT_MASTER_REGISTRY.push(...remaining);
+      }
+    } catch (e) {
+      console.warn("Could not mutate WTT_MASTER_REGISTRY in-memory:", e);
+    }
+
+    // 3. Update live ref so switching days retains the new data immediately
+    liveWttDataRef.current = [...WTT_MASTER_REGISTRY];
+
+    // 4. Update unified rows directly
+    if (Array.isArray(rows) && rows.length > 0) {
+      const sorted = [...rows].sort((a, b) => getEarliestTimeSeconds(a) - getEarliestTimeSeconds(b));
+      setUnifiedRows(sorted);
+    } else {
+      setUnifiedRows([]);
+    }
+  };
+
+  const handleLinkRosterImported = async ({ scheduleType, duties }) => {
+    if (scheduleType) setActiveDay(scheduleType);
+    if (Array.isArray(duties) && duties.length > 0) {
+      setLinks(duties);
+      liveLinksDataRef.current = duties;
+    }
+    if (typeof fetchLiveData === 'function') {
+      await fetchLiveData();
+    }
+  };
+
   const handleIncidentLogSubmit = async (e) => {
     e.preventDefault();
     if (!targetTid || !delayMinutes) return;
@@ -1495,12 +1563,27 @@ Format the response strictly as a single JSON object.`;
     } catch (err) { console.error(err); }
   };
 
-  const handleWttCellSave = async (row, direction, stationName, isTidField) => {
+  const handleWttCellSave = async (row, direction, stationName, isTidField, isModeField = false) => {
     try {
       const targetTrip = direction === 'DN' ? row.downTrip : row.upTrip; if (!targetTrip) return;
       const targetId = targetTrip.id || `wtt_${activeDay.toLowerCase()}_${row.trainId}_${direction.toLowerCase()}`;
       if (isTidField) {
         await setDoc(doc(db, "wtt_final_matrix", targetId), { trainId: editValue, scheduleType: activeDay }, { merge: true });
+      } else if (isModeField) {
+        const modeVal = (editValue || 'ATO').toUpperCase();
+        await setDoc(doc(db, "wtt_final_matrix", targetId), {
+          trainId: row.trainId || '',
+          scheduleType: activeDay,
+          terminalLoopRoute: direction,
+          mode: modeVal,
+          ...(direction === 'DN' ? { dnMode: modeVal } : { upMode: modeVal }),
+        }, { merge: true });
+        const parentId = targetTrip.parentRowId || row.id;
+        if (parentId && parentId !== targetId) {
+          await setDoc(doc(db, "wtt_final_matrix", parentId), {
+            ...(direction === 'DN' ? { dnMode: modeVal, mode: modeVal } : { upMode: modeVal }),
+          }, { merge: true });
+        }
       } else {
         await setDoc(doc(db, "wtt_final_matrix", targetId), {
           trainId: row.trainId || '',
@@ -1509,7 +1592,7 @@ Format the response strictly as a single JSON object.`;
           stations: { ...(targetTrip.stations || {}), [stationName]: editValue }
         }, { merge: true });
       }
-      setEditingCell({ rowId: null, direction: null, station: null, isTid: false, isDeployment: false }); fetchLiveData();
+      setEditingCell({ rowId: null, direction: null, station: null, isTid: false, isMode: false, isDeployment: false }); fetchLiveData();
     } catch (err) { console.error("Error saving WTT cell:", err); }
   };
 
@@ -1519,20 +1602,35 @@ Format the response strictly as a single JSON object.`;
       for (const row of editedRows) {
         if (row.downTrip) {
           const docId = row.downTrip.id || `wtt_${activeDay.toLowerCase()}_row_${row.trainId}_dn`;
+          const dnMode = row.downTrip.mode || row.dnMode || row.mode || 'ATO';
           batch.set(doc(db, "wtt_final_matrix", docId), {
             trainId: row.trainId || '',
             scheduleType: activeDay,
             terminalLoopRoute: "DN",
+            mode: dnMode,
+            dnMode: dnMode,
             stations: row.downTrip.stations || {}
           }, { merge: true });
         }
         if (row.upTrip) {
           const docId = row.upTrip.id || `wtt_${activeDay.toLowerCase()}_row_${row.trainId}_up`;
+          const upMode = row.upTrip.mode || row.upMode || row.mode || 'ATO';
           batch.set(doc(db, "wtt_final_matrix", docId), {
             trainId: row.trainId || '',
             scheduleType: activeDay,
             terminalLoopRoute: "UP",
+            mode: upMode,
+            upMode: upMode,
             stations: row.upTrip.stations || {}
+          }, { merge: true });
+        }
+        if (row.id) {
+          batch.set(doc(db, "wtt_final_matrix", row.id), {
+            trainId: row.trainId || '',
+            scheduleType: activeDay,
+            mode: row.mode || row.dnMode || row.upMode || 'ATO',
+            dnMode: row.dnMode || row.downTrip?.mode || 'ATO',
+            upMode: row.upMode || row.upTrip?.mode || 'ATO',
           }, { merge: true });
         }
       }
@@ -1640,6 +1738,8 @@ Format the response strictly as a single JSON object.`;
           incidentReason={incidentReason}
           setIncidentReason={setIncidentReason}
           handleIncidentLogSubmit={handleIncidentLogSubmit}
+          onWttImported={handleWttImported}
+          onLinkRosterImported={handleLinkRosterImported}
         />
       );
     }

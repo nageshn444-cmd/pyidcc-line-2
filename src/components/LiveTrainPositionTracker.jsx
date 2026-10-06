@@ -1729,7 +1729,23 @@ export default function LiveTrainPositionTracker({
       if (filtered.length > 0) return filtered;
     }
 
-    // 2. Fallback: Reconstruct complete synchronized matrix from WTT_MASTER_REGISTRY + Firestore wttMatrix
+    // 2. If wttMatrix from Firestore has entries for activeSchedule, use them directly without merging stale master registry
+    const uploadedInMatrix = (wttMatrix || []).filter(d => 
+      isScheduleMatch(d.scheduleType || getItemSchedule(d), activeSchedule) &&
+      (d.downTrip || d.upTrip) &&
+      !d.parentRowId
+    );
+    if (uploadedInMatrix.length > 0) {
+      const rowMap = new Map();
+      uploadedInMatrix.forEach(row => {
+        if (!row) return;
+        const rowId = row.id || `${row.trainId}_${row.excelRow || Math.random()}`;
+        if (!rowMap.has(rowId)) rowMap.set(rowId, row);
+      });
+      return Array.from(rowMap.values());
+    }
+
+    // 3. Fallback: Reconstruct complete synchronized matrix from WTT_MASTER_REGISTRY + Firestore wttMatrix
     const firestoreMap = new Map();
     (wttMatrix || []).forEach(d => { if (d && d.id) firestoreMap.set(String(d.id), d); });
 
@@ -2581,16 +2597,18 @@ export default function LiveTrainPositionTracker({
       }
     });
 
-    // 2. Ingest WTT_MASTER_REGISTRY for guaranteed 100% full-day schedule coverage
-    (WTT_MASTER_REGISTRY || []).forEach(row => {
-      if (!row) return;
-      if (!isScheduleMatch(row.scheduleType || getItemSchedule(row), activeSchedule)) return;
-      if (row.downTrip) registerTripToMap(row.downTrip, 'downTrip', row);
-      if (row.upTrip) registerTripToMap(row.upTrip, 'upTrip', row);
-      if (!row.downTrip && !row.upTrip && row.stations) {
-        registerTripToMap(row, 'singleTrip', row);
-      }
-    });
+    // 2. Ingest WTT_MASTER_REGISTRY ONLY as fallback if matrixRows has no entries for activeSchedule
+    if (matrixRows.length === 0) {
+      (WTT_MASTER_REGISTRY || []).forEach(row => {
+        if (!row) return;
+        if (!isScheduleMatch(row.scheduleType || getItemSchedule(row), activeSchedule)) return;
+        if (row.downTrip) registerTripToMap(row.downTrip, 'downTrip', row);
+        if (row.upTrip) registerTripToMap(row.upTrip, 'upTrip', row);
+        if (!row.downTrip && !row.upTrip && row.stations) {
+          registerTripToMap(row, 'singleTrip', row);
+        }
+      });
+    }
 
     // Calculate Corridor Headways & Spatial Spacing between active trains on Line-2
     const runningUp = uniquePositions.filter(p => !p.isStabling && p.direction === 'UP');

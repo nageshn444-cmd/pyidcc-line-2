@@ -7,7 +7,7 @@ import {
   Users, Activity, Table, CalendarClock, 
   Settings, AlertTriangle, Sparkles, LayoutGrid, Search, Maximize2, 
   Minimize2, FileText, ClipboardList, RefreshCw, 
-  Train, Calendar, Radio, ShieldAlert, Trash2, RotateCcw, UploadCloud,
+  Train, Calendar, Radio, ShieldAlert, Trash2, RotateCcw, UploadCloud, FileSpreadsheet,
   Calculator, Sliders, Repeat, Clock, Copy, Plus, ArrowRightLeft
 } from 'lucide-react';
 
@@ -40,6 +40,7 @@ const ChangeoverDashboard        = lazyWithRetry(() => import('../admin/Changeov
 const AIFaultReportingPage       = lazyWithRetry(() => import('../../pages/AIFaultReportingPage'));
 const DailyDutyGeneratorSuite    = lazyWithRetry(() => import('../dutyGenerator/DailyDutyGeneratorSuite'));
 const TrainSwapControl           = lazyWithRetry(() => import('../TrainSwapControl'));
+const LinkRosterExcelUploadModal = lazyWithRetry(() => import('../roster/LinkRosterExcelUploadModal'));
 
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -109,18 +110,22 @@ export default function SuperAdminLayout({
   setDelayMinutes,
   incidentReason,
   setIncidentReason,
-  handleIncidentLogSubmit
+  handleIncidentLogSubmit,
+  onWttImported,
+  onLinkRosterImported
 }) {
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isLinkRosterUploadOpen, setIsLinkRosterUploadOpen] = useState(false);
+  const [isClearingRoster, setIsClearingRoster] = useState(false);
   const [selectedRosterDate, setSelectedRosterDate] = useState(() => 
     new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
   );
   const dispatchGateRef = useRef(null);
 
-  const defaultHeaders = [
-    // Leg 1
+  const CANONICAL_ROSTER_HEADERS = [
+    // Leg 1 / Sign-On
     { key: 'signOnTime', label: 'Sign On Time' },
     { key: 'signOnLocation', label: 'Sign On Loc' },
     { key: 'trainId', label: 'Train No' },
@@ -156,27 +161,38 @@ export default function SuperAdminLayout({
     // Summary
     { key: 'signOffTime', label: 'Sign Off Time' },
     { key: 'signOffLocation', label: 'Sign Off Loc' },
-    { key: 'totalHours', label: 'Total Hours' },
-    { key: 'remarks', label: 'Remarks' },
+    { key: 'drivingHrs', label: 'Driving Hrs' },
+    { key: 'dutyHrs', label: 'Duty Hrs' },
+    { key: 'breakTime', label: 'Break' },
+    { key: 'counselling', label: 'Counseling' },
+    { key: 'remarks', label: 'Duty Type' },
     { key: 'totalKm', label: 'Total KM' }
   ];
 
   const [headers, setHeaders] = useState(() => {
-    const saved = localStorage.getItem('pyidcc_roster_headers_v4');
-    return saved ? JSON.parse(saved) : defaultHeaders;
+    try {
+      const saved = localStorage.getItem('pyidcc_roster_headers_v5');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length === CANONICAL_ROSTER_HEADERS.length &&
+            parsed.every((h, i) => h && h.key === CANONICAL_ROSTER_HEADERS[i].key)) {
+          return parsed;
+        }
+      }
+    } catch {}
+    // Purge older scrambled header caches from earlier versions
+    try {
+      localStorage.removeItem('pyidcc_roster_headers_v4');
+      localStorage.removeItem('pyidcc_roster_headers_v3');
+      localStorage.setItem('pyidcc_roster_headers_v5', JSON.stringify(CANONICAL_ROSTER_HEADERS));
+    } catch {}
+    return CANONICAL_ROSTER_HEADERS;
   });
 
   const [rosterDutySearch, setRosterDutySearch] = useState('');
 
-  // ── Ordered column field list (matches table render order) ──
-  const ROSTER_COL_FIELDS = [
-    'signOnTime','signOnLocation','trainId',
-    'leg1TimeFrom','leg1TimeTo','leg1TripTime','leg1HandoverLoc','leg1Km',
-    'leg2DepLoc','leg2TrainNo','leg2DepTime','leg2ArrTime','leg2TimeTo','leg2ArrLoc','leg2Km',
-    'leg3DepLoc','leg3TrainNo','leg3DepTime','leg3ArrTime','leg3TimeTo','leg3ArrLoc','leg3Km',
-    'leg4FinalDepLoc','leg4TrainNo','leg4FinalDepTime','leg4FinalArrTime','leg4TimeTo','leg4FinalArrLoc','leg4Km',
-    'signOffTime','signOffLocation','totalHours','remarks','totalKm'
-  ];
+  // ── Ordered column field list (strictly matches headers order) ──
+  const ROSTER_COL_FIELDS = CANONICAL_ROSTER_HEADERS.map(h => h.key);
 
   // ── Cell-Level Copy/Paste States ──
   const [cellClipboard, setCellClipboard] = useState(null); // { value, fieldName }  (single-cell, for right-click context menu)
@@ -433,13 +449,15 @@ export default function SuperAdminLayout({
     const updated = [...headers];
     updated[idx].label = editHeaderValue;
     setHeaders(updated);
-    localStorage.setItem('pyidcc_roster_headers_v3', JSON.stringify(updated));
+    localStorage.setItem('pyidcc_roster_headers_v5', JSON.stringify(updated));
     setEditingHeaderIdx(null);
   };
 
   const handleResetHeaders = () => {
-    if (window.confirm("Reset all table column headers back to defaults?")) {
-      setHeaders(defaultHeaders);
+    if (window.confirm("Reset all table column headers back to Excel canonical defaults?")) {
+      setHeaders(CANONICAL_ROSTER_HEADERS);
+      localStorage.removeItem('pyidcc_roster_headers_v5');
+      localStorage.removeItem('pyidcc_roster_headers_v4');
       localStorage.removeItem('pyidcc_roster_headers_v3');
     }
   };
@@ -670,6 +688,26 @@ export default function SuperAdminLayout({
     } catch (err) {
       console.error(err);
       alert("Failed to reset daily roster: " + err.message);
+    }
+  };
+
+  const handleEraseOldLinkRoster = async () => {
+    if (!window.confirm(`⚠️ Erase all old ${activeDay} Link Roster duties? Only newly uploaded data should be kept.`)) {
+      return;
+    }
+    setIsClearingRoster(true);
+    try {
+      const { clearLinkRosterForDay } = await import('../../services/wttAndLinkRosterImportService');
+      await clearLinkRosterForDay(activeDay);
+      if (typeof fetchLiveData === 'function') {
+        await fetchLiveData();
+      }
+      alert(`✅ Erased old ${activeDay} Link Roster duties. Upload new Link Roster spreadsheet to deploy latest duties.`);
+    } catch (err) {
+      console.error(err);
+      alert(`Failed to erase old Link Roster: ${err.message}`);
+    } finally {
+      setIsClearingRoster(false);
     }
   };
   const { theme, rawTheme, setTheme, accessibility, setAccessibility } = useTheme();
@@ -1194,6 +1232,8 @@ export default function SuperAdminLayout({
                 handleDeleteTripRow={handleDeleteTripRow}
                 addDelayToTime={addDelayToTime}
                 activeDay={activeDay}
+                fetchLiveData={fetchLiveData}
+                onWttImported={onWttImported || fetchLiveData}
               />
             </div>
           ) : activeTab === 'ROSTER' ? (
@@ -1268,11 +1308,54 @@ export default function SuperAdminLayout({
                           Update {activeDay === 'SATURDAY' ? 'Sat & GH Link (74 Duties)' : activeDay === 'SUNDAY' ? 'Sunday Link (64 Duties)' : activeDay === 'MONDAY' ? 'Monday Link (79 Duties)' : 'Weekday Link (79 Duties)'}
                         </button>
                       )}
+                      <button 
+                        onClick={() => setIsLinkRosterUploadOpen(true)} 
+                        className="flex items-center bg-amber-500 hover:bg-amber-400 text-slate-950 px-2.5 py-1.5 rounded text-[10px] font-mono font-black uppercase tracking-wide transition-all shadow-[0_0_12px_rgba(245,158,11,0.25)]"
+                        title={`Upload and extract New Link Roster Excel spreadsheet for ${activeDay} or any schedule day`}
+                      >
+                        <UploadCloud className="h-3 w-3 mr-1 text-slate-950" /> Upload Link Roster (Excel)
+                      </button>
                     </>
                   )}
                   <div className="text-xs font-bold font-mono text-slate-450 uppercase">
                     ACTIVE ROSTER: <span className="text-amber-400">{activeDay} SCHEDULE</span>
                   </div>
+                </div>
+              </div>
+
+              {/* Quick Link Roster Upload Banner */}
+              <div className="bg-gradient-to-r from-amber-950/35 via-slate-900 to-slate-900 border border-amber-500/25 p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    <FileSpreadsheet className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
+                      <span>Official Link Roster Excel Synchronizer</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/15 text-amber-400 font-bold border border-amber-500/30">
+                        Selected: {activeDay} SCHEDULE
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-sans mt-0.5">
+                      Upload any official Link Roster spreadsheet (.xlsx, .xls, .csv). Extracted duties, timings, legs & KMs will update the roster for {activeDay} and sync everywhere.
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={handleEraseOldLinkRoster}
+                    disabled={isClearingRoster}
+                    className="bg-rose-950/70 hover:bg-rose-900 border border-rose-500/40 text-rose-300 disabled:opacity-50 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(244,63,94,0.15)]"
+                    title={`Erase old ${activeDay} Link Roster from database`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> {isClearingRoster ? 'Erasing...' : `Erase Old ${activeDay} Roster`}
+                  </button>
+                  <button
+                    onClick={() => setIsLinkRosterUploadOpen(true)}
+                    className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-3.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
+                  >
+                    <UploadCloud className="h-3.5 w-3.5" /> Upload {activeDay} Link Roster
+                  </button>
                 </div>
               </div>
 
@@ -1409,7 +1492,7 @@ export default function SuperAdminLayout({
                         <th colSpan="7" className="py-2 border-r border-slate-800 text-amber-400 bg-amber-950/5">LEG 2: Mid-Shift Operational Workings</th>
                         <th colSpan="7" className="py-2 border-r border-slate-800 text-cyan-400 bg-cyan-950/5">LEG 3: Secondary Handover Working Loop</th>
                         <th colSpan="7" className="py-2 border-r border-slate-800 text-purple-400 bg-purple-950/5">LEG 4: Final Closing Target Leg</th>
-                        <th colSpan="5" className="py-2 text-slate-300 bg-slate-900">Total Shift Summary</th>
+                        <th colSpan="8" className="py-2 text-slate-300 bg-slate-900">Total Shift Summary</th>
                       </tr>
                     <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 text-center font-semibold">
                       {!isTrainOperator && (
@@ -1482,13 +1565,23 @@ export default function SuperAdminLayout({
                           }
                           return compVal > 0 ? `${compVal} km` : '--';
                         };
+                        const normDutyId = normalizeDutyId(dutyRaw.dutyId);
+                        const rowDocId = dutyRaw.id || `link_${String(activeDay || 'weekday').toLowerCase()}_duty_${normDutyId || idx}`;
                         const duty = {
                           ...dutyRaw,
-                          leg1Km: formatCellVal(dutyRaw.leg1Km, computedLegs.leg1Km),
-                          leg2Km: formatCellVal(dutyRaw.leg2Km, computedLegs.leg2Km),
+                          id: rowDocId,
+                          dutyId: normDutyId || String(idx + 1),
+                          leg2TrainNo: (dutyRaw.leg2TrainNo && dutyRaw.leg2TrainNo !== '--') ? dutyRaw.leg2TrainNo : (dutyRaw.followTrain || dutyRaw.followTrainNo || '--'),
+                          leg2DepLoc: (dutyRaw.leg2DepLoc && dutyRaw.leg2DepLoc !== '--') ? dutyRaw.leg2DepLoc : (dutyRaw.followTakeoverLoc || '--'),
+                          leg2DepTime: (dutyRaw.leg2DepTime && dutyRaw.leg2DepTime !== '--') ? dutyRaw.leg2DepTime : (dutyRaw.followTimeFrom || '--'),
+                          leg2ArrTime: (dutyRaw.leg2ArrTime && dutyRaw.leg2ArrTime !== '--') ? dutyRaw.leg2ArrTime : (dutyRaw.followTimeTo || dutyRaw.followArrTime || '--'),
+                          leg2TimeTo: (dutyRaw.leg2TimeTo && dutyRaw.leg2TimeTo !== '--') ? dutyRaw.leg2TimeTo : (dutyRaw.followTripTime || '--'),
+                          leg2ArrLoc: (dutyRaw.leg2ArrLoc && dutyRaw.leg2ArrLoc !== '--') ? dutyRaw.leg2ArrLoc : (dutyRaw.followHandoverLoc || '--'),
+                          leg1Km: formatCellVal(dutyRaw.leg1Km || dutyRaw.nightKms, computedLegs.leg1Km),
+                          leg2Km: formatCellVal(dutyRaw.leg2Km || dutyRaw.mornKms, computedLegs.leg2Km),
                           leg3Km: formatCellVal(dutyRaw.leg3Km, computedLegs.leg3Km),
                           leg4Km: formatCellVal(dutyRaw.leg4Km, computedLegs.leg4Km),
-                          totalKm: formatCellVal(dutyRaw.totalKm, computedLegs.totalKm),
+                          totalKm: formatCellVal(dutyRaw.totalKm || dutyRaw.kms, computedLegs.totalKm),
                         };
                         const rowBgClass = idx % 2 === 0 ? "bg-slate-900" : "bg-slate-950/40";
                         const stickyDutyBgClass = idx % 2 === 0 ? "bg-slate-900" : "bg-slate-950";
@@ -1498,10 +1591,73 @@ export default function SuperAdminLayout({
                         const operatorName = matchedDeploy ? matchedDeploy.empName : '--';
                         const operatorId = matchedDeploy ? matchedDeploy.empId : '--';
 
+                        const TIME_COLUMN_KEYS = new Set([
+                          'signOnTime', 'leg1TimeFrom', 'leg1TimeTo', 'leg1TripTime',
+                          'leg2DepTime', 'leg2ArrTime', 'leg2TimeTo',
+                          'leg3DepTime', 'leg3ArrTime', 'leg3TimeTo',
+                          'leg4FinalDepTime', 'leg4FinalArrTime', 'leg4TimeTo',
+                          'signOffTime', 'dutyHrs', 'totalHours', 'drivingHrs', 'breakTime', 'counselling'
+                        ]);
+
+                        const formatTimeVal = (val) => {
+                          if (val === undefined || val === null || val === '' || val === '--') return '--';
+                          if (typeof val === 'number') {
+                            let dayFraction = val;
+                            if (val >= 2.0) {
+                              const frac = val - Math.floor(val);
+                              if (frac > 0.0001) dayFraction = frac;
+                              else return String(val);
+                            } else if (val >= 1.0) {
+                              dayFraction = val - Math.floor(val);
+                            }
+                            const totalSecs = Math.round(dayFraction * 86400);
+                            const h = String(Math.floor(totalSecs / 3600) % 24).padStart(2, '0');
+                            const m = String(Math.floor((totalSecs % 3600) / 60)).padStart(2, '0');
+                            const s = String(totalSecs % 60).padStart(2, '0');
+                            return `${h}:${m}:${s}`;
+                          }
+                          const str = String(val).trim();
+                          if (str === '--' || str === '-') return '--';
+                          const num = parseFloat(str);
+                          if (!isNaN(num) && !str.includes(':')) {
+                            let dayFraction = num;
+                            if (num >= 2.0) {
+                              const frac = num - Math.floor(num);
+                              if (frac > 0.0001) dayFraction = frac;
+                              else return str;
+                            } else if (num >= 1.0) {
+                              dayFraction = num - Math.floor(num);
+                            }
+                            if (dayFraction > 0 && dayFraction < 1.0) {
+                              const totalSecs = Math.round(dayFraction * 86400);
+                              const h = String(Math.floor(totalSecs / 3600) % 24).padStart(2, '0');
+                              const min = String(Math.floor((totalSecs % 3600) / 60)).padStart(2, '0');
+                              const s = String(totalSecs % 60).padStart(2, '0');
+                              return `${h}:${min}:${s}`;
+                            }
+                          }
+                          const m = str.match(/^([0-2]?\d):([0-5]\d)(?::([0-5]\d))?$/);
+                          if (m) {
+                            const h = String(parseInt(m[1], 10)).padStart(2, '0');
+                            const min = String(parseInt(m[2], 10)).padStart(2, '0');
+                            const s = m[3] ? String(parseInt(m[3], 10)).padStart(2, '0') : '00';
+                            return `${h}:${min}:${s}`;
+                          }
+                          return str;
+                        };
+
                         const renderCell = (fieldName, customStyle = "text-slate-300") => {
                           const colIndex = ROSTER_COL_FIELDS.indexOf(fieldName);
                           const isEditing = editingCell?.rowId === duty.id && editingCell?.station === fieldName && !editingCell?.isDeployment;
-                          const displayVal = duty[fieldName] || '--';
+                          const rawVal = duty[fieldName];
+                          let displayVal = (rawVal !== undefined && rawVal !== null && rawVal !== '') ? rawVal : '--';
+                          if (displayVal === '--') {
+                            if (fieldName === 'dutyHrs') displayVal = duty.totalHours || '--';
+                            else if (fieldName === 'totalHours') displayVal = duty.dutyHrs || '--';
+                          }
+                          if (TIME_COLUMN_KEYS.has(fieldName) || (typeof displayVal === 'number' && displayVal < 1.0 && displayVal > 0) || (/^0\.\d+$/.test(String(displayVal).trim()))) {
+                            displayVal = formatTimeVal(displayVal);
+                          }
                           const isSelected = isCellInRange(idx, colIndex);
                           const isFlashing = flashCells.has(`${duty.id}:${fieldName}`);
 
@@ -1602,7 +1758,7 @@ export default function SuperAdminLayout({
                           );
                         };
                         return (
-                          <tr key={duty.id} className={`${rowBgClass} ${selectedRowIds.includes(duty.id) ? 'bg-amber-500/5' : ''} hover:bg-slate-850/20 border-b border-slate-800/40 transition-colors`}>
+                          <tr key={duty.id || `roster-row-${duty.dutyId || idx}-${idx}`} className={`${rowBgClass} ${selectedRowIds.includes(duty.id) ? 'bg-amber-500/5' : ''} hover:bg-slate-850/20 border-b border-slate-800/40 transition-colors`}>
                             {!isTrainOperator && (
                               <td className="py-2 border-r border-slate-800 text-center font-bold flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                                 <input id={`superadmin-row-${duty.id}`} name={`superadmin_row_${duty.id}`} aria-label={`Select row ${duty.dutyId || duty.id}`}
@@ -1648,11 +1804,27 @@ export default function SuperAdminLayout({
                                 </>
                               )}
                             </td>
-                            {renderCell('signOnTime', 'text-emerald-400 font-bold')}{renderCell('signOnLocation', 'text-slate-400')}{renderCell('trainId', 'text-slate-100 font-bold')}{renderCell('leg1TimeFrom')}{renderCell('leg1TimeTo')}{renderCell('leg1TripTime')}{renderCell('leg1HandoverLoc')}{renderCell('leg1Km', 'text-blue-400 font-bold bg-blue-950/20')}
-                            {renderCell('leg2DepLoc')}{renderCell('leg2TrainNo', 'text-amber-400 font-bold')}{renderCell('leg2DepTime')}{renderCell('leg2ArrTime')}{renderCell('leg2TimeTo')}{renderCell('leg2ArrLoc')}{renderCell('leg2Km', 'text-amber-400 font-bold bg-amber-950/20')}
-                            {renderCell('leg3DepLoc')}{renderCell('leg3TrainNo', 'text-cyan-400 font-bold')}{renderCell('leg3DepTime')}{renderCell('leg3ArrTime')}{renderCell('leg3TimeTo')}{renderCell('leg3ArrLoc')}{renderCell('leg3Km', 'text-cyan-400 font-bold bg-cyan-950/20')}
-                            {renderCell('leg4FinalDepLoc')}{renderCell('leg4TrainNo', 'text-purple-400 font-bold')}{renderCell('leg4FinalDepTime')}{renderCell('leg4FinalArrTime')}{renderCell('leg4TimeTo')}{renderCell('leg4FinalArrLoc')}{renderCell('leg4Km', 'text-purple-400 font-bold bg-purple-950/20')}
-                            {renderCell('signOffTime', 'text-rose-400 font-semibold')}{renderCell('signOffLocation', 'text-slate-400')}{renderCell('totalHours', 'text-emerald-400 font-bold')}{renderCell('remarks', 'text-left text-slate-400 italic px-4 max-w-[240px] truncate')}{renderCell('totalKm', 'text-emerald-400 font-black bg-emerald-950/30')}
+                            {headers.map((hdr) => {
+                              let customStyle = "text-slate-300";
+                              if (hdr.key === 'signOnTime') customStyle = 'text-emerald-400 font-bold';
+                              else if (hdr.key === 'signOnLocation') customStyle = 'text-slate-400';
+                              else if (hdr.key === 'trainId') customStyle = 'text-slate-100 font-bold';
+                              else if (hdr.key === 'leg1Km') customStyle = 'text-blue-400 font-bold bg-blue-950/20';
+                              else if (hdr.key === 'leg2TrainNo') customStyle = 'text-amber-400 font-bold';
+                              else if (hdr.key === 'leg2Km') customStyle = 'text-amber-400 font-bold bg-amber-950/20';
+                              else if (hdr.key === 'leg3TrainNo') customStyle = 'text-cyan-400 font-bold';
+                              else if (hdr.key === 'leg3Km') customStyle = 'text-cyan-400 font-bold bg-cyan-950/20';
+                              else if (hdr.key === 'leg4TrainNo') customStyle = 'text-purple-400 font-bold';
+                              else if (hdr.key === 'leg4Km') customStyle = 'text-purple-400 font-bold bg-purple-950/20';
+                              else if (hdr.key === 'signOffTime') customStyle = 'text-rose-400 font-semibold';
+                              else if (hdr.key === 'signOffLocation') customStyle = 'text-slate-400';
+                              else if (hdr.key === 'drivingHrs') customStyle = 'text-amber-300 font-bold';
+                              else if (hdr.key === 'dutyHrs' || hdr.key === 'totalHours') customStyle = 'text-emerald-400 font-bold';
+                              else if (hdr.key === 'remarks') customStyle = 'text-left text-slate-400 italic px-4 max-w-[240px] truncate';
+                              else if (hdr.key === 'totalKm') customStyle = 'text-emerald-400 font-black bg-emerald-950/30';
+
+                              return renderCell(hdr.key, customStyle);
+                            })}
                           </tr>
                         );
                       })}
@@ -1725,6 +1897,23 @@ export default function SuperAdminLayout({
                     </button>
                   </div>
                 </>
+              )}
+
+              {isLinkRosterUploadOpen && (
+                <Suspense fallback={null}>
+                  <LinkRosterExcelUploadModal
+                    isOpen={isLinkRosterUploadOpen}
+                    onClose={() => setIsLinkRosterUploadOpen(false)}
+                    activeDay={activeDay}
+                    onLinkRosterImported={async (data) => {
+                      if (typeof onLinkRosterImported === 'function') {
+                        await onLinkRosterImported(data);
+                      } else if (typeof fetchLiveData === 'function') {
+                        await fetchLiveData();
+                      }
+                    }}
+                  />
+                </Suspense>
               )}
             </div>
           ) : activeTab === 'CREW' ? (

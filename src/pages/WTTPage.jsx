@@ -1,15 +1,71 @@
 import React, { useState } from 'react';
 import ReliefTracking from '../components/ReliefTracking';
 import ChronologicalMatrix from '../components/ChronologicalMatrix';
-import { Activity, Table, Search, Clock, MapPin } from 'lucide-react';
+import WttExcelUploadModal from '../components/wtt/WttExcelUploadModal';
+import { Activity, Table, Search, Clock, MapPin, UploadCloud, FileSpreadsheet, CheckCircle2, Trash2 } from 'lucide-react';
 
 export default function WTTPage(props) {
   const [activeTab, setActiveTab] = useState('RELIEF');
+  const [isWttUploadOpen, setIsWttUploadOpen] = useState(false);
+  const [isDeployingMaster, setIsDeployingMaster] = useState(false);
+  const [isClearingWtt, setIsClearingWtt] = useState(false);
 
   // Matrix Search States
   const [matrixTidSearch, setMatrixTidSearch] = useState('');
   const [matrixTimeSearch, setMatrixTimeSearch] = useState('');
   const [matrixStationSearch, setMatrixStationSearch] = useState('');
+
+  const handleEraseOldWttData = async () => {
+    const day = props.activeDay || 'WEEKDAY';
+    if (!window.confirm(`⚠️ Erase all old WTT timetable records for ${day}? Only newly uploaded data should be kept.`)) {
+      return;
+    }
+    setIsClearingWtt(true);
+    try {
+      const { clearWttScheduleForDay } = await import('../services/wttAndLinkRosterImportService');
+      await clearWttScheduleForDay(day);
+      if (typeof props.onWttImported === 'function') {
+        props.onWttImported({ scheduleType: day, rows: [], eraseOld: true });
+      }
+      alert(`✅ Erased old ${day} WTT timetable records. Upload new WTT sheet to deploy latest data.`);
+    } catch (err) {
+      console.error(err);
+      alert(`Failed to erase old WTT data: ${err.message}`);
+    } finally {
+      setIsClearingWtt(false);
+    }
+  };
+
+  const handleDeployMasterWtt = async () => {
+    try {
+      const { saveWttToFirestore, normalizeScheduleType } = await import('../services/wttAndLinkRosterImportService');
+      const { WTT_MASTER_REGISTRY } = await import('../data/wttMasterRegistry');
+
+      const activeSched = normalizeScheduleType(props.activeDay || 'WEEKDAY');
+      const masterRows = WTT_MASTER_REGISTRY.filter(r => normalizeScheduleType(r.scheduleType, r.id) === activeSched);
+      if (!masterRows || masterRows.length === 0) {
+        alert(`No master rows found for ${activeSched}`);
+        return;
+      }
+      if (!window.confirm(`Deploy verified ${activeSched} Master WTT (${masterRows.length} trips with all 10 Downline/Upline stations and ATO/ATP modes) to database? This will clear any corrupted uploads.`)) {
+        return;
+      }
+      setIsDeployingMaster(true);
+
+      // Instant UI update (0 latency)
+      if (typeof props.onWttImported === 'function') {
+        props.onWttImported({ scheduleType: activeSched, rows: masterRows });
+      }
+
+      await saveWttToFirestore(masterRows, activeSched);
+      alert(`✅ Successfully deployed verified ${activeSched} Master WTT with full Downline and Upline telemetry!`);
+    } catch (err) {
+      console.error('Failed to deploy Master WTT:', err);
+      alert(`⚠️ Deploy error: ${err.message}`);
+    } finally {
+      setIsDeployingMaster(false);
+    }
+  };
 
   // Sort rows preserving Excel row sequence primary order, then safe time order
   const sortedRows = [...(props.filteredUnifiedRows || [])].sort((a, b) => {
@@ -56,9 +112,14 @@ export default function WTTPage(props) {
   const finalMatrixRows = sortedRows.filter(row => {
     let match = true;
     
-    // Train ID Filter
+    // Train ID & Mode Filter
     if (matrixTidSearch) {
-      match = match && String(row.trainId).toLowerCase().includes(matrixTidSearch.toLowerCase());
+      const q = matrixTidSearch.toLowerCase();
+      const tidMatch = String(row.trainId || '').toLowerCase().includes(q);
+      const modeMatch = String(row.mode || '').toLowerCase().includes(q) ||
+        String(row.dnMode || row.downTrip?.mode || '').toLowerCase().includes(q) ||
+        String(row.upMode || row.upTrip?.mode || '').toLowerCase().includes(q);
+      match = match && (tidMatch || modeMatch);
     }
     
     // Time & Station Filters
@@ -126,12 +187,12 @@ export default function WTTPage(props) {
             {/* Matrix Search Filters */}
             <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-lg flex flex-wrap items-end gap-4">
               <div className="flex-1 min-w-[150px] lg:min-w-[200px]">
-                <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1 block" htmlFor="wttpage-i1">Train ID</label>
+                <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1 block" htmlFor="wttpage-i1">Train ID / Mode</label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 h-4 w-4" />
                   <input id="wttpage-i1" name="wttpage-i1" 
                     type="text" 
-                    placeholder="Search TID..." 
+                    placeholder="Search TID, ATO, ATP..." 
                     value={matrixTidSearch} 
                     onChange={e => setMatrixTidSearch(e.target.value)} 
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg py-2 pl-9 pr-3 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none transition-colors"
@@ -173,6 +234,57 @@ export default function WTTPage(props) {
               >
                 CLEAR
               </button>
+              <button 
+                onClick={() => setIsWttUploadOpen(true)}
+                className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 px-4 py-2 rounded-lg text-sm font-black transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.25)] h-[38px]"
+                title={`Upload new Working Time Table Excel sheet for ${props.activeDay || 'WEEKDAY'} or any day`}
+              >
+                <UploadCloud className="h-4 w-4" /> UPLOAD WTT EXCEL
+              </button>
+            </div>
+
+            {/* Quick WTT Upload Banner Above Chronological Matrix */}
+            <div className="bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/25 p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                  <FileSpreadsheet className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
+                    <span>Working Time Table Dynamic Importer</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold border border-emerald-500/30">
+                      Active: {props.activeDay || 'WEEKDAY'} SCHEDULE
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 font-sans mt-0.5">
+                    Upload new WTT Excel (.xlsx, .xls, .csv). Extracted scheduled timings will update this chronological matrix and synchronize line-wide telemetry.
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={handleEraseOldWttData}
+                  disabled={isClearingWtt}
+                  className="bg-rose-950/70 hover:bg-rose-900 border border-rose-500/40 text-rose-300 disabled:opacity-50 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(244,63,94,0.15)]"
+                  title={`Erase old ${props.activeDay || 'WEEKDAY'} WTT records`}
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> {isClearingWtt ? 'Erasing...' : `Erase Old ${props.activeDay || 'WEEKDAY'} Data`}
+                </button>
+                <button
+                  onClick={handleDeployMasterWtt}
+                  disabled={isDeployingMaster}
+                  className="bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-slate-950 px-3.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(6,182,212,0.25)]"
+                  title={`Deploy verified 10-station Master WTT for ${props.activeDay || 'WEEKDAY'} with ATO/ATP modes`}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" /> {isDeployingMaster ? 'Deploying...' : `Deploy Verified Master WTT`}
+                </button>
+                <button
+                  onClick={() => setIsWttUploadOpen(true)}
+                  className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-3.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.25)]"
+                >
+                  <UploadCloud className="h-3.5 w-3.5" /> Upload {props.activeDay || 'WEEKDAY'} WTT
+                </button>
+              </div>
             </div>
 
             <ChronologicalMatrix 
@@ -197,6 +309,21 @@ export default function WTTPage(props) {
               addDelayToTime={props.addDelayToTime}
               activeDay={props.activeDay}
             />
+
+            {isWttUploadOpen && (
+              <WttExcelUploadModal
+                isOpen={isWttUploadOpen}
+                onClose={() => setIsWttUploadOpen(false)}
+                activeDay={props.activeDay || 'WEEKDAY'}
+                onWttImported={async (data) => {
+                  if (typeof props.onWttImported === 'function') {
+                    await props.onWttImported(data);
+                  } else if (typeof props.fetchLiveData === 'function') {
+                    await props.fetchLiveData();
+                  }
+                }}
+              />
+            )}
           </div>
         )}
       </div>

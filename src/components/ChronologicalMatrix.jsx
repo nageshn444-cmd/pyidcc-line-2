@@ -19,7 +19,7 @@ export default function ChronologicalMatrix({
   filteredUnifiedRows = [],
   dnStationOrder = [],
   upStationOrder = [],
-  editingCell = { rowId: null, direction: null, station: null, isTid: false },
+  editingCell = { rowId: null, direction: null, station: null, isTid: false, isMode: false },
   setEditingCell = () => {},
   editValue = "",
   setEditValue = () => {},
@@ -165,12 +165,23 @@ export default function ChronologicalMatrix({
     direction,
     stationName,
     isTidField,
+    isModeField,
     value,
   ) => {
     const updated = [...localRows];
     const row = updated[rowIndex];
     if (isTidField) {
       row.trainId = value;
+    } else if (isModeField) {
+      const modeVal = (value || 'ATO').toUpperCase();
+      if (direction === 'DN') {
+        row.dnMode = modeVal;
+        if (row.downTrip) row.downTrip.mode = modeVal;
+      } else {
+        row.upMode = modeVal;
+        if (row.upTrip) row.upTrip.mode = modeVal;
+      }
+      if (!row.mode || row.mode === '--') row.mode = modeVal;
     } else {
       let targetTrip = direction === "DN" ? row.downTrip : row.upTrip;
       if (!targetTrip) {
@@ -181,7 +192,7 @@ export default function ChronologicalMatrix({
       if (!targetTrip.stations) targetTrip.stations = {};
       const keys = Object.keys(targetTrip.stations);
       const foundKey = keys.find(
-        (k) => k.trim().toLowerCase() === stationName.trim().toLowerCase(),
+        (k) => k.trim().toLowerCase() === stationName?.trim().toLowerCase(),
       );
       if (foundKey) {
         targetTrip.stations[foundKey] = value;
@@ -202,7 +213,9 @@ export default function ChronologicalMatrix({
 
     const columns = [
       { isTidField: true },
+      { isModeField: true, direction: "DN" },
       ...dnStationOrder.map((st) => ({ direction: "DN", station: st })),
+      { isModeField: true, direction: "UP" },
       ...upStationOrder.map((st) => ({ direction: "UP", station: st })),
     ];
 
@@ -213,8 +226,11 @@ export default function ChronologicalMatrix({
         updated.push({
           id: `temp_${Date.now()}_${i}`,
           trainId: "",
-          downTrip: { isNew: true, stations: {} },
-          upTrip: { isNew: true, stations: {} },
+          mode: "ATO",
+          dnMode: "ATO",
+          upMode: "ATO",
+          downTrip: { isNew: true, mode: "ATO", stations: {} },
+          upTrip: { isNew: true, mode: "ATO", stations: {} },
         });
       }
 
@@ -231,6 +247,16 @@ export default function ChronologicalMatrix({
 
         if (colDef.isTidField) {
           row.trainId = val;
+        } else if (colDef.isModeField) {
+          const modeVal = (val || 'ATO').toUpperCase();
+          if (colDef.direction === 'DN') {
+            row.dnMode = modeVal;
+            if (row.downTrip) row.downTrip.mode = modeVal;
+          } else {
+            row.upMode = modeVal;
+            if (row.upTrip) row.upTrip.mode = modeVal;
+          }
+          if (!row.mode || row.mode === '--') row.mode = modeVal;
         } else {
           let targetTrip =
             colDef.direction === "DN" ? row.downTrip : row.upTrip;
@@ -243,7 +269,7 @@ export default function ChronologicalMatrix({
           const keys = Object.keys(targetTrip.stations);
           const foundKey = keys.find(
             (k) =>
-              k.trim().toLowerCase() === colDef.station.trim().toLowerCase(),
+              k.trim().toLowerCase() === colDef.station?.trim().toLowerCase(),
           );
           if (foundKey) {
             targetTrip.stations[foundKey] = val;
@@ -259,7 +285,9 @@ export default function ChronologicalMatrix({
   const handleCopyRowToClipboard = (row) => {
     const rowData = [
       row.trainId || "",
+      row.dnMode || row.downTrip?.mode || row.mode || "ATO",
       ...dnStationOrder.map((st) => row.downTrip?.stations?.[st] || ""),
+      row.upMode || row.upTrip?.mode || row.mode || "ATO",
       ...upStationOrder.map((st) => row.upTrip?.stations?.[st] || ""),
     ];
     navigator.clipboard.writeText(rowData.join("\t"));
@@ -271,8 +299,11 @@ export default function ChronologicalMatrix({
       {
         id: `temp_${Date.now()}`,
         trainId: "",
-        downTrip: { isNew: true, stations: {} },
-        upTrip: { isNew: true, stations: {} },
+        mode: "ATO",
+        dnMode: "ATO",
+        upMode: "ATO",
+        downTrip: { isNew: true, mode: "ATO", stations: {} },
+        upTrip: { isNew: true, mode: "ATO", stations: {} },
       },
     ]);
   };
@@ -330,16 +361,20 @@ export default function ChronologicalMatrix({
                     return alert("No data to export");
                   const headers = [
                     "TRAIN ID",
+                    "DN_MODE",
                     ...dnStationOrder.map((st) => `DN_${st}`),
+                    "UP_MODE",
                     ...upStationOrder.map((st) => `UP_${st}`),
                   ];
                   const csvRows = [headers.join(",")];
                   sortedRows.forEach((row) => {
                     const csvRow = [
                       row.trainId,
+                      row.dnMode || row.downTrip?.mode || row.mode || "ATO",
                       ...dnStationOrder.map(
                         (st) => row.downTrip?.stations?.[st] || "--",
                       ),
+                      row.upMode || row.upTrip?.mode || row.mode || "ATO",
                       ...upStationOrder.map(
                         (st) => row.upTrip?.stations?.[st] || "--",
                       ),
@@ -387,19 +422,22 @@ export default function ChronologicalMatrix({
                   TRAIN ID
                 </th>
                 <th
-                  colSpan={dnStationOrder.length}
+                  colSpan={dnStationOrder.length + 1}
                   className="text-amber-400 border-r-2 border-slate-800 py-1"
                 >
                   <ArrowDownCircle className="h-3.5 w-3.5 inline" /> DOWN LINE
                 </th>
                 <th
-                  colSpan={upStationOrder.length}
+                  colSpan={upStationOrder.length + 1}
                   className="text-cyan-400 py-1"
                 >
                   <ArrowUpCircle className="h-3.5 w-3.5 inline" /> UP LINE
                 </th>
               </tr>
               <tr className="bg-slate-900 border-b-2 border-slate-800 text-center sticky top-[28px] z-30 text-[10px]">
+                <th className="py-1.5 px-2 border-r border-slate-800 text-amber-300 font-bold bg-amber-950/20">
+                  MODE
+                </th>
                 {dnStationOrder.map((st) => (
                   <th
                     key={`dn-head-${st}`}
@@ -408,6 +446,9 @@ export default function ChronologicalMatrix({
                     {st}
                   </th>
                 ))}
+                <th className="py-1.5 px-2 border-r border-slate-800 text-cyan-300 font-bold bg-cyan-950/20">
+                  MODE
+                </th>
                 {upStationOrder.map((st) => (
                   <th
                     key={`up-head-${st}`}
@@ -421,7 +462,9 @@ export default function ChronologicalMatrix({
             <tbody className="text-center">
               {displayRows.map((row, rowIdx) => {
                 const matchingIncident = (liveIncidents || []).find(
-                  (inc) => String(inc.trainId) === String(row.trainId),
+                  (inc) => String(inc.trainId) === String(row.trainId) &&
+                           (!inc.scheduleType || inc.scheduleType === activeDay) &&
+                           inc.status !== 'RESOLVED',
                 );
                 const delayVal = matchingIncident
                   ? parseInt(matchingIncident.delayMins, 10)
@@ -435,6 +478,7 @@ export default function ChronologicalMatrix({
                   direction,
                   stationName,
                   isTidField = false,
+                  isModeField = false,
                 ) => {
                   const targetTrip =
                     direction === "DN" ? row.downTrip : row.upTrip;
@@ -442,6 +486,17 @@ export default function ChronologicalMatrix({
 
                   const getCellValue = () => {
                     if (isTidField) return row.trainId || "";
+                    if (isModeField) {
+                      if (direction === "DN") {
+                        if (!row.downTrip) return "--";
+                        const m = row.dnMode || row.downTrip?.mode;
+                        return m && m !== "--" ? m : (row.mode || "ATO");
+                      } else {
+                        if (!row.upTrip) return "--";
+                        const m = row.upMode || row.upTrip?.mode;
+                        return m && m !== "--" ? m : (row.mode || "ATO");
+                      }
+                    }
                     if (!targetTrip?.stations) return "--";
                     const keys = Object.keys(targetTrip.stations);
                     const stBase = stationName
@@ -467,7 +522,39 @@ export default function ChronologicalMatrix({
                       stationName === "PYID"
                         ? "bg-emerald-900/40"
                         : "bg-slate-950";
-                    const cellKey = `${row.id || rowIdx}-${direction}-${stationName || "tid"}`;
+                    const cellKey = `${row.id || rowIdx}-${direction}-${isModeField ? "mode" : (stationName || "tid")}`;
+
+                    if (isModeField) {
+                      return (
+                        <td
+                          key={`edit-${cellKey}`}
+                          className="p-0 border border-slate-800 bg-slate-950"
+                        >
+                          <select
+                            id={`wtt-cell-${cellKey}`}
+                            name={`wtt_cell_${cellKey}`}
+                            aria-label={`WTT ${direction} Mode Row ${rowIdx + 1}`}
+                            value={baseValue || "ATO"}
+                            onChange={(e) =>
+                              handleLocalCellChange(
+                                rowIdx,
+                                direction,
+                                null,
+                                false,
+                                true,
+                                e.target.value,
+                              )
+                            }
+                            className={`w-full h-full min-h-[28px] bg-slate-950 ${direction === "DN" ? "text-amber-400" : "text-cyan-400"} text-center font-bold text-[10px] focus:outline-none focus:ring-1 focus:ring-emerald-500`}
+                          >
+                            <option value="ATO">ATO</option>
+                            <option value="ATP">ATP</option>
+                            <option value="--">--</option>
+                          </select>
+                        </td>
+                      );
+                    }
+
                     return (
                       <td
                         key={`edit-${cellKey}`}
@@ -485,6 +572,7 @@ export default function ChronologicalMatrix({
                               direction,
                               stationName,
                               isTidField,
+                              false,
                               e.target.value,
                             )
                           }
@@ -497,7 +585,7 @@ export default function ChronologicalMatrix({
 
                   // NORMAL VIEW MODE
                   let cellValue =
-                    baseValue !== "--" && delayVal > 0
+                    baseValue !== "--" && delayVal > 0 && !isModeField
                       ? addDelayToTime(baseValue, delayVal)
                       : baseValue;
 
@@ -505,10 +593,42 @@ export default function ChronologicalMatrix({
                     editingCell.rowId === row.id &&
                     editingCell.direction === direction &&
                     editingCell.station === stationName &&
-                    editingCell.isTid === isTidField;
+                    editingCell.isTid === isTidField &&
+                    editingCell.isMode === isModeField;
 
                   if (isEditing) {
-                    const singleEditKey = `${row.id}-${direction}-${stationName || "tid"}`;
+                    const singleEditKey = `${row.id}-${direction}-${isModeField ? "mode" : (stationName || "tid")}`;
+                    if (isModeField) {
+                      return (
+                        <td
+                          key={`edit-single-${singleEditKey}`}
+                          className="p-0.5 bg-slate-950 z-50 border border-emerald-500"
+                        >
+                          <select
+                            id={`wtt-edit-${singleEditKey}`}
+                            name={`wtt_edit_${singleEditKey}`}
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onBlur={() =>
+                              handleWttCellSave(
+                                row,
+                                direction,
+                                null,
+                                false,
+                                true,
+                              )
+                            }
+                            className="w-full bg-slate-950 text-emerald-400 text-center font-bold text-[10px] focus:outline-none"
+                            autoFocus
+                          >
+                            <option value="ATO">ATO</option>
+                            <option value="ATP">ATP</option>
+                            <option value="--">--</option>
+                          </select>
+                        </td>
+                      );
+                    }
+
                     return (
                       <td
                         key={`edit-single-${singleEditKey}`}
@@ -527,6 +647,7 @@ export default function ChronologicalMatrix({
                               direction,
                               stationName,
                               isTidField,
+                              false,
                             )
                           }
                           className="w-full bg-slate-950 text-emerald-400 text-center focus:outline-none"
@@ -547,6 +668,39 @@ export default function ChronologicalMatrix({
                     );
                   }
 
+                  if (isModeField) {
+                    const modeVal = baseValue || "--";
+                    return (
+                      <td
+                        key={`cell-${row.id || rowIdx}-${direction}-mode`}
+                        onDoubleClick={() => {
+                          if (isTrainOperator) return;
+                          setEditingCell({
+                            rowId: row.id,
+                            direction,
+                            station: null,
+                            isTid: false,
+                            isMode: true,
+                          });
+                          setEditValue(modeVal);
+                        }}
+                        className={`py-1.5 px-2 border-r border-slate-800/50 ${isTrainOperator ? "" : "cursor-pointer"} text-center`}
+                      >
+                        {modeVal === "ATP" ? (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-950/70 text-amber-400 border border-amber-500/30">
+                            ATP
+                          </span>
+                        ) : modeVal === "ATO" ? (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-cyan-950/70 text-cyan-400 border border-cyan-500/30">
+                            ATO
+                          </span>
+                        ) : (
+                          <span className="text-slate-600 font-normal">--</span>
+                        )}
+                      </td>
+                    );
+                  }
+
                   let textColor =
                     direction === "DN" ? "text-amber-200" : "text-cyan-200";
                   if (baseValue === "--") textColor = "text-slate-700";
@@ -563,6 +717,7 @@ export default function ChronologicalMatrix({
                           direction,
                           station: stationName,
                           isTid: isTidField,
+                          isMode: false,
                         });
                         setEditValue(baseValue);
                       }}
@@ -598,9 +753,11 @@ export default function ChronologicalMatrix({
                         </button>
                       </td>
                     )}
-                    {renderWttCell("DN", null, true)}
-                    {dnStationOrder.map((st) => renderWttCell("DN", st))}
-                    {upStationOrder.map((st) => renderWttCell("UP", st))}
+                    {renderWttCell("DN", null, true, false)}
+                    {renderWttCell("DN", null, false, true)}
+                    {dnStationOrder.map((st) => renderWttCell("DN", st, false, false))}
+                    {renderWttCell("UP", null, false, true)}
+                    {upStationOrder.map((st) => renderWttCell("UP", st, false, false))}
                   </tr>
                 );
               })}

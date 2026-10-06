@@ -1,19 +1,90 @@
-// Master WTT Timetable Data generated directly from Excel sheets (Monday, Weekday, Saturday & GH, Sunday)
 export const WTT_MASTER_REGISTRY = [
   {
     "id": "wtt_weekday_row_1",
     "scheduleType": "WEEKDAY",
     "rowSeq": 1,
     "excelRow": 4,
-    "trainId": "207",
+    "trainId": "205",
     "dnTid": "",
-    "upTid": "207",
+    "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "--",
+    "upMode": "ATO",
     "downTrip": null,
     "upTrip": {
       "id": "wtt_weekday_row_1_up",
       "scheduleType": "WEEKDAY",
+      "trainId": "205",
+      "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
+      "stations": {
+        "APTS": "--",
+        "PUTH": "--",
+        "RVR": "--",
+        "NLC": "--",
+        "KGWA": "--",
+        "RJNR": "--",
+        "YPM": "--",
+        "PYID": "--",
+        "NGSA": "05:10:00",
+        "BIET": "05:20:00"
+      }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.853Z"
+  },
+  {
+    "id": "wtt_weekday_row_2",
+    "scheduleType": "WEEKDAY",
+    "rowSeq": 2,
+    "excelRow": 5,
+    "trainId": "206",
+    "dnTid": "",
+    "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "--",
+    "upMode": "ATO",
+    "downTrip": null,
+    "upTrip": {
+      "id": "wtt_weekday_row_2_up",
+      "scheduleType": "WEEKDAY",
+      "trainId": "206",
+      "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
+      "stations": {
+        "APTS": "--",
+        "PUTH": "--",
+        "RVR": "--",
+        "NLC": "--",
+        "KGWA": "--",
+        "RJNR": "--",
+        "YPM": "--",
+        "PYID": "05:20:00",
+        "NGSA": "05:30:00",
+        "BIET": "05:37:27"
+      }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.853Z"
+  },
+  {
+    "id": "wtt_weekday_row_3",
+    "scheduleType": "WEEKDAY",
+    "rowSeq": 3,
+    "excelRow": 6,
+    "trainId": "207",
+    "dnTid": "",
+    "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "--",
+    "upMode": "ATO",
+    "downTrip": null,
+    "upTrip": {
+      "id": "wtt_weekday_row_3_up",
+      "scheduleType": "WEEKDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "--",
@@ -21,55 +92,103 @@ export const WTT_MASTER_REGISTRY = [
         "NLC": "04:50:00",
         "KGWA": "05:00:00",
         "RJNR": "Pilot & Rev Service",
-        "YPM": "Pilot & Rev Service",
-        "PYID": "Pilot & Rev Service",
+        "YPM": "--",
+        "PYID": "--",
         "NGSA": "05:35:00",
         "BIET": "05:42:27"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.853Z"
   },
   {
-    "id": "wtt_weekday_row_2",
+    "id": "wtt_weekday_row_4",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 2,
-    "excelRow": 5,
+    "rowSeq": 4,
+    "excelRow": 7,
     "trainId": "208",
-    "dnTid": "",
+    "dnTid": "208",
     "upTid": "208",
-    "downTrip": null,
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATP",
+    "downTrip": {
+      "id": "wtt_weekday_row_4_dn",
+      "scheduleType": "WEEKDAY",
+      "trainId": "208",
+      "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
+      "stations": {
+        "BIET": "ID 203 Pilot till NGSA Dn",
+        "NGSA": "--",
+        "PYID": "--",
+        "YPM": "Pilot Speed",
+        "RJNR": "20 kmph (PTW Section)",
+        "KGWA": "--",
+        "NLC": "--",
+        "RVR": "--",
+        "PUTH": "--",
+        "APTS": "--"
+      }
+    },
     "upTrip": {
-      "id": "wtt_weekday_row_2_up",
+      "id": "wtt_weekday_row_4_up",
       "scheduleType": "WEEKDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATP",
       "stations": {
         "APTS": "--",
         "PUTH": "04:45:00",
-        "RVR": "--",
+        "RVR": "Pilot & Rev from 05:00hrs",
         "NLC": "--",
         "KGWA": "05:18:00",
-        "RJNR": "--",
+        "RJNR": "Rev Service 30kmph",
         "YPM": "--",
         "PYID": "--",
         "NGSA": "05:50:00",
         "BIET": "05:57:27"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.854Z"
   },
   {
-    "id": "wtt_weekday_row_3",
+    "id": "wtt_weekday_row_5",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 3,
-    "excelRow": 6,
+    "rowSeq": 5,
+    "excelRow": 8,
     "trainId": "209",
-    "dnTid": "",
+    "dnTid": "209",
     "upTid": "209",
-    "downTrip": null,
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
+    "downTrip": {
+      "id": "wtt_weekday_row_5_dn",
+      "scheduleType": "WEEKDAY",
+      "trainId": "209",
+      "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
+      "stations": {
+        "BIET": "--",
+        "NGSA": "--",
+        "PYID": "--",
+        "YPM": "--",
+        "RJNR": "30 kmph (Non PTW Section)",
+        "KGWA": "--",
+        "NLC": "--",
+        "RVR": "--",
+        "PUTH": "--",
+        "APTS": "--"
+      }
+    },
     "upTrip": {
-      "id": "wtt_weekday_row_3_up",
+      "id": "wtt_weekday_row_5_up",
       "scheduleType": "WEEKDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "05:00:00",
         "PUTH": "05:15:00",
@@ -82,22 +201,28 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "05:59:00",
         "BIET": "06:05:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.854Z"
   },
   {
-    "id": "wtt_weekday_row_4",
+    "id": "wtt_weekday_row_6",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 4,
-    "excelRow": 7,
+    "rowSeq": 6,
+    "excelRow": 9,
     "trainId": "210",
     "dnTid": "",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "--",
+    "upMode": "ATO",
     "downTrip": null,
     "upTrip": {
-      "id": "wtt_weekday_row_4_up",
+      "id": "wtt_weekday_row_6_up",
       "scheduleType": "WEEKDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "05:15:00",
         "PUTH": "05:25:00",
@@ -110,22 +235,46 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "06:09:00",
         "BIET": "06:15:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.854Z"
   },
   {
-    "id": "wtt_weekday_row_5",
+    "id": "wtt_weekday_row_7",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 5,
-    "excelRow": 8,
+    "rowSeq": 7,
+    "excelRow": 10,
     "trainId": "211",
-    "dnTid": "",
+    "dnTid": "211",
     "upTid": "211",
-    "downTrip": null,
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
+    "downTrip": {
+      "id": "wtt_weekday_row_7_dn",
+      "scheduleType": "WEEKDAY",
+      "trainId": "211",
+      "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
+      "stations": {
+        "BIET": "--",
+        "NGSA": "--",
+        "PYID": "--",
+        "YPM": "--",
+        "RJNR": "--",
+        "KGWA": "--",
+        "NLC": "--",
+        "RVR": "--",
+        "PUTH": "05:10:00",
+        "APTS": "--"
+      }
+    },
     "upTrip": {
-      "id": "wtt_weekday_row_5_up",
+      "id": "wtt_weekday_row_7_up",
       "scheduleType": "WEEKDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "05:30:00",
         "PUTH": "05:40:00",
@@ -138,39 +287,46 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "06:24:00",
         "BIET": "06:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.854Z"
   },
   {
-    "id": "wtt_weekday_row_6",
+    "id": "wtt_weekday_row_8",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 6,
-    "excelRow": 9,
+    "rowSeq": 8,
+    "excelRow": 11,
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_6_dn",
+      "id": "wtt_weekday_row_8_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
-        "BIET": "04:55:00",
-        "NGSA": "04:55:00",
-        "PYID": "04:55:00",
-        "YPM": "04:55:00",
-        "RJNR": "04:55:00",
+        "BIET": "04:55 hrs SPGD Dn Dep with Pilot",
+        "NGSA": "--",
+        "PYID": "--",
+        "YPM": "--",
+        "RJNR": "--",
         "KGWA": "05:00:00",
-        "NLC": "--",
+        "NLC": "Pilot & Rev Service",
         "RVR": "--",
         "PUTH": "--",
         "APTS": "05:40:00"
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_6_up",
+      "id": "wtt_weekday_row_8_up",
       "scheduleType": "WEEKDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "05:45:00",
         "PUTH": "05:55:00",
@@ -183,39 +339,46 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "06:39:00",
         "BIET": "06:45:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.854Z"
   },
   {
-    "id": "wtt_weekday_row_7",
+    "id": "wtt_weekday_row_9",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 7,
-    "excelRow": 10,
+    "rowSeq": 9,
+    "excelRow": 12,
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_7_dn",
+      "id": "wtt_weekday_row_9_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "--",
         "NGSA": "04:35:00",
-        "PYID": "--",
+        "PYID": "Pilot & Rev from 05:00hrs",
         "YPM": "--",
         "RJNR": "--",
         "KGWA": "05:16:00",
-        "NLC": "--",
+        "NLC": "Rev Service 30kmph",
         "RVR": "--",
         "PUTH": "05:40:00",
         "APTS": "05:50:41"
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_7_up",
+      "id": "wtt_weekday_row_9_up",
       "scheduleType": "WEEKDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "06:00:00",
         "PUTH": "06:10:00",
@@ -228,21 +391,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "06:54:00",
         "BIET": "07:00:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.854Z"
   },
   {
-    "id": "wtt_weekday_row_8",
+    "id": "wtt_weekday_row_10",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 8,
-    "excelRow": 11,
+    "rowSeq": 10,
+    "excelRow": 13,
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_8_dn",
+      "id": "wtt_weekday_row_10_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "05:00:00",
         "NGSA": "05:09:00",
@@ -257,10 +426,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_8_up",
+      "id": "wtt_weekday_row_10_up",
       "scheduleType": "WEEKDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "06:15:00",
         "PUTH": "06:25:00",
@@ -273,21 +443,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "07:09:00",
         "BIET": "07:15:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.854Z"
   },
   {
-    "id": "wtt_weekday_row_9",
+    "id": "wtt_weekday_row_11",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 9,
-    "excelRow": 12,
+    "rowSeq": 11,
+    "excelRow": 14,
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_9_dn",
+      "id": "wtt_weekday_row_11_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "05:15:00",
         "NGSA": "05:22:27",
@@ -302,10 +478,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_9_up",
+      "id": "wtt_weekday_row_11_up",
       "scheduleType": "WEEKDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "06:30:00",
         "PUTH": "06:40:00",
@@ -318,21 +495,61 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "07:24:00",
         "BIET": "07:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.854Z"
   },
   {
-    "id": "wtt_weekday_row_10",
+    "id": "wtt_weekday_row_12",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 10,
-    "excelRow": 13,
+    "rowSeq": 12,
+    "excelRow": 15,
+    "trainId": "221",
+    "dnTid": "221",
+    "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "--",
+    "upMode": "ATO",
+    "downTrip": null,
+    "upTrip": {
+      "id": "wtt_weekday_row_12_up",
+      "scheduleType": "WEEKDAY",
+      "trainId": "221",
+      "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
+      "stations": {
+        "APTS": "--",
+        "PUTH": "--",
+        "RVR": "--",
+        "NLC": "--",
+        "KGWA": "--",
+        "RJNR": "--",
+        "YPM": "--",
+        "PYID": "N Pkt Induction, service from NGSA Up",
+        "NGSA": "07:30:00",
+        "BIET": "07:36:00"
+      }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.854Z"
+  },
+  {
+    "id": "wtt_weekday_row_13",
+    "scheduleType": "WEEKDAY",
+    "rowSeq": 13,
+    "excelRow": 16,
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_10_dn",
+      "id": "wtt_weekday_row_13_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "05:30:00",
         "NGSA": "05:36:00",
@@ -347,10 +564,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_10_up",
+      "id": "wtt_weekday_row_13_up",
       "scheduleType": "WEEKDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "06:45:00",
         "PUTH": "06:55:00",
@@ -363,21 +581,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "07:39:00",
         "BIET": "07:45:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.854Z"
   },
   {
-    "id": "wtt_weekday_row_11",
+    "id": "wtt_weekday_row_14",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 11,
-    "excelRow": 14,
+    "rowSeq": 14,
+    "excelRow": 17,
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_11_dn",
+      "id": "wtt_weekday_row_14_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "05:45:00",
         "NGSA": "05:51:00",
@@ -392,10 +616,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_11_up",
+      "id": "wtt_weekday_row_14_up",
       "scheduleType": "WEEKDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:00:00",
         "PUTH": "07:10:00",
@@ -408,21 +633,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "07:54:00",
         "BIET": "08:00:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.854Z"
   },
   {
-    "id": "wtt_weekday_row_12",
+    "id": "wtt_weekday_row_15",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 12,
-    "excelRow": 15,
+    "rowSeq": 15,
+    "excelRow": 18,
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_12_dn",
+      "id": "wtt_weekday_row_15_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "06:00:00",
         "NGSA": "06:06:00",
@@ -437,10 +668,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_12_up",
+      "id": "wtt_weekday_row_15_up",
       "scheduleType": "WEEKDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:10:00",
         "PUTH": "07:20:00",
@@ -453,21 +685,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:04:00",
         "BIET": "08:10:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.854Z"
   },
   {
-    "id": "wtt_weekday_row_13",
+    "id": "wtt_weekday_row_16",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 13,
-    "excelRow": 16,
+    "rowSeq": 16,
+    "excelRow": 19,
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_13_dn",
+      "id": "wtt_weekday_row_16_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "06:15:00",
         "NGSA": "06:21:00",
@@ -482,10 +720,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_13_up",
+      "id": "wtt_weekday_row_16_up",
       "scheduleType": "WEEKDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:20:00",
         "PUTH": "07:30:00",
@@ -498,21 +737,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:14:00",
         "BIET": "08:20:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.854Z"
   },
   {
-    "id": "wtt_weekday_row_14",
+    "id": "wtt_weekday_row_17",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 14,
-    "excelRow": 17,
+    "rowSeq": 17,
+    "excelRow": 20,
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_14_dn",
+      "id": "wtt_weekday_row_17_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "06:25:00",
         "NGSA": "06:31:00",
@@ -527,10 +772,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_14_up",
+      "id": "wtt_weekday_row_17_up",
       "scheduleType": "WEEKDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:30:00",
         "PUTH": "07:40:00",
@@ -543,21 +789,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:24:00",
         "BIET": "08:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.854Z"
   },
   {
-    "id": "wtt_weekday_row_15",
+    "id": "wtt_weekday_row_18",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 15,
-    "excelRow": 18,
+    "rowSeq": 18,
+    "excelRow": 21,
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_15_dn",
+      "id": "wtt_weekday_row_18_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -572,10 +824,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_15_up",
+      "id": "wtt_weekday_row_18_up",
       "scheduleType": "WEEKDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "07:25:00",
@@ -588,21 +841,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:09:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.854Z"
   },
   {
-    "id": "wtt_weekday_row_16",
+    "id": "wtt_weekday_row_19",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 16,
-    "excelRow": 19,
+    "rowSeq": 19,
+    "excelRow": 22,
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_16_dn",
+      "id": "wtt_weekday_row_19_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "06:35:00",
         "NGSA": "06:41:00",
@@ -617,10 +876,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_16_up",
+      "id": "wtt_weekday_row_19_up",
       "scheduleType": "WEEKDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:40:00",
         "PUTH": "07:50:00",
@@ -633,21 +893,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:34:00",
         "BIET": "08:40:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.854Z"
   },
   {
-    "id": "wtt_weekday_row_17",
+    "id": "wtt_weekday_row_20",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 17,
-    "excelRow": 20,
+    "rowSeq": 20,
+    "excelRow": 23,
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_17_dn",
+      "id": "wtt_weekday_row_20_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -662,10 +928,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_17_up",
+      "id": "wtt_weekday_row_20_up",
       "scheduleType": "WEEKDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "07:35:00",
@@ -678,21 +945,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:19:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.855Z"
   },
   {
-    "id": "wtt_weekday_row_18",
+    "id": "wtt_weekday_row_21",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 18,
-    "excelRow": 21,
+    "rowSeq": 21,
+    "excelRow": 24,
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_18_dn",
+      "id": "wtt_weekday_row_21_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "06:45:00",
         "NGSA": "06:51:00",
@@ -707,10 +980,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_18_up",
+      "id": "wtt_weekday_row_21_up",
       "scheduleType": "WEEKDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:50:00",
         "PUTH": "08:00:00",
@@ -723,21 +997,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:44:00",
         "BIET": "08:50:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.855Z"
   },
   {
-    "id": "wtt_weekday_row_19",
+    "id": "wtt_weekday_row_22",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 19,
-    "excelRow": 22,
+    "rowSeq": 22,
+    "excelRow": 25,
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_19_dn",
+      "id": "wtt_weekday_row_22_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -752,10 +1032,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_19_up",
+      "id": "wtt_weekday_row_22_up",
       "scheduleType": "WEEKDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "07:45:00",
@@ -768,21 +1049,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:29:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.855Z"
   },
   {
-    "id": "wtt_weekday_row_20",
+    "id": "wtt_weekday_row_23",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 20,
-    "excelRow": 23,
+    "rowSeq": 23,
+    "excelRow": 26,
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_20_dn",
+      "id": "wtt_weekday_row_23_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "06:55:00",
         "NGSA": "07:01:00",
@@ -797,10 +1084,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_20_up",
+      "id": "wtt_weekday_row_23_up",
       "scheduleType": "WEEKDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:00:00",
         "PUTH": "08:10:00",
@@ -813,21 +1101,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:54:00",
         "BIET": "09:00:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.855Z"
   },
   {
-    "id": "wtt_weekday_row_21",
+    "id": "wtt_weekday_row_24",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 21,
-    "excelRow": 24,
+    "rowSeq": 24,
+    "excelRow": 27,
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_21_dn",
+      "id": "wtt_weekday_row_24_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -842,10 +1136,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_21_up",
+      "id": "wtt_weekday_row_24_up",
       "scheduleType": "WEEKDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "07:55:00",
@@ -858,21 +1153,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:39:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.855Z"
   },
   {
-    "id": "wtt_weekday_row_22",
+    "id": "wtt_weekday_row_25",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 22,
-    "excelRow": 25,
+    "rowSeq": 25,
+    "excelRow": 28,
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_22_dn",
+      "id": "wtt_weekday_row_25_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:05:00",
         "NGSA": "07:11:00",
@@ -887,10 +1188,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_22_up",
+      "id": "wtt_weekday_row_25_up",
       "scheduleType": "WEEKDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:10:00",
         "PUTH": "08:20:00",
@@ -903,21 +1205,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:04:00",
         "BIET": "09:10:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.855Z"
   },
   {
-    "id": "wtt_weekday_row_23",
+    "id": "wtt_weekday_row_26",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 23,
-    "excelRow": 26,
+    "rowSeq": 26,
+    "excelRow": 29,
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_23_dn",
+      "id": "wtt_weekday_row_26_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -932,10 +1240,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_23_up",
+      "id": "wtt_weekday_row_26_up",
       "scheduleType": "WEEKDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "08:05:00",
@@ -948,21 +1257,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:49:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.855Z"
   },
   {
-    "id": "wtt_weekday_row_24",
+    "id": "wtt_weekday_row_27",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 24,
-    "excelRow": 27,
+    "rowSeq": 27,
+    "excelRow": 30,
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_24_dn",
+      "id": "wtt_weekday_row_27_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:15:00",
         "NGSA": "07:21:00",
@@ -977,10 +1292,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_24_up",
+      "id": "wtt_weekday_row_27_up",
       "scheduleType": "WEEKDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:20:00",
         "PUTH": "08:30:00",
@@ -993,21 +1309,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:14:00",
         "BIET": "09:20:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.855Z"
   },
   {
-    "id": "wtt_weekday_row_25",
+    "id": "wtt_weekday_row_28",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 25,
-    "excelRow": 28,
+    "rowSeq": 28,
+    "excelRow": 31,
     "trainId": "218",
     "dnTid": "218",
     "upTid": "218",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_25_dn",
+      "id": "wtt_weekday_row_28_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "218",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -1022,10 +1344,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_25_up",
+      "id": "wtt_weekday_row_28_up",
       "scheduleType": "WEEKDAY",
       "trainId": "218",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "08:15:00",
@@ -1038,21 +1361,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:59:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.855Z"
   },
   {
-    "id": "wtt_weekday_row_26",
+    "id": "wtt_weekday_row_29",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 26,
-    "excelRow": 29,
+    "rowSeq": 29,
+    "excelRow": 32,
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_26_dn",
+      "id": "wtt_weekday_row_29_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:25:00",
         "NGSA": "07:31:00",
@@ -1067,10 +1396,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_26_up",
+      "id": "wtt_weekday_row_29_up",
       "scheduleType": "WEEKDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:30:00",
         "PUTH": "08:40:00",
@@ -1083,21 +1413,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:24:00",
         "BIET": "09:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.855Z"
   },
   {
-    "id": "wtt_weekday_row_27",
+    "id": "wtt_weekday_row_30",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 27,
-    "excelRow": 30,
+    "rowSeq": 30,
+    "excelRow": 33,
     "trainId": "219",
     "dnTid": "219",
     "upTid": "219",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_27_dn",
+      "id": "wtt_weekday_row_30_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "219",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -1112,10 +1448,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_27_up",
+      "id": "wtt_weekday_row_30_up",
       "scheduleType": "WEEKDAY",
       "trainId": "219",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "08:25:00",
@@ -1128,21 +1465,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:09:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.855Z"
   },
   {
-    "id": "wtt_weekday_row_28",
+    "id": "wtt_weekday_row_31",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 28,
-    "excelRow": 31,
+    "rowSeq": 31,
+    "excelRow": 34,
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_28_dn",
+      "id": "wtt_weekday_row_31_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:35:00",
         "NGSA": "07:41:00",
@@ -1157,10 +1500,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_28_up",
+      "id": "wtt_weekday_row_31_up",
       "scheduleType": "WEEKDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:40:00",
         "PUTH": "08:50:00",
@@ -1173,21 +1517,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:34:00",
         "BIET": "09:40:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.855Z"
   },
   {
-    "id": "wtt_weekday_row_29",
+    "id": "wtt_weekday_row_32",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 29,
-    "excelRow": 32,
+    "rowSeq": 32,
+    "excelRow": 35,
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_29_dn",
+      "id": "wtt_weekday_row_32_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -1202,10 +1552,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_29_up",
+      "id": "wtt_weekday_row_32_up",
       "scheduleType": "WEEKDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "08:35:00",
@@ -1218,21 +1569,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:19:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.855Z"
   },
   {
-    "id": "wtt_weekday_row_30",
+    "id": "wtt_weekday_row_33",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 30,
-    "excelRow": 33,
+    "rowSeq": 33,
+    "excelRow": 36,
     "trainId": "221",
     "dnTid": "221",
     "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_30_dn",
+      "id": "wtt_weekday_row_33_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "221",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:45:00",
         "NGSA": "07:51:00",
@@ -1247,10 +1604,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_30_up",
+      "id": "wtt_weekday_row_33_up",
       "scheduleType": "WEEKDAY",
       "trainId": "221",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:50:00",
         "PUTH": "09:00:00",
@@ -1263,21 +1621,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:44:00",
         "BIET": "09:50:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.855Z"
   },
   {
-    "id": "wtt_weekday_row_31",
+    "id": "wtt_weekday_row_34",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 31,
-    "excelRow": 34,
+    "rowSeq": 34,
+    "excelRow": 37,
     "trainId": "222",
     "dnTid": "222",
     "upTid": "222",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_31_dn",
+      "id": "wtt_weekday_row_34_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "222",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -1292,10 +1656,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_31_up",
+      "id": "wtt_weekday_row_34_up",
       "scheduleType": "WEEKDAY",
       "trainId": "222",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "08:45:00",
@@ -1308,21 +1673,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:29:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.855Z"
   },
   {
-    "id": "wtt_weekday_row_32",
+    "id": "wtt_weekday_row_35",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 32,
-    "excelRow": 35,
+    "rowSeq": 35,
+    "excelRow": 38,
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_32_dn",
+      "id": "wtt_weekday_row_35_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:55:00",
         "NGSA": "08:01:00",
@@ -1337,10 +1708,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_32_up",
+      "id": "wtt_weekday_row_35_up",
       "scheduleType": "WEEKDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:00:00",
         "PUTH": "09:10:00",
@@ -1353,21 +1725,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:54:00",
         "BIET": "10:00:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.855Z"
   },
   {
-    "id": "wtt_weekday_row_33",
+    "id": "wtt_weekday_row_36",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 33,
-    "excelRow": 36,
+    "rowSeq": 36,
+    "excelRow": 39,
     "trainId": "223",
     "dnTid": "223",
     "upTid": "223",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_33_dn",
+      "id": "wtt_weekday_row_36_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "223",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -1382,10 +1760,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_33_up",
+      "id": "wtt_weekday_row_36_up",
       "scheduleType": "WEEKDAY",
       "trainId": "223",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "08:55:00",
@@ -1398,21 +1777,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:39:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.855Z"
   },
   {
-    "id": "wtt_weekday_row_34",
+    "id": "wtt_weekday_row_37",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 34,
-    "excelRow": 37,
+    "rowSeq": 37,
+    "excelRow": 40,
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_34_dn",
+      "id": "wtt_weekday_row_37_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:05:00",
         "NGSA": "08:11:00",
@@ -1427,10 +1812,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_34_up",
+      "id": "wtt_weekday_row_37_up",
       "scheduleType": "WEEKDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:10:00",
         "PUTH": "09:20:00",
@@ -1443,21 +1829,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:04:00",
         "BIET": "10:10:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.855Z"
   },
   {
-    "id": "wtt_weekday_row_35",
+    "id": "wtt_weekday_row_38",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 35,
-    "excelRow": 38,
+    "rowSeq": 38,
+    "excelRow": 41,
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_35_dn",
+      "id": "wtt_weekday_row_38_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "08:16:00",
@@ -1472,10 +1864,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_35_up",
+      "id": "wtt_weekday_row_38_up",
       "scheduleType": "WEEKDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "09:05:00",
@@ -1488,21 +1881,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:49:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_36",
+    "id": "wtt_weekday_row_39",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 36,
-    "excelRow": 39,
+    "rowSeq": 39,
+    "excelRow": 42,
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_36_dn",
+      "id": "wtt_weekday_row_39_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:15:00",
         "NGSA": "08:21:00",
@@ -1517,10 +1916,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_36_up",
+      "id": "wtt_weekday_row_39_up",
       "scheduleType": "WEEKDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:20:00",
         "PUTH": "09:30:00",
@@ -1533,21 +1933,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:14:00",
         "BIET": "10:20:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_37",
+    "id": "wtt_weekday_row_40",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 37,
-    "excelRow": 40,
+    "rowSeq": 40,
+    "excelRow": 43,
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_37_dn",
+      "id": "wtt_weekday_row_40_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "08:26:00",
@@ -1562,10 +1968,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_37_up",
+      "id": "wtt_weekday_row_40_up",
       "scheduleType": "WEEKDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "09:15:00",
@@ -1578,21 +1985,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:59:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_38",
+    "id": "wtt_weekday_row_41",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 38,
-    "excelRow": 41,
+    "rowSeq": 41,
+    "excelRow": 44,
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_38_dn",
+      "id": "wtt_weekday_row_41_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:25:00",
         "NGSA": "08:31:00",
@@ -1607,10 +2020,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_38_up",
+      "id": "wtt_weekday_row_41_up",
       "scheduleType": "WEEKDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:30:00",
         "PUTH": "09:40:00",
@@ -1623,21 +2037,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:24:00",
         "BIET": "10:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_39",
+    "id": "wtt_weekday_row_42",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 39,
-    "excelRow": 42,
+    "rowSeq": 42,
+    "excelRow": 45,
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_39_dn",
+      "id": "wtt_weekday_row_42_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "08:36:00",
@@ -1652,10 +2072,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_39_up",
+      "id": "wtt_weekday_row_42_up",
       "scheduleType": "WEEKDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "09:25:00",
@@ -1668,21 +2089,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:09:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_40",
+    "id": "wtt_weekday_row_43",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 40,
-    "excelRow": 43,
+    "rowSeq": 43,
+    "excelRow": 46,
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_40_dn",
+      "id": "wtt_weekday_row_43_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:35:00",
         "NGSA": "08:41:00",
@@ -1697,10 +2124,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_40_up",
+      "id": "wtt_weekday_row_43_up",
       "scheduleType": "WEEKDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:40:00",
         "PUTH": "09:50:00",
@@ -1713,21 +2141,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:34:00",
         "BIET": "10:40:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_41",
+    "id": "wtt_weekday_row_44",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 41,
-    "excelRow": 44,
+    "rowSeq": 44,
+    "excelRow": 47,
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_41_dn",
+      "id": "wtt_weekday_row_44_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "08:46:00",
@@ -1742,10 +2176,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_41_up",
+      "id": "wtt_weekday_row_44_up",
       "scheduleType": "WEEKDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "09:35:00",
@@ -1758,21 +2193,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:19:00",
         "BIET": "10:25:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_42",
+    "id": "wtt_weekday_row_45",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 42,
-    "excelRow": 45,
+    "rowSeq": 45,
+    "excelRow": 48,
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_42_dn",
+      "id": "wtt_weekday_row_45_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:45:00",
         "NGSA": "08:51:00",
@@ -1787,10 +2228,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_42_up",
+      "id": "wtt_weekday_row_45_up",
       "scheduleType": "WEEKDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:50:00",
         "PUTH": "10:00:00",
@@ -1803,21 +2245,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:44:00",
         "BIET": "10:50:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_43",
+    "id": "wtt_weekday_row_46",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 43,
-    "excelRow": 46,
+    "rowSeq": 46,
+    "excelRow": 49,
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_43_dn",
+      "id": "wtt_weekday_row_46_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "08:56:00",
@@ -1832,10 +2280,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_43_up",
+      "id": "wtt_weekday_row_46_up",
       "scheduleType": "WEEKDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "09:45:00",
@@ -1848,21 +2297,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_44",
+    "id": "wtt_weekday_row_47",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 44,
-    "excelRow": 47,
+    "rowSeq": 47,
+    "excelRow": 50,
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_44_dn",
+      "id": "wtt_weekday_row_47_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:55:00",
         "NGSA": "09:01:00",
@@ -1877,10 +2332,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_44_up",
+      "id": "wtt_weekday_row_47_up",
       "scheduleType": "WEEKDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:00:00",
         "PUTH": "10:10:00",
@@ -1893,21 +2349,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_45",
+    "id": "wtt_weekday_row_48",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 45,
-    "excelRow": 48,
+    "rowSeq": 48,
+    "excelRow": 51,
     "trainId": "218",
     "dnTid": "218",
     "upTid": "218",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_45_dn",
+      "id": "wtt_weekday_row_48_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "218",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "09:06:00",
@@ -1922,10 +2384,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_45_up",
+      "id": "wtt_weekday_row_48_up",
       "scheduleType": "WEEKDAY",
       "trainId": "218",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "09:55:00",
@@ -1938,21 +2401,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_46",
+    "id": "wtt_weekday_row_49",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 46,
-    "excelRow": 49,
+    "rowSeq": 49,
+    "excelRow": 52,
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_46_dn",
+      "id": "wtt_weekday_row_49_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:05:00",
         "NGSA": "09:11:00",
@@ -1967,10 +2436,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_46_up",
+      "id": "wtt_weekday_row_49_up",
       "scheduleType": "WEEKDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:10:00",
         "PUTH": "10:20:00",
@@ -1983,21 +2453,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:04:00",
         "BIET": "11:10:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_47",
+    "id": "wtt_weekday_row_50",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 47,
-    "excelRow": 50,
+    "rowSeq": 50,
+    "excelRow": 53,
     "trainId": "219",
     "dnTid": "219",
     "upTid": "219",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_47_dn",
+      "id": "wtt_weekday_row_50_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "219",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "09:16:00",
@@ -2012,10 +2488,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_47_up",
+      "id": "wtt_weekday_row_50_up",
       "scheduleType": "WEEKDAY",
       "trainId": "219",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "10:05:00",
@@ -2028,21 +2505,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:49:00",
         "BIET": "10:55:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_48",
+    "id": "wtt_weekday_row_51",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 48,
-    "excelRow": 51,
+    "rowSeq": 51,
+    "excelRow": 54,
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_48_dn",
+      "id": "wtt_weekday_row_51_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:15:00",
         "NGSA": "09:21:00",
@@ -2057,10 +2540,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_48_up",
+      "id": "wtt_weekday_row_51_up",
       "scheduleType": "WEEKDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:20:00",
         "PUTH": "10:30:00",
@@ -2073,21 +2557,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:14:00",
         "BIET": "11:20:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_49",
+    "id": "wtt_weekday_row_52",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 49,
-    "excelRow": 52,
+    "rowSeq": 52,
+    "excelRow": 55,
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_49_dn",
+      "id": "wtt_weekday_row_52_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "09:26:00",
@@ -2102,10 +2592,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_49_up",
+      "id": "wtt_weekday_row_52_up",
       "scheduleType": "WEEKDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "10:15:00",
@@ -2118,21 +2609,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:59:00",
         "BIET": "11:05:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_50",
+    "id": "wtt_weekday_row_53",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 50,
-    "excelRow": 53,
+    "rowSeq": 53,
+    "excelRow": 56,
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_50_dn",
+      "id": "wtt_weekday_row_53_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:25:00",
         "NGSA": "09:31:00",
@@ -2147,10 +2644,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_50_up",
+      "id": "wtt_weekday_row_53_up",
       "scheduleType": "WEEKDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:30:00",
         "PUTH": "10:40:00",
@@ -2163,21 +2661,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:24:00",
         "BIET": "11:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_51",
+    "id": "wtt_weekday_row_54",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 51,
-    "excelRow": 54,
+    "rowSeq": 54,
+    "excelRow": 57,
     "trainId": "222",
     "dnTid": "222",
     "upTid": "222",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_51_dn",
+      "id": "wtt_weekday_row_54_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "222",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "09:36:00",
@@ -2192,10 +2696,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_51_up",
+      "id": "wtt_weekday_row_54_up",
       "scheduleType": "WEEKDAY",
       "trainId": "222",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "10:25:00",
@@ -2208,21 +2713,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_52",
+    "id": "wtt_weekday_row_55",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 52,
-    "excelRow": 55,
+    "rowSeq": 55,
+    "excelRow": 58,
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_52_dn",
+      "id": "wtt_weekday_row_55_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:35:00",
         "NGSA": "09:41:00",
@@ -2237,10 +2748,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_52_up",
+      "id": "wtt_weekday_row_55_up",
       "scheduleType": "WEEKDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:40:00",
         "PUTH": "10:50:00",
@@ -2250,24 +2762,30 @@ export const WTT_MASTER_REGISTRY = [
         "RJNR": "11:17:21",
         "YPM": "11:23:01",
         "PYID": "11:28:12",
-        "NGSA": "--",
+        "NGSA": "11:34:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_53",
+    "id": "wtt_weekday_row_56",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 53,
-    "excelRow": 56,
+    "rowSeq": 56,
+    "excelRow": 59,
     "trainId": "223",
     "dnTid": "223",
     "upTid": "223",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_53_dn",
+      "id": "wtt_weekday_row_56_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "223",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "09:46:00",
@@ -2282,10 +2800,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_53_up",
+      "id": "wtt_weekday_row_56_up",
       "scheduleType": "WEEKDAY",
       "trainId": "223",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "10:35:00",
@@ -2298,21 +2817,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_54",
+    "id": "wtt_weekday_row_57",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 54,
-    "excelRow": 57,
+    "rowSeq": 57,
+    "excelRow": 60,
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_54_dn",
+      "id": "wtt_weekday_row_57_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:45:00",
         "NGSA": "09:51:00",
@@ -2327,10 +2852,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_54_up",
+      "id": "wtt_weekday_row_57_up",
       "scheduleType": "WEEKDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:50:00",
         "PUTH": "11:01:00",
@@ -2343,21 +2869,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:47:00",
         "BIET": "11:53:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_55",
+    "id": "wtt_weekday_row_58",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 55,
-    "excelRow": 58,
+    "rowSeq": 58,
+    "excelRow": 61,
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_55_dn",
+      "id": "wtt_weekday_row_58_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "09:56:00",
@@ -2372,10 +2904,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_55_up",
+      "id": "wtt_weekday_row_58_up",
       "scheduleType": "WEEKDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "10:45:00",
@@ -2388,21 +2921,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:29:00",
         "BIET": "11:35:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_56",
+    "id": "wtt_weekday_row_59",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 56,
-    "excelRow": 59,
+    "rowSeq": 59,
+    "excelRow": 62,
     "trainId": "221",
     "dnTid": "221",
     "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_56_dn",
+      "id": "wtt_weekday_row_59_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "221",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:55:00",
         "NGSA": "10:01:00",
@@ -2417,10 +2956,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_56_up",
+      "id": "wtt_weekday_row_59_up",
       "scheduleType": "WEEKDAY",
       "trainId": "221",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:00:00",
         "PUTH": "11:10:00",
@@ -2433,21 +2973,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:54:00",
         "BIET": "12:00:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_57",
+    "id": "wtt_weekday_row_60",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 57,
-    "excelRow": 60,
+    "rowSeq": 60,
+    "excelRow": 63,
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_57_dn",
+      "id": "wtt_weekday_row_60_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "10:06:00",
@@ -2462,10 +3008,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_57_up",
+      "id": "wtt_weekday_row_60_up",
       "scheduleType": "WEEKDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "10:56:00",
@@ -2478,21 +3025,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:40:00",
         "BIET": "11:46:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_58",
+    "id": "wtt_weekday_row_61",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 58,
-    "excelRow": 61,
+    "rowSeq": 61,
+    "excelRow": 64,
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_58_dn",
+      "id": "wtt_weekday_row_61_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:05:00",
         "NGSA": "10:11:00",
@@ -2507,10 +3060,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_58_up",
+      "id": "wtt_weekday_row_61_up",
       "scheduleType": "WEEKDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:10:00",
         "PUTH": "11:20:00",
@@ -2523,21 +3077,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:04:00",
         "BIET": "12:10:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_59",
+    "id": "wtt_weekday_row_62",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 59,
-    "excelRow": 62,
+    "rowSeq": 62,
+    "excelRow": 65,
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_59_dn",
+      "id": "wtt_weekday_row_62_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "10:16:00",
@@ -2552,10 +3112,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_59_up",
+      "id": "wtt_weekday_row_62_up",
       "scheduleType": "WEEKDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:16:00",
         "PUTH": "11:26:00",
@@ -2568,21 +3129,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:10:00",
         "BIET": "12:16:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_60",
+    "id": "wtt_weekday_row_63",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 60,
-    "excelRow": 63,
+    "rowSeq": 63,
+    "excelRow": 66,
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_60_dn",
+      "id": "wtt_weekday_row_63_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:15:00",
         "NGSA": "10:22:00",
@@ -2597,10 +3164,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_60_up",
+      "id": "wtt_weekday_row_63_up",
       "scheduleType": "WEEKDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:24:00",
         "PUTH": "11:34:00",
@@ -2613,21 +3181,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:18:00",
         "BIET": "12:24:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_61",
+    "id": "wtt_weekday_row_64",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 61,
-    "excelRow": 64,
+    "rowSeq": 64,
+    "excelRow": 67,
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_61_dn",
+      "id": "wtt_weekday_row_64_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:25:00",
         "NGSA": "10:31:00",
@@ -2642,10 +3216,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_61_up",
+      "id": "wtt_weekday_row_64_up",
       "scheduleType": "WEEKDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:30:00",
         "PUTH": "11:40:00",
@@ -2658,21 +3233,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:24:00",
         "BIET": "12:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_62",
+    "id": "wtt_weekday_row_65",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 62,
-    "excelRow": 65,
+    "rowSeq": 65,
+    "excelRow": 68,
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_62_dn",
+      "id": "wtt_weekday_row_65_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:32:00",
         "NGSA": "10:38:00",
@@ -2687,10 +3268,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_62_up",
+      "id": "wtt_weekday_row_65_up",
       "scheduleType": "WEEKDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:37:00",
         "PUTH": "11:47:00",
@@ -2703,21 +3285,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:31:00",
         "BIET": "12:37:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_63",
+    "id": "wtt_weekday_row_66",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 63,
-    "excelRow": 66,
+    "rowSeq": 66,
+    "excelRow": 69,
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_63_dn",
+      "id": "wtt_weekday_row_66_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:39:00",
         "NGSA": "10:45:00",
@@ -2732,10 +3320,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_63_up",
+      "id": "wtt_weekday_row_66_up",
       "scheduleType": "WEEKDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:45:00",
         "PUTH": "11:55:00",
@@ -2748,21 +3337,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:39:00",
         "BIET": "12:45:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.856Z"
   },
   {
-    "id": "wtt_weekday_row_64",
+    "id": "wtt_weekday_row_67",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 64,
-    "excelRow": 67,
+    "rowSeq": 67,
+    "excelRow": 70,
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_64_dn",
+      "id": "wtt_weekday_row_67_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:47:00",
         "NGSA": "10:53:00",
@@ -2777,10 +3372,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_64_up",
+      "id": "wtt_weekday_row_67_up",
       "scheduleType": "WEEKDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:53:00",
         "PUTH": "12:03:00",
@@ -2793,21 +3389,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:47:00",
         "BIET": "12:53:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.857Z"
   },
   {
-    "id": "wtt_weekday_row_65",
+    "id": "wtt_weekday_row_68",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 65,
-    "excelRow": 68,
+    "rowSeq": 68,
+    "excelRow": 71,
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_65_dn",
+      "id": "wtt_weekday_row_68_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:55:00",
         "NGSA": "11:01:00",
@@ -2822,10 +3424,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_65_up",
+      "id": "wtt_weekday_row_68_up",
       "scheduleType": "WEEKDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:01:00",
         "PUTH": "12:11:00",
@@ -2838,21 +3441,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:55:00",
         "BIET": "13:01:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.857Z"
   },
   {
-    "id": "wtt_weekday_row_66",
+    "id": "wtt_weekday_row_69",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 66,
-    "excelRow": 69,
+    "rowSeq": 69,
+    "excelRow": 72,
     "trainId": "219",
     "dnTid": "219",
     "upTid": "219",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_66_dn",
+      "id": "wtt_weekday_row_69_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "219",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:03:00",
         "NGSA": "11:09:00",
@@ -2867,10 +3476,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_66_up",
+      "id": "wtt_weekday_row_69_up",
       "scheduleType": "WEEKDAY",
       "trainId": "219",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:09:00",
         "PUTH": "12:19:00",
@@ -2883,21 +3493,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:03:00",
         "BIET": "13:09:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.857Z"
   },
   {
-    "id": "wtt_weekday_row_67",
+    "id": "wtt_weekday_row_70",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 67,
-    "excelRow": 70,
+    "rowSeq": 70,
+    "excelRow": 73,
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_67_dn",
+      "id": "wtt_weekday_row_70_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:11:00",
         "NGSA": "11:17:00",
@@ -2912,10 +3528,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_67_up",
+      "id": "wtt_weekday_row_70_up",
       "scheduleType": "WEEKDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:17:00",
         "PUTH": "12:27:00",
@@ -2928,21 +3545,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:11:00",
         "BIET": "13:17:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.857Z"
   },
   {
-    "id": "wtt_weekday_row_68",
+    "id": "wtt_weekday_row_71",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 68,
-    "excelRow": 71,
+    "rowSeq": 71,
+    "excelRow": 74,
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_68_dn",
+      "id": "wtt_weekday_row_71_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:19:00",
         "NGSA": "11:25:00",
@@ -2957,10 +3580,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_68_up",
+      "id": "wtt_weekday_row_71_up",
       "scheduleType": "WEEKDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:25:00",
         "PUTH": "12:35:00",
@@ -2973,21 +3597,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:19:00",
         "BIET": "13:25:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.857Z"
   },
   {
-    "id": "wtt_weekday_row_69",
+    "id": "wtt_weekday_row_72",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 69,
-    "excelRow": 72,
+    "rowSeq": 72,
+    "excelRow": 75,
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_69_dn",
+      "id": "wtt_weekday_row_72_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:27:00",
         "NGSA": "11:33:00",
@@ -3002,10 +3632,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_69_up",
+      "id": "wtt_weekday_row_72_up",
       "scheduleType": "WEEKDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:33:00",
         "PUTH": "12:43:00",
@@ -3018,21 +3649,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:27:00",
         "BIET": "13:33:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.857Z"
   },
   {
-    "id": "wtt_weekday_row_70",
+    "id": "wtt_weekday_row_73",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 70,
-    "excelRow": 73,
+    "rowSeq": 73,
+    "excelRow": 76,
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_70_dn",
+      "id": "wtt_weekday_row_73_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:35:00",
         "NGSA": "11:41:00",
@@ -3047,10 +3684,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_70_up",
+      "id": "wtt_weekday_row_73_up",
       "scheduleType": "WEEKDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:41:00",
         "PUTH": "12:51:00",
@@ -3063,21 +3701,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:35:00",
         "BIET": "13:41:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.857Z"
   },
   {
-    "id": "wtt_weekday_row_71",
+    "id": "wtt_weekday_row_74",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 71,
-    "excelRow": 74,
+    "rowSeq": 74,
+    "excelRow": 77,
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_71_dn",
+      "id": "wtt_weekday_row_74_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:43:00",
         "NGSA": "11:49:00",
@@ -3092,10 +3736,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_71_up",
+      "id": "wtt_weekday_row_74_up",
       "scheduleType": "WEEKDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:49:00",
         "PUTH": "12:59:00",
@@ -3108,21 +3753,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:43:00",
         "BIET": "13:49:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.857Z"
   },
   {
-    "id": "wtt_weekday_row_72",
+    "id": "wtt_weekday_row_75",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 72,
-    "excelRow": 75,
+    "rowSeq": 75,
+    "excelRow": 78,
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_72_dn",
+      "id": "wtt_weekday_row_75_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:51:00",
         "NGSA": "11:57:00",
@@ -3137,10 +3788,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_72_up",
+      "id": "wtt_weekday_row_75_up",
       "scheduleType": "WEEKDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:57:00",
         "PUTH": "13:07:00",
@@ -3153,21 +3805,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:51:00",
         "BIET": "13:57:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.857Z"
   },
   {
-    "id": "wtt_weekday_row_73",
+    "id": "wtt_weekday_row_76",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 73,
-    "excelRow": 76,
+    "rowSeq": 76,
+    "excelRow": 79,
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_73_dn",
+      "id": "wtt_weekday_row_76_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:59:00",
         "NGSA": "12:05:00",
@@ -3182,10 +3840,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_73_up",
+      "id": "wtt_weekday_row_76_up",
       "scheduleType": "WEEKDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:05:00",
         "PUTH": "13:15:00",
@@ -3198,21 +3857,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:59:00",
         "BIET": "14:05:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.857Z"
   },
   {
-    "id": "wtt_weekday_row_74",
+    "id": "wtt_weekday_row_77",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 74,
-    "excelRow": 77,
+    "rowSeq": 77,
+    "excelRow": 80,
     "trainId": "221",
     "dnTid": "221",
     "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_74_dn",
+      "id": "wtt_weekday_row_77_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "221",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:07:00",
         "NGSA": "12:13:00",
@@ -3227,10 +3892,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_74_up",
+      "id": "wtt_weekday_row_77_up",
       "scheduleType": "WEEKDAY",
       "trainId": "221",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:13:00",
         "PUTH": "13:23:00",
@@ -3243,21 +3909,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:07:00",
         "BIET": "14:13:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.857Z"
   },
   {
-    "id": "wtt_weekday_row_75",
+    "id": "wtt_weekday_row_78",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 75,
-    "excelRow": 78,
+    "rowSeq": 78,
+    "excelRow": 81,
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_75_dn",
+      "id": "wtt_weekday_row_78_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:15:00",
         "NGSA": "12:21:00",
@@ -3272,10 +3944,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_75_up",
+      "id": "wtt_weekday_row_78_up",
       "scheduleType": "WEEKDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:21:00",
         "PUTH": "13:31:00",
@@ -3288,21 +3961,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:15:00",
         "BIET": "14:21:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.857Z"
   },
   {
-    "id": "wtt_weekday_row_76",
+    "id": "wtt_weekday_row_79",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 76,
-    "excelRow": 79,
+    "rowSeq": 79,
+    "excelRow": 82,
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_76_dn",
+      "id": "wtt_weekday_row_79_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:23:00",
         "NGSA": "12:29:00",
@@ -3317,10 +3996,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_76_up",
+      "id": "wtt_weekday_row_79_up",
       "scheduleType": "WEEKDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:29:00",
         "PUTH": "13:39:00",
@@ -3333,21 +4013,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:23:00",
         "BIET": "14:29:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.857Z"
   },
   {
-    "id": "wtt_weekday_row_77",
+    "id": "wtt_weekday_row_80",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 77,
-    "excelRow": 80,
+    "rowSeq": 80,
+    "excelRow": 83,
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_77_dn",
+      "id": "wtt_weekday_row_80_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:31:00",
         "NGSA": "12:37:00",
@@ -3362,10 +4048,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_77_up",
+      "id": "wtt_weekday_row_80_up",
       "scheduleType": "WEEKDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:37:00",
         "PUTH": "13:47:00",
@@ -3378,21 +4065,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:31:00",
         "BIET": "14:37:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.857Z"
   },
   {
-    "id": "wtt_weekday_row_78",
+    "id": "wtt_weekday_row_81",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 78,
-    "excelRow": 81,
+    "rowSeq": 81,
+    "excelRow": 84,
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_78_dn",
+      "id": "wtt_weekday_row_81_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:39:00",
         "NGSA": "12:45:00",
@@ -3407,10 +4100,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_78_up",
+      "id": "wtt_weekday_row_81_up",
       "scheduleType": "WEEKDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:45:00",
         "PUTH": "13:55:00",
@@ -3423,21 +4117,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:39:00",
         "BIET": "14:45:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.857Z"
   },
   {
-    "id": "wtt_weekday_row_79",
+    "id": "wtt_weekday_row_82",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 79,
-    "excelRow": 82,
+    "rowSeq": 82,
+    "excelRow": 85,
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_79_dn",
+      "id": "wtt_weekday_row_82_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:47:00",
         "NGSA": "12:53:00",
@@ -3452,10 +4152,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_79_up",
+      "id": "wtt_weekday_row_82_up",
       "scheduleType": "WEEKDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:53:00",
         "PUTH": "14:03:00",
@@ -3468,21 +4169,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:47:00",
         "BIET": "14:53:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.857Z"
   },
   {
-    "id": "wtt_weekday_row_80",
+    "id": "wtt_weekday_row_83",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 80,
-    "excelRow": 83,
+    "rowSeq": 83,
+    "excelRow": 86,
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_80_dn",
+      "id": "wtt_weekday_row_83_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:55:00",
         "NGSA": "13:01:00",
@@ -3497,10 +4204,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_80_up",
+      "id": "wtt_weekday_row_83_up",
       "scheduleType": "WEEKDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:01:00",
         "PUTH": "14:11:00",
@@ -3513,21 +4221,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:55:00",
         "BIET": "15:01:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.858Z"
   },
   {
-    "id": "wtt_weekday_row_81",
+    "id": "wtt_weekday_row_84",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 81,
-    "excelRow": 84,
+    "rowSeq": 84,
+    "excelRow": 87,
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_81_dn",
+      "id": "wtt_weekday_row_84_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:03:00",
         "NGSA": "13:09:00",
@@ -3542,10 +4256,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_81_up",
+      "id": "wtt_weekday_row_84_up",
       "scheduleType": "WEEKDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:09:00",
         "PUTH": "14:19:00",
@@ -3558,21 +4273,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:03:00",
         "BIET": "15:09:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.858Z"
   },
   {
-    "id": "wtt_weekday_row_82",
+    "id": "wtt_weekday_row_85",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 82,
-    "excelRow": 85,
+    "rowSeq": 85,
+    "excelRow": 88,
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_82_dn",
+      "id": "wtt_weekday_row_85_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:11:00",
         "NGSA": "13:17:00",
@@ -3587,10 +4308,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_82_up",
+      "id": "wtt_weekday_row_85_up",
       "scheduleType": "WEEKDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:17:00",
         "PUTH": "14:27:00",
@@ -3603,21 +4325,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:11:00",
         "BIET": "15:17:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.858Z"
   },
   {
-    "id": "wtt_weekday_row_83",
+    "id": "wtt_weekday_row_86",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 83,
-    "excelRow": 86,
+    "rowSeq": 86,
+    "excelRow": 89,
     "trainId": "219",
     "dnTid": "219",
     "upTid": "219",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_83_dn",
+      "id": "wtt_weekday_row_86_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "219",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:19:00",
         "NGSA": "13:25:00",
@@ -3632,10 +4360,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_83_up",
+      "id": "wtt_weekday_row_86_up",
       "scheduleType": "WEEKDAY",
       "trainId": "219",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:25:00",
         "PUTH": "14:35:00",
@@ -3648,21 +4377,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:19:00",
         "BIET": "15:25:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.858Z"
   },
   {
-    "id": "wtt_weekday_row_84",
+    "id": "wtt_weekday_row_87",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 84,
-    "excelRow": 87,
+    "rowSeq": 87,
+    "excelRow": 90,
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_84_dn",
+      "id": "wtt_weekday_row_87_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:27:00",
         "NGSA": "13:33:00",
@@ -3677,10 +4412,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_84_up",
+      "id": "wtt_weekday_row_87_up",
       "scheduleType": "WEEKDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:33:00",
         "PUTH": "14:43:00",
@@ -3693,21 +4429,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:27:00",
         "BIET": "15:33:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.858Z"
   },
   {
-    "id": "wtt_weekday_row_85",
+    "id": "wtt_weekday_row_88",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 85,
-    "excelRow": 88,
+    "rowSeq": 88,
+    "excelRow": 91,
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_85_dn",
+      "id": "wtt_weekday_row_88_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:35:00",
         "NGSA": "13:41:00",
@@ -3722,10 +4464,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_85_up",
+      "id": "wtt_weekday_row_88_up",
       "scheduleType": "WEEKDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:41:00",
         "PUTH": "14:51:00",
@@ -3738,21 +4481,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:35:00",
         "BIET": "15:41:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.858Z"
   },
   {
-    "id": "wtt_weekday_row_86",
+    "id": "wtt_weekday_row_89",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 86,
-    "excelRow": 89,
+    "rowSeq": 89,
+    "excelRow": 92,
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_86_dn",
+      "id": "wtt_weekday_row_89_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:43:00",
         "NGSA": "13:49:00",
@@ -3767,10 +4516,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_86_up",
+      "id": "wtt_weekday_row_89_up",
       "scheduleType": "WEEKDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:49:00",
         "PUTH": "14:59:00",
@@ -3783,21 +4533,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:43:00",
         "BIET": "15:49:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.858Z"
   },
   {
-    "id": "wtt_weekday_row_87",
+    "id": "wtt_weekday_row_90",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 87,
-    "excelRow": 90,
+    "rowSeq": 90,
+    "excelRow": 93,
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_87_dn",
+      "id": "wtt_weekday_row_90_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:51:00",
         "NGSA": "13:57:00",
@@ -3812,10 +4568,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_87_up",
+      "id": "wtt_weekday_row_90_up",
       "scheduleType": "WEEKDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:57:00",
         "PUTH": "15:07:00",
@@ -3828,21 +4585,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:51:00",
         "BIET": "15:57:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.858Z"
   },
   {
-    "id": "wtt_weekday_row_88",
+    "id": "wtt_weekday_row_91",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 88,
-    "excelRow": 91,
+    "rowSeq": 91,
+    "excelRow": 94,
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_88_dn",
+      "id": "wtt_weekday_row_91_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:59:00",
         "NGSA": "14:05:00",
@@ -3857,10 +4620,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_88_up",
+      "id": "wtt_weekday_row_91_up",
       "scheduleType": "WEEKDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:05:00",
         "PUTH": "15:15:00",
@@ -3873,21 +4637,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:59:00",
         "BIET": "16:05:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.858Z"
   },
   {
-    "id": "wtt_weekday_row_89",
+    "id": "wtt_weekday_row_92",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 89,
-    "excelRow": 92,
+    "rowSeq": 92,
+    "excelRow": 95,
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_89_dn",
+      "id": "wtt_weekday_row_92_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:07:00",
         "NGSA": "14:13:00",
@@ -3902,10 +4672,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_89_up",
+      "id": "wtt_weekday_row_92_up",
       "scheduleType": "WEEKDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:13:00",
         "PUTH": "15:23:00",
@@ -3918,21 +4689,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:07:00",
         "BIET": "16:13:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.858Z"
   },
   {
-    "id": "wtt_weekday_row_90",
+    "id": "wtt_weekday_row_93",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 90,
-    "excelRow": 93,
+    "rowSeq": 93,
+    "excelRow": 96,
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_90_dn",
+      "id": "wtt_weekday_row_93_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:15:00",
         "NGSA": "14:21:00",
@@ -3947,10 +4724,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_90_up",
+      "id": "wtt_weekday_row_93_up",
       "scheduleType": "WEEKDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:20:00",
         "PUTH": "15:30:00",
@@ -3963,21 +4741,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:14:00",
         "BIET": "16:20:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.858Z"
   },
   {
-    "id": "wtt_weekday_row_91",
+    "id": "wtt_weekday_row_94",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 91,
-    "excelRow": 94,
+    "rowSeq": 94,
+    "excelRow": 97,
     "trainId": "221",
     "dnTid": "221",
     "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_91_dn",
+      "id": "wtt_weekday_row_94_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "221",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:23:00",
         "NGSA": "14:29:00",
@@ -3992,10 +4776,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_91_up",
+      "id": "wtt_weekday_row_94_up",
       "scheduleType": "WEEKDAY",
       "trainId": "221",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:29:00",
         "PUTH": "15:39:00",
@@ -4008,21 +4793,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:23:00",
         "BIET": "16:29:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.858Z"
   },
   {
-    "id": "wtt_weekday_row_92",
+    "id": "wtt_weekday_row_95",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 92,
-    "excelRow": 95,
+    "rowSeq": 95,
+    "excelRow": 98,
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_92_dn",
+      "id": "wtt_weekday_row_95_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:31:00",
         "NGSA": "14:37:00",
@@ -4037,10 +4828,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_92_up",
+      "id": "wtt_weekday_row_95_up",
       "scheduleType": "WEEKDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:37:00",
         "PUTH": "15:47:00",
@@ -4053,21 +4845,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:31:00",
         "BIET": "16:37:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.858Z"
   },
   {
-    "id": "wtt_weekday_row_93",
+    "id": "wtt_weekday_row_96",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 93,
-    "excelRow": 96,
+    "rowSeq": 96,
+    "excelRow": 99,
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_93_dn",
+      "id": "wtt_weekday_row_96_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:39:00",
         "NGSA": "14:45:00",
@@ -4082,10 +4880,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_93_up",
+      "id": "wtt_weekday_row_96_up",
       "scheduleType": "WEEKDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:45:00",
         "PUTH": "15:55:00",
@@ -4098,21 +4897,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:39:00",
         "BIET": "16:45:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.858Z"
   },
   {
-    "id": "wtt_weekday_row_94",
+    "id": "wtt_weekday_row_97",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 94,
-    "excelRow": 97,
+    "rowSeq": 97,
+    "excelRow": 100,
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_94_dn",
+      "id": "wtt_weekday_row_97_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:47:00",
         "NGSA": "14:53:00",
@@ -4127,10 +4932,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_94_up",
+      "id": "wtt_weekday_row_97_up",
       "scheduleType": "WEEKDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:53:00",
         "PUTH": "16:03:00",
@@ -4143,21 +4949,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:47:00",
         "BIET": "16:53:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.858Z"
   },
   {
-    "id": "wtt_weekday_row_95",
+    "id": "wtt_weekday_row_98",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 95,
-    "excelRow": 98,
+    "rowSeq": 98,
+    "excelRow": 101,
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_95_dn",
+      "id": "wtt_weekday_row_98_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:55:00",
         "NGSA": "15:01:00",
@@ -4172,10 +4984,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_95_up",
+      "id": "wtt_weekday_row_98_up",
       "scheduleType": "WEEKDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:00:00",
         "PUTH": "16:10:00",
@@ -4188,21 +5001,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:54:00",
         "BIET": "17:00:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.859Z"
   },
   {
-    "id": "wtt_weekday_row_96",
+    "id": "wtt_weekday_row_99",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 96,
-    "excelRow": 99,
+    "rowSeq": 99,
+    "excelRow": 102,
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_96_dn",
+      "id": "wtt_weekday_row_99_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:03:00",
         "NGSA": "15:09:00",
@@ -4217,10 +5036,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_96_up",
+      "id": "wtt_weekday_row_99_up",
       "scheduleType": "WEEKDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:09:00",
         "PUTH": "16:19:00",
@@ -4233,21 +5053,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:03:00",
         "BIET": "17:09:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.859Z"
   },
   {
-    "id": "wtt_weekday_row_97",
+    "id": "wtt_weekday_row_100",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 97,
-    "excelRow": 100,
+    "rowSeq": 100,
+    "excelRow": 103,
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_97_dn",
+      "id": "wtt_weekday_row_100_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:11:00",
         "NGSA": "15:17:00",
@@ -4262,10 +5088,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_97_up",
+      "id": "wtt_weekday_row_100_up",
       "scheduleType": "WEEKDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:16:00",
         "PUTH": "16:26:00",
@@ -4278,21 +5105,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:10:00",
         "BIET": "17:16:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.859Z"
   },
   {
-    "id": "wtt_weekday_row_98",
+    "id": "wtt_weekday_row_101",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 98,
-    "excelRow": 101,
+    "rowSeq": 101,
+    "excelRow": 104,
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_98_dn",
+      "id": "wtt_weekday_row_101_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:19:00",
         "NGSA": "15:25:00",
@@ -4307,10 +5140,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_98_up",
+      "id": "wtt_weekday_row_101_up",
       "scheduleType": "WEEKDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:25:00",
         "PUTH": "16:35:00",
@@ -4323,21 +5157,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:19:00",
         "BIET": "17:25:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.859Z"
   },
   {
-    "id": "wtt_weekday_row_99",
+    "id": "wtt_weekday_row_102",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 99,
-    "excelRow": 102,
+    "rowSeq": 102,
+    "excelRow": 105,
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_99_dn",
+      "id": "wtt_weekday_row_102_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:27:00",
         "NGSA": "15:33:00",
@@ -4352,10 +5192,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_99_up",
+      "id": "wtt_weekday_row_102_up",
       "scheduleType": "WEEKDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:32:00",
         "PUTH": "16:42:00",
@@ -4368,21 +5209,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:26:00",
         "BIET": "17:32:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.859Z"
   },
   {
-    "id": "wtt_weekday_row_100",
+    "id": "wtt_weekday_row_103",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 100,
-    "excelRow": 103,
+    "rowSeq": 103,
+    "excelRow": 106,
     "trainId": "219",
     "dnTid": "219",
     "upTid": "219",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_100_dn",
+      "id": "wtt_weekday_row_103_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "219",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:35:00",
         "NGSA": "15:41:00",
@@ -4397,10 +5244,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_100_up",
+      "id": "wtt_weekday_row_103_up",
       "scheduleType": "WEEKDAY",
       "trainId": "219",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:40:00",
         "PUTH": "16:50:00",
@@ -4413,21 +5261,79 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:34:00",
         "BIET": "17:40:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.859Z"
   },
   {
-    "id": "wtt_weekday_row_101",
+    "id": "wtt_weekday_row_104",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 101,
-    "excelRow": 104,
+    "rowSeq": 104,
+    "excelRow": 107,
+    "trainId": "203",
+    "dnTid": "203",
+    "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
+    "downTrip": {
+      "id": "wtt_weekday_row_104_dn",
+      "scheduleType": "WEEKDAY",
+      "trainId": "203",
+      "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
+      "stations": {
+        "BIET": "--",
+        "NGSA": "15:45:00",
+        "PYID": "15:51:00",
+        "YPM": "15:56:10",
+        "RJNR": "16:01:26",
+        "KGWA": "16:09:56",
+        "NLC": "16:15:08",
+        "RVR": "16:22:31",
+        "PUTH": "RVR Turn Back",
+        "APTS": "--"
+      }
+    },
+    "upTrip": {
+      "id": "wtt_weekday_row_104_up",
+      "scheduleType": "WEEKDAY",
+      "trainId": "203",
+      "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
+      "stations": {
+        "APTS": "--",
+        "PUTH": "RVR Turn Back",
+        "RVR": "16:28:00",
+        "NLC": "16:35:08",
+        "KGWA": "16:40:55",
+        "RJNR": "16:49:23",
+        "YPM": "16:55:03",
+        "PYID": "17:00:14",
+        "NGSA": "PYID Turn Back",
+        "BIET": "--"
+      }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.859Z"
+  },
+  {
+    "id": "wtt_weekday_row_105",
+    "scheduleType": "WEEKDAY",
+    "rowSeq": 105,
+    "excelRow": 108,
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_101_dn",
+      "id": "wtt_weekday_row_105_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:43:00",
         "NGSA": "15:49:00",
@@ -4442,10 +5348,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_101_up",
+      "id": "wtt_weekday_row_105_up",
       "scheduleType": "WEEKDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:48:00",
         "PUTH": "16:58:00",
@@ -4458,21 +5365,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:42:00",
         "BIET": "17:48:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.860Z"
   },
   {
-    "id": "wtt_weekday_row_102",
+    "id": "wtt_weekday_row_106",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 102,
-    "excelRow": 105,
+    "rowSeq": 106,
+    "excelRow": 109,
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_102_dn",
+      "id": "wtt_weekday_row_106_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:51:00",
         "NGSA": "15:57:00",
@@ -4487,10 +5400,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_102_up",
+      "id": "wtt_weekday_row_106_up",
       "scheduleType": "WEEKDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:58:00",
         "PUTH": "17:08:00",
@@ -4503,28 +5417,86 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:52:00",
         "BIET": "17:58:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.860Z"
   },
   {
-    "id": "wtt_weekday_row_103",
+    "id": "wtt_weekday_row_107",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 103,
-    "excelRow": 106,
+    "rowSeq": 107,
+    "excelRow": 110,
+    "trainId": "211",
+    "dnTid": "211",
+    "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
+    "downTrip": {
+      "id": "wtt_weekday_row_107_dn",
+      "scheduleType": "WEEKDAY",
+      "trainId": "211",
+      "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
+      "stations": {
+        "BIET": "--",
+        "NGSA": "--",
+        "PYID": "16:07:00",
+        "YPM": "16:12:10",
+        "RJNR": "16:17:26",
+        "KGWA": "16:25:56",
+        "NLC": "16:31:08",
+        "RVR": "16:38:31",
+        "PUTH": "RVR Turn Back",
+        "APTS": "--"
+      }
+    },
+    "upTrip": {
+      "id": "wtt_weekday_row_107_up",
+      "scheduleType": "WEEKDAY",
+      "trainId": "211",
+      "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
+      "stations": {
+        "APTS": "--",
+        "PUTH": "RVR Turn Back",
+        "RVR": "16:45:00",
+        "NLC": "16:52:08",
+        "KGWA": "16:57:55",
+        "RJNR": "17:06:23",
+        "YPM": "17:12:03",
+        "PYID": "17:17:14",
+        "NGSA": "17:23:02",
+        "BIET": "17:29:02"
+      }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.860Z"
+  },
+  {
+    "id": "wtt_weekday_row_108",
+    "scheduleType": "WEEKDAY",
+    "rowSeq": 108,
+    "excelRow": 111,
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_103_dn",
+      "id": "wtt_weekday_row_108_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:00:00",
         "NGSA": "16:06:00",
         "PYID": "16:12:00",
         "YPM": "16:17:10",
         "RJNR": "16:22:26",
-        "KGWA": "16:31:56",
+        "KGWA": "16:30:56",
         "NLC": "16:36:08",
         "RVR": "16:43:31",
         "PUTH": "16:50:19",
@@ -4532,10 +5504,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_103_up",
+      "id": "wtt_weekday_row_108_up",
       "scheduleType": "WEEKDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:09:00",
         "PUTH": "17:19:00",
@@ -4548,21 +5521,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:03:00",
         "BIET": "18:09:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.860Z"
   },
   {
-    "id": "wtt_weekday_row_104",
+    "id": "wtt_weekday_row_109",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 104,
-    "excelRow": 107,
+    "rowSeq": 109,
+    "excelRow": 112,
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_104_dn",
+      "id": "wtt_weekday_row_109_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:07:00",
         "NGSA": "16:13:00",
@@ -4577,10 +5556,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_104_up",
+      "id": "wtt_weekday_row_109_up",
       "scheduleType": "WEEKDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "17:03:00",
@@ -4593,21 +5573,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:47:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.860Z"
   },
   {
-    "id": "wtt_weekday_row_105",
+    "id": "wtt_weekday_row_110",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 105,
-    "excelRow": 108,
+    "rowSeq": 110,
+    "excelRow": 113,
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_105_dn",
+      "id": "wtt_weekday_row_110_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:13:00",
         "NGSA": "16:19:00",
@@ -4622,10 +5608,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_105_up",
+      "id": "wtt_weekday_row_110_up",
       "scheduleType": "WEEKDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:19:00",
         "PUTH": "17:29:00",
@@ -4638,21 +5625,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:13:00",
         "BIET": "18:19:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.860Z"
   },
   {
-    "id": "wtt_weekday_row_106",
+    "id": "wtt_weekday_row_111",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 106,
-    "excelRow": 109,
+    "rowSeq": 111,
+    "excelRow": 114,
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_106_dn",
+      "id": "wtt_weekday_row_111_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:18:00",
         "NGSA": "16:24:00",
@@ -4667,10 +5660,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_106_up",
+      "id": "wtt_weekday_row_111_up",
       "scheduleType": "WEEKDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "17:14:00",
@@ -4683,21 +5677,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:58:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.860Z"
   },
   {
-    "id": "wtt_weekday_row_107",
+    "id": "wtt_weekday_row_112",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 107,
-    "excelRow": 110,
+    "rowSeq": 112,
+    "excelRow": 115,
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_107_dn",
+      "id": "wtt_weekday_row_112_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:24:00",
         "NGSA": "16:30:00",
@@ -4712,10 +5712,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_107_up",
+      "id": "wtt_weekday_row_112_up",
       "scheduleType": "WEEKDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:29:00",
         "PUTH": "17:39:00",
@@ -4728,21 +5729,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:23:00",
         "BIET": "18:29:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.860Z"
   },
   {
-    "id": "wtt_weekday_row_108",
+    "id": "wtt_weekday_row_113",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 108,
-    "excelRow": 111,
+    "rowSeq": 113,
+    "excelRow": 116,
     "trainId": "223",
     "dnTid": "223",
     "upTid": "223",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_108_dn",
+      "id": "wtt_weekday_row_113_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "223",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -4757,10 +5764,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_108_up",
+      "id": "wtt_weekday_row_113_up",
       "scheduleType": "WEEKDAY",
       "trainId": "223",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "17:24:00",
@@ -4773,21 +5781,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:08:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.860Z"
   },
   {
-    "id": "wtt_weekday_row_109",
+    "id": "wtt_weekday_row_114",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 109,
-    "excelRow": 112,
+    "rowSeq": 114,
+    "excelRow": 117,
     "trainId": "221",
     "dnTid": "221",
     "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_109_dn",
+      "id": "wtt_weekday_row_114_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "221",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:34:00",
         "NGSA": "16:40:00",
@@ -4802,10 +5816,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_109_up",
+      "id": "wtt_weekday_row_114_up",
       "scheduleType": "WEEKDAY",
       "trainId": "221",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:39:00",
         "PUTH": "17:49:00",
@@ -4818,21 +5833,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:33:00",
         "BIET": "18:39:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.860Z"
   },
   {
-    "id": "wtt_weekday_row_110",
+    "id": "wtt_weekday_row_115",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 110,
-    "excelRow": 113,
+    "rowSeq": 115,
+    "excelRow": 118,
     "trainId": "222",
     "dnTid": "222",
     "upTid": "222",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_110_dn",
+      "id": "wtt_weekday_row_115_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "222",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -4847,10 +5868,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_110_up",
+      "id": "wtt_weekday_row_115_up",
       "scheduleType": "WEEKDAY",
       "trainId": "222",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "17:34:00",
@@ -4863,21 +5885,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:18:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.860Z"
   },
   {
-    "id": "wtt_weekday_row_111",
+    "id": "wtt_weekday_row_116",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 111,
-    "excelRow": 114,
+    "rowSeq": 116,
+    "excelRow": 119,
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_111_dn",
+      "id": "wtt_weekday_row_116_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:44:00",
         "NGSA": "16:50:00",
@@ -4892,10 +5920,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_111_up",
+      "id": "wtt_weekday_row_116_up",
       "scheduleType": "WEEKDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:49:00",
         "PUTH": "17:59:00",
@@ -4908,21 +5937,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:43:00",
         "BIET": "18:49:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.861Z"
   },
   {
-    "id": "wtt_weekday_row_112",
+    "id": "wtt_weekday_row_117",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 112,
-    "excelRow": 115,
+    "rowSeq": 117,
+    "excelRow": 120,
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_112_dn",
+      "id": "wtt_weekday_row_117_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:49:00",
         "NGSA": "16:55:00",
@@ -4937,10 +5972,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_112_up",
+      "id": "wtt_weekday_row_117_up",
       "scheduleType": "WEEKDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "17:44:00",
@@ -4953,23 +5989,29 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:28:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.861Z"
   },
   {
-    "id": "wtt_weekday_row_113",
+    "id": "wtt_weekday_row_118",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 113,
-    "excelRow": 116,
+    "rowSeq": 118,
+    "excelRow": 121,
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_113_dn",
+      "id": "wtt_weekday_row_118_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
-        "BIET": "--",
+        "BIET": "PYID Turn Back",
         "NGSA": "--",
         "PYID": "17:06:00",
         "YPM": "17:11:10",
@@ -4982,10 +6024,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_113_up",
+      "id": "wtt_weekday_row_118_up",
       "scheduleType": "WEEKDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:59:00",
         "PUTH": "18:09:00",
@@ -4998,21 +6041,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:53:00",
         "BIET": "18:59:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.861Z"
   },
   {
-    "id": "wtt_weekday_row_114",
+    "id": "wtt_weekday_row_119",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 114,
-    "excelRow": 117,
+    "rowSeq": 119,
+    "excelRow": 122,
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_114_dn",
+      "id": "wtt_weekday_row_119_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:59:00",
         "NGSA": "17:05:00",
@@ -5027,10 +6076,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_114_up",
+      "id": "wtt_weekday_row_119_up",
       "scheduleType": "WEEKDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "17:54:00",
@@ -5043,21 +6093,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:38:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.861Z"
   },
   {
-    "id": "wtt_weekday_row_115",
+    "id": "wtt_weekday_row_120",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 115,
-    "excelRow": 118,
+    "rowSeq": 120,
+    "excelRow": 123,
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_115_dn",
+      "id": "wtt_weekday_row_120_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:04:00",
         "NGSA": "17:10:00",
@@ -5072,10 +6128,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_115_up",
+      "id": "wtt_weekday_row_120_up",
       "scheduleType": "WEEKDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:09:00",
         "PUTH": "18:19:00",
@@ -5088,21 +6145,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:03:00",
         "BIET": "19:09:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.861Z"
   },
   {
-    "id": "wtt_weekday_row_116",
+    "id": "wtt_weekday_row_121",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 116,
-    "excelRow": 119,
+    "rowSeq": 121,
+    "excelRow": 124,
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_116_dn",
+      "id": "wtt_weekday_row_121_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -5117,10 +6180,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_116_up",
+      "id": "wtt_weekday_row_121_up",
       "scheduleType": "WEEKDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "18:04:00",
@@ -5133,21 +6197,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:48:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.861Z"
   },
   {
-    "id": "wtt_weekday_row_117",
+    "id": "wtt_weekday_row_122",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 117,
-    "excelRow": 120,
+    "rowSeq": 122,
+    "excelRow": 125,
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_117_dn",
+      "id": "wtt_weekday_row_122_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:14:00",
         "NGSA": "17:20:00",
@@ -5162,10 +6232,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_117_up",
+      "id": "wtt_weekday_row_122_up",
       "scheduleType": "WEEKDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:19:00",
         "PUTH": "18:29:00",
@@ -5178,21 +6249,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:13:00",
         "BIET": "19:19:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.861Z"
   },
   {
-    "id": "wtt_weekday_row_118",
+    "id": "wtt_weekday_row_123",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 118,
-    "excelRow": 121,
+    "rowSeq": 123,
+    "excelRow": 126,
     "trainId": "218",
     "dnTid": "218",
     "upTid": "218",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_118_dn",
+      "id": "wtt_weekday_row_123_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "218",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -5207,10 +6284,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_118_up",
+      "id": "wtt_weekday_row_123_up",
       "scheduleType": "WEEKDAY",
       "trainId": "218",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "18:14:00",
@@ -5223,21 +6301,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:58:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.861Z"
   },
   {
-    "id": "wtt_weekday_row_119",
+    "id": "wtt_weekday_row_124",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 119,
-    "excelRow": 122,
+    "rowSeq": 124,
+    "excelRow": 127,
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_119_dn",
+      "id": "wtt_weekday_row_124_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:24:00",
         "NGSA": "17:30:00",
@@ -5252,10 +6336,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_119_up",
+      "id": "wtt_weekday_row_124_up",
       "scheduleType": "WEEKDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:29:00",
         "PUTH": "18:39:00",
@@ -5268,21 +6353,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:23:00",
         "BIET": "19:29:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.861Z"
   },
   {
-    "id": "wtt_weekday_row_120",
+    "id": "wtt_weekday_row_125",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 120,
-    "excelRow": 123,
+    "rowSeq": 125,
+    "excelRow": 128,
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_120_dn",
+      "id": "wtt_weekday_row_125_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:29:00",
         "NGSA": "17:35:00",
@@ -5297,10 +6388,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_120_up",
+      "id": "wtt_weekday_row_125_up",
       "scheduleType": "WEEKDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "18:24:00",
@@ -5313,24 +6405,30 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:08:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.861Z"
   },
   {
-    "id": "wtt_weekday_row_121",
+    "id": "wtt_weekday_row_126",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 121,
-    "excelRow": 124,
+    "rowSeq": 126,
+    "excelRow": 129,
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_121_dn",
+      "id": "wtt_weekday_row_126_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
-        "BIET": "--",
-        "NGSA": "--",
+        "BIET": "17:34:00",
+        "NGSA": "17:40:00",
         "PYID": "17:46:00",
         "YPM": "17:51:10",
         "RJNR": "17:56:26",
@@ -5342,10 +6440,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_121_up",
+      "id": "wtt_weekday_row_126_up",
       "scheduleType": "WEEKDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:39:00",
         "PUTH": "18:49:00",
@@ -5358,21 +6457,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:33:00",
         "BIET": "19:39:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.861Z"
   },
   {
-    "id": "wtt_weekday_row_122",
+    "id": "wtt_weekday_row_127",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 122,
-    "excelRow": 125,
+    "rowSeq": 127,
+    "excelRow": 130,
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_122_dn",
+      "id": "wtt_weekday_row_127_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:39:00",
         "NGSA": "17:45:00",
@@ -5387,10 +6492,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_122_up",
+      "id": "wtt_weekday_row_127_up",
       "scheduleType": "WEEKDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "18:34:00",
@@ -5403,21 +6509,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:18:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.861Z"
   },
   {
-    "id": "wtt_weekday_row_123",
+    "id": "wtt_weekday_row_128",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 123,
-    "excelRow": 126,
+    "rowSeq": 128,
+    "excelRow": 131,
     "trainId": "219",
     "dnTid": "219",
     "upTid": "219",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_123_dn",
+      "id": "wtt_weekday_row_128_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "219",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:44:00",
         "NGSA": "17:50:00",
@@ -5432,10 +6544,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_123_up",
+      "id": "wtt_weekday_row_128_up",
       "scheduleType": "WEEKDAY",
       "trainId": "219",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:49:00",
         "PUTH": "18:59:00",
@@ -5448,21 +6561,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.861Z"
   },
   {
-    "id": "wtt_weekday_row_124",
+    "id": "wtt_weekday_row_129",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 124,
-    "excelRow": 127,
+    "rowSeq": 129,
+    "excelRow": 132,
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_124_dn",
+      "id": "wtt_weekday_row_129_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "17:55:00",
@@ -5477,10 +6596,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_124_up",
+      "id": "wtt_weekday_row_129_up",
       "scheduleType": "WEEKDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "18:44:00",
@@ -5493,21 +6613,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:28:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.861Z"
   },
   {
-    "id": "wtt_weekday_row_125",
+    "id": "wtt_weekday_row_130",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 125,
-    "excelRow": 128,
+    "rowSeq": 130,
+    "excelRow": 133,
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_125_dn",
+      "id": "wtt_weekday_row_130_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:54:00",
         "NGSA": "18:00:00",
@@ -5522,10 +6648,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_125_up",
+      "id": "wtt_weekday_row_130_up",
       "scheduleType": "WEEKDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:59:00",
         "PUTH": "19:09:00",
@@ -5538,21 +6665,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:53:00",
         "BIET": "19:59:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.861Z"
   },
   {
-    "id": "wtt_weekday_row_126",
+    "id": "wtt_weekday_row_131",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 126,
-    "excelRow": 129,
+    "rowSeq": 131,
+    "excelRow": 134,
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_126_dn",
+      "id": "wtt_weekday_row_131_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "18:05:00",
@@ -5567,10 +6700,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_126_up",
+      "id": "wtt_weekday_row_131_up",
       "scheduleType": "WEEKDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "18:54:00",
@@ -5583,21 +6717,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:38:00",
         "BIET": "19:44:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.861Z"
   },
   {
-    "id": "wtt_weekday_row_127",
+    "id": "wtt_weekday_row_132",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 127,
-    "excelRow": 130,
+    "rowSeq": 132,
+    "excelRow": 135,
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_127_dn",
+      "id": "wtt_weekday_row_132_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:04:00",
         "NGSA": "18:10:00",
@@ -5612,10 +6752,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_127_up",
+      "id": "wtt_weekday_row_132_up",
       "scheduleType": "WEEKDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:09:00",
         "PUTH": "19:19:00",
@@ -5628,21 +6769,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:03:00",
         "BIET": "20:09:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.862Z"
   },
   {
-    "id": "wtt_weekday_row_128",
+    "id": "wtt_weekday_row_133",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 128,
-    "excelRow": 131,
+    "rowSeq": 133,
+    "excelRow": 136,
     "trainId": "223",
     "dnTid": "223",
     "upTid": "223",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_128_dn",
+      "id": "wtt_weekday_row_133_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "223",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "18:15:00",
@@ -5657,10 +6804,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_128_up",
+      "id": "wtt_weekday_row_133_up",
       "scheduleType": "WEEKDAY",
       "trainId": "223",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "19:04:00",
@@ -5673,21 +6821,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:48:00",
         "BIET": "19:54:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.862Z"
   },
   {
-    "id": "wtt_weekday_row_129",
+    "id": "wtt_weekday_row_134",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 129,
-    "excelRow": 132,
+    "rowSeq": 134,
+    "excelRow": 137,
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_129_dn",
+      "id": "wtt_weekday_row_134_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:14:00",
         "NGSA": "18:20:00",
@@ -5702,10 +6856,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_129_up",
+      "id": "wtt_weekday_row_134_up",
       "scheduleType": "WEEKDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:19:00",
         "PUTH": "19:29:00",
@@ -5718,21 +6873,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:13:00",
         "BIET": "20:19:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.862Z"
   },
   {
-    "id": "wtt_weekday_row_130",
+    "id": "wtt_weekday_row_135",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 130,
-    "excelRow": 133,
+    "rowSeq": 135,
+    "excelRow": 138,
     "trainId": "222",
     "dnTid": "222",
     "upTid": "222",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_130_dn",
+      "id": "wtt_weekday_row_135_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "222",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "18:25:00",
@@ -5747,10 +6908,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_130_up",
+      "id": "wtt_weekday_row_135_up",
       "scheduleType": "WEEKDAY",
       "trainId": "222",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "19:14:00",
@@ -5763,21 +6925,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.862Z"
   },
   {
-    "id": "wtt_weekday_row_131",
+    "id": "wtt_weekday_row_136",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 131,
-    "excelRow": 134,
+    "rowSeq": 136,
+    "excelRow": 139,
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_131_dn",
+      "id": "wtt_weekday_row_136_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:24:00",
         "NGSA": "18:30:00",
@@ -5792,10 +6960,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_131_up",
+      "id": "wtt_weekday_row_136_up",
       "scheduleType": "WEEKDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:29:00",
         "PUTH": "19:39:00",
@@ -5808,21 +6977,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:23:00",
         "BIET": "20:29:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.862Z"
   },
   {
-    "id": "wtt_weekday_row_132",
+    "id": "wtt_weekday_row_137",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 132,
-    "excelRow": 135,
+    "rowSeq": 137,
+    "excelRow": 140,
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_132_dn",
+      "id": "wtt_weekday_row_137_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "18:35:00",
@@ -5837,10 +7012,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_132_up",
+      "id": "wtt_weekday_row_137_up",
       "scheduleType": "WEEKDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "19:24:00",
@@ -5853,21 +7029,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.862Z"
   },
   {
-    "id": "wtt_weekday_row_133",
+    "id": "wtt_weekday_row_138",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 133,
-    "excelRow": 136,
+    "rowSeq": 138,
+    "excelRow": 141,
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_133_dn",
+      "id": "wtt_weekday_row_138_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:34:00",
         "NGSA": "18:40:00",
@@ -5882,10 +7064,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_133_up",
+      "id": "wtt_weekday_row_138_up",
       "scheduleType": "WEEKDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:39:00",
         "PUTH": "19:49:00",
@@ -5898,21 +7081,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:33:00",
         "BIET": "20:39:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.862Z"
   },
   {
-    "id": "wtt_weekday_row_134",
+    "id": "wtt_weekday_row_139",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 134,
-    "excelRow": 137,
+    "rowSeq": 139,
+    "excelRow": 142,
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_134_dn",
+      "id": "wtt_weekday_row_139_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "18:45:00",
@@ -5927,10 +7116,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_134_up",
+      "id": "wtt_weekday_row_139_up",
       "scheduleType": "WEEKDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "19:34:00",
@@ -5943,21 +7133,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.862Z"
   },
   {
-    "id": "wtt_weekday_row_135",
+    "id": "wtt_weekday_row_140",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 135,
-    "excelRow": 138,
+    "rowSeq": 140,
+    "excelRow": 143,
     "trainId": "221",
     "dnTid": "221",
     "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_135_dn",
+      "id": "wtt_weekday_row_140_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "221",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:44:00",
         "NGSA": "18:50:00",
@@ -5972,10 +7168,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_135_up",
+      "id": "wtt_weekday_row_140_up",
       "scheduleType": "WEEKDAY",
       "trainId": "221",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:49:00",
         "PUTH": "19:59:00",
@@ -5988,21 +7185,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:43:00",
         "BIET": "20:49:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.862Z"
   },
   {
-    "id": "wtt_weekday_row_136",
+    "id": "wtt_weekday_row_141",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 136,
-    "excelRow": 139,
+    "rowSeq": 141,
+    "excelRow": 144,
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_136_dn",
+      "id": "wtt_weekday_row_141_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "18:55:00",
@@ -6017,10 +7220,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_136_up",
+      "id": "wtt_weekday_row_141_up",
       "scheduleType": "WEEKDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "19:44:00",
@@ -6033,21 +7237,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.862Z"
   },
   {
-    "id": "wtt_weekday_row_137",
+    "id": "wtt_weekday_row_142",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 137,
-    "excelRow": 140,
+    "rowSeq": 142,
+    "excelRow": 145,
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_137_dn",
+      "id": "wtt_weekday_row_142_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:54:00",
         "NGSA": "19:00:00",
@@ -6062,10 +7272,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_137_up",
+      "id": "wtt_weekday_row_142_up",
       "scheduleType": "WEEKDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:59:00",
         "PUTH": "20:09:00",
@@ -6078,21 +7289,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:53:00",
         "BIET": "20:59:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.862Z"
   },
   {
-    "id": "wtt_weekday_row_138",
+    "id": "wtt_weekday_row_143",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 138,
-    "excelRow": 141,
+    "rowSeq": 143,
+    "excelRow": 146,
     "trainId": "218",
     "dnTid": "218",
     "upTid": "218",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_138_dn",
+      "id": "wtt_weekday_row_143_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "218",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "19:05:00",
@@ -6107,10 +7324,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_138_up",
+      "id": "wtt_weekday_row_143_up",
       "scheduleType": "WEEKDAY",
       "trainId": "218",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "19:54:00",
@@ -6123,21 +7341,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.862Z"
   },
   {
-    "id": "wtt_weekday_row_139",
+    "id": "wtt_weekday_row_144",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 139,
-    "excelRow": 142,
+    "rowSeq": 144,
+    "excelRow": 147,
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_139_dn",
+      "id": "wtt_weekday_row_144_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:04:00",
         "NGSA": "19:10:00",
@@ -6152,10 +7376,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_139_up",
+      "id": "wtt_weekday_row_144_up",
       "scheduleType": "WEEKDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:09:30",
         "PUTH": "20:22:00",
@@ -6168,21 +7393,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:06:00",
         "BIET": "21:12:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.862Z"
   },
   {
-    "id": "wtt_weekday_row_140",
+    "id": "wtt_weekday_row_145",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 140,
-    "excelRow": 143,
+    "rowSeq": 145,
+    "excelRow": 148,
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_140_dn",
+      "id": "wtt_weekday_row_145_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "19:15:00",
@@ -6197,10 +7428,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_140_up",
+      "id": "wtt_weekday_row_145_up",
       "scheduleType": "WEEKDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "20:04:00",
@@ -6213,21 +7445,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.862Z"
   },
   {
-    "id": "wtt_weekday_row_141",
+    "id": "wtt_weekday_row_146",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 141,
-    "excelRow": 144,
+    "rowSeq": 146,
+    "excelRow": 149,
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_141_dn",
+      "id": "wtt_weekday_row_146_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:14:00",
         "NGSA": "19:20:00",
@@ -6242,10 +7480,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_141_up",
+      "id": "wtt_weekday_row_146_up",
       "scheduleType": "WEEKDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:19:00",
         "PUTH": "20:29:00",
@@ -6258,21 +7497,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:13:00",
         "BIET": "21:19:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.862Z"
   },
   {
-    "id": "wtt_weekday_row_142",
+    "id": "wtt_weekday_row_147",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 142,
-    "excelRow": 145,
+    "rowSeq": 147,
+    "excelRow": 150,
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_142_dn",
+      "id": "wtt_weekday_row_147_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "19:25:00",
@@ -6287,10 +7532,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_142_up",
+      "id": "wtt_weekday_row_147_up",
       "scheduleType": "WEEKDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "20:14:30",
@@ -6303,21 +7549,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:58:30",
         "BIET": "21:04:30"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.862Z"
   },
   {
-    "id": "wtt_weekday_row_143",
+    "id": "wtt_weekday_row_148",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 143,
-    "excelRow": 146,
+    "rowSeq": 148,
+    "excelRow": 151,
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_143_dn",
+      "id": "wtt_weekday_row_148_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:24:00",
         "NGSA": "19:30:00",
@@ -6332,10 +7584,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_143_up",
+      "id": "wtt_weekday_row_148_up",
       "scheduleType": "WEEKDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:29:00",
         "PUTH": "20:39:00",
@@ -6348,21 +7601,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:23:00",
         "BIET": "21:29:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.862Z"
   },
   {
-    "id": "wtt_weekday_row_144",
+    "id": "wtt_weekday_row_149",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 144,
-    "excelRow": 147,
+    "rowSeq": 149,
+    "excelRow": 152,
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_144_dn",
+      "id": "wtt_weekday_row_149_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "19:35:00",
@@ -6377,10 +7636,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_144_up",
+      "id": "wtt_weekday_row_149_up",
       "scheduleType": "WEEKDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:37:00",
         "PUTH": "20:47:00",
@@ -6393,21 +7653,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:31:00",
         "BIET": "21:37:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.862Z"
   },
   {
-    "id": "wtt_weekday_row_145",
+    "id": "wtt_weekday_row_150",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 145,
-    "excelRow": 148,
+    "rowSeq": 150,
+    "excelRow": 153,
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_145_dn",
+      "id": "wtt_weekday_row_150_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:34:00",
         "NGSA": "19:41:00",
@@ -6422,10 +7688,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_145_up",
+      "id": "wtt_weekday_row_150_up",
       "scheduleType": "WEEKDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:43:00",
         "PUTH": "20:53:00",
@@ -6438,21 +7705,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.862Z"
   },
   {
-    "id": "wtt_weekday_row_146",
+    "id": "wtt_weekday_row_151",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 146,
-    "excelRow": 149,
+    "rowSeq": 151,
+    "excelRow": 154,
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_146_dn",
+      "id": "wtt_weekday_row_151_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:44:00",
         "NGSA": "19:50:00",
@@ -6467,10 +7740,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_146_up",
+      "id": "wtt_weekday_row_151_up",
       "scheduleType": "WEEKDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:49:00",
         "PUTH": "20:59:00",
@@ -6483,21 +7757,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:43:00",
         "BIET": "21:49:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.863Z"
   },
   {
-    "id": "wtt_weekday_row_147",
+    "id": "wtt_weekday_row_152",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 147,
-    "excelRow": 150,
+    "rowSeq": 152,
+    "excelRow": 155,
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_147_dn",
+      "id": "wtt_weekday_row_152_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:52:00",
         "NGSA": "19:58:00",
@@ -6512,10 +7792,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_147_up",
+      "id": "wtt_weekday_row_152_up",
       "scheduleType": "WEEKDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:58:00",
         "PUTH": "21:08:00",
@@ -6528,21 +7809,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:52:00",
         "BIET": "21:58:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.863Z"
   },
   {
-    "id": "wtt_weekday_row_148",
+    "id": "wtt_weekday_row_153",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 148,
-    "excelRow": 151,
+    "rowSeq": 153,
+    "excelRow": 156,
     "trainId": "223",
     "dnTid": "223",
     "upTid": "223",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_148_dn",
+      "id": "wtt_weekday_row_153_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "223",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:00:00",
         "NGSA": "20:06:00",
@@ -6557,10 +7844,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_148_up",
+      "id": "wtt_weekday_row_153_up",
       "scheduleType": "WEEKDAY",
       "trainId": "223",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:06:00",
         "PUTH": "21:16:00",
@@ -6573,21 +7861,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:00:00",
         "BIET": "22:06:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.863Z"
   },
   {
-    "id": "wtt_weekday_row_149",
+    "id": "wtt_weekday_row_154",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 149,
-    "excelRow": 152,
+    "rowSeq": 154,
+    "excelRow": 157,
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_149_dn",
+      "id": "wtt_weekday_row_154_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:08:00",
         "NGSA": "20:14:00",
@@ -6602,10 +7896,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_149_up",
+      "id": "wtt_weekday_row_154_up",
       "scheduleType": "WEEKDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:14:00",
         "PUTH": "21:24:00",
@@ -6618,21 +7913,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:08:00",
         "BIET": "22:14:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.863Z"
   },
   {
-    "id": "wtt_weekday_row_150",
+    "id": "wtt_weekday_row_155",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 150,
-    "excelRow": 153,
+    "rowSeq": 155,
+    "excelRow": 158,
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_150_dn",
+      "id": "wtt_weekday_row_155_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:16:00",
         "NGSA": "20:22:00",
@@ -6647,10 +7948,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_150_up",
+      "id": "wtt_weekday_row_155_up",
       "scheduleType": "WEEKDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:22:00",
         "PUTH": "21:32:00",
@@ -6663,21 +7965,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:16:00",
         "BIET": "22:22:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.863Z"
   },
   {
-    "id": "wtt_weekday_row_151",
+    "id": "wtt_weekday_row_156",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 151,
-    "excelRow": 154,
+    "rowSeq": 156,
+    "excelRow": 159,
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_151_dn",
+      "id": "wtt_weekday_row_156_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:24:00",
         "NGSA": "20:30:00",
@@ -6692,10 +8000,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_151_up",
+      "id": "wtt_weekday_row_156_up",
       "scheduleType": "WEEKDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:30:00",
         "PUTH": "21:40:00",
@@ -6708,21 +8017,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:24:00",
         "BIET": "22:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.863Z"
   },
   {
-    "id": "wtt_weekday_row_152",
+    "id": "wtt_weekday_row_157",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 152,
-    "excelRow": 155,
+    "rowSeq": 157,
+    "excelRow": 160,
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_152_dn",
+      "id": "wtt_weekday_row_157_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:34:00",
         "NGSA": "20:40:00",
@@ -6737,10 +8052,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_152_up",
+      "id": "wtt_weekday_row_157_up",
       "scheduleType": "WEEKDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:40:00",
         "PUTH": "21:50:00",
@@ -6753,21 +8069,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:34:00",
         "BIET": "22:40:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.863Z"
   },
   {
-    "id": "wtt_weekday_row_153",
+    "id": "wtt_weekday_row_158",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 153,
-    "excelRow": 156,
+    "rowSeq": 158,
+    "excelRow": 161,
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_153_dn",
+      "id": "wtt_weekday_row_158_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:44:00",
         "NGSA": "20:50:00",
@@ -6782,10 +8104,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_153_up",
+      "id": "wtt_weekday_row_158_up",
       "scheduleType": "WEEKDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:50:00",
         "PUTH": "22:00:00",
@@ -6798,21 +8121,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:44:00",
         "BIET": "22:50:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.863Z"
   },
   {
-    "id": "wtt_weekday_row_154",
+    "id": "wtt_weekday_row_159",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 154,
-    "excelRow": 157,
+    "rowSeq": 159,
+    "excelRow": 162,
     "trainId": "221",
     "dnTid": "221",
     "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_154_dn",
+      "id": "wtt_weekday_row_159_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "221",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:54:00",
         "NGSA": "21:00:00",
@@ -6827,37 +8156,44 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_154_up",
+      "id": "wtt_weekday_row_159_up",
       "scheduleType": "WEEKDAY",
       "trainId": "221",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:00:00",
         "PUTH": "22:10:00",
         "RVR": "22:15:58",
         "NLC": "22:23:06",
         "KGWA": "22:28:53",
-        "RJNR": "22:37:21",
-        "YPM": "22:43:01",
-        "PYID": "22:48:12",
-        "NGSA": "22:54:00",
-        "BIET": "23:00:00"
+        "RJNR": "22:37:51",
+        "YPM": "22:44:01",
+        "PYID": "22:49:52",
+        "NGSA": "22:56:20",
+        "BIET": "23:02:40"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.863Z"
   },
   {
-    "id": "wtt_weekday_row_155",
+    "id": "wtt_weekday_row_160",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 155,
-    "excelRow": 158,
+    "rowSeq": 160,
+    "excelRow": 163,
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_155_dn",
+      "id": "wtt_weekday_row_160_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:04:00",
         "NGSA": "21:10:00",
@@ -6872,10 +8208,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_155_up",
+      "id": "wtt_weekday_row_160_up",
       "scheduleType": "WEEKDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:10:00",
         "PUTH": "22:20:00",
@@ -6888,21 +8225,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:04:00",
         "BIET": "23:10:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.863Z"
   },
   {
-    "id": "wtt_weekday_row_156",
+    "id": "wtt_weekday_row_161",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 156,
-    "excelRow": 159,
+    "rowSeq": 161,
+    "excelRow": 164,
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_156_dn",
+      "id": "wtt_weekday_row_161_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:14:00",
         "NGSA": "21:20:00",
@@ -6917,10 +8260,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_156_up",
+      "id": "wtt_weekday_row_161_up",
       "scheduleType": "WEEKDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:20:00",
         "PUTH": "22:30:00",
@@ -6933,21 +8277,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:14:00",
         "BIET": "23:20:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.863Z"
   },
   {
-    "id": "wtt_weekday_row_157",
+    "id": "wtt_weekday_row_162",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 157,
-    "excelRow": 160,
+    "rowSeq": 162,
+    "excelRow": 165,
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_157_dn",
+      "id": "wtt_weekday_row_162_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:24:00",
         "NGSA": "21:30:00",
@@ -6962,10 +8312,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_157_up",
+      "id": "wtt_weekday_row_162_up",
       "scheduleType": "WEEKDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:30:00",
         "PUTH": "22:40:00",
@@ -6978,21 +8329,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:24:00",
         "BIET": "23:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.863Z"
   },
   {
-    "id": "wtt_weekday_row_158",
+    "id": "wtt_weekday_row_163",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 158,
-    "excelRow": 161,
+    "rowSeq": 163,
+    "excelRow": 166,
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_158_dn",
+      "id": "wtt_weekday_row_163_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:34:00",
         "NGSA": "21:40:00",
@@ -7007,10 +8364,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_158_up",
+      "id": "wtt_weekday_row_163_up",
       "scheduleType": "WEEKDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:40:00",
         "PUTH": "22:50:00",
@@ -7023,21 +8381,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:34:00",
         "BIET": "23:40:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.863Z"
   },
   {
-    "id": "wtt_weekday_row_159",
+    "id": "wtt_weekday_row_164",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 159,
-    "excelRow": 162,
+    "rowSeq": 164,
+    "excelRow": 167,
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_159_dn",
+      "id": "wtt_weekday_row_164_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:44:00",
         "NGSA": "21:50:00",
@@ -7052,10 +8416,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_159_up",
+      "id": "wtt_weekday_row_164_up",
       "scheduleType": "WEEKDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:53:00",
         "PUTH": "23:03:00",
@@ -7068,21 +8433,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:47:00",
         "BIET": "23:53:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.863Z"
   },
   {
-    "id": "wtt_weekday_row_160",
+    "id": "wtt_weekday_row_165",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 160,
-    "excelRow": 163,
+    "rowSeq": 165,
+    "excelRow": 168,
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_160_dn",
+      "id": "wtt_weekday_row_165_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:54:00",
         "NGSA": "22:00:00",
@@ -7097,10 +8468,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_160_up",
+      "id": "wtt_weekday_row_165_up",
       "scheduleType": "WEEKDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "23:05:00",
         "PUTH": "23:15:00",
@@ -7113,21 +8485,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "00:00:07",
         "BIET": "00:06:07"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.864Z"
   },
   {
-    "id": "wtt_weekday_row_161",
+    "id": "wtt_weekday_row_166",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 161,
-    "excelRow": 164,
+    "rowSeq": 166,
+    "excelRow": 169,
     "trainId": "213",
     "dnTid": "213",
-    "upTid": "NLC UpPf",
+    "upTid": "213",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATP",
     "downTrip": {
-      "id": "wtt_weekday_row_161_dn",
+      "id": "wtt_weekday_row_166_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "22:04:00",
         "NGSA": "22:11:27",
@@ -7142,12 +8520,13 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_161_up",
+      "id": "wtt_weekday_row_166_up",
       "scheduleType": "WEEKDAY",
-      "trainId": "NLC UpPf",
+      "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATP",
       "stations": {
-        "APTS": "--",
+        "APTS": "NLC UpPF",
         "PUTH": "--",
         "RVR": "--",
         "NLC": "--",
@@ -7158,21 +8537,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.864Z"
   },
   {
-    "id": "wtt_weekday_row_162",
+    "id": "wtt_weekday_row_167",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 162,
-    "excelRow": 165,
+    "rowSeq": 167,
+    "excelRow": 170,
     "trainId": "220",
     "dnTid": "220",
-    "upTid": "PUTH UpPf",
+    "upTid": "220",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATP",
     "downTrip": {
-      "id": "wtt_weekday_row_162_dn",
+      "id": "wtt_weekday_row_167_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "22:19:00",
         "NGSA": "22:26:27",
@@ -7187,12 +8572,13 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_162_up",
+      "id": "wtt_weekday_row_167_up",
       "scheduleType": "WEEKDAY",
-      "trainId": "PUTH UpPf",
+      "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATP",
       "stations": {
-        "APTS": "--",
+        "APTS": "PUTH UpPf",
         "PUTH": "--",
         "RVR": "--",
         "NLC": "--",
@@ -7203,21 +8589,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.864Z"
   },
   {
-    "id": "wtt_weekday_row_163",
+    "id": "wtt_weekday_row_168",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 163,
-    "excelRow": 166,
+    "rowSeq": 168,
+    "excelRow": 171,
     "trainId": "201",
     "dnTid": "201",
-    "upTid": "PUTH DnPf",
+    "upTid": "201",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATP",
     "downTrip": {
-      "id": "wtt_weekday_row_163_dn",
+      "id": "wtt_weekday_row_168_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "22:34:00",
         "NGSA": "22:41:27",
@@ -7232,12 +8624,13 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_163_up",
+      "id": "wtt_weekday_row_168_up",
       "scheduleType": "WEEKDAY",
-      "trainId": "PUTH DnPf",
+      "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATP",
       "stations": {
-        "APTS": "--",
+        "APTS": "PUTH DnPf",
         "PUTH": "--",
         "RVR": "--",
         "NLC": "--",
@@ -7248,21 +8641,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.864Z"
   },
   {
-    "id": "wtt_weekday_row_164",
+    "id": "wtt_weekday_row_169",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 164,
-    "excelRow": 167,
+    "rowSeq": 169,
+    "excelRow": 172,
     "trainId": "212",
     "dnTid": "212",
-    "upTid": "APTS UpPf",
+    "upTid": "212",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATP",
     "downTrip": {
-      "id": "wtt_weekday_row_164_dn",
+      "id": "wtt_weekday_row_169_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "22:49:00",
         "NGSA": "22:56:27",
@@ -7277,12 +8676,13 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_164_up",
+      "id": "wtt_weekday_row_169_up",
       "scheduleType": "WEEKDAY",
-      "trainId": "APTS UpPf",
+      "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATP",
       "stations": {
-        "APTS": "--",
+        "APTS": "APTS UpPf",
         "PUTH": "--",
         "RVR": "--",
         "NLC": "--",
@@ -7293,21 +8693,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.864Z"
   },
   {
-    "id": "wtt_weekday_row_165",
+    "id": "wtt_weekday_row_170",
     "scheduleType": "WEEKDAY",
-    "rowSeq": 165,
-    "excelRow": 168,
+    "rowSeq": 170,
+    "excelRow": 173,
     "trainId": "204",
     "dnTid": "204",
-    "upTid": "APTS DnPf",
+    "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_weekday_row_165_dn",
+      "id": "wtt_weekday_row_170_dn",
       "scheduleType": "WEEKDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "23:00:00",
         "NGSA": "23:06:30",
@@ -7322,12 +8728,13 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_weekday_row_165_up",
+      "id": "wtt_weekday_row_170_up",
       "scheduleType": "WEEKDAY",
-      "trainId": "APTS DnPf",
+      "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
-        "APTS": "--",
+        "APTS": "APTS DNPf",
         "PUTH": "--",
         "RVR": "--",
         "NLC": "--",
@@ -7338,24 +8745,30 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.864Z"
   },
   {
     "id": "wtt_monday_row_1",
     "scheduleType": "MONDAY",
     "rowSeq": 1,
-    "excelRow": 5,
+    "excelRow": 4,
     "trainId": "205",
     "dnTid": "",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "--",
+    "upMode": "ATO",
     "downTrip": null,
     "upTrip": {
       "id": "wtt_monday_row_1_up",
       "scheduleType": "MONDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
-        "APTS": "NGSA UP to BIET UP",
+        "APTS": "--",
         "PUTH": "--",
         "RVR": "--",
         "NLC": "--",
@@ -7366,26 +8779,32 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "04:40:00",
         "BIET": "04:50:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.938Z"
   },
   {
     "id": "wtt_monday_row_2",
     "scheduleType": "MONDAY",
     "rowSeq": 2,
-    "excelRow": 6,
+    "excelRow": 5,
     "trainId": "207",
     "dnTid": "",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "--",
+    "upMode": "ATO",
     "downTrip": null,
     "upTrip": {
       "id": "wtt_monday_row_2_up",
       "scheduleType": "MONDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
-        "APTS": "NLC UP PF",
-        "PUTH": "NLC UP PF",
-        "RVR": "NLC UP PF",
+        "APTS": "--",
+        "PUTH": "--",
+        "RVR": "--",
         "NLC": "04:05:00",
         "KGWA": "04:15:00",
         "RJNR": "--",
@@ -7394,26 +8813,32 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "04:55:00",
         "BIET": "05:02:27"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.938Z"
   },
   {
     "id": "wtt_monday_row_3",
     "scheduleType": "MONDAY",
     "rowSeq": 3,
-    "excelRow": 7,
+    "excelRow": 6,
     "trainId": "208",
     "dnTid": "",
     "upTid": "208",
+    "mode": "ATP",
+    "dnMode": "--",
+    "upMode": "ATP",
     "downTrip": null,
     "upTrip": {
       "id": "wtt_monday_row_3_up",
       "scheduleType": "MONDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATP",
       "stations": {
         "APTS": "--",
         "PUTH": "04:10:00",
-        "RVR": "04:15:00",
+        "RVR": "04:20:00",
         "NLC": "--",
         "KGWA": "04:43:00",
         "RJNR": "--",
@@ -7422,32 +8847,38 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "05:15:00",
         "BIET": "05:22:27"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.938Z"
   },
   {
     "id": "wtt_monday_row_4",
     "scheduleType": "MONDAY",
     "rowSeq": 4,
-    "excelRow": 8,
+    "excelRow": 7,
     "trainId": "209",
-    "dnTid": "",
+    "dnTid": "209",
     "upTid": "209",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATP",
     "downTrip": {
       "id": "wtt_monday_row_4_dn",
       "scheduleType": "MONDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
-        "BIET": "--",
+        "BIET": "ID 203 Pilot till NGSA Dn",
         "NGSA": "--",
-        "PYID": "--",
-        "YPM": "--",
+        "PYID": "Pilot Speed",
+        "YPM": "20 kmph (PTW Section)",
         "RJNR": "--",
         "KGWA": "--",
         "NLC": "--",
         "RVR": "--",
         "PUTH": "--",
-        "APTS": "ATO  FROM PUTH"
+        "APTS": "--"
       }
     },
     "upTrip": {
@@ -7455,34 +8886,59 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATP",
       "stations": {
         "APTS": "04:15:00",
         "PUTH": "04:30:00",
-        "RVR": "04:35:58",
-        "NLC": "04:43:06",
-        "KGWA": "04:48:53",
-        "RJNR": "04:57:21",
-        "YPM": "05:03:01",
-        "PYID": "05:08:12",
-        "NGSA": "05:14:00",
-        "BIET": "05:20:00"
+        "RVR": "04:37:24",
+        "NLC": "04:45:51",
+        "KGWA": "04:53:26",
+        "RJNR": "05:02:46",
+        "YPM": "05:10:00",
+        "PYID": "05:17:00",
+        "NGSA": "05:23:08",
+        "BIET": "05:30:42"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.939Z"
   },
   {
     "id": "wtt_monday_row_5",
     "scheduleType": "MONDAY",
     "rowSeq": 5,
-    "excelRow": 9,
+    "excelRow": 8,
     "trainId": "210",
-    "dnTid": "",
+    "dnTid": "210",
     "upTid": "210",
-    "downTrip": null,
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
+    "downTrip": {
+      "id": "wtt_monday_row_5_dn",
+      "scheduleType": "MONDAY",
+      "trainId": "210",
+      "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
+      "stations": {
+        "BIET": "--",
+        "NGSA": "--",
+        "PYID": "--",
+        "YPM": "30 kmph (Non PTW Section)",
+        "RJNR": "--",
+        "KGWA": "--",
+        "NLC": "--",
+        "RVR": "--",
+        "PUTH": "--",
+        "APTS": "--"
+      }
+    },
     "upTrip": {
       "id": "wtt_monday_row_5_up",
       "scheduleType": "MONDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "04:40:00",
         "PUTH": "04:50:00",
@@ -7495,22 +8951,28 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "05:34:00",
         "BIET": "05:40:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.939Z"
   },
   {
     "id": "wtt_monday_row_6",
     "scheduleType": "MONDAY",
     "rowSeq": 6,
-    "excelRow": 10,
+    "excelRow": 9,
     "trainId": "211",
     "dnTid": "",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "--",
+    "upMode": "ATO",
     "downTrip": null,
     "upTrip": {
       "id": "wtt_monday_row_6_up",
       "scheduleType": "MONDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "05:00:00",
         "PUTH": "05:10:00",
@@ -7523,29 +8985,35 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "05:54:00",
         "BIET": "06:00:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.939Z"
   },
   {
     "id": "wtt_monday_row_7",
     "scheduleType": "MONDAY",
     "rowSeq": 7,
-    "excelRow": 11,
+    "excelRow": 10,
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_7_dn",
       "scheduleType": "MONDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
-        "BIET": "SPGD DN PF",
+        "BIET": "04:10 hrs SPGD Dn Dep with Pilot",
         "NGSA": "--",
         "PYID": "--",
         "YPM": "--",
         "RJNR": "--",
         "KGWA": "04:15:00",
-        "NLC": "--",
+        "NLC": "Pilot & Rev Service",
         "RVR": "--",
         "PUTH": "--",
         "APTS": "04:55:00"
@@ -7556,6 +9024,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "05:15:00",
         "PUTH": "05:25:00",
@@ -7568,22 +9037,28 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "06:09:00",
         "BIET": "06:15:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.939Z"
   },
   {
     "id": "wtt_monday_row_8",
     "scheduleType": "MONDAY",
     "rowSeq": 8,
-    "excelRow": 12,
+    "excelRow": 11,
     "trainId": "206",
     "dnTid": "",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "--",
+    "upMode": "ATO",
     "downTrip": null,
     "upTrip": {
       "id": "wtt_monday_row_8_up",
       "scheduleType": "MONDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "Depot to PYID UP via JLHL DN",
         "PUTH": "--",
@@ -7596,29 +9071,35 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "06:15:48",
         "BIET": "06:21:48"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.939Z"
   },
   {
     "id": "wtt_monday_row_9",
     "scheduleType": "MONDAY",
     "rowSeq": 9,
-    "excelRow": 13,
+    "excelRow": 12,
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_9_dn",
       "scheduleType": "MONDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "--",
         "NGSA": "04:00:00",
-        "PYID": "--",
+        "PYID": "Pilot",
         "YPM": "04:20:00",
-        "RJNR": "--",
+        "RJNR": "Pilot & Rev",
         "KGWA": "04:40:00",
-        "NLC": "--",
+        "NLC": "Pilot & Rev Service 30kmph",
         "RVR": "--",
         "PUTH": "05:05:00",
         "APTS": "05:15:41"
@@ -7629,6 +9110,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "05:30:00",
         "PUTH": "05:40:00",
@@ -7641,21 +9123,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "06:24:00",
         "BIET": "06:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.939Z"
   },
   {
     "id": "wtt_monday_row_10",
     "scheduleType": "MONDAY",
     "rowSeq": 10,
-    "excelRow": 14,
+    "excelRow": 13,
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_10_dn",
       "scheduleType": "MONDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "04:15:00",
         "NGSA": "04:25:00",
@@ -7674,6 +9162,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "05:45:00",
         "PUTH": "05:55:00",
@@ -7686,21 +9175,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "06:39:00",
         "BIET": "06:45:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.939Z"
   },
   {
     "id": "wtt_monday_row_11",
     "scheduleType": "MONDAY",
     "rowSeq": 11,
-    "excelRow": 15,
+    "excelRow": 14,
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_11_dn",
       "scheduleType": "MONDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "04:40:00",
         "NGSA": "04:47:27",
@@ -7719,6 +9214,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "06:00:00",
         "PUTH": "06:10:00",
@@ -7731,21 +9227,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "06:54:00",
         "BIET": "07:00:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.939Z"
   },
   {
     "id": "wtt_monday_row_12",
     "scheduleType": "MONDAY",
     "rowSeq": 12,
-    "excelRow": 16,
+    "excelRow": 15,
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_12_dn",
       "scheduleType": "MONDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "05:00:00",
         "NGSA": "05:06:00",
@@ -7764,6 +9266,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "06:15:00",
         "PUTH": "06:25:00",
@@ -7776,21 +9279,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "07:09:00",
         "BIET": "07:15:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.939Z"
   },
   {
     "id": "wtt_monday_row_13",
     "scheduleType": "MONDAY",
     "rowSeq": 13,
-    "excelRow": 17,
+    "excelRow": 16,
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_13_dn",
       "scheduleType": "MONDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "05:15:00",
         "NGSA": "05:21:00",
@@ -7809,6 +9318,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "06:30:00",
         "PUTH": "06:40:00",
@@ -7821,22 +9331,28 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "07:24:00",
         "BIET": "07:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.939Z"
   },
   {
     "id": "wtt_monday_row_14",
     "scheduleType": "MONDAY",
     "rowSeq": 14,
-    "excelRow": 18,
+    "excelRow": 17,
     "trainId": "221",
     "dnTid": "",
     "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "--",
+    "upMode": "ATO",
     "downTrip": null,
     "upTrip": {
       "id": "wtt_monday_row_14_up",
       "scheduleType": "MONDAY",
       "trainId": "221",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "--",
@@ -7845,25 +9361,31 @@ export const WTT_MASTER_REGISTRY = [
         "KGWA": "--",
         "RJNR": "--",
         "YPM": "--",
-        "PYID": "--",
+        "PYID": "N Pkt Induction, service from NGSA Up",
         "NGSA": "07:30:00",
         "BIET": "07:36:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.939Z"
   },
   {
     "id": "wtt_monday_row_15",
     "scheduleType": "MONDAY",
     "rowSeq": 15,
-    "excelRow": 19,
+    "excelRow": 18,
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_15_dn",
       "scheduleType": "MONDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "05:30:00",
         "NGSA": "05:36:00",
@@ -7882,6 +9404,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "06:45:00",
         "PUTH": "06:55:00",
@@ -7894,21 +9417,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "07:39:00",
         "BIET": "07:45:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.939Z"
   },
   {
     "id": "wtt_monday_row_16",
     "scheduleType": "MONDAY",
     "rowSeq": 16,
-    "excelRow": 20,
+    "excelRow": 19,
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_16_dn",
       "scheduleType": "MONDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "05:45:00",
         "NGSA": "05:51:00",
@@ -7927,6 +9456,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:00:00",
         "PUTH": "07:10:00",
@@ -7939,21 +9469,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "07:54:00",
         "BIET": "08:00:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.939Z"
   },
   {
     "id": "wtt_monday_row_17",
     "scheduleType": "MONDAY",
     "rowSeq": 17,
-    "excelRow": 21,
+    "excelRow": 20,
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_17_dn",
       "scheduleType": "MONDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "06:00:00",
         "NGSA": "06:06:00",
@@ -7972,6 +9508,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:10:00",
         "PUTH": "07:20:00",
@@ -7984,21 +9521,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:04:00",
         "BIET": "08:10:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.939Z"
   },
   {
     "id": "wtt_monday_row_18",
     "scheduleType": "MONDAY",
     "rowSeq": 18,
-    "excelRow": 22,
+    "excelRow": 21,
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_18_dn",
       "scheduleType": "MONDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "06:15:00",
         "NGSA": "06:21:00",
@@ -8017,6 +9560,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:20:00",
         "PUTH": "07:30:00",
@@ -8029,21 +9573,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:14:00",
         "BIET": "08:20:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.939Z"
   },
   {
     "id": "wtt_monday_row_19",
     "scheduleType": "MONDAY",
     "rowSeq": 19,
-    "excelRow": 23,
+    "excelRow": 22,
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_19_dn",
       "scheduleType": "MONDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "06:25:00",
         "NGSA": "06:31:00",
@@ -8062,6 +9612,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:30:00",
         "PUTH": "07:40:00",
@@ -8074,21 +9625,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:24:00",
         "BIET": "08:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.939Z"
   },
   {
     "id": "wtt_monday_row_20",
     "scheduleType": "MONDAY",
     "rowSeq": 20,
-    "excelRow": 24,
+    "excelRow": 23,
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_20_dn",
       "scheduleType": "MONDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -8107,6 +9664,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "07:25:00",
@@ -8119,21 +9677,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:09:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.939Z"
   },
   {
     "id": "wtt_monday_row_21",
     "scheduleType": "MONDAY",
     "rowSeq": 21,
-    "excelRow": 25,
+    "excelRow": 24,
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_21_dn",
       "scheduleType": "MONDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "06:35:00",
         "NGSA": "06:41:00",
@@ -8152,6 +9716,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:40:00",
         "PUTH": "07:50:00",
@@ -8164,21 +9729,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:34:00",
         "BIET": "08:40:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.939Z"
   },
   {
     "id": "wtt_monday_row_22",
     "scheduleType": "MONDAY",
     "rowSeq": 22,
-    "excelRow": 26,
+    "excelRow": 25,
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_22_dn",
       "scheduleType": "MONDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -8197,6 +9768,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "07:35:00",
@@ -8209,21 +9781,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:19:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.940Z"
   },
   {
     "id": "wtt_monday_row_23",
     "scheduleType": "MONDAY",
     "rowSeq": 23,
-    "excelRow": 27,
+    "excelRow": 26,
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_23_dn",
       "scheduleType": "MONDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "06:45:00",
         "NGSA": "06:51:00",
@@ -8242,6 +9820,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:50:00",
         "PUTH": "08:00:00",
@@ -8254,21 +9833,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:44:00",
         "BIET": "08:50:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.940Z"
   },
   {
     "id": "wtt_monday_row_24",
     "scheduleType": "MONDAY",
     "rowSeq": 24,
-    "excelRow": 28,
+    "excelRow": 27,
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_24_dn",
       "scheduleType": "MONDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -8287,6 +9872,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "07:45:00",
@@ -8299,21 +9885,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:29:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.940Z"
   },
   {
     "id": "wtt_monday_row_25",
     "scheduleType": "MONDAY",
     "rowSeq": 25,
-    "excelRow": 29,
+    "excelRow": 28,
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_25_dn",
       "scheduleType": "MONDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "06:55:00",
         "NGSA": "07:01:00",
@@ -8332,6 +9924,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:00:00",
         "PUTH": "08:10:00",
@@ -8344,21 +9937,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:54:00",
         "BIET": "09:00:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.940Z"
   },
   {
     "id": "wtt_monday_row_26",
     "scheduleType": "MONDAY",
     "rowSeq": 26,
-    "excelRow": 30,
+    "excelRow": 29,
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_26_dn",
       "scheduleType": "MONDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -8377,6 +9976,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "07:55:00",
@@ -8389,21 +9989,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:39:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.940Z"
   },
   {
     "id": "wtt_monday_row_27",
     "scheduleType": "MONDAY",
     "rowSeq": 27,
-    "excelRow": 31,
+    "excelRow": 30,
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_27_dn",
       "scheduleType": "MONDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:05:00",
         "NGSA": "07:11:00",
@@ -8422,6 +10028,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:10:00",
         "PUTH": "08:20:00",
@@ -8434,21 +10041,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:04:00",
         "BIET": "09:10:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.940Z"
   },
   {
     "id": "wtt_monday_row_28",
     "scheduleType": "MONDAY",
     "rowSeq": 28,
-    "excelRow": 32,
+    "excelRow": 31,
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_28_dn",
       "scheduleType": "MONDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -8467,6 +10080,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "08:05:00",
@@ -8479,21 +10093,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:49:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.940Z"
   },
   {
     "id": "wtt_monday_row_29",
     "scheduleType": "MONDAY",
     "rowSeq": 29,
-    "excelRow": 33,
+    "excelRow": 32,
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_29_dn",
       "scheduleType": "MONDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:15:00",
         "NGSA": "07:21:00",
@@ -8512,6 +10132,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:20:00",
         "PUTH": "08:30:00",
@@ -8524,21 +10145,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:14:00",
         "BIET": "09:20:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.940Z"
   },
   {
     "id": "wtt_monday_row_30",
     "scheduleType": "MONDAY",
     "rowSeq": 30,
-    "excelRow": 34,
+    "excelRow": 33,
     "trainId": "218",
     "dnTid": "218",
     "upTid": "218",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_30_dn",
       "scheduleType": "MONDAY",
       "trainId": "218",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -8557,6 +10184,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "218",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "08:15:00",
@@ -8569,21 +10197,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:59:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.940Z"
   },
   {
     "id": "wtt_monday_row_31",
     "scheduleType": "MONDAY",
     "rowSeq": 31,
-    "excelRow": 35,
+    "excelRow": 34,
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_31_dn",
       "scheduleType": "MONDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:25:00",
         "NGSA": "07:31:00",
@@ -8602,6 +10236,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:30:00",
         "PUTH": "08:40:00",
@@ -8614,21 +10249,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:24:00",
         "BIET": "09:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.940Z"
   },
   {
     "id": "wtt_monday_row_32",
     "scheduleType": "MONDAY",
     "rowSeq": 32,
-    "excelRow": 36,
+    "excelRow": 35,
     "trainId": "219",
     "dnTid": "219",
     "upTid": "219",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_32_dn",
       "scheduleType": "MONDAY",
       "trainId": "219",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -8647,6 +10288,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "219",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "08:25:00",
@@ -8659,21 +10301,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:09:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.940Z"
   },
   {
     "id": "wtt_monday_row_33",
     "scheduleType": "MONDAY",
     "rowSeq": 33,
-    "excelRow": 37,
+    "excelRow": 36,
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_33_dn",
       "scheduleType": "MONDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:35:00",
         "NGSA": "07:41:00",
@@ -8692,6 +10340,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:40:00",
         "PUTH": "08:50:00",
@@ -8704,21 +10353,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:34:00",
         "BIET": "09:40:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.940Z"
   },
   {
     "id": "wtt_monday_row_34",
     "scheduleType": "MONDAY",
     "rowSeq": 34,
-    "excelRow": 38,
+    "excelRow": 37,
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_34_dn",
       "scheduleType": "MONDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -8737,6 +10392,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "08:35:00",
@@ -8749,21 +10405,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:19:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.940Z"
   },
   {
     "id": "wtt_monday_row_35",
     "scheduleType": "MONDAY",
     "rowSeq": 35,
-    "excelRow": 39,
+    "excelRow": 38,
     "trainId": "221",
     "dnTid": "221",
     "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_35_dn",
       "scheduleType": "MONDAY",
       "trainId": "221",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:45:00",
         "NGSA": "07:51:00",
@@ -8782,6 +10444,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "221",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:50:00",
         "PUTH": "09:00:00",
@@ -8794,21 +10457,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:44:00",
         "BIET": "09:50:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.940Z"
   },
   {
     "id": "wtt_monday_row_36",
     "scheduleType": "MONDAY",
     "rowSeq": 36,
-    "excelRow": 40,
+    "excelRow": 39,
     "trainId": "222",
     "dnTid": "222",
     "upTid": "222",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_36_dn",
       "scheduleType": "MONDAY",
       "trainId": "222",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -8827,6 +10496,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "222",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "08:45:00",
@@ -8839,21 +10509,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:29:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.940Z"
   },
   {
     "id": "wtt_monday_row_37",
     "scheduleType": "MONDAY",
     "rowSeq": 37,
-    "excelRow": 41,
+    "excelRow": 40,
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_37_dn",
       "scheduleType": "MONDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:55:00",
         "NGSA": "08:01:00",
@@ -8872,6 +10548,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:00:00",
         "PUTH": "09:10:00",
@@ -8884,21 +10561,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:54:00",
         "BIET": "10:00:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.941Z"
   },
   {
     "id": "wtt_monday_row_38",
     "scheduleType": "MONDAY",
     "rowSeq": 38,
-    "excelRow": 42,
+    "excelRow": 41,
     "trainId": "223",
     "dnTid": "223",
     "upTid": "223",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_38_dn",
       "scheduleType": "MONDAY",
       "trainId": "223",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -8917,6 +10600,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "223",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "08:55:00",
@@ -8929,21 +10613,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:39:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.941Z"
   },
   {
     "id": "wtt_monday_row_39",
     "scheduleType": "MONDAY",
     "rowSeq": 39,
-    "excelRow": 43,
+    "excelRow": 42,
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_39_dn",
       "scheduleType": "MONDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:05:00",
         "NGSA": "08:11:00",
@@ -8962,6 +10652,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:10:00",
         "PUTH": "09:20:00",
@@ -8974,21 +10665,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:04:00",
         "BIET": "10:10:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.941Z"
   },
   {
     "id": "wtt_monday_row_40",
     "scheduleType": "MONDAY",
     "rowSeq": 40,
-    "excelRow": 44,
+    "excelRow": 43,
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_40_dn",
       "scheduleType": "MONDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "08:16:00",
@@ -9007,6 +10704,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "09:05:00",
@@ -9019,21 +10717,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:49:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.941Z"
   },
   {
     "id": "wtt_monday_row_41",
     "scheduleType": "MONDAY",
     "rowSeq": 41,
-    "excelRow": 45,
+    "excelRow": 44,
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_41_dn",
       "scheduleType": "MONDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:15:00",
         "NGSA": "08:21:00",
@@ -9052,6 +10756,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:20:00",
         "PUTH": "09:30:00",
@@ -9064,21 +10769,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:14:00",
         "BIET": "10:20:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.941Z"
   },
   {
     "id": "wtt_monday_row_42",
     "scheduleType": "MONDAY",
     "rowSeq": 42,
-    "excelRow": 46,
+    "excelRow": 45,
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_42_dn",
       "scheduleType": "MONDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "08:26:00",
@@ -9097,6 +10808,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "09:15:00",
@@ -9109,21 +10821,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:59:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.941Z"
   },
   {
     "id": "wtt_monday_row_43",
     "scheduleType": "MONDAY",
     "rowSeq": 43,
-    "excelRow": 47,
+    "excelRow": 46,
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_43_dn",
       "scheduleType": "MONDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:25:00",
         "NGSA": "08:31:00",
@@ -9142,6 +10860,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:30:00",
         "PUTH": "09:40:00",
@@ -9154,21 +10873,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:24:00",
         "BIET": "10:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.941Z"
   },
   {
     "id": "wtt_monday_row_44",
     "scheduleType": "MONDAY",
     "rowSeq": 44,
-    "excelRow": 48,
+    "excelRow": 47,
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_44_dn",
       "scheduleType": "MONDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "08:36:00",
@@ -9187,6 +10912,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "09:25:00",
@@ -9199,21 +10925,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:09:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.942Z"
   },
   {
     "id": "wtt_monday_row_45",
     "scheduleType": "MONDAY",
     "rowSeq": 45,
-    "excelRow": 49,
+    "excelRow": 48,
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_45_dn",
       "scheduleType": "MONDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:35:00",
         "NGSA": "08:41:00",
@@ -9232,6 +10964,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:40:00",
         "PUTH": "09:50:00",
@@ -9244,21 +10977,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:34:00",
         "BIET": "10:40:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.942Z"
   },
   {
     "id": "wtt_monday_row_46",
     "scheduleType": "MONDAY",
     "rowSeq": 46,
-    "excelRow": 50,
+    "excelRow": 49,
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_46_dn",
       "scheduleType": "MONDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "08:46:00",
@@ -9277,6 +11016,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "09:35:00",
@@ -9289,21 +11029,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:19:00",
         "BIET": "10:25:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.942Z"
   },
   {
     "id": "wtt_monday_row_47",
     "scheduleType": "MONDAY",
     "rowSeq": 47,
-    "excelRow": 51,
+    "excelRow": 50,
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_47_dn",
       "scheduleType": "MONDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:45:00",
         "NGSA": "08:51:00",
@@ -9322,6 +11068,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:50:00",
         "PUTH": "10:00:00",
@@ -9334,21 +11081,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:44:00",
         "BIET": "10:50:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.942Z"
   },
   {
     "id": "wtt_monday_row_48",
     "scheduleType": "MONDAY",
     "rowSeq": 48,
-    "excelRow": 52,
+    "excelRow": 51,
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_48_dn",
       "scheduleType": "MONDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "08:56:00",
@@ -9367,6 +11120,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "09:45:00",
@@ -9379,21 +11133,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.942Z"
   },
   {
     "id": "wtt_monday_row_49",
     "scheduleType": "MONDAY",
     "rowSeq": 49,
-    "excelRow": 53,
+    "excelRow": 52,
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_49_dn",
       "scheduleType": "MONDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:55:00",
         "NGSA": "09:01:00",
@@ -9412,6 +11172,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:00:00",
         "PUTH": "10:10:00",
@@ -9424,21 +11185,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.942Z"
   },
   {
     "id": "wtt_monday_row_50",
     "scheduleType": "MONDAY",
     "rowSeq": 50,
-    "excelRow": 54,
+    "excelRow": 53,
     "trainId": "218",
     "dnTid": "218",
     "upTid": "218",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_50_dn",
       "scheduleType": "MONDAY",
       "trainId": "218",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "09:06:00",
@@ -9457,6 +11224,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "218",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "09:55:00",
@@ -9469,21 +11237,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.942Z"
   },
   {
     "id": "wtt_monday_row_51",
     "scheduleType": "MONDAY",
     "rowSeq": 51,
-    "excelRow": 55,
+    "excelRow": 54,
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_51_dn",
       "scheduleType": "MONDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:05:00",
         "NGSA": "09:11:00",
@@ -9502,6 +11276,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:10:00",
         "PUTH": "10:20:00",
@@ -9514,21 +11289,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:04:00",
         "BIET": "11:10:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.942Z"
   },
   {
     "id": "wtt_monday_row_52",
     "scheduleType": "MONDAY",
     "rowSeq": 52,
-    "excelRow": 56,
+    "excelRow": 55,
     "trainId": "219",
     "dnTid": "219",
     "upTid": "219",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_52_dn",
       "scheduleType": "MONDAY",
       "trainId": "219",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "09:16:00",
@@ -9547,6 +11328,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "219",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "10:05:00",
@@ -9559,21 +11341,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:49:00",
         "BIET": "10:55:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.942Z"
   },
   {
     "id": "wtt_monday_row_53",
     "scheduleType": "MONDAY",
     "rowSeq": 53,
-    "excelRow": 57,
+    "excelRow": 56,
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_53_dn",
       "scheduleType": "MONDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:15:00",
         "NGSA": "09:21:00",
@@ -9592,6 +11380,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:20:00",
         "PUTH": "10:30:00",
@@ -9604,21 +11393,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:14:00",
         "BIET": "11:20:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.942Z"
   },
   {
     "id": "wtt_monday_row_54",
     "scheduleType": "MONDAY",
     "rowSeq": 54,
-    "excelRow": 58,
+    "excelRow": 57,
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_54_dn",
       "scheduleType": "MONDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "09:26:00",
@@ -9637,6 +11432,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "10:15:00",
@@ -9649,21 +11445,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:59:00",
         "BIET": "11:05:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.942Z"
   },
   {
     "id": "wtt_monday_row_55",
     "scheduleType": "MONDAY",
     "rowSeq": 55,
-    "excelRow": 59,
+    "excelRow": 58,
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_55_dn",
       "scheduleType": "MONDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:25:00",
         "NGSA": "09:31:00",
@@ -9682,6 +11484,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:30:00",
         "PUTH": "10:40:00",
@@ -9694,21 +11497,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:24:00",
         "BIET": "11:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.942Z"
   },
   {
     "id": "wtt_monday_row_56",
     "scheduleType": "MONDAY",
     "rowSeq": 56,
-    "excelRow": 60,
+    "excelRow": 59,
     "trainId": "222",
     "dnTid": "222",
     "upTid": "222",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_56_dn",
       "scheduleType": "MONDAY",
       "trainId": "222",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "09:36:00",
@@ -9727,6 +11536,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "222",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "10:25:00",
@@ -9739,21 +11549,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.943Z"
   },
   {
     "id": "wtt_monday_row_57",
     "scheduleType": "MONDAY",
     "rowSeq": 57,
-    "excelRow": 61,
+    "excelRow": 60,
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_57_dn",
       "scheduleType": "MONDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:35:00",
         "NGSA": "09:41:00",
@@ -9772,6 +11588,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:40:00",
         "PUTH": "10:50:00",
@@ -9781,24 +11598,30 @@ export const WTT_MASTER_REGISTRY = [
         "RJNR": "11:17:21",
         "YPM": "11:23:01",
         "PYID": "11:28:12",
-        "NGSA": "--",
+        "NGSA": "11:34:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.943Z"
   },
   {
     "id": "wtt_monday_row_58",
     "scheduleType": "MONDAY",
     "rowSeq": 58,
-    "excelRow": 62,
+    "excelRow": 61,
     "trainId": "223",
     "dnTid": "223",
     "upTid": "223",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_58_dn",
       "scheduleType": "MONDAY",
       "trainId": "223",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "09:46:00",
@@ -9817,6 +11640,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "223",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "10:35:00",
@@ -9829,21 +11653,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.943Z"
   },
   {
     "id": "wtt_monday_row_59",
     "scheduleType": "MONDAY",
     "rowSeq": 59,
-    "excelRow": 63,
+    "excelRow": 62,
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_59_dn",
       "scheduleType": "MONDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:45:00",
         "NGSA": "09:51:00",
@@ -9862,6 +11692,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:50:00",
         "PUTH": "11:01:00",
@@ -9874,21 +11705,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:47:00",
         "BIET": "11:53:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.943Z"
   },
   {
     "id": "wtt_monday_row_60",
     "scheduleType": "MONDAY",
     "rowSeq": 60,
-    "excelRow": 64,
+    "excelRow": 63,
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_60_dn",
       "scheduleType": "MONDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "09:56:00",
@@ -9907,6 +11744,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "10:45:00",
@@ -9919,21 +11757,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:29:00",
         "BIET": "11:35:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.943Z"
   },
   {
     "id": "wtt_monday_row_61",
     "scheduleType": "MONDAY",
     "rowSeq": 61,
-    "excelRow": 65,
+    "excelRow": 64,
     "trainId": "221",
     "dnTid": "221",
     "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_61_dn",
       "scheduleType": "MONDAY",
       "trainId": "221",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:55:00",
         "NGSA": "10:01:00",
@@ -9952,6 +11796,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "221",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:00:00",
         "PUTH": "11:10:00",
@@ -9964,21 +11809,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:54:00",
         "BIET": "12:00:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.943Z"
   },
   {
     "id": "wtt_monday_row_62",
     "scheduleType": "MONDAY",
     "rowSeq": 62,
-    "excelRow": 66,
+    "excelRow": 65,
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_62_dn",
       "scheduleType": "MONDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "10:06:00",
@@ -9997,6 +11848,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "10:56:00",
@@ -10009,21 +11861,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:40:00",
         "BIET": "11:46:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.943Z"
   },
   {
     "id": "wtt_monday_row_63",
     "scheduleType": "MONDAY",
     "rowSeq": 63,
-    "excelRow": 67,
+    "excelRow": 66,
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_63_dn",
       "scheduleType": "MONDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:05:00",
         "NGSA": "10:11:00",
@@ -10042,6 +11900,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:10:00",
         "PUTH": "11:20:00",
@@ -10054,21 +11913,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:04:00",
         "BIET": "12:10:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.943Z"
   },
   {
     "id": "wtt_monday_row_64",
     "scheduleType": "MONDAY",
     "rowSeq": 64,
-    "excelRow": 68,
+    "excelRow": 67,
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_64_dn",
       "scheduleType": "MONDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "10:16:00",
@@ -10087,6 +11952,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:16:00",
         "PUTH": "11:26:00",
@@ -10099,21 +11965,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:10:00",
         "BIET": "12:16:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.944Z"
   },
   {
     "id": "wtt_monday_row_65",
     "scheduleType": "MONDAY",
     "rowSeq": 65,
-    "excelRow": 69,
+    "excelRow": 68,
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_65_dn",
       "scheduleType": "MONDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:15:00",
         "NGSA": "10:22:00",
@@ -10132,6 +12004,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:24:00",
         "PUTH": "11:34:00",
@@ -10144,21 +12017,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:18:00",
         "BIET": "12:24:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.944Z"
   },
   {
     "id": "wtt_monday_row_66",
     "scheduleType": "MONDAY",
     "rowSeq": 66,
-    "excelRow": 70,
+    "excelRow": 69,
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_66_dn",
       "scheduleType": "MONDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:25:00",
         "NGSA": "10:31:00",
@@ -10177,6 +12056,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:30:00",
         "PUTH": "11:40:00",
@@ -10189,21 +12069,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:24:00",
         "BIET": "12:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.944Z"
   },
   {
     "id": "wtt_monday_row_67",
     "scheduleType": "MONDAY",
     "rowSeq": 67,
-    "excelRow": 71,
+    "excelRow": 70,
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_67_dn",
       "scheduleType": "MONDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:32:00",
         "NGSA": "10:38:00",
@@ -10222,6 +12108,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:37:00",
         "PUTH": "11:47:00",
@@ -10234,21 +12121,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:31:00",
         "BIET": "12:37:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.944Z"
   },
   {
     "id": "wtt_monday_row_68",
     "scheduleType": "MONDAY",
     "rowSeq": 68,
-    "excelRow": 72,
+    "excelRow": 71,
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_68_dn",
       "scheduleType": "MONDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:39:00",
         "NGSA": "10:45:00",
@@ -10267,6 +12160,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:45:00",
         "PUTH": "11:55:00",
@@ -10279,21 +12173,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:39:00",
         "BIET": "12:45:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.944Z"
   },
   {
     "id": "wtt_monday_row_69",
     "scheduleType": "MONDAY",
     "rowSeq": 69,
-    "excelRow": 73,
+    "excelRow": 72,
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_69_dn",
       "scheduleType": "MONDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:47:00",
         "NGSA": "10:53:00",
@@ -10312,6 +12212,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:53:00",
         "PUTH": "12:03:00",
@@ -10324,21 +12225,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:47:00",
         "BIET": "12:53:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.944Z"
   },
   {
     "id": "wtt_monday_row_70",
     "scheduleType": "MONDAY",
     "rowSeq": 70,
-    "excelRow": 74,
+    "excelRow": 73,
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_70_dn",
       "scheduleType": "MONDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:55:00",
         "NGSA": "11:01:00",
@@ -10357,6 +12264,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:01:00",
         "PUTH": "12:11:00",
@@ -10369,21 +12277,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:55:00",
         "BIET": "13:01:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.945Z"
   },
   {
     "id": "wtt_monday_row_71",
     "scheduleType": "MONDAY",
     "rowSeq": 71,
-    "excelRow": 75,
+    "excelRow": 74,
     "trainId": "219",
     "dnTid": "219",
     "upTid": "219",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_71_dn",
       "scheduleType": "MONDAY",
       "trainId": "219",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:03:00",
         "NGSA": "11:09:00",
@@ -10402,6 +12316,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "219",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:09:00",
         "PUTH": "12:19:00",
@@ -10414,21 +12329,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:03:00",
         "BIET": "13:09:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.945Z"
   },
   {
     "id": "wtt_monday_row_72",
     "scheduleType": "MONDAY",
     "rowSeq": 72,
-    "excelRow": 76,
+    "excelRow": 75,
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_72_dn",
       "scheduleType": "MONDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:11:00",
         "NGSA": "11:17:00",
@@ -10447,6 +12368,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:17:00",
         "PUTH": "12:27:00",
@@ -10459,21 +12381,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:11:00",
         "BIET": "13:17:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.945Z"
   },
   {
     "id": "wtt_monday_row_73",
     "scheduleType": "MONDAY",
     "rowSeq": 73,
-    "excelRow": 77,
+    "excelRow": 76,
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_73_dn",
       "scheduleType": "MONDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:19:00",
         "NGSA": "11:25:00",
@@ -10492,6 +12420,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:25:00",
         "PUTH": "12:35:00",
@@ -10504,21 +12433,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:19:00",
         "BIET": "13:25:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.945Z"
   },
   {
     "id": "wtt_monday_row_74",
     "scheduleType": "MONDAY",
     "rowSeq": 74,
-    "excelRow": 78,
+    "excelRow": 77,
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_74_dn",
       "scheduleType": "MONDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:27:00",
         "NGSA": "11:33:00",
@@ -10537,6 +12472,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:33:00",
         "PUTH": "12:43:00",
@@ -10549,21 +12485,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:27:00",
         "BIET": "13:33:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.945Z"
   },
   {
     "id": "wtt_monday_row_75",
     "scheduleType": "MONDAY",
     "rowSeq": 75,
-    "excelRow": 79,
+    "excelRow": 78,
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_75_dn",
       "scheduleType": "MONDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:35:00",
         "NGSA": "11:41:00",
@@ -10582,6 +12524,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:41:00",
         "PUTH": "12:51:00",
@@ -10594,21 +12537,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:35:00",
         "BIET": "13:41:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.945Z"
   },
   {
     "id": "wtt_monday_row_76",
     "scheduleType": "MONDAY",
     "rowSeq": 76,
-    "excelRow": 80,
+    "excelRow": 79,
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_76_dn",
       "scheduleType": "MONDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:43:00",
         "NGSA": "11:49:00",
@@ -10627,6 +12576,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:49:00",
         "PUTH": "12:59:00",
@@ -10639,21 +12589,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:43:00",
         "BIET": "13:49:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.945Z"
   },
   {
     "id": "wtt_monday_row_77",
     "scheduleType": "MONDAY",
     "rowSeq": 77,
-    "excelRow": 81,
+    "excelRow": 80,
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_77_dn",
       "scheduleType": "MONDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:51:00",
         "NGSA": "11:57:00",
@@ -10672,6 +12628,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:57:00",
         "PUTH": "13:07:00",
@@ -10684,21 +12641,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:51:00",
         "BIET": "13:57:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.945Z"
   },
   {
     "id": "wtt_monday_row_78",
     "scheduleType": "MONDAY",
     "rowSeq": 78,
-    "excelRow": 82,
+    "excelRow": 81,
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_78_dn",
       "scheduleType": "MONDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:59:00",
         "NGSA": "12:05:00",
@@ -10717,6 +12680,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:05:00",
         "PUTH": "13:15:00",
@@ -10729,21 +12693,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:59:00",
         "BIET": "14:05:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.945Z"
   },
   {
     "id": "wtt_monday_row_79",
     "scheduleType": "MONDAY",
     "rowSeq": 79,
-    "excelRow": 83,
+    "excelRow": 82,
     "trainId": "221",
     "dnTid": "221",
     "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_79_dn",
       "scheduleType": "MONDAY",
       "trainId": "221",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:07:00",
         "NGSA": "12:13:00",
@@ -10762,6 +12732,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "221",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:13:00",
         "PUTH": "13:23:00",
@@ -10774,21 +12745,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:07:00",
         "BIET": "14:13:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.945Z"
   },
   {
     "id": "wtt_monday_row_80",
     "scheduleType": "MONDAY",
     "rowSeq": 80,
-    "excelRow": 84,
+    "excelRow": 83,
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_80_dn",
       "scheduleType": "MONDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:15:00",
         "NGSA": "12:21:00",
@@ -10807,6 +12784,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:21:00",
         "PUTH": "13:31:00",
@@ -10819,21 +12797,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:15:00",
         "BIET": "14:21:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.945Z"
   },
   {
     "id": "wtt_monday_row_81",
     "scheduleType": "MONDAY",
     "rowSeq": 81,
-    "excelRow": 85,
+    "excelRow": 84,
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_81_dn",
       "scheduleType": "MONDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:23:00",
         "NGSA": "12:29:00",
@@ -10852,6 +12836,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:29:00",
         "PUTH": "13:39:00",
@@ -10864,21 +12849,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:23:00",
         "BIET": "14:29:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.945Z"
   },
   {
     "id": "wtt_monday_row_82",
     "scheduleType": "MONDAY",
     "rowSeq": 82,
-    "excelRow": 86,
+    "excelRow": 85,
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_82_dn",
       "scheduleType": "MONDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:31:00",
         "NGSA": "12:37:00",
@@ -10897,6 +12888,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:37:00",
         "PUTH": "13:47:00",
@@ -10909,21 +12901,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:31:00",
         "BIET": "14:37:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.945Z"
   },
   {
     "id": "wtt_monday_row_83",
     "scheduleType": "MONDAY",
     "rowSeq": 83,
-    "excelRow": 87,
+    "excelRow": 86,
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_83_dn",
       "scheduleType": "MONDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:39:00",
         "NGSA": "12:45:00",
@@ -10942,6 +12940,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:45:00",
         "PUTH": "13:55:00",
@@ -10954,21 +12953,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:39:00",
         "BIET": "14:45:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.945Z"
   },
   {
     "id": "wtt_monday_row_84",
     "scheduleType": "MONDAY",
     "rowSeq": 84,
-    "excelRow": 88,
+    "excelRow": 87,
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_84_dn",
       "scheduleType": "MONDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:47:00",
         "NGSA": "12:53:00",
@@ -10987,6 +12992,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:53:00",
         "PUTH": "14:03:00",
@@ -10999,21 +13005,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:47:00",
         "BIET": "14:53:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.946Z"
   },
   {
     "id": "wtt_monday_row_85",
     "scheduleType": "MONDAY",
     "rowSeq": 85,
-    "excelRow": 89,
+    "excelRow": 88,
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_85_dn",
       "scheduleType": "MONDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:55:00",
         "NGSA": "13:01:00",
@@ -11032,6 +13044,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:01:00",
         "PUTH": "14:11:00",
@@ -11044,21 +13057,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:55:00",
         "BIET": "15:01:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.946Z"
   },
   {
     "id": "wtt_monday_row_86",
     "scheduleType": "MONDAY",
     "rowSeq": 86,
-    "excelRow": 90,
+    "excelRow": 89,
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_86_dn",
       "scheduleType": "MONDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:03:00",
         "NGSA": "13:09:00",
@@ -11077,6 +13096,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:09:00",
         "PUTH": "14:19:00",
@@ -11089,21 +13109,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:03:00",
         "BIET": "15:09:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.946Z"
   },
   {
     "id": "wtt_monday_row_87",
     "scheduleType": "MONDAY",
     "rowSeq": 87,
-    "excelRow": 91,
+    "excelRow": 90,
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_87_dn",
       "scheduleType": "MONDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:11:00",
         "NGSA": "13:17:00",
@@ -11122,6 +13148,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:17:00",
         "PUTH": "14:27:00",
@@ -11134,21 +13161,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:11:00",
         "BIET": "15:17:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.946Z"
   },
   {
     "id": "wtt_monday_row_88",
     "scheduleType": "MONDAY",
     "rowSeq": 88,
-    "excelRow": 92,
+    "excelRow": 91,
     "trainId": "219",
     "dnTid": "219",
     "upTid": "219",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_88_dn",
       "scheduleType": "MONDAY",
       "trainId": "219",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:19:00",
         "NGSA": "13:25:00",
@@ -11167,6 +13200,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "219",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:25:00",
         "PUTH": "14:35:00",
@@ -11179,21 +13213,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:19:00",
         "BIET": "15:25:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.946Z"
   },
   {
     "id": "wtt_monday_row_89",
     "scheduleType": "MONDAY",
     "rowSeq": 89,
-    "excelRow": 93,
+    "excelRow": 92,
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_89_dn",
       "scheduleType": "MONDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:27:00",
         "NGSA": "13:33:00",
@@ -11212,6 +13252,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:33:00",
         "PUTH": "14:43:00",
@@ -11224,21 +13265,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:27:00",
         "BIET": "15:33:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.946Z"
   },
   {
     "id": "wtt_monday_row_90",
     "scheduleType": "MONDAY",
     "rowSeq": 90,
-    "excelRow": 94,
+    "excelRow": 93,
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_90_dn",
       "scheduleType": "MONDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:35:00",
         "NGSA": "13:41:00",
@@ -11257,6 +13304,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:41:00",
         "PUTH": "14:51:00",
@@ -11269,21 +13317,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:35:00",
         "BIET": "15:41:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.946Z"
   },
   {
     "id": "wtt_monday_row_91",
     "scheduleType": "MONDAY",
     "rowSeq": 91,
-    "excelRow": 95,
+    "excelRow": 94,
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_91_dn",
       "scheduleType": "MONDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:43:00",
         "NGSA": "13:49:00",
@@ -11302,6 +13356,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:49:00",
         "PUTH": "14:59:00",
@@ -11314,21 +13369,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:43:00",
         "BIET": "15:49:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.946Z"
   },
   {
     "id": "wtt_monday_row_92",
     "scheduleType": "MONDAY",
     "rowSeq": 92,
-    "excelRow": 96,
+    "excelRow": 95,
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_92_dn",
       "scheduleType": "MONDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:51:00",
         "NGSA": "13:57:00",
@@ -11347,6 +13408,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:57:00",
         "PUTH": "15:07:00",
@@ -11359,21 +13421,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:51:00",
         "BIET": "15:57:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.946Z"
   },
   {
     "id": "wtt_monday_row_93",
     "scheduleType": "MONDAY",
     "rowSeq": 93,
-    "excelRow": 97,
+    "excelRow": 96,
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_93_dn",
       "scheduleType": "MONDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:59:00",
         "NGSA": "14:05:00",
@@ -11392,6 +13460,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:05:00",
         "PUTH": "15:15:00",
@@ -11404,21 +13473,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:59:00",
         "BIET": "16:05:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.946Z"
   },
   {
     "id": "wtt_monday_row_94",
     "scheduleType": "MONDAY",
     "rowSeq": 94,
-    "excelRow": 98,
+    "excelRow": 97,
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_94_dn",
       "scheduleType": "MONDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:07:00",
         "NGSA": "14:13:00",
@@ -11437,6 +13512,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:13:00",
         "PUTH": "15:23:00",
@@ -11449,21 +13525,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:07:00",
         "BIET": "16:13:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.946Z"
   },
   {
     "id": "wtt_monday_row_95",
     "scheduleType": "MONDAY",
     "rowSeq": 95,
-    "excelRow": 99,
+    "excelRow": 98,
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_95_dn",
       "scheduleType": "MONDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:15:00",
         "NGSA": "14:21:00",
@@ -11482,6 +13564,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:20:00",
         "PUTH": "15:30:00",
@@ -11494,21 +13577,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:14:00",
         "BIET": "16:20:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.946Z"
   },
   {
     "id": "wtt_monday_row_96",
     "scheduleType": "MONDAY",
     "rowSeq": 96,
-    "excelRow": 100,
+    "excelRow": 99,
     "trainId": "221",
     "dnTid": "221",
     "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_96_dn",
       "scheduleType": "MONDAY",
       "trainId": "221",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:23:00",
         "NGSA": "14:29:00",
@@ -11527,6 +13616,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "221",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:29:00",
         "PUTH": "15:39:00",
@@ -11539,21 +13629,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:23:00",
         "BIET": "16:29:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.946Z"
   },
   {
     "id": "wtt_monday_row_97",
     "scheduleType": "MONDAY",
     "rowSeq": 97,
-    "excelRow": 101,
+    "excelRow": 100,
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_97_dn",
       "scheduleType": "MONDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:31:00",
         "NGSA": "14:37:00",
@@ -11572,6 +13668,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:37:00",
         "PUTH": "15:47:00",
@@ -11584,21 +13681,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:31:00",
         "BIET": "16:37:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.946Z"
   },
   {
     "id": "wtt_monday_row_98",
     "scheduleType": "MONDAY",
     "rowSeq": 98,
-    "excelRow": 102,
+    "excelRow": 101,
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_98_dn",
       "scheduleType": "MONDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:39:00",
         "NGSA": "14:45:00",
@@ -11617,6 +13720,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:45:00",
         "PUTH": "15:55:00",
@@ -11629,21 +13733,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:39:00",
         "BIET": "16:45:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.946Z"
   },
   {
     "id": "wtt_monday_row_99",
     "scheduleType": "MONDAY",
     "rowSeq": 99,
-    "excelRow": 103,
+    "excelRow": 102,
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_99_dn",
       "scheduleType": "MONDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:47:00",
         "NGSA": "14:53:00",
@@ -11662,6 +13772,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:53:00",
         "PUTH": "16:03:00",
@@ -11674,21 +13785,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:47:00",
         "BIET": "16:53:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.947Z"
   },
   {
     "id": "wtt_monday_row_100",
     "scheduleType": "MONDAY",
     "rowSeq": 100,
-    "excelRow": 104,
+    "excelRow": 103,
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_100_dn",
       "scheduleType": "MONDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:55:00",
         "NGSA": "15:01:00",
@@ -11707,6 +13824,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:00:00",
         "PUTH": "16:10:00",
@@ -11719,21 +13837,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:54:00",
         "BIET": "17:00:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.947Z"
   },
   {
     "id": "wtt_monday_row_101",
     "scheduleType": "MONDAY",
     "rowSeq": 101,
-    "excelRow": 105,
+    "excelRow": 104,
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_101_dn",
       "scheduleType": "MONDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:03:00",
         "NGSA": "15:09:00",
@@ -11752,6 +13876,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:09:00",
         "PUTH": "16:19:00",
@@ -11764,21 +13889,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:03:00",
         "BIET": "17:09:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.947Z"
   },
   {
     "id": "wtt_monday_row_102",
     "scheduleType": "MONDAY",
     "rowSeq": 102,
-    "excelRow": 106,
+    "excelRow": 105,
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_102_dn",
       "scheduleType": "MONDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:11:00",
         "NGSA": "15:17:00",
@@ -11797,6 +13928,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:16:00",
         "PUTH": "16:26:00",
@@ -11809,21 +13941,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:10:00",
         "BIET": "17:16:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.947Z"
   },
   {
     "id": "wtt_monday_row_103",
     "scheduleType": "MONDAY",
     "rowSeq": 103,
-    "excelRow": 107,
+    "excelRow": 106,
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_103_dn",
       "scheduleType": "MONDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:19:00",
         "NGSA": "15:25:00",
@@ -11842,6 +13980,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:25:00",
         "PUTH": "16:35:00",
@@ -11854,21 +13993,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:19:00",
         "BIET": "17:25:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.947Z"
   },
   {
     "id": "wtt_monday_row_104",
     "scheduleType": "MONDAY",
     "rowSeq": 104,
-    "excelRow": 108,
+    "excelRow": 107,
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_104_dn",
       "scheduleType": "MONDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:27:00",
         "NGSA": "15:33:00",
@@ -11887,6 +14032,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:32:00",
         "PUTH": "16:42:00",
@@ -11899,21 +14045,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:26:00",
         "BIET": "17:32:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.947Z"
   },
   {
     "id": "wtt_monday_row_105",
     "scheduleType": "MONDAY",
     "rowSeq": 105,
-    "excelRow": 109,
+    "excelRow": 108,
     "trainId": "219",
     "dnTid": "219",
     "upTid": "219",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_monday_row_105_dn",
       "scheduleType": "MONDAY",
       "trainId": "219",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:35:00",
         "NGSA": "15:41:00",
@@ -11932,6 +14084,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "MONDAY",
       "trainId": "219",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:40:00",
         "PUTH": "16:50:00",
@@ -11944,21 +14097,79 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:34:00",
         "BIET": "17:40:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.947Z"
   },
   {
     "id": "wtt_monday_row_106",
     "scheduleType": "MONDAY",
     "rowSeq": 106,
+    "excelRow": 109,
+    "trainId": "205",
+    "dnTid": "205",
+    "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
+    "downTrip": {
+      "id": "wtt_monday_row_106_dn",
+      "scheduleType": "MONDAY",
+      "trainId": "205",
+      "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
+      "stations": {
+        "BIET": "--",
+        "NGSA": "15:45:00",
+        "PYID": "15:51:00",
+        "YPM": "15:56:10",
+        "RJNR": "16:01:26",
+        "KGWA": "16:09:56",
+        "NLC": "16:15:08",
+        "RVR": "16:22:31",
+        "PUTH": "RVR Turn Back",
+        "APTS": "--"
+      }
+    },
+    "upTrip": {
+      "id": "wtt_monday_row_106_up",
+      "scheduleType": "MONDAY",
+      "trainId": "205",
+      "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
+      "stations": {
+        "APTS": "--",
+        "PUTH": "RVR Turn Back",
+        "RVR": "16:28:00",
+        "NLC": "16:35:08",
+        "KGWA": "16:40:55",
+        "RJNR": "16:49:23",
+        "YPM": "16:55:03",
+        "PYID": "17:00:14",
+        "NGSA": "PYID Turn Back",
+        "BIET": "--"
+      }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.947Z"
+  },
+  {
+    "id": "wtt_monday_row_107",
+    "scheduleType": "MONDAY",
+    "rowSeq": 107,
     "excelRow": 110,
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_106_dn",
+      "id": "wtt_monday_row_107_dn",
       "scheduleType": "MONDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:43:00",
         "NGSA": "15:49:00",
@@ -11973,10 +14184,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_106_up",
+      "id": "wtt_monday_row_107_up",
       "scheduleType": "MONDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:48:00",
         "PUTH": "16:58:00",
@@ -11989,21 +14201,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:42:00",
         "BIET": "17:48:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.947Z"
   },
   {
-    "id": "wtt_monday_row_107",
+    "id": "wtt_monday_row_108",
     "scheduleType": "MONDAY",
-    "rowSeq": 107,
+    "rowSeq": 108,
     "excelRow": 111,
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_107_dn",
+      "id": "wtt_monday_row_108_dn",
       "scheduleType": "MONDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:51:00",
         "NGSA": "15:57:00",
@@ -12018,10 +14236,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_107_up",
+      "id": "wtt_monday_row_108_up",
       "scheduleType": "MONDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:58:00",
         "PUTH": "17:08:00",
@@ -12034,21 +14253,79 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:52:00",
         "BIET": "17:58:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.947Z"
   },
   {
-    "id": "wtt_monday_row_108",
+    "id": "wtt_monday_row_109",
     "scheduleType": "MONDAY",
-    "rowSeq": 108,
+    "rowSeq": 109,
     "excelRow": 112,
+    "trainId": "202",
+    "dnTid": "202",
+    "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
+    "downTrip": {
+      "id": "wtt_monday_row_109_dn",
+      "scheduleType": "MONDAY",
+      "trainId": "202",
+      "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
+      "stations": {
+        "BIET": "--",
+        "NGSA": "--",
+        "PYID": "16:07:00",
+        "YPM": "16:12:10",
+        "RJNR": "16:17:26",
+        "KGWA": "16:25:56",
+        "NLC": "16:31:08",
+        "RVR": "16:38:31",
+        "PUTH": "RVR Turn Back",
+        "APTS": "--"
+      }
+    },
+    "upTrip": {
+      "id": "wtt_monday_row_109_up",
+      "scheduleType": "MONDAY",
+      "trainId": "202",
+      "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
+      "stations": {
+        "APTS": "--",
+        "PUTH": "RVR Turn Back",
+        "RVR": "16:45:00",
+        "NLC": "16:52:08",
+        "KGWA": "16:57:55",
+        "RJNR": "17:06:23",
+        "YPM": "17:12:03",
+        "PYID": "17:17:14",
+        "NGSA": "17:23:02",
+        "BIET": "17:29:02"
+      }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.947Z"
+  },
+  {
+    "id": "wtt_monday_row_110",
+    "scheduleType": "MONDAY",
+    "rowSeq": 110,
+    "excelRow": 113,
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_108_dn",
+      "id": "wtt_monday_row_110_dn",
       "scheduleType": "MONDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:00:00",
         "NGSA": "16:06:00",
@@ -12063,10 +14340,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_108_up",
+      "id": "wtt_monday_row_110_up",
       "scheduleType": "MONDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:09:00",
         "PUTH": "17:19:00",
@@ -12079,21 +14357,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:03:00",
         "BIET": "18:09:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.948Z"
   },
   {
-    "id": "wtt_monday_row_109",
+    "id": "wtt_monday_row_111",
     "scheduleType": "MONDAY",
-    "rowSeq": 109,
-    "excelRow": 113,
+    "rowSeq": 111,
+    "excelRow": 114,
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_109_dn",
+      "id": "wtt_monday_row_111_dn",
       "scheduleType": "MONDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:07:00",
         "NGSA": "16:13:00",
@@ -12108,10 +14392,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_109_up",
+      "id": "wtt_monday_row_111_up",
       "scheduleType": "MONDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "17:03:00",
@@ -12124,21 +14409,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:47:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.948Z"
   },
   {
-    "id": "wtt_monday_row_110",
+    "id": "wtt_monday_row_112",
     "scheduleType": "MONDAY",
-    "rowSeq": 110,
-    "excelRow": 114,
+    "rowSeq": 112,
+    "excelRow": 115,
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_110_dn",
+      "id": "wtt_monday_row_112_dn",
       "scheduleType": "MONDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:13:00",
         "NGSA": "16:19:00",
@@ -12153,10 +14444,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_110_up",
+      "id": "wtt_monday_row_112_up",
       "scheduleType": "MONDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:19:00",
         "PUTH": "17:29:00",
@@ -12169,21 +14461,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:13:00",
         "BIET": "18:19:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.948Z"
   },
   {
-    "id": "wtt_monday_row_111",
+    "id": "wtt_monday_row_113",
     "scheduleType": "MONDAY",
-    "rowSeq": 111,
-    "excelRow": 115,
+    "rowSeq": 113,
+    "excelRow": 116,
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_111_dn",
+      "id": "wtt_monday_row_113_dn",
       "scheduleType": "MONDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:18:00",
         "NGSA": "16:24:00",
@@ -12198,10 +14496,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_111_up",
+      "id": "wtt_monday_row_113_up",
       "scheduleType": "MONDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "17:14:00",
@@ -12214,21 +14513,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:58:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.948Z"
   },
   {
-    "id": "wtt_monday_row_112",
+    "id": "wtt_monday_row_114",
     "scheduleType": "MONDAY",
-    "rowSeq": 112,
-    "excelRow": 116,
+    "rowSeq": 114,
+    "excelRow": 117,
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_112_dn",
+      "id": "wtt_monday_row_114_dn",
       "scheduleType": "MONDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:24:00",
         "NGSA": "16:30:00",
@@ -12243,10 +14548,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_112_up",
+      "id": "wtt_monday_row_114_up",
       "scheduleType": "MONDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:29:00",
         "PUTH": "17:39:00",
@@ -12259,21 +14565,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:23:00",
         "BIET": "18:29:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.948Z"
   },
   {
-    "id": "wtt_monday_row_113",
+    "id": "wtt_monday_row_115",
     "scheduleType": "MONDAY",
-    "rowSeq": 113,
-    "excelRow": 117,
+    "rowSeq": 115,
+    "excelRow": 118,
     "trainId": "223",
     "dnTid": "223",
     "upTid": "223",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_113_dn",
+      "id": "wtt_monday_row_115_dn",
       "scheduleType": "MONDAY",
       "trainId": "223",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -12288,10 +14600,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_113_up",
+      "id": "wtt_monday_row_115_up",
       "scheduleType": "MONDAY",
       "trainId": "223",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "17:24:00",
@@ -12304,21 +14617,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:08:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.948Z"
   },
   {
-    "id": "wtt_monday_row_114",
+    "id": "wtt_monday_row_116",
     "scheduleType": "MONDAY",
-    "rowSeq": 114,
-    "excelRow": 118,
+    "rowSeq": 116,
+    "excelRow": 119,
     "trainId": "221",
     "dnTid": "221",
     "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_114_dn",
+      "id": "wtt_monday_row_116_dn",
       "scheduleType": "MONDAY",
       "trainId": "221",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:34:00",
         "NGSA": "16:40:00",
@@ -12333,10 +14652,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_114_up",
+      "id": "wtt_monday_row_116_up",
       "scheduleType": "MONDAY",
       "trainId": "221",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:39:00",
         "PUTH": "17:49:00",
@@ -12349,21 +14669,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:33:00",
         "BIET": "18:39:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.948Z"
   },
   {
-    "id": "wtt_monday_row_115",
+    "id": "wtt_monday_row_117",
     "scheduleType": "MONDAY",
-    "rowSeq": 115,
-    "excelRow": 119,
+    "rowSeq": 117,
+    "excelRow": 120,
     "trainId": "222",
     "dnTid": "222",
     "upTid": "222",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_115_dn",
+      "id": "wtt_monday_row_117_dn",
       "scheduleType": "MONDAY",
       "trainId": "222",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -12378,10 +14704,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_115_up",
+      "id": "wtt_monday_row_117_up",
       "scheduleType": "MONDAY",
       "trainId": "222",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "17:34:00",
@@ -12394,21 +14721,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:18:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.948Z"
   },
   {
-    "id": "wtt_monday_row_116",
+    "id": "wtt_monday_row_118",
     "scheduleType": "MONDAY",
-    "rowSeq": 116,
-    "excelRow": 120,
+    "rowSeq": 118,
+    "excelRow": 121,
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_116_dn",
+      "id": "wtt_monday_row_118_dn",
       "scheduleType": "MONDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:44:00",
         "NGSA": "16:50:00",
@@ -12423,10 +14756,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_116_up",
+      "id": "wtt_monday_row_118_up",
       "scheduleType": "MONDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:49:00",
         "PUTH": "17:59:00",
@@ -12439,21 +14773,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:43:00",
         "BIET": "18:49:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.948Z"
   },
   {
-    "id": "wtt_monday_row_117",
+    "id": "wtt_monday_row_119",
     "scheduleType": "MONDAY",
-    "rowSeq": 117,
-    "excelRow": 121,
+    "rowSeq": 119,
+    "excelRow": 122,
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_117_dn",
+      "id": "wtt_monday_row_119_dn",
       "scheduleType": "MONDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:49:00",
         "NGSA": "16:55:00",
@@ -12468,10 +14808,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_117_up",
+      "id": "wtt_monday_row_119_up",
       "scheduleType": "MONDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "17:44:00",
@@ -12484,23 +14825,29 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:28:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.948Z"
   },
   {
-    "id": "wtt_monday_row_118",
+    "id": "wtt_monday_row_120",
     "scheduleType": "MONDAY",
-    "rowSeq": 118,
-    "excelRow": 122,
+    "rowSeq": 120,
+    "excelRow": 123,
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_118_dn",
+      "id": "wtt_monday_row_120_dn",
       "scheduleType": "MONDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
-        "BIET": "--",
+        "BIET": "PYID Turn Back",
         "NGSA": "--",
         "PYID": "17:06:00",
         "YPM": "17:11:10",
@@ -12513,10 +14860,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_118_up",
+      "id": "wtt_monday_row_120_up",
       "scheduleType": "MONDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:59:00",
         "PUTH": "18:09:00",
@@ -12529,21 +14877,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:53:00",
         "BIET": "18:59:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.948Z"
   },
   {
-    "id": "wtt_monday_row_119",
+    "id": "wtt_monday_row_121",
     "scheduleType": "MONDAY",
-    "rowSeq": 119,
-    "excelRow": 123,
+    "rowSeq": 121,
+    "excelRow": 124,
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_119_dn",
+      "id": "wtt_monday_row_121_dn",
       "scheduleType": "MONDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:59:00",
         "NGSA": "17:05:00",
@@ -12558,10 +14912,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_119_up",
+      "id": "wtt_monday_row_121_up",
       "scheduleType": "MONDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "17:54:00",
@@ -12574,21 +14929,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:38:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.948Z"
   },
   {
-    "id": "wtt_monday_row_120",
+    "id": "wtt_monday_row_122",
     "scheduleType": "MONDAY",
-    "rowSeq": 120,
-    "excelRow": 124,
+    "rowSeq": 122,
+    "excelRow": 125,
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_120_dn",
+      "id": "wtt_monday_row_122_dn",
       "scheduleType": "MONDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:04:00",
         "NGSA": "17:10:00",
@@ -12603,10 +14964,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_120_up",
+      "id": "wtt_monday_row_122_up",
       "scheduleType": "MONDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:09:00",
         "PUTH": "18:19:00",
@@ -12619,21 +14981,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:03:00",
         "BIET": "19:09:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.948Z"
   },
   {
-    "id": "wtt_monday_row_121",
+    "id": "wtt_monday_row_123",
     "scheduleType": "MONDAY",
-    "rowSeq": 121,
-    "excelRow": 125,
+    "rowSeq": 123,
+    "excelRow": 126,
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_121_dn",
+      "id": "wtt_monday_row_123_dn",
       "scheduleType": "MONDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -12648,10 +15016,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_121_up",
+      "id": "wtt_monday_row_123_up",
       "scheduleType": "MONDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "18:04:00",
@@ -12664,21 +15033,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:48:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.948Z"
   },
   {
-    "id": "wtt_monday_row_122",
+    "id": "wtt_monday_row_124",
     "scheduleType": "MONDAY",
-    "rowSeq": 122,
-    "excelRow": 126,
+    "rowSeq": 124,
+    "excelRow": 127,
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_122_dn",
+      "id": "wtt_monday_row_124_dn",
       "scheduleType": "MONDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:14:00",
         "NGSA": "17:20:00",
@@ -12693,10 +15068,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_122_up",
+      "id": "wtt_monday_row_124_up",
       "scheduleType": "MONDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:19:00",
         "PUTH": "18:29:00",
@@ -12709,21 +15085,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:13:00",
         "BIET": "19:19:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.948Z"
   },
   {
-    "id": "wtt_monday_row_123",
+    "id": "wtt_monday_row_125",
     "scheduleType": "MONDAY",
-    "rowSeq": 123,
-    "excelRow": 127,
+    "rowSeq": 125,
+    "excelRow": 128,
     "trainId": "218",
     "dnTid": "218",
     "upTid": "218",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_123_dn",
+      "id": "wtt_monday_row_125_dn",
       "scheduleType": "MONDAY",
       "trainId": "218",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -12738,10 +15120,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_123_up",
+      "id": "wtt_monday_row_125_up",
       "scheduleType": "MONDAY",
       "trainId": "218",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "18:14:00",
@@ -12754,21 +15137,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:58:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.948Z"
   },
   {
-    "id": "wtt_monday_row_124",
+    "id": "wtt_monday_row_126",
     "scheduleType": "MONDAY",
-    "rowSeq": 124,
-    "excelRow": 128,
+    "rowSeq": 126,
+    "excelRow": 129,
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_124_dn",
+      "id": "wtt_monday_row_126_dn",
       "scheduleType": "MONDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:24:00",
         "NGSA": "17:30:00",
@@ -12783,10 +15172,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_124_up",
+      "id": "wtt_monday_row_126_up",
       "scheduleType": "MONDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:29:00",
         "PUTH": "18:39:00",
@@ -12799,21 +15189,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:23:00",
         "BIET": "19:29:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.949Z"
   },
   {
-    "id": "wtt_monday_row_125",
+    "id": "wtt_monday_row_127",
     "scheduleType": "MONDAY",
-    "rowSeq": 125,
-    "excelRow": 129,
+    "rowSeq": 127,
+    "excelRow": 130,
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_125_dn",
+      "id": "wtt_monday_row_127_dn",
       "scheduleType": "MONDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:29:00",
         "NGSA": "17:35:00",
@@ -12828,10 +15224,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_125_up",
+      "id": "wtt_monday_row_127_up",
       "scheduleType": "MONDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "18:24:00",
@@ -12844,24 +15241,30 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:08:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.949Z"
   },
   {
-    "id": "wtt_monday_row_126",
+    "id": "wtt_monday_row_128",
     "scheduleType": "MONDAY",
-    "rowSeq": 126,
-    "excelRow": 130,
+    "rowSeq": 128,
+    "excelRow": 131,
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_126_dn",
+      "id": "wtt_monday_row_128_dn",
       "scheduleType": "MONDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
-        "BIET": "--",
-        "NGSA": "--",
+        "BIET": "17:34:00",
+        "NGSA": "17:40:00",
         "PYID": "17:46:00",
         "YPM": "17:51:10",
         "RJNR": "17:56:26",
@@ -12873,10 +15276,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_126_up",
+      "id": "wtt_monday_row_128_up",
       "scheduleType": "MONDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:39:00",
         "PUTH": "18:49:00",
@@ -12889,21 +15293,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:33:00",
         "BIET": "19:39:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.949Z"
   },
   {
-    "id": "wtt_monday_row_127",
+    "id": "wtt_monday_row_129",
     "scheduleType": "MONDAY",
-    "rowSeq": 127,
-    "excelRow": 131,
+    "rowSeq": 129,
+    "excelRow": 132,
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_127_dn",
+      "id": "wtt_monday_row_129_dn",
       "scheduleType": "MONDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:39:00",
         "NGSA": "17:45:00",
@@ -12918,10 +15328,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_127_up",
+      "id": "wtt_monday_row_129_up",
       "scheduleType": "MONDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "18:34:00",
@@ -12934,21 +15345,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:18:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.949Z"
   },
   {
-    "id": "wtt_monday_row_128",
+    "id": "wtt_monday_row_130",
     "scheduleType": "MONDAY",
-    "rowSeq": 128,
-    "excelRow": 132,
+    "rowSeq": 130,
+    "excelRow": 133,
     "trainId": "219",
     "dnTid": "219",
     "upTid": "219",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_128_dn",
+      "id": "wtt_monday_row_130_dn",
       "scheduleType": "MONDAY",
       "trainId": "219",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:44:00",
         "NGSA": "17:50:00",
@@ -12963,10 +15380,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_128_up",
+      "id": "wtt_monday_row_130_up",
       "scheduleType": "MONDAY",
       "trainId": "219",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:49:00",
         "PUTH": "18:59:00",
@@ -12979,21 +15397,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.949Z"
   },
   {
-    "id": "wtt_monday_row_129",
+    "id": "wtt_monday_row_131",
     "scheduleType": "MONDAY",
-    "rowSeq": 129,
-    "excelRow": 133,
+    "rowSeq": 131,
+    "excelRow": 134,
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_129_dn",
+      "id": "wtt_monday_row_131_dn",
       "scheduleType": "MONDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "17:55:00",
@@ -13008,10 +15432,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_129_up",
+      "id": "wtt_monday_row_131_up",
       "scheduleType": "MONDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "18:44:00",
@@ -13024,21 +15449,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:28:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.949Z"
   },
   {
-    "id": "wtt_monday_row_130",
+    "id": "wtt_monday_row_132",
     "scheduleType": "MONDAY",
-    "rowSeq": 130,
-    "excelRow": 134,
+    "rowSeq": 132,
+    "excelRow": 135,
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_130_dn",
+      "id": "wtt_monday_row_132_dn",
       "scheduleType": "MONDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:54:00",
         "NGSA": "18:00:00",
@@ -13053,10 +15484,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_130_up",
+      "id": "wtt_monday_row_132_up",
       "scheduleType": "MONDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:59:00",
         "PUTH": "19:09:00",
@@ -13069,21 +15501,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:53:00",
         "BIET": "19:59:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.949Z"
   },
   {
-    "id": "wtt_monday_row_131",
+    "id": "wtt_monday_row_133",
     "scheduleType": "MONDAY",
-    "rowSeq": 131,
-    "excelRow": 135,
+    "rowSeq": 133,
+    "excelRow": 136,
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_131_dn",
+      "id": "wtt_monday_row_133_dn",
       "scheduleType": "MONDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "18:05:00",
@@ -13098,10 +15536,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_131_up",
+      "id": "wtt_monday_row_133_up",
       "scheduleType": "MONDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "18:54:00",
@@ -13114,21 +15553,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:38:00",
         "BIET": "19:44:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.949Z"
   },
   {
-    "id": "wtt_monday_row_132",
+    "id": "wtt_monday_row_134",
     "scheduleType": "MONDAY",
-    "rowSeq": 132,
-    "excelRow": 136,
+    "rowSeq": 134,
+    "excelRow": 137,
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_132_dn",
+      "id": "wtt_monday_row_134_dn",
       "scheduleType": "MONDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:04:00",
         "NGSA": "18:10:00",
@@ -13143,10 +15588,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_132_up",
+      "id": "wtt_monday_row_134_up",
       "scheduleType": "MONDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:09:00",
         "PUTH": "19:19:00",
@@ -13159,21 +15605,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:03:00",
         "BIET": "20:09:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.949Z"
   },
   {
-    "id": "wtt_monday_row_133",
+    "id": "wtt_monday_row_135",
     "scheduleType": "MONDAY",
-    "rowSeq": 133,
-    "excelRow": 137,
+    "rowSeq": 135,
+    "excelRow": 138,
     "trainId": "223",
     "dnTid": "223",
     "upTid": "223",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_133_dn",
+      "id": "wtt_monday_row_135_dn",
       "scheduleType": "MONDAY",
       "trainId": "223",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "18:15:00",
@@ -13188,10 +15640,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_133_up",
+      "id": "wtt_monday_row_135_up",
       "scheduleType": "MONDAY",
       "trainId": "223",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "19:04:00",
@@ -13204,21 +15657,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:48:00",
         "BIET": "19:54:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.949Z"
   },
   {
-    "id": "wtt_monday_row_134",
+    "id": "wtt_monday_row_136",
     "scheduleType": "MONDAY",
-    "rowSeq": 134,
-    "excelRow": 138,
+    "rowSeq": 136,
+    "excelRow": 139,
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_134_dn",
+      "id": "wtt_monday_row_136_dn",
       "scheduleType": "MONDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:14:00",
         "NGSA": "18:20:00",
@@ -13233,10 +15692,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_134_up",
+      "id": "wtt_monday_row_136_up",
       "scheduleType": "MONDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:19:00",
         "PUTH": "19:29:00",
@@ -13249,21 +15709,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:13:00",
         "BIET": "20:19:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.949Z"
   },
   {
-    "id": "wtt_monday_row_135",
+    "id": "wtt_monday_row_137",
     "scheduleType": "MONDAY",
-    "rowSeq": 135,
-    "excelRow": 139,
+    "rowSeq": 137,
+    "excelRow": 140,
     "trainId": "222",
     "dnTid": "222",
     "upTid": "222",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_135_dn",
+      "id": "wtt_monday_row_137_dn",
       "scheduleType": "MONDAY",
       "trainId": "222",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "18:25:00",
@@ -13278,10 +15744,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_135_up",
+      "id": "wtt_monday_row_137_up",
       "scheduleType": "MONDAY",
       "trainId": "222",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "19:14:00",
@@ -13294,21 +15761,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.949Z"
   },
   {
-    "id": "wtt_monday_row_136",
+    "id": "wtt_monday_row_138",
     "scheduleType": "MONDAY",
-    "rowSeq": 136,
-    "excelRow": 140,
+    "rowSeq": 138,
+    "excelRow": 141,
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_136_dn",
+      "id": "wtt_monday_row_138_dn",
       "scheduleType": "MONDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:24:00",
         "NGSA": "18:30:00",
@@ -13323,10 +15796,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_136_up",
+      "id": "wtt_monday_row_138_up",
       "scheduleType": "MONDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:29:00",
         "PUTH": "19:39:00",
@@ -13339,21 +15813,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:23:00",
         "BIET": "20:29:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.949Z"
   },
   {
-    "id": "wtt_monday_row_137",
+    "id": "wtt_monday_row_139",
     "scheduleType": "MONDAY",
-    "rowSeq": 137,
-    "excelRow": 141,
+    "rowSeq": 139,
+    "excelRow": 142,
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_137_dn",
+      "id": "wtt_monday_row_139_dn",
       "scheduleType": "MONDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "18:35:00",
@@ -13368,10 +15848,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_137_up",
+      "id": "wtt_monday_row_139_up",
       "scheduleType": "MONDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "19:24:00",
@@ -13384,21 +15865,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.949Z"
   },
   {
-    "id": "wtt_monday_row_138",
+    "id": "wtt_monday_row_140",
     "scheduleType": "MONDAY",
-    "rowSeq": 138,
-    "excelRow": 142,
+    "rowSeq": 140,
+    "excelRow": 143,
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_138_dn",
+      "id": "wtt_monday_row_140_dn",
       "scheduleType": "MONDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:34:00",
         "NGSA": "18:40:00",
@@ -13413,10 +15900,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_138_up",
+      "id": "wtt_monday_row_140_up",
       "scheduleType": "MONDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:39:00",
         "PUTH": "19:49:00",
@@ -13429,21 +15917,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:33:00",
         "BIET": "20:39:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.949Z"
   },
   {
-    "id": "wtt_monday_row_139",
+    "id": "wtt_monday_row_141",
     "scheduleType": "MONDAY",
-    "rowSeq": 139,
-    "excelRow": 143,
+    "rowSeq": 141,
+    "excelRow": 144,
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_139_dn",
+      "id": "wtt_monday_row_141_dn",
       "scheduleType": "MONDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "18:45:00",
@@ -13458,10 +15952,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_139_up",
+      "id": "wtt_monday_row_141_up",
       "scheduleType": "MONDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "19:34:00",
@@ -13474,21 +15969,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.949Z"
   },
   {
-    "id": "wtt_monday_row_140",
+    "id": "wtt_monday_row_142",
     "scheduleType": "MONDAY",
-    "rowSeq": 140,
-    "excelRow": 144,
+    "rowSeq": 142,
+    "excelRow": 145,
     "trainId": "221",
     "dnTid": "221",
     "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_140_dn",
+      "id": "wtt_monday_row_142_dn",
       "scheduleType": "MONDAY",
       "trainId": "221",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:44:00",
         "NGSA": "18:50:00",
@@ -13503,10 +16004,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_140_up",
+      "id": "wtt_monday_row_142_up",
       "scheduleType": "MONDAY",
       "trainId": "221",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:49:00",
         "PUTH": "19:59:00",
@@ -13519,21 +16021,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:43:00",
         "BIET": "20:49:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.949Z"
   },
   {
-    "id": "wtt_monday_row_141",
+    "id": "wtt_monday_row_143",
     "scheduleType": "MONDAY",
-    "rowSeq": 141,
-    "excelRow": 145,
+    "rowSeq": 143,
+    "excelRow": 146,
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_141_dn",
+      "id": "wtt_monday_row_143_dn",
       "scheduleType": "MONDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "18:55:00",
@@ -13548,10 +16056,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_141_up",
+      "id": "wtt_monday_row_143_up",
       "scheduleType": "MONDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "19:44:00",
@@ -13564,21 +16073,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.950Z"
   },
   {
-    "id": "wtt_monday_row_142",
+    "id": "wtt_monday_row_144",
     "scheduleType": "MONDAY",
-    "rowSeq": 142,
-    "excelRow": 146,
+    "rowSeq": 144,
+    "excelRow": 147,
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_142_dn",
+      "id": "wtt_monday_row_144_dn",
       "scheduleType": "MONDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:54:00",
         "NGSA": "19:00:00",
@@ -13593,10 +16108,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_142_up",
+      "id": "wtt_monday_row_144_up",
       "scheduleType": "MONDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:59:00",
         "PUTH": "20:09:00",
@@ -13609,21 +16125,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:53:00",
         "BIET": "20:59:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.950Z"
   },
   {
-    "id": "wtt_monday_row_143",
+    "id": "wtt_monday_row_145",
     "scheduleType": "MONDAY",
-    "rowSeq": 143,
-    "excelRow": 147,
+    "rowSeq": 145,
+    "excelRow": 148,
     "trainId": "218",
     "dnTid": "218",
     "upTid": "218",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_143_dn",
+      "id": "wtt_monday_row_145_dn",
       "scheduleType": "MONDAY",
       "trainId": "218",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "19:05:00",
@@ -13638,10 +16160,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_143_up",
+      "id": "wtt_monday_row_145_up",
       "scheduleType": "MONDAY",
       "trainId": "218",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "19:54:00",
@@ -13654,21 +16177,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.950Z"
   },
   {
-    "id": "wtt_monday_row_144",
+    "id": "wtt_monday_row_146",
     "scheduleType": "MONDAY",
-    "rowSeq": 144,
-    "excelRow": 148,
+    "rowSeq": 146,
+    "excelRow": 149,
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_144_dn",
+      "id": "wtt_monday_row_146_dn",
       "scheduleType": "MONDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:04:00",
         "NGSA": "19:10:00",
@@ -13683,10 +16212,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_144_up",
+      "id": "wtt_monday_row_146_up",
       "scheduleType": "MONDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:09:30",
         "PUTH": "20:22:00",
@@ -13699,21 +16229,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:06:00",
         "BIET": "21:12:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.950Z"
   },
   {
-    "id": "wtt_monday_row_145",
+    "id": "wtt_monday_row_147",
     "scheduleType": "MONDAY",
-    "rowSeq": 145,
-    "excelRow": 149,
+    "rowSeq": 147,
+    "excelRow": 150,
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_145_dn",
+      "id": "wtt_monday_row_147_dn",
       "scheduleType": "MONDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "19:15:00",
@@ -13728,10 +16264,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_145_up",
+      "id": "wtt_monday_row_147_up",
       "scheduleType": "MONDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "20:04:00",
@@ -13744,21 +16281,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.950Z"
   },
   {
-    "id": "wtt_monday_row_146",
+    "id": "wtt_monday_row_148",
     "scheduleType": "MONDAY",
-    "rowSeq": 146,
-    "excelRow": 150,
+    "rowSeq": 148,
+    "excelRow": 151,
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_146_dn",
+      "id": "wtt_monday_row_148_dn",
       "scheduleType": "MONDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:14:00",
         "NGSA": "19:20:00",
@@ -13773,10 +16316,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_146_up",
+      "id": "wtt_monday_row_148_up",
       "scheduleType": "MONDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:19:00",
         "PUTH": "20:29:00",
@@ -13789,21 +16333,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:13:00",
         "BIET": "21:19:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.950Z"
   },
   {
-    "id": "wtt_monday_row_147",
+    "id": "wtt_monday_row_149",
     "scheduleType": "MONDAY",
-    "rowSeq": 147,
-    "excelRow": 151,
+    "rowSeq": 149,
+    "excelRow": 152,
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_147_dn",
+      "id": "wtt_monday_row_149_dn",
       "scheduleType": "MONDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "19:25:00",
@@ -13818,10 +16368,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_147_up",
+      "id": "wtt_monday_row_149_up",
       "scheduleType": "MONDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "20:14:30",
@@ -13834,21 +16385,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:58:30",
         "BIET": "21:04:30"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.950Z"
   },
   {
-    "id": "wtt_monday_row_148",
+    "id": "wtt_monday_row_150",
     "scheduleType": "MONDAY",
-    "rowSeq": 148,
-    "excelRow": 152,
+    "rowSeq": 150,
+    "excelRow": 153,
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_148_dn",
+      "id": "wtt_monday_row_150_dn",
       "scheduleType": "MONDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:24:00",
         "NGSA": "19:30:00",
@@ -13863,10 +16420,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_148_up",
+      "id": "wtt_monday_row_150_up",
       "scheduleType": "MONDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:29:00",
         "PUTH": "20:39:00",
@@ -13879,21 +16437,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:23:00",
         "BIET": "21:29:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.950Z"
   },
   {
-    "id": "wtt_monday_row_149",
+    "id": "wtt_monday_row_151",
     "scheduleType": "MONDAY",
-    "rowSeq": 149,
-    "excelRow": 153,
+    "rowSeq": 151,
+    "excelRow": 154,
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_149_dn",
+      "id": "wtt_monday_row_151_dn",
       "scheduleType": "MONDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "19:35:00",
@@ -13908,10 +16472,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_149_up",
+      "id": "wtt_monday_row_151_up",
       "scheduleType": "MONDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:37:00",
         "PUTH": "20:47:00",
@@ -13924,21 +16489,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:31:00",
         "BIET": "21:37:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.950Z"
   },
   {
-    "id": "wtt_monday_row_150",
+    "id": "wtt_monday_row_152",
     "scheduleType": "MONDAY",
-    "rowSeq": 150,
-    "excelRow": 154,
+    "rowSeq": 152,
+    "excelRow": 155,
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_150_dn",
+      "id": "wtt_monday_row_152_dn",
       "scheduleType": "MONDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:34:00",
         "NGSA": "19:41:00",
@@ -13953,10 +16524,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_150_up",
+      "id": "wtt_monday_row_152_up",
       "scheduleType": "MONDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:43:00",
         "PUTH": "20:53:00",
@@ -13969,21 +16541,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.950Z"
   },
   {
-    "id": "wtt_monday_row_151",
+    "id": "wtt_monday_row_153",
     "scheduleType": "MONDAY",
-    "rowSeq": 151,
-    "excelRow": 155,
+    "rowSeq": 153,
+    "excelRow": 156,
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_151_dn",
+      "id": "wtt_monday_row_153_dn",
       "scheduleType": "MONDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:44:00",
         "NGSA": "19:50:00",
@@ -13998,10 +16576,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_151_up",
+      "id": "wtt_monday_row_153_up",
       "scheduleType": "MONDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:49:00",
         "PUTH": "20:59:00",
@@ -14014,21 +16593,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:43:00",
         "BIET": "21:49:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.950Z"
   },
   {
-    "id": "wtt_monday_row_152",
+    "id": "wtt_monday_row_154",
     "scheduleType": "MONDAY",
-    "rowSeq": 152,
-    "excelRow": 156,
+    "rowSeq": 154,
+    "excelRow": 157,
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_152_dn",
+      "id": "wtt_monday_row_154_dn",
       "scheduleType": "MONDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:52:00",
         "NGSA": "19:58:00",
@@ -14043,10 +16628,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_152_up",
+      "id": "wtt_monday_row_154_up",
       "scheduleType": "MONDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:58:00",
         "PUTH": "21:08:00",
@@ -14059,21 +16645,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:52:00",
         "BIET": "21:58:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.950Z"
   },
   {
-    "id": "wtt_monday_row_153",
+    "id": "wtt_monday_row_155",
     "scheduleType": "MONDAY",
-    "rowSeq": 153,
-    "excelRow": 157,
+    "rowSeq": 155,
+    "excelRow": 158,
     "trainId": "223",
     "dnTid": "223",
     "upTid": "223",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_153_dn",
+      "id": "wtt_monday_row_155_dn",
       "scheduleType": "MONDAY",
       "trainId": "223",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:00:00",
         "NGSA": "20:06:00",
@@ -14088,10 +16680,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_153_up",
+      "id": "wtt_monday_row_155_up",
       "scheduleType": "MONDAY",
       "trainId": "223",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:06:00",
         "PUTH": "21:16:00",
@@ -14104,21 +16697,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:00:00",
         "BIET": "22:06:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.950Z"
   },
   {
-    "id": "wtt_monday_row_154",
+    "id": "wtt_monday_row_156",
     "scheduleType": "MONDAY",
-    "rowSeq": 154,
-    "excelRow": 158,
+    "rowSeq": 156,
+    "excelRow": 159,
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_154_dn",
+      "id": "wtt_monday_row_156_dn",
       "scheduleType": "MONDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:08:00",
         "NGSA": "20:14:00",
@@ -14133,10 +16732,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_154_up",
+      "id": "wtt_monday_row_156_up",
       "scheduleType": "MONDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:14:00",
         "PUTH": "21:24:00",
@@ -14149,21 +16749,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:08:00",
         "BIET": "22:14:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.950Z"
   },
   {
-    "id": "wtt_monday_row_155",
+    "id": "wtt_monday_row_157",
     "scheduleType": "MONDAY",
-    "rowSeq": 155,
-    "excelRow": 159,
+    "rowSeq": 157,
+    "excelRow": 160,
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_155_dn",
+      "id": "wtt_monday_row_157_dn",
       "scheduleType": "MONDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:16:00",
         "NGSA": "20:22:00",
@@ -14178,10 +16784,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_155_up",
+      "id": "wtt_monday_row_157_up",
       "scheduleType": "MONDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:22:00",
         "PUTH": "21:32:00",
@@ -14194,21 +16801,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:16:00",
         "BIET": "22:22:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.950Z"
   },
   {
-    "id": "wtt_monday_row_156",
+    "id": "wtt_monday_row_158",
     "scheduleType": "MONDAY",
-    "rowSeq": 156,
-    "excelRow": 160,
+    "rowSeq": 158,
+    "excelRow": 161,
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_156_dn",
+      "id": "wtt_monday_row_158_dn",
       "scheduleType": "MONDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:24:00",
         "NGSA": "20:30:00",
@@ -14223,10 +16836,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_156_up",
+      "id": "wtt_monday_row_158_up",
       "scheduleType": "MONDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:30:00",
         "PUTH": "21:40:00",
@@ -14239,21 +16853,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:24:00",
         "BIET": "22:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.950Z"
   },
   {
-    "id": "wtt_monday_row_157",
+    "id": "wtt_monday_row_159",
     "scheduleType": "MONDAY",
-    "rowSeq": 157,
-    "excelRow": 161,
+    "rowSeq": 159,
+    "excelRow": 162,
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_157_dn",
+      "id": "wtt_monday_row_159_dn",
       "scheduleType": "MONDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:34:00",
         "NGSA": "20:40:00",
@@ -14268,10 +16888,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_157_up",
+      "id": "wtt_monday_row_159_up",
       "scheduleType": "MONDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:40:00",
         "PUTH": "21:50:00",
@@ -14284,21 +16905,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:34:00",
         "BIET": "22:40:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.951Z"
   },
   {
-    "id": "wtt_monday_row_158",
+    "id": "wtt_monday_row_160",
     "scheduleType": "MONDAY",
-    "rowSeq": 158,
-    "excelRow": 162,
+    "rowSeq": 160,
+    "excelRow": 163,
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_158_dn",
+      "id": "wtt_monday_row_160_dn",
       "scheduleType": "MONDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:44:00",
         "NGSA": "20:50:00",
@@ -14313,10 +16940,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_158_up",
+      "id": "wtt_monday_row_160_up",
       "scheduleType": "MONDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:50:00",
         "PUTH": "22:00:00",
@@ -14329,21 +16957,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:44:00",
         "BIET": "22:50:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.951Z"
   },
   {
-    "id": "wtt_monday_row_159",
+    "id": "wtt_monday_row_161",
     "scheduleType": "MONDAY",
-    "rowSeq": 159,
-    "excelRow": 163,
+    "rowSeq": 161,
+    "excelRow": 164,
     "trainId": "221",
     "dnTid": "221",
     "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_159_dn",
+      "id": "wtt_monday_row_161_dn",
       "scheduleType": "MONDAY",
       "trainId": "221",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:54:00",
         "NGSA": "21:00:00",
@@ -14358,10 +16992,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_159_up",
+      "id": "wtt_monday_row_161_up",
       "scheduleType": "MONDAY",
       "trainId": "221",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:00:00",
         "PUTH": "22:10:00",
@@ -14374,21 +17009,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:56:20",
         "BIET": "23:02:40"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.951Z"
   },
   {
-    "id": "wtt_monday_row_160",
+    "id": "wtt_monday_row_162",
     "scheduleType": "MONDAY",
-    "rowSeq": 160,
-    "excelRow": 164,
+    "rowSeq": 162,
+    "excelRow": 165,
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_160_dn",
+      "id": "wtt_monday_row_162_dn",
       "scheduleType": "MONDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:04:00",
         "NGSA": "21:10:00",
@@ -14403,10 +17044,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_160_up",
+      "id": "wtt_monday_row_162_up",
       "scheduleType": "MONDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:10:00",
         "PUTH": "22:20:00",
@@ -14419,21 +17061,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:04:00",
         "BIET": "23:10:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.951Z"
   },
   {
-    "id": "wtt_monday_row_161",
+    "id": "wtt_monday_row_163",
     "scheduleType": "MONDAY",
-    "rowSeq": 161,
-    "excelRow": 165,
+    "rowSeq": 163,
+    "excelRow": 166,
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_161_dn",
+      "id": "wtt_monday_row_163_dn",
       "scheduleType": "MONDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:14:00",
         "NGSA": "21:20:00",
@@ -14448,10 +17096,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_161_up",
+      "id": "wtt_monday_row_163_up",
       "scheduleType": "MONDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:20:00",
         "PUTH": "22:30:00",
@@ -14464,21 +17113,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:14:00",
         "BIET": "23:20:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.951Z"
   },
   {
-    "id": "wtt_monday_row_162",
+    "id": "wtt_monday_row_164",
     "scheduleType": "MONDAY",
-    "rowSeq": 162,
-    "excelRow": 166,
+    "rowSeq": 164,
+    "excelRow": 167,
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_162_dn",
+      "id": "wtt_monday_row_164_dn",
       "scheduleType": "MONDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:24:00",
         "NGSA": "21:30:00",
@@ -14493,10 +17148,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_162_up",
+      "id": "wtt_monday_row_164_up",
       "scheduleType": "MONDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:30:00",
         "PUTH": "22:40:00",
@@ -14509,21 +17165,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:24:00",
         "BIET": "23:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.951Z"
   },
   {
-    "id": "wtt_monday_row_163",
+    "id": "wtt_monday_row_165",
     "scheduleType": "MONDAY",
-    "rowSeq": 163,
-    "excelRow": 167,
+    "rowSeq": 165,
+    "excelRow": 168,
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_163_dn",
+      "id": "wtt_monday_row_165_dn",
       "scheduleType": "MONDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:34:00",
         "NGSA": "21:40:00",
@@ -14538,10 +17200,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_163_up",
+      "id": "wtt_monday_row_165_up",
       "scheduleType": "MONDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:40:00",
         "PUTH": "22:50:00",
@@ -14554,21 +17217,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:34:00",
         "BIET": "23:40:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.951Z"
   },
   {
-    "id": "wtt_monday_row_164",
+    "id": "wtt_monday_row_166",
     "scheduleType": "MONDAY",
-    "rowSeq": 164,
-    "excelRow": 168,
+    "rowSeq": 166,
+    "excelRow": 169,
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_164_dn",
+      "id": "wtt_monday_row_166_dn",
       "scheduleType": "MONDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:44:00",
         "NGSA": "21:50:00",
@@ -14583,10 +17252,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_164_up",
+      "id": "wtt_monday_row_166_up",
       "scheduleType": "MONDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:53:00",
         "PUTH": "23:03:00",
@@ -14599,21 +17269,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:47:00",
         "BIET": "23:53:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.951Z"
   },
   {
-    "id": "wtt_monday_row_165",
+    "id": "wtt_monday_row_167",
     "scheduleType": "MONDAY",
-    "rowSeq": 165,
-    "excelRow": 169,
+    "rowSeq": 167,
+    "excelRow": 170,
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_165_dn",
+      "id": "wtt_monday_row_167_dn",
       "scheduleType": "MONDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:54:00",
         "NGSA": "22:00:00",
@@ -14628,10 +17304,11 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_165_up",
+      "id": "wtt_monday_row_167_up",
       "scheduleType": "MONDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "23:05:00",
         "PUTH": "23:15:00",
@@ -14644,21 +17321,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "00:00:07",
         "BIET": "00:06:07"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.951Z"
   },
   {
-    "id": "wtt_monday_row_166",
+    "id": "wtt_monday_row_168",
     "scheduleType": "MONDAY",
-    "rowSeq": 166,
-    "excelRow": 170,
+    "rowSeq": 168,
+    "excelRow": 171,
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATP",
     "downTrip": {
-      "id": "wtt_monday_row_166_dn",
+      "id": "wtt_monday_row_168_dn",
       "scheduleType": "MONDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "22:04:00",
         "NGSA": "22:11:27",
@@ -14673,12 +17356,13 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_166_up",
+      "id": "wtt_monday_row_168_up",
       "scheduleType": "MONDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATP",
       "stations": {
-        "APTS": "NLC UP PF",
+        "APTS": "NLC UpPF",
         "PUTH": "--",
         "RVR": "--",
         "NLC": "--",
@@ -14689,21 +17373,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.951Z"
   },
   {
-    "id": "wtt_monday_row_167",
+    "id": "wtt_monday_row_169",
     "scheduleType": "MONDAY",
-    "rowSeq": 167,
-    "excelRow": 171,
+    "rowSeq": 169,
+    "excelRow": 172,
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATP",
     "downTrip": {
-      "id": "wtt_monday_row_167_dn",
+      "id": "wtt_monday_row_169_dn",
       "scheduleType": "MONDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "22:19:00",
         "NGSA": "22:26:27",
@@ -14718,12 +17408,13 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_167_up",
+      "id": "wtt_monday_row_169_up",
       "scheduleType": "MONDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATP",
       "stations": {
-        "APTS": "PUTH UP",
+        "APTS": "PUTH UpPf",
         "PUTH": "--",
         "RVR": "--",
         "NLC": "--",
@@ -14734,21 +17425,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.951Z"
   },
   {
-    "id": "wtt_monday_row_168",
+    "id": "wtt_monday_row_170",
     "scheduleType": "MONDAY",
-    "rowSeq": 168,
-    "excelRow": 172,
+    "rowSeq": 170,
+    "excelRow": 173,
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATP",
     "downTrip": {
-      "id": "wtt_monday_row_168_dn",
+      "id": "wtt_monday_row_170_dn",
       "scheduleType": "MONDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "22:34:00",
         "NGSA": "22:41:27",
@@ -14763,12 +17460,13 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_168_up",
+      "id": "wtt_monday_row_170_up",
       "scheduleType": "MONDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATP",
       "stations": {
-        "APTS": "PUTH DN",
+        "APTS": "PUTH DnPf",
         "PUTH": "--",
         "RVR": "--",
         "NLC": "--",
@@ -14779,21 +17477,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.951Z"
   },
   {
-    "id": "wtt_monday_row_169",
+    "id": "wtt_monday_row_171",
     "scheduleType": "MONDAY",
-    "rowSeq": 169,
-    "excelRow": 173,
+    "rowSeq": 171,
+    "excelRow": 174,
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATP",
     "downTrip": {
-      "id": "wtt_monday_row_169_dn",
+      "id": "wtt_monday_row_171_dn",
       "scheduleType": "MONDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "22:49:00",
         "NGSA": "22:56:27",
@@ -14808,12 +17512,13 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_169_up",
+      "id": "wtt_monday_row_171_up",
       "scheduleType": "MONDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATP",
       "stations": {
-        "APTS": "APTS UP",
+        "APTS": "APTS UpPf",
         "PUTH": "--",
         "RVR": "--",
         "NLC": "--",
@@ -14824,21 +17529,27 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.951Z"
   },
   {
-    "id": "wtt_monday_row_170",
+    "id": "wtt_monday_row_172",
     "scheduleType": "MONDAY",
-    "rowSeq": 170,
-    "excelRow": 174,
+    "rowSeq": 172,
+    "excelRow": 175,
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
-      "id": "wtt_monday_row_170_dn",
+      "id": "wtt_monday_row_172_dn",
       "scheduleType": "MONDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "23:00:00",
         "NGSA": "23:06:30",
@@ -14853,12 +17564,13 @@ export const WTT_MASTER_REGISTRY = [
       }
     },
     "upTrip": {
-      "id": "wtt_monday_row_170_up",
+      "id": "wtt_monday_row_172_up",
       "scheduleType": "MONDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
-        "APTS": "APTS DN",
+        "APTS": "APTS DNPf",
         "PUTH": "--",
         "RVR": "--",
         "NLC": "--",
@@ -14869,7 +17581,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:53.951Z"
   },
   {
     "id": "wtt_saturday_row_1",
@@ -14877,16 +17591,38 @@ export const WTT_MASTER_REGISTRY = [
     "rowSeq": 1,
     "excelRow": 4,
     "trainId": "205",
-    "dnTid": "",
+    "dnTid": "205",
     "upTid": "205",
-    "downTrip": null,
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
+    "downTrip": {
+      "id": "wtt_saturday_row_1_dn",
+      "scheduleType": "SATURDAY",
+      "trainId": "205",
+      "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
+      "stations": {
+        "BIET": "--",
+        "NGSA": "--",
+        "PYID": "--",
+        "YPM": "--",
+        "RJNR": "--",
+        "KGWA": "Pilot Speed:",
+        "NLC": "20 kmph (PTW Section)",
+        "RVR": "--",
+        "PUTH": "--",
+        "APTS": "--"
+      }
+    },
     "upTrip": {
       "id": "wtt_saturday_row_1_up",
       "scheduleType": "SATURDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
-        "APTS": "--",
+        "APTS": "NGSA UP to BIET UP",
         "PUTH": "--",
         "RVR": "--",
         "NLC": "--",
@@ -14897,7 +17633,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "05:10:00",
         "BIET": "05:20:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_2",
@@ -14905,16 +17643,38 @@ export const WTT_MASTER_REGISTRY = [
     "rowSeq": 2,
     "excelRow": 5,
     "trainId": "206",
-    "dnTid": "",
+    "dnTid": "206",
     "upTid": "206",
-    "downTrip": null,
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
+    "downTrip": {
+      "id": "wtt_saturday_row_2_dn",
+      "scheduleType": "SATURDAY",
+      "trainId": "206",
+      "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
+      "stations": {
+        "BIET": "--",
+        "NGSA": "--",
+        "PYID": "--",
+        "YPM": "--",
+        "RJNR": "--",
+        "KGWA": "--",
+        "NLC": "30 kmph (Non PTW Section)",
+        "RVR": "--",
+        "PUTH": "--",
+        "APTS": "--"
+      }
+    },
     "upTrip": {
       "id": "wtt_saturday_row_2_up",
       "scheduleType": "SATURDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
-        "APTS": "--",
+        "APTS": "Depot to PYID UP via JLHL DN",
         "PUTH": "--",
         "RVR": "--",
         "NLC": "--",
@@ -14925,7 +17685,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "05:30:00",
         "BIET": "05:37:27"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_3",
@@ -14935,14 +17697,18 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "207",
     "dnTid": "",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "--",
+    "upMode": "ATO",
     "downTrip": null,
     "upTrip": {
       "id": "wtt_saturday_row_3_up",
       "scheduleType": "SATURDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
-        "APTS": "--",
+        "APTS": "NLC UP PF",
         "PUTH": "--",
         "RVR": "--",
         "NLC": "04:50:00",
@@ -14953,7 +17719,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "05:35:00",
         "BIET": "05:42:27"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_4",
@@ -14963,12 +17731,16 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "208",
     "dnTid": "",
     "upTid": "208",
+    "mode": "ATP",
+    "dnMode": "--",
+    "upMode": "ATP",
     "downTrip": null,
     "upTrip": {
       "id": "wtt_saturday_row_4_up",
       "scheduleType": "SATURDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATP",
       "stations": {
         "APTS": "--",
         "PUTH": "04:45:00",
@@ -14981,7 +17753,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "05:50:00",
         "BIET": "05:57:27"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_5",
@@ -14991,12 +17765,16 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "209",
     "dnTid": "",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "--",
+    "upMode": "ATO",
     "downTrip": null,
     "upTrip": {
       "id": "wtt_saturday_row_5_up",
       "scheduleType": "SATURDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "05:00:00",
         "PUTH": "05:15:00",
@@ -15009,7 +17787,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "05:59:00",
         "BIET": "06:05:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_6",
@@ -15019,12 +17799,16 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "210",
     "dnTid": "",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "--",
+    "upMode": "ATO",
     "downTrip": null,
     "upTrip": {
       "id": "wtt_saturday_row_6_up",
       "scheduleType": "SATURDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "05:15:00",
         "PUTH": "05:25:00",
@@ -15037,7 +17821,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "06:09:00",
         "BIET": "06:15:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_7",
@@ -15047,12 +17833,16 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "211",
     "dnTid": "",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "--",
+    "upMode": "ATO",
     "downTrip": null,
     "upTrip": {
       "id": "wtt_saturday_row_7_up",
       "scheduleType": "SATURDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "05:30:00",
         "PUTH": "05:40:00",
@@ -15065,7 +17855,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "06:24:00",
         "BIET": "06:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_8",
@@ -15075,11 +17867,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_8_dn",
       "scheduleType": "SATURDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "SP DN PF",
         "NGSA": "--",
@@ -15098,6 +17894,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "05:45:00",
         "PUTH": "05:55:00",
@@ -15110,7 +17907,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "06:39:00",
         "BIET": "06:45:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_9",
@@ -15120,11 +17919,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_9_dn",
       "scheduleType": "SATURDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "--",
         "NGSA": "04:35:00",
@@ -15143,6 +17946,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "06:00:00",
         "PUTH": "06:10:00",
@@ -15155,7 +17959,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "06:54:00",
         "BIET": "07:00:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_10",
@@ -15165,11 +17971,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_10_dn",
       "scheduleType": "SATURDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "05:00:00",
         "NGSA": "05:09:00",
@@ -15188,6 +17998,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "06:15:00",
         "PUTH": "06:25:00",
@@ -15200,7 +18011,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "07:09:00",
         "BIET": "07:15:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_11",
@@ -15210,11 +18023,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_11_dn",
       "scheduleType": "SATURDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "05:15:00",
         "NGSA": "05:22:27",
@@ -15233,6 +18050,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "06:30:00",
         "PUTH": "06:40:00",
@@ -15245,7 +18063,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "07:24:00",
         "BIET": "07:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_12",
@@ -15255,11 +18075,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_12_dn",
       "scheduleType": "SATURDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "05:30:00",
         "NGSA": "05:36:00",
@@ -15278,6 +18102,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "06:45:00",
         "PUTH": "06:55:00",
@@ -15290,7 +18115,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "07:39:00",
         "BIET": "07:45:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_13",
@@ -15300,11 +18127,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_13_dn",
       "scheduleType": "SATURDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "05:45:00",
         "NGSA": "05:51:00",
@@ -15323,6 +18154,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:00:00",
         "PUTH": "07:10:00",
@@ -15335,7 +18167,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "07:54:00",
         "BIET": "08:00:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_14",
@@ -15345,11 +18179,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_14_dn",
       "scheduleType": "SATURDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "06:00:00",
         "NGSA": "06:06:00",
@@ -15368,6 +18206,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:11:00",
         "PUTH": "07:21:00",
@@ -15380,7 +18219,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:05:00",
         "BIET": "08:11:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_15",
@@ -15390,11 +18231,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_15_dn",
       "scheduleType": "SATURDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "06:15:00",
         "NGSA": "06:21:00",
@@ -15413,6 +18258,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:22:00",
         "PUTH": "07:32:00",
@@ -15425,7 +18271,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:16:00",
         "BIET": "08:22:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_16",
@@ -15435,11 +18283,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_16_dn",
       "scheduleType": "SATURDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "06:26:00",
         "NGSA": "06:32:00",
@@ -15458,6 +18310,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:33:00",
         "PUTH": "07:43:00",
@@ -15470,7 +18323,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:27:00",
         "BIET": "08:33:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_17",
@@ -15480,11 +18335,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_17_dn",
       "scheduleType": "SATURDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -15503,6 +18362,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "07:26:30",
@@ -15515,7 +18375,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:11:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_18",
@@ -15525,11 +18387,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_18_dn",
       "scheduleType": "SATURDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "06:37:00",
         "NGSA": "06:43:00",
@@ -15548,6 +18414,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:44:00",
         "PUTH": "07:54:00",
@@ -15560,7 +18427,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:38:00",
         "BIET": "08:44:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_19",
@@ -15570,11 +18439,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_19_dn",
       "scheduleType": "SATURDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -15593,6 +18466,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "07:37:30",
@@ -15605,7 +18479,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:22:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_20",
@@ -15615,11 +18491,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_20_dn",
       "scheduleType": "SATURDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "06:48:00",
         "NGSA": "06:54:00",
@@ -15638,6 +18518,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:55:00",
         "PUTH": "08:05:00",
@@ -15650,7 +18531,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:49:00",
         "BIET": "08:55:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_21",
@@ -15660,11 +18543,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_21_dn",
       "scheduleType": "SATURDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -15683,6 +18570,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "07:48:30",
@@ -15695,7 +18583,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:33:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_22",
@@ -15705,11 +18595,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_22_dn",
       "scheduleType": "SATURDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "06:59:00",
         "NGSA": "07:05:00",
@@ -15728,6 +18622,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:06:00",
         "PUTH": "08:16:00",
@@ -15740,7 +18635,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:00:00",
         "BIET": "09:06:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_23",
@@ -15750,11 +18647,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_23_dn",
       "scheduleType": "SATURDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -15773,6 +18674,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "07:59:30",
@@ -15785,7 +18687,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:43:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_24",
@@ -15795,11 +18699,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_24_dn",
       "scheduleType": "SATURDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:10:00",
         "NGSA": "07:16:00",
@@ -15818,6 +18726,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:17:00",
         "PUTH": "08:27:00",
@@ -15830,7 +18739,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:11:00",
         "BIET": "09:17:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_25",
@@ -15840,11 +18751,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_25_dn",
       "scheduleType": "SATURDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -15863,6 +18778,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "08:10:30",
@@ -15875,7 +18791,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:54:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_26",
@@ -15885,11 +18803,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_26_dn",
       "scheduleType": "SATURDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:21:00",
         "NGSA": "07:27:00",
@@ -15908,6 +18830,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:28:00",
         "PUTH": "08:38:00",
@@ -15920,7 +18843,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:22:00",
         "BIET": "09:28:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_27",
@@ -15930,11 +18855,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "218",
     "dnTid": "218",
     "upTid": "218",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_27_dn",
       "scheduleType": "SATURDAY",
       "trainId": "218",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -15953,6 +18882,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "218",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "08:21:30",
@@ -15965,7 +18895,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:05:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_28",
@@ -15975,11 +18907,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_28_dn",
       "scheduleType": "SATURDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:32:00",
         "NGSA": "07:38:00",
@@ -15998,6 +18934,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:39:00",
         "PUTH": "08:49:00",
@@ -16010,7 +18947,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:33:00",
         "BIET": "09:39:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_29",
@@ -16020,11 +18959,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "219",
     "dnTid": "219",
     "upTid": "219",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_29_dn",
       "scheduleType": "SATURDAY",
       "trainId": "219",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -16043,6 +18986,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "219",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "08:32:30",
@@ -16055,7 +18999,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:16:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_30",
@@ -16065,11 +19011,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_30_dn",
       "scheduleType": "SATURDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:43:00",
         "NGSA": "07:49:00",
@@ -16088,6 +19038,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:50:00",
         "PUTH": "09:00:00",
@@ -16100,7 +19051,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:44:00",
         "BIET": "09:50:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_31",
@@ -16110,11 +19063,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_31_dn",
       "scheduleType": "SATURDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -16133,6 +19090,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "08:43:30",
@@ -16145,7 +19103,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:27:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_32",
@@ -16155,11 +19115,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_32_dn",
       "scheduleType": "SATURDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:54:00",
         "NGSA": "08:00:00",
@@ -16178,6 +19142,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:01:00",
         "PUTH": "09:11:00",
@@ -16190,7 +19155,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:55:00",
         "BIET": "10:01:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_33",
@@ -16200,11 +19167,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "221",
     "dnTid": "221",
     "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_33_dn",
       "scheduleType": "SATURDAY",
       "trainId": "221",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -16223,6 +19194,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "221",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "08:54:30",
@@ -16235,7 +19207,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:38:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_34",
@@ -16245,11 +19219,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_34_dn",
       "scheduleType": "SATURDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:05:00",
         "NGSA": "08:11:00",
@@ -16268,6 +19246,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:12:00",
         "PUTH": "09:22:00",
@@ -16280,7 +19259,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:06:00",
         "BIET": "10:12:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_35",
@@ -16290,11 +19271,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_35_dn",
       "scheduleType": "SATURDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "08:16:30",
@@ -16313,6 +19298,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "09:05:30",
@@ -16325,7 +19311,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:49:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_36",
@@ -16335,11 +19323,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_36_dn",
       "scheduleType": "SATURDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:16:00",
         "NGSA": "08:22:00",
@@ -16358,6 +19350,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:23:00",
         "PUTH": "09:33:00",
@@ -16370,7 +19363,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:17:00",
         "BIET": "10:23:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_37",
@@ -16380,11 +19375,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_37_dn",
       "scheduleType": "SATURDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "08:27:30",
@@ -16403,6 +19402,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "09:16:30",
@@ -16415,7 +19415,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:00:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_38",
@@ -16425,11 +19427,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_38_dn",
       "scheduleType": "SATURDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:27:00",
         "NGSA": "08:33:00",
@@ -16448,6 +19454,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:34:00",
         "PUTH": "09:44:00",
@@ -16460,7 +19467,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:28:00",
         "BIET": "10:34:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_39",
@@ -16470,11 +19479,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_39_dn",
       "scheduleType": "SATURDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "08:38:30",
@@ -16493,6 +19506,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "09:27:30",
@@ -16505,7 +19519,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:11:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_40",
@@ -16515,11 +19531,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_40_dn",
       "scheduleType": "SATURDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:38:00",
         "NGSA": "08:44:00",
@@ -16538,6 +19558,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:45:00",
         "PUTH": "09:55:00",
@@ -16550,7 +19571,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:39:00",
         "BIET": "10:45:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_41",
@@ -16560,11 +19583,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_41_dn",
       "scheduleType": "SATURDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "08:49:30",
@@ -16583,6 +19610,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "09:38:30",
@@ -16595,7 +19623,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:22:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.000Z"
   },
   {
     "id": "wtt_saturday_row_42",
@@ -16605,11 +19635,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_42_dn",
       "scheduleType": "SATURDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:49:00",
         "NGSA": "08:55:00",
@@ -16628,6 +19662,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:56:00",
         "PUTH": "10:06:00",
@@ -16640,7 +19675,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:50:00",
         "BIET": "10:56:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_43",
@@ -16650,11 +19687,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_43_dn",
       "scheduleType": "SATURDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "09:00:30",
@@ -16673,6 +19714,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "09:49:30",
@@ -16685,7 +19727,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:33:30",
         "BIET": "10:39:30"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_44",
@@ -16695,11 +19739,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_44_dn",
       "scheduleType": "SATURDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:00:00",
         "NGSA": "09:06:00",
@@ -16718,6 +19766,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:07:00",
         "PUTH": "10:17:00",
@@ -16730,7 +19779,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_45",
@@ -16740,11 +19791,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "218",
     "dnTid": "218",
     "upTid": "218",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_45_dn",
       "scheduleType": "SATURDAY",
       "trainId": "218",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "09:11:30",
@@ -16763,6 +19818,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "218",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "10:00:30",
@@ -16775,7 +19831,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_46",
@@ -16785,11 +19843,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_46_dn",
       "scheduleType": "SATURDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:11:00",
         "NGSA": "09:17:00",
@@ -16808,6 +19870,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:18:00",
         "PUTH": "10:28:00",
@@ -16820,7 +19883,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:12:00",
         "BIET": "11:18:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_47",
@@ -16830,11 +19895,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "219",
     "dnTid": "219",
     "upTid": "219",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_47_dn",
       "scheduleType": "SATURDAY",
       "trainId": "219",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "09:22:30",
@@ -16853,6 +19922,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "219",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "10:11:30",
@@ -16865,7 +19935,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:55:30",
         "BIET": "11:01:30"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_48",
@@ -16875,11 +19947,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_48_dn",
       "scheduleType": "SATURDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:22:00",
         "NGSA": "09:28:00",
@@ -16898,6 +19974,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:29:00",
         "PUTH": "10:39:00",
@@ -16910,7 +19987,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:23:00",
         "BIET": "11:29:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_49",
@@ -16920,11 +19999,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_49_dn",
       "scheduleType": "SATURDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "09:33:30",
@@ -16943,6 +20026,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "10:22:30",
@@ -16955,7 +20039,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:06:30",
         "BIET": "11:12:30"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_50",
@@ -16965,11 +20051,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_50_dn",
       "scheduleType": "SATURDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:33:00",
         "NGSA": "09:39:00",
@@ -16988,6 +20078,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:40:00",
         "PUTH": "10:50:00",
@@ -17000,7 +20091,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_51",
@@ -17010,11 +20103,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "221",
     "dnTid": "221",
     "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_51_dn",
       "scheduleType": "SATURDAY",
       "trainId": "221",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "09:44:30",
@@ -17033,6 +20130,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "221",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "10:33:30",
@@ -17045,7 +20143,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_52",
@@ -17055,11 +20155,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_52_dn",
       "scheduleType": "SATURDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:44:00",
         "NGSA": "09:50:00",
@@ -17078,6 +20182,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:51:00",
         "PUTH": "11:01:00",
@@ -17090,7 +20195,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:45:00",
         "BIET": "11:51:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_53",
@@ -17100,11 +20207,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_53_dn",
       "scheduleType": "SATURDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "09:55:30",
@@ -17123,6 +20234,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "10:44:30",
@@ -17135,7 +20247,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:28:30",
         "BIET": "11:34:30"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_54",
@@ -17145,11 +20259,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_54_dn",
       "scheduleType": "SATURDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:55:00",
         "NGSA": "10:01:00",
@@ -17168,6 +20286,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:02:00",
         "PUTH": "11:12:00",
@@ -17180,7 +20299,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:56:00",
         "BIET": "12:02:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_55",
@@ -17190,11 +20311,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_55_dn",
       "scheduleType": "SATURDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "10:06:30",
@@ -17213,6 +20338,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "10:55:30",
@@ -17225,7 +20351,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:39:30",
         "BIET": "11:45:30"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_56",
@@ -17235,11 +20363,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_56_dn",
       "scheduleType": "SATURDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:06:00",
         "NGSA": "10:12:00",
@@ -17258,6 +20390,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:13:00",
         "PUTH": "11:23:00",
@@ -17270,7 +20403,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:07:00",
         "BIET": "12:13:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_57",
@@ -17280,11 +20415,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_57_dn",
       "scheduleType": "SATURDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "10:17:30",
@@ -17303,6 +20442,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "11:06:30",
@@ -17315,7 +20455,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:50:30",
         "BIET": "11:56:30"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_58",
@@ -17325,11 +20467,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_58_dn",
       "scheduleType": "SATURDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:17:00",
         "NGSA": "10:23:00",
@@ -17348,6 +20494,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:22:00",
         "PUTH": "11:33:00",
@@ -17360,7 +20507,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:17:00",
         "BIET": "12:23:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_59",
@@ -17370,11 +20519,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_59_dn",
       "scheduleType": "SATURDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "10:28:30",
@@ -17393,6 +20546,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "11:17:30",
@@ -17405,7 +20559,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:01:30",
         "BIET": "12:07:30"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_60",
@@ -17415,11 +20571,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_60_dn",
       "scheduleType": "SATURDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:28:00",
         "NGSA": "10:34:00",
@@ -17438,6 +20598,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:33:00",
         "PUTH": "11:43:00",
@@ -17450,7 +20611,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:27:00",
         "BIET": "12:33:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_61",
@@ -17460,11 +20623,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_61_dn",
       "scheduleType": "SATURDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:39:00",
         "NGSA": "10:45:00",
@@ -17483,6 +20650,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:43:00",
         "PUTH": "11:53:00",
@@ -17495,7 +20663,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:37:00",
         "BIET": "12:43:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_62",
@@ -17505,11 +20675,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_62_dn",
       "scheduleType": "SATURDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:47:00",
         "NGSA": "10:53:00",
@@ -17528,6 +20702,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:53:00",
         "PUTH": "12:03:00",
@@ -17540,7 +20715,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:47:00",
         "BIET": "12:53:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_63",
@@ -17550,11 +20727,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_63_dn",
       "scheduleType": "SATURDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:55:00",
         "NGSA": "11:01:00",
@@ -17573,6 +20754,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:01:00",
         "PUTH": "12:11:00",
@@ -17585,7 +20767,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:55:00",
         "BIET": "13:01:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_64",
@@ -17595,11 +20779,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_64_dn",
       "scheduleType": "SATURDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:03:00",
         "NGSA": "11:09:00",
@@ -17618,6 +20806,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:09:00",
         "PUTH": "12:19:00",
@@ -17630,7 +20819,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:03:00",
         "BIET": "13:09:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_65",
@@ -17640,11 +20831,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "219",
     "dnTid": "219",
     "upTid": "219",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_65_dn",
       "scheduleType": "SATURDAY",
       "trainId": "219",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:11:00",
         "NGSA": "11:17:00",
@@ -17663,6 +20858,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "219",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:17:00",
         "PUTH": "12:27:00",
@@ -17675,7 +20871,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:11:00",
         "BIET": "13:17:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_66",
@@ -17685,11 +20883,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_66_dn",
       "scheduleType": "SATURDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:19:00",
         "NGSA": "11:25:00",
@@ -17708,6 +20910,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:25:00",
         "PUTH": "12:35:00",
@@ -17720,7 +20923,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:19:00",
         "BIET": "13:25:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_67",
@@ -17730,11 +20935,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_67_dn",
       "scheduleType": "SATURDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:27:00",
         "NGSA": "11:33:00",
@@ -17753,6 +20962,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:33:00",
         "PUTH": "12:43:00",
@@ -17765,7 +20975,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:27:00",
         "BIET": "13:33:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_68",
@@ -17775,11 +20987,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_68_dn",
       "scheduleType": "SATURDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:35:00",
         "NGSA": "11:41:00",
@@ -17798,6 +21014,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:41:00",
         "PUTH": "12:51:00",
@@ -17810,7 +21027,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:35:00",
         "BIET": "13:41:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_69",
@@ -17820,11 +21039,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_69_dn",
       "scheduleType": "SATURDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:43:00",
         "NGSA": "11:49:00",
@@ -17843,6 +21066,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:49:00",
         "PUTH": "12:59:00",
@@ -17855,7 +21079,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:43:00",
         "BIET": "13:49:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_70",
@@ -17865,11 +21091,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_70_dn",
       "scheduleType": "SATURDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:51:00",
         "NGSA": "11:57:00",
@@ -17888,6 +21118,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:57:00",
         "PUTH": "13:07:00",
@@ -17900,7 +21131,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:51:00",
         "BIET": "13:57:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_71",
@@ -17910,11 +21143,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_71_dn",
       "scheduleType": "SATURDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:59:00",
         "NGSA": "12:05:00",
@@ -17933,6 +21170,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:05:00",
         "PUTH": "13:15:00",
@@ -17945,7 +21183,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:59:00",
         "BIET": "14:05:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_72",
@@ -17955,11 +21195,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_72_dn",
       "scheduleType": "SATURDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:07:00",
         "NGSA": "12:13:00",
@@ -17978,6 +21222,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:13:00",
         "PUTH": "13:23:00",
@@ -17990,7 +21235,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:07:00",
         "BIET": "14:13:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_73",
@@ -18000,11 +21247,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_73_dn",
       "scheduleType": "SATURDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:15:00",
         "NGSA": "12:21:00",
@@ -18023,6 +21274,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:21:00",
         "PUTH": "13:31:00",
@@ -18035,7 +21287,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:15:00",
         "BIET": "14:21:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_74",
@@ -18045,11 +21299,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_74_dn",
       "scheduleType": "SATURDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:23:00",
         "NGSA": "12:29:00",
@@ -18068,6 +21326,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:29:00",
         "PUTH": "13:39:00",
@@ -18080,7 +21339,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:23:00",
         "BIET": "14:29:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_75",
@@ -18090,11 +21351,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_75_dn",
       "scheduleType": "SATURDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:31:00",
         "NGSA": "12:37:00",
@@ -18113,6 +21378,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:37:00",
         "PUTH": "13:47:00",
@@ -18125,7 +21391,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:31:00",
         "BIET": "14:37:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_76",
@@ -18135,11 +21403,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_76_dn",
       "scheduleType": "SATURDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:39:00",
         "NGSA": "12:45:00",
@@ -18158,6 +21430,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:45:00",
         "PUTH": "13:55:00",
@@ -18170,7 +21443,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:39:00",
         "BIET": "14:45:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.001Z"
   },
   {
     "id": "wtt_saturday_row_77",
@@ -18180,11 +21455,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_77_dn",
       "scheduleType": "SATURDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:47:00",
         "NGSA": "12:53:00",
@@ -18203,6 +21482,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:53:00",
         "PUTH": "14:03:00",
@@ -18215,7 +21495,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:47:00",
         "BIET": "14:53:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_78",
@@ -18225,11 +21507,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_78_dn",
       "scheduleType": "SATURDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:55:00",
         "NGSA": "13:01:00",
@@ -18248,6 +21534,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:01:00",
         "PUTH": "14:11:00",
@@ -18260,7 +21547,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:55:00",
         "BIET": "15:01:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_79",
@@ -18270,11 +21559,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_79_dn",
       "scheduleType": "SATURDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:03:00",
         "NGSA": "13:09:00",
@@ -18293,6 +21586,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:09:00",
         "PUTH": "14:19:00",
@@ -18305,7 +21599,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:03:00",
         "BIET": "15:09:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_80",
@@ -18315,11 +21611,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_80_dn",
       "scheduleType": "SATURDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:11:00",
         "NGSA": "13:17:00",
@@ -18338,6 +21638,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:17:00",
         "PUTH": "14:27:00",
@@ -18350,7 +21651,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:11:00",
         "BIET": "15:17:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_81",
@@ -18360,11 +21663,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_81_dn",
       "scheduleType": "SATURDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:19:00",
         "NGSA": "13:25:00",
@@ -18383,6 +21690,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:25:00",
         "PUTH": "14:35:00",
@@ -18395,7 +21703,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:19:00",
         "BIET": "15:25:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_82",
@@ -18405,11 +21715,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "219",
     "dnTid": "219",
     "upTid": "219",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_82_dn",
       "scheduleType": "SATURDAY",
       "trainId": "219",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:27:00",
         "NGSA": "13:33:00",
@@ -18428,6 +21742,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "219",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:33:00",
         "PUTH": "14:43:00",
@@ -18440,7 +21755,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:27:00",
         "BIET": "15:33:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_83",
@@ -18450,11 +21767,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_83_dn",
       "scheduleType": "SATURDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:35:00",
         "NGSA": "13:41:00",
@@ -18473,6 +21794,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:41:00",
         "PUTH": "14:51:00",
@@ -18485,7 +21807,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:35:00",
         "BIET": "15:41:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_84",
@@ -18495,11 +21819,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_84_dn",
       "scheduleType": "SATURDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:43:00",
         "NGSA": "13:49:00",
@@ -18518,6 +21846,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:49:00",
         "PUTH": "14:59:00",
@@ -18530,7 +21859,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:43:00",
         "BIET": "15:49:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_85",
@@ -18540,11 +21871,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_85_dn",
       "scheduleType": "SATURDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:51:00",
         "NGSA": "13:57:00",
@@ -18563,6 +21898,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:57:00",
         "PUTH": "15:07:00",
@@ -18575,7 +21911,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:51:00",
         "BIET": "15:57:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_86",
@@ -18585,11 +21923,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_86_dn",
       "scheduleType": "SATURDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:59:00",
         "NGSA": "14:05:00",
@@ -18608,6 +21950,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:05:00",
         "PUTH": "15:15:00",
@@ -18620,7 +21963,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:59:00",
         "BIET": "16:05:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_87",
@@ -18630,11 +21975,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_87_dn",
       "scheduleType": "SATURDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:07:00",
         "NGSA": "14:13:00",
@@ -18653,6 +22002,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:13:00",
         "PUTH": "15:23:00",
@@ -18665,7 +22015,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:07:00",
         "BIET": "16:13:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_88",
@@ -18675,11 +22027,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_88_dn",
       "scheduleType": "SATURDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:15:00",
         "NGSA": "14:21:00",
@@ -18698,6 +22054,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:20:00",
         "PUTH": "15:30:00",
@@ -18710,7 +22067,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:14:00",
         "BIET": "16:20:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_89",
@@ -18720,11 +22079,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_89_dn",
       "scheduleType": "SATURDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:23:00",
         "NGSA": "14:29:00",
@@ -18743,6 +22106,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:29:00",
         "PUTH": "15:39:00",
@@ -18755,7 +22119,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:23:00",
         "BIET": "16:29:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_90",
@@ -18765,11 +22131,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_90_dn",
       "scheduleType": "SATURDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:31:00",
         "NGSA": "14:37:00",
@@ -18788,6 +22158,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:37:00",
         "PUTH": "15:47:00",
@@ -18800,7 +22171,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:31:00",
         "BIET": "16:37:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_91",
@@ -18810,11 +22183,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_91_dn",
       "scheduleType": "SATURDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:39:00",
         "NGSA": "14:45:00",
@@ -18833,6 +22210,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:45:00",
         "PUTH": "15:55:00",
@@ -18845,7 +22223,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:39:00",
         "BIET": "16:45:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_92",
@@ -18855,11 +22235,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_92_dn",
       "scheduleType": "SATURDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:47:00",
         "NGSA": "14:53:00",
@@ -18878,6 +22262,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:53:00",
         "PUTH": "16:03:00",
@@ -18890,7 +22275,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:47:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_93",
@@ -18900,11 +22287,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_93_dn",
       "scheduleType": "SATURDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:55:00",
         "NGSA": "15:01:00",
@@ -18923,6 +22314,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:01:00",
         "PUTH": "16:11:00",
@@ -18935,7 +22327,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:55:00",
         "BIET": "17:01:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_94",
@@ -18945,11 +22339,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_94_dn",
       "scheduleType": "SATURDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:03:00",
         "NGSA": "15:09:00",
@@ -18968,6 +22366,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:09:00",
         "PUTH": "16:19:00",
@@ -18980,7 +22379,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:03:00",
         "BIET": "17:09:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_95",
@@ -18990,11 +22391,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_95_dn",
       "scheduleType": "SATURDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:11:00",
         "NGSA": "15:17:00",
@@ -19013,6 +22418,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:16:00",
         "PUTH": "16:26:00",
@@ -19025,7 +22431,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:10:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_96",
@@ -19035,11 +22443,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_96_dn",
       "scheduleType": "SATURDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:19:00",
         "NGSA": "15:25:00",
@@ -19058,6 +22470,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:25:00",
         "PUTH": "16:35:00",
@@ -19070,7 +22483,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:19:00",
         "BIET": "17:25:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_97",
@@ -19080,11 +22495,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_97_dn",
       "scheduleType": "SATURDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:27:00",
         "NGSA": "15:33:00",
@@ -19103,6 +22522,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:32:00",
         "PUTH": "16:42:00",
@@ -19115,7 +22535,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:26:00",
         "BIET": "17:32:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_98",
@@ -19125,11 +22547,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_98_dn",
       "scheduleType": "SATURDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:35:00",
         "NGSA": "15:41:00",
@@ -19148,6 +22574,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:40:00",
         "PUTH": "16:50:00",
@@ -19160,7 +22587,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:34:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_99",
@@ -19170,11 +22599,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "219",
     "dnTid": "219",
     "upTid": "219",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_99_dn",
       "scheduleType": "SATURDAY",
       "trainId": "219",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:43:00",
         "NGSA": "15:49:00",
@@ -19193,6 +22626,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "219",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:48:00",
         "PUTH": "16:58:00",
@@ -19205,7 +22639,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:42:00",
         "BIET": "17:48:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_100",
@@ -19215,11 +22651,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_100_dn",
       "scheduleType": "SATURDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:51:00",
         "NGSA": "15:57:00",
@@ -19238,6 +22678,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:58:00",
         "PUTH": "17:08:00",
@@ -19250,7 +22691,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:52:00",
         "BIET": "17:58:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_101",
@@ -19260,11 +22703,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_101_dn",
       "scheduleType": "SATURDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:01:00",
         "NGSA": "16:07:00",
@@ -19283,6 +22730,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:08:00",
         "PUTH": "17:18:00",
@@ -19295,7 +22743,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:02:00",
         "BIET": "18:08:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_102",
@@ -19305,11 +22755,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_102_dn",
       "scheduleType": "SATURDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:06:30",
         "NGSA": "16:12:30",
@@ -19328,6 +22782,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "17:03:00",
@@ -19340,7 +22795,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:47:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_103",
@@ -19350,11 +22807,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_103_dn",
       "scheduleType": "SATURDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:12:00",
         "NGSA": "16:18:00",
@@ -19373,6 +22834,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:19:00",
         "PUTH": "17:29:00",
@@ -19385,7 +22847,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:13:00",
         "BIET": "18:19:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_104",
@@ -19395,11 +22859,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_104_dn",
       "scheduleType": "SATURDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:17:30",
         "NGSA": "16:23:30",
@@ -19418,6 +22886,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "17:13:00",
@@ -19430,7 +22899,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:57:00",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_105",
@@ -19440,11 +22911,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_105_dn",
       "scheduleType": "SATURDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:23:00",
         "NGSA": "16:29:00",
@@ -19463,6 +22938,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:30:00",
         "PUTH": "17:40:00",
@@ -19475,7 +22951,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:24:00",
         "BIET": "18:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_106",
@@ -19485,11 +22963,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_106_dn",
       "scheduleType": "SATURDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -19508,6 +22990,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "17:23:30",
@@ -19520,7 +23003,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:07:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_107",
@@ -19530,11 +23015,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_107_dn",
       "scheduleType": "SATURDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:34:00",
         "NGSA": "16:40:00",
@@ -19553,6 +23042,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:41:00",
         "PUTH": "17:51:00",
@@ -19565,7 +23055,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:35:00",
         "BIET": "18:41:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_108",
@@ -19575,11 +23067,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "218",
     "dnTid": "218",
     "upTid": "218",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_108_dn",
       "scheduleType": "SATURDAY",
       "trainId": "218",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -19598,6 +23094,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "218",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "17:34:30",
@@ -19610,7 +23107,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:18:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_109",
@@ -19620,11 +23119,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_109_dn",
       "scheduleType": "SATURDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:45:00",
         "NGSA": "16:51:00",
@@ -19643,6 +23146,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:52:00",
         "PUTH": "18:02:00",
@@ -19655,7 +23159,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:46:00",
         "BIET": "18:52:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_110",
@@ -19665,11 +23171,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_110_dn",
       "scheduleType": "SATURDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "16:56:30",
@@ -19688,6 +23198,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "17:45:30",
@@ -19700,7 +23211,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:29:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_111",
@@ -19710,11 +23223,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_111_dn",
       "scheduleType": "SATURDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:56:00",
         "NGSA": "17:02:00",
@@ -19733,6 +23250,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:03:00",
         "PUTH": "18:13:00",
@@ -19745,7 +23263,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:57:00",
         "BIET": "19:03:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_112",
@@ -19755,11 +23275,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_112_dn",
       "scheduleType": "SATURDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -19778,6 +23302,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "17:56:30",
@@ -19790,7 +23315,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:40:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_113",
@@ -19800,11 +23327,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_113_dn",
       "scheduleType": "SATURDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:07:00",
         "NGSA": "17:13:00",
@@ -19823,6 +23354,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:14:00",
         "PUTH": "18:24:00",
@@ -19835,7 +23367,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:08:00",
         "BIET": "19:14:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_114",
@@ -19845,11 +23379,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_114_dn",
       "scheduleType": "SATURDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "17:18:30",
@@ -19868,6 +23406,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "18:07:30",
@@ -19880,7 +23419,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:51:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_115",
@@ -19890,11 +23431,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_115_dn",
       "scheduleType": "SATURDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:18:00",
         "NGSA": "17:24:00",
@@ -19913,6 +23458,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:25:00",
         "PUTH": "18:35:00",
@@ -19925,7 +23471,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:19:00",
         "BIET": "19:25:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_116",
@@ -19935,11 +23483,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "221",
     "dnTid": "221",
     "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_116_dn",
       "scheduleType": "SATURDAY",
       "trainId": "221",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -19958,6 +23510,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "221",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "18:18:30",
@@ -19970,7 +23523,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:02:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_117",
@@ -19980,11 +23535,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_117_dn",
       "scheduleType": "SATURDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:29:00",
         "NGSA": "17:35:00",
@@ -20003,6 +23562,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:36:00",
         "PUTH": "18:46:00",
@@ -20015,7 +23575,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:30:00",
         "BIET": "19:36:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_118",
@@ -20025,11 +23587,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_118_dn",
       "scheduleType": "SATURDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "17:40:30",
@@ -20048,6 +23614,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "18:29:30",
@@ -20060,7 +23627,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:13:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_119",
@@ -20070,11 +23639,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_119_dn",
       "scheduleType": "SATURDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:40:00",
         "NGSA": "17:46:00",
@@ -20093,6 +23666,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:47:00",
         "PUTH": "18:57:00",
@@ -20105,7 +23679,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:41:00",
         "BIET": "19:47:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_120",
@@ -20115,11 +23691,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_120_dn",
       "scheduleType": "SATURDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "17:51:30",
@@ -20138,6 +23718,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "18:40:30",
@@ -20150,7 +23731,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:24:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_121",
@@ -20160,11 +23743,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "219",
     "dnTid": "219",
     "upTid": "219",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_121_dn",
       "scheduleType": "SATURDAY",
       "trainId": "219",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:51:00",
         "NGSA": "17:57:00",
@@ -20183,6 +23770,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "219",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:58:00",
         "PUTH": "19:08:00",
@@ -20195,7 +23783,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_122",
@@ -20205,11 +23795,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_122_dn",
       "scheduleType": "SATURDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "18:02:30",
@@ -20228,6 +23822,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "18:51:30",
@@ -20240,7 +23835,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:35:30",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.002Z"
   },
   {
     "id": "wtt_saturday_row_123",
@@ -20250,11 +23847,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_123_dn",
       "scheduleType": "SATURDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:02:00",
         "NGSA": "18:08:00",
@@ -20273,6 +23874,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:09:00",
         "PUTH": "19:19:00",
@@ -20285,7 +23887,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:03:00",
         "BIET": "20:09:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_124",
@@ -20295,11 +23899,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_124_dn",
       "scheduleType": "SATURDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "18:13:30",
@@ -20318,6 +23926,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "19:02:30",
@@ -20330,7 +23939,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:46:30",
         "BIET": "19:52:30"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_125",
@@ -20340,11 +23951,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_125_dn",
       "scheduleType": "SATURDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:13:00",
         "NGSA": "18:19:00",
@@ -20363,6 +23978,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:20:00",
         "PUTH": "19:30:00",
@@ -20375,7 +23991,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:14:00",
         "BIET": "20:20:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_126",
@@ -20385,11 +24003,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "218",
     "dnTid": "218",
     "upTid": "218",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_126_dn",
       "scheduleType": "SATURDAY",
       "trainId": "218",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "18:24:30",
@@ -20408,6 +24030,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "218",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "19:13:30",
@@ -20420,7 +24043,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:57:30",
         "BIET": "20:03:30"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_127",
@@ -20430,11 +24055,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_127_dn",
       "scheduleType": "SATURDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:24:00",
         "NGSA": "18:30:00",
@@ -20453,6 +24082,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:31:00",
         "PUTH": "19:41:00",
@@ -20465,7 +24095,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_128",
@@ -20475,11 +24107,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_128_dn",
       "scheduleType": "SATURDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "18:35:30",
@@ -20498,6 +24134,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "19:24:30",
@@ -20510,7 +24147,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_129",
@@ -20520,11 +24159,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_129_dn",
       "scheduleType": "SATURDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:35:00",
         "NGSA": "18:41:00",
@@ -20543,6 +24186,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:42:00",
         "PUTH": "19:52:00",
@@ -20555,7 +24199,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_130",
@@ -20565,11 +24211,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_130_dn",
       "scheduleType": "SATURDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "18:46:30",
@@ -20588,6 +24238,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "19:35:30",
@@ -20600,7 +24251,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:19:30",
         "BIET": "20:25:30"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_131",
@@ -20610,11 +24263,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_131_dn",
       "scheduleType": "SATURDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:46:00",
         "NGSA": "18:52:00",
@@ -20633,6 +24290,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:53:00",
         "PUTH": "20:03:00",
@@ -20645,7 +24303,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_132",
@@ -20655,11 +24315,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_132_dn",
       "scheduleType": "SATURDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "18:57:30",
@@ -20678,6 +24342,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "19:46:30",
@@ -20690,7 +24355,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:30:30",
         "BIET": "20:36:30"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_133",
@@ -20700,11 +24367,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_133_dn",
       "scheduleType": "SATURDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:57:00",
         "NGSA": "19:03:00",
@@ -20723,6 +24394,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:04:00",
         "PUTH": "20:14:00",
@@ -20735,7 +24407,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_134",
@@ -20745,11 +24419,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "221",
     "dnTid": "221",
     "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_134_dn",
       "scheduleType": "SATURDAY",
       "trainId": "221",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "19:08:30",
@@ -20768,6 +24446,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "221",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "19:57:30",
@@ -20780,7 +24459,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:41:30",
         "BIET": "20:47:30"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_135",
@@ -20790,11 +24471,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_135_dn",
       "scheduleType": "SATURDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:08:00",
         "NGSA": "19:14:00",
@@ -20813,6 +24498,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:15:00",
         "PUTH": "20:25:00",
@@ -20825,7 +24511,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:09:00",
         "BIET": "21:15:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_136",
@@ -20835,11 +24523,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_136_dn",
       "scheduleType": "SATURDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "19:19:30",
@@ -20858,6 +24550,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "20:08:30",
@@ -20870,7 +24563,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:52:30",
         "BIET": "20:58:30"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_137",
@@ -20880,11 +24575,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_137_dn",
       "scheduleType": "SATURDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:19:00",
         "NGSA": "19:25:00",
@@ -20903,6 +24602,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:26:00",
         "PUTH": "20:36:00",
@@ -20915,7 +24615,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:20:00",
         "BIET": "21:26:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_138",
@@ -20925,11 +24627,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_138_dn",
       "scheduleType": "SATURDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "19:30:30",
@@ -20948,6 +24654,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "20:19:30",
@@ -20960,7 +24667,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:03:30",
         "BIET": "21:09:30"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_139",
@@ -20970,11 +24679,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_139_dn",
       "scheduleType": "SATURDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:30:00",
         "NGSA": "19:36:00",
@@ -20993,6 +24706,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:37:00",
         "PUTH": "20:47:00",
@@ -21005,7 +24719,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:31:00",
         "BIET": "21:37:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_140",
@@ -21015,11 +24731,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_140_dn",
       "scheduleType": "SATURDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "19:41:30",
@@ -21038,6 +24758,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "--",
         "PUTH": "20:30:30",
@@ -21050,7 +24771,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_141",
@@ -21060,11 +24783,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_141_dn",
       "scheduleType": "SATURDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:41:00",
         "NGSA": "19:47:00",
@@ -21083,6 +24810,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:47:00",
         "PUTH": "20:57:00",
@@ -21095,7 +24823,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:41:00",
         "BIET": "21:47:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_142",
@@ -21105,11 +24835,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_142_dn",
       "scheduleType": "SATURDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:52:00",
         "NGSA": "19:58:00",
@@ -21128,6 +24862,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:57:00",
         "PUTH": "21:07:00",
@@ -21140,7 +24875,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:51:00",
         "BIET": "21:57:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_143",
@@ -21150,11 +24887,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_143_dn",
       "scheduleType": "SATURDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:00:00",
         "NGSA": "20:06:00",
@@ -21173,6 +24914,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:06:00",
         "PUTH": "21:16:00",
@@ -21185,7 +24927,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:00:00",
         "BIET": "22:06:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_144",
@@ -21195,11 +24939,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "218",
     "dnTid": "218",
     "upTid": "218",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_144_dn",
       "scheduleType": "SATURDAY",
       "trainId": "218",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:08:00",
         "NGSA": "20:14:00",
@@ -21218,6 +24966,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "218",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:14:00",
         "PUTH": "21:24:00",
@@ -21230,7 +24979,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:08:00",
         "BIET": "22:14:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_145",
@@ -21240,11 +24991,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_145_dn",
       "scheduleType": "SATURDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:16:00",
         "NGSA": "20:22:00",
@@ -21263,6 +25018,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:22:00",
         "PUTH": "21:32:00",
@@ -21275,7 +25031,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:16:00",
         "BIET": "22:22:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_146",
@@ -21285,11 +25043,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_146_dn",
       "scheduleType": "SATURDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:24:00",
         "NGSA": "20:30:00",
@@ -21308,6 +25070,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:30:00",
         "PUTH": "21:40:00",
@@ -21320,7 +25083,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:24:00",
         "BIET": "22:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_147",
@@ -21330,11 +25095,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_147_dn",
       "scheduleType": "SATURDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:34:00",
         "NGSA": "20:40:00",
@@ -21353,6 +25122,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:40:00",
         "PUTH": "21:50:00",
@@ -21365,7 +25135,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:34:00",
         "BIET": "22:40:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_148",
@@ -21375,11 +25147,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_148_dn",
       "scheduleType": "SATURDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:44:00",
         "NGSA": "20:50:00",
@@ -21398,6 +25174,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:50:00",
         "PUTH": "22:00:00",
@@ -21410,7 +25187,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:44:00",
         "BIET": "22:50:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_149",
@@ -21420,11 +25199,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "221",
     "dnTid": "221",
     "upTid": "221",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_149_dn",
       "scheduleType": "SATURDAY",
       "trainId": "221",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:54:00",
         "NGSA": "21:00:00",
@@ -21443,6 +25226,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "221",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:00:00",
         "PUTH": "22:10:00",
@@ -21455,7 +25239,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:56:20",
         "BIET": "23:02:40"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_150",
@@ -21465,11 +25251,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_150_dn",
       "scheduleType": "SATURDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:04:00",
         "NGSA": "21:10:00",
@@ -21488,6 +25278,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:10:00",
         "PUTH": "22:20:00",
@@ -21500,7 +25291,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:04:00",
         "BIET": "23:10:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_151",
@@ -21510,11 +25303,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_151_dn",
       "scheduleType": "SATURDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:14:00",
         "NGSA": "21:20:00",
@@ -21533,6 +25330,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:20:00",
         "PUTH": "22:30:00",
@@ -21545,7 +25343,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:14:00",
         "BIET": "23:20:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_152",
@@ -21555,11 +25355,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_152_dn",
       "scheduleType": "SATURDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:24:00",
         "NGSA": "21:30:00",
@@ -21578,6 +25382,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:30:00",
         "PUTH": "22:40:00",
@@ -21590,7 +25395,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:24:00",
         "BIET": "23:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_153",
@@ -21600,11 +25407,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_153_dn",
       "scheduleType": "SATURDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:34:00",
         "NGSA": "21:40:00",
@@ -21623,6 +25434,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:40:00",
         "PUTH": "22:50:00",
@@ -21635,7 +25447,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:34:00",
         "BIET": "23:40:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_154",
@@ -21645,11 +25459,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_154_dn",
       "scheduleType": "SATURDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:44:00",
         "NGSA": "21:50:00",
@@ -21668,6 +25486,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:53:00",
         "PUTH": "23:03:00",
@@ -21680,7 +25499,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:47:00",
         "BIET": "23:53:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_155",
@@ -21690,11 +25511,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_155_dn",
       "scheduleType": "SATURDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:54:00",
         "NGSA": "22:00:00",
@@ -21713,6 +25538,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "23:05:00",
         "PUTH": "23:15:00",
@@ -21725,7 +25551,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "00:00:07",
         "BIET": "00:06:07"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_156",
@@ -21735,11 +25563,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_156_dn",
       "scheduleType": "SATURDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "22:04:00",
         "NGSA": "22:11:27",
@@ -21758,9 +25590,10 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "NLC UP PF",
-        "PUTH": "NLC UP PF",
+        "PUTH": "--",
         "RVR": "--",
         "NLC": "--",
         "KGWA": "--",
@@ -21770,7 +25603,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_157",
@@ -21780,11 +25615,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "218",
     "dnTid": "218",
     "upTid": "218",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_157_dn",
       "scheduleType": "SATURDAY",
       "trainId": "218",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "22:19:00",
         "NGSA": "22:26:27",
@@ -21803,9 +25642,10 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "218",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "PUTH UP",
-        "PUTH": "PUTH UP",
+        "PUTH": "--",
         "RVR": "--",
         "NLC": "--",
         "KGWA": "--",
@@ -21815,7 +25655,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_158",
@@ -21825,11 +25667,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "220",
     "dnTid": "220",
     "upTid": "220",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_158_dn",
       "scheduleType": "SATURDAY",
       "trainId": "220",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "22:34:00",
         "NGSA": "22:41:27",
@@ -21848,9 +25694,10 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "220",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "PUTH DN",
-        "PUTH": "PUTH DN",
+        "PUTH": "--",
         "RVR": "--",
         "NLC": "--",
         "KGWA": "--",
@@ -21860,7 +25707,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_159",
@@ -21870,11 +25719,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATP",
     "downTrip": {
       "id": "wtt_saturday_row_159_dn",
       "scheduleType": "SATURDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "22:49:00",
         "NGSA": "22:56:27",
@@ -21893,9 +25746,10 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATP",
       "stations": {
         "APTS": "APTS UP",
-        "PUTH": "APTS UP",
+        "PUTH": "--",
         "RVR": "--",
         "NLC": "--",
         "KGWA": "--",
@@ -21905,7 +25759,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_saturday_row_160",
@@ -21915,11 +25771,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_saturday_row_160_dn",
       "scheduleType": "SATURDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "23:00:00",
         "NGSA": "23:06:30",
@@ -21938,9 +25798,10 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SATURDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "APTS DN",
-        "PUTH": "APTS DN",
+        "PUTH": "--",
         "RVR": "--",
         "NLC": "--",
         "KGWA": "--",
@@ -21950,7 +25811,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.003Z"
   },
   {
     "id": "wtt_sunday_row_1",
@@ -21958,27 +25821,51 @@ export const WTT_MASTER_REGISTRY = [
     "rowSeq": 1,
     "excelRow": 4,
     "trainId": "202",
-    "dnTid": "",
+    "dnTid": "202",
     "upTid": "202",
-    "downTrip": null,
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATP",
+    "downTrip": {
+      "id": "wtt_sunday_row_1_dn",
+      "scheduleType": "SUNDAY",
+      "trainId": "202",
+      "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
+      "stations": {
+        "BIET": "--",
+        "NGSA": "Full loop =112",
+        "PYID": "--",
+        "YPM": "--",
+        "RJNR": "--",
+        "KGWA": "Pilot Speed:",
+        "NLC": "20 kmph (PTW Section)",
+        "RVR": "--",
+        "PUTH": "--",
+        "APTS": "--"
+      }
+    },
     "upTrip": {
       "id": "wtt_sunday_row_1_up",
       "scheduleType": "SUNDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATP",
       "stations": {
         "APTS": "06:15:00",
         "PUTH": "Pilot Train",
-        "RVR": "Pilot Train",
-        "NLC": "Pilot Train",
+        "RVR": "--",
+        "NLC": "--",
         "KGWA": "07:00:00",
         "RJNR": "Pilot with Rev Service",
-        "YPM": "Pilot with Rev Service",
-        "PYID": "Pilot with Rev Service",
+        "YPM": "--",
+        "PYID": "--",
         "NGSA": "07:35:00",
         "BIET": "07:41:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.022Z"
   },
   {
     "id": "wtt_sunday_row_2",
@@ -21986,14 +25873,36 @@ export const WTT_MASTER_REGISTRY = [
     "rowSeq": 2,
     "excelRow": 5,
     "trainId": "203",
-    "dnTid": "",
+    "dnTid": "203",
     "upTid": "203",
-    "downTrip": null,
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
+    "downTrip": {
+      "id": "wtt_sunday_row_2_dn",
+      "scheduleType": "SUNDAY",
+      "trainId": "203",
+      "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
+      "stations": {
+        "BIET": "--",
+        "NGSA": "--",
+        "PYID": "--",
+        "YPM": "--",
+        "RJNR": "--",
+        "KGWA": "--",
+        "NLC": "30 kmph (Non PTW Section)",
+        "RVR": "--",
+        "PUTH": "--",
+        "APTS": "--"
+      }
+    },
     "upTrip": {
       "id": "wtt_sunday_row_2_up",
       "scheduleType": "SUNDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "PUTH UP",
         "PUTH": "07:00:00",
@@ -22006,7 +25915,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "07:44:00",
         "BIET": "07:50:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.022Z"
   },
   {
     "id": "wtt_sunday_row_3",
@@ -22014,14 +25925,36 @@ export const WTT_MASTER_REGISTRY = [
     "rowSeq": 3,
     "excelRow": 6,
     "trainId": "204",
-    "dnTid": "",
+    "dnTid": "204",
     "upTid": "204",
-    "downTrip": null,
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
+    "downTrip": {
+      "id": "wtt_sunday_row_3_dn",
+      "scheduleType": "SUNDAY",
+      "trainId": "204",
+      "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
+      "stations": {
+        "BIET": "Pilot till NGSA Dn",
+        "NGSA": "--",
+        "PYID": "--",
+        "YPM": "--",
+        "RJNR": "--",
+        "KGWA": "--",
+        "NLC": "--",
+        "RVR": "--",
+        "PUTH": "--",
+        "APTS": "--"
+      }
+    },
     "upTrip": {
       "id": "wtt_sunday_row_3_up",
       "scheduleType": "SUNDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:00:00",
         "PUTH": "07:10:00",
@@ -22034,7 +25967,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "07:54:00",
         "BIET": "08:00:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.022Z"
   },
   {
     "id": "wtt_sunday_row_4",
@@ -22044,13 +25979,17 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "219",
     "dnTid": "219",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_4_dn",
       "scheduleType": "SUNDAY",
       "trainId": "219",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
-        "BIET": "--",
+        "BIET": "S/B at PYID RD-3 from 7:15to 23:00hrs.",
         "NGSA": "--",
         "PYID": "--",
         "YPM": "--",
@@ -22067,6 +26006,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:15:00",
         "PUTH": "07:25:00",
@@ -22079,7 +26019,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:09:00",
         "BIET": "08:15:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.022Z"
   },
   {
     "id": "wtt_sunday_row_5",
@@ -22089,11 +26031,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_5_dn",
       "scheduleType": "SUNDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -22102,7 +26048,7 @@ export const WTT_MASTER_REGISTRY = [
         "RJNR": "--",
         "KGWA": "--",
         "NLC": "--",
-        "RVR": "--",
+        "RVR": "Pilot by TO from PUTH Dn to APTS Dn",
         "PUTH": "07:10:00",
         "APTS": "07:15:00"
       }
@@ -22112,6 +26058,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:30:00",
         "PUTH": "07:40:00",
@@ -22124,7 +26071,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:24:00",
         "BIET": "08:30:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.022Z"
   },
   {
     "id": "wtt_sunday_row_6",
@@ -22134,19 +26083,23 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_6_dn",
       "scheduleType": "SUNDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "--",
         "NGSA": "06:20:00",
-        "PYID": "--",
+        "PYID": "Pilot Train",
         "YPM": "--",
         "RJNR": "--",
         "KGWA": "07:00:00",
-        "NLC": "--",
+        "NLC": "Pilot with Rev Service",
         "RVR": "--",
         "PUTH": "07:28:00",
         "APTS": "07:37:41"
@@ -22157,6 +26110,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:45:00",
         "PUTH": "07:55:00",
@@ -22169,7 +26123,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:39:00",
         "BIET": "08:45:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.022Z"
   },
   {
     "id": "wtt_sunday_row_7",
@@ -22179,11 +26135,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_7_dn",
       "scheduleType": "SUNDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "--",
         "NGSA": "--",
@@ -22202,6 +26162,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "07:58:00",
         "PUTH": "08:08:00",
@@ -22214,7 +26175,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "08:52:00",
         "BIET": "08:58:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.022Z"
   },
   {
     "id": "wtt_sunday_row_8",
@@ -22224,11 +26187,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_8_dn",
       "scheduleType": "SUNDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:00:00",
         "NGSA": "07:09:00",
@@ -22247,6 +26214,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:08:00",
         "PUTH": "08:18:00",
@@ -22259,7 +26227,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:02:00",
         "BIET": "09:08:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.022Z"
   },
   {
     "id": "wtt_sunday_row_9",
@@ -22269,11 +26239,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_9_dn",
       "scheduleType": "SUNDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:10:00",
         "NGSA": "07:16:00",
@@ -22292,6 +26266,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:18:00",
         "PUTH": "08:28:00",
@@ -22304,7 +26279,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:12:00",
         "BIET": "09:18:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.022Z"
   },
   {
     "id": "wtt_sunday_row_10",
@@ -22314,11 +26291,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_10_dn",
       "scheduleType": "SUNDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:17:00",
         "NGSA": "07:23:00",
@@ -22337,6 +26318,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:28:00",
         "PUTH": "08:38:00",
@@ -22349,7 +26331,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:22:00",
         "BIET": "09:28:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_11",
@@ -22359,11 +26343,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_11_dn",
       "scheduleType": "SUNDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:27:00",
         "NGSA": "07:33:00",
@@ -22382,6 +26370,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:38:00",
         "PUTH": "08:48:00",
@@ -22394,7 +26383,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:32:00",
         "BIET": "09:38:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_12",
@@ -22404,11 +26395,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_12_dn",
       "scheduleType": "SUNDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:37:00",
         "NGSA": "07:43:00",
@@ -22427,6 +26422,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:48:00",
         "PUTH": "08:58:00",
@@ -22439,7 +26435,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:42:00",
         "BIET": "09:48:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_13",
@@ -22449,11 +26447,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_13_dn",
       "scheduleType": "SUNDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:47:00",
         "NGSA": "07:53:00",
@@ -22472,6 +26474,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "08:58:00",
         "PUTH": "09:08:00",
@@ -22484,7 +26487,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "09:52:00",
         "BIET": "09:58:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_14",
@@ -22494,11 +26499,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_14_dn",
       "scheduleType": "SUNDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "07:57:00",
         "NGSA": "08:03:00",
@@ -22517,6 +26526,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:08:00",
         "PUTH": "09:18:00",
@@ -22529,7 +26539,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:02:00",
         "BIET": "10:08:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_15",
@@ -22539,11 +26551,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_15_dn",
       "scheduleType": "SUNDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:07:00",
         "NGSA": "08:13:00",
@@ -22562,6 +26578,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:18:00",
         "PUTH": "09:28:00",
@@ -22574,7 +26591,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:12:00",
         "BIET": "10:18:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_16",
@@ -22584,11 +26603,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_16_dn",
       "scheduleType": "SUNDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:17:00",
         "NGSA": "08:23:00",
@@ -22607,6 +26630,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:28:00",
         "PUTH": "09:38:00",
@@ -22619,7 +26643,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:22:00",
         "BIET": "10:28:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_17",
@@ -22629,11 +26655,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_17_dn",
       "scheduleType": "SUNDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:27:00",
         "NGSA": "08:33:00",
@@ -22652,6 +26682,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:38:00",
         "PUTH": "09:48:00",
@@ -22664,7 +26695,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:32:00",
         "BIET": "10:38:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_18",
@@ -22674,11 +26707,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_18_dn",
       "scheduleType": "SUNDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:37:00",
         "NGSA": "08:43:00",
@@ -22697,6 +26734,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:48:00",
         "PUTH": "09:58:00",
@@ -22709,7 +26747,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:42:00",
         "BIET": "10:48:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_19",
@@ -22719,11 +26759,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_19_dn",
       "scheduleType": "SUNDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:47:00",
         "NGSA": "08:53:00",
@@ -22742,6 +26786,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "09:58:00",
         "PUTH": "10:08:00",
@@ -22754,7 +26799,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "10:52:00",
         "BIET": "10:58:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_20",
@@ -22764,11 +26811,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_20_dn",
       "scheduleType": "SUNDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "08:57:00",
         "NGSA": "09:03:00",
@@ -22787,6 +26838,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:08:00",
         "PUTH": "10:18:00",
@@ -22799,7 +26851,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:02:00",
         "BIET": "11:08:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_21",
@@ -22809,11 +26863,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_21_dn",
       "scheduleType": "SUNDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:07:00",
         "NGSA": "09:13:00",
@@ -22832,6 +26890,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:18:00",
         "PUTH": "10:28:00",
@@ -22844,7 +26903,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:12:00",
         "BIET": "11:18:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_22",
@@ -22854,11 +26915,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_22_dn",
       "scheduleType": "SUNDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:17:00",
         "NGSA": "09:23:00",
@@ -22877,6 +26942,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:28:00",
         "PUTH": "10:38:00",
@@ -22889,7 +26955,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:22:00",
         "BIET": "11:28:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_23",
@@ -22899,11 +26967,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_23_dn",
       "scheduleType": "SUNDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:27:00",
         "NGSA": "09:33:00",
@@ -22922,6 +26994,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:38:00",
         "PUTH": "10:48:00",
@@ -22934,7 +27007,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:32:00",
         "BIET": "11:38:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_24",
@@ -22944,11 +27019,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_24_dn",
       "scheduleType": "SUNDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:37:00",
         "NGSA": "09:43:00",
@@ -22967,6 +27046,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:48:00",
         "PUTH": "10:58:00",
@@ -22979,7 +27059,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:42:00",
         "BIET": "11:48:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_25",
@@ -22989,11 +27071,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_25_dn",
       "scheduleType": "SUNDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:47:00",
         "NGSA": "09:53:00",
@@ -23012,6 +27098,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "10:58:00",
         "PUTH": "11:08:00",
@@ -23024,7 +27111,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "11:52:00",
         "BIET": "11:58:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_26",
@@ -23034,11 +27123,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_26_dn",
       "scheduleType": "SUNDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "09:57:00",
         "NGSA": "10:03:00",
@@ -23057,6 +27150,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:08:00",
         "PUTH": "11:18:00",
@@ -23069,7 +27163,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:02:00",
         "BIET": "12:08:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_27",
@@ -23079,11 +27175,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_27_dn",
       "scheduleType": "SUNDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:07:00",
         "NGSA": "10:13:00",
@@ -23102,6 +27202,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:18:00",
         "PUTH": "11:28:00",
@@ -23114,7 +27215,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:12:00",
         "BIET": "12:18:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_28",
@@ -23124,11 +27227,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_28_dn",
       "scheduleType": "SUNDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:17:00",
         "NGSA": "10:23:00",
@@ -23147,6 +27254,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:28:00",
         "PUTH": "11:38:00",
@@ -23159,7 +27267,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:22:00",
         "BIET": "12:28:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_29",
@@ -23169,11 +27279,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_29_dn",
       "scheduleType": "SUNDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:27:00",
         "NGSA": "10:33:00",
@@ -23192,6 +27306,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:38:00",
         "PUTH": "11:48:00",
@@ -23204,7 +27319,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:32:00",
         "BIET": "12:38:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_30",
@@ -23214,11 +27331,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_30_dn",
       "scheduleType": "SUNDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:37:00",
         "NGSA": "10:43:00",
@@ -23237,6 +27358,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:48:00",
         "PUTH": "11:58:00",
@@ -23249,7 +27371,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:42:00",
         "BIET": "12:48:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_31",
@@ -23259,11 +27383,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_31_dn",
       "scheduleType": "SUNDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:47:00",
         "NGSA": "10:53:00",
@@ -23282,6 +27410,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "11:58:00",
         "PUTH": "12:08:00",
@@ -23294,7 +27423,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "12:52:00",
         "BIET": "12:58:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_32",
@@ -23304,11 +27435,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_32_dn",
       "scheduleType": "SUNDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "10:55:00",
         "NGSA": "11:01:00",
@@ -23327,6 +27462,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:08:00",
         "PUTH": "12:18:00",
@@ -23339,7 +27475,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:02:00",
         "BIET": "13:08:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_33",
@@ -23349,11 +27487,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_33_dn",
       "scheduleType": "SUNDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:03:00",
         "NGSA": "11:09:00",
@@ -23372,6 +27514,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:16:00",
         "PUTH": "12:26:00",
@@ -23384,7 +27527,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:10:00",
         "BIET": "13:16:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_34",
@@ -23394,11 +27539,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_34_dn",
       "scheduleType": "SUNDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:11:00",
         "NGSA": "11:17:00",
@@ -23417,6 +27566,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:24:00",
         "PUTH": "12:34:00",
@@ -23429,7 +27579,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:18:00",
         "BIET": "13:24:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_35",
@@ -23439,11 +27591,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_35_dn",
       "scheduleType": "SUNDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:19:00",
         "NGSA": "11:25:00",
@@ -23462,6 +27618,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:32:00",
         "PUTH": "12:42:00",
@@ -23474,7 +27631,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:26:00",
         "BIET": "13:32:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_36",
@@ -23484,11 +27643,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_36_dn",
       "scheduleType": "SUNDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:27:00",
         "NGSA": "11:33:00",
@@ -23507,6 +27670,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:40:00",
         "PUTH": "12:50:00",
@@ -23519,7 +27683,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:34:00",
         "BIET": "13:40:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_37",
@@ -23529,11 +27695,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_37_dn",
       "scheduleType": "SUNDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:35:00",
         "NGSA": "11:41:00",
@@ -23552,6 +27722,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:48:00",
         "PUTH": "12:58:00",
@@ -23564,7 +27735,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:42:00",
         "BIET": "13:48:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_38",
@@ -23574,11 +27747,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_38_dn",
       "scheduleType": "SUNDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:43:00",
         "NGSA": "11:49:00",
@@ -23597,6 +27774,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "12:56:00",
         "PUTH": "13:06:00",
@@ -23609,7 +27787,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:50:00",
         "BIET": "13:56:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_39",
@@ -23619,11 +27799,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_39_dn",
       "scheduleType": "SUNDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:51:00",
         "NGSA": "11:57:00",
@@ -23642,6 +27826,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:04:00",
         "PUTH": "13:14:00",
@@ -23654,7 +27839,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "13:58:00",
         "BIET": "14:04:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_40",
@@ -23664,11 +27851,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_40_dn",
       "scheduleType": "SUNDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "11:59:00",
         "NGSA": "12:05:00",
@@ -23687,6 +27878,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:12:00",
         "PUTH": "13:22:00",
@@ -23699,7 +27891,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:06:00",
         "BIET": "14:12:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_41",
@@ -23709,11 +27903,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_41_dn",
       "scheduleType": "SUNDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:07:00",
         "NGSA": "12:13:00",
@@ -23732,6 +27930,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:20:00",
         "PUTH": "13:30:00",
@@ -23744,7 +27943,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:14:00",
         "BIET": "14:20:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_42",
@@ -23754,11 +27955,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_42_dn",
       "scheduleType": "SUNDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:15:00",
         "NGSA": "12:21:00",
@@ -23777,6 +27982,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:28:00",
         "PUTH": "13:38:00",
@@ -23789,7 +27995,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:22:00",
         "BIET": "14:28:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_43",
@@ -23799,11 +28007,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_43_dn",
       "scheduleType": "SUNDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:23:00",
         "NGSA": "12:29:00",
@@ -23822,6 +28034,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:36:00",
         "PUTH": "13:46:00",
@@ -23834,7 +28047,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:30:00",
         "BIET": "14:36:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_44",
@@ -23844,11 +28059,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_44_dn",
       "scheduleType": "SUNDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:31:00",
         "NGSA": "12:37:00",
@@ -23867,6 +28086,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:44:00",
         "PUTH": "13:54:00",
@@ -23879,7 +28099,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:38:00",
         "BIET": "14:44:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_45",
@@ -23889,11 +28111,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_45_dn",
       "scheduleType": "SUNDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:39:00",
         "NGSA": "12:45:00",
@@ -23912,6 +28138,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "13:52:00",
         "PUTH": "14:02:00",
@@ -23924,7 +28151,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:46:00",
         "BIET": "14:52:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_46",
@@ -23934,11 +28163,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_46_dn",
       "scheduleType": "SUNDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:47:00",
         "NGSA": "12:53:00",
@@ -23957,6 +28190,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:00:00",
         "PUTH": "14:10:00",
@@ -23969,7 +28203,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "14:54:00",
         "BIET": "15:00:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_47",
@@ -23979,11 +28215,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_47_dn",
       "scheduleType": "SUNDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "12:55:00",
         "NGSA": "13:01:00",
@@ -24002,6 +28242,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:08:00",
         "PUTH": "14:18:00",
@@ -24014,7 +28255,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:02:00",
         "BIET": "15:08:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_48",
@@ -24024,11 +28267,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_48_dn",
       "scheduleType": "SUNDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:03:00",
         "NGSA": "13:09:00",
@@ -24047,6 +28294,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:16:00",
         "PUTH": "14:26:00",
@@ -24059,7 +28307,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:10:00",
         "BIET": "15:16:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_49",
@@ -24069,11 +28319,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "218",
     "dnTid": "218",
     "upTid": "218",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_49_dn",
       "scheduleType": "SUNDAY",
       "trainId": "218",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:11:00",
         "NGSA": "13:17:00",
@@ -24092,6 +28346,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "218",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:24:00",
         "PUTH": "14:34:00",
@@ -24104,7 +28359,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:18:00",
         "BIET": "15:24:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_50",
@@ -24114,11 +28371,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_50_dn",
       "scheduleType": "SUNDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:19:00",
         "NGSA": "13:25:00",
@@ -24137,6 +28398,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:32:00",
         "PUTH": "14:42:00",
@@ -24149,7 +28411,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:26:00",
         "BIET": "15:32:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_51",
@@ -24159,11 +28423,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_51_dn",
       "scheduleType": "SUNDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:27:00",
         "NGSA": "13:33:00",
@@ -24182,6 +28450,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:40:00",
         "PUTH": "14:50:00",
@@ -24194,7 +28463,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:34:00",
         "BIET": "15:40:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_52",
@@ -24204,11 +28475,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_52_dn",
       "scheduleType": "SUNDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:35:00",
         "NGSA": "13:41:00",
@@ -24227,6 +28502,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:48:00",
         "PUTH": "14:58:00",
@@ -24239,7 +28515,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:42:00",
         "BIET": "15:48:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.023Z"
   },
   {
     "id": "wtt_sunday_row_53",
@@ -24249,11 +28527,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_53_dn",
       "scheduleType": "SUNDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:43:00",
         "NGSA": "13:49:00",
@@ -24272,6 +28554,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "14:56:00",
         "PUTH": "15:06:00",
@@ -24284,7 +28567,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:50:00",
         "BIET": "15:56:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_54",
@@ -24294,11 +28579,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_54_dn",
       "scheduleType": "SUNDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:51:00",
         "NGSA": "13:57:00",
@@ -24317,6 +28606,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:04:00",
         "PUTH": "15:14:00",
@@ -24329,7 +28619,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "15:58:00",
         "BIET": "16:04:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_55",
@@ -24339,11 +28631,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_55_dn",
       "scheduleType": "SUNDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "13:59:00",
         "NGSA": "14:05:00",
@@ -24362,6 +28658,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:12:00",
         "PUTH": "15:22:00",
@@ -24374,7 +28671,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:06:00",
         "BIET": "16:12:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_56",
@@ -24384,11 +28683,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_56_dn",
       "scheduleType": "SUNDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:07:00",
         "NGSA": "14:13:00",
@@ -24407,6 +28710,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:20:00",
         "PUTH": "15:30:00",
@@ -24419,7 +28723,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:14:00",
         "BIET": "16:20:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_57",
@@ -24429,11 +28735,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_57_dn",
       "scheduleType": "SUNDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:15:00",
         "NGSA": "14:21:00",
@@ -24452,6 +28762,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:28:00",
         "PUTH": "15:38:00",
@@ -24464,7 +28775,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:22:00",
         "BIET": "16:28:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_58",
@@ -24474,11 +28787,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_58_dn",
       "scheduleType": "SUNDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:23:00",
         "NGSA": "14:29:00",
@@ -24497,6 +28814,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:36:00",
         "PUTH": "15:46:00",
@@ -24509,7 +28827,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:30:00",
         "BIET": "16:36:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_59",
@@ -24519,11 +28839,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_59_dn",
       "scheduleType": "SUNDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:31:00",
         "NGSA": "14:37:00",
@@ -24542,6 +28866,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:44:00",
         "PUTH": "15:54:00",
@@ -24554,7 +28879,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:38:00",
         "BIET": "16:44:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_60",
@@ -24564,11 +28891,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_60_dn",
       "scheduleType": "SUNDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:39:00",
         "NGSA": "14:45:00",
@@ -24587,6 +28918,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "15:52:00",
         "PUTH": "16:02:00",
@@ -24599,7 +28931,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:46:00",
         "BIET": "16:52:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_61",
@@ -24609,11 +28943,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_61_dn",
       "scheduleType": "SUNDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:47:00",
         "NGSA": "14:53:00",
@@ -24632,6 +28970,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:00:00",
         "PUTH": "16:10:00",
@@ -24644,7 +28983,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "16:54:00",
         "BIET": "17:00:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_62",
@@ -24654,11 +28995,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_62_dn",
       "scheduleType": "SUNDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "14:55:00",
         "NGSA": "15:01:00",
@@ -24677,6 +29022,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:08:00",
         "PUTH": "16:18:00",
@@ -24689,7 +29035,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:02:00",
         "BIET": "17:08:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_63",
@@ -24699,11 +29047,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_63_dn",
       "scheduleType": "SUNDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:03:00",
         "NGSA": "15:09:00",
@@ -24722,6 +29074,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:16:00",
         "PUTH": "16:26:00",
@@ -24734,7 +29087,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:10:00",
         "BIET": "17:16:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_64",
@@ -24744,11 +29099,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_64_dn",
       "scheduleType": "SUNDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:11:00",
         "NGSA": "15:17:00",
@@ -24767,6 +29126,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:24:00",
         "PUTH": "16:34:00",
@@ -24779,7 +29139,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:18:00",
         "BIET": "17:24:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_65",
@@ -24789,11 +29151,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_65_dn",
       "scheduleType": "SUNDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:19:00",
         "NGSA": "15:25:00",
@@ -24812,6 +29178,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:32:00",
         "PUTH": "16:42:00",
@@ -24824,7 +29191,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:26:00",
         "BIET": "17:32:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_66",
@@ -24834,11 +29203,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_66_dn",
       "scheduleType": "SUNDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:27:00",
         "NGSA": "15:33:00",
@@ -24857,6 +29230,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:40:00",
         "PUTH": "16:50:00",
@@ -24869,7 +29243,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:34:00",
         "BIET": "17:40:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_67",
@@ -24879,11 +29255,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "218",
     "dnTid": "218",
     "upTid": "218",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_67_dn",
       "scheduleType": "SUNDAY",
       "trainId": "218",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:35:00",
         "NGSA": "15:41:00",
@@ -24902,6 +29282,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "218",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:48:00",
         "PUTH": "16:58:00",
@@ -24914,7 +29295,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:42:00",
         "BIET": "17:48:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_68",
@@ -24924,11 +29307,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_68_dn",
       "scheduleType": "SUNDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:43:00",
         "NGSA": "15:49:00",
@@ -24947,6 +29334,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "16:56:00",
         "PUTH": "17:06:00",
@@ -24959,7 +29347,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:50:00",
         "BIET": "17:56:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_69",
@@ -24969,11 +29359,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_69_dn",
       "scheduleType": "SUNDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:51:00",
         "NGSA": "15:57:00",
@@ -24992,6 +29386,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:04:00",
         "PUTH": "17:14:00",
@@ -25004,7 +29399,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "17:58:00",
         "BIET": "18:04:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_70",
@@ -25014,11 +29411,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_70_dn",
       "scheduleType": "SUNDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "15:59:00",
         "NGSA": "16:05:00",
@@ -25037,6 +29438,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:12:00",
         "PUTH": "17:22:00",
@@ -25049,7 +29451,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:06:00",
         "BIET": "18:12:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_71",
@@ -25059,11 +29463,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_71_dn",
       "scheduleType": "SUNDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:07:00",
         "NGSA": "16:13:00",
@@ -25082,6 +29490,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:20:00",
         "PUTH": "17:30:00",
@@ -25094,7 +29503,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:14:00",
         "BIET": "18:20:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_72",
@@ -25104,11 +29515,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_72_dn",
       "scheduleType": "SUNDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:15:00",
         "NGSA": "16:21:00",
@@ -25127,6 +29542,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:28:00",
         "PUTH": "17:38:00",
@@ -25139,7 +29555,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:22:00",
         "BIET": "18:28:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_73",
@@ -25149,11 +29567,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_73_dn",
       "scheduleType": "SUNDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:23:00",
         "NGSA": "16:29:00",
@@ -25172,6 +29594,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:36:00",
         "PUTH": "17:46:00",
@@ -25184,7 +29607,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:30:00",
         "BIET": "18:36:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_74",
@@ -25194,11 +29619,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_74_dn",
       "scheduleType": "SUNDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:31:00",
         "NGSA": "16:37:00",
@@ -25217,6 +29646,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:44:00",
         "PUTH": "17:54:00",
@@ -25229,7 +29659,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:38:00",
         "BIET": "18:44:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_75",
@@ -25239,11 +29671,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_75_dn",
       "scheduleType": "SUNDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:39:00",
         "NGSA": "16:45:00",
@@ -25262,6 +29698,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "17:52:00",
         "PUTH": "18:02:00",
@@ -25274,7 +29711,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:46:00",
         "BIET": "18:52:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_76",
@@ -25284,11 +29723,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_76_dn",
       "scheduleType": "SUNDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:47:00",
         "NGSA": "16:53:00",
@@ -25307,6 +29750,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:00:00",
         "PUTH": "18:10:00",
@@ -25319,7 +29763,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "18:54:00",
         "BIET": "19:00:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_77",
@@ -25329,11 +29775,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_77_dn",
       "scheduleType": "SUNDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "16:55:00",
         "NGSA": "17:01:00",
@@ -25352,6 +29802,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:08:00",
         "PUTH": "18:18:00",
@@ -25364,7 +29815,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:02:00",
         "BIET": "19:08:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_78",
@@ -25374,11 +29827,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_78_dn",
       "scheduleType": "SUNDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:03:00",
         "NGSA": "17:09:00",
@@ -25397,6 +29854,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:16:00",
         "PUTH": "18:26:00",
@@ -25409,7 +29867,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:10:00",
         "BIET": "19:16:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_79",
@@ -25419,11 +29879,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_79_dn",
       "scheduleType": "SUNDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:11:00",
         "NGSA": "17:17:00",
@@ -25442,6 +29906,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:24:00",
         "PUTH": "18:34:00",
@@ -25454,7 +29919,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:18:00",
         "BIET": "19:24:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_80",
@@ -25464,11 +29931,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_80_dn",
       "scheduleType": "SUNDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:19:00",
         "NGSA": "17:25:00",
@@ -25487,6 +29958,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:32:00",
         "PUTH": "18:42:00",
@@ -25499,7 +29971,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:26:00",
         "BIET": "19:32:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_81",
@@ -25509,11 +29983,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_81_dn",
       "scheduleType": "SUNDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:27:00",
         "NGSA": "17:33:00",
@@ -25532,6 +30010,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:40:00",
         "PUTH": "18:50:00",
@@ -25544,7 +30023,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:34:00",
         "BIET": "19:40:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_82",
@@ -25554,11 +30035,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_82_dn",
       "scheduleType": "SUNDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:35:00",
         "NGSA": "17:41:00",
@@ -25577,6 +30062,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:48:00",
         "PUTH": "18:58:00",
@@ -25589,7 +30075,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:42:00",
         "BIET": "19:48:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_83",
@@ -25599,11 +30087,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_83_dn",
       "scheduleType": "SUNDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:43:00",
         "NGSA": "17:49:00",
@@ -25622,6 +30114,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "18:56:00",
         "PUTH": "19:06:00",
@@ -25634,7 +30127,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:50:00",
         "BIET": "19:56:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_84",
@@ -25644,11 +30139,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_84_dn",
       "scheduleType": "SUNDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:51:00",
         "NGSA": "17:57:00",
@@ -25667,6 +30166,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:04:00",
         "PUTH": "19:14:00",
@@ -25679,7 +30179,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "19:58:00",
         "BIET": "20:04:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_85",
@@ -25689,11 +30191,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "218",
     "dnTid": "218",
     "upTid": "218",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_85_dn",
       "scheduleType": "SUNDAY",
       "trainId": "218",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "17:59:00",
         "NGSA": "18:05:00",
@@ -25712,6 +30218,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "218",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:12:00",
         "PUTH": "19:22:00",
@@ -25724,7 +30231,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:06:00",
         "BIET": "20:12:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_86",
@@ -25734,11 +30243,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_86_dn",
       "scheduleType": "SUNDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:07:00",
         "NGSA": "18:13:00",
@@ -25757,6 +30270,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:20:00",
         "PUTH": "19:30:00",
@@ -25769,7 +30283,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:14:00",
         "BIET": "20:20:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_87",
@@ -25779,11 +30295,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_87_dn",
       "scheduleType": "SUNDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:15:00",
         "NGSA": "18:21:00",
@@ -25802,6 +30322,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:28:00",
         "PUTH": "19:38:00",
@@ -25814,7 +30335,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:22:00",
         "BIET": "20:28:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_88",
@@ -25824,11 +30347,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_88_dn",
       "scheduleType": "SUNDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:23:00",
         "NGSA": "18:29:00",
@@ -25847,6 +30374,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:36:00",
         "PUTH": "19:46:00",
@@ -25859,7 +30387,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:30:00",
         "BIET": "20:36:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_89",
@@ -25869,11 +30399,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_89_dn",
       "scheduleType": "SUNDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:31:00",
         "NGSA": "18:37:00",
@@ -25892,6 +30426,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:44:00",
         "PUTH": "19:54:00",
@@ -25904,7 +30439,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:38:00",
         "BIET": "20:44:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_90",
@@ -25914,11 +30451,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "207",
     "dnTid": "207",
     "upTid": "207",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_90_dn",
       "scheduleType": "SUNDAY",
       "trainId": "207",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:39:00",
         "NGSA": "18:45:00",
@@ -25937,6 +30478,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "207",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "19:52:00",
         "PUTH": "20:02:00",
@@ -25949,7 +30491,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:46:00",
         "BIET": "20:52:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_91",
@@ -25959,11 +30503,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_91_dn",
       "scheduleType": "SUNDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:47:00",
         "NGSA": "18:53:00",
@@ -25982,6 +30530,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:00:00",
         "PUTH": "20:10:00",
@@ -25994,7 +30543,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "20:54:00",
         "BIET": "21:00:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_92",
@@ -26004,11 +30555,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_92_dn",
       "scheduleType": "SUNDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "18:55:00",
         "NGSA": "19:01:00",
@@ -26027,6 +30582,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:08:00",
         "PUTH": "20:18:00",
@@ -26039,7 +30595,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:02:00",
         "BIET": "21:08:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_93",
@@ -26049,11 +30607,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_93_dn",
       "scheduleType": "SUNDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:03:00",
         "NGSA": "19:09:00",
@@ -26072,6 +30634,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:16:00",
         "PUTH": "20:26:00",
@@ -26084,7 +30647,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:10:00",
         "BIET": "21:16:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_94",
@@ -26094,11 +30659,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_94_dn",
       "scheduleType": "SUNDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:11:00",
         "NGSA": "19:17:00",
@@ -26117,6 +30686,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:24:00",
         "PUTH": "20:34:00",
@@ -26129,7 +30699,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:18:00",
         "BIET": "21:24:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_95",
@@ -26139,11 +30711,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "211",
     "dnTid": "211",
     "upTid": "211",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_95_dn",
       "scheduleType": "SUNDAY",
       "trainId": "211",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:19:00",
         "NGSA": "19:25:00",
@@ -26162,6 +30738,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "211",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:32:00",
         "PUTH": "20:42:00",
@@ -26174,7 +30751,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:26:00",
         "BIET": "21:32:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.024Z"
   },
   {
     "id": "wtt_sunday_row_96",
@@ -26184,11 +30763,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_96_dn",
       "scheduleType": "SUNDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:27:00",
         "NGSA": "19:33:00",
@@ -26207,6 +30790,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:40:00",
         "PUTH": "20:50:00",
@@ -26219,7 +30803,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:34:00",
         "BIET": "21:40:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_97",
@@ -26229,11 +30815,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_97_dn",
       "scheduleType": "SUNDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:35:00",
         "NGSA": "19:41:00",
@@ -26252,6 +30842,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:48:00",
         "PUTH": "20:58:00",
@@ -26264,7 +30855,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:42:00",
         "BIET": "21:48:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_98",
@@ -26274,11 +30867,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "217",
     "dnTid": "217",
     "upTid": "217",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_98_dn",
       "scheduleType": "SUNDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:43:00",
         "NGSA": "19:49:00",
@@ -26297,6 +30894,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "217",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "20:56:00",
         "PUTH": "21:06:00",
@@ -26309,7 +30907,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:50:00",
         "BIET": "21:56:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_99",
@@ -26319,11 +30919,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "203",
     "dnTid": "203",
     "upTid": "203",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_99_dn",
       "scheduleType": "SUNDAY",
       "trainId": "203",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:51:00",
         "NGSA": "19:57:00",
@@ -26342,6 +30946,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "203",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:04:00",
         "PUTH": "21:14:00",
@@ -26354,7 +30959,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "21:58:00",
         "BIET": "22:04:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_100",
@@ -26364,11 +30971,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "204",
     "dnTid": "204",
     "upTid": "204",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_100_dn",
       "scheduleType": "SUNDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "19:59:00",
         "NGSA": "20:05:00",
@@ -26387,6 +30998,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "204",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:12:00",
         "PUTH": "21:22:00",
@@ -26399,7 +31011,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:06:00",
         "BIET": "22:12:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_101",
@@ -26409,11 +31023,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "213",
     "dnTid": "213",
     "upTid": "213",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_101_dn",
       "scheduleType": "SUNDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:07:00",
         "NGSA": "20:13:00",
@@ -26432,6 +31050,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "213",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:20:00",
         "PUTH": "21:30:00",
@@ -26444,7 +31063,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:15:00",
         "BIET": "22:21:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_102",
@@ -26454,11 +31075,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "205",
     "dnTid": "205",
     "upTid": "205",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_102_dn",
       "scheduleType": "SUNDAY",
       "trainId": "205",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:15:00",
         "NGSA": "20:21:00",
@@ -26477,6 +31102,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "205",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:28:00",
         "PUTH": "21:38:00",
@@ -26489,7 +31115,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:22:00",
         "BIET": "22:28:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_103",
@@ -26499,11 +31127,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "206",
     "dnTid": "206",
     "upTid": "206",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_103_dn",
       "scheduleType": "SUNDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:25:00",
         "NGSA": "20:31:00",
@@ -26522,6 +31154,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "206",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:36:00",
         "PUTH": "21:46:00",
@@ -26534,7 +31167,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:30:00",
         "BIET": "22:36:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_104",
@@ -26544,11 +31179,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "214",
     "dnTid": "214",
     "upTid": "214",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_104_dn",
       "scheduleType": "SUNDAY",
       "trainId": "214",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:35:00",
         "NGSA": "20:41:00",
@@ -26567,6 +31206,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "214",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:44:00",
         "PUTH": "21:54:00",
@@ -26579,7 +31219,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:38:00",
         "BIET": "22:44:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_105",
@@ -26589,11 +31231,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "215",
     "dnTid": "215",
     "upTid": "215",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_105_dn",
       "scheduleType": "SUNDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:45:00",
         "NGSA": "20:51:00",
@@ -26612,6 +31258,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "215",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "21:54:00",
         "PUTH": "22:04:00",
@@ -26624,7 +31271,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:48:00",
         "BIET": "22:54:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_106",
@@ -26634,11 +31283,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "201",
     "dnTid": "201",
     "upTid": "201",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_106_dn",
       "scheduleType": "SUNDAY",
       "trainId": "201",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "20:55:00",
         "NGSA": "21:01:00",
@@ -26657,6 +31310,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "201",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:04:00",
         "PUTH": "22:14:00",
@@ -26669,7 +31323,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "22:58:00",
         "BIET": "23:04:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_107",
@@ -26679,11 +31335,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "208",
     "dnTid": "208",
     "upTid": "208",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_107_dn",
       "scheduleType": "SUNDAY",
       "trainId": "208",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:05:00",
         "NGSA": "21:11:00",
@@ -26702,6 +31362,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "208",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:14:00",
         "PUTH": "22:24:00",
@@ -26714,7 +31375,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:08:00",
         "BIET": "23:14:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_108",
@@ -26724,11 +31387,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "209",
     "dnTid": "209",
     "upTid": "209",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_108_dn",
       "scheduleType": "SUNDAY",
       "trainId": "209",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:15:00",
         "NGSA": "21:21:00",
@@ -26747,6 +31414,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "209",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:24:00",
         "PUTH": "22:34:00",
@@ -26759,7 +31427,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:18:00",
         "BIET": "23:24:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_109",
@@ -26769,11 +31439,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "216",
     "dnTid": "216",
     "upTid": "216",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_109_dn",
       "scheduleType": "SUNDAY",
       "trainId": "216",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:25:00",
         "NGSA": "21:31:00",
@@ -26792,6 +31466,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "216",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:34:00",
         "PUTH": "22:44:00",
@@ -26804,7 +31479,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:28:00",
         "BIET": "23:34:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_110",
@@ -26814,11 +31491,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "210",
     "dnTid": "210",
     "upTid": "210",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_110_dn",
       "scheduleType": "SUNDAY",
       "trainId": "210",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:35:00",
         "NGSA": "21:41:00",
@@ -26837,6 +31518,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "210",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:43:00",
         "PUTH": "22:53:00",
@@ -26849,7 +31531,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:37:00",
         "BIET": "23:43:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_111",
@@ -26859,11 +31543,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "212",
     "dnTid": "212",
     "upTid": "212",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_111_dn",
       "scheduleType": "SUNDAY",
       "trainId": "212",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:45:00",
         "NGSA": "21:51:00",
@@ -26882,6 +31570,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "212",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "22:50:00",
         "PUTH": "23:00:00",
@@ -26894,7 +31583,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:44:00",
         "BIET": "23:50:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_112",
@@ -26904,11 +31595,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "202",
     "dnTid": "202",
     "upTid": "202",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_112_dn",
       "scheduleType": "SUNDAY",
       "trainId": "202",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "21:55:00",
         "NGSA": "22:01:00",
@@ -26927,6 +31622,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "202",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "23:05:00",
         "PUTH": "23:15:00",
@@ -26939,7 +31635,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "23:59:00",
         "BIET": "00:05:00"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_113",
@@ -26949,22 +31647,26 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "217",
     "dnTid": "217",
     "upTid": "NLC UP",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATP",
     "downTrip": {
       "id": "wtt_sunday_row_113_dn",
       "scheduleType": "SUNDAY",
       "trainId": "217",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
         "BIET": "22:05:00",
-        "NGSA": "22:11:00",
-        "PYID": "22:17:00",
-        "YPM": "22:22:10",
-        "RJNR": "22:27:26",
-        "KGWA": "22:35:56",
-        "NLC": "22:41:08",
-        "RVR": "22:48:31",
-        "PUTH": "22:55:19",
-        "APTS": "23:05:00"
+        "NGSA": "22:12:27",
+        "PYID": "22:18:27",
+        "YPM": "22:23:37",
+        "RJNR": "22:28:53",
+        "KGWA": "22:37:33",
+        "NLC": "22:42:45",
+        "RVR": "22:50:08",
+        "PUTH": "22:56:56",
+        "APTS": "23:07:37"
       }
     },
     "upTrip": {
@@ -26972,6 +31674,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "NLC UP",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATP",
       "stations": {
         "APTS": "Depart next day as TID 10",
         "PUTH": "--",
@@ -26984,7 +31687,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_114",
@@ -26994,22 +31699,26 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "204",
     "dnTid": "204",
     "upTid": "PUTH UP",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATP",
     "downTrip": {
       "id": "wtt_sunday_row_114_dn",
       "scheduleType": "SUNDAY",
       "trainId": "204",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
-        "BIET": "22:17:00",
-        "NGSA": "22:23:00",
-        "PYID": "22:29:00",
-        "YPM": "22:34:10",
-        "RJNR": "22:39:26",
-        "KGWA": "22:47:56",
-        "NLC": "22:53:08",
-        "RVR": "23:00:31",
-        "PUTH": "23:07:19",
-        "APTS": "23:17:00"
+        "BIET": "22:20:00",
+        "NGSA": "22:27:27",
+        "PYID": "22:33:27",
+        "YPM": "22:38:37",
+        "RJNR": "22:43:53",
+        "KGWA": "22:53:00",
+        "NLC": "22:58:12",
+        "RVR": "23:05:35",
+        "PUTH": "23:12:23",
+        "APTS": "23:23:04"
       }
     },
     "upTrip": {
@@ -27017,6 +31726,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "PUTH UP",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATP",
       "stations": {
         "APTS": "Depart next day as TID 02",
         "PUTH": "--",
@@ -27029,7 +31739,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_115",
@@ -27039,22 +31751,26 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "213",
     "dnTid": "213",
     "upTid": "PUTH DN",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATP",
     "downTrip": {
       "id": "wtt_sunday_row_115_dn",
       "scheduleType": "SUNDAY",
       "trainId": "213",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
-        "BIET": "22:29:00",
-        "NGSA": "22:35:00",
-        "PYID": "22:41:00",
-        "YPM": "22:46:10",
-        "RJNR": "22:51:26",
-        "KGWA": "22:59:56",
-        "NLC": "23:05:08",
-        "RVR": "23:12:31",
-        "PUTH": "23:19:19",
-        "APTS": "23:29:00"
+        "BIET": "22:35:00",
+        "NGSA": "22:42:27",
+        "PYID": "22:48:27",
+        "YPM": "22:53:37",
+        "RJNR": "22:58:53",
+        "KGWA": "23:08:00",
+        "NLC": "23:13:12",
+        "RVR": "23:20:35",
+        "PUTH": "23:27:23",
+        "APTS": "23:38:04"
       }
     },
     "upTrip": {
@@ -27062,6 +31778,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "PUTH DN",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATP",
       "stations": {
         "APTS": "Depart next day as TID 05",
         "PUTH": "--",
@@ -27074,7 +31791,9 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_116",
@@ -27084,22 +31803,26 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "206",
     "dnTid": "206",
     "upTid": "APTS UP",
+    "mode": "ATP",
+    "dnMode": "ATP",
+    "upMode": "ATP",
     "downTrip": {
       "id": "wtt_sunday_row_116_dn",
       "scheduleType": "SUNDAY",
       "trainId": "206",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATP",
       "stations": {
-        "BIET": "22:44:00",
-        "NGSA": "22:50:00",
-        "PYID": "22:56:00",
-        "YPM": "23:01:10",
-        "RJNR": "23:06:26",
-        "KGWA": "23:14:56",
-        "NLC": "23:20:08",
-        "RVR": "23:27:31",
-        "PUTH": "23:34:19",
-        "APTS": "23:44:00"
+        "BIET": "22:50:00",
+        "NGSA": "22:57:27",
+        "PYID": "23:03:27",
+        "YPM": "23:08:37",
+        "RJNR": "23:13:53",
+        "KGWA": "23:23:00",
+        "NLC": "23:28:12",
+        "RVR": "23:35:35",
+        "PUTH": "23:42:23",
+        "APTS": "23:53:04"
       }
     },
     "upTrip": {
@@ -27107,19 +31830,22 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "APTS UP",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATP",
       "stations": {
         "APTS": "Rusty movmnt APTS UPBE in alternet days. Depart next day as TID 03",
-        "PUTH": "Rusty movmnt APTS UPBE in alternet days. Depart next day as TID 03",
-        "RVR": "Rusty movmnt APTS UPBE in alternet days. Depart next day as TID 03",
-        "NLC": "Rusty movmnt APTS UPBE in alternet days. Depart next day as TID 03",
-        "KGWA": "Rusty movmnt APTS UPBE in alternet days. Depart next day as TID 03",
-        "RJNR": "Rusty movmnt APTS UPBE in alternet days. Depart next day as TID 03",
-        "YPM": "Rusty movmnt APTS UPBE in alternet days. Depart next day as TID 03",
-        "PYID": "Rusty movmnt APTS UPBE in alternet days. Depart next day as TID 03",
-        "NGSA": "Rusty movmnt APTS UPBE in alternet days. Depart next day as TID 03",
-        "BIET": "Rusty movmnt APTS UPBE in alternet days. Depart next day as TID 03"
+        "PUTH": "--",
+        "RVR": "--",
+        "NLC": "--",
+        "KGWA": "--",
+        "RJNR": "--",
+        "YPM": "--",
+        "PYID": "--",
+        "NGSA": "--",
+        "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   },
   {
     "id": "wtt_sunday_row_117",
@@ -27129,11 +31855,15 @@ export const WTT_MASTER_REGISTRY = [
     "trainId": "215",
     "dnTid": "215",
     "upTid": "APTS DN",
+    "mode": "ATO",
+    "dnMode": "ATO",
+    "upMode": "ATO",
     "downTrip": {
       "id": "wtt_sunday_row_117_dn",
       "scheduleType": "SUNDAY",
       "trainId": "215",
       "terminalLoopRoute": "BIET - APTS (DN)",
+      "mode": "ATO",
       "stations": {
         "BIET": "23:00:00",
         "NGSA": "23:06:30",
@@ -27152,6 +31882,7 @@ export const WTT_MASTER_REGISTRY = [
       "scheduleType": "SUNDAY",
       "trainId": "APTS DN",
       "terminalLoopRoute": "APTS - BIET (UP)",
+      "mode": "ATO",
       "stations": {
         "APTS": "Depart next day as TID 04",
         "PUTH": "--",
@@ -27164,8 +31895,8 @@ export const WTT_MASTER_REGISTRY = [
         "NGSA": "--",
         "BIET": "--"
       }
-    }
+    },
+    "isUploaded": true,
+    "updatedAt": "2026-10-06T22:02:54.025Z"
   }
 ];
-
-export default WTT_MASTER_REGISTRY;

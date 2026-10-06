@@ -5516,8 +5516,8 @@ export const BMRCL_CREW_MASTER_BACKUP = [
     competencyExpiry: "",
     activeCrew: true,
     department: "Operations",
-    role: "Crew Controller",
-    depot: "peenya depot",
+    role: "SUPER_ADMIN",
+    depot: "Peenya Depot (PYID)",
     badgeNumber: "B-20726",
     competencyNumber: "C-20726",
     competencyValidTill: "2028-12-31",
@@ -16309,43 +16309,13 @@ export const BMRCL_CREW_MASTER_BACKUP = [
     createdBy: "SYSTEM",
     modifiedDate: "2026-06-30",
     modifiedBy: "SYSTEM"
-  },
-  {
-    id: "20726",
-    name: "Nagesha N",
-    designation: "Station Superintendent",
-    contact: "9110238017",
-    email: "nageshn444@gmail.com",
-    competencyExpiry: "",
-    activeCrew: true,
-    department: "Operations",
-    role: "SUPER_ADMIN",
-    depot: "Peenya Depot (PYID)",
-    badgeNumber: "B-20726",
-    competencyNumber: "C-20726",
-    competencyValidTill: "2028-12-31",
-    medicalValidTill: "2027-12-31",
-    doj: "2018-01-01",
-    retirementDate: "2045-12-31",
-    currentStatus: "DUTY",
-    photo: "",
-    remarks: "",
-    emergencyContact: "",
-    bloodGroup: "O+",
-    currentShift: "Morning",
-    currentDuty: "",
-    currentTrain: "",
-    currentLocation: "PYID",
-    availableForDeployment: true,
-    availableForRelief: true,
-    activeLogin: false,
-    systemUser: true,
-    aiEnabled: true,
-    createdDate: "2026-06-30",
-    createdBy: "SYSTEM",
-    modifiedDate: "2026-07-05",
-    modifiedBy: "SYSTEM"
   }
 ];
 
-export const BMRCL_CREW_REGISTRY = [...BMRCL_CREW_MASTER_BACKUP];
+const _seenRegistryIds = new Set();
+export const BMRCL_CREW_REGISTRY = BMRCL_CREW_MASTER_BACKUP.filter(c => {
+  const key = String(c?.id || '').trim();
+  if (!key || _seenRegistryIds.has(key)) return false;
+  _seenRegistryIds.add(key);
+  return true;
+});

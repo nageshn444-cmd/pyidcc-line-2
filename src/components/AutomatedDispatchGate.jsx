@@ -16428,8 +16428,8 @@ Rules:
       )}
 
       <datalist id="crew-employees">
-        {BMRCL_CREW_REGISTRY.map((c) => (
-          <option key={c.id} value={c.id}>
+        {BMRCL_CREW_REGISTRY.map((c, idx) => (
+          <option key={`crew-emp-${c.id || idx}-${idx}`} value={c.id}>
             {c.id} - {c.name}
           </option>
         ))}
