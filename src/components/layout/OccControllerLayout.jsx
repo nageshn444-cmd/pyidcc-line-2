@@ -153,6 +153,7 @@ export default function OccControllerLayout({
             <ReliefTracking 
               liveTrainTrackingMap={liveTrainTrackingMap}
               filteredTrackingKeys={Object.keys(liveTrainTrackingMap)}
+              linkRoster={deployments}
             />
           </div>
 

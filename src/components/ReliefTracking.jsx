@@ -3,17 +3,24 @@
  * SPDX-License-Identifier: Apache-2.0
  * 
  * BMRCL LINE-2 (PEENYA DEPOT CREW CONTROL)
- * Live Train Operator Relief Matrix & Master Reliever ID Chart for WEEKDAY Link
- * WEF 22/Nov/2024 for Time Table Dated 20/Nov/2024 (APTS - BIET) - 79 Duties
+ * Live Train Operator Relief Matrix & Master Reliever ID Chart
+ * Comprehensive Multi-Day Support:
+ * - WEEKDAY (WEF 22/Nov/2024 for TT 20/Nov/2024 APTS-BIET - 79 Duties, Trains 201-223 + Couns)
+ * - MONDAY (WEF 06/Jan/2025 APTS-BIET - 80 Slots, Trains 201-223 + Couns)
+ * - SATURDAY (WEF 15/Mar/2025 APTS-BIET - 74 Duties, Trains 201-221 + Couns)
+ * - GENERAL HOLIDAY / GH (WEF 15/Mar/2025 APTS-BIET - 74 Duties, Trains 201-221 + Couns)
+ * - SUNDAY (WEF 08/Dec/2024 BIET-APTS - 65 Duties, Trains 201-219)
  * 
  * Synced to Alstom ATS Relief Engine • Verified Reliever-Only Handover System
+ * Complete Continuity & Stabling Break Audit Engine
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Users, Search, Train, ArrowRight, User, Clock, Filter, 
   Table, LayoutGrid, Calendar, ShieldCheck, Sparkles, Layers,
-  CheckCircle2, Radio, AlertCircle
+  CheckCircle2, Radio, AlertCircle, AlertTriangle, Shield, RefreshCw, 
+  ChevronRight, Activity, CalendarDays
 } from 'lucide-react';
 import { 
   WEEKDAY_RELIEF_ID_CHART, 
@@ -22,9 +29,20 @@ import {
   getReliefIdChartForDay,
   normalizeScheduleDay,
   timeStringToSeconds,
-  normalizeTrackTrainId
+  normalizeTrackTrainId,
+  normalizeDutyId,
+  buildDutyRosterFromLinkRoster,
+  buildMasterIdChartFromDutyRoster,
+  buildHandoverCardsFromMasterIdChart
 } from '../data/weekdayReliefIdChartRegistry';
-import { getOperatorForDuty, WEEKDAY_MASTER_DUTY_ROSTER } from '../data/weekdayMasterDutyRoster';
+import { getMasterLinksForDay } from '../data/canonicalDayLinksRegistry';
+import { getOperatorForDuty } from '../data/weekdayMasterDutyRoster';
+
+const ALL_LINE2_FLEET = [
+  '201', '202', '203', '204', '205', '206', '207', '208', '209', '210',
+  '211', '212', '213', '214', '215', '216', '217', '218', '219', '220',
+  '221', '222', '223'
+];
 
 export default function ReliefTracking({ 
   trackerSearchTerm, 
@@ -32,21 +50,36 @@ export default function ReliefTracking({
   filteredTrackingKeys, 
   liveTrainTrackingMap = {},
   activeDay = 'WEEKDAY',
-  simulatedTime = null
+  simulatedTime = null,
+  linkRoster = null
 }) {
   // View mode: 'CARDS' | 'ID_CHART' | 'DUTY_SUMMARY'
   const [viewMode, setViewMode] = useState('CARDS');
 
-  // Dynamically resolve ID chart, metadata, and duty legs for the active day type (Authoritative Master ID Chart: 79 Duties)
-  const activeDayData = useMemo(() => {
-    return getReliefIdChartForDay(activeDay || 'WEEKDAY');
+  // Schedule Day State with prop synchronization
+  const [selectedDay, setSelectedDay] = useState(() => normalizeScheduleDay(activeDay || 'WEEKDAY'));
+  useEffect(() => {
+    if (activeDay) {
+      setSelectedDay(normalizeScheduleDay(activeDay));
+    }
   }, [activeDay]);
+
+  // Fleet View Mode: 'SCHEDULED' (only active timetable trains) vs 'ALL_FLEET' (all 201 to 223)
+  const [fleetScope, setFleetScope] = useState('SCHEDULED');
+
+  // Continuity & Stabling Audit Drawer toggle
+  const [showContinuityAudit, setShowContinuityAudit] = useState(false);
+
+  // Dynamically resolve ID chart, metadata, and duty legs for the selected day type
+  const activeDayData = useMemo(() => {
+    return getReliefIdChartForDay(selectedDay || 'WEEKDAY');
+  }, [selectedDay]);
 
   const activeChart = activeDayData.chart;
   const activeMeta = activeDayData.meta;
   const activeDutyLegs = activeDayData.dutyLegs;
 
-  // Local fallback states
+  // Local search states
   const [localSearch, setLocalSearch] = useState('');
   const [dutySearch, setDutySearch] = useState('');
   const [selectedTrainCol, setSelectedTrainCol] = useState('ALL');
@@ -54,7 +87,7 @@ export default function ReliefTracking({
   // Reset selected column filter when schedule day changes
   useEffect(() => {
     setSelectedTrainCol('ALL');
-  }, [activeDay]);
+  }, [selectedDay]);
 
   // Fallbacks if props are not passed
   const searchTerm = trackerSearchTerm !== undefined ? trackerSearchTerm : localSearch;
@@ -93,19 +126,25 @@ export default function ReliefTracking({
     }
   }, []);
 
-  // Train columns from the active schedule's official ID Chart
-  const trainColumns = useMemo(() => {
+  // Train columns from active schedule or full Line 2 fleet (201 to 223)
+  const scheduledTrains = useMemo(() => {
     return activeMeta.trains || Object.keys(activeChart);
   }, [activeMeta, activeChart]);
 
+  const trainColumns = useMemo(() => {
+    if (fleetScope === 'ALL_FLEET') {
+      const set = new Set([...ALL_LINE2_FLEET]);
+      if (activeChart['Couns']) set.add('Couns');
+      return Array.from(set);
+    }
+    return scheduledTrains;
+  }, [fleetScope, scheduledTrains, activeChart]);
+
   // ── Authoritative DISPATCH GATEWAY CORE Deployments Map ──
-  // Reads active deployments directly from DISPATCH GATEWAY CORE (pyidcc_active_dispatch_deployments)
-  // Strictly respects Operator Name and Duty No columns as the primary source of truth.
   const dispatchDutyOperatorMap = useMemo(() => {
     const map = {};
     if (typeof window === 'undefined' || !window.localStorage) return map;
     try {
-      // 1. Primary: Direct active dispatch deployments from DISPATCH GATEWAY CORE
       const activeRaw = window.localStorage.getItem('pyidcc_active_dispatch_deployments');
       const list = activeRaw ? JSON.parse(activeRaw) : [];
       if (Array.isArray(list)) {
@@ -135,7 +174,6 @@ export default function ReliefTracking({
         });
       }
 
-      // 2. Secondary fallback: Roster desk console cache
       const consoleRaw = window.localStorage.getItem('pyidcc_roster_desk_console_cache');
       if (consoleRaw) {
         const parsed = JSON.parse(consoleRaw);
@@ -169,107 +207,126 @@ export default function ReliefTracking({
     return map;
   }, [dispatchUpdateTrigger]);
 
-  // Dynamic Real-Time Live Train & Reliever Tracking derived strictly from the active Master ID Chart
+  // ── 1. LINK ROSTER (RESPECTIVE DAY) ──
+  // Follows linkRoster prop or canonical Master Link Roster for selectedDay
+  const activeLinkRoster = useMemo(() => {
+    if (Array.isArray(linkRoster) && linkRoster.length > 0) {
+      const first = linkRoster[0];
+      const linkDay = first?.dayType || first?.scheduleType || first?.day;
+      if (!linkDay || normalizeScheduleDay(linkDay) === selectedDay) {
+        return linkRoster;
+      }
+    }
+    return getMasterLinksForDay(selectedDay);
+  }, [linkRoster, selectedDay]);
+
+  // ── 2. DUTY ROSTER (FOLLOWS TRAIN ID OF EACH DUTY OF LINK ROSTER) ──
+  // Derives all duties, trip sequences, and operator assignments from activeLinkRoster
+  const dynamicDutyRoster = useMemo(() => {
+    return buildDutyRosterFromLinkRoster(activeLinkRoster, dispatchDutyOperatorMap, selectedDay);
+  }, [activeLinkRoster, dispatchDutyOperatorMap, selectedDay]);
+
+  // Dynamic duty-to-legs map for Duty Summary view
+  const dynamicDutyLegs = useMemo(() => {
+    const res = {};
+    Object.values(dynamicDutyRoster).forEach(dr => {
+      const key = String(parseInt(dr.dutyId, 10) || dr.dutyId);
+      const legs = (dr.legs || []).map(l => ({
+        trainId: l.trainId,
+        from: l.from,
+        to: l.to,
+        startSec: l.startSec,
+        endSec: l.endSec,
+        empName: dr.assignedOperator?.empName || `Duty ${dr.dutyId}`,
+        empId: dr.assignedOperator?.empId || '--',
+        dutyId: dr.dutyId
+      }));
+      legs.meta = dr.meta;
+      res[key] = legs;
+    });
+    return Object.keys(res).length > 0 ? res : activeDutyLegs;
+  }, [dynamicDutyRoster, activeDutyLegs]);
+
+  // ── 3. MASTER ID CHART (FOLLOWS DUTY ROSTER) ──
+  // Inverts duty legs into train-centric shift sequences (Trains 201-223 + Couns)
+  const dynamicMasterIdChart = useMemo(() => {
+    return buildMasterIdChartFromDutyRoster(dynamicDutyRoster, activeChart);
+  }, [dynamicDutyRoster, activeChart]);
+
+  // ── 4. HANDOVER CARDS (FOLLOWS MASTER ID CHART) ──
+  // ── 5. LIVE RELIEF TRACKING (FOLLOWS HANDOVER CARDS) ──
+  // Evaluates previous, current (at controls), and next reliever at currentTimeSecs
   const effectiveLiveTrackingMap = useMemo(() => {
-    const map = {};
-    const evalSecs = currentTimeSecs;
+    return buildHandoverCardsFromMasterIdChart(
+      dynamicMasterIdChart,
+      currentTimeSecs,
+      trainColumns,
+      dispatchDutyOperatorMap,
+      liveTrainTrackingMap
+    );
+  }, [dynamicMasterIdChart, currentTimeSecs, trainColumns, dispatchDutyOperatorMap, liveTrainTrackingMap]);
 
-    trainColumns.forEach(trainId => {
-      const legs = activeChart[trainId] || [];
-      if (legs.length === 0) return;
+  // ── Continuity & Stabling Audit Engine ──
+  // Audits dynamic master ID chart to verify 100% continuous run, mid-day breaks, and stabling before termination
+  const continuityAudit = useMemo(() => {
+    const list = [];
+    const trains = trainColumns;
 
-      const timeline = legs.map(l => {
-        const cleanDutyStr = String(l.duty || '').replace(/^(duty|d)\s*[#]*/i, '').replace(/^#/, '').trim();
-        const numDuty = parseInt(cleanDutyStr, 10);
-        const normDuty = (!isNaN(numDuty) && numDuty >= 1 && numDuty <= 99) ? String(numDuty).padStart(2, '0') : cleanDutyStr;
-        const startSec = timeStringToSeconds(l.from);
-        let endSec = timeStringToSeconds(l.to);
-        if (endSec < startSec) endSec += 24 * 3600;
-
-        // 1. Authoritative resolution directly from DISPATCH GATEWAY CORE
-        const dispatchOp = dispatchDutyOperatorMap[normDuty];
-
-        // 2. Overlay deployed driver name if exists in liveTrainTrackingMap
-        const propTracking = liveTrainTrackingMap[trainId] || liveTrainTrackingMap[normalizeTrackTrainId(trainId)];
-        let matchedOp = (propTracking?.current?.dutyId === normDuty) ? propTracking.current
-                        : (propTracking?.nextReliver?.dutyId === normDuty) ? propTracking.nextReliver
-                        : (propTracking?.previous?.dutyId === normDuty) ? propTracking.previous
-                        : null;
-
-        if (!matchedOp) {
-          for (const t of Object.values(liveTrainTrackingMap || {})) {
-            if (t?.current?.dutyId === normDuty) { matchedOp = t.current; break; }
-            if (t?.nextReliver?.dutyId === normDuty) { matchedOp = t.nextReliver; break; }
-            if (t?.previous?.dutyId === normDuty) { matchedOp = t.previous; break; }
-          }
-        }
-
-        const defaultRosterOp = getOperatorForDuty(normDuty);
-
-        let empName;
-        let empId;
-        let isExchanged = false;
-        let originalEmpName = '';
-        let originalEmpId = '';
-
-        if (dispatchOp?.empName) {
-          empName = dispatchOp.empName;
-          empId = dispatchOp.empId;
-          isExchanged = Boolean(dispatchOp.isExchanged || dispatchOp.isSwapped);
-          originalEmpName = dispatchOp.rawRecord?.originalEmpName || '';
-          originalEmpId = dispatchOp.rawRecord?.originalEmpId || '';
-        } else if (matchedOp?.empName && matchedOp.empName !== '--' && matchedOp.empName !== '-' && !matchedOp.empName.startsWith('Train Operator') && !matchedOp.empName.startsWith('Duty ')) {
-          empName = matchedOp.empName;
-          empId = matchedOp.empId || matchedOp.empNo || '--';
-          isExchanged = Boolean(matchedOp.isExchanged);
-          originalEmpName = matchedOp.originalEmpName || '';
-          originalEmpId = matchedOp.originalEmpId || '';
-        } else if (defaultRosterOp?.empName) {
-          empName = defaultRosterOp.empName;
-          empId = defaultRosterOp.empId || '--';
-        } else {
-          empName = `Duty ${normDuty}`;
-          empId = '--';
-        }
-
-        return {
-          dutyId: normDuty,
-          empName,
-          empId,
-          startSec,
-          endSec,
-          startStr: l.from,
-          endStr: l.to,
-          isExchanged,
-          originalEmpName,
-          originalEmpId
-        };
-      }).sort((a, b) => a.startSec - b.startSec);
-
-      const current = timeline.find(leg => evalSecs >= leg.startSec && evalSecs <= leg.endSec) || null;
-      const finished = timeline.filter(leg => leg.endSec < (current ? current.startSec + 300 : evalSecs));
-      const previous = finished.length > 0 ? finished[finished.length - 1] : null;
-
-      let nextReliver = null;
-      if (current) {
-        const futureLegs = timeline.filter(leg => leg.startSec >= current.endSec - 300 && leg.dutyId !== current.dutyId);
-        nextReliver = futureLegs[0] || timeline.find(leg => leg.startSec > current.startSec && leg.dutyId !== current.dutyId) || null;
-      } else {
-        nextReliver = timeline.find(leg => leg.startSec > evalSecs) || null;
+    trains.forEach(tid => {
+      const legs = dynamicMasterIdChart[tid] || dynamicMasterIdChart[normalizeTrackTrainId(tid)] || [];
+      if (legs.length === 0) {
+        list.push({
+          trainId: tid,
+          totalLegs: 0,
+          startTime: '--',
+          startDuty: '--',
+          stablingTime: '--',
+          stablingDuty: '--',
+          stablingLocation: 'Peenya Depot SBL (Off-Roster)',
+          breaks: [],
+          status: 'STABLED_FULL_DAY',
+          statusLabel: `Stabled in Depot (Off-Roster on ${activeMeta.dayType})`
+        });
+        return;
       }
 
-      map[trainId] = {
-        current,
-        previous,
-        nextReliver,
-        allLegs: timeline
-      };
+      const firstLeg = legs[0];
+      const lastLeg = legs[legs.length - 1];
+      const breaks = [];
+
+      for (let i = 0; i < legs.length - 1; i++) {
+        const currToSec = timeStringToSeconds(legs[i].to);
+        const nextFromSec = timeStringToSeconds(legs[i + 1].from);
+        const gapSec = nextFromSec - currToSec;
+        if (gapSec > 300) {
+          breaks.push({
+            breakFrom: legs[i].to,
+            breakTo: legs[i + 1].from,
+            durationMins: Math.round(gapSec / 60),
+            prevDuty: legs[i].duty || legs[i].dutyId,
+            nextDuty: legs[i + 1].duty || legs[i + 1].dutyId
+          });
+        }
+      }
+
+      list.push({
+        trainId: tid,
+        totalLegs: legs.length,
+        startTime: firstLeg.from,
+        startDuty: firstLeg.duty || firstLeg.dutyId,
+        stablingTime: lastLeg.to,
+        stablingDuty: lastLeg.duty || lastLeg.dutyId,
+        stablingLocation: 'Peenya Depot SBL / Platform Handover',
+        breaks,
+        status: breaks.length === 0 ? 'CONTINUOUS' : 'SPLIT_SHIFT',
+        statusLabel: breaks.length === 0 ? '100% Continuous Mainline Run' : `Split-Shift (${breaks.length} Stabling Break${breaks.length > 1 ? 's' : ''})`
+      });
     });
 
-    return map;
-  }, [activeChart, trainColumns, currentTimeSecs, liveTrainTrackingMap, dispatchDutyOperatorMap]);
+    return list;
+  }, [trainColumns, dynamicMasterIdChart, activeMeta]);
 
-  // Filter keys based on search and duty inputs for the CARDS view
+  // Filter keys for CARDS view
   const finalTrackingKeys = useMemo(() => {
     return trainColumns.filter(tid => {
       const tracking = effectiveLiveTrackingMap[tid] || effectiveLiveTrackingMap[normalizeTrackTrainId(tid)];
@@ -280,7 +337,6 @@ export default function ReliefTracking({
       const genQuery = searchTerm.toLowerCase().trim();
       const dutyQuery = dutySearch.toLowerCase().trim();
 
-      // 1. General search match (Train ID, Operator Names)
       const matchesGeneral = !genQuery || (
         String(tid).toLowerCase().includes(genQuery) ||
         String(prev?.empName || '').toLowerCase().includes(genQuery) ||
@@ -288,57 +344,53 @@ export default function ReliefTracking({
         String(next?.empName || '').toLowerCase().includes(genQuery)
       );
 
-      // 2. Dedicated Duty ID search match (e.g. "D10", "10", "09")
       const cleanDutyQuery = dutyQuery.replace(/^d/i, '');
       const matchesDuty = !dutyQuery || (
-        String(prev?.dutyId || '').toLowerCase().includes(cleanDutyQuery) ||
-        String(curr?.dutyId || '').toLowerCase().includes(cleanDutyQuery) ||
-        String(next?.dutyId || '').toLowerCase().includes(cleanDutyQuery)
+        String(prev?.dutyId || prev?.duty || '').toLowerCase().includes(cleanDutyQuery) ||
+        String(curr?.dutyId || curr?.duty || '').toLowerCase().includes(cleanDutyQuery) ||
+        String(next?.dutyId || next?.duty || '').toLowerCase().includes(cleanDutyQuery)
       );
 
       return matchesGeneral && matchesDuty;
     });
   }, [effectiveLiveTrackingMap, trainColumns, searchTerm, dutySearch]);
 
-  // Filtered train columns for the ID CHART view
+  // Filtered train columns for ID CHART view
   const filteredIdChartColumns = useMemo(() => {
     return trainColumns.filter(trainId => {
       if (selectedTrainCol !== 'ALL' && selectedTrainCol !== trainId) return false;
 
       const genQuery = searchTerm.toLowerCase().trim();
       const dutyQuery = dutySearch.toLowerCase().trim().replace(/^d/i, '');
+      const legs = dynamicMasterIdChart[trainId] || dynamicMasterIdChart[normalizeTrackTrainId(trainId)] || [];
 
-      const legs = activeChart[trainId] || [];
-
-      // Check if any leg matches search
       const matchesGen = !genQuery || (
         trainId.toLowerCase().includes(genQuery) ||
         legs.some(l => {
-          const normDuty = String(l.duty).padStart(2, '0');
+          const normDuty = String(l.duty || l.dutyId).padStart(2, '0');
           const trackingOp = effectiveLiveTrackingMap[trainId]?.current || effectiveLiveTrackingMap[trainId]?.nextReliver;
-          return normDuty.includes(genQuery) || String(l.duty).includes(genQuery) ||
+          return normDuty.includes(genQuery) || String(l.duty || l.dutyId).includes(genQuery) ||
                  (trackingOp?.dutyId === normDuty && trackingOp.empName?.toLowerCase().includes(genQuery));
         })
       );
 
       const matchesDuty = !dutyQuery || legs.some(l => {
-        const normDuty = String(l.duty).padStart(2, '0');
-        return normDuty.includes(dutyQuery) || String(l.duty).includes(dutyQuery);
+        const normDuty = String(l.duty || l.dutyId).padStart(2, '0');
+        return normDuty.includes(dutyQuery) || String(l.duty || l.dutyId).includes(dutyQuery);
       });
 
       return matchesGen && matchesDuty;
     });
-  }, [trainColumns, selectedTrainCol, searchTerm, dutySearch, effectiveLiveTrackingMap, activeChart]);
+  }, [trainColumns, selectedTrainCol, searchTerm, dutySearch, effectiveLiveTrackingMap, dynamicMasterIdChart]);
 
-  // Dynamically compute the maximum number of rows needed across all visible columns
   const maxRowsInChart = useMemo(() => {
     let max = 10;
     filteredIdChartColumns.forEach(trainId => {
-      const len = (activeChart[trainId] || []).length;
+      const len = (dynamicMasterIdChart[trainId] || dynamicMasterIdChart[normalizeTrackTrainId(trainId)] || []).length;
       if (len > max) max = len;
     });
     return Math.max(max, 10);
-  }, [filteredIdChartColumns, activeChart]);
+  }, [filteredIdChartColumns, dynamicMasterIdChart]);
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 shadow-2xl relative overflow-hidden font-mono">
@@ -358,11 +410,11 @@ export default function ReliefTracking({
                 Live Train Operator Relief Matrix
               </h3>
               <span className="px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-700/60 text-[9px] font-black uppercase font-mono">
-                {activeMeta.badge || `${activeMeta.dayType} LINK`}
+                {activeMeta.badge || `${selectedDay} LINK`}
               </span>
               <span className="px-2 py-0.5 rounded-full bg-blue-950 text-blue-300 border border-blue-700/60 text-[9px] font-black uppercase font-mono flex items-center gap-1">
                 <Sparkles size={10} className="text-blue-400" />
-                MASTER ID CHART (79 DUTIES)
+                MASTER ID CHART ({activeMeta.dutyCount || Object.keys(activeDutyLegs).length} DUTIES)
               </span>
               <span className="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700/60 text-[9px] font-black uppercase font-mono flex items-center gap-1">
                 <ShieldCheck size={11} className="text-emerald-400" />
@@ -373,55 +425,224 @@ export default function ReliefTracking({
               <span>{activeMeta.title}</span>
               <span className="text-slate-600">•</span>
               <span className="text-emerald-400 font-bold">Verified Reliever-Only Handover System</span>
+              <span className="text-slate-600">•</span>
+              <span className="text-cyan-400 font-bold">{scheduledTrains.length} Timetabled Trains</span>
             </p>
           </div>
         </div>
         
-        {/* View Mode Toggle Buttons */}
-        <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 self-stretch sm:self-auto justify-between sm:justify-start">
+        {/* Right Action Bar: View Mode & Audit Drawer Toggle */}
+        <div className="flex items-center gap-2 flex-wrap self-stretch sm:self-auto justify-between sm:justify-start">
           <button
             type="button"
-            onClick={() => setViewMode('CARDS')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono flex items-center gap-1.5 transition-all ${
-              viewMode === 'CARDS'
-                ? 'bg-cyan-600 text-white shadow-md font-black'
-                : 'text-slate-400 hover:text-slate-200'
+            onClick={() => setShowContinuityAudit(!showContinuityAudit)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono flex items-center gap-1.5 transition-all border ${
+              showContinuityAudit 
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-md ring-1 ring-amber-500/30'
+                : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
             }`}
-            title="Real-time previous, active, and upcoming operator handovers"
+            title="Inspect train continuity, mid-day stabling gaps, and night stabling times"
           >
-            <LayoutGrid size={13} />
-            <span>Handover Cards</span>
+            <Activity size={13} className={showContinuityAudit ? 'text-amber-400 animate-pulse' : 'text-amber-500'} />
+            <span>Continuity &amp; Stabling Audit</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setViewMode('ID_CHART')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono flex items-center gap-1.5 transition-all ${
-              viewMode === 'ID_CHART'
-                ? 'bg-cyan-600 text-white shadow-md font-black'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-            title={`Official ${trainColumns.length}-column Master ID Chart for ${activeMeta.dayType}`}
-          >
-            <Table size={13} />
-            <span>Master ID Chart</span>
-          </button>
+          {/* View Mode Toggle Buttons */}
+          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+            <button
+              type="button"
+              onClick={() => setViewMode('CARDS')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono flex items-center gap-1.5 transition-all ${
+                viewMode === 'CARDS'
+                  ? 'bg-cyan-600 text-white shadow-md font-black'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Real-time previous, active, and upcoming operator handovers"
+            >
+              <LayoutGrid size={13} />
+              <span>Handover Cards</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setViewMode('DUTY_SUMMARY')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono flex items-center gap-1.5 transition-all ${
-              viewMode === 'DUTY_SUMMARY'
-                ? 'bg-cyan-600 text-white shadow-md font-black'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-            title={`Duty-wise breakdown of assigned train legs from the official ${activeMeta.dayType} ID chart`}
-          >
-            <Layers size={13} />
-            <span>Duty Roster</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('ID_CHART')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono flex items-center gap-1.5 transition-all ${
+                viewMode === 'ID_CHART'
+                  ? 'bg-cyan-600 text-white shadow-md font-black'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title={`Official ${trainColumns.length}-column Master ID Chart for ${activeMeta.dayType}`}
+            >
+              <Table size={13} />
+              <span>Master ID Chart</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setViewMode('DUTY_SUMMARY')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono flex items-center gap-1.5 transition-all ${
+                viewMode === 'DUTY_SUMMARY'
+                  ? 'bg-cyan-600 text-white shadow-md font-black'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title={`Duty-wise breakdown of assigned train legs from the official ${activeMeta.dayType} ID chart`}
+            >
+              <Layers size={13} />
+              <span>Duty Roster</span>
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Schedule Day Selector Bar */}
+      <div className="bg-slate-950/90 border border-slate-800 rounded-xl p-2.5 mb-4 flex flex-wrap items-center justify-between gap-3 relative z-10 text-xs">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-slate-400 font-bold flex items-center gap-1 text-[11px] uppercase tracking-wider">
+            <CalendarDays size={13} className="text-cyan-400" />
+            Schedule Day:
+          </span>
+          <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
+            {[
+              { id: 'WEEKDAY', label: 'WEEKDAY', duties: '79' },
+              { id: 'MONDAY', label: 'MONDAY', duties: '80' },
+              { id: 'SATURDAY', label: 'SATURDAY', duties: '74' },
+              { id: 'GH', label: 'GH (HOLIDAY)', duties: '74' },
+              { id: 'SUNDAY', label: 'SUNDAY', duties: '65' }
+            ].map(day => (
+              <button
+                key={day.id}
+                type="button"
+                onClick={() => setSelectedDay(day.id)}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all ${
+                  selectedDay === day.id
+                    ? 'bg-cyan-500 text-slate-950 font-black shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {day.label} <span className="text-[9px] opacity-75">({day.duties})</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Fleet Scope: Scheduled Trains vs All 201-223 */}
+        <div className="flex items-center gap-2">
+          <span className="text-slate-400 text-[11px]">Fleet Scope:</span>
+          <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
+            <button
+              type="button"
+              onClick={() => setFleetScope('SCHEDULED')}
+              className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono transition-colors ${
+                fleetScope === 'SCHEDULED' ? 'bg-cyan-600 text-white font-black' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Active ({scheduledTrains.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFleetScope('ALL_FLEET')}
+              className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono transition-colors ${
+                fleetScope === 'ALL_FLEET' ? 'bg-cyan-600 text-white font-black' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              All 201-223 ({ALL_LINE2_FLEET.length})
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* CONTINUITY & STABLING BREAK AUDIT DRAWER (Expandable)                 */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {showContinuityAudit && (
+        <div className="mb-4 bg-slate-950 border border-amber-500/40 rounded-xl p-4 shadow-xl relative z-10 transition-all">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-amber-400 animate-pulse" />
+              <h4 className="text-xs font-black text-white tracking-wider uppercase">
+                TRAIN CONTINUITY &amp; STABLING AUDIT REPORT • {activeMeta.dayType} LINK
+              </h4>
+            </div>
+            <div className="flex items-center gap-3 text-[10px] text-slate-400">
+              <span className="flex items-center gap-1 text-emerald-400">
+                <CheckCircle2 size={11} />
+                <span>Continuous Runs</span>
+              </span>
+              <span className="flex items-center gap-1 text-amber-400">
+                <AlertTriangle size={11} />
+                <span>Split-Shift / Mid-Day Breaks</span>
+              </span>
+              <span className="flex items-center gap-1 text-slate-500">
+                <span>Stabled Full-Day</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 max-h-[360px] overflow-y-auto pr-1 custom-scrollbar">
+            {continuityAudit.map(audit => (
+              <div 
+                key={`audit-${audit.trainId}`}
+                className={`p-2.5 rounded-lg border text-xs flex flex-col justify-between ${
+                  audit.status === 'CONTINUOUS'
+                    ? 'bg-emerald-950/15 border-emerald-500/30 text-slate-300'
+                    : audit.status === 'SPLIT_SHIFT'
+                    ? 'bg-amber-950/20 border-amber-500/40 text-slate-200'
+                    : 'bg-slate-900/40 border-slate-800/80 text-slate-500'
+                }`}
+              >
+                <div className="flex items-center justify-between border-b border-slate-850 pb-1.5 mb-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Train size={12} className={audit.status === 'CONTINUOUS' ? 'text-emerald-400' : audit.status === 'SPLIT_SHIFT' ? 'text-amber-400' : 'text-slate-600'} />
+                    <strong className="text-white font-mono">TRAIN {audit.trainId}</strong>
+                  </div>
+                  <span className={`text-[8.5px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider ${
+                    audit.status === 'CONTINUOUS'
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      : audit.status === 'SPLIT_SHIFT'
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'bg-slate-800/60 text-slate-400 border border-slate-700/40'
+                  }`}>
+                    {audit.status === 'CONTINUOUS' ? 'Continuous' : audit.status === 'SPLIT_SHIFT' ? 'Split-Shift' : 'Stabled'}
+                  </span>
+                </div>
+
+                {audit.status !== 'STABLED_FULL_DAY' ? (
+                  <div className="space-y-1 text-[10px]">
+                    <div className="flex justify-between text-slate-400">
+                      <span>Induction: <strong className="text-slate-200">{audit.startTime}</strong> (Duty {audit.startDuty})</span>
+                      <span>Stables: <strong className="text-cyan-300">{audit.stablingTime}</strong> (Duty {audit.stablingDuty})</span>
+                    </div>
+
+                    {audit.breaks.length > 0 ? (
+                      <div className="mt-1 pt-1 border-t border-amber-500/20 space-y-1">
+                        <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider block">
+                          ⚠️ Off-Peak Stabling Break ({audit.breaks.length}):
+                        </span>
+                        {audit.breaks.map((b, bIdx) => (
+                          <div key={bIdx} className="bg-slate-950/80 p-1.5 rounded text-[9.5px] text-amber-200 font-mono border border-amber-500/20">
+                            Break: <strong>{b.breakFrom} ➔ {b.breakTo}</strong> ({b.durationMins} mins / {(b.durationMins / 60).toFixed(1)} hrs)
+                            <div className="text-[8.5px] text-slate-400 mt-0.5">
+                              Withdrawn under D{b.prevDuty} ➔ Re-inducted under D{b.nextDuty}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-[9px] text-emerald-400/90 font-bold flex items-center gap-1 mt-0.5">
+                        <CheckCircle2 size={10} /> Continuous service without mid-day withdrawal
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-slate-500 italic py-1">
+                    No timetabled service scheduled for {activeMeta.dayType}. Train stabled at depot siding.
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Search & Filter Bar */}
       <div className="flex flex-col sm:flex-row gap-3 mb-4 relative z-10">
@@ -483,8 +704,9 @@ export default function ReliefTracking({
             const prev = tracking?.previous;
             const curr = tracking?.current;
             const next = tracking?.nextReliver;
+            const isStabledFullDay = tracking?.isStabledFullDay;
+            const isMidDayBreak = tracking?.isMidDayBreak;
 
-            // Check if specific operator matches the duty query for highlight
             const cleanQuery = dutySearch.trim().toLowerCase().replace(/^d/i, '');
             const prevMatchesDuty = cleanQuery && String(prev?.dutyId || '').toLowerCase().includes(cleanQuery);
             const currMatchesDuty = cleanQuery && String(curr?.dutyId || '').toLowerCase().includes(cleanQuery);
@@ -503,9 +725,17 @@ export default function ReliefTracking({
                     <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping"></span> ACTIVE FLEET
                     </span>
+                  ) : isMidDayBreak ? (
+                    <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] font-mono flex items-center gap-1">
+                      <Clock size={10} /> MID-DAY STABLED ({tracking.breakDurationMins}m)
+                    </span>
+                  ) : isStabledFullDay ? (
+                    <span className="px-2 py-0.5 rounded bg-slate-800/80 text-slate-400 border border-slate-700/40 text-[9px] font-mono">
+                      OFF-ROSTER / STABLED
+                    </span>
                   ) : (
                     <span className="px-2 py-0.5 rounded bg-slate-800/50 text-slate-400 border border-slate-700/40 text-[9px] font-mono">
-                      OFF-PEAK / STABLED
+                      STABLED / TERMINATED
                     </span>
                   )}
                 </div>
@@ -540,7 +770,9 @@ export default function ReliefTracking({
                         )}
                       </div>
                     ) : (
-                      <div className="text-[10px] text-slate-650 italic">No previous operator scheduled</div>
+                      <div className="text-[10px] text-slate-650 italic">
+                        {isStabledFullDay ? 'No previous operator (Stabled all day)' : 'No previous operator scheduled'}
+                      </div>
                     )}
                   </div>
 
@@ -553,16 +785,26 @@ export default function ReliefTracking({
                   <div className={`p-2.5 rounded-lg flex flex-col gap-1 relative overflow-hidden transition-all ${
                     currMatchesDuty
                       ? 'bg-cyan-500/15 border-2 border-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.45)] animate-pulse'
-                      : 'bg-emerald-500/5 border border-emerald-500/20'
+                      : curr
+                      ? 'bg-emerald-500/5 border border-emerald-500/20'
+                      : isMidDayBreak
+                      ? 'bg-amber-950/20 border border-amber-600/30'
+                      : 'bg-slate-900/40 border border-slate-900'
                   }`}>
                     <div className="absolute top-0 right-0 bottom-0 w-1 bg-emerald-500/40"></div>
                     <div className={`flex justify-between items-center text-[9px] uppercase tracking-wider font-bold ${
-                      currMatchesDuty ? 'text-cyan-400' : 'text-emerald-400'
+                      currMatchesDuty ? 'text-cyan-400' : curr ? 'text-emerald-400' : 'text-slate-500'
                     }`}>
                       <span>Current TO (At Controls)</span>
-                      <span className="flex items-center gap-1 text-[8px] px-1 bg-emerald-500/10 rounded">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping"></span> Active
-                      </span>
+                      {curr ? (
+                        <span className="flex items-center gap-1 text-[8px] px-1 bg-emerald-500/10 rounded text-emerald-400">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping"></span> Active
+                        </span>
+                      ) : isMidDayBreak ? (
+                        <span className="text-[8px] text-amber-400 px-1 bg-amber-500/10 rounded">
+                          Mid-Day Stabled
+                        </span>
+                      ) : null}
                     </div>
                     {curr ? (
                       <div>
@@ -583,6 +825,14 @@ export default function ReliefTracking({
                             🔄 Exchanged | Orig: {curr.originalEmpName} ({curr.originalEmpId})
                           </div>
                         )}
+                      </div>
+                    ) : isMidDayBreak ? (
+                      <div className="text-[10px] text-amber-300/80 italic">
+                        Withdrawn at depot siding • Next re-induction in {tracking.breakDurationMins} mins
+                      </div>
+                    ) : isStabledFullDay ? (
+                      <div className="text-[10px] text-slate-500 italic">
+                        Not in mainline service • Stabled at Peenya Depot SBL
                       </div>
                     ) : (
                       <div className="text-[10px] text-emerald-500/50 italic">No active operator on desk</div>
@@ -621,7 +871,9 @@ export default function ReliefTracking({
                         )}
                       </div>
                     ) : (
-                      <div className="text-[10px] text-slate-650 italic">No upcoming reliever scheduled</div>
+                      <div className="text-[10px] text-slate-650 italic">
+                        {isStabledFullDay ? 'No upcoming reliever (Stabled all day)' : 'No upcoming reliever scheduled (Train Stabling)'}
+                      </div>
                     )}
                   </div>
 
@@ -688,7 +940,7 @@ export default function ReliefTracking({
       )}
 
       {/* ─────────────────────────────────────────────────────────────────── */}
-      {/* VIEW 2: OFFICIAL MASTER WEEKDAY RELIEVER ID CHART TABLE (22/NOV/2024)*/}
+      {/* VIEW 2: OFFICIAL MASTER RELIEVER ID CHART TABLE                      */}
       {/* ─────────────────────────────────────────────────────────────────── */}
       {viewMode === 'ID_CHART' && (
         <div className="space-y-3">
@@ -740,12 +992,11 @@ export default function ReliefTracking({
                 </tr>
               </thead>
               <tbody>
-                {/* Find max rows in any column to render rows */}
                 {Array.from({ length: maxRowsInChart }).map((_, rowIndex) => {
                   return (
                     <tr key={`row-${rowIndex}`} className="border-b border-slate-900/80 hover:bg-slate-900/40 transition-colors">
                       {filteredIdChartColumns.map(trainId => {
-                        const legs = activeChart[trainId] || [];
+                        const legs = dynamicMasterIdChart[trainId] || dynamicMasterIdChart[normalizeTrackTrainId(trainId)] || [];
                         const leg = legs[rowIndex];
 
                         if (!leg) {
@@ -763,10 +1014,9 @@ export default function ReliefTracking({
                         if (endSec < startSec) endSec += 24 * 3600;
 
                         const isActiveNow = currentTimeSecs >= startSec && currentTimeSecs <= endSec;
-                        const normDuty = String(leg.duty).padStart(2, '0');
+                        const normDuty = String(leg.duty || leg.dutyId).padStart(2, '0');
                         const isDutyMatched = dutySearch && normDuty.includes(dutySearch.trim().replace(/^d/i, ''));
 
-                        // Look up operator name: strictly prioritize DISPATCH GATEWAY CORE, then live tracking, then master roster
                         const dispatchOp = dispatchDutyOperatorMap[normDuty];
                         const tracking = effectiveLiveTrackingMap[trainId] || effectiveLiveTrackingMap[normalizeTrackTrainId(trainId)];
                         const matchedOp = (tracking?.current?.dutyId === normDuty) ? tracking.current
@@ -774,11 +1024,6 @@ export default function ReliefTracking({
                                         : (tracking?.previous?.dutyId === normDuty) ? tracking.previous
                                         : null;
                         const defaultRosterOp = getOperatorForDuty(normDuty);
-
-                        const hasValidDeploy = Boolean(
-                          (dispatchOp?.empName && dispatchOp.empName !== '--' && !dispatchOp.empName.startsWith('Duty ')) ||
-                          (matchedOp?.empName && matchedOp.empName !== '--' && !matchedOp.empName.startsWith('Train Operator') && !matchedOp.empName.startsWith('Duty '))
-                        );
 
                         const opDisplayName = dispatchOp?.empName
                           || (matchedOp?.empName && matchedOp.empName !== '--' && !matchedOp.empName.startsWith('Train Operator') && !matchedOp.empName.startsWith('Duty ') ? matchedOp.empName : null)
@@ -807,10 +1052,10 @@ export default function ReliefTracking({
                                 : isDutyMatched
                                 ? 'bg-cyan-950 text-cyan-300 font-black'
                                 : 'text-amber-400 font-black'
-                            }`} title={opDisplayName ? `Operator: ${opDisplayName} (${opDisplayId})` : `Duty ${leg.duty}`}>
+                            }`} title={opDisplayName ? `Operator: ${opDisplayName} (${opDisplayId})` : `Duty ${leg.duty || leg.dutyId}`}>
                               <div className="flex flex-col items-center">
                                 <span className="text-[11px] leading-tight">
-                                  {leg.duty}
+                                  {leg.duty || leg.dutyId}
                                 </span>
                                 {isActiveNow && (
                                   <span className="text-[7.5px] uppercase tracking-tighter text-emerald-400 font-black flex items-center gap-0.5">
@@ -847,27 +1092,25 @@ export default function ReliefTracking({
                 Duty Roster Leg Sequence (Derived from {activeMeta.title})
               </span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold font-mono">
-                79 Duties Master (WEF 22/Nov/2024)
+                {activeMeta.dutyCount || Object.keys(dynamicDutyLegs).length} Duties Master ({activeMeta.badge || selectedDay})
               </span>
             </div>
             <span className="text-[10px] text-slate-400 font-mono">
-              Total Duties: <strong className="text-cyan-400">{Object.keys(activeDutyLegs).length}</strong>
+              Total Duties: <strong className="text-cyan-400">{Object.keys(dynamicDutyLegs).length}</strong>
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-h-[640px] overflow-y-auto pr-1 custom-scrollbar">
-            {Object.keys(activeDutyLegs).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map(dutyNo => {
-              const legs = activeDutyLegs[dutyNo] || [];
+            {Object.keys(dynamicDutyLegs).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map(dutyNo => {
+              const legs = dynamicDutyLegs[dutyNo] || [];
               const cleanDutyQuery = dutySearch.trim().toLowerCase().replace(/^d/i, '');
               const matchesDuty = !cleanDutyQuery || dutyNo.includes(cleanDutyQuery);
 
               if (!matchesDuty) return null;
 
-              // Find active leg
               const activeLeg = legs.find(l => currentTimeSecs >= l.startSec && currentTimeSecs <= l.endSec);
               const meta = legs.meta;
 
-              // Find assigned operator from DISPATCH GATEWAY CORE, else live tracking, else fallback to verified canonical Master Duty Roster
               const normD = dutyNo.padStart(2, '0');
               const dispatchOp = dispatchDutyOperatorMap[normD];
               const defaultRosterOp = getOperatorForDuty(normD);
@@ -877,9 +1120,8 @@ export default function ReliefTracking({
               const liveOp = liveOpMatch?.current?.dutyId === normD ? liveOpMatch.current 
                           : liveOpMatch?.nextReliver?.dutyId === normD ? liveOpMatch.nextReliver 
                           : null;
-              const isOfficialSpecial = Boolean(dispatchOp?.isExchanged || dispatchOp?.isSwapped || liveOp?.isExchanged || liveOp?.status === 'SWAPPED_BY_CC' || liveOp?.status === 'RELIEF_DISPATCHED');
+              const hasLiveOp = Boolean(dispatchOp?.empName || liveOp?.empName);
 
-              // DISPATCH GATEWAY CORE Operator Name column is authoritative — respect deployed operators regardless of emp ID prefix
               const displayEmpName = dispatchOp?.empName
                 || (liveOp?.empName && liveOp.empName !== '--' && !liveOp.empName.startsWith('Duty ') ? liveOp.empName : null)
                 || defaultRosterOp?.empName

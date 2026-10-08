@@ -1672,6 +1672,21 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
     }
   }, [activeDay]);
 
+  useEffect(() => {
+    if (targetDayType) {
+      try {
+        const norm = normalizeScheduleType(targetDayType);
+        localStorage.setItem('pyidcc_active_day_override', norm);
+        localStorage.setItem('pyidcc_target_deployment_day', norm);
+        window.dispatchEvent(new CustomEvent('pyidcc-active-day-changed', {
+          detail: { dayType: norm }
+        }));
+      } catch (e) {
+        console.warn('Could not persist targetDayType', e);
+      }
+    }
+  }, [targetDayType]);
+
   const currentDayType =
     targetDayType || (setActiveDay ? activeDay : localDayType);
 
@@ -1698,9 +1713,11 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
     (newDate, explicitDayType = null) => {
       const formatted = formatOperationalDate(newDate);
       setTargetDeploymentDate(formatted);
+      let effectiveDayType = targetDayType;
       if (explicitDayType) {
         userExplicitDayTypeRef.current = true;
         const norm = normalizeScheduleType(explicitDayType);
+        effectiveDayType = norm;
         setTargetDayType(norm);
         if (setActiveDay) {
           setActiveDay(norm);
@@ -1722,12 +1739,25 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
           stagedMatch?.dayType ||
           stagedMatch?.scheduleType ||
           calculateDefaultDayType(formatted);
+        effectiveDayType = computedDayType;
         setTargetDayType(computedDayType);
         if (setActiveDay) {
           setActiveDay(computedDayType);
         } else {
           setLocalDayType(computedDayType);
         }
+      }
+      try {
+        localStorage.setItem("pyidcc_active_day_override", effectiveDayType);
+        localStorage.setItem("pyidcc_target_deployment_day", effectiveDayType);
+        localStorage.setItem("pyidcc_target_deployment_date", formatted);
+        window.dispatchEvent(
+          new CustomEvent("pyidcc-active-day-changed", {
+            detail: { dayType: effectiveDayType, date: formatted },
+          })
+        );
+      } catch (e) {
+        console.warn("Storage sync warning:", e);
       }
       const matchIdx = rollingDays.findIndex((d) => d.dateStr === formatted);
       if (matchIdx !== -1) {
@@ -1825,6 +1855,18 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
       setActiveDay(norm);
     } else {
       setLocalDayType(norm);
+    }
+    try {
+      localStorage.setItem("pyidcc_active_day_override", norm);
+      localStorage.setItem("pyidcc_target_deployment_day", norm);
+      localStorage.setItem("pyidcc_target_deployment_date", targetDeploymentDate);
+      window.dispatchEvent(
+        new CustomEvent("pyidcc-active-day-changed", {
+          detail: { dayType: norm, date: targetDeploymentDate },
+        })
+      );
+    } catch (e) {
+      console.warn("Storage sync warning:", e);
     }
     // Synchronize staged roster in memory so it deploys under the selected schedule type
     setStagedRostersByDate((prev) => {
@@ -2282,6 +2324,16 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
             recoveredDayType !== normalizeScheduleType(targetDayType)
           ) {
             setTargetDayType(recoveredDayType);
+            if (setActiveDay) setActiveDay(recoveredDayType);
+            try {
+              localStorage.setItem("pyidcc_active_day_override", recoveredDayType);
+              localStorage.setItem("pyidcc_target_deployment_day", recoveredDayType);
+              window.dispatchEvent(
+                new CustomEvent("pyidcc-active-day-changed", {
+                  detail: { dayType: recoveredDayType, date: activeDate },
+                })
+              );
+            } catch (e) {}
           }
           setConsoleData(
             enforceSingleDutyRule(sanitizeConsoleContainer(matched.rosterData)),
@@ -8807,9 +8859,10 @@ Rules:
                   className="bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-cyan-300 font-black font-mono cursor-pointer outline-none"
                 >
                   <option value="WEEKDAY">WEEKDAY (79 Duties)</option>
-                  <option value="MONDAY">MONDAY (04:00hrs Service)</option>
-                  <option value="SATURDAY">SATURDAY &amp; GH</option>
-                  <option value="SUNDAY">SUNDAY</option>
+                  <option value="MONDAY">MONDAY (04:00hrs Service - 80 Slots)</option>
+                  <option value="SATURDAY">SATURDAY (74 Duties)</option>
+                  <option value="GH">GENERAL HOLIDAY (GH - 74 Duties)</option>
+                  <option value="SUNDAY">SUNDAY (65 Duties)</option>
                 </select>
               </div>
 
@@ -8842,6 +8895,7 @@ Rules:
             liveTrainTrackingMap={dispatchLiveTrackingMap}
             activeDay={reliefScheduleDay}
             simulatedTime={reliefSimulatedTime}
+            linkRoster={activeDeploymentDuties}
           />
         </div>
       )}

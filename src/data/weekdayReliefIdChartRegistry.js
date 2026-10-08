@@ -16,6 +16,7 @@
 import { DUTY_TEMPLATES_REGISTRY } from './dutyTemplatesRegistry.js';
 import { WEEKDAY_MASTER_LINKS } from './weekdayMasterLinks.js';
 import { getOperatorForDuty } from './weekdayMasterDutyRoster.js';
+import { SATURDAY_MASTER_LINKS, SUNDAY_MASTER_LINKS, MONDAY_MASTER_LINKS } from './canonicalDayLinksRegistry.js';
 
 // ============================================================================
 // 1. WEEKDAY RELIEF ID CHART (WEF 22/Nov/2024 for TT 20/Nov/2024 APTS-BIET - 79 Duties)
@@ -665,11 +666,6 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "21:46",
       "to": "23:55",
       "duty": "65"
-    },
-    {
-      "from": "23:55",
-      "to": "05:30",
-      "duty": "77"
     }
   ],
   "214": [
@@ -707,11 +703,6 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "18:22",
       "to": "21:00",
       "duty": "36"
-    },
-    {
-      "from": "21:00",
-      "to": "05:30",
-      "duty": "77"
     }
   ],
   "215": [
@@ -764,11 +755,6 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "21:44",
       "to": "00:15",
       "duty": "74"
-    },
-    {
-      "from": "00:15",
-      "to": "05:30",
-      "duty": "77"
     }
   ],
   "216": [
@@ -1820,6 +1806,9 @@ export const SUNDAY_RELIEF_ID_CHART = {
     { from: '15:12', to: '17:36', duty: '40' },
     { from: '17:36', to: '20:00', duty: '33' },
     { from: '20:00', to: '21:10', duty: '25' }
+  ],
+  '219': [
+    { from: '06:00', to: '07:15', duty: '53' }
   ]
 };
 
@@ -1827,8 +1816,22 @@ export const SUNDAY_RELIEF_ID_CHART_META = {
   dayType: 'SUNDAY',
   title: 'ID CHART for SUNDAY Link WEF 08/Dec/2024 (BIET - APTS)',
   badge: 'SUNDAY LINK (BIET-APTS)',
-  totalTrains: 18,
-  trains: ['201', '202', '203', '204', '205', '206', '207', '208', '209', '210', '211', '212', '213', '214', '215', '216', '217', '218']
+  dutyCount: 65,
+  totalTrains: 19,
+  trains: ['201', '202', '203', '204', '205', '206', '207', '208', '209', '210', '211', '212', '213', '214', '215', '216', '217', '218', '219']
+};
+
+// ============================================================================
+// 5. GENERAL HOLIDAY (GH) RELIEF ID CHART (WEF 15/Mar/2025 APTS - BIET)
+// ============================================================================
+export const GH_RELIEF_ID_CHART = SATURDAY_RELIEF_ID_CHART;
+export const GH_RELIEF_ID_CHART_META = {
+  dayType: 'GH',
+  title: 'ID CHART for General Holiday (GH) Link WEF 15/Mar/2025 (APTS - BIET)',
+  badge: 'GH LINK (APTS-BIET)',
+  dutyCount: 74,
+  totalTrains: 22,
+  trains: ['201', '202', '203', '204', '205', '206', '207', '208', '209', '210', '211', '212', '213', '214', '215', '216', '217', '218', '219', '220', '221', 'Couns']
 };
 
 // ============================================================================
@@ -1859,13 +1862,14 @@ export function timeStringToSeconds(timeStr) {
 export function normalizeTrackTrainId(rawId) {
   if (rawId === null || rawId === undefined || rawId === '' || rawId === '--' || rawId === '-') return '';
   const str = String(rawId).trim();
+  if (str.toLowerCase().startsWith('couns')) return 'Couns';
   const digits = str.replace(/^[^\d]+/, '').replace(/[^\d].*$/, '');
   const num = parseInt(digits, 10);
   if (!isNaN(num)) {
     if (num >= 1 && num <= 25) return String(200 + num);
     if (num >= 201 && num <= 225) return String(num);
   }
-  return str.toUpperCase();
+  return str;
 }
 
 /**
@@ -1985,32 +1989,57 @@ export function buildDutyLegsFromMasterLinks(masterLinks = [], baseChart = null)
 export const WEEKDAY_DUTY_LEGS_2024_FROM_ID_CHART = buildDutyLegsFromMasterLinks(WEEKDAY_MASTER_LINKS, WEEKDAY_RELIEF_ID_CHART_2024);
 export const WEEKDAY_DUTY_LEGS_FROM_ID_CHART = WEEKDAY_DUTY_LEGS_2024_FROM_ID_CHART;
 export const WEEKDAY_DUTY_LEGS_2026_FROM_ID_CHART = WEEKDAY_DUTY_LEGS_2024_FROM_ID_CHART;
-export const MONDAY_DUTY_LEGS_FROM_ID_CHART = buildDutyLegsFromChart(MONDAY_RELIEF_ID_CHART);
-export const SATURDAY_DUTY_LEGS_FROM_ID_CHART = buildDutyLegsFromChart(SATURDAY_RELIEF_ID_CHART);
-export const SUNDAY_DUTY_LEGS_FROM_ID_CHART = buildDutyLegsFromChart(SUNDAY_RELIEF_ID_CHART);
+let _monLegs = null;
+export function getMondayDutyLegs() {
+  if (!_monLegs) _monLegs = buildDutyLegsFromMasterLinks(MONDAY_MASTER_LINKS, MONDAY_RELIEF_ID_CHART);
+  return _monLegs;
+}
+let _satLegs = null;
+export function getSaturdayDutyLegs() {
+  if (!_satLegs) _satLegs = buildDutyLegsFromMasterLinks(SATURDAY_MASTER_LINKS, SATURDAY_RELIEF_ID_CHART);
+  return _satLegs;
+}
+let _sunLegs = null;
+export function getSundayDutyLegs() {
+  if (!_sunLegs) _sunLegs = buildDutyLegsFromMasterLinks(SUNDAY_MASTER_LINKS, SUNDAY_RELIEF_ID_CHART);
+  return _sunLegs;
+}
+const createLazyLegsProxy = (fn) => new Proxy({}, {
+  get: (target, prop) => fn()[prop],
+  ownKeys: () => Reflect.ownKeys(fn()),
+  getOwnPropertyDescriptor: (target, prop) => Reflect.getOwnPropertyDescriptor(fn(), prop),
+  has: (target, prop) => Reflect.has(fn(), prop)
+});
+export const MONDAY_DUTY_LEGS_FROM_ID_CHART = createLazyLegsProxy(getMondayDutyLegs);
+export const SATURDAY_DUTY_LEGS_FROM_ID_CHART = createLazyLegsProxy(getSaturdayDutyLegs);
+export const GH_DUTY_LEGS_FROM_ID_CHART = SATURDAY_DUTY_LEGS_FROM_ID_CHART;
+export const SUNDAY_DUTY_LEGS_FROM_ID_CHART = createLazyLegsProxy(getSundayDutyLegs);
 
 // Aggregated Registries for Multi-Day Support
 export const ALL_RELIEF_ID_CHARTS = {
   WEEKDAY: WEEKDAY_RELIEF_ID_CHART_2024,
-    WEEKDAY_2024: WEEKDAY_RELIEF_ID_CHART_2024,
+  WEEKDAY_2024: WEEKDAY_RELIEF_ID_CHART_2024,
   MONDAY: MONDAY_RELIEF_ID_CHART,
   SATURDAY: SATURDAY_RELIEF_ID_CHART,
+  GH: GH_RELIEF_ID_CHART,
   SUNDAY: SUNDAY_RELIEF_ID_CHART
 };
 
 export const ALL_RELIEF_ID_CHART_METAS = {
   WEEKDAY: WEEKDAY_RELIEF_ID_CHART_2024_META,
   WEEKDAY_2024: WEEKDAY_RELIEF_ID_CHART_2024_META,
-    MONDAY: MONDAY_RELIEF_ID_CHART_META,
+  MONDAY: MONDAY_RELIEF_ID_CHART_META,
   SATURDAY: SATURDAY_RELIEF_ID_CHART_META,
+  GH: GH_RELIEF_ID_CHART_META,
   SUNDAY: SUNDAY_RELIEF_ID_CHART_META
 };
 
 export const ALL_DUTY_LEGS_FROM_ID_CHARTS = {
   WEEKDAY: WEEKDAY_DUTY_LEGS_2024_FROM_ID_CHART,
   WEEKDAY_2024: WEEKDAY_DUTY_LEGS_2024_FROM_ID_CHART,
-    MONDAY: MONDAY_DUTY_LEGS_FROM_ID_CHART,
+  MONDAY: MONDAY_DUTY_LEGS_FROM_ID_CHART,
   SATURDAY: SATURDAY_DUTY_LEGS_FROM_ID_CHART,
+  GH: GH_DUTY_LEGS_FROM_ID_CHART,
   SUNDAY: SUNDAY_DUTY_LEGS_FROM_ID_CHART
 };
 
@@ -2020,8 +2049,9 @@ export const ALL_DUTY_LEGS_FROM_ID_CHARTS = {
  */
 export function normalizeScheduleDay(dayType = 'WEEKDAY') {
   const norm = String(dayType || 'WEEKDAY').toUpperCase().trim();
+  if (norm === 'GH' || norm.includes('GENERAL HOLIDAY')) return 'GH';
   if (norm.includes('SUN')) return 'SUNDAY';
-  if (norm.includes('SAT') || norm.includes('GH')) return 'SATURDAY';
+  if (norm.includes('SAT')) return 'SATURDAY';
   if (norm.includes('MON')) return 'MONDAY';
   return 'WEEKDAY';
 }
@@ -2038,6 +2068,14 @@ export function getReliefIdChartForDay(dayType = 'WEEKDAY') {
       chart: SUNDAY_RELIEF_ID_CHART,
       meta: SUNDAY_RELIEF_ID_CHART_META,
       dutyLegs: SUNDAY_DUTY_LEGS_FROM_ID_CHART
+    };
+  }
+  if (key === 'GH') {
+    return {
+      dayType: 'GH',
+      chart: GH_RELIEF_ID_CHART,
+      meta: GH_RELIEF_ID_CHART_META,
+      dutyLegs: GH_DUTY_LEGS_FROM_ID_CHART
     };
   }
   if (key === 'SATURDAY') {
@@ -2100,7 +2138,7 @@ export function normalizeDutyId(raw) {
 export function buildLiveTrainTrackingMap(allDeployments = [], evalSecs, dayType = 'WEEKDAY') {
   const normDay = normalizeScheduleDay(dayType);
   const isSunday = normDay === 'SUNDAY';
-  const isSaturday = normDay === 'SATURDAY';
+  const isSaturday = normDay === 'SATURDAY' || normDay === 'GH';
   const isMonday = normDay === 'MONDAY';
 
   const dStr = String(dayType || '').toUpperCase();
@@ -2522,3 +2560,403 @@ export function resolveLiveRelieverOperator({
     isExchanged: Boolean(dispatchRelieverOp?.isExchanged || liveFeedOp?.isExchanged)
   };
 }
+
+// ============================================================================
+// 6. DYNAMIC LINKED RELIEF PIPELINE
+// Strict Dependency Hierarchy:
+// Link Roster ➔ Duty Roster ➔ Master ID Chart ➔ Handover Cards ➔ Live Relief Tracking
+// If the Link Roster changes, all downstream charts & cards dynamically update.
+// ============================================================================
+
+/**
+ * 1. Derives Duty Roster from the Link Roster of that respective day.
+ * Extracts every duty's assigned train legs, sign-on/off, km, and deployed operator.
+ */
+export function buildDutyRosterFromLinkRoster(links = [], dispatchOperatorMap = {}, defaultDay = 'WEEKDAY') {
+  const dutyRoster = {};
+
+  (links || []).forEach(item => {
+    const rawDuty = String(item.dutyId || item.dutyNo || item.rawDutyId || '').trim();
+    if (!rawDuty) return;
+    const normDuty = normalizeDutyId(rawDuty);
+
+    // Extract all train driving legs from this duty
+    const legs = [];
+
+    // Format A: Explicit trips array
+    if (Array.isArray(item.trips) && item.trips.length > 0) {
+      item.trips.forEach(tr => {
+        const rawT = String(tr.trainNo || tr.trainId || '').trim();
+        const t = normalizeTrackTrainId(rawT) || rawT.replace(/^Train\s*/i, '').trim();
+        const f = String(tr.timeFrm || tr.depTime || '').slice(0, 5);
+        const to = String(tr.timeTo || tr.arrTime || '').slice(0, 5);
+        if (t && t !== '--' && t !== '-' && f && f !== '--') {
+          const startSec = timeStringToSeconds(f);
+          let endSec = timeStringToSeconds(to);
+          if (endSec < startSec) endSec += 24 * 3600;
+          legs.push({
+            trainId: t,
+            from: f,
+            to: to,
+            startStr: f,
+            endStr: to,
+            startSec,
+            endSec,
+            fromLoc: tr.takeoverLocation || tr.depLoc || item.signOnLocation || 'PYID',
+            toLoc: tr.handoverLocation || tr.arrLoc || item.signOffLocation || 'PYID'
+          });
+        }
+      });
+    }
+
+    // Format B: rawLegs object (from Dispatch Gateway deployments)
+    if (legs.length === 0 && item.rawLegs) {
+      const rl = item.rawLegs;
+      [1, 2, 3, 4].forEach(i => {
+        const rawT = String(rl[`l${i}Train`] || '').trim();
+        const t = normalizeTrackTrainId(rawT) || rawT.replace(/^Train\s*/i, '').trim();
+        const f = String(rl[`l${i}Start`] || '').slice(0, 5);
+        const to = String(rl[`l${i}End`] || '').slice(0, 5);
+        if (t && t !== '--' && t !== '-' && f && f !== '--') {
+          const startSec = timeStringToSeconds(f);
+          let endSec = timeStringToSeconds(to);
+          if (endSec < startSec) endSec += 24 * 3600;
+          legs.push({
+            trainId: t,
+            from: f,
+            to: to,
+            startStr: f,
+            endStr: to,
+            startSec,
+            endSec,
+            fromLoc: item.signOnLocation || 'PYID',
+            toLoc: item.signOffLocation || 'PYID'
+          });
+        }
+      });
+    }
+
+    // Format C: Standard leg1 to leg4 fields
+    if (legs.length === 0) {
+      [1, 2, 3, 4].forEach(idx => {
+        const p = `leg${idx}`;
+        const rawT = String(item[`${p}TrainNo`] || item[`${p}Train`] || (idx === 1 ? item.trainId : '') || '').trim();
+        const t = normalizeTrackTrainId(rawT) || rawT.replace(/^Train\s*/i, '').trim();
+        const f = String(item[`${p}DepTime`] || item[`${p}FinalDepTime`] || item[`${p}TimeFrom`] || item[`${p}StartTime`] || (idx === 1 ? item.signOnTime : '') || '').slice(0, 5);
+        const to = String(item[`${p}ArrTime`] || item[`${p}FinalArrTime`] || item[`${p}TimeTo`] || item[`${p}EndTime`] || (idx === 1 ? item.leg1TimeTo : '') || (idx === 1 ? item.signOffTime : '') || '').slice(0, 5);
+        if (t && t !== '--' && t !== '-' && f && f !== '--') {
+          const startSec = timeStringToSeconds(f);
+          let endSec = timeStringToSeconds(to);
+          if (endSec < startSec) endSec += 24 * 3600;
+          legs.push({
+            trainId: t,
+            from: f,
+            to: to,
+            startStr: f,
+            endStr: to,
+            startSec,
+            endSec,
+            fromLoc: item[`${p}DepLoc`] || item[`${p}FinalDepLoc`] || item.signOnLocation || 'PYID',
+            toLoc: item[`${p}ArrLoc`] || item[`${p}FinalArrLoc`] || item.signOffLocation || 'PYID'
+          });
+        }
+      });
+    }
+
+    // Format D: Single train assignment
+    if (legs.length === 0 && item.trainId && item.trainId !== '--' && item.trainId !== '-') {
+      const rawT = String(item.trainId).trim();
+      const t = normalizeTrackTrainId(rawT) || rawT.replace(/^Train\s*/i, '').trim();
+      const f = String(item.signOnTime || '06:00').slice(0, 5);
+      const to = String(item.signOffTime || '14:00').slice(0, 5);
+      const startSec = timeStringToSeconds(f);
+      let endSec = timeStringToSeconds(to);
+      if (endSec < startSec) endSec += 24 * 3600;
+      legs.push({
+        trainId: t,
+        from: f,
+        to: to,
+        startStr: f,
+        endStr: to,
+        startSec,
+        endSec,
+        fromLoc: item.signOnLocation || 'PYID',
+        toLoc: item.signOffLocation || 'PYID'
+      });
+    }
+
+    // Sort this duty's legs chronologically
+    legs.sort((a, b) => a.startSec - b.startSec);
+
+    // Resolve assigned Train Operator
+    const dispatchOp = dispatchOperatorMap[normDuty];
+    const defaultRosterOp = getOperatorForDuty(normDuty);
+
+    let empName = null;
+    let empId = '--';
+    let isExchanged = false;
+    let originalEmpName = '';
+    let originalEmpId = '';
+
+    if (dispatchOp?.empName && dispatchOp.empName !== '--' && !dispatchOp.empName.startsWith('Duty ')) {
+      empName = dispatchOp.empName;
+      empId = dispatchOp.empId || '--';
+      isExchanged = Boolean(dispatchOp.isExchanged || dispatchOp.isSwapped);
+      originalEmpName = dispatchOp.rawRecord?.originalEmpName || '';
+      originalEmpId = dispatchOp.rawRecord?.originalEmpId || '';
+    } else if (item.operatorName && item.operatorName !== '--' && !item.operatorName.startsWith('Duty ') && !item.operatorName.startsWith('Train Operator')) {
+      empName = item.operatorName;
+      empId = item.operatorId || item.empId || '--';
+      isExchanged = Boolean(item.isExchanged);
+    } else if (item.empName && item.empName !== '--' && !item.empName.startsWith('Duty ') && !item.empName.startsWith('Train Operator')) {
+      empName = item.empName;
+      empId = item.empId || '--';
+      isExchanged = Boolean(item.isExchanged);
+    } else if (defaultRosterOp?.empName) {
+      empName = defaultRosterOp.empName;
+      empId = defaultRosterOp.empId || '--';
+    } else {
+      empName = `Duty ${normDuty}`;
+      empId = '--';
+    }
+
+    dutyRoster[normDuty] = {
+      dutyId: normDuty,
+      dutyNo: item.dutyNo || normDuty,
+      legs,
+      assignedOperator: {
+        empName,
+        empId,
+        isExchanged,
+        originalEmpName,
+        originalEmpId
+      },
+      meta: {
+        dutyNo: normDuty,
+        dutyType: item.dutyType || 'A',
+        remarks: item.remarks || '',
+        dutyProfile: item.dutyProfile || '',
+        signOnTime: (item.signOnTime || '').slice(0, 5),
+        signOffTime: (item.signOffTime || '').slice(0, 5),
+        signOnLocation: item.signOnLocation || 'PYID',
+        signOffLocation: item.signOffLocation || 'PYID',
+        totalKm: Number(item.totalKm || item.kms || 0),
+        drivingHrs: (item.drivingHrs || '00:00:00').slice(0, 5),
+        breakTime: (item.breakTime || '00:00:00').slice(0, 5)
+      }
+    };
+  });
+
+  return dutyRoster;
+}
+
+/**
+ * 2. Derives Master ID Chart directly from the Duty Roster of that day.
+ * Inverts duty legs into train-centric chronological shift leg sequences.
+ * If the Link Roster / Duty Roster changes, this chart updates automatically.
+ */
+export function buildMasterIdChartFromDutyRoster(dutyRoster = {}, fallbackBaseChart = null) {
+  const trainMap = {};
+
+  // Step 1: Collect legs from Duty Roster
+  Object.values(dutyRoster).forEach(dutyRecord => {
+    const dId = dutyRecord.dutyId;
+    const op = dutyRecord.assignedOperator;
+
+    (dutyRecord.legs || []).forEach(leg => {
+      const rawTid = String(leg.trainId || '').trim();
+      if (!rawTid || rawTid === '--' || rawTid === '-') return;
+      const cleanTid = normalizeTrackTrainId(rawTid) || rawTid;
+
+      if (!trainMap[cleanTid]) trainMap[cleanTid] = [];
+
+      trainMap[cleanTid].push({
+        duty: dId,
+        dutyId: dId,
+        from: leg.from,
+        to: leg.to,
+        startStr: leg.from,
+        endStr: leg.to,
+        fromLoc: leg.fromLoc,
+        toLoc: leg.toLoc,
+        startSec: leg.startSec,
+        endSec: leg.endSec,
+        empName: op?.empName || `Duty ${dId}`,
+        empId: op?.empId || '--',
+        isExchanged: Boolean(op?.isExchanged),
+        originalEmpName: op?.originalEmpName || '',
+        originalEmpId: op?.originalEmpId || ''
+      });
+    });
+  });
+
+  // Step 2: Merge with fallback base chart for any trains present in fallbackBaseChart but not yet in trainMap
+  if (fallbackBaseChart && typeof fallbackBaseChart === 'object') {
+    Object.entries(fallbackBaseChart).forEach(([tid, baseLegs]) => {
+      if (!trainMap[tid] || trainMap[tid].length === 0) {
+        trainMap[tid] = (baseLegs || []).map(b => {
+          const normD = normalizeDutyId(b.duty);
+          const startSec = timeStringToSeconds(b.from);
+          let endSec = timeStringToSeconds(b.to);
+          if (endSec < startSec) endSec += 24 * 3600;
+          const defOp = getOperatorForDuty(normD);
+          return {
+            duty: normD,
+            dutyId: normD,
+            from: b.from,
+            to: b.to,
+            startStr: b.from,
+            endStr: b.to,
+            fromLoc: b.fromLoc || 'PYID',
+            toLoc: b.toLoc || 'PYID',
+            startSec,
+            endSec,
+            empName: defOp?.empName || `Duty ${normD}`,
+            empId: defOp?.empId || '--',
+            isExchanged: false,
+            originalEmpName: '',
+            originalEmpId: ''
+          };
+        });
+      }
+    });
+  }
+
+  // Step 3: Sort each train's leg timeline chronologically
+  Object.keys(trainMap).forEach(tid => {
+    trainMap[tid].sort((a, b) => a.startSec - b.startSec);
+  });
+
+  return trainMap;
+}
+
+/**
+ * 3. Derives Handover Cards from Master ID Chart at the evaluation timestamp.
+ * Strictly follows the Master ID Chart to determine:
+ * - Current Train Operator (At Controls)
+ * - Previous Train Operator (Relieved)
+ * - Next Reliever Train Operator (Upcoming Platform Handover)
+ */
+export function buildHandoverCardsFromMasterIdChart(
+  masterIdChart = {}, 
+  evalSecs = 0, 
+  trainColumns = [],
+  dispatchDutyOperatorMap = {},
+  liveTrainTrackingMap = {}
+) {
+  const cardsMap = {};
+  const trains = trainColumns.length > 0 ? trainColumns : Object.keys(masterIdChart);
+
+  trains.forEach(tid => {
+    const rawLegs = masterIdChart[tid] || masterIdChart[normalizeTrackTrainId(tid)] || [];
+    if (rawLegs.length === 0) {
+      cardsMap[tid] = {
+        current: null,
+        previous: null,
+        nextReliver: null,
+        allLegs: [],
+        isStabledFullDay: true,
+        isMidDayBreak: false,
+        breakDurationMins: 0
+      };
+      return;
+    }
+
+    // Enhance each leg with live dispatch or tracking operator if available
+    const timeline = rawLegs.map(l => {
+      const normDuty = normalizeDutyId(l.duty || l.dutyId);
+      const startSec = l.startSec !== undefined ? l.startSec : timeStringToSeconds(l.from);
+      let endSec = l.endSec !== undefined ? l.endSec : timeStringToSeconds(l.to);
+      if (endSec < startSec) endSec += 24 * 3600;
+
+      const dispatchOp = dispatchDutyOperatorMap[normDuty];
+      const propTracking = liveTrainTrackingMap[tid] || liveTrainTrackingMap[normalizeTrackTrainId(tid)];
+      let matchedOp = (propTracking?.current?.dutyId === normDuty) ? propTracking.current
+                      : (propTracking?.nextReliver?.dutyId === normDuty) ? propTracking.nextReliver
+                      : (propTracking?.previous?.dutyId === normDuty) ? propTracking.previous
+                      : null;
+
+      if (!matchedOp && liveTrainTrackingMap) {
+        for (const t of Object.values(liveTrainTrackingMap)) {
+          if (t?.current?.dutyId === normDuty) { matchedOp = t.current; break; }
+          if (t?.nextReliver?.dutyId === normDuty) { matchedOp = t.nextReliver; break; }
+          if (t?.previous?.dutyId === normDuty) { matchedOp = t.previous; break; }
+        }
+      }
+
+      const defaultRosterOp = getOperatorForDuty(normDuty);
+
+      let empName = l.empName;
+      let empId = l.empId || '--';
+      let isExchanged = Boolean(l.isExchanged);
+      let originalEmpName = l.originalEmpName || '';
+      let originalEmpId = l.originalEmpId || '';
+
+      if (dispatchOp?.empName && !dispatchOp.empName.startsWith('Duty ')) {
+        empName = dispatchOp.empName;
+        empId = dispatchOp.empId || '--';
+        isExchanged = Boolean(dispatchOp.isExchanged || dispatchOp.isSwapped);
+        originalEmpName = dispatchOp.rawRecord?.originalEmpName || '';
+        originalEmpId = dispatchOp.rawRecord?.originalEmpId || '';
+      } else if (matchedOp?.empName && matchedOp.empName !== '--' && !matchedOp.empName.startsWith('Duty ') && !matchedOp.empName.startsWith('Train Operator')) {
+        empName = matchedOp.empName;
+        empId = matchedOp.empId || matchedOp.empNo || '--';
+        isExchanged = Boolean(matchedOp.isExchanged);
+        originalEmpName = matchedOp.originalEmpName || '';
+        originalEmpId = matchedOp.originalEmpId || '';
+      } else if (!empName || empName.startsWith('Duty ')) {
+        if (defaultRosterOp?.empName) {
+          empName = defaultRosterOp.empName;
+          empId = defaultRosterOp.empId || '--';
+        } else {
+          empName = `Duty ${normDuty}`;
+        }
+      }
+
+      return {
+        ...l,
+        duty: normDuty,
+        dutyId: normDuty,
+        empName,
+        empId,
+        startSec,
+        endSec,
+        startStr: l.from || l.startStr,
+        endStr: l.to || l.endStr,
+        from: l.from || l.startStr,
+        to: l.to || l.endStr,
+        isExchanged,
+        originalEmpName,
+        originalEmpId
+      };
+    }).sort((a, b) => a.startSec - b.startSec);
+
+    const current = timeline.find(leg => evalSecs >= leg.startSec && evalSecs <= leg.endSec) || null;
+    const finished = timeline.filter(leg => leg.endSec < (current ? current.startSec + 300 : evalSecs));
+    const previous = finished.length > 0 ? finished[finished.length - 1] : null;
+
+    let nextReliver = null;
+    if (current) {
+      const futureLegs = timeline.filter(leg => leg.startSec >= current.endSec - 300 && (leg.dutyId || leg.duty) !== (current.dutyId || current.duty));
+      nextReliver = futureLegs[0] || timeline.find(leg => leg.startSec > current.startSec && (leg.dutyId || leg.duty) !== (current.dutyId || current.duty)) || null;
+    } else {
+      nextReliver = timeline.find(leg => leg.startSec > evalSecs) || null;
+    }
+
+    const isMidDayBreak = !current && previous && nextReliver && (nextReliver.startSec - previous.endSec > 300);
+
+    cardsMap[tid] = {
+      current,
+      previous,
+      nextReliver,
+      allLegs: timeline,
+      isStabledFullDay: false,
+      isMidDayBreak,
+      breakDurationMins: isMidDayBreak ? Math.round((nextReliver.startSec - previous.endSec) / 60) : 0
+    };
+  });
+
+  return cardsMap;
+}
+
+

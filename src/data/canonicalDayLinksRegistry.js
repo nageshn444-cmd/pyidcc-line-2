@@ -7402,7 +7402,7 @@ export { WEEKDAY_MASTER_LINKS };
 
 export function getMasterLinksForDay(dayType = "WEEKDAY") {
   const norm = normalizeScheduleDay(dayType);
-  if (norm === "SATURDAY") return SATURDAY_MASTER_LINKS;
+  if (norm === "GH" || norm === "SATURDAY") return SATURDAY_MASTER_LINKS;
   if (norm === "SUNDAY") return SUNDAY_MASTER_LINKS;
   if (norm === "MONDAY") return MONDAY_MASTER_LINKS;
   return WEEKDAY_MASTER_LINKS;

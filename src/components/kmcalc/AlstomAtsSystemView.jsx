@@ -18,7 +18,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Clock, Train, User, ArrowRight, Shield, Zap, ChevronRight, Eye, Sparkles, Search, X, LocateFixed, Filter, MapPin } from 'lucide-react';
+import { Clock, Train, User, ArrowRight, Shield, Zap, ChevronRight, Eye, Sparkles, Search, X, LocateFixed, Filter, MapPin, Grid, Layers, Activity } from 'lucide-react';
 import { STATION_CHAINAGE, ATS_STATION_SEQUENCE, timeToMinutes, minutesToTime } from '../../utils/kpiEngine';
 
 // Complete single-line station progression from South (APTD) to North (BIET)
@@ -58,6 +58,527 @@ export const ALSTOM_LINE_STATIONS = [
   { code: 'BIET', name: 'Madhavara (Terminal)', chainage: -9.227, x: 4600, hasBufferEnd: true, bufferChainage: -9.560, hasScissors: true },
 ];
 
+// Official 4-Tier Station Architecture matching OCC Alstom ATS physical monitor (Images 2 & 4)
+export const OCC_TIERS = {
+  1: {
+    id: 1,
+    name: 'TIER 1 • APTD ➔ APTS ➔ PUTH ➔ JPN (SOUTH TERMINAL SECTION)',
+    upY: 75,
+    dnY: 125,
+    stations: [
+      { code: 'APTD', name: 'Anjanapura Depot', chainage: 24.170, x: 160, isBuffer: true },
+      { code: 'APTS', name: 'Anjanapura Terminal', chainage: 23.833, x: 300, isTerminal: true, hasCrossover: true },
+      { code: 'TGTP', name: 'Talaghattapura', chainage: 22.395, x: 460 },
+      { code: 'VJRH', name: 'Vajarahalli', chainage: 21.395, x: 620 },
+      { code: 'KLPK', name: 'Doddakallasandra', chainage: 20.099, x: 780 },
+      { code: 'APRC', name: 'Konanakunte Cross', chainage: 18.902, x: 940 },
+      { code: 'PUTH', name: 'Yelachenahalli', chainage: 17.780, x: 1120, hasScissors: true },
+      { code: 'JPN',  name: 'JP Nagar', chainage: 16.404, x: 1360 }
+    ]
+  },
+  2: {
+    id: 2,
+    name: 'TIER 2 • BSNK ➔ RVR ➔ NLC ➔ KGWA (SOUTH-CENTRAL SECTION)',
+    upY: 225,
+    sidingY: 250,
+    dnY: 275,
+    stations: [
+      { code: 'BSNK', name: 'Banashankari', chainage: 15.507, x: 140 },
+      { code: 'RVR',  name: 'RV Road', chainage: 14.180, x: 280, hasCrossover: true },
+      { code: 'JYN',  name: 'Jayanagar', chainage: 13.280, x: 430 },
+      { code: 'SECE', name: 'South End Circle', chainage: 12.323, x: 580 },
+      { code: 'LBGH', name: 'Lalbagh', chainage: 11.436, x: 730 },
+      { code: 'NLC',  name: 'National College', chainage: 10.403, x: 890, hasSiding: true },
+      { code: 'KRMT', name: 'KR Market', chainage: 9.238, x: 1060, isUnderground: true },
+      { code: 'CKPE', name: 'Chikpete', chainage: 8.588, x: 1220, isUnderground: true },
+      { code: 'KGWA', name: 'Majestic Kempegowda', chainage: 7.569, x: 1410, isUnderground: true, hasScissors: true }
+    ]
+  },
+  3: {
+    id: 3,
+    name: 'TIER 3 • SPGD ➔ RJNR ➔ MHLI ➔ YPM ➔ PEYA (NORTH-CENTRAL SECTION)',
+    upY: 375,
+    sidingY: 400,
+    dnY: 425,
+    stations: [
+      { code: 'SPGD', name: 'Sampige Road', chainage: 5.865, x: 140, isUnderground: true, hasScissors: true },
+      { code: 'SPRU', name: 'Srirampura', chainage: 4.706, x: 300 },
+      { code: 'KVPR', name: 'Kuvempu Road', chainage: 3.974, x: 460 },
+      { code: 'RJNR', name: 'Rajajinagar', chainage: 2.989, x: 620, hasCrossover: true },
+      { code: 'MHLI', name: 'Mahalakshmi', chainage: 2.018, x: 780, hasPocketTrack: true },
+      { code: 'SSFY', name: 'Sandal Soap Factory', chainage: 1.091, x: 940 },
+      { code: 'YPM',  name: 'Yeshwanthpur', chainage: 0.000, x: 1100, isDatum: true, hasCrossover: true },
+      { code: 'YPI',  name: 'Goraguntepalya', chainage: -1.125, x: 1260 },
+      { code: 'PEYA', name: 'Peenya', chainage: -2.074, x: 1420 }
+    ]
+  },
+  4: {
+    id: 4,
+    name: 'TIER 4 • PYID ➔ JLHL ➔ NGSA ➔ MNJN ➔ BIET (NORTH & DEPOT HUB)',
+    upY: 525,
+    dnY: 575,
+    stations: [
+      { code: 'PYID', name: 'Peenya Industry (Hub)', chainage: -3.020, x: 140, isHub: true, hasDepotBranch: true, hasScissors: true },
+      { code: 'JLHL', name: 'Jalahalli', chainage: -3.721, x: 340, hasCrossover: true },
+      { code: 'DSH',  name: 'Dasarahalli', chainage: -4.662, x: 520 },
+      { code: 'NGSA', name: 'Nagasandra', chainage: -6.088, x: 700, hasPocketTrack: true },
+      { code: 'PNYD', name: 'Peenya Depot Conn', chainage: -6.500, x: 860 },
+      { code: 'MNJN', name: 'Manjunathanagara', chainage: -6.753, x: 1020 },
+      { code: 'JIDL', name: 'Jindal / Chikkabidarakallu', chainage: -7.504, x: 1180 },
+      { code: 'BIET', name: 'Madhavara (Terminal)', chainage: -9.227, x: 1380, isTerminal: true, hasBufferEnd: true, hasScissors: true }
+    ]
+  }
+};
+
+export const getTierStationX = (tierNum, ch) => {
+  const tier = OCC_TIERS[tierNum];
+  if (!tier) return 140;
+  const sts = tier.stations;
+  if (ch >= sts[0].chainage) return sts[0].x;
+  if (ch <= sts[sts.length - 1].chainage) return sts[sts.length - 1].x;
+  for (let i = 0; i < sts.length - 1; i++) {
+    const s1 = sts[i];
+    const s2 = sts[i + 1];
+    if (ch <= s1.chainage && ch >= s2.chainage) {
+      const span = s1.chainage - s2.chainage;
+      const ratio = span > 0 ? (s1.chainage - ch) / span : 0;
+      return s1.x + ratio * (s2.x - s1.x);
+    }
+  }
+  return sts[0].x;
+};
+
+// Official 4-Tier SCADA ATS System View Monitor Canvas (matching OCC physical monitor in Images 2 & 4)
+function Occ4TierMonitorCanvas({
+  timetableTrains,
+  selectedStation,
+  onSelectStation,
+  selectedTrain,
+  onSelectTrain,
+  hoveredTrain,
+  setHoveredTrain,
+  activeSearch,
+  isTrainMatchingSearch,
+  getChainage
+}) {
+  return (
+    <div className="p-3 bg-[#3e4753] overflow-x-auto select-none border-b border-[#292f38]">
+      <div className="min-w-[1240px] max-w-full mx-auto relative" style={{ height: '780px' }}>
+        <svg className="w-full h-full" viewBox="0 0 1600 780">
+          <defs>
+            <pattern id="hatch-stage2-occ" width="10" height="10" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+              <line x1="0" y1="0" x2="0" y2="10" stroke="#eab308" strokeWidth="3.5" />
+              <line x1="5" y1="0" x2="5" y2="10" stroke="#1e293b" strokeWidth="3.5" />
+            </pattern>
+          </defs>
+
+          {/* ════════════════════════════════════════════════════════════════════ */}
+          {/* TIER 1: APTD ➔ APTS ➔ PUTH ➔ JPN (SOUTH SECTION)                  */}
+          {/* ════════════════════════════════════════════════════════════════════ */}
+          <g>
+            <text x="70" y="30" fill="#94a3b8" fontSize="10" fontWeight="bold">
+              TIER 1 • APTD ➔ APTS ➔ TGTP ➔ VJRH ➔ KLPK ➔ APRC ➔ PUTH ➔ JPN (SOUTH TERMINAL SECTION)
+            </text>
+
+            {/* Stage-2 Under Progress */}
+            <rect x="70" y="52" width="140" height="96" fill="url(#hatch-stage2-occ)" stroke="#eab308" strokeWidth="1.5" opacity="0.85" rx="3" />
+            <rect x="80" y="90" width="120" height="20" fill="#0f172a" fillOpacity="0.9" rx="2" stroke="#eab308" strokeWidth="1" />
+            <text x="140" y="104" fill="#facc15" fontSize="9" fontWeight="900" textAnchor="middle">UNDER PROGRESS</text>
+            <text x="140" y="48" fill="#e2e8f0" fontSize="8" fontWeight="bold" textAnchor="middle">Stage-2 ➔ To Anjanapura Depot</text>
+            <line x1="70" y1="65" x2="70" y2="85" stroke="#ef4444" strokeWidth="4" />
+            <line x1="70" y1="115" x2="70" y2="135" stroke="#ef4444" strokeWidth="4" />
+
+            {/* APTS Buffer End Track */}
+            <rect x="210" y="60" width="60" height="80" fill="#ef4444" fillOpacity="0.08" stroke="#ef4444" strokeWidth="1" strokeDasharray="3 3" rx="2" />
+            <text x="240" y="70" fill="#fca5a5" fontSize="6.5" fontWeight="bold" textAnchor="middle">CAB CHANGEOVER</text>
+            <text x="240" y="132" fill="#fca5a5" fontSize="6.5" fontWeight="bold" textAnchor="middle">APTS BUFFER</text>
+
+            {/* Main Rails */}
+            <line x1="70" y1="75" x2="1530" y2="75" stroke="#2563eb" strokeWidth="4" strokeLinecap="round" />
+            <text x="45" y="79" fill="#10b981" fontSize="10" fontWeight="900">Up ➔</text>
+            <text x="1538" y="79" fill="#10b981" fontSize="10" fontWeight="900">➔ UP</text>
+
+            <line x1="70" y1="125" x2="1530" y2="125" stroke="#2563eb" strokeWidth="4" strokeLinecap="round" />
+            <text x="35" y="129" fill="#06b6d4" fontSize="10" fontWeight="900">Down ➔</text>
+            <text x="1538" y="129" fill="#06b6d4" fontSize="10" fontWeight="900">➔ DN</text>
+
+            {/* Crossovers & Scissors */}
+            <line x1="330" y1="75" x2="380" y2="125" stroke="#2563eb" strokeWidth="3" />
+            <line x1="1150" y1="75" x2="1200" y2="125" stroke="#2563eb" strokeWidth="3" />
+            <line x1="1150" y1="125" x2="1200" y2="75" stroke="#2563eb" strokeWidth="3" />
+            <line x1="1390" y1="75" x2="1440" y2="125" stroke="#2563eb" strokeWidth="3" />
+
+            {/* Circuit Labels matching OCC photo */}
+            <text x="210" y="60" fill="#cbd5e1" fontSize="7" textAnchor="middle">9232</text>
+            <text x="300" y="60" fill="#cbd5e1" fontSize="7" textAnchor="middle">9114</text>
+            <text x="460" y="60" fill="#cbd5e1" fontSize="7" textAnchor="middle">9105</text>
+            <text x="780" y="142" fill="#cbd5e1" fontSize="7" textAnchor="middle">7006</text>
+            <text x="1360" y="142" fill="#cbd5e1" fontSize="7" textAnchor="middle">7007</text>
+            <text x="620" y="46" fill="#94a3b8" fontSize="7" textAnchor="middle">ASCV U | ASCV T</text>
+
+            {/* Stations */}
+            {OCC_TIERS[1].stations.map((st) => {
+              const ch = getChainage(st.code);
+              return (
+                <g key={st.code} className="cursor-pointer group" onClick={() => onSelectStation(st.code)}>
+                  <line x1={st.x} y1="55" x2={st.x} y2="145" stroke="#64748b" strokeWidth="0.8" strokeDasharray="2 2" opacity="0.4" />
+                  <line x1={st.x - 18} y1="67" x2={st.x + 18} y2="67" stroke="#ffffff" strokeWidth="2.5" />
+                  <line x1={st.x - 18} y1="133" x2={st.x + 18} y2="133" stroke="#ffffff" strokeWidth="2.5" />
+                  <rect x={st.x - 22} y="90" width="44" height="20" fill="#0f172a" stroke="#38bdf8" strokeWidth="1.5" rx="3" className="hover:stroke-yellow-400 transition-all shadow-md" />
+                  <text x={st.x} y="104" fill="#f8fafc" fontSize="9" fontWeight="900" textAnchor="middle">{st.code}</text>
+                  <text x={st.x} y="156" fill="#94a3b8" fontSize="7" fontWeight="bold" textAnchor="middle">{ch >= 0 ? `+${ch.toFixed(1)}` : ch.toFixed(1)}</text>
+                </g>
+              );
+            })}
+          </g>
+
+          {/* ════════════════════════════════════════════════════════════════════ */}
+          {/* TIER 2: BSNK ➔ RVR ➔ NLC ➔ KGWA (SOUTH-CENTRAL SECTION)           */}
+          {/* ════════════════════════════════════════════════════════════════════ */}
+          <g>
+            <text x="70" y="180" fill="#94a3b8" fontSize="10" fontWeight="bold">
+              TIER 2 • BSNK ➔ RVR ➔ JYN ➔ SECE ➔ LBGH ➔ NLC ➔ KRMT ➔ CKPE ➔ KGWA (SOUTH-CENTRAL SECTION)
+            </text>
+
+            {/* Rails */}
+            <line x1="70" y1="225" x2="1530" y2="225" stroke="#2563eb" strokeWidth="4" strokeLinecap="round" />
+            <text x="45" y="229" fill="#10b981" fontSize="10" fontWeight="900">Up ➔</text>
+            <text x="1538" y="229" fill="#10b981" fontSize="10" fontWeight="900">➔ UP</text>
+
+            <line x1="70" y1="275" x2="1530" y2="275" stroke="#2563eb" strokeWidth="4" strokeLinecap="round" />
+            <text x="35" y="279" fill="#06b6d4" fontSize="10" fontWeight="900">Down ➔</text>
+            <text x="1538" y="279" fill="#06b6d4" fontSize="10" fontWeight="900">➔ DN</text>
+
+            {/* Center Siding at NLC */}
+            <line x1="830" y1="250" x2="950" y2="250" stroke="#2563eb" strokeWidth="3" />
+            <line x1="810" y1="225" x2="830" y2="250" stroke="#2563eb" strokeWidth="2.5" />
+            <line x1="810" y1="275" x2="830" y2="250" stroke="#2563eb" strokeWidth="2.5" />
+            <line x1="950" y1="250" x2="970" y2="225" stroke="#2563eb" strokeWidth="2.5" />
+            <line x1="950" y1="250" x2="970" y2="275" stroke="#2563eb" strokeWidth="2.5" />
+
+            {/* Crossovers */}
+            <line x1="290" y1="225" x2="340" y2="275" stroke="#2563eb" strokeWidth="3" />
+            <line x1="1440" y1="225" x2="1490" y2="275" stroke="#2563eb" strokeWidth="3" />
+            <line x1="1440" y1="275" x2="1490" y2="225" stroke="#2563eb" strokeWidth="3" />
+
+            {/* Section Divider (Elevated | Underground) */}
+            <line x1="990" y1="195" x2="990" y2="305" stroke="#eab308" strokeWidth="1.5" strokeDasharray="3 3" />
+            <text x="920" y="200" fill="#facc15" fontSize="7.5" fontWeight="900" textAnchor="end">ELEVATED SECTION</text>
+            <text x="1060" y="200" fill="#facc15" fontSize="7.5" fontWeight="900" textAnchor="start">UNDERGROUND SECTION</text>
+
+            {/* Circuit Labels */}
+            <text x="140" y="210" fill="#cbd5e1" fontSize="7" textAnchor="middle">9121</text>
+            <text x="430" y="292" fill="#cbd5e1" fontSize="7" textAnchor="middle">7015</text>
+            <text x="890" y="210" fill="#cbd5e1" fontSize="7" textAnchor="middle">9104</text>
+            <text x="820" y="292" fill="#cbd5e1" fontSize="7" textAnchor="middle">7008</text>
+            <text x="1410" y="210" fill="#cbd5e1" fontSize="7" textAnchor="middle">9113</text>
+            <text x="730" y="196" fill="#94a3b8" fontSize="7" textAnchor="middle">ASCV T | ASCV R</text>
+
+            {/* Stations */}
+            {OCC_TIERS[2].stations.map((st) => {
+              const ch = getChainage(st.code);
+              return (
+                <g key={st.code} className="cursor-pointer group" onClick={() => onSelectStation(st.code)}>
+                  <line x1={st.x} y1="205" x2={st.x} y2="295" stroke="#64748b" strokeWidth="0.8" strokeDasharray="2 2" opacity="0.4" />
+                  <line x1={st.x - 18} y1="217" x2={st.x + 18} y2="217" stroke="#ffffff" strokeWidth="2.5" />
+                  <line x1={st.x - 18} y1="283" x2={st.x + 18} y2="283" stroke="#ffffff" strokeWidth="2.5" />
+                  <rect x={st.x - 22} y="240" width="44" height="20" fill={st.isUnderground ? "#3b0764" : "#0f172a"} stroke={st.isUnderground ? "#c084fc" : "#38bdf8"} strokeWidth="1.5" rx="3" className="hover:stroke-yellow-400 transition-all shadow-md" />
+                  <text x={st.x} y="254" fill="#f8fafc" fontSize="9" fontWeight="900" textAnchor="middle">{st.code}</text>
+                  <text x={st.x} y="306" fill="#94a3b8" fontSize="7" fontWeight="bold" textAnchor="middle">{ch >= 0 ? `+${ch.toFixed(1)}` : ch.toFixed(1)}</text>
+                </g>
+              );
+            })}
+          </g>
+
+          {/* ════════════════════════════════════════════════════════════════════ */}
+          {/* TIER 3: SPGD ➔ RJNR ➔ MHLI ➔ YPM ➔ PEYA (NORTH-CENTRAL SECTION)    */}
+          {/* ════════════════════════════════════════════════════════════════════ */}
+          <g>
+            <text x="70" y="330" fill="#94a3b8" fontSize="10" fontWeight="bold">
+              TIER 3 • SPGD ➔ SPRU ➔ KVPR ➔ RJNR ➔ MHLI ➔ SSFY ➔ YPM ➔ YPI ➔ PEYA (NORTH-CENTRAL SECTION)
+            </text>
+
+            {/* Rails */}
+            <line x1="70" y1="375" x2="1530" y2="375" stroke="#2563eb" strokeWidth="4" strokeLinecap="round" />
+            <text x="45" y="379" fill="#10b981" fontSize="10" fontWeight="900">Up ➔</text>
+            <text x="1538" y="379" fill="#10b981" fontSize="10" fontWeight="900">➔ UP</text>
+
+            <line x1="70" y1="425" x2="1530" y2="425" stroke="#2563eb" strokeWidth="4" strokeLinecap="round" />
+            <text x="35" y="429" fill="#06b6d4" fontSize="10" fontWeight="900">Down ➔</text>
+            <text x="1538" y="429" fill="#06b6d4" fontSize="10" fontWeight="900">➔ DN</text>
+
+            {/* Scissors at SPGD */}
+            <line x1="170" y1="375" x2="220" y2="425" stroke="#2563eb" strokeWidth="3" />
+            <line x1="170" y1="425" x2="220" y2="375" stroke="#2563eb" strokeWidth="3" />
+
+            {/* Section Divider (Underground | Elevated) */}
+            <line x1="225" y1="345" x2="225" y2="455" stroke="#eab308" strokeWidth="1.5" strokeDasharray="3 3" />
+            <text x="175" y="350" fill="#facc15" fontSize="7" fontWeight="900" textAnchor="end">UNDERGROUND</text>
+            <text x="275" y="350" fill="#facc15" fontSize="7" fontWeight="900" textAnchor="start">ELEVATED</text>
+
+            {/* RJNR Crossover */}
+            <line x1="640" y1="375" x2="690" y2="425" stroke="#2563eb" strokeWidth="3" />
+
+            {/* MHLI Pocket Track */}
+            <line x1="730" y1="400" x2="830" y2="400" stroke="#2563eb" strokeWidth="3" />
+            <line x1="710" y1="375" x2="730" y2="400" stroke="#2563eb" strokeWidth="2.5" />
+            <line x1="710" y1="425" x2="730" y2="400" stroke="#2563eb" strokeWidth="2.5" />
+            <line x1="830" y1="400" x2="850" y2="375" stroke="#2563eb" strokeWidth="2.5" />
+            <line x1="830" y1="400" x2="850" y2="425" stroke="#2563eb" strokeWidth="2.5" />
+
+            {/* East-West Purple Line Connection */}
+            <line x1="1260" y1="425" x2="1340" y2="375" stroke="#9333ea" strokeWidth="3" strokeDasharray="4 2" />
+            <text x="1300" y="365" fill="#c084fc" fontSize="7.5" fontWeight="900">EAST-WEST LINE</text>
+
+            {/* YPM Crossover */}
+            <line x1="1130" y1="375" x2="1180" y2="425" stroke="#2563eb" strokeWidth="3" />
+
+            {/* Circuit Labels */}
+            <text x="140" y="360" fill="#cbd5e1" fontSize="7" textAnchor="middle">7005</text>
+            <text x="460" y="360" fill="#cbd5e1" fontSize="7" textAnchor="middle">8703</text>
+            <text x="620" y="360" fill="#cbd5e1" fontSize="7" textAnchor="middle">9112</text>
+            <text x="680" y="442" fill="#cbd5e1" fontSize="7" textAnchor="middle">7010</text>
+            <text x="1260" y="360" fill="#cbd5e1" fontSize="7" textAnchor="middle">9117</text>
+            <text x="1420" y="360" fill="#cbd5e1" fontSize="7" textAnchor="middle">8723</text>
+            <text x="460" y="346" fill="#94a3b8" fontSize="7" textAnchor="middle">ASCV Q | ASCV P</text>
+
+            {/* Stations */}
+            {OCC_TIERS[3].stations.map((st) => {
+              const ch = getChainage(st.code);
+              return (
+                <g key={st.code} className="cursor-pointer group" onClick={() => onSelectStation(st.code)}>
+                  <line x1={st.x} y1="355" x2={st.x} y2="445" stroke="#64748b" strokeWidth="0.8" strokeDasharray="2 2" opacity="0.4" />
+                  <line x1={st.x - 18} y1="367" x2={st.x + 18} y2="367" stroke="#ffffff" strokeWidth="2.5" />
+                  <line x1={st.x - 18} y1="433" x2={st.x + 18} y2="433" stroke="#ffffff" strokeWidth="2.5" />
+                  <rect x={st.x - 22} y="390" width="44" height="20" fill={st.isDatum ? "#0369a1" : st.isUnderground ? "#3b0764" : "#0f172a"} stroke={st.isDatum ? "#38bdf8" : st.isUnderground ? "#c084fc" : "#38bdf8"} strokeWidth="1.5" rx="3" className="hover:stroke-yellow-400 transition-all shadow-md" />
+                  <text x={st.x} y="404" fill="#f8fafc" fontSize="9" fontWeight="900" textAnchor="middle">{st.code}</text>
+                  <text x={st.x} y="456" fill="#94a3b8" fontSize="7" fontWeight="bold" textAnchor="middle">{ch >= 0 ? `+${ch.toFixed(1)}` : ch.toFixed(1)}</text>
+                </g>
+              );
+            })}
+          </g>
+
+          {/* ════════════════════════════════════════════════════════════════════ */}
+          {/* TIER 4: PYID ➔ JLHL ➔ NGSA ➔ MNJN ➔ BIET (+ PEENYA DEPOT)          */}
+          {/* ════════════════════════════════════════════════════════════════════ */}
+          <g>
+            <text x="70" y="480" fill="#94a3b8" fontSize="10" fontWeight="bold">
+              TIER 4 • PYID ➔ JLHL ➔ DSH ➔ NGSA ➔ PNYD ➔ MNJN ➔ JIDL ➔ BIET (PEENYA DEPOT & NORTH TERMINUS)
+            </text>
+
+            {/* Rails */}
+            <line x1="70" y1="525" x2="1490" y2="525" stroke="#2563eb" strokeWidth="4" strokeLinecap="round" />
+            <text x="45" y="529" fill="#10b981" fontSize="10" fontWeight="900">Up ➔</text>
+            <text x="1500" y="529" fill="#10b981" fontSize="10" fontWeight="900">➔ UP</text>
+
+            <line x1="70" y1="575" x2="1490" y2="575" stroke="#2563eb" strokeWidth="4" strokeLinecap="round" />
+            <text x="35" y="579" fill="#06b6d4" fontSize="10" fontWeight="900">Down ➔</text>
+            <text x="1500" y="579" fill="#06b6d4" fontSize="10" fontWeight="900">➔ DN</text>
+
+            {/* PYID Scissors */}
+            <line x1="180" y1="525" x2="230" y2="575" stroke="#2563eb" strokeWidth="3" />
+            <line x1="180" y1="575" x2="230" y2="525" stroke="#2563eb" strokeWidth="3" />
+
+            {/* Peenya Depot Transfer Tracks */}
+            <path d="M 230 575 Q 260 635 340 635 L 480 635" fill="none" stroke="#2563eb" strokeWidth="3" />
+            <text x="390" y="628" fill="#93c5fd" fontSize="7" fontWeight="bold">TRANSFER TRACK 2</text>
+
+            <path d="M 270 575 Q 310 665 410 665 L 530 665" fill="none" stroke="#2563eb" strokeWidth="3" />
+            <text x="450" y="658" fill="#93c5fd" fontSize="7" fontWeight="bold">TRANSFER TRACK 1</text>
+
+            <path d="M 330 635 Q 380 695 440 695 L 640 695" fill="none" stroke="#2563eb" strokeWidth="3" />
+            <text x="510" y="688" fill="#fde047" fontSize="7.5" fontWeight="900">TO DEPOT • PEENYA DEPOT SBL (STABLING 1-8)</text>
+
+            {/* Stabling rail lines */}
+            <line x1="440" y1="715" x2="640" y2="715" stroke="#2563eb" strokeWidth="2.5" strokeDasharray="6 3" />
+            <line x1="440" y1="735" x2="640" y2="735" stroke="#2563eb" strokeWidth="2.5" strokeDasharray="6 3" />
+
+            {/* RD-3 Standby Track */}
+            <line x1="90" y1="605" x2="210" y2="605" stroke="#2563eb" strokeWidth="3" />
+            <line x1="70" y1="575" x2="90" y2="605" stroke="#2563eb" strokeWidth="2.5" />
+            <line x1="210" y1="605" x2="230" y2="575" stroke="#2563eb" strokeWidth="2.5" />
+            <text x="150" y="618" fill="#fde047" fontSize="6.5" fontWeight="bold" textAnchor="middle">RD-3 STANDBY</text>
+
+            {/* JLHL Crossover */}
+            <line x1="360" y1="525" x2="410" y2="575" stroke="#2563eb" strokeWidth="3" />
+
+            {/* NGSA Pocket Siding */}
+            <line x1="650" y1="550" x2="750" y2="550" stroke="#2563eb" strokeWidth="3" />
+            <line x1="630" y1="525" x2="650" y2="550" stroke="#2563eb" strokeWidth="2.5" />
+            <line x1="630" y1="575" x2="650" y2="550" stroke="#2563eb" strokeWidth="2.5" />
+            <line x1="750" y1="550" x2="770" y2="525" stroke="#2563eb" strokeWidth="2.5" />
+            <line x1="750" y1="550" x2="770" y2="575" stroke="#2563eb" strokeWidth="2.5" />
+
+            {/* BIET Scissors */}
+            <line x1="1420" y1="525" x2="1470" y2="575" stroke="#2563eb" strokeWidth="3" />
+            <line x1="1420" y1="575" x2="1470" y2="525" stroke="#2563eb" strokeWidth="3" />
+
+            {/* Terminus Red Buffer Stops at BIET */}
+            <line x1="1490" y1="515" x2="1490" y2="535" stroke="#ef4444" strokeWidth="5" />
+            <line x1="1490" y1="565" x2="1490" y2="585" stroke="#ef4444" strokeWidth="5" />
+            <rect x="1480" y="500" width="22" height="12" fill="#0f172a" stroke="#cbd5e1" strokeWidth="0.8" rx="1" />
+            <text x="1491" y="509" fill="#f8fafc" fontSize="7" fontWeight="bold" textAnchor="middle">7001</text>
+            <text x="1490" y="600" fill="#ef4444" fontSize="7" fontWeight="900" textAnchor="middle">BUFFER END</text>
+
+            {/* Circuit Labels */}
+            <text x="140" y="510" fill="#cbd5e1" fontSize="7" textAnchor="middle">7019</text>
+            <text x="340" y="510" fill="#cbd5e1" fontSize="7" textAnchor="middle">9102</text>
+            <text x="700" y="592" fill="#cbd5e1" fontSize="7" textAnchor="middle">7020</text>
+            <text x="1380" y="510" fill="#cbd5e1" fontSize="7" textAnchor="middle">7001</text>
+            <text x="520" y="496" fill="#94a3b8" fontSize="7" textAnchor="middle">ASCV M | ASCV L</text>
+
+            {/* Stations */}
+            {OCC_TIERS[4].stations.map((st) => {
+              const ch = getChainage(st.code);
+              const isPyid = st.code === 'PYID';
+              return (
+                <g key={st.code} className="cursor-pointer group" onClick={() => onSelectStation(st.code)}>
+                  <line x1={st.x} y1="505" x2={st.x} y2="595" stroke="#64748b" strokeWidth="0.8" strokeDasharray="2 2" opacity="0.4" />
+                  <line x1={st.x - 18} y1="517" x2={st.x + 18} y2="517" stroke="#ffffff" strokeWidth="2.5" />
+                  <line x1={st.x - 18} y1="583" x2={st.x + 18} y2="583" stroke="#ffffff" strokeWidth="2.5" />
+                  <rect x={st.x - 22} y="540" width="44" height="20" fill={isPyid ? "#b45309" : "#0f172a"} stroke={isPyid ? "#f59e0b" : "#38bdf8"} strokeWidth={isPyid ? "2" : "1.5"} rx="3" className="hover:stroke-yellow-400 transition-all shadow-md" />
+                  <text x={st.x} y="554" fill="#f8fafc" fontSize="9" fontWeight="900" textAnchor="middle">{st.code}</text>
+                  <text x={st.x} y="606" fill={isPyid ? "#fde68a" : "#94a3b8"} fontSize="7" fontWeight="bold" textAnchor="middle">{ch >= 0 ? `+${ch.toFixed(1)}` : ch.toFixed(1)}</text>
+                </g>
+              );
+            })}
+          </g>
+
+          {/* ════════════════════════════════════════════════════════════════════ */}
+          {/* ACTIVE TIMETABLE TRAINS ON 4-TIER MONITOR                         */}
+          {/* ════════════════════════════════════════════════════════════════════ */}
+          {timetableTrains.map((train) => {
+            const isUp = train.direction === 'UP';
+            const trX = train.tierX;
+            const trY = train.tierY;
+            const isMatched = isTrainMatchingSearch(train, activeSearch);
+            const isDimmed = activeSearch && !isMatched;
+            const isSelected = selectedTrain && (String(selectedTrain.trainId) === String(train.trainId) || String(selectedTrain.particularTrainId) === String(train.particularTrainId));
+            const isHighlighted = (isMatched && activeSearch) || isSelected;
+
+            return (
+              <g
+                key={`occ_${train.trainId}_${train.direction}_${train.rowId || ''}`}
+                className={`cursor-pointer transition-all duration-300 ease-out ${isDimmed ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}
+                onClick={() => onSelectTrain(train)}
+                onMouseEnter={() => setHoveredTrain(train)}
+                onMouseLeave={() => setHoveredTrain(null)}
+              >
+                {/* Highlight Halo & Location Tag */}
+                {isHighlighted && (
+                  <g>
+                    <rect x={trX - 26} y={trY - 14} width="52" height="28" fill="none" stroke="#38bdf8" strokeWidth="2" strokeDasharray="3 2" rx="4" className="animate-pulse" />
+                    <rect x={trX - 50} y={trY - 32} width="100" height="15" fill="#082f49" stroke="#38bdf8" strokeWidth="1" rx="3" />
+                    <text x={trX} y={trY - 22} fill="#fde047" fontSize="7" fontWeight="900" textAnchor="middle">
+                      📍 {train.currentStation ? train.currentStation.replace(' (Stabled)', '').replace(' (Stabling)', '') : (train.isStabling ? 'STABLED' : 'RUNNING')}
+                    </text>
+                  </g>
+                )}
+
+                {/* Directional Headlight beam for active mainline trains */}
+                {!train.isStabling && (
+                  isUp ? (
+                    <polygon points={`${trX + 22},${trY - 5} ${trX + 38},${trY - 10} ${trX + 38},${trY + 10} ${trX + 22},${trY + 5}`} fill="#facc15" opacity="0.45" />
+                  ) : (
+                    <polygon points={`${trX - 22},${trY - 5} ${trX - 38},${trY - 10} ${trX - 38},${trY + 10} ${trX - 22},${trY + 5}`} fill="#38bdf8" opacity="0.45" />
+                  )
+                )}
+
+                {/* Train Block Rectangle */}
+                <rect
+                  x={trX - 22}
+                  y={trY - 10}
+                  width="44"
+                  height="20"
+                  fill={
+                    train.isStabling
+                      ? (train.statusText.includes('BUFFER') ? "#881337" : "#1e293b")
+                      : (isUp ? "#064e3b" : "#0c4a6e")
+                  }
+                  stroke={
+                    isHighlighted
+                      ? "#38bdf8"
+                      : train.isStabling
+                      ? (train.statusText.includes('BUFFER') ? "#f43f5e" : "#f59e0b")
+                      : (isUp ? "#10b981" : "#06b6d4")
+                  }
+                  strokeWidth={isHighlighted ? "2" : "1.5"}
+                  rx="3"
+                  className="hover:stroke-yellow-400 hover:scale-110 transition-transform shadow-lg"
+                />
+
+                {/* Train ID */}
+                <text x={trX} y={trY + 2} fill="#ffffff" fontSize="7.5" fontWeight="900" textAnchor="middle">
+                  {train.isStabling 
+                    ? `T-${train.particularTrainId || train.trainId}`
+                    : (train.computedTrainId 
+                      ? `${train.computedTrainId}` 
+                      : `T-${train.particularTrainId || train.trainId}`)}
+                </text>
+                {/* Mode / Direction Indicator & Speed */}
+                <text x={trX} y={trY + 8} fill={train.isStabling ? "#fde047" : (isUp ? "#6ee7b7" : "#67e8f9")} fontSize="5.5" fontWeight="bold" textAnchor="middle">
+                  {train.isStabling 
+                    ? 'STB' 
+                    : (isUp 
+                      ? (train.speedKmH > 0 ? `▲ ${train.speedKmH}k` : '▲ UP') 
+                      : (train.speedKmH > 0 ? `▼ ${train.speedKmH}k` : '▼ DN'))}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+
+        {/* Floating SCADA Live Telemetry HUD Card for Hovered Train in 4-Tier View */}
+        {hoveredTrain && (
+          <div 
+            className="absolute z-30 pointer-events-none bg-slate-950/95 border border-cyan-500/80 rounded-xl p-3 shadow-2xl text-[10px] font-mono text-slate-200 backdrop-blur-md transition-all duration-150"
+            style={{
+              left: Math.max(10, Math.min(1300, (hoveredTrain.tierX || 300) - 145)),
+              top: (hoveredTrain.tierY || 200) > 300 ? (hoveredTrain.tierY || 200) - 150 : (hoveredTrain.tierY || 200) + 30,
+              width: '290px'
+            }}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-1 mb-1.5">
+              <span className="font-black text-cyan-300">
+                T-{hoveredTrain.particularTrainId || hoveredTrain.trainId} ({hoveredTrain.direction || 'LINE-2'})
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-200 text-[8.5px] font-bold border border-cyan-800">
+                {hoveredTrain.statusText || 'IN SERVICE'}
+              </span>
+            </div>
+            
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-slate-400">
+                <span>Prev Relieved TO:</span>
+                <strong className="text-slate-300">
+                  {hoveredTrain.previousOperator?.name ? `${hoveredTrain.previousOperator.name} (D${hoveredTrain.previousOperator.dutyNo || '--'})` : 'Shift Start / First Leg'}
+                </strong>
+              </div>
+              <div className="flex items-center justify-between text-emerald-400 font-bold">
+                <span>Current Driving TO:</span>
+                <strong className="text-emerald-300">
+                  {hoveredTrain.operatorName || '--'} (D{hoveredTrain.dutyNo || '--'})
+                </strong>
+              </div>
+              <div className="flex items-center justify-between text-amber-300">
+                <span>Next Reliever (Matrix):</span>
+                <strong className="text-amber-200">
+                  {hoveredTrain.reliever?.name ? `${hoveredTrain.reliever.name} (D${hoveredTrain.reliever.dutyNo || '--'} @ ${hoveredTrain.reliever.takeoverTime || '--'})` : 'None Assigned'}
+                </strong>
+              </div>
+            </div>
+            
+            <div className="mt-1.5 pt-1 border-t border-slate-850 flex items-center justify-between text-[9px] text-slate-400">
+              <span>Loc: <strong className="text-slate-200">{hoveredTrain.currentStation || '--'}</strong></span>
+              <span>Speed: <strong className="text-cyan-400">{hoveredTrain.speedKmH || 0} km/h</strong></span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AlstomAtsSystemView({
   liveTrainPositions = [],
   stationChainageDB = {},
@@ -70,12 +591,18 @@ export default function AlstomAtsSystemView({
   onScheduleChange = () => {},
   onTimeChange = () => {},
   onToggleLiveClock = () => {},
-  onSelectTrain = () => {}
+  onSelectTrain = () => {},
+  isSimPlaying: propIsSimPlaying,
+  onToggleSimPlay = null,
+  simSpeedMultiplier: propSimSpeedMultiplier,
+  onSpeedChange = null
 }) {
   const [selectedStation, setSelectedStation] = useState(null);
   const [hoveredTrain, setHoveredTrain] = useState(null);
   const [internalSearchQuery, setInternalSearchQuery] = useState('');
+  const [viewLayout, setViewLayout] = useState('occ4tier'); // 'occ4tier' (Official OCC Monitor, Images 2 & 4) | 'panoramic' (Continuous 4800px track)
   const scrollContainerRef = useRef(null);
+  const hasAutoScrolledRef = useRef(false);
 
   // Sync internal search with optional externalSearchQuery
   const activeSearch = externalSearchQuery !== undefined && externalSearchQuery !== ''
@@ -90,8 +617,27 @@ export default function AlstomAtsSystemView({
   };
 
   // Simulation Playback state (advance time automatically)
-  const [isSimPlaying, setIsSimPlaying] = useState(false);
-  const [simSpeedMultiplier, setSimSpeedMultiplier] = useState(1); // 1x = 1 min/sec, 5x = 5 mins/sec
+  const [internalSimPlaying, setInternalSimPlaying] = useState(false);
+  const [internalSpeedMultiplier, setInternalSpeedMultiplier] = useState(1); // 1x = 1 min/sec, 5x = 5 mins/sec
+
+  const isSimPlaying = propIsSimPlaying !== undefined ? propIsSimPlaying : internalSimPlaying;
+  const simSpeedMultiplier = propSimSpeedMultiplier !== undefined ? propSimSpeedMultiplier : internalSpeedMultiplier;
+
+  const handleToggleSim = () => {
+    if (typeof onToggleSimPlay === 'function') {
+      onToggleSimPlay();
+    } else {
+      setInternalSimPlaying(prev => !prev);
+    }
+  };
+
+  const handleSpeedChange = (speed) => {
+    if (typeof onSpeedChange === 'function') {
+      onSpeedChange(speed);
+    } else {
+      setInternalSpeedMultiplier(speed);
+    }
+  };
 
   // Helper: Get station chainage
   const getChainage = (code) => {
@@ -124,19 +670,19 @@ export default function AlstomAtsSystemView({
   };
 
   // Automated Timetable Simulation Loop:
-  // When isSimPlaying is true, advances timetable minutes every second according to simSpeedMultiplier
+  // When isSimPlaying is true and parent isn't managing it, advance time every second
   useEffect(() => {
-    if (!isSimPlaying) return;
+    if (!isSimPlaying || typeof onToggleSimPlay === 'function') return;
 
     const interval = setInterval(() => {
       const currentMins = timeToMinutes(simulatedTime);
       let nextMins = currentMins + simSpeedMultiplier;
-      if (nextMins > 1439) nextMins = 300; // loop back to 05:00 AM after midnight
+      if (nextMins > 1439) nextMins = 240; // loop back to 04:00 AM after midnight
       onTimeChange(nextMins);
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isSimPlaying, simSpeedMultiplier, simulatedTime, onTimeChange]);
+  }, [isSimPlaying, simSpeedMultiplier, simulatedTime, onTimeChange, onToggleSimPlay]);
 
   // Track Y Coordinates (Single panoramic line)
   const UP_Y = 85;       // Top rail: UP Track (APTD ➔ BIET, traveling West/North)
@@ -159,18 +705,18 @@ export default function AlstomAtsSystemView({
 
   // Process live trains strictly from the active day's timetable
   const timetableTrains = useMemo(() => {
-    // 1. Deduplicate by trainId to ensure no overlapping duplicate badges
+    // 1. Deduplicate by train unit ID to ensure each physical train has 1 canonical badge
     const trainMap = new Map();
     (liveTrainPositions || []).forEach((tr) => {
-      const tId = String(tr.trainId).trim();
-      if (!tId) return;
-      if (!trainMap.has(tId)) {
-        trainMap.set(tId, tr);
+      const unitKey = String(tr.particularTrainId || tr.legacyTrainId || tr.trainId).trim();
+      if (!unitKey) return;
+      if (!trainMap.has(unitKey)) {
+        trainMap.set(unitKey, tr);
       } else {
-        const existing = trainMap.get(tId);
+        const existing = trainMap.get(unitKey);
         // Prefer running train over stabled train
         if (existing.isStabling && !tr.isStabling) {
-          trainMap.set(tId, tr);
+          trainMap.set(unitKey, tr);
         }
       }
     });
@@ -182,18 +728,22 @@ export default function AlstomAtsSystemView({
       let statusText = tr.isStabling ? 'STABLED' : 'RUNNING';
 
       // 1. SPECIFIC RULE: Peenya Depot SBL, PYID RD-3, and Transfer Track Movement
+      const unitStr = String(tr.particularTrainId || tr.legacyTrainId || tr.trainId);
       // A. RD-3 Standby loop train (T203)
       const isRd3Train = tr.isStabling && (
-        String(tr.trainId) === '203' || 
+        unitStr === '203' || 
         String(tr.currentStation).includes('RD-3')
       );
 
-      // B. Peenya Depot SBL (Stabled Trains: T221, T218, T211, T216, T212, T205, T204, T207, etc.)
-      // Once trains are stabled at the depot, they are located inside PEENYA DEPOT SBL (Stabling Lines 1 to 8).
-      const isDepotStabled = tr.isStabling && !isRd3Train && (
+      // 2. Terminal Station Cab Changeover & Buffer End
+      const isAtBietTerminal = String(tr.currentStation).includes('BIET') || tr.chainage <= -9.0;
+      const isAtAptsTerminal = String(tr.currentStation).includes('APTS') || tr.chainage >= 23.5;
+      const isTurnaroundOrStabledAtTerminal = tr.isStabling || tr.distanceRemaining === 0 || String(tr.currentStation).includes('(');
+
+      // B. Peenya Depot SBL: ONLY for trains specifically at Peenya Depot (NOT APTS, BIET, PUTH, or NLC!)
+      const isDepotStabled = tr.isStabling && !isRd3Train && !isAtBietTerminal && !isAtAptsTerminal && !String(tr.currentStation).includes('PUTH') && !String(tr.currentStation).includes('NLC') && (
         String(tr.currentStation).includes('Depot') || 
         String(tr.currentStation).includes('SBL') || 
-        ['221', '218', '211', '216', '212', '205', '204', '207', '206', '202', '214', '217'].includes(String(tr.trainId)) ||
         String(tr.currentStation).includes('PYID')
       );
 
@@ -205,33 +755,31 @@ export default function AlstomAtsSystemView({
         (String(tr.currentStation).includes('PYID') && tr.distanceTravelled < 0.6 && tr.direction === 'UP' && tr.originDepot)
       );
 
+      const tIdStr = String(tr.particularTrainId || tr.trainId);
+      let sblIndex = 1;
+      if (tIdStr === '221') sblIndex = 1;
+      else if (tIdStr === '218') sblIndex = 2;
+      else if (tIdStr === '211') sblIndex = 3;
+      else if (tIdStr === '216' || tIdStr === '206') sblIndex = 4;
+      else if (tIdStr === '212' || tIdStr === '202') sblIndex = 5;
+      else if (tIdStr === '205' || tIdStr === '215') sblIndex = 6;
+      else if (tIdStr === '204' || tIdStr === '214') sblIndex = 7;
+      else if (tIdStr === '207' || tIdStr === '217') sblIndex = 8;
+      else {
+        const match = String(tr.currentStation).match(/SBL-?([1-8])/i);
+        if (match) {
+          sblIndex = parseInt(match[1]);
+        } else {
+          const num = parseInt(tIdStr.replace(/\D/g, '')) || 1;
+          sblIndex = ((num - 1) % 8) + 1;
+        }
+      }
+
       if (isRd3Train) {
         exactX = 3765; // PYID RD-3
         exactY = RD3_Y;
         statusText = 'STANDBY (RD-3)';
       } else if (isDepotStabled) {
-        // Stabled trains are positioned inside PEENYA DEPOT SBL across 8 Stabling Lines (SBL-1 to SBL-8)
-        const tIdStr = String(tr.particularTrainId || tr.trainId);
-        
-        let sblIndex = 1;
-        if (tIdStr === '221') sblIndex = 1;
-        else if (tIdStr === '218') sblIndex = 2;
-        else if (tIdStr === '211') sblIndex = 3;
-        else if (tIdStr === '216' || tIdStr === '206') sblIndex = 4;
-        else if (tIdStr === '212' || tIdStr === '202') sblIndex = 5;
-        else if (tIdStr === '205' || tIdStr === '215') sblIndex = 6;
-        else if (tIdStr === '204' || tIdStr === '214') sblIndex = 7;
-        else if (tIdStr === '207' || tIdStr === '217') sblIndex = 8;
-        else {
-          const match = String(tr.currentStation).match(/SBL-?([1-8])/i);
-          if (match) {
-            sblIndex = parseInt(match[1]);
-          } else {
-            const num = parseInt(tIdStr.replace(/\D/g, '')) || 1;
-            sblIndex = ((num - 1) % 8) + 1;
-          }
-        }
-
         const sblYMap = {
           1: DEPOT_Y1,
           2: DEPOT_Y2,
@@ -242,32 +790,83 @@ export default function AlstomAtsSystemView({
           7: DEPOT_Y7,
           8: DEPOT_Y8
         };
-
         exactX = 4135;
         exactY = sblYMap[sblIndex] || DEPOT_Y1;
         statusText = `DEPOT SBL-${sblIndex}`;
       } else if (isMovingFromDepot) {
-        // Actively moving from Depot on Transfer Track towards PYID
         exactX = 3880; // Transfer Track 2
         exactY = DEPOT_Y1;
         statusText = 'FROM DEPOT (INDUCTION)';
-      }
-
-      // 2. SPECIFIC RULE: Terminal Station Cab Changeover & Buffer End
-      const isAtBietTerminal = String(tr.currentStation).includes('BIET') || tr.chainage <= -9.0;
-      const isAtAptsTerminal = String(tr.currentStation).includes('APTS') || tr.chainage >= 23.5;
-      const isTurnaroundOrStabledAtTerminal = tr.isStabling || tr.distanceRemaining === 0 || String(tr.currentStation).includes('(');
-
-      if (isAtBietTerminal && isTurnaroundOrStabledAtTerminal && !isDepotStabled && !isRd3Train && !isMovingFromDepot) {
-        // Move beyond BIET platform (x=4600) to the BIET Buffer End track (x=4665)
+      } else if (isAtBietTerminal && isTurnaroundOrStabledAtTerminal) {
         exactX = 4665;
         exactY = tr.isStabling ? (String(tr.trainId) === '209' ? UP_Y : DN_Y) : (isUp ? UP_Y : DN_Y);
-        statusText = tr.isStabling ? 'BUFFER END (STABLED)' : 'CAB CHANGEOVER';
-      } else if (isAtAptsTerminal && isTurnaroundOrStabledAtTerminal && !isDepotStabled && !isRd3Train && !isMovingFromDepot) {
-        // Move beyond APTS platform (x=290) to the APTS Buffer End track (x=220)
+        statusText = tr.isStabling ? 'TERMINAL (STABLED)' : 'CAB CHANGEOVER';
+      } else if (isAtAptsTerminal && isTurnaroundOrStabledAtTerminal) {
         exactX = 220;
         exactY = DN_Y;
         statusText = tr.isStabling ? 'BUFFER END (STABLED)' : 'CAB CHANGEOVER';
+      } else if (String(tr.currentStation).includes('PUTH') && tr.isStabling) {
+        exactX = chainageToTrackX(16.273);
+        exactY = String(tr.currentStation).includes('UP') ? UP_Y : DN_Y;
+        statusText = 'PUTH (STABLED)';
+      } else if (String(tr.currentStation).includes('NLC') && tr.isStabling) {
+        exactX = chainageToTrackX(10.825);
+        exactY = DN_Y;
+        statusText = 'NLC POCKET (STABLED)';
+      }
+
+      // 3. Compute 4-Tier OCC Monitor Coordinates (Images 2 & 4)
+      let tier = 4;
+      let tierX = 140;
+      let tierY = isUp ? 525 : 575;
+
+      if (isRd3Train) {
+        tier = 4;
+        tierX = 160;
+        tierY = 605;
+      } else if (isDepotStabled) {
+        tier = 4;
+        tierX = 380 + ((sblIndex - 1) % 4) * 55;
+        tierY = 695 + Math.floor((sblIndex - 1) / 4) * 25;
+      } else if (isMovingFromDepot) {
+        tier = 4;
+        tierX = 280;
+        tierY = 635;
+      } else if (isAtBietTerminal && isTurnaroundOrStabledAtTerminal) {
+        tier = 4;
+        tierX = 1485;
+        tierY = isUp ? 525 : 575;
+      } else if (isAtAptsTerminal && isTurnaroundOrStabledAtTerminal) {
+        tier = 1;
+        tierX = 240;
+        tierY = 125;
+      } else if (String(tr.currentStation).includes('PUTH') && tr.isStabling) {
+        tier = 1;
+        tierX = 1350;
+        tierY = String(tr.currentStation).includes('UP') ? 75 : 125;
+      } else if (String(tr.currentStation).includes('NLC') && tr.isStabling) {
+        tier = 2;
+        tierX = 890;
+        tierY = 275;
+      } else {
+        const ch = tr.chainage !== undefined ? tr.chainage : 0;
+        if (ch >= 15.955) {
+          tier = 1;
+          tierX = Math.round(getTierStationX(1, ch));
+          tierY = isUp ? 75 : 125;
+        } else if (ch >= 6.717) {
+          tier = 2;
+          tierX = Math.round(getTierStationX(2, ch));
+          tierY = isUp ? 225 : 275;
+        } else if (ch >= -2.547) {
+          tier = 3;
+          tierX = Math.round(getTierStationX(3, ch));
+          tierY = isUp ? 375 : 425;
+        } else {
+          tier = 4;
+          tierX = Math.round(getTierStationX(4, ch));
+          tierY = isUp ? 525 : 575;
+        }
       }
 
       // Determine operational speed
@@ -283,6 +882,9 @@ export default function AlstomAtsSystemView({
         ...tr,
         currentX: exactX,
         currentY: exactY,
+        tier,
+        tierX,
+        tierY,
         speedKmH,
         statusText
       };
@@ -348,6 +950,27 @@ export default function AlstomAtsSystemView({
     return timetableTrains.filter(tr => isTrainMatchingSearch(tr, activeSearch));
   }, [timetableTrains, activeSearch]);
 
+  // Auto-scroll track canvas to center on the active operational zone (PYID / active trains) on initial load
+  useEffect(() => {
+    if (!hasAutoScrolledRef.current && scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const cWidth = container.clientWidth || 900;
+      let targetX = 3600; // Center on PYID (x: 3730) area
+      const runningNearPyid = timetableTrains.filter(t => !t.isStabling && t.currentX >= 2800 && t.currentX <= 4400);
+      if (runningNearPyid.length > 0) {
+        const avgX = runningNearPyid.reduce((sum, t) => sum + t.currentX, 0) / runningNearPyid.length;
+        targetX = avgX;
+      }
+      container.scrollTo({
+        left: Math.max(0, targetX - cWidth / 2),
+        behavior: 'smooth'
+      });
+      if (timetableTrains.length > 0) {
+        hasAutoScrolledRef.current = true;
+      }
+    }
+  }, [timetableTrains]);
+
   // Auto-scroll track canvas to center the searched train
   useEffect(() => {
     if (activeSearch && activeSearch.trim() && filteredTimetableTrains.length > 0) {
@@ -364,6 +987,94 @@ export default function AlstomAtsSystemView({
 
   return (
     <div className="bg-[#4a5360] text-slate-100 font-mono rounded-xl border-2 border-[#333a44] shadow-2xl overflow-hidden select-none">
+      
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* 0. AUTHENTIC ALSTOM OCC SYSTEM VIEW SCADA HEADER BAR (Images 2 & 4) */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      <div className="bg-[#242b35] border-b-2 border-[#181d24] px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {/* Left: BMRCL Logo + Workstation Buttons + Signal LED */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-[#1a2027] border border-emerald-500/50 rounded shadow-sm">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse"></span>
+              <span className="text-[10px] font-black text-emerald-400 tracking-wider">ನಮ್ಮ ಮೆಟ್ರೋ BMRCL</span>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <span className="px-2 py-0.5 bg-[#141a22] border border-slate-600 rounded text-[9px] font-bold text-slate-300">
+                PYID_WKS03
+              </span>
+              <span className="px-2 py-0.5 bg-[#141a22] border border-slate-700 rounded text-[9px] font-bold text-slate-400">
+                OCC_SER04
+              </span>
+            </div>
+
+            {/* SCADA Alarm Ticker Window */}
+            <div className="hidden lg:flex flex-col bg-[#0f141c] border border-slate-700/80 rounded px-2 py-0.5 text-[7.5px] text-slate-300 font-mono leading-tight">
+              <span className="text-amber-400 font-bold">{simulatedTime}:15 Train031 Normal</span>
+              <span className="text-slate-400">{simulatedTime}:19 ATC_24 Connected</span>
+              <span className="text-cyan-400">{simulatedTime}:22 IconisBLR-ExtRSMModule:OK</span>
+            </div>
+          </div>
+
+          {/* Center: Large Official Title & Alarm Broadcast Box */}
+          <div className="flex flex-col items-center">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-black tracking-widest text-slate-100 uppercase">
+                SYSTEM VIEW
+              </h2>
+              {/* View Layout Toggle */}
+              <div className="flex items-center bg-[#131922] p-0.5 rounded border border-cyan-800/80">
+                <button
+                  type="button"
+                  onClick={() => setViewLayout('occ4tier')}
+                  className={`px-2 py-0.5 rounded text-[8.5px] font-bold transition-all cursor-pointer ${
+                    viewLayout === 'occ4tier'
+                      ? 'bg-cyan-600 text-slate-950 shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Official 4-Tier OCC Monitor Layout (Images 2 & 4) - All 34 stations visible without scrolling"
+                >
+                  ▦ OCC 4-Tier Monitor
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewLayout('panoramic')}
+                  className={`px-2 py-0.5 rounded text-[8.5px] font-bold transition-all cursor-pointer ${
+                    viewLayout === 'panoramic'
+                      ? 'bg-cyan-600 text-slate-950 shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Single Continuous 4800px Panoramic Track"
+                >
+                  ↔ Panoramic Single-Line
+                </button>
+              </div>
+            </div>
+
+            {/* OCC Real-Time Status Notification */}
+            <div className="mt-0.5 px-2.5 py-0.5 bg-[#0b0f15] border border-amber-600/40 rounded text-[8px] text-amber-300 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
+              <span>
+                {timetableTrains.filter(t => !t.isStabling).length} trains running in revenue service
+                {timetableTrains.filter(t => t.isStabling).length > 0 && ` • ${timetableTrains.filter(t => t.isStabling).length} stabled at terminals/depot`}
+                {' • '}Live Line-2 Position Tracking
+              </span>
+            </div>
+          </div>
+
+          {/* Right: Alstom Logo + Date & Live Time */}
+          <div className="flex items-center gap-2.5">
+            <div className="text-right">
+              <div className="text-[12px] font-black tracking-widest text-white">ALSTOM</div>
+              <div className="text-[9px] font-bold text-cyan-300 flex items-center gap-1 justify-end">
+                <Clock size={10} className="text-cyan-400 animate-spin" />
+                <span>{simulatedTime}{isLiveClock ? `:${String(new Date().getSeconds()).padStart(2, '0')}` : ''}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       
 
 
@@ -691,12 +1402,26 @@ export default function AlstomAtsSystemView({
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────── */}
-      {/* 3. MAIN UNIFIED CONTINUOUS TRACK CANVAS (One Line Alignment)        */}
+      {/* 3. TRACK DISPLAY CANVAS (OCC 4-TIER SYSTEM VIEW OR PANORAMIC)       */}
       {/* ─────────────────────────────────────────────────────────────────── */}
-      <div 
-        ref={scrollContainerRef}
-        className="p-4 bg-[#444d59] overflow-x-auto scrollbar-thin scrollbar-thumb-cyan-700 scrollbar-track-slate-800"
-      >
+      {viewLayout === 'occ4tier' ? (
+        <Occ4TierMonitorCanvas
+          timetableTrains={filteredTimetableTrains}
+          selectedStation={selectedStation}
+          onSelectStation={setSelectedStation}
+          selectedTrain={selectedTrain}
+          onSelectTrain={onSelectTrain}
+          hoveredTrain={hoveredTrain}
+          setHoveredTrain={setHoveredTrain}
+          activeSearch={activeSearch}
+          isTrainMatchingSearch={isTrainMatchingSearch}
+          getChainage={getChainage}
+        />
+      ) : (
+        <div 
+          ref={scrollContainerRef}
+          className="p-4 bg-[#444d59] overflow-x-auto scrollbar-thin scrollbar-thumb-cyan-700 scrollbar-track-slate-800"
+        >
         <div className="relative select-none" style={{ width: `${TOTAL_TRACK_WIDTH}px`, height: '520px' }}>
           
           <svg className="w-full h-full" viewBox={`0 0 ${TOTAL_TRACK_WIDTH} 520`}>
@@ -1292,7 +2017,7 @@ export default function AlstomAtsSystemView({
                       ? `T${train.particularTrainId || train.trainId} (REV)`
                       : train.computedTrainId
                       ? (isUp ? `${train.computedTrainId} ➔` : `⬅ ${train.computedTrainId}`)
-                      : (isUp ? `T${train.trainId} ➔` : `⬅ T${train.trainId}`)}
+                      : (isUp ? `T${train.particularTrainId || train.trainId} ➔` : `⬅ T${train.particularTrainId || train.trainId}`)}
                   </text>
 
                   {/* Reliever tag derived strictly from Live Train Operator Relief Matrix */}
@@ -1324,6 +2049,7 @@ export default function AlstomAtsSystemView({
                   <title>
                     {`Train ID: ${train.computedTrainId || train.displayTrainId || 'Pending'} (Unit ${train.particularTrainId || train.trainId})\n` +
                      `Current Driving Operator: ${train.operatorName || '--'} (${train.operatorId || '--'}) • Duty ${train.dutyNo || '--'}\n` +
+                     `Previous Relieved Operator: ${train.previousOperator?.name || 'Shift Start / First Leg'} (${train.previousOperator?.id || '--'}) • Duty ${train.previousOperator?.dutyNo || '--'} (Relieved: ${train.previousOperator?.relievedTime || '--'})\n` +
                      `Next Reliever (Relief Matrix): ${train.reliever?.name || 'None Assigned'} (${train.reliever?.id || '--'}) • Duty ${train.reliever?.dutyNo || '--'}\n` +
                      `Scheduled Handover Station: ${train.scheduledHandoverStation || 'PYID'}\n` +
                      `Handover Time: ${train.reliever?.takeoverTime || '--'}\n` +
@@ -1340,10 +2066,13 @@ export default function AlstomAtsSystemView({
                     )
                   )}
 
-                  {/* Driver tag and operational speed derived from timetable & Relief Matrix */}
-                  <rect x={trX - 44} y={trY + 14} width="88" height="12" fill="#0f172a" fillOpacity="0.95" rx="2" stroke="#475569" strokeWidth="0.8" />
-                  <text x={trX} y={trY + 23} fill={trY >= DEPOT_Y1 ? "#facc15" : trY === RD3_Y ? "#fde047" : (isUp ? "#34d399" : "#38bdf8")} fontSize="6.5" fontWeight="bold" textAnchor="middle">
+                  {/* Driver tag and previous operator derived from timetable & Handover Cards */}
+                  <rect x={trX - 48} y={trY + 14} width="96" height="21" fill="#0f172a" fillOpacity="0.95" rx="3" stroke="#475569" strokeWidth="0.8" />
+                  <text x={trX} y={trY + 23} fill={trY >= DEPOT_Y1 ? "#facc15" : trY === RD3_Y ? "#fde047" : (isUp ? "#34d399" : "#38bdf8")} fontSize="6" fontWeight="bold" textAnchor="middle">
                     TO: {train.operatorName ? train.operatorName.split(' ')[0] : (train.dutyNo ? `D${train.dutyNo}` : '--')} ({train.statusText})
+                  </text>
+                  <text x={trX} y={trY + 31} fill="#94a3b8" fontSize="5.5" fontWeight="semibold" textAnchor="middle">
+                    PREV: {train.previousOperator?.name ? `${train.previousOperator.name.split(' ')[0]} (D${train.previousOperator.dutyNo || '--'})` : 'ORIGIN'}
                   </text>
                 </g>
               );
@@ -1351,26 +2080,105 @@ export default function AlstomAtsSystemView({
 
           </svg>
 
+          {/* Floating SCADA Live Telemetry HUD Card for Hovered Train */}
+          {hoveredTrain && (
+            <div 
+              className="absolute z-30 pointer-events-none bg-slate-950/95 border border-cyan-500/80 rounded-xl p-3 shadow-2xl text-[10px] font-mono text-slate-200 backdrop-blur-md transition-all duration-150"
+              style={{
+                left: Math.max(10, Math.min(TOTAL_TRACK_WIDTH - 290, hoveredTrain.currentX - 145)),
+                top: hoveredTrain.currentY > 200 ? hoveredTrain.currentY - 150 : hoveredTrain.currentY + 45,
+                width: '290px'
+              }}
+            >
+              <div className="flex items-center justify-between border-b border-slate-800 pb-1 mb-1.5">
+                <span className="font-black text-cyan-300">
+                  T-{hoveredTrain.particularTrainId || hoveredTrain.trainId} ({hoveredTrain.direction || 'LINE-2'})
+                </span>
+                <span className="px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-200 text-[8.5px] font-bold border border-cyan-800">
+                  {hoveredTrain.statusText || 'IN SERVICE'}
+                </span>
+              </div>
+              
+              {/* 3 Operators: Previous, Current, Next Reliever */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-slate-400">
+                  <span>Prev Relieved TO:</span>
+                  <strong className="text-slate-300">
+                    {hoveredTrain.previousOperator?.name ? `${hoveredTrain.previousOperator.name} (D${hoveredTrain.previousOperator.dutyNo || '--'})` : 'Shift Start / First Leg'}
+                  </strong>
+                </div>
+                <div className="flex items-center justify-between text-emerald-400 font-bold">
+                  <span>Current Driving TO:</span>
+                  <strong className="text-emerald-300">
+                    {hoveredTrain.operatorName || '--'} (D{hoveredTrain.dutyNo || '--'})
+                  </strong>
+                </div>
+                <div className="flex items-center justify-between text-amber-300">
+                  <span>Next Reliever (Matrix):</span>
+                  <strong className="text-amber-200">
+                    {hoveredTrain.reliever?.name ? `${hoveredTrain.reliever.name} (D${hoveredTrain.reliever.dutyNo || '--'} @ ${hoveredTrain.reliever.takeoverTime || '--'})` : 'None Assigned'}
+                  </strong>
+                </div>
+              </div>
+              
+              <div className="mt-1.5 pt-1 border-t border-slate-850 flex items-center justify-between text-[9px] text-slate-400">
+                <span>Loc: <strong className="text-slate-200">{hoveredTrain.currentStation || '--'}</strong></span>
+                <span>Speed: <strong className="text-cyan-400">{hoveredTrain.speedKmH || 0} km/h</strong></span>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
+      )}
 
       {/* ─────────────────────────────────────────────────────────────────── */}
       {/* 4. BOTTOM ATS SCADA STATUS BAR & TIME SCRUBBER                      */}
       {/* ─────────────────────────────────────────────────────────────────── */}
       <div className="bg-[#353c47] border-t border-[#262c34] px-4 py-2.5 flex flex-col md:flex-row items-center justify-between gap-3 text-[10px] text-slate-300">
         
-        {/* Left: Timetable Timeline Fast Jump Buttons */}
+        {/* Left: Timetable Timeline Fast Jump Buttons & Simulation Run Controls */}
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[9px] text-amber-400 font-bold uppercase flex items-center gap-1">
+          {/* Simulation Playback & Speed Controls */}
+          <div className="flex items-center gap-1.5 bg-[#20252e] p-1 rounded border border-slate-700">
+            <button
+              onClick={handleToggleSim}
+              className={`flex items-center gap-1 px-2.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider transition cursor-pointer ${
+                isSimPlaying
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold'
+              }`}
+              title={isSimPlaying ? "Pause Timetable Simulation" : "Run Timetable Simulation as per Chronological Matrix"}
+            >
+              {isSimPlaying ? '⏸ PAUSE SIM' : '▶ RUN SIM'}
+            </button>
+            {[1, 2, 5, 10].map(speed => (
+              <button
+                key={speed}
+                onClick={() => handleSpeedChange(speed)}
+                className={`px-1.5 py-0.5 rounded text-[8px] font-bold transition cursor-pointer ${
+                  simSpeedMultiplier === speed
+                    ? 'bg-cyan-500 text-slate-950 font-black'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title={`Set Simulation Speed to ${speed}x`}
+              >
+                {speed}x
+              </button>
+            ))}
+          </div>
+
+          <span className="text-[9px] text-amber-400 font-bold uppercase flex items-center gap-1 pl-1 border-l border-slate-700">
             <Clock size={11} />
-            <span>TIMETABLE SHIFTS:</span>
+            <span>SHIFTS:</span>
           </span>
           {[
-            { label: '06:30 Morning Outflow', mins: 390 },
-            { label: '08:30 Peak Hour', mins: 510 },
-            { label: '11:15 Mid-Day Run', mins: 675 },
-            { label: '17:45 Evening Peak', mins: 1065 },
-            { label: '21:30 Night Turn', mins: 1290 }
+            { label: '06:30 Morning', mins: 390 },
+            { label: '08:30 Peak', mins: 510 },
+            { label: '11:15 Mid-Day', mins: 675 },
+            { label: '17:45 Evening', mins: 1065 },
+            { label: '21:30 Night', mins: 1290 },
+            { label: '23:27 Late Night', mins: 1407 }
           ].map((shift) => (
             <button
               key={shift.label}
@@ -1378,7 +2186,7 @@ export default function AlstomAtsSystemView({
                 setIsSimPlaying(false);
                 onTimeChange(shift.mins);
               }}
-              className="px-2 py-0.5 bg-[#20252e] hover:bg-slate-800 border border-slate-600 rounded text-[9px] text-cyan-300 font-bold transition-colors"
+              className="px-2 py-0.5 bg-[#20252e] hover:bg-slate-800 border border-slate-600 rounded text-[9px] text-cyan-300 font-bold transition-colors cursor-pointer"
             >
               {shift.label}
             </button>

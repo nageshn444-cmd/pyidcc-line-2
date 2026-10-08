@@ -41,11 +41,22 @@ import {
   getReliefIdChartForDay,
   normalizeScheduleDay,
   normalizeTrackTrainId,
-  resolveLiveRelieverOperator
+  normalizeDutyId,
+  resolveLiveRelieverOperator,
+  buildDutyRosterFromLinkRoster,
+  buildMasterIdChartFromDutyRoster,
+  buildHandoverCardsFromMasterIdChart
 } from '../data/weekdayReliefIdChartRegistry';
+import { getMasterLinksForDay } from '../data/canonicalDayLinksRegistry';
 import AlstomAtsSystemView from './kmcalc/AlstomAtsSystemView';
 import { generate4DigitTrainId, formatParticularTrainId } from '../utils/trainIdResolver';
 import { WEEKDAY_MASTER_DUTY_ROSTER, getOperatorForDuty } from '../data/weekdayMasterDutyRoster';
+
+const ALL_LINE2_FLEET = [
+  '201', '202', '203', '204', '205', '206', '207', '208', '209', '210',
+  '211', '212', '213', '214', '215', '216', '217', '218', '219', '220',
+  '221', '222', '223'
+];
 
 export default function LiveTrainPositionTracker({ 
   liveTrainTrackingMap: propLiveTrainTrackingMap = {}, 
@@ -81,13 +92,17 @@ export default function LiveTrainPositionTracker({
   // simulatedTime: displayed as HH:MM; internalTimeSecs: used for sub-minute position accuracy
   const [simulatedTime, setSimulatedTime] = useState(() => {
     const now = new Date();
-    return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const hrs = String(now.getHours()).padStart(2, '0');
+    const mins = String(now.getMinutes()).padStart(2, '0');
+    return `${hrs}:${mins}`;
   });
   const [internalTimeSecs, setInternalTimeSecs] = useState(() => {
     const now = new Date();
     return now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
   });
   const [isLiveClock, setIsLiveClock] = useState(true);
+  const [isSimPlaying, setIsSimPlaying] = useState(false);
+  const [simSpeedMultiplier, setSimSpeedMultiplier] = useState(1);
   const [clockIntervalId, setClockIntervalId] = useState(null);
   const [selectedTrain, setSelectedTrain] = useState(null);
   const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table' | 'radar' | 'energy' | 'maintenance'
@@ -176,13 +191,41 @@ export default function LiveTrainPositionTracker({
   const [kmRecalibrationCount, setKmRecalibrationCount] = useState(0);
   const [expandedTrainTripsId, setExpandedTrainTripsId] = useState(null);
   const [activeSchedule, setActiveSchedule] = useState(() => {
-    if (propActiveDay) return propActiveDay.toUpperCase();
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = window.localStorage.getItem('pyidcc_active_day_override') || window.localStorage.getItem('pyidcc_target_deployment_day');
+        if (saved) return normalizeScheduleDay(saved);
+      }
+    } catch (e) {}
+    if (propActiveDay) return normalizeScheduleDay(propActiveDay);
     const day = new Date().getDay();
     if (day === 0) return 'SUNDAY';
     if (day === 6) return 'SATURDAY';
     if (day === 1) return 'MONDAY';
     return 'WEEKDAY';
   });
+
+  // Automatically synchronize active schedule whenever Step 1 Target Deployment Day changes
+  useEffect(() => {
+    const handleActiveDaySync = (e) => {
+      const day = e?.detail?.dayType || e?.detail;
+      if (day) {
+        const norm = normalizeScheduleDay(day);
+        setActiveSchedule(norm);
+      }
+    };
+    const handleStorage = (e) => {
+      if (e.key === 'pyidcc_active_day_override' || e.key === 'pyidcc_target_deployment_day') {
+        if (e.newValue) setActiveSchedule(normalizeScheduleDay(e.newValue));
+      }
+    };
+    window.addEventListener('pyidcc-active-day-changed', handleActiveDaySync);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener('pyidcc-active-day-changed', handleActiveDaySync);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
 
   // Canonical station sequence for UP line (Official ALSTOM IATS / ATS System View with all 34 stations South APTD ➔ North BIET)
   const CANONICAL_UP_STATIONS = useMemo(() => {
@@ -243,23 +286,20 @@ export default function LiveTrainPositionTracker({
     return '';
   };
 
-  // Normalization helper for flexible schedule matching (e.g. MON / MONDAY)
+  // Normalization helper for flexible schedule matching (e.g. MON / MONDAY, GH / SATURDAY, WEDNESDAY / WEEKDAY)
   const isScheduleMatch = (itemSched, targetSched) => {
-    const s1 = String(itemSched || '').toUpperCase().trim();
-    const s2 = String(targetSched || '').toUpperCase().trim();
-    if (!s1 || !s2) return false;
-    if (s1 === s2) return true;
-    if ((s2 === 'MONDAY' || s2 === 'MON') && (s1 === 'MONDAY' || s1 === 'MON')) return true;
-    if ((s2 === 'SATURDAY' || s2 === 'SAT' || s2 === 'SAT_GH') && (s1 === 'SATURDAY' || s1 === 'SAT' || s1 === 'SAT_GH')) return true;
-    if ((s2 === 'SUNDAY' || s2 === 'SUN') && (s1 === 'SUNDAY' || s1 === 'SUN')) return true;
-    if (s2 === 'WEEKDAY' && (s1 === 'WEEKDAY' || s1 === 'WD' || s1 === 'MONDAY' || s1 === 'MON')) return true;
-    return false;
+    if (!itemSched || !targetSched) return false;
+    let s1 = normalizeScheduleDay(itemSched);
+    let s2 = normalizeScheduleDay(targetSched);
+    if (s1 === 'GH') s1 = 'SATURDAY';
+    if (s2 === 'GH') s2 = 'SATURDAY';
+    return s1 === s2;
   };
 
   // Sync active schedule when prop changes
   useEffect(() => {
     if (propActiveDay) {
-      setActiveSchedule(propActiveDay.toUpperCase());
+      setActiveSchedule(normalizeScheduleDay(propActiveDay));
     }
   }, [propActiveDay]);
 
@@ -311,7 +351,10 @@ export default function LiveTrainPositionTracker({
       if (!snap.empty) {
         const chainageMap = {};
         snap.docs.forEach(doc => {
-          chainageMap[doc.id] = doc.data().chainage;
+          const val = doc.data()?.chainage;
+          if (typeof val === 'number' && !isNaN(val)) {
+            chainageMap[doc.id] = val;
+          }
         });
         setStationChainageDB(chainageMap);
       }
@@ -340,7 +383,7 @@ export default function LiveTrainPositionTracker({
         setSimulatedTime(`${hrs}:${mins}`);
         // Update sub-minute internal seconds for smooth position interpolation
         setInternalTimeSecs(now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds());
-      }, 5000); // 5-second tick for smooth train movement
+      }, 1000); // 1-second tick for real-time accurate train movement
       setClockIntervalId(interval);
     } else {
       if (clockIntervalId) {
@@ -352,6 +395,26 @@ export default function LiveTrainPositionTracker({
       if (clockIntervalId) clearInterval(clockIntervalId);
     };
   }, [isLiveClock]);
+
+  // Automated Timetable Simulation Loop:
+  // Runs trains across the working timetable according to exact chainage
+  useEffect(() => {
+    if (!isSimPlaying) return;
+
+    const interval = setInterval(() => {
+      setInternalTimeSecs((prevSecs) => {
+        // Advance by simSpeedMultiplier * 15 seconds per real second
+        const stepSecs = (simSpeedMultiplier || 1) * 15;
+        let nextSecs = prevSecs + stepSecs;
+        if (nextSecs >= 86400) nextSecs = 240 * 60; // wrap to 04:00 AM after midnight
+        const m = Math.floor(nextSecs / 60);
+        setSimulatedTime(minutesToTime(m));
+        return nextSecs;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isSimPlaying, simSpeedMultiplier]);
 
   const [stationFilter, setStationFilter] = useState('ALL'); // 'ALL' | 'PYID' | 'KGWA' | 'PUTH'
   const [trackFilter, setTrackFilter] = useState('ALL'); // 'ALL' | 'UP' | 'DOWN'
@@ -387,20 +450,60 @@ export default function LiveTrainPositionTracker({
   // by computing proportional travel time based on chainage distance between known stops.
   // This closely mirrors how ATC systems like ALSTOM compute train position.
   // useCallback gives this a stable reference so it can be in the useMemo dep array safely.
-  const interpolateTripStations = useCallback((trip, chainageMap) => {
+  const interpolateTripStations = useCallback((trip, chainageMap, tripDirection) => {
     if (!trip || !trip.stations) return [];
     const rawEntries = Object.entries(trip.stations);
 
-    // 1. Build known stops list with midnight rollover protection
-    const knownStops = [];
-    let prevM = -1;
-    let rolloverOffset = 0;
-
-    // Filter valid station times with known chainage
+    // 1. Filter valid station times with known chainage
     const validEntries = rawEntries.filter(([st, timeStr]) => {
       if (!timeStr || timeStr === '--' || timeStr === '-') return false;
       return /^\d{1,2}:\d{2}/.test(String(timeStr).trim()) && chainageMap[st] !== undefined;
     });
+
+    if (validEntries.length === 0) return [];
+
+    // Helper for operational minutes: 24h metro day keeps early morning (00:00-03:59) after midnight (+1440)
+    const getOpMins = (timeStr) => {
+      const parts = String(timeStr).trim().split(':').map(Number);
+      const h = parts[0] || 0;
+      const m = parts[1] || 0;
+      const total = h * 60 + m;
+      return total < 240 ? total + 1440 : total;
+    };
+
+    // Determine travel direction:
+    // UP = South to North (APTS -> BIET), chainage decreases from ~+23.83 to ~-9.23
+    // DOWN = North to South (BIET -> APTS), chainage increases from ~-9.23 to ~+23.83
+    let isUp = false;
+    if (tripDirection === 'UP' || trip.direction === 'UP' || (trip.terminalLoopRoute && trip.terminalLoopRoute.includes('UP'))) {
+      isUp = true;
+    } else if (tripDirection === 'DOWN' || trip.direction === 'DOWN' || (trip.terminalLoopRoute && (trip.terminalLoopRoute.includes('DN') || trip.terminalLoopRoute.includes('DOWN')))) {
+      isUp = false;
+    } else if (validEntries.length >= 2) {
+      // Deduce from start vs end station chainage or operational time
+      const sortedByTime = [...validEntries].sort((a, b) => getOpMins(a[1]) - getOpMins(b[1]));
+      const startChain = chainageMap[sortedByTime[0][0]] ?? 0;
+      const endChain = chainageMap[sortedByTime[sortedByTime.length - 1][0]] ?? 0;
+      isUp = startChain > endChain;
+    }
+
+    // Sort valid stops into travel order:
+    // For UP trips: decreasing chainage (APTS towards BIET)
+    // For DOWN trips: increasing chainage (BIET towards APTS)
+    // Secondary tie-breaker: operational time
+    validEntries.sort((a, b) => {
+      const chainA = chainageMap[a[0]] ?? 0;
+      const chainB = chainageMap[b[0]] ?? 0;
+      if (Math.abs(chainA - chainB) > 0.001) {
+        return isUp ? chainB - chainA : chainA - chainB;
+      }
+      return getOpMins(a[1]) - getOpMins(b[1]);
+    });
+
+    // 2. Build known stops list with midnight rollover protection
+    const knownStops = [];
+    let prevM = -1;
+    let rolloverOffset = 0;
 
     validEntries.forEach(([st, timeStr]) => {
       let m = timeToMinutes(timeStr) + rolloverOffset;
@@ -423,7 +526,7 @@ export default function LiveTrainPositionTracker({
       return [];
     }
 
-    // 2. Interpolate all intermediate stations between consecutive stops
+    // 3. Interpolate all intermediate stations between consecutive stops
     const result = [];
     const interpolatedStations = new Set();
 
@@ -445,7 +548,10 @@ export default function LiveTrainPositionTracker({
       const minChain = Math.min(segStart.chain, segEnd.chain);
       const maxChain = Math.max(segStart.chain, segEnd.chain);
 
-      STATION_ORDER.forEach(st => {
+      // Intermediate stations ordered according to travel direction
+      const corridorOrder = isUp ? [...STATION_ORDER].reverse() : STATION_ORDER;
+
+      corridorOrder.forEach(st => {
         if (interpolatedStations.has(st)) return;
         if (st === segStart.station || st === segEnd.station) return;
         const stChain = chainageMap[st];
@@ -1448,339 +1554,141 @@ export default function LiveTrainPositionTracker({
     return { dispatchDutyOperatorMap: byDuty, dispatchTrainOperatorMap: byTrain };
   }, [dispatchGatewayDuties]);
 
-  // ── Unified Dynamic Train Tracking Map identical to Live Train Operator Relief Matrix ──
-  const dynamicTrainTrackingMap = useMemo(() => {
-    const rawSchedule = (activeSchedule || 'WEEKDAY').toUpperCase();
-    const currentSchedule = rawSchedule === 'WEEKDAY' ? 'WEEKDAY_2024' : rawSchedule;
-    const evalSecs = timeToSecondsNormalized(simulatedTime);
-
-    // 1. Unified deployments from link roster & daily deployment according to day type
-    let currentDayLinks = linkRoster.filter(l => 
-      isScheduleMatch(getItemSchedule(l), rawSchedule)
-    );
-    if (currentDayLinks.length === 0 && (rawSchedule === 'MONDAY' || rawSchedule === 'MON')) {
-      currentDayLinks = linkRoster.filter(l => isScheduleMatch(getItemSchedule(l), 'WEEKDAY'));
-    }
-
-    // Ingest all active deployed duties from AutomatedDispatchGate / Roster Desk Console
-    const allDeskDuties = [...dispatchGatewayDuties];
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const activeDeployRaw = window.localStorage.getItem('pyidcc_active_dispatch_deployments');
-        if (activeDeployRaw) {
-          const parsed = JSON.parse(activeDeployRaw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            allDeskDuties.push(...parsed);
-          }
-        }
-        const cached = window.localStorage.getItem('pyidcc_roster_desk_console_cache');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          const list = parsed?.duties || parsed?.onDuty || parsed?.allDuties;
-          if (Array.isArray(list) && list.length > 0) {
-            allDeskDuties.push(...list);
-          }
-        }
-        for (let i = 0; i < window.localStorage.length; i++) {
-          const key = window.localStorage.key(i);
-          if (key && key.startsWith('pyidcc_roster_desk_console_cache_')) {
-            const raw = window.localStorage.getItem(key);
-            if (raw) {
-              const p = JSON.parse(raw);
-              const list = p?.duties || p?.onDuty || p?.allDuties;
-              if (Array.isArray(list) && list.length > 0) {
-                allDeskDuties.push(...list);
-              }
-            }
-          }
-        }
+  // ── 1. ACTIVE DAY LINK ROSTER ──
+  // Follows linkRoster prop or canonical Master Link Roster for activeSchedule
+  const activeDayLinks = useMemo(() => {
+    const normDay = normalizeScheduleDay(activeSchedule || 'WEEKDAY');
+    if (Array.isArray(linkRoster) && linkRoster.length > 0) {
+      const first = linkRoster[0];
+      const linkDay = first?.dayType || first?.scheduleType || first?.day;
+      if (!linkDay || normalizeScheduleDay(linkDay) === normDay) {
+        return linkRoster;
       }
-    } catch (e) {}
+    }
+    return getMasterLinksForDay(normDay);
+  }, [linkRoster, activeSchedule]);
 
-    let deployData = dailyDeployments.filter(d => 
-      isScheduleMatch(getItemSchedule(d), rawSchedule)
+  // ── 2. DYNAMIC DUTY ROSTER (FOLLOWS TRAIN ID OF EACH DUTY OF LINK ROSTER) ──
+  // Derives all duties, trip sequences, and operator assignments from activeDayLinks
+  const dynamicDutyRoster = useMemo(() => {
+    const normDay = normalizeScheduleDay(activeSchedule || 'WEEKDAY');
+    return buildDutyRosterFromLinkRoster(activeDayLinks, dispatchDutyOperatorMap, normDay);
+  }, [activeDayLinks, dispatchDutyOperatorMap, activeSchedule]);
+
+  // ── 3. DYNAMIC MASTER ID CHART (FOLLOWS DUTY ROSTER) ──
+  // Inverts duty legs into train-centric shift sequences (Trains 201-223 + Couns)
+  const dynamicMasterIdChart = useMemo(() => {
+    const normDay = normalizeScheduleDay(activeSchedule || 'WEEKDAY');
+    const dayChartObj = getReliefIdChartForDay(normDay);
+    return buildMasterIdChartFromDutyRoster(dynamicDutyRoster, dayChartObj?.chart || WEEKDAY_RELIEF_ID_CHART_2024);
+  }, [dynamicDutyRoster, activeSchedule]);
+
+  // ── 4. HANDOVER CARDS OF LIVE RELIEF TRACKING (AUTHORITATIVE OPERATOR SOURCE) ──
+  // Evaluates previous, current (at controls), and next reliever at current evaluation time
+  const handoverCardsMap = useMemo(() => {
+    const evalSecs = isLiveClock
+      ? internalTimeSecs
+      : (timeToMinutes(simulatedTime) * 60);
+    return buildHandoverCardsFromMasterIdChart(
+      dynamicMasterIdChart,
+      evalSecs,
+      ALL_LINE2_FLEET,
+      dispatchDutyOperatorMap,
+      propLiveTrainTrackingMap
     );
-    if (deployData.length === 0 && (rawSchedule === 'MONDAY' || rawSchedule === 'MON')) {
-      deployData = dailyDeployments.filter(d => isScheduleMatch(getItemSchedule(d), 'WEEKDAY'));
-    }
-    if (deployData.length === 0) {
-      deployData = dailyDeployments;
-    }
+  }, [dynamicMasterIdChart, isLiveClock, internalTimeSecs, simulatedTime, dispatchDutyOperatorMap, propLiveTrainTrackingMap]);
 
-    const unifiedDeployList = [...dispatchGatewayDuties, ...allDeskDuties, ...deployData];
+  // Backward compatibility alias for any references to dynamicTrainTrackingMap
+  const dynamicTrainTrackingMap = handoverCardsMap;
 
-    const activeDeployments = currentDayLinks.map(link => {
-      const normLinkId = normalizeDuty(link.dutyId);
-      const matchingGcc = unifiedDeployList.find(d => {
-        const dId = normalizeDuty(d.dutyId || d.dutyNo);
-        return dId === normLinkId;
-      });
-      const isOfficialSpecial = Boolean(matchingGcc?.isExchanged || matchingGcc?.status === 'SWAPPED_BY_CC' || matchingGcc?.status === 'RELIEF_DISPATCHED');
-      const defaultOp = getOperatorForDuty(normLinkId);
+  // ── Synchronized Rows according to RE-ALIGNED CHRONOLOGICAL MATRIX SHEET as per day type ──
+  // STRICT RULE: WTT timetable is the master source of truth for train scheduled times and track movement
+  const matrixRows = useMemo(() => {
+    // 1. Filter canonical master rows from WTT_MASTER_REGISTRY matching activeSchedule
+    const canonicalDayRows = WTT_MASTER_REGISTRY.filter(t => 
+      isScheduleMatch(t.scheduleType || getItemSchedule(t), activeSchedule)
+    );
 
-      // Active train operator deployed in AutomatedDispatchGate takes absolute priority
-      const candOpName = (matchingGcc?.operatorName && matchingGcc.operatorName !== '--' && !matchingGcc.operatorName.startsWith('Duty ') && !matchingGcc.operatorName.startsWith('Train Operator'))
-        ? matchingGcc.operatorName
-        : (matchingGcc?.empName && matchingGcc.empName !== '--' && !matchingGcc.empName.startsWith('Duty ') && !matchingGcc.empName.startsWith('Train Operator'))
-        ? matchingGcc.empName
-        : matchingGcc?.name || null;
-      const candOpId = matchingGcc?.operatorId || matchingGcc?.empId || matchingGcc?.empNo || null;
+    // Helper to check if a trip object has valid stations
+    const hasValidTrip = (trip) => {
+      if (!trip || !trip.stations) return false;
+      const validStops = Object.values(trip.stations).filter(
+        v => v && v !== '--' && v !== '-' && /^\d{1,2}:\d{2}/.test(String(v).trim())
+      );
+      return validStops.length >= 2;
+    };
 
-      const hasActiveDeployed = Boolean(candOpName && 
-        candOpName !== '--' && 
-        candOpName !== '-' && 
-        !candOpName.toLowerCase().includes('unassigned') &&
-        !candOpName.startsWith('Train Operator') &&
-        !candOpName.startsWith('Duty '));
+    // 2. Overlay Firestore wttMatrix updates (if any) matching activeSchedule
+    const firestoreMap = new Map();
+    (wttMatrix || []).forEach(d => {
+      if (d && d.id) firestoreMap.set(String(d.id), d);
+    });
 
-      const resolvedEmpId = hasActiveDeployed
-        ? (candOpId || matchingGcc?.empId || '--')
-        : (link.empId || defaultOp?.empId || matchingGcc?.empId || '--');
-
-      const resolvedEmpName = hasActiveDeployed
-        ? candOpName
-        : (link.empName || defaultOp?.empName || matchingGcc?.empName || '--');
-
+    const mergedRows = canonicalDayRows.map(masterRow => {
+      const liveDoc = firestoreMap.get(String(masterRow.id));
+      if (!liveDoc) return masterRow;
       return {
-        dutyId: normLinkId,
-        empId: resolvedEmpId,
-        empName: resolvedEmpName,
-        isExchanged: matchingGcc?.isExchanged || false,
-        originalEmpId: matchingGcc?.originalEmpId || '',
-        originalEmpName: matchingGcc?.originalEmpName || '',
-        rawLegs: {
-          l1Train: matchingGcc?.rawLegs?.l1Train || link.trainId || link.leg1TrainNo || '--',
-          l1Start: matchingGcc?.rawLegs?.l1Start || link.leg1TimeFrom || link.signOnTime || '--',
-          l1End: matchingGcc?.rawLegs?.l1End || link.leg1TimeTo || link.leg1End || '--',
-          l2Train: matchingGcc?.rawLegs?.l2Train || link.leg2TrainNo || '--',
-          l2Start: matchingGcc?.rawLegs?.l2Start || link.leg2DepTime || link.leg2TimeFrom || '--',
-          l2End: matchingGcc?.rawLegs?.l2End || link.leg2ArrTime || link.leg2TimeTo || '--',
-          l3Train: matchingGcc?.rawLegs?.l3Train || link.leg3TrainNo || '--',
-          l3Start: matchingGcc?.rawLegs?.l3Start || link.leg3DepTime || link.leg3TimeFrom || '--',
-          l3End: matchingGcc?.rawLegs?.l3End || link.leg3ArrTime || link.leg3TimeTo || '--',
-          l4Train: matchingGcc?.rawLegs?.l4Train || link.leg4TrainNo || '--',
-          l4Start: matchingGcc?.rawLegs?.l4Start || link.leg4FinalDepTime || link.leg4TimeFrom || '--',
-          l4End: matchingGcc?.rawLegs?.l4End || link.leg4FinalArrTime || link.leg4TimeTo || '--'
-        }
+        ...masterRow,
+        ...liveDoc,
+        downTrip: hasValidTrip(liveDoc.downTrip) ? liveDoc.downTrip : masterRow.downTrip,
+        upTrip: hasValidTrip(liveDoc.upTrip) ? liveDoc.upTrip : masterRow.upTrip,
+        stations: (liveDoc.stations && Object.keys(liveDoc.stations).length > 0)
+          ? liveDoc.stations
+          : masterRow.stations
       };
     });
 
-    const linkedDutyIds = new Set(currentDayLinks.map(l => normalizeDuty(l.dutyId)));
-    const aiOnlyDeployments = unifiedDeployList
-      .filter(d => {
-        const dDuty = normalizeDuty(d.dutyId || d.dutyNo || '');
-        return dDuty && dDuty !== 'UNASSIGNED' && !linkedDutyIds.has(dDuty);
-      })
-      .map(d => {
-        const normD = normalizeDuty(d.dutyId || d.dutyNo);
-        const isOfficialSpecial = Boolean(d.isExchanged || d.status === 'SWAPPED_BY_CC' || d.status === 'RELIEF_DISPATCHED');
-        const defaultOp = getOperatorForDuty(normD);
-
-        const candAiOpName = (d.operatorName && d.operatorName !== '--' && !d.operatorName.startsWith('Duty ') && !d.operatorName.startsWith('Train Operator'))
-          ? d.operatorName
-          : (d.empName && d.empName !== '--' && !d.empName.startsWith('Duty ') && !d.empName.startsWith('Train Operator'))
-          ? d.empName
-          : d.name || null;
-        const candAiOpId = d.operatorId || d.empId || d.empNo || null;
-
-        const hasActiveDeployed = Boolean(candAiOpName && 
-          candAiOpName !== '--' && 
-          candAiOpName !== '-' && 
-          !candAiOpName.toLowerCase().includes('unassigned') &&
-          !candAiOpName.startsWith('Train Operator') &&
-          !candAiOpName.startsWith('Duty '));
-
-        const resolvedEmpId = hasActiveDeployed
-          ? (candAiOpId || d.empId || '--')
-          : (defaultOp?.empId || d.empId || '--');
-
-        const resolvedEmpName = hasActiveDeployed
-          ? candAiOpName
-          : (defaultOp?.empName || d.empName || '--');
-
-        return {
-          dutyId: normD,
-          empId: resolvedEmpId,
-          empName: resolvedEmpName,
-          isExchanged: d.isExchanged || false,
-          originalEmpId: d.originalEmpId || '',
-          originalEmpName: d.originalEmpName || '',
-          rawLegs: d.rawLegs || {
-            l1Train: d.trainId || '--',
-            l1Start: d.signOnTime || '--',
-            l1End: '--',
-            l2Train: '--', l2Start: '--', l2End: '--',
-            l3Train: '--', l3Start: '--', l3End: '--',
-            l4Train: '--', l4Start: '--', l4End: '--'
-          }
-        };
-      });
-
-    const allDeployments = [...activeDeployments, ...aiOnlyDeployments];
-
-    // 2. Build authoritative train tracking map for current day schedule
-    let calculatedTracking = buildLiveTrainTrackingMap(allDeployments, evalSecs, currentSchedule);
-
-    // 3. Strictly synchronize with LIVE TRAIN OPERATOR RELIEF MATRIX for active day
-    // The Live Relief Matrix is the authoritative operational master for verified reliever and active operators
-    if (propLiveTrainTrackingMap && Object.keys(propLiveTrainTrackingMap).length > 0) {
-      Object.keys(propLiveTrainTrackingMap).forEach(tid => {
-        const liveT = propLiveTrainTrackingMap[tid];
-        if (!liveT) return;
-        const normId = normalizeTrackTrainId(tid) || tid;
-
-        const targetKey = calculatedTracking[normId] ? normId : (calculatedTracking[tid] ? tid : normId);
-        const existing = calculatedTracking[targetKey];
-
-        // Strictly keep only the official Reliever ID Chart trains for current schedule day type (WEEKDAY, MONDAY, SATURDAY & GH, SUNDAY)
-        const activeDayChartObj = getReliefIdChartForDay(currentSchedule);
-        const dayChart = activeDayChartObj?.chart || WEEKDAY_RELIEF_ID_CHART_2024;
-        if (dayChart && !dayChart[normId] && !dayChart[tid]) {
-          return;
-        }
-
-        let verifiedLiveCurr = liveT.current;
-        if (liveT.current?.dutyId) {
-          const curDutyNorm = normalizeDuty(liveT.current.dutyId);
-          const dDeploy = dispatchDutyOperatorMap[curDutyNorm];
-          const dMaster = getOperatorForDuty(curDutyNorm);
-          const hasLiveCurName = liveT.current.empName && 
-            liveT.current.empName !== '--' && 
-            liveT.current.empName !== '-' && 
-            !liveT.current.empName.toLowerCase().includes('unassigned') &&
-            !liveT.current.empName.startsWith('Train Operator') &&
-            !liveT.current.empName.startsWith('Duty ');
-
-          const resolvedName = (dDeploy?.operatorName) ? dDeploy.operatorName
-            : hasLiveCurName ? liveT.current.empName
-            : (dDeploy?.operatorName || dMaster?.empName);
-          const resolvedId = (dDeploy?.operatorId) ? dDeploy.operatorId
-            : hasLiveCurName ? liveT.current.empId
-            : (dDeploy?.operatorId || dMaster?.empId);
-
-          if (resolvedName) {
-            verifiedLiveCurr = { ...liveT.current, empName: resolvedName, empId: resolvedId, dutyId: curDutyNorm };
-          }
-        }
-
-        let verifiedLiveNext = liveT.nextReliver;
-        if (liveT.nextReliver?.dutyId) {
-          const relDutyNorm = normalizeDuty(liveT.nextReliver.dutyId);
-          const dDeploy = dispatchDutyOperatorMap[relDutyNorm];
-          const dMaster = getOperatorForDuty(relDutyNorm);
-          const hasLiveRelName = liveT.nextReliver.empName && 
-            liveT.nextReliver.empName !== '--' && 
-            liveT.nextReliver.empName !== '-' && 
-            !liveT.nextReliver.empName.toLowerCase().includes('unassigned') &&
-            !liveT.nextReliver.empName.startsWith('Train Operator') &&
-            !liveT.nextReliver.empName.startsWith('Duty ');
-
-          const resolvedName = (dDeploy?.operatorName) ? dDeploy.operatorName
-            : hasLiveRelName ? liveT.nextReliver.empName
-            : (dDeploy?.operatorName || dMaster?.empName);
-          const resolvedId = (dDeploy?.operatorId) ? dDeploy.operatorId
-            : hasLiveRelName ? liveT.nextReliver.empId
-            : (dDeploy?.operatorId || dMaster?.empId);
-
-          if (resolvedName) {
-            verifiedLiveNext = { ...liveT.nextReliver, empName: resolvedName, empId: resolvedId, dutyId: relDutyNorm };
-          }
-        }
-
-        if (!existing) {
-          calculatedTracking[normId] = {
-            ...liveT,
-            current: verifiedLiveCurr,
-            nextReliver: verifiedLiveNext
-          };
-          calculatedTracking[tid] = calculatedTracking[normId];
-          return;
-        }
-
-        const isLiveCurrValid = verifiedLiveCurr?.empName && 
-          verifiedLiveCurr.empName !== '--' && 
-          !verifiedLiveCurr.empName.startsWith('Train Operator') &&
-          !verifiedLiveCurr.empName.startsWith('Duty ');
-
-        const isLiveNextValid = verifiedLiveNext?.empName && 
-          verifiedLiveNext.empName !== '--' && 
-          !verifiedLiveNext.empName.startsWith('Train Operator') &&
-          !verifiedLiveNext.empName.startsWith('Duty ');
-
-        const merged = {
-          ...existing,
-          current: isLiveCurrValid ? { ...existing.current, ...verifiedLiveCurr } : (existing.current || verifiedLiveCurr),
-          previous: liveT.previous || existing.previous,
-          nextReliver: isLiveNextValid ? { ...existing.nextReliver, ...verifiedLiveNext } : (existing.nextReliver || verifiedLiveNext)
-        };
-        calculatedTracking[normId] = merged;
-        calculatedTracking[tid] = merged;
-      });
-    }
-
-    return calculatedTracking;
-  }, [linkRoster, dailyDeployments, activeSchedule, weekdayEdition, simulatedTime, propLiveTrainTrackingMap, dispatchGatewayDuties, dispatchDutyOperatorMap]);
-
-  // ── Synchronized Rows according to RE-ALIGNED CHRONOLOGICAL MATRIX SHEET as per day type ──
-  const matrixRows = useMemo(() => {
-    // 1. If propUnifiedRows is passed and has entries matching activeSchedule, use them directly
-    if (propUnifiedRows && propUnifiedRows.length > 0) {
-      const filtered = propUnifiedRows.filter(r => isScheduleMatch(r.scheduleType || getItemSchedule(r), activeSchedule));
-      if (filtered.length > 0) return filtered;
-    }
-
-    // 2. If wttMatrix from Firestore has entries for activeSchedule, use them directly without merging stale master registry
-    const uploadedInMatrix = (wttMatrix || []).filter(d => 
-      isScheduleMatch(d.scheduleType || getItemSchedule(d), activeSchedule) &&
-      (d.downTrip || d.upTrip) &&
-      !d.parentRowId
-    );
-    if (uploadedInMatrix.length > 0) {
-      const rowMap = new Map();
-      uploadedInMatrix.forEach(row => {
-        if (!row) return;
-        const rowId = row.id || `${row.trainId}_${row.excelRow || Math.random()}`;
-        if (!rowMap.has(rowId)) rowMap.set(rowId, row);
-      });
-      return Array.from(rowMap.values());
-    }
-
-    // 3. Fallback: Reconstruct complete synchronized matrix from WTT_MASTER_REGISTRY + Firestore wttMatrix
-    const firestoreMap = new Map();
-    (wttMatrix || []).forEach(d => { if (d && d.id) firestoreMap.set(String(d.id), d); });
-
-    const fullDataset = WTT_MASTER_REGISTRY.map(masterRow => {
-      const liveDoc = firestoreMap.get(String(masterRow.id));
-      return liveDoc ? { ...masterRow, ...liveDoc } : masterRow;
-    });
-
+    // 3. Include any additional custom uploaded rows from Firestore matching activeSchedule
     (wttMatrix || []).forEach(d => {
-      if (d && d.id && !fullDataset.some(m => String(m.id) === String(d.id))) {
-        fullDataset.push(d);
+      if (d && d.id && isScheduleMatch(d.scheduleType || getItemSchedule(d), activeSchedule)) {
+        if (!mergedRows.some(m => String(m.id) === String(d.id))) {
+          if (hasValidTrip(d.downTrip) || hasValidTrip(d.upTrip) || (d.stations && Object.keys(d.stations).length >= 2)) {
+            mergedRows.push(d);
+          }
+        }
       }
     });
 
-    const dayRows = fullDataset.filter(t => isScheduleMatch(t.scheduleType || getItemSchedule(t), activeSchedule));
+    // 4. Merge propUnifiedRows if passed for activeSchedule
+    if (propUnifiedRows && propUnifiedRows.length > 0) {
+      propUnifiedRows.forEach(uRow => {
+        if (uRow && isScheduleMatch(uRow.scheduleType || getItemSchedule(uRow), activeSchedule)) {
+          const uId = String(uRow.id || '');
+          const existingIdx = mergedRows.findIndex(m => String(m.id) === uId);
+          if (existingIdx !== -1) {
+            const masterRow = mergedRows[existingIdx];
+            mergedRows[existingIdx] = {
+              ...masterRow,
+              ...uRow,
+              downTrip: hasValidTrip(uRow.downTrip) ? uRow.downTrip : masterRow.downTrip,
+              upTrip: hasValidTrip(uRow.upTrip) ? uRow.upTrip : masterRow.upTrip,
+              stations: (uRow.stations && Object.keys(uRow.stations).length > 0)
+                ? uRow.stations
+                : masterRow.stations
+            };
+          } else {
+            if (hasValidTrip(uRow.downTrip) || hasValidTrip(uRow.upTrip) || (uRow.stations && Object.keys(uRow.stations).length >= 2)) {
+              mergedRows.push(uRow);
+            }
+          }
+        }
+      });
+    }
 
     const rowMap = new Map();
-    dayRows.forEach(row => {
+    mergedRows.forEach(row => {
       if (!row) return;
       const rowId = row.id || `${row.trainId}_${row.excelRow || Math.random()}`;
-      if (!rowMap.has(rowId)) {
-        rowMap.set(rowId, row);
-      }
+      if (!rowMap.has(rowId)) rowMap.set(rowId, row);
     });
-
     return Array.from(rowMap.values());
   }, [propUnifiedRows, activeSchedule, wttMatrix]);
 
   // Position detection logic for active trains moving along Green Line & Relief Station Alerts (PYID, KGWA, PUTH)
   // Uses internalTimeSecs (updates every 5s) for smooth sub-minute position movement
   const { liveTrainPositions, reliefStationAlerts } = useMemo(() => {
-    // Use internalTimeSecs for sub-minute accuracy; fall back to simulatedTime for manual slider
-    const nowSecs = isLiveClock
-      ? internalTimeSecs
-      : (timeToMinutes(simulatedTime) * 60);
+    // Use internalTimeSecs for continuous sub-minute accuracy and smooth chainage movement
+    const nowSecs = internalTimeSecs;
     // fractional minutes for precise segment matching
     const timeMins = nowSecs / 60;
     const evalSecs = (() => {
@@ -1789,7 +1697,14 @@ export default function LiveTrainPositionTracker({
       if (h < 3) s += 24 * 3600;
       return s;
     })();
-    const activeChainages = Object.keys(stationChainageDB).length > 0 ? stationChainageDB : STATION_CHAINAGE;
+    const activeChainages = { ...STATION_CHAINAGE };
+    if (stationChainageDB && typeof stationChainageDB === 'object') {
+      Object.entries(stationChainageDB).forEach(([st, ch]) => {
+        if (typeof ch === 'number' && !isNaN(ch)) {
+          activeChainages[st] = ch;
+        }
+      });
+    }
 
     const positions = [];
     const stationAlerts = [];
@@ -1799,27 +1714,40 @@ export default function LiveTrainPositionTracker({
     // Process a single trip (upTrip or downTrip) from RE-ALIGNED CHRONOLOGICAL MATRIX SHEET
     const processTrip = (trip, tripDirection, row) => {
       if (!trip || !trip.stations) return;
-      const stations = interpolateTripStations(trip, activeChainages);
+      const stations = interpolateTripStations(trip, activeChainages, tripDirection);
       if (stations.length < 2) return;
 
       const rawStart = stations[0].timeMin;
-      const rawEnd = stations[stations.length - 1].timeMin;
+      let rawEnd = stations[stations.length - 1].timeMin;
+      if (rawEnd < rawStart) rawEnd += 1440;
       if (rawEnd - rawStart > 120 || rawEnd <= rawStart) return;
 
-      // Down line train ID and Up line train ID as scheduled in matrix sheet
-      const tId = String(trip.trainId || (tripDirection === 'UP' ? row.upTid : row.dnTid) || row.trainId).trim();
+      // Physical unit number strictly parsed (201 to 223)
+      const rawUnit = String(row.trainId || (tripDirection === 'UP' ? row.upTid : row.dnTid) || trip.trainId || '').trim();
+      const normUnit = normalizeTrackTrainId(rawUnit);
+      const tId = normUnit || rawUnit;
       if (!tId) return;
+      const physicalUnit = tId;
 
-      const matchedDelay = liveIncidents.filter(inc => String(inc.trainId).trim() === tId);
+      const matchedDelay = liveIncidents.filter(inc => {
+        const iId = String(inc.trainId).trim();
+        return iId === tId || (physicalUnit && iId === physicalUnit);
+      });
       const delayOffset = matchedDelay.reduce((acc, curr) => acc + (curr.delayMins || 0), 0);
 
       const tripStart = rawStart + delayOffset;
       const tripEnd = rawEnd + delayOffset;
-      const curMins = (tripStart >= 1440 && timeMins < 180) ? timeMins + 1440 : timeMins;
+      // In 24h metro operations, late night hours (00:00 - 05:00 AM, timeMins < 300) belong to the rail operating day (+1440 mins)
+      const evalMins = (timeMins < 300) ? timeMins + 1440 : timeMins;
+      const curMins = evalMins;
 
       // Check if train is actively running on this trip
-      if (curMins >= tripStart && curMins <= tripEnd) {
+      if (evalMins >= tripStart && evalMins <= tripEnd) {
         runningTrainIds.add(tId);
+        if (normUnit) runningTrainIds.add(normUnit);
+        if (rawUnit) runningTrainIds.add(rawUnit);
+        const digitsOnly = tId.replace(/\D/g, '');
+        if (digitsOnly) runningTrainIds.add(digitsOnly);
 
         // Find current station segment
         let prevSt = stations[0];
@@ -1828,7 +1756,7 @@ export default function LiveTrainPositionTracker({
         for (let j = 0; j < stations.length - 1; j++) {
           const s1Time = stations[j].timeMin + delayOffset;
           const s2Time = stations[j + 1].timeMin + delayOffset;
-          if (curMins >= s1Time && curMins <= s2Time) {
+          if (evalMins >= s1Time && evalMins <= s2Time) {
             prevSt = stations[j];
             nextSt = stations[j + 1];
             break;
@@ -1841,7 +1769,7 @@ export default function LiveTrainPositionTracker({
         const endChain = activeChainages[stations[stations.length - 1].station] ?? 0;
 
         const segDuration = nextSt.timeMin - prevSt.timeMin;
-        const timePassed = curMins - (prevSt.timeMin + delayOffset);
+        const timePassed = evalMins - (prevSt.timeMin + delayOffset);
         const pct = segDuration > 0 ? Math.max(0, Math.min(1, timePassed / segDuration)) : 1;
 
         const currentChainage = prevChain + pct * (nextChain - prevChain);
@@ -1852,61 +1780,14 @@ export default function LiveTrainPositionTracker({
         const isUp = startChain > endChain;
         const direction = isUp ? 'UP' : 'DOWN';
 
-        // Direct lookup from dynamic tracking matrix & LIVE RELIEF TRACKING
+        // Direct lookup strictly following Handover Cards of LIVE RELIEF TRACKING
         const normTid = normalizeTrackTrainId(tId) || tId;
-        const tracking = dynamicTrainTrackingMap[normTid] || dynamicTrainTrackingMap[tId] || {};
+        const handoverCard = handoverCardsMap[normTid] || handoverCardsMap[tId] || null;
         const liveTracking = propLiveTrainTrackingMap?.[normTid] || propLiveTrainTrackingMap?.[tId] || {};
 
-        // Authoritative Priority: Live Train Operator Relief Matrix is the master source of truth
-        const isVerifiedLiveCurrent = Boolean(
-          liveTracking.current?.empName &&
-          liveTracking.current.empName !== '--' &&
-          liveTracking.current.empName !== '-' &&
-          !liveTracking.current.empName.toLowerCase().includes('unassigned') &&
-          !liveTracking.current.empName.startsWith('Train Operator') &&
-          !liveTracking.current.empName.startsWith('Duty ')
-        );
-
-        const isVerifiedLocalCurrent = Boolean(
-          tracking.current?.empName &&
-          tracking.current.empName !== '--' &&
-          tracking.current.empName !== '-' &&
-          !tracking.current.empName.toLowerCase().includes('unassigned') &&
-          !tracking.current.empName.startsWith('Train Operator') &&
-          !tracking.current.empName.startsWith('Duty ')
-        );
-
-        const currentOp = isVerifiedLiveCurrent
-          ? liveTracking.current
-          : isVerifiedLocalCurrent
-            ? tracking.current
-            : liveTracking.current || tracking.current || null;
-
-        const isVerifiedLiveReliever = Boolean(
-          liveTracking.nextReliver?.empName &&
-          liveTracking.nextReliver.empName !== '--' &&
-          liveTracking.nextReliver.empName !== '-' &&
-          !liveTracking.nextReliver.empName.toLowerCase().includes('unassigned') &&
-          !liveTracking.nextReliver.empName.startsWith('Train Operator') &&
-          !liveTracking.nextReliver.empName.startsWith('Duty ')
-        );
-
-        const isVerifiedLocalReliever = Boolean(
-          tracking.nextReliver?.empName &&
-          tracking.nextReliver.empName !== '--' &&
-          tracking.nextReliver.empName !== '-' &&
-          !tracking.nextReliver.empName.toLowerCase().includes('unassigned') &&
-          !tracking.nextReliver.empName.startsWith('Train Operator') &&
-          !tracking.nextReliver.empName.startsWith('Duty ')
-        );
-
-        const relieverOp = isVerifiedLiveReliever
-          ? liveTracking.nextReliver
-          : isVerifiedLocalReliever
-            ? tracking.nextReliver
-            : liveTracking.nextReliver || tracking.nextReliver || null;
-
-        const prevOp = liveTracking.previous || tracking.previous || null;
+        const currentOp = handoverCard?.current || liveTracking?.current || null;
+        const prevOp = handoverCard?.previous || liveTracking?.previous || null;
+        const relieverOp = handoverCard?.nextReliver || liveTracking?.nextReliver || null;
 
         const hasCurrentOpName = Boolean(
           currentOp?.empName &&
@@ -1973,71 +1854,41 @@ export default function LiveTrainPositionTracker({
           };
         }
 
-        // 2. Authoritative resolution for Reliever strictly prioritizing DISPATCH GATEWAY CORE
-        // and Day-Type Aware Dynamic Reliever Resolution Pipeline
-        const dynamicReliever = resolveLiveRelieverOperator({
-          trainId: tId,
-          evalSecs,
-          currentDayType: activeSchedule || 'WEEKDAY',
-          wttReliefChartRegistry: getReliefIdChartForDay,
-          dispatchDutyOperatorMap,
-          staticMasterRoster: getOperatorForDuty
-        });
-
-        const relDutyNorm = relieverOp?.dutyId 
-          ? normalizeDuty(relieverOp.dutyId) 
-          : (dynamicReliever?.dutyNo && dynamicReliever.dutyNo !== '--') 
-            ? normalizeDuty(dynamicReliever.dutyNo) 
-            : null;
-
+        // 2. Authoritative resolution for Reliever strictly prioritizing Dispatch Gateway Core then Handover Cards
+        const relDutyNorm = relieverOp?.dutyId ? normalizeDuty(relieverOp.dutyId) : null;
         const dispatchRelieverOp = relDutyNorm ? dispatchDutyOperatorMap[relDutyNorm] : null;
 
         const effectiveRelName = (dispatchRelieverOp?.operatorName) ? dispatchRelieverOp.operatorName
-          : (dynamicReliever?.name && dynamicReliever.name !== 'UNASSIGNED') ? dynamicReliever.name
           : hasRelieverOpName ? relieverOp.empName
           : null;
 
         const effectiveRelId = (dispatchRelieverOp?.operatorId) ? dispatchRelieverOp.operatorId
-          : (dynamicReliever?.id && dynamicReliever.id !== '--') ? dynamicReliever.id
-          : hasRelieverOpName ? relieverOp.empId
+          : hasRelieverOpName ? (relieverOp.empId || '--')
           : null;
 
         let reliever = null;
         if (effectiveRelName) {
-          const isExchanged = Boolean(relieverOp?.isExchanged || dynamicReliever?.isExchanged || relieverOp?.status === 'SWAPPED_BY_CC' || relieverOp?.status === 'RELIEF_DISPATCHED');
+          const isExchanged = Boolean(relieverOp?.isExchanged || dispatchRelieverOp?.isExchanged || dispatchRelieverOp?.isSwapped);
           reliever = {
             name: effectiveRelName,
             id: effectiveRelId || '--',
-            dutyNo: relDutyNorm || dynamicReliever?.dutyNo || relieverOp?.dutyId || '--',
-            takeoverTime: relieverOp?.startStr || dynamicReliever?.takeoverTime || '--',
-            endTime: relieverOp?.endStr || dynamicReliever?.endTime || '--',
-            startSec: relieverOp?.startSec || dynamicReliever?.startSec || 999999,
+            dutyNo: relDutyNorm || dispatchRelieverOp?.dutyNo || relieverOp?.dutyId || '--',
+            takeoverTime: relieverOp?.startStr || relieverOp?.from || '--',
+            endTime: relieverOp?.endStr || relieverOp?.to || '--',
+            startSec: relieverOp?.startSec || 999999,
             isExchanged,
             originalEmpName: relieverOp?.originalEmpName || ''
           };
-        } else if (relDutyNorm) {
-          const relMaster = getOperatorForDuty(relDutyNorm);
-          if (relMaster?.empName) {
-            reliever = {
-              name: relMaster.empName,
-              id: relMaster.empId || '--',
-              dutyNo: relDutyNorm,
-              takeoverTime: relieverOp?.startStr || dynamicReliever?.takeoverTime || '--',
-              endTime: relieverOp?.endStr || dynamicReliever?.endTime || '--',
-              startSec: relieverOp?.startSec || dynamicReliever?.startSec || 999999,
-              isExchanged: false,
-              originalEmpName: ''
-            };
-          }
         }
 
+        // 3. Previous Relieved Operator strictly following Handover Cards
         let previousOperator = null;
         if (prevOp && prevOp.empName && prevOp.empName !== '--') {
           previousOperator = {
             name: prevOp.empName,
             id: prevOp.empId || '--',
-            dutyNo: prevOp.dutyId || '--',
-            relievedTime: prevOp.endStr || '--'
+            dutyNo: prevOp.dutyId || prevOp.duty || '--',
+            relievedTime: prevOp.endStr || prevOp.to || '--'
           };
         }
 
@@ -2055,7 +1906,7 @@ export default function LiveTrainPositionTracker({
           }
         }
         if (!scheduledHandoverStation) {
-          scheduledHandoverStation = 'PYID';
+          scheduledHandoverStation = relieverOp?.fromLoc || 'PYID';
         }
 
         const isVerifiedReliever = Boolean(
@@ -2111,9 +1962,7 @@ export default function LiveTrainPositionTracker({
           destinationId: idResult.destinationId,
           computedTrainId: idResult.computedTrainId,
           trainIdStatus: idResult.status,
-          displayTrainId: idResult.computedTrainId ?? (
-            idResult.status === 'WTT_MATCH_PENDING' ? `T-${idResult.particularTrainIdStr || tId} (PENDING)` : 'DATA_ERR'
-          ),
+          displayTrainId: idResult.computedTrainId || `T-${idResult.particularTrainIdStr || tId}`,
           originStation: originSt,
           destinationStation: destSt,
           operatorName: operatorInfo.name,
@@ -2139,7 +1988,10 @@ export default function LiveTrainPositionTracker({
           shouldAnnounceReliever,
           hasReliever,
           previousOperator,
-          isStabling: false
+          isStabling: false,
+          operatorStartStr: operatorInfo.startStr,
+          operatorEndStr: operatorInfo.endStr,
+          handoverCard
         };
 
         positions.push(trainObj);
@@ -2195,21 +2047,42 @@ export default function LiveTrainPositionTracker({
           stablingCandidates.set(tId, { futureDiff: Infinity, pastDiff: Infinity, futureTrip: null, pastTrip: null });
         }
         const cand = stablingCandidates.get(tId);
-        if (curMins < tripStart) {
-          const diff = tripStart - curMins;
+        if (evalMins < tripStart) {
+          const diff = tripStart - evalMins;
           if (diff < cand.futureDiff) {
             cand.futureDiff = diff;
-            cand.futureTrip = { trip, stations, tripStart, tripEnd };
+            cand.futureTrip = { trip, stations, tripStart, tripEnd, row };
           }
-        } else if (curMins > tripEnd) {
-          const diff = curMins - tripEnd;
+        } else if (evalMins > tripEnd) {
+          const diff = evalMins - tripEnd;
           if (diff < cand.pastDiff) {
             cand.pastDiff = diff;
-            cand.pastTrip = { trip, stations, tripStart, tripEnd };
+            cand.pastTrip = { trip, stations, tripStart, tripEnd, row };
           }
         }
       }
     };
+
+    // 0. Pre-index the final scheduled trip for each train in matrixRows as authoritative fallback
+    const lastTripByTrainMap = new Map();
+    matrixRows.forEach(row => {
+      if (!row) return;
+      const getTids = () => {
+        const set = new Set();
+        const rTid = String(row.trainId || '').replace(/\D/g, '');
+        const upTid = String(row.upTid || '').replace(/\D/g, '');
+        const dnTid = String(row.dnTid || '').replace(/\D/g, '');
+        if (rTid) set.add(rTid);
+        if (upTid) set.add(upTid);
+        if (dnTid) set.add(dnTid);
+        return Array.from(set);
+      };
+      const tIds = getTids();
+      tIds.forEach(id => {
+        if (row.upTrip) lastTripByTrainMap.set(id, { trip: row.upTrip, dir: 'UP', row });
+        else if (row.downTrip) lastTripByTrainMap.set(id, { trip: row.downTrip, dir: 'DOWN', row });
+      });
+    });
 
     // 1. Process all matrix sheet rows: BOTH downTrip and upTrip
     matrixRows.forEach(row => {
@@ -2222,33 +2095,110 @@ export default function LiveTrainPositionTracker({
       }
       // Single trip row (not nested in downTrip/upTrip)
       if (!row.downTrip && !row.upTrip && row.stations) {
-        const startSt = Object.keys(row.stations)[0];
-        const endSt = Object.keys(row.stations)[Object.keys(row.stations).length - 1];
-        const startCh = activeChainages[startSt] ?? 0;
-        const endCh = activeChainages[endSt] ?? 0;
-        const dir = startCh > endCh ? 'UP' : 'DOWN';
-        processTrip(row, dir, row);
+        const validSts = Object.entries(row.stations)
+          .filter(([st, t]) => t && t !== '--' && t !== '-' && activeChainages[st] !== undefined);
+        if (validSts.length >= 2) {
+          const sortedSts = validSts.sort((a, b) => timeToMinutes(a[1]) - timeToMinutes(b[1]));
+          const startCh = activeChainages[sortedSts[0][0]] ?? 0;
+          const endCh = activeChainages[sortedSts[sortedSts.length - 1][0]] ?? 0;
+          const dir = startCh > endCh ? 'UP' : 'DOWN';
+          processTrip(row, dir, row);
+        }
       }
     });
 
-    // 2. Stabling trains (only for fleet trains not currently running)
-    stablingCandidates.forEach((cand, tId) => {
+    // 2. Stabling trains (account for all fleet trains not currently in revenue service)
+    const allFleetToConsider = Array.from(new Set([...ALL_LINE2_FLEET, ...stablingCandidates.keys()]));
+    allFleetToConsider.forEach((tId) => {
       if (runningTrainIds.has(tId)) return;
-      const stabRef = cand.pastTrip || cand.futureTrip;
-      if (!stabRef || !stabRef.stations || stabRef.stations.length < 1) return;
+      const cand = stablingCandidates.get(tId);
+      const stabRef = cand?.pastTrip || cand?.futureTrip;
+      const firstStabStation = (stabRef?.stations && stabRef.stations.length > 0)
+        ? stabRef.stations[0]?.station || 'PYID'
+        : 'PYID';
+      const lastStabStation = (stabRef?.stations && stabRef.stations.length > 0)
+        ? stabRef.stations[stabRef.stations.length - 1]?.station || 'PYID'
+        : 'PYID';
 
-      const stabStation = cand.pastTrip
-        ? stabRef.stations[stabRef.stations.length - 1].station
-        : stabRef.stations[0].station;
-      const stabChain = activeChainages[stabStation] ?? 0;
+      // Authoritative WTT Stabling Location & Station Resolution
+      const tStr = String(tId).replace(/\D/g, '').trim();
+      const wttLast = lastTripByTrainMap.get(tStr);
+      const refTrip = cand?.pastTrip?.trip || wttLast?.trip || cand?.futureTrip?.trip;
+      const refRow = cand?.pastTrip?.row || wttLast?.row || null;
+      const rawStations = refTrip?.stations || {};
+      const notes = String(refTrip?.notes || refTrip?.remarks || refRow?.notes || '');
+      const allStabText = Object.entries(rawStations).map(([k, v]) => `${k} ${v}`).join(' ') + ' ' + notes;
+
+      let stabStation = 'PYID';
+      let stabLocationDesc = 'Peenya Depot SBL';
+      let stabChain = activeChainages['PYID'] ?? -3.020;
+
+      if (allStabText.includes('APTS') && (
+        allStabText.includes('Depart next day') || 
+        allStabText.includes('TID') || 
+        allStabText.includes('Pf') || 
+        allStabText.includes('PF') || 
+        allStabText.includes('UPBE') ||
+        allStabText.includes('Buffer')
+      )) {
+        const isUpBe = allStabText.includes('UPBE');
+        stabStation = 'APTS';
+        stabLocationDesc = isUpBe ? 'APTS UP Buffer End (Stabled - WTT)' : 'APTS Buffer End (Stabled - WTT)';
+        stabChain = activeChainages['APTS'] ?? 24.062;
+      } else if (allStabText.includes('PUTH') && (allStabText.includes('Pf') || allStabText.includes('PF') || allStabText.includes('UP') || allStabText.includes('DN'))) {
+        const isDn = allStabText.includes('Dn') || allStabText.includes('DN');
+        stabStation = 'PUTH';
+        stabLocationDesc = isDn ? 'PUTH DN Platform (Stabled - WTT)' : 'PUTH UP Platform (Stabled - WTT)';
+        stabChain = activeChainages['PUTH'] ?? 16.273;
+      } else if (allStabText.includes('NLC') && (allStabText.includes('Pf') || allStabText.includes('PF') || allStabText.includes('UP') || allStabText.includes('DN'))) {
+        stabStation = 'NLC';
+        stabLocationDesc = 'NLC Pocket Track (Stabled - WTT)';
+        stabChain = activeChainages['NLC'] ?? 10.825;
+      } else {
+        let destSt = null;
+        if (cand?.pastTrip?.stations && cand.pastTrip.stations.length > 0) {
+          destSt = cand.pastTrip.stations[cand.pastTrip.stations.length - 1].station;
+        } else if (rawStations && Object.keys(rawStations).length > 0) {
+          const keys = Object.keys(rawStations);
+          for (let k = keys.length - 1; k >= 0; k--) {
+            const v = rawStations[keys[k]];
+            if (v && v !== '--' && v !== '-') {
+              destSt = keys[k];
+              break;
+            }
+          }
+        }
+
+        if (destSt === 'BIET') {
+          stabStation = 'BIET';
+          stabLocationDesc = 'BIET Terminal Platform (Stabled - WTT)';
+          stabChain = activeChainages['BIET'] ?? -9.475;
+        } else if (destSt === 'APTS') {
+          stabStation = 'APTS';
+          stabLocationDesc = 'APTS Buffer End (Stabled - WTT)';
+          stabChain = activeChainages['APTS'] ?? 24.062;
+        } else if (tStr === '203' && (destSt === 'PYID' || !destSt)) {
+          stabStation = 'PYID';
+          stabLocationDesc = 'PYID RD-3 Standby Track (Stabled)';
+          stabChain = activeChainages['PYID'] ?? -3.020;
+        } else {
+          const num = parseInt(tStr) || 1;
+          const sblIndex = ((num - 1) % 8) + 1;
+          stabStation = 'PYID';
+          stabLocationDesc = `Peenya Depot SBL-${sblIndex} (Stabled - WTT)`;
+          stabChain = activeChainages['PYID'] ?? -3.020;
+        }
+      }
+
       const stabIdx = getAtsStationIndex(stabStation);
       const stabPctLine = Math.max(0, Math.min(1, stabIdx / (ATS_STATION_SEQUENCE.length - 1)));
-      const stabStart = activeChainages[stabRef.stations[0].station] ?? 0;
-      const stabEnd = activeChainages[stabRef.stations[stabRef.stations.length - 1].station] ?? 0;
+      const stabStart = activeChainages[firstStabStation] ?? 0;
+      const stabEnd = activeChainages[lastStabStation] ?? 0;
       const stabDir = stabStart > stabEnd ? 'UP' : 'DOWN';
 
       const normTid = normalizeTrackTrainId(tId) || tId;
-      const tracking = dynamicTrainTrackingMap[normTid] || dynamicTrainTrackingMap[tId] || {};
+      const handoverCard = handoverCardsMap[normTid] || handoverCardsMap[tId] || null;
+      const tracking = handoverCard || dynamicTrainTrackingMap[normTid] || dynamicTrainTrackingMap[tId] || {};
       const liveTracking = propLiveTrainTrackingMap?.[normTid] || propLiveTrainTrackingMap?.[tId] || {};
 
       const isVerifiedLiveCurrentStab = Boolean(
@@ -2322,7 +2272,7 @@ export default function LiveTrainPositionTracker({
         relieverOp?.empName && 
         relieverOp.empName !== '--' && 
         relieverOp.empName !== '-' && 
-        !relieverOp.empName.toLowerCase().includes('unassigned') &&
+        !relieverOp.empName.toLowerCase().includes('unassigned') && 
         !relieverOp.empName.startsWith('Train Operator') &&
         !relieverOp.empName.startsWith('Duty ')
       );
@@ -2394,6 +2344,19 @@ export default function LiveTrainPositionTracker({
         }
       }
 
+      // Previous Operator resolution for stabling train
+      const previousOperator = handoverCard?.previous ? {
+        name: handoverCard.previous.empName || handoverCard.previous.name,
+        id: handoverCard.previous.empId || handoverCard.previous.id || '--',
+        dutyNo: handoverCard.previous.dutyId || handoverCard.previous.dutyNo || '--',
+        relievedTime: handoverCard.previous.relievedTime || handoverCard.previous.endStr || '--'
+      } : (liveTracking?.previous?.empName || tracking?.previous?.empName) ? {
+        name: liveTracking?.previous?.empName || tracking?.previous?.empName,
+        id: liveTracking?.previous?.empId || tracking?.previous?.empId || '--',
+        dutyNo: liveTracking?.previous?.dutyId || tracking?.previous?.dutyId || '--',
+        relievedTime: liveTracking?.previous?.relievedTime || tracking?.previous?.relievedTime || '--'
+      } : null;
+
       const isVerifiedReliever = Boolean(
         reliever && 
         reliever.name && 
@@ -2419,36 +2382,14 @@ export default function LiveTrainPositionTracker({
         operatorName: stabCurName && stabCurName !== '--' ? stabCurName : `Train Operator ${tId}`,
         operatorId: stabCurId || '--',
         dutyNo: currentOp?.dutyId || '--',
+        operatorStartStr: currentOp?.startStr || handoverCard?.current?.startStr || '--',
+        operatorEndStr: currentOp?.endStr || handoverCard?.current?.endStr || '--',
         isExchanged: currentOp?.isExchanged || false,
         originalEmpName: currentOp?.originalEmpName || '',
-        currentStation: (String(tId) === '221')
-          ? 'Peenya Depot SBL-1 (Stabled)'
-          : (String(tId) === '218')
-          ? 'Peenya Depot SBL-2 (Stabled)'
-          : (String(tId) === '211')
-          ? 'Peenya Depot SBL-3 (Stabled)'
-          : (String(tId) === '216' || String(tId) === '206')
-          ? 'Peenya Depot SBL-4 (Stabled)'
-          : (String(tId) === '212' || String(tId) === '202')
-          ? 'Peenya Depot SBL-5 (Stabled)'
-          : (String(tId) === '205' || String(tId) === '215')
-          ? 'Peenya Depot SBL-6 (Stabled)'
-          : (String(tId) === '204' || String(tId) === '214')
-          ? 'Peenya Depot SBL-7 (Stabled)'
-          : (String(tId) === '207' || String(tId) === '217')
-          ? 'Peenya Depot SBL-8 (Stabled)'
-          : (String(tId) === '203')
-          ? 'PYID RD-3 Standby Track (Stabled)'
-          : (stabStation === 'PYID' || String(stabStation).includes('Depot'))
-          ? 'Peenya Depot SBL-1 (Stabled)'
-          : (stabStation === 'BIET')
-          ? 'BIET Buffer End (Stabled / Cab Changeover)'
-          : (stabStation === 'APTS')
-          ? 'APTS Buffer End (Stabled / Cab Changeover)'
-          : `${stabStation} (Stabling)`,
+        currentStation: stabLocationDesc,
         previousStation: stabStation,
         nextStation: stabStation,
-        direction: cand.pastTrip ? (stabDir === 'UP' ? 'DOWN' : 'UP') : stabDir,
+        direction: stabStation === 'APTS' ? 'DOWN' : stabStation === 'BIET' ? 'UP' : cand?.pastTrip ? (stabDir === 'UP' ? 'DOWN' : 'UP') : stabDir,
         chainage: parseFloat(stabChain.toFixed(3)),
         distanceTravelled: 0,
         distanceRemaining: 0,
@@ -2462,7 +2403,13 @@ export default function LiveTrainPositionTracker({
         isTripCompletingIn3Mins: false,
         shouldAnnounceReliever: false,
         hasReliever: Boolean(reliever && reliever.name && reliever.name !== '--' && reliever.name !== '-'),
-        previousOperator: liveTracking.previous || tracking.previous || null,
+        previousOperator,
+        handoverCard: handoverCard || {
+          current: currentOp,
+          previous: previousOperator,
+          nextReliver: reliever,
+          allLegs: []
+        },
         isStabling: true
       });
     });
@@ -2814,6 +2761,29 @@ export default function LiveTrainPositionTracker({
       reliefStationAlerts: stationAlerts 
     };
   }, [simulatedTime, internalTimeSecs, isLiveClock, matrixRows, liveIncidents, dynamicTrainTrackingMap, stationChainageDB, activeSchedule, dailyCrewTracks, RELIEF_STATION_CONFIG, propLiveTrainTrackingMap, interpolateTripStations, kmRecalibrationCount]);
+
+  useEffect(() => {
+    try {
+      const payload = {
+        activeSchedule,
+        simulatedTime,
+        matrixRowsCount: (matrixRows || []).length,
+        wttMatrixCount: (wttMatrix || []).length,
+        propUnifiedRowsCount: (propUnifiedRows || []).length,
+        livePositionsCount: (liveTrainPositions || []).length,
+        runningCount: (liveTrainPositions || []).filter(t => !t.isStabling).length,
+        stabledCount: (liveTrainPositions || []).filter(t => t.isStabling).length,
+        runningSamples: (liveTrainPositions || []).filter(t => !t.isStabling).slice(0, 3),
+        stabledSamples: (liveTrainPositions || []).filter(t => t.isStabling).slice(0, 3),
+        sampleRow: (matrixRows || [])[0]
+      };
+      fetch('http://localhost:9876', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).catch(() => {});
+    } catch (_) {}
+  }, [activeSchedule, simulatedTime, matrixRows, liveTrainPositions]);
 
   // Automated Voice Announcement Trigger on 3-Minute Trip Completion Basis
   // STRICT RULE 1: Announce next train operator name when current driving operator's trip completes in next 3 mins.
@@ -3390,6 +3360,54 @@ export default function LiveTrainPositionTracker({
           <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase tracking-wider pl-2 border-l border-slate-800">
             <Clock className="h-3.5 w-3.5 text-cyan-400" /> Time Simulator:
           </div>
+
+          {/* Simulation Play / Pause Button */}
+          <button
+            type="button"
+            onClick={() => {
+              const next = !isSimPlaying;
+              setIsSimPlaying(next);
+              if (next) setIsLiveClock(false);
+            }}
+            className={`px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md cursor-pointer ${
+              isSimPlaying
+                ? 'bg-amber-400 text-slate-950 shadow-[0_0_12px_rgba(251,191,36,0.6)] animate-pulse'
+                : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
+            }`}
+            title={isSimPlaying ? "Pause Timetable Simulation" : "Run Trains along Track as per WTT Schedule"}
+          >
+            {isSimPlaying ? (
+              <>
+                <Pause className="w-3 h-3 fill-slate-950" />
+                <span>PAUSE SIM</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-3 h-3 fill-slate-950" />
+                <span>RUN SIMULATION</span>
+              </>
+            )}
+          </button>
+
+          {/* Speed Multipliers */}
+          <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-md border border-slate-800">
+            {[1, 2, 5, 10, 30].map(speed => (
+              <button
+                key={speed}
+                type="button"
+                onClick={() => setSimSpeedMultiplier(speed)}
+                className={`px-1.5 py-0.5 rounded text-[9px] font-bold transition cursor-pointer ${
+                  simSpeedMultiplier === speed
+                    ? 'bg-cyan-500 text-slate-950 font-black'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title={`Set Simulation Speed to ${speed}x`}
+              >
+                {speed}x
+              </button>
+            ))}
+          </div>
+
           <input
             id="livetrainpositiontra-i1"
             name="livetrainpositiontra-i1"
@@ -3398,6 +3416,7 @@ export default function LiveTrainPositionTracker({
             onChange={(e) => {
               setSimulatedTime(e.target.value);
               setIsLiveClock(false); // switch to manual mode when user types a time
+              setIsSimPlaying(false);
               // Update internalTimeSecs from the manually typed HH:MM time
               const [mh, mm] = (e.target.value || '').split(':').map(Number);
               if (!isNaN(mh)) setInternalTimeSecs((mh || 0) * 3600 + (mm || 0) * 60);
@@ -3405,7 +3424,12 @@ export default function LiveTrainPositionTracker({
             className="bg-slate-900 border border-slate-700 text-xs rounded px-2.5 py-1 focus:outline-none focus:border-cyan-500 font-bold text-cyan-300 font-mono"
           />
           <button
-            onClick={() => setIsLiveClock(!isLiveClock)}
+            type="button"
+            onClick={() => {
+              const next = !isLiveClock;
+              setIsLiveClock(next);
+              if (next) setIsSimPlaying(false);
+            }}
             className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded transition-colors flex items-center gap-1.5 ${
               isLiveClock 
                 ? 'bg-emerald-500 text-slate-950 font-black shadow-[0_0_12px_rgba(16,185,129,0.4)]' 
@@ -3432,35 +3456,67 @@ export default function LiveTrainPositionTracker({
             }}
             className="bg-slate-900 border border-slate-700 text-xs rounded px-2 py-1 focus:outline-none focus:border-cyan-500 font-bold text-cyan-300 font-mono cursor-pointer"
           >
-            <option value="WEEKDAY">WEEKDAY</option>
-            <option value="MONDAY">MONDAY</option>
+            <option value="WEEKDAY">WEEKDAY (Tue - Fri)</option>
+            <option value="MONDAY">MONDAY (Early Induction)</option>
             <option value="SATURDAY">SATURDAY</option>
             <option value="SUNDAY">SUNDAY</option>
+            <option value="GH">GENERAL HOLIDAY (GH)</option>
           </select>
         </div>
       </div>
 
-      {/* Time range slider */}
-      <div className="mb-6 bg-slate-950 p-4 rounded-xl border border-slate-850/80 flex items-center gap-4">
-        <span className="text-[10px] font-bold text-slate-500 uppercase">05:00</span>
-        <input 
-          id="livetrainpositiontra-i3" 
-          name="livetrainpositiontra-i3" 
-          type="range"
-          min="300" // 5:00 AM in minutes
-          max="1439" // 11:59 PM in minutes
-          value={timeToMinutes(simulatedTime)}
-          onChange={(e) => {
-            const mins = parseInt(e.target.value);
-            setSimulatedTime(minutesToTime(mins));
-            setIsLiveClock(false); // switch to manual when slider is dragged
-            setInternalTimeSecs(mins * 60);
-          }}
-          className="flex-1 accent-cyan-500 bg-slate-900 h-1.5 rounded-lg border border-slate-800 cursor-pointer"
-        />
-        <span className="text-[10px] font-bold text-slate-500 uppercase">23:59</span>
-        <div className="bg-slate-900 border border-slate-800 px-3.5 py-1 rounded-md text-sm font-black text-cyan-400 tracking-widest shadow-inner">
-          {simulatedTime}
+      {/* Time range slider & Quick Shift Jumps */}
+      <div className="mb-6 bg-slate-950 p-3.5 rounded-xl border border-slate-850/80 flex flex-col gap-2.5 shadow-md">
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] font-bold text-slate-400 uppercase font-mono">04:00</span>
+          <input 
+            id="livetrainpositiontra-i3" 
+            name="livetrainpositiontra-i3" 
+            type="range"
+            min="240" // 4:00 AM (WTT first trip induction)
+            max="1439" // 11:59 PM in minutes
+            value={timeToMinutes(simulatedTime)}
+            onChange={(e) => {
+              const mins = parseInt(e.target.value);
+              setSimulatedTime(minutesToTime(mins));
+              setIsLiveClock(false); // switch to manual when slider is dragged
+              setInternalTimeSecs(mins * 60);
+            }}
+            className="flex-1 accent-cyan-500 bg-slate-900 h-2 rounded-lg border border-slate-800 cursor-pointer"
+          />
+          <span className="text-[10px] font-bold text-slate-400 uppercase font-mono">23:59</span>
+          <div className="bg-slate-900 border border-cyan-500/40 px-3.5 py-1 rounded-md text-sm font-black text-cyan-400 tracking-widest shadow-inner font-mono">
+            {simulatedTime}
+          </div>
+        </div>
+
+        {/* Operational Shift Quick Jumps */}
+        <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-900">
+          <span className="text-[9px] text-amber-400 font-bold uppercase flex items-center gap-1">
+            <Clock size={11} />
+            <span>OPERATIONAL SHIFT JUMPS:</span>
+          </span>
+          {[
+            { label: '06:00 Early Morning', mins: 360 },
+            { label: '08:30 Morning Peak', mins: 510 },
+            { label: '11:15 Midday Roster', mins: 675 },
+            { label: '17:45 Evening Peak', mins: 1065 },
+            { label: '21:30 Night Service', mins: 1290 },
+            { label: '23:27 Late Night', mins: 1407 }
+          ].map((shift) => (
+            <button
+              key={shift.label}
+              type="button"
+              onClick={() => {
+                setSimulatedTime(minutesToTime(shift.mins));
+                setIsLiveClock(false);
+                setInternalTimeSecs(shift.mins * 60);
+              }}
+              className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 border border-slate-750 hover:border-cyan-500/50 rounded text-[9px] text-cyan-300 font-bold transition-all cursor-pointer font-mono"
+            >
+              {shift.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -3572,9 +3628,20 @@ export default function LiveTrainPositionTracker({
               setIsLiveClock(false);
               setInternalTimeSecs(newMins * 60);
             }}
+            isSimPlaying={isSimPlaying}
+            onToggleSimPlay={() => {
+              setIsSimPlaying(prev => {
+                const next = !prev;
+                if (next) setIsLiveClock(false);
+                return next;
+              });
+            }}
+            simSpeedMultiplier={simSpeedMultiplier}
+            onSpeedChange={setSimSpeedMultiplier}
             onToggleLiveClock={(enabled) => {
               setIsLiveClock(enabled);
               if (enabled) {
+                setIsSimPlaying(false);
                 const now = new Date();
                 const hrs = String(now.getHours()).padStart(2, '0');
                 const mins = String(now.getMinutes()).padStart(2, '0');
@@ -3769,6 +3836,29 @@ export default function LiveTrainPositionTracker({
                             {(t.delayMins || 0) > 0 ? `+${t.delayMins}m Delay` : 'On-Time'}
                           </span>
                         </div>
+
+                        {/* Previous Relieved Train Operator Card */}
+                        {t.previousOperator?.name && (
+                          <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80 mb-2 font-mono text-[10px]">
+                            <div className="flex items-center justify-between text-[8.5px] uppercase tracking-wider text-slate-400 font-bold mb-1">
+                              <span className="flex items-center gap-1 text-slate-400">
+                                <UserCheck size={11} className="text-slate-500" />
+                                Previous Relieved Operator
+                              </span>
+                              <span className="text-[8.5px] px-1.5 py-0.2 rounded bg-slate-850 text-slate-300 border border-slate-700 font-bold">
+                                Duty {t.previousOperator.dutyNo || '--'}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-1">
+                              <strong className="text-slate-300 font-bold">
+                                {t.previousOperator.name}
+                              </strong>
+                              <span className="text-[9px] text-slate-400">
+                                Relieved: <strong className="text-cyan-300">{t.previousOperator.relievedTime || '--'}</strong>
+                              </span>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Current Driving Train Operator Card */}
                         <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 mb-2.5">
@@ -4015,8 +4105,13 @@ export default function LiveTrainPositionTracker({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 text-[10px]">
+                      <div className="flex items-center gap-2 text-[10px] flex-wrap">
                         <span className="text-slate-400">At: <strong className="text-slate-200">{t.currentStation}</strong></span>
+                        {t.previousOperator?.name && (
+                          <span className="text-slate-400 text-[9px]">
+                            Prev: <strong className="text-slate-300">{t.previousOperator.name.split(' ')[0]}</strong> (D{t.previousOperator.dutyNo || '--'})
+                          </span>
+                        )}
                         {hasRelieverAssigned ? (
                           <span className="text-amber-300">
                             ➔ Next: <strong>{t.reliever.name}</strong> ({t.reliever.station || 'PYID'} @ {t.reliever.takeoverTime || '--'})
@@ -5962,7 +6057,27 @@ export default function LiveTrainPositionTracker({
               
               {/* Active Driving Operator & Reliever Handover Status Banner (Mobile-Optimized) */}
               <div className="bg-slate-900/90 border border-cyan-800/60 rounded-xl p-3 md:p-4 shadow-md">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* Previous Relieved Operator */}
+                  <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                    <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider flex items-center gap-1.5 mb-1 font-mono">
+                      <UserCheck size={12} className="text-slate-400" />
+                      Previous Relieved Operator
+                    </span>
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-sm font-black text-slate-200 font-mono">
+                        {selectedTrain.previousOperator?.name || 'Shift Start / First Leg'}
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-slate-850 text-slate-300 border border-slate-700 font-bold font-mono">
+                        {selectedTrain.previousOperator?.id ? `ID: ${selectedTrain.previousOperator.id}` : 'ID: --'} • Duty {selectedTrain.previousOperator?.dutyNo || '--'}
+                      </span>
+                    </div>
+                    <div className="mt-2 text-[10px] text-slate-400 flex items-center justify-between">
+                      <span>Status: <strong className="text-slate-300">Relieved</strong></span>
+                      <span>Relieved At: <strong className="text-cyan-300">{selectedTrain.previousOperator?.relievedTime || '--'}</strong></span>
+                    </div>
+                  </div>
+
                   {/* Current Driver */}
                   <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
                     <span className="text-[9px] uppercase font-bold text-cyan-400 tracking-wider flex items-center gap-1.5 mb-1 font-mono">
@@ -5979,7 +6094,7 @@ export default function LiveTrainPositionTracker({
                     </div>
                     <div className="mt-2 text-[10px] text-slate-400 flex items-center justify-between">
                       <span>Location: <strong className="text-slate-200">{selectedTrain.currentStation || '--'}</strong></span>
-                      <span>Mode: <strong className="text-emerald-400">{selectedTrain.isStabling ? 'STABLED' : (selectedTrain.mode || 'ATO')}</strong></span>
+                      <span>Shift: <strong className="text-cyan-300">{selectedTrain.operatorStartStr || '--'} - {selectedTrain.operatorEndStr || '--'}</strong></span>
                     </div>
                   </div>
 
@@ -6238,29 +6353,141 @@ export default function LiveTrainPositionTracker({
 
               {/* TAB 4: CREW & RELIEVER HANDOVER */}
               {modalTab === 'crew' && (
-                <div className="space-y-3">
-                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-2 text-[10px]">
-                    <div className="flex justify-between border-b border-slate-800 pb-1">
-                      <span className="text-slate-400">Active Driving Operator:</span>
-                      <strong className="text-emerald-400">{selectedTrain.operatorName} ({selectedTrain.operatorId})</strong>
+                <div className="space-y-4">
+                  {/* 3-Operator Triad Details */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {/* 1. Previous Relieved Operator */}
+                    <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800 space-y-2 text-[10px] font-mono">
+                      <div className="flex items-center gap-1.5 text-slate-400 font-bold uppercase tracking-wider text-[9px] border-b border-slate-800 pb-1">
+                        <UserCheck size={12} className="text-slate-400" />
+                        <span>Previous Relieved Operator</span>
+                      </div>
+                      <div className="space-y-1 pt-0.5">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Name:</span>
+                          <strong className="text-slate-200">{selectedTrain.previousOperator?.name || 'Shift Start / First Leg'}</strong>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Emp ID:</span>
+                          <span className="text-slate-300 font-bold">{selectedTrain.previousOperator?.id || '--'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Duty:</span>
+                          <span className="text-slate-200 font-bold">Duty {selectedTrain.previousOperator?.dutyNo || '--'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Relieved Time:</span>
+                          <strong className="text-cyan-300">{selectedTrain.previousOperator?.relievedTime || '--'}</strong>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex justify-between border-b border-slate-800 pb-1">
-                      <span className="text-slate-400">Current Duty Number:</span>
-                      <strong className="text-slate-200">Duty {selectedTrain.dutyNo || '--'}</strong>
+
+                    {/* 2. Active Driving Operator */}
+                    <div className="bg-slate-900 p-3.5 rounded-xl border border-emerald-900/60 space-y-2 text-[10px] font-mono">
+                      <div className="flex items-center gap-1.5 text-emerald-400 font-bold uppercase tracking-wider text-[9px] border-b border-slate-800 pb-1">
+                        <User size={12} className="text-emerald-400" />
+                        <span>Active Driving Operator</span>
+                      </div>
+                      <div className="space-y-1 pt-0.5">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Name:</span>
+                          <strong className="text-emerald-400">{selectedTrain.operatorName || '--'}</strong>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Emp ID:</span>
+                          <span className="text-slate-300 font-bold">{selectedTrain.operatorId || '--'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Duty:</span>
+                          <span className="text-slate-200 font-bold">Duty {selectedTrain.dutyNo || '--'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Shift Window:</span>
+                          <strong className="text-cyan-300">{selectedTrain.operatorStartStr || '--'} - {selectedTrain.operatorEndStr || '--'}</strong>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex justify-between border-b border-slate-800 pb-1">
-                      <span className="text-slate-400">Reliever Operator:</span>
-                      <strong className="text-amber-300">{selectedTrain.reliever?.name || 'None Assigned'}</strong>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-800 pb-1">
-                      <span className="text-slate-400">Scheduled Handover Station:</span>
-                      <strong className="text-slate-200">{selectedTrain.scheduledHandoverStation || 'PYID'}</strong>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Reliever Duty ID:</span>
-                      <strong className="text-slate-200">Duty {selectedTrain.reliever?.dutyNo || '--'}</strong>
+
+                    {/* 3. Next Reliever Operator */}
+                    <div className="bg-slate-900 p-3.5 rounded-xl border border-amber-900/60 space-y-2 text-[10px] font-mono">
+                      <div className="flex items-center gap-1.5 text-amber-400 font-bold uppercase tracking-wider text-[9px] border-b border-slate-800 pb-1">
+                        <Radio size={12} className="text-amber-400" />
+                        <span>Next Reliever (Handover Cards)</span>
+                      </div>
+                      <div className="space-y-1 pt-0.5">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Name:</span>
+                          <strong className="text-amber-300">{selectedTrain.reliever?.name || 'None Assigned'}</strong>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Emp ID:</span>
+                          <span className="text-slate-300 font-bold">{selectedTrain.reliever?.id || '--'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Reliever Duty:</span>
+                          <span className="text-slate-200 font-bold">Duty {selectedTrain.reliever?.dutyNo || '--'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Takeover Time:</span>
+                          <strong className="text-cyan-300">{selectedTrain.reliever?.takeoverTime || selectedTrain.reliever?.time || '--'} @ {selectedTrain.scheduledHandoverStation || 'PYID'}</strong>
+                        </div>
+                      </div>
                     </div>
                   </div>
+
+                  {/* All Handover Card Shift Legs Progression */}
+                  {selectedTrain.handoverCard?.allLegs && selectedTrain.handoverCard.allLegs.length > 0 && (
+                    <div className="bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden font-mono text-[10px]">
+                      <div className="px-3.5 py-2 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+                        <span className="font-bold text-slate-200 uppercase tracking-wider text-[9px]">
+                          Complete Daily Handover Card Legs (Shift Progression)
+                        </span>
+                        <span className="text-cyan-400 text-[8.5px]">
+                          {selectedTrain.handoverCard.allLegs.length} Shift Segments
+                        </span>
+                      </div>
+                      <div className="overflow-x-auto max-h-48 scrollbar-thin scrollbar-thumb-slate-700">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-950/70 border-b border-slate-800 text-slate-400 uppercase text-[8px]">
+                              <th className="py-1.5 px-3">Duty</th>
+                              <th className="py-1.5 px-3">Operator Name</th>
+                              <th className="py-1.5 px-2">Emp ID</th>
+                              <th className="py-1.5 px-2">Start Time</th>
+                              <th className="py-1.5 px-2">End Time</th>
+                              <th className="py-1.5 px-2.5 text-center">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-850">
+                            {selectedTrain.handoverCard.allLegs.map((leg, lIdx) => {
+                              const isCurrent = leg.dutyId === selectedTrain.dutyNo || leg.empName === selectedTrain.operatorName;
+                              const isReliever = leg.dutyId === selectedTrain.reliever?.dutyNo;
+                              return (
+                                <tr key={`leg_${lIdx}`} className={`transition ${isCurrent ? 'bg-cyan-950/40 text-cyan-200 font-bold' : isReliever ? 'bg-amber-950/20 text-amber-200' : 'text-slate-400'}`}>
+                                  <td className="py-1 px-3 font-bold">Duty {leg.dutyId || '--'}</td>
+                                  <td className="py-1 px-3 text-slate-200 font-semibold">{leg.empName || '--'}</td>
+                                  <td className="py-1 px-2 font-mono text-slate-400">{leg.empId || '--'}</td>
+                                  <td className="py-1 px-2 font-mono">{leg.startStr || '--'}</td>
+                                  <td className="py-1 px-2 font-mono">{leg.endStr || '--'}</td>
+                                  <td className="py-1 px-2.5 text-center">
+                                    <span className={`px-1.5 py-0.2 rounded text-[7.5px] font-bold ${
+                                      isCurrent
+                                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-700'
+                                        : isReliever
+                                          ? 'bg-amber-950 text-amber-300 border border-amber-700'
+                                          : 'bg-slate-800 text-slate-400'
+                                    }`}>
+                                      {isCurrent ? 'ACTIVE' : isReliever ? 'RELIEVER' : 'SCHEDULED'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

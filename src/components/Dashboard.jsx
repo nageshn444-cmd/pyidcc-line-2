@@ -315,12 +315,40 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
   const [wttActiveView, setWttActiveView] = useState('MATRIX');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeDay, setActiveDay] = useState(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = window.localStorage.getItem('pyidcc_active_day_override') || window.localStorage.getItem('pyidcc_target_deployment_day');
+        if (saved) return normalizeScheduleType(saved);
+      }
+    } catch (e) {}
     const day = new Date().getDay(); // 0=Sun, 1=Mon, 2=Tue ... 6=Sat
     if (day === 0) return 'SUNDAY';
     if (day === 6) return 'SATURDAY';
     if (day === 1) return 'MONDAY';
     return 'WEEKDAY';
   });
+
+  // Keep activeDay synchronized with Step 1 Deployment Target Day across all components
+  useEffect(() => {
+    const handleActiveDaySync = (e) => {
+      const day = e?.detail?.dayType || e?.detail;
+      if (day) {
+        const norm = normalizeScheduleType(day);
+        setActiveDay(norm);
+      }
+    };
+    const handleStorage = (e) => {
+      if (e.key === 'pyidcc_active_day_override' || e.key === 'pyidcc_target_deployment_day') {
+        if (e.newValue) setActiveDay(normalizeScheduleType(e.newValue));
+      }
+    };
+    window.addEventListener('pyidcc-active-day-changed', handleActiveDaySync);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener('pyidcc-active-day-changed', handleActiveDaySync);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
   const [unifiedRows, setUnifiedRows] = useState([]);
   const [links, setLinks] = useState([]);
   const [dailyDeployment, setDailyDeployment] = useState([]);
@@ -572,13 +600,24 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       );
 
       let dayTrips;
-      if (uploadedTargetWtt.length > 0) {
-        // High-fidelity uploaded timetable from management takes 100% full precedence for this day!
-        // Cleanly erases and replaces any previous scheduled times for this day!
+      if (uploadedTargetWtt.length >= 50) {
+        // High-fidelity full uploaded timetable from management takes 100% full precedence for this day!
         dayTrips = uploadedTargetWtt;
       } else {
-        // Fallback to in-memory WTT_MASTER_REGISTRY
-        dayTrips = WTT_MASTER_REGISTRY.filter(t => normalizeScheduleType(t.scheduleType, t.id) === targetSchedule);
+        // Base canonical day trips from WTT_MASTER_REGISTRY
+        const canonicalMaster = WTT_MASTER_REGISTRY.filter(t => normalizeScheduleType(t.scheduleType, t.id) === targetSchedule);
+        if (uploadedTargetWtt.length > 0) {
+          // Merge custom/edited uploaded trips onto canonical master trips without losing the rest of the schedule
+          const map = new Map();
+          canonicalMaster.forEach(c => map.set(String(c.id), c));
+          uploadedTargetWtt.forEach(u => {
+            const existing = map.get(String(u.id));
+            map.set(String(u.id), existing ? { ...existing, ...u } : u);
+          });
+          dayTrips = Array.from(map.values());
+        } else {
+          dayTrips = canonicalMaster;
+        }
       }
 
       const getTripDirection = (trip) => {
@@ -653,26 +692,54 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       );
       setLinks(currentDayLinks);
 
-      // Merge active duties from AutomatedDispatchGate / Roster Desk Console cache
+      // Merge active duties from AutomatedDispatchGate / Roster Desk Console cache (Zero Manual Entry Engine • 7-Day Rolling Roster)
       const effectiveDeployData = [...(deployData || [])];
       if (typeof window !== 'undefined' && window.localStorage) {
         try {
+          const addCachedDuties = (list) => {
+            if (!Array.isArray(list)) return;
+            list.forEach(cd => {
+              const rawDuty = cd.dutyNo || cd.dutyId || cd.rawDutyId;
+              if (!rawDuty) return;
+              const normCdDuty = normalizeDutyId(rawDuty);
+              if (!normCdDuty || normCdDuty === 'UNASSIGNED') return;
+              const idx = effectiveDeployData.findIndex(d => normalizeDutyId(d.dutyId || d.dutyNo) === normCdDuty);
+              if (idx >= 0) {
+                effectiveDeployData[idx] = { ...effectiveDeployData[idx], ...cd, dutyId: normCdDuty };
+              } else {
+                effectiveDeployData.push({ ...cd, dutyId: normCdDuty, scheduleType: targetSchedule });
+              }
+            });
+          };
+
+          // 1. Active dispatch deployments from gateway
+          const activeRaw = window.localStorage.getItem('pyidcc_active_dispatch_deployments');
+          if (activeRaw) addCachedDuties(JSON.parse(activeRaw));
+
+          // 2. Date-specific roster console cache
+          const targetDate = window.localStorage.getItem('pyidcc_target_deployment_date');
+          if (targetDate) {
+            const dateCacheRaw = window.localStorage.getItem(`pyidcc_roster_desk_console_cache_${targetDate}`);
+            if (dateCacheRaw) {
+              const parsedDate = JSON.parse(dateCacheRaw);
+              addCachedDuties(parsedDate?.duties);
+            }
+          }
+
+          // 3. General console cache
           const cached = window.localStorage.getItem('pyidcc_roster_desk_console_cache');
           if (cached) {
             const parsed = JSON.parse(cached);
-            const cachedDuties = parsed?.duties || [];
-            if (Array.isArray(cachedDuties) && cachedDuties.length > 0) {
-              cachedDuties.forEach(cd => {
-                const normCdDuty = normalizeDutyId(cd.dutyId || cd.dutyNo);
-                if (!normCdDuty || normCdDuty === 'UNASSIGNED') return;
-                const idx = effectiveDeployData.findIndex(d => normalizeDutyId(d.dutyId || d.dutyNo) === normCdDuty);
-                if (idx >= 0) {
-                  effectiveDeployData[idx] = { ...effectiveDeployData[idx], ...cd, dutyId: normCdDuty };
-                } else {
-                  effectiveDeployData.push({ ...cd, dutyId: normCdDuty, scheduleType: targetSchedule });
-                }
-              });
-            }
+            addCachedDuties(parsed?.duties);
+          }
+
+          // 4. Staged multi-day drafts
+          const stagedRaw = window.localStorage.getItem('pyidcc_staged_rosters_by_date');
+          if (stagedRaw) {
+            const stagedMap = JSON.parse(stagedRaw);
+            Object.values(stagedMap || {}).forEach(staged => {
+              addCachedDuties(staged?.duties);
+            });
           }
         } catch (e) {
           // ignore
@@ -717,7 +784,7 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
           ? matchingGcc.empName
           : hasValidGccDeploy
             ? matchingGcc.empName
-            : (defaultOp?.empName || `Duty ${normLinkId}`);
+            : (defaultOp?.empName || '--');
 
         return {
           id: link.id,

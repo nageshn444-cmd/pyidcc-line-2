@@ -478,6 +478,12 @@ export const WEEKDAY_MASTER_DUTY_ROSTER = {
     "empId": "21506",
     "empName": "Chikke Gowda N",
     "designation": "Station Controller / Train Operator"
+  },
+  "80": {
+    "dutyId": "80",
+    "empId": "20022",
+    "empName": "Angel Rani",
+    "designation": "Station Controller / Train Operator"
   }
 };
 

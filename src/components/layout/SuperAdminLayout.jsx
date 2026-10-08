@@ -8,7 +8,7 @@ import {
   Settings, AlertTriangle, Sparkles, LayoutGrid, Search, Maximize2, 
   Minimize2, FileText, ClipboardList, RefreshCw, 
   Train, Calendar, Radio, ShieldAlert, Trash2, RotateCcw, UploadCloud, FileSpreadsheet,
-  Calculator, Sliders, Repeat, Clock, Copy, Plus, ArrowRightLeft
+  Calculator, Sliders, Repeat, Clock, Copy, Plus, ArrowRightLeft, CheckCircle2
 } from 'lucide-react';
 
 import { lazyWithRetry } from '../../utils/lazyWithRetry';
@@ -420,15 +420,169 @@ export default function SuperAdminLayout({
     setSelectedRowIds([]);
   }, [activeDay]);
 
+  // ── Auto-Reader & Classifier Roster Synchronizer (Zero Manual Entry Engine • 7-Day Rolling Roster) ──
+  const [autoReaderUpdateTrigger, setAutoReaderUpdateTrigger] = useState(0);
+  const [firestoreConsoleDuties, setFirestoreConsoleDuties] = useState([]);
+  const [showOnlyActiveDuties, setShowOnlyActiveDuties] = useState(true);
+
+  // Real-time synchronization with Automated Dispatch Gate & Roster Desk Console
+  useEffect(() => {
+    const unsubCurrent = onSnapshot(doc(db, 'roster_desk_console', 'current'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (Array.isArray(data?.duties) && data.duties.length > 0) {
+          setFirestoreConsoleDuties(data.duties);
+        }
+      }
+    }, () => {});
+
+    const unsubLatest = onSnapshot(doc(db, 'roster_desk_console', 'latest'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (Array.isArray(data?.duties) && data.duties.length > 0) {
+          setFirestoreConsoleDuties(data.duties);
+        }
+      }
+    }, () => {});
+
+    const handleUpdate = () => setAutoReaderUpdateTrigger(prev => prev + 1);
+    window.addEventListener('pyidcc_dispatch_deployments_updated', handleUpdate);
+    window.addEventListener('pyidcc-active-day-changed', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    return () => {
+      unsubCurrent();
+      unsubLatest();
+      window.removeEventListener('pyidcc_dispatch_deployments_updated', handleUpdate);
+      window.removeEventListener('pyidcc-active-day-changed', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
+  // Authoritative Auto-Reader & Classifier Duty Map
+  const autoReaderDutyMap = useMemo(() => {
+    const map = new Map();
+
+    const addDuty = (d) => {
+      if (!d) return;
+      const rawId = d.dutyNo || d.dutyId || d.rawDutyId;
+      if (!rawId) return;
+      const normId = normalizeDutyId(rawId);
+      if (!normId || normId === 'UNASSIGNED') return;
+
+      const candName = (d.empName && d.empName !== '--' && d.empName !== '-' && !d.empName.startsWith('Duty ') && !d.empName.startsWith('Train Operator'))
+        ? d.empName
+        : (d.name && d.name !== '--' && d.name !== '-' && !d.name.startsWith('Duty ') && !d.name.startsWith('Train Operator'))
+        ? d.name
+        : (d.operatorName && d.operatorName !== '--' && d.operatorName !== '-' && !d.operatorName.startsWith('Duty ') && !d.operatorName.startsWith('Train Operator'))
+        ? d.operatorName
+        : null;
+
+      const candId = d.empId || d.empNo || d.operatorId || d.id || '--';
+
+      if (candName) {
+        map.set(normId, {
+          dutyId: normId,
+          empName: candName,
+          empId: candId,
+          trainId: d.trainId || '--',
+          signOnTime: d.signOnTime || d.signOn || '--',
+          signOffTime: d.signOffTime || d.signOff || '--',
+          signOnLocation: d.signOnLocation || d.signOnPlace || 'PYID',
+          signOffLocation: d.signOffLocation || d.signOffPlace || 'PYID',
+          isExchanged: Boolean(d.isExchanged || d.status === 'EXCHANGED'),
+          originalEmpName: d.originalEmpName || '',
+          originalEmpId: d.originalEmpId || '',
+          status: d.status || 'ACTIVE',
+          rawLegs: d.rawLegs || null,
+          rawRecord: d
+        });
+      }
+    };
+
+    // 1. Ingest from props.deployments
+    (deployments || []).forEach(addDuty);
+
+    // 2. Ingest from Firestore roster_desk_console
+    (firestoreConsoleDuties || []).forEach(addDuty);
+
+    // 3. Ingest from localStorage caches
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const activeRaw = window.localStorage.getItem('pyidcc_active_dispatch_deployments');
+        if (activeRaw) {
+          const parsed = JSON.parse(activeRaw);
+          if (Array.isArray(parsed)) parsed.forEach(addDuty);
+        }
+
+        const targetDate = window.localStorage.getItem('pyidcc_target_deployment_date');
+        if (targetDate) {
+          const dateCacheRaw = window.localStorage.getItem(`pyidcc_roster_desk_console_cache_${targetDate}`);
+          if (dateCacheRaw) {
+            const parsed = JSON.parse(dateCacheRaw);
+            if (Array.isArray(parsed?.duties)) parsed.duties.forEach(addDuty);
+          }
+        }
+
+        const consoleRaw = window.localStorage.getItem('pyidcc_roster_desk_console_cache');
+        if (consoleRaw) {
+          const parsed = JSON.parse(consoleRaw);
+          if (Array.isArray(parsed?.duties)) parsed.duties.forEach(addDuty);
+        }
+
+        const stagedRaw = window.localStorage.getItem('pyidcc_staged_rosters_by_date');
+        if (stagedRaw) {
+          const stagedMap = JSON.parse(stagedRaw);
+          Object.values(stagedMap || {}).forEach(staged => {
+            if (Array.isArray(staged?.duties)) staged.duties.forEach(addDuty);
+          });
+        }
+      } catch (_e) {}
+    }
+
+    return map;
+  }, [deployments, firestoreConsoleDuties, autoReaderUpdateTrigger]);
+
   const finalRosterLinks = useMemo(() => {
-    if (!rosterDutySearch) return filteredLinks;
+    let sourceList = filteredLinks;
+
+    // If active duties exist in autoReaderDutyMap:
+    // When showOnlyActiveDuties is true, strictly show ONLY active duties with train operators assigned!
+    if (showOnlyActiveDuties && autoReaderDutyMap.size > 0) {
+      const matchedFromLinks = filteredLinks.filter(l => autoReaderDutyMap.has(normalizeDutyId(l.dutyId)));
+      const matchedDutyIds = new Set(matchedFromLinks.map(l => normalizeDutyId(l.dutyId)));
+
+      const extraFromAutoReader = [];
+      autoReaderDutyMap.forEach((arDuty, normId) => {
+        if (!matchedDutyIds.has(normId)) {
+          extraFromAutoReader.push({
+            id: `link_${String(activeDay || 'weekday').toLowerCase()}_duty_${normId}`,
+            dutyId: normId,
+            trainId: arDuty.trainId || '--',
+            signOnTime: arDuty.signOnTime || '--',
+            signOffTime: arDuty.signOffTime || '--',
+            signOnLocation: arDuty.signOnLocation || 'PYID',
+            signOffLocation: arDuty.signOffLocation || 'PYID',
+            leg1TimeFrom: arDuty.signOnTime || '--',
+            leg1HandoverLoc: arDuty.signOnLocation || 'PYID',
+            isUploaded: true
+          });
+        }
+      });
+
+      sourceList = [...matchedFromLinks, ...extraFromAutoReader].sort((a, b) =>
+        String(a.dutyId).localeCompare(String(b.dutyId), undefined, { numeric: true })
+      );
+    }
+
+    if (!rosterDutySearch) return sourceList;
     const query = rosterDutySearch.toLowerCase().trim();
     
     // Extract numeric values for exact numeric matching
     const cleanQuery = query.replace(/\D/g, '');
     const queryNum = cleanQuery ? parseInt(cleanQuery, 10) : NaN;
     
-    return filteredLinks.filter(l => {
+    return sourceList.filter(l => {
       const dutyStr = String(l.dutyId || '').toLowerCase().trim();
       const cleanDuty = dutyStr.replace(/\D/g, '');
       const dutyNum = cleanDuty ? parseInt(cleanDuty, 10) : NaN; // base 10
@@ -440,7 +594,7 @@ export default function SuperAdminLayout({
       // Fallback for non-numeric search
       return dutyStr.includes(query);
     });
-  }, [filteredLinks, rosterDutySearch]);
+  }, [filteredLinks, autoReaderDutyMap, showOnlyActiveDuties, rosterDutySearch, activeDay]);
 
   const [editingHeaderIdx, setEditingHeaderIdx] = useState(null);
   const [editHeaderValue, setEditHeaderValue] = useState('');
@@ -1360,8 +1514,35 @@ export default function SuperAdminLayout({
               </div>
 
               <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
-                <div className="px-4 py-2.5 bg-slate-955 border-b border-slate-800 flex justify-between items-center text-blue-400 font-mono text-xs font-bold">
-                  <span>DYNAMIC CONTROL ROSTER OPERATIONAL MONITOR TERMINAL</span>
+                <div className="px-4 py-2.5 bg-slate-955 border-b border-slate-800 flex flex-wrap justify-between items-center gap-2 text-blue-400 font-mono text-xs font-bold">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span>DYNAMIC CONTROL ROSTER OPERATIONAL MONITOR TERMINAL</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 font-bold">
+                      <Sparkles className="w-3 h-3 text-emerald-400" />
+                      EXCEL AUTO-READER &amp; CLASSIFIER SYNC
+                    </span>
+                    {autoReaderDutyMap.size > 0 && (
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 font-bold">
+                        {autoReaderDutyMap.size} Active Duties Staffed
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowOnlyActiveDuties(prev => !prev)}
+                      className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider font-mono transition-all flex items-center gap-1.5 border ${
+                        showOnlyActiveDuties
+                          ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
+                          : 'bg-slate-900 text-slate-300 border-slate-700 hover:text-white hover:border-slate-500'
+                      }`}
+                      title="Toggle to display only active duty numbers and train operators from the Excel Daily Roster Path Link Auto-Reader"
+                    >
+                      <CheckCircle2 className="w-3 h-3" />
+                      {showOnlyActiveDuties ? `Only Active Duties (${finalRosterLinks.length})` : `Show All Links (${filteredLinks.length})`}
+                    </button>
+                  </div>
                 </div>
                 {(selectedRowIds.length > 0 || clipboard.length > 0) && (
                   <div className="px-4 py-3 bg-slate-950 border-y border-slate-800 flex flex-wrap items-center justify-between gap-4 font-mono text-xs">
@@ -1566,11 +1747,37 @@ export default function SuperAdminLayout({
                           return compVal > 0 ? `${compVal} km` : '--';
                         };
                         const normDutyId = normalizeDutyId(dutyRaw.dutyId);
+                        const autoReaderMatch = autoReaderDutyMap.get(normDutyId);
+                        const matchedDeploy = autoReaderMatch || deployments.find(d =>
+                          normalizeDutyId(d.dutyId) === normDutyId
+                        );
+                        const operatorName = (matchedDeploy?.empName && matchedDeploy.empName !== '--' && matchedDeploy.empName !== '-' && !matchedDeploy.empName.startsWith('Duty ') && !matchedDeploy.empName.startsWith('Train Operator'))
+                          ? matchedDeploy.empName
+                          : '--';
+                        const operatorId = (matchedDeploy?.empId && matchedDeploy.empId !== '--' && matchedDeploy.empId !== '-')
+                          ? matchedDeploy.empId
+                          : '--';
+
                         const rowDocId = dutyRaw.id || `link_${String(activeDay || 'weekday').toLowerCase()}_duty_${normDutyId || idx}`;
                         const duty = {
                           ...dutyRaw,
                           id: rowDocId,
                           dutyId: normDutyId || String(idx + 1),
+                          trainId: (autoReaderMatch?.trainId && autoReaderMatch.trainId !== '--' && autoReaderMatch.trainId !== 'UNASSIGNED')
+                            ? autoReaderMatch.trainId
+                            : (dutyRaw.trainId || '--'),
+                          signOnTime: (autoReaderMatch?.signOnTime && autoReaderMatch.signOnTime !== '--')
+                            ? autoReaderMatch.signOnTime
+                            : dutyRaw.signOnTime,
+                          signOffTime: (autoReaderMatch?.signOffTime && autoReaderMatch.signOffTime !== '--')
+                            ? autoReaderMatch.signOffTime
+                            : dutyRaw.signOffTime,
+                          signOnLocation: (autoReaderMatch?.signOnLocation && autoReaderMatch.signOnLocation !== '--')
+                            ? autoReaderMatch.signOnLocation
+                            : (dutyRaw.signOnLocation || 'PYID'),
+                          signOffLocation: (autoReaderMatch?.signOffLocation && autoReaderMatch.signOffLocation !== '--')
+                            ? autoReaderMatch.signOffLocation
+                            : (dutyRaw.signOffLocation || 'PYID'),
                           leg2TrainNo: (dutyRaw.leg2TrainNo && dutyRaw.leg2TrainNo !== '--') ? dutyRaw.leg2TrainNo : (dutyRaw.followTrain || dutyRaw.followTrainNo || '--'),
                           leg2DepLoc: (dutyRaw.leg2DepLoc && dutyRaw.leg2DepLoc !== '--') ? dutyRaw.leg2DepLoc : (dutyRaw.followTakeoverLoc || '--'),
                           leg2DepTime: (dutyRaw.leg2DepTime && dutyRaw.leg2DepTime !== '--') ? dutyRaw.leg2DepTime : (dutyRaw.followTimeFrom || '--'),
@@ -1585,11 +1792,6 @@ export default function SuperAdminLayout({
                         };
                         const rowBgClass = idx % 2 === 0 ? "bg-slate-900" : "bg-slate-950/40";
                         const stickyDutyBgClass = idx % 2 === 0 ? "bg-slate-900" : "bg-slate-950";
-                        const matchedDeploy = deployments.find(d =>
-                          normalizeDutyId(d.dutyId) === normalizeDutyId(duty.dutyId)
-                        );
-                        const operatorName = matchedDeploy ? matchedDeploy.empName : '--';
-                        const operatorId = matchedDeploy ? matchedDeploy.empId : '--';
 
                         const TIME_COLUMN_KEYS = new Set([
                           'signOnTime', 'leg1TimeFrom', 'leg1TimeTo', 'leg1TripTime',

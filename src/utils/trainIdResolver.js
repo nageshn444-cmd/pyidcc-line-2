@@ -66,32 +66,30 @@ export function resolveDestinationCode(trip) {
   const dest = normalizeStation(trip.destinationStationId);
   const dir = trip.direction ? String(trip.direction).toUpperCase().trim() : '';
 
-  // Rule 1: BIET DN -> APTS DN (70)
-  if (origin === 'BIET' && dest === 'APTS' && (dir === 'DN' || dir === 'DOWN')) {
-    return '70';
+  // Specific Termination / Loop Rules
+  if (dest === 'PUTH' && (dir === 'DN' || dir === 'DOWN')) {
+    return '72'; // Short Loop Down: South to Yelachenahalli
+  }
+  if (dest === 'PYID' || dest === 'DEPOT') {
+    return '87'; // Depot Ingress / Insertion to Peenya
+  }
+  if (dest === 'NGSA' && dir === 'UP') {
+    return '89'; // Short Loop Up: South to Nagasandra
   }
 
-  // Rule 2: APTS UP -> BIET UP (90)
-  if (origin === 'APTS' && dest === 'BIET' && dir === 'UP') {
-    return '90';
+  // Full Line Terminus Destinations
+  if (dest === 'BIET' || (dir === 'UP' && dest !== 'PUTH' && dest !== 'PYID')) {
+    return '90'; // Up Line towards Madhavara (BIET)
+  }
+  if (dest === 'APTS' || (dir === 'DN' || dir === 'DOWN')) {
+    return '70'; // Down Line towards Anjanapura (APTS)
   }
 
-  // Rule 3: NGSA or BIET -> PUTH DN (72)
-  if ((origin === 'NGSA' || origin === 'BIET') && dest === 'PUTH' && (dir === 'DN' || dir === 'DOWN')) {
-    return '72';
-  }
+  // Fallback by direction
+  if (dir === 'UP') return '90';
+  if (dir === 'DN' || dir === 'DOWN') return '70';
 
-  // Rule 4: PUTH UP or APTS UP -> PYID (87)
-  if ((origin === 'PUTH' || origin === 'APTS') && dest === 'PYID') {
-    return '87';
-  }
-
-  // Rule 5: PUTH UP or APTS UP -> NGSA UP (89)
-  if ((origin === 'PUTH' || origin === 'APTS') && dest === 'NGSA' && dir === 'UP') {
-    return '89';
-  }
-
-  return null;
+  return '90';
 }
 
 /**
@@ -124,7 +122,8 @@ export function formatParticularTrainId(rawId) {
   }
 
   if (parsed < 1 || parsed > 23) {
-    return null;
+    // If between 24 and 99, take modulo or preserve 2 digits safely
+    return String(parsed).padStart(2, '0').slice(-2);
   }
 
   return String(parsed).padStart(2, '0');
@@ -165,17 +164,9 @@ export function generate4DigitTrainId(particularTrainId, currentTrip) {
     };
   }
 
-  const destinationCode = resolveDestinationCode(currentTrip);
-
-  if (!destinationCode) {
-    return {
-      computedTrainId: null,
-      destinationId: null,
-      particularTrainIdStr: formattedParticularId,
-      status: 'UNKNOWN_DESTINATION_CODE',
-      errorMessage: `Unmapped WTT trip route: ${currentTrip.originStationId} -> ${currentTrip.destinationStationId} (${currentTrip.direction})`
-    };
-  }
+  const destinationCode = resolveDestinationCode(currentTrip) || (
+    (currentTrip.direction === 'DN' || currentTrip.direction === 'DOWN') ? '70' : '90'
+  );
 
   const computedTrainId = `${destinationCode}${formattedParticularId}`;
 
