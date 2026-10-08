@@ -17,6 +17,7 @@
     }
   ],
   "hosting": {
+    "site": "pyidline2crew-41022",
     "public": "dist",
     "ignore": [
       "firebase.json",
