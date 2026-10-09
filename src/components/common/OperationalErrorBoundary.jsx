@@ -85,7 +85,7 @@ export class OperationalErrorBoundary extends React.Component {
         errorStr.includes('Loading chunk');
 
       return (
-        <div className="min-h-[400px] flex items-center justify-center p-6 bg-slate-950 text-slate-100 font-sans">
+        <div className="min-h-100 flex items-center justify-center p-6 bg-slate-950 text-slate-100 font-sans">
           <div className="max-w-2xl w-full bg-slate-900 border-2 border-rose-500/40 rounded-3xl p-8 shadow-2xl space-y-6">
             <div className="flex items-center gap-4 border-b border-slate-800 pb-5">
               <div className="p-3 bg-rose-500/20 text-rose-400 rounded-2xl border border-rose-500/40">
@@ -140,7 +140,7 @@ export class OperationalErrorBoundary extends React.Component {
                 {isFirestoreAssertionError ? (
                   <button
                     onClick={this.handlePurgeAndReload}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-rose-950/40"
+                    className="flex items-center gap-2 px-6 py-2.5 bg-linear-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-rose-950/40"
                   >
                     <RefreshCw className="w-4 h-4" />
                     Purge Local Cache & Reconnect
@@ -148,7 +148,7 @@ export class OperationalErrorBoundary extends React.Component {
                 ) : (
                   <button
                     onClick={this.handleReset}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-emerald-950/40"
+                    className="flex items-center gap-2 px-6 py-2.5 bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-emerald-950/40"
                   >
                     <RefreshCw className="w-4 h-4" />
                     {isDynamicImportError ? 'Reload & Reconnect View' : 'Recover & Reconnect View'}

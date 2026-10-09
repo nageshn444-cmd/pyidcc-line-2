@@ -9,39 +9,27 @@ import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 import { 
   Train, MapPin, Clock, Shield, User, Sliders, Volume2, VolumeX, AlertTriangle, CheckCircle2, Megaphone, Radio,
-  FileText, Download, Printer, BarChart2, Table, LayoutGrid, ChevronRight, TrendingUp, Compass, ArrowRight, ExternalLink, Search, Check,
-  Zap, Activity, Filter, ArrowUpDown, RefreshCw, X, Smartphone, Monitor, Eye,
-  Phone, PhoneCall, UserCheck, UserX, RotateCcw, SlidersHorizontal, Layers, Gauge, BatteryCharging, FileSpreadsheet, Play, Pause, Flame, Sparkles, Bell, BellOff, MessageSquare, ChevronDown, ListFilter
+  FileText, Download, Printer, Table, LayoutGrid, TrendingUp, Compass, Search, Check,
+  Zap, Activity, Filter, ArrowUpDown, X, Smartphone, Monitor, Eye,
+  Phone, PhoneCall, UserCheck, RotateCcw, SlidersHorizontal, FileSpreadsheet, Play, Pause, Sparkles, ListFilter
 } from 'lucide-react';
 import { 
   STATION_CHAINAGE, 
   STATION_ORDER, 
   ATS_STATION_SEQUENCE,
-  getTripEndpoints, 
   timeToMinutes, 
   minutesToTime 
 } from '../utils/kpiEngine';
 import { calculateDistance } from '../utils/kmCalculator';
-import { getStationName } from '../utils/stationHelpers';
 import { EMPLOYEE_MASTER_REGISTRY } from '../data/employeeProfileMaster';
 import { WTT_MASTER_REGISTRY } from '../data/wttMasterRegistry';
 import { 
-  buildWeekdayLiveTrainTrackingMap, 
-  buildLiveTrainTrackingMap, 
   WEEKDAY_RELIEF_ID_CHART, 
   WEEKDAY_RELIEF_ID_CHART_META,
   WEEKDAY_RELIEF_ID_CHART_2024,
-  WEEKDAY_RELIEF_ID_CHART_2024_META,
-  MONDAY_RELIEF_ID_CHART,
-  MONDAY_RELIEF_ID_CHART_META,
-  SATURDAY_RELIEF_ID_CHART,
-  SATURDAY_RELIEF_ID_CHART_META,
-  SUNDAY_RELIEF_ID_CHART,
-  SUNDAY_RELIEF_ID_CHART_META,
   getReliefIdChartForDay,
   normalizeScheduleDay,
   normalizeTrackTrainId,
-  normalizeDutyId,
   resolveLiveRelieverOperator,
   buildDutyRosterFromLinkRoster,
   buildMasterIdChartFromDutyRoster,
@@ -50,7 +38,7 @@ import {
 import { getMasterLinksForDay } from '../data/canonicalDayLinksRegistry';
 import AlstomAtsSystemView from './kmcalc/AlstomAtsSystemView';
 import { generate4DigitTrainId, formatParticularTrainId } from '../utils/trainIdResolver';
-import { WEEKDAY_MASTER_DUTY_ROSTER, getOperatorForDuty } from '../data/weekdayMasterDutyRoster';
+import { getOperatorForDuty } from '../data/weekdayMasterDutyRoster';
 
 const ALL_LINE2_FLEET = [
   '201', '202', '203', '204', '205', '206', '207', '208', '209', '210',
@@ -76,7 +64,9 @@ export default function LiveTrainPositionTracker({
           if (Array.isArray(list) && list.length > 0) return list;
         }
       }
-    } catch (e) {}
+    } catch (_e) {
+      /* ignore */
+    }
     return [];
   });
   const [dailyCrewTracks, setDailyCrewTracks] = useState([]);
@@ -103,7 +93,6 @@ export default function LiveTrainPositionTracker({
   const [isLiveClock, setIsLiveClock] = useState(true);
   const [isSimPlaying, setIsSimPlaying] = useState(false);
   const [simSpeedMultiplier, setSimSpeedMultiplier] = useState(1);
-  const [clockIntervalId, setClockIntervalId] = useState(null);
   const [selectedTrain, setSelectedTrain] = useState(null);
   const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table' | 'radar' | 'energy' | 'maintenance'
   const [tableSearchQuery, setTableSearchQuery] = useState('');
@@ -124,11 +113,11 @@ export default function LiveTrainPositionTracker({
   // Audio Suite & Public Address Chime
   const [voiceVolume, setVoiceVolume] = useState(1.0);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
-  const [audioRepeatCount, setAudioRepeatCount] = useState(1);
+  const [_audioRepeatCount, _setAudioRepeatCount] = useState(1);
 
   // Station Relief Alert Center Controls
   const [alertViewMode, setAlertViewMode] = useState('combined'); // 'combined' | 'split'
-  const [reliefAlertTab, setReliefAlertTab] = useState('ACTIVE'); // 'ACTIVE' | 'HISTORY' | 'AUDIO_CONFIG'
+  const [_reliefAlertTab, _setReliefAlertTab] = useState('ACTIVE'); // 'ACTIVE' | 'HISTORY' | 'AUDIO_CONFIG'
 
   // Emergency Reliever Dispatch Modal state
   const [emergencyDispatchTrain, setEmergencyDispatchTrain] = useState(null);
@@ -145,14 +134,14 @@ export default function LiveTrainPositionTracker({
   const [handoverToast, setHandoverToast] = useState(null); // { message, type: 'success'|'info' }
 
   // Local manual handover overrides (in-memory immediate reactivity)
-  const [manualHandoverOverrides, setManualHandoverOverrides] = useState({});
+  const [_manualHandoverOverrides, setManualHandoverOverrides] = useState({});
 
   // Master Reliever ID Chart Modal state (supports WEEKDAY 22/Nov/2024 79 Duties, MONDAY, SATURDAY & GH, SUNDAY)
   const [showReliefIdChartModal, setShowReliefIdChartModal] = useState(false);
   const [idChartModalSearch, setIdChartModalSearch] = useState('');
   const [idChartSelectedTrain, setIdChartSelectedTrain] = useState('ALL');
   const [idChartModalDayType, setIdChartModalDayType] = useState('WEEKDAY_2024');
-  const [weekdayEdition, setWeekdayEdition] = useState('2024'); // Canonical 22/Nov/2024 (79 Duties)
+  const [_weekdayEdition, setWeekdayEdition] = useState('2024'); // Canonical 22/Nov/2024 (79 Duties)
 
   // Public Address & English Voice Studio state
   const [showVoiceSampleModal, setShowVoiceSampleModal] = useState(false);
@@ -186,17 +175,19 @@ export default function LiveTrainPositionTracker({
   const [browserVoicesList, setBrowserVoicesList] = useState([]);
 
   // Fleet Timetable & KM Engine state
-  const [fleetRakeTypeFilter, setFleetRakeTypeFilter] = useState('ALL'); // 'ALL' | 'BEML' | 'CRRC'
+  const [_fleetRakeTypeFilter, _setFleetRakeTypeFilter] = useState('ALL'); // 'ALL' | 'BEML' | 'CRRC'
   const [isRecalibratingKm, setIsRecalibratingKm] = useState(false);
   const [kmRecalibrationCount, setKmRecalibrationCount] = useState(0);
-  const [expandedTrainTripsId, setExpandedTrainTripsId] = useState(null);
+  const [_expandedTrainTripsId, _setExpandedTrainTripsId] = useState(null);
   const [activeSchedule, setActiveSchedule] = useState(() => {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         const saved = window.localStorage.getItem('pyidcc_active_day_override') || window.localStorage.getItem('pyidcc_target_deployment_day');
         if (saved) return normalizeScheduleDay(saved);
       }
-    } catch (e) {}
+    } catch (_e) {
+      /* ignore */
+    }
     if (propActiveDay) return normalizeScheduleDay(propActiveDay);
     const day = new Date().getDay();
     if (day === 0) return 'SUNDAY';
@@ -228,7 +219,7 @@ export default function LiveTrainPositionTracker({
   }, []);
 
   // Canonical station sequence for UP line (Official ALSTOM IATS / ATS System View with all 34 stations South APTD ➔ North BIET)
-  const CANONICAL_UP_STATIONS = useMemo(() => {
+  const _CANONICAL_UP_STATIONS = useMemo(() => {
     return ATS_STATION_SEQUENCE;
   }, []);
 
@@ -260,7 +251,7 @@ export default function LiveTrainPositionTracker({
   }, [stationChainageDB]);
 
   // Extract static trips from WTT Master Registry as reliable schedule coverage
-  const staticWttTrips = useMemo(() => {
+  const _staticWttTrips = useMemo(() => {
     const trips = [];
     (WTT_MASTER_REGISTRY || []).forEach(row => {
       if (row.downTrip) trips.push(row.downTrip);
@@ -375,25 +366,16 @@ export default function LiveTrainPositionTracker({
   // Simulated / Live Clock Management
   // Updates displayed time (HH:MM) every 60s AND internal seconds every 5s for smooth position movement
   useEffect(() => {
-    if (isLiveClock) {
-      const interval = setInterval(() => {
-        const now = new Date();
-        const hrs = String(now.getHours()).padStart(2, '0');
-        const mins = String(now.getMinutes()).padStart(2, '0');
-        setSimulatedTime(`${hrs}:${mins}`);
-        // Update sub-minute internal seconds for smooth position interpolation
-        setInternalTimeSecs(now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds());
-      }, 1000); // 1-second tick for real-time accurate train movement
-      setClockIntervalId(interval);
-    } else {
-      if (clockIntervalId) {
-        clearInterval(clockIntervalId);
-        setClockIntervalId(null);
-      }
-    }
-    return () => {
-      if (clockIntervalId) clearInterval(clockIntervalId);
-    };
+    if (!isLiveClock) return;
+    const interval = setInterval(() => {
+      const now = new Date();
+      const hrs = String(now.getHours()).padStart(2, '0');
+      const mins = String(now.getMinutes()).padStart(2, '0');
+      setSimulatedTime(`${hrs}:${mins}`);
+      // Update sub-minute internal seconds for smooth position interpolation
+      setInternalTimeSecs(now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds());
+    }, 1000); // 1-second tick for real-time accurate train movement
+    return () => clearInterval(interval);
   }, [isLiveClock]);
 
   // Automated Timetable Simulation Loop:
@@ -487,17 +469,14 @@ export default function LiveTrainPositionTracker({
       isUp = startChain > endChain;
     }
 
-    // Sort valid stops into travel order:
-    // For UP trips: decreasing chainage (APTS towards BIET)
-    // For DOWN trips: increasing chainage (BIET towards APTS)
-    // Secondary tie-breaker: operational time
+    // Sort valid stops into chronological travel order:
+    // Operational time is primary so turn-back / reversing routes (e.g. NGSA -> RVR -> PYID) are preserved
     validEntries.sort((a, b) => {
+      const timeDiff = getOpMins(a[1]) - getOpMins(b[1]);
+      if (timeDiff !== 0) return timeDiff;
       const chainA = chainageMap[a[0]] ?? 0;
       const chainB = chainageMap[b[0]] ?? 0;
-      if (Math.abs(chainA - chainB) > 0.001) {
-        return isUp ? chainB - chainA : chainA - chainB;
-      }
-      return getOpMins(a[1]) - getOpMins(b[1]);
+      return isUp ? chainB - chainA : chainA - chainB;
     });
 
     // 2. Build known stops list with midnight rollover protection
@@ -520,15 +499,14 @@ export default function LiveTrainPositionTracker({
       return knownStops.map(s => ({ station: s.station, timeMin: s.timeMins }));
     }
 
-    // A normal Green Line trip between terminals is ~60-75 mins. Reject anomalous trips (>120 mins)
+    // A normal Green Line trip between terminals is ~60-75 mins. Multi-leg / turn-back routes can be up to 125 mins. Reject anomalous trips (>150 mins)
     const rawDuration = knownStops[knownStops.length - 1].timeMins - knownStops[0].timeMins;
-    if (rawDuration > 120 || rawDuration < 0) {
+    if (rawDuration > 150 || rawDuration < 0) {
       return [];
     }
 
     // 3. Interpolate all intermediate stations between consecutive stops
     const result = [];
-    const interpolatedStations = new Set();
 
     for (let seg = 0; seg < knownStops.length - 1; seg++) {
       const segStart = knownStops[seg];
@@ -536,24 +514,22 @@ export default function LiveTrainPositionTracker({
       const segTimeDiff = segEnd.timeMins - segStart.timeMins;
       const segChainDiff = Math.abs(segEnd.chain - segStart.chain);
 
-      // Add the start stop itself
-      if (!interpolatedStations.has(segStart.station)) {
-        result.push({ station: segStart.station, timeMin: segStart.timeMins });
-        interpolatedStations.add(segStart.station);
-      }
+      // Add the start stop of this segment
+      result.push({ station: segStart.station, timeMin: segStart.timeMins });
 
       if (segTimeDiff <= 0 || segChainDiff < 0.01) continue;
 
       // Find all intermediate stations from STATION_ORDER that lie between segment endpoints
       const minChain = Math.min(segStart.chain, segEnd.chain);
       const maxChain = Math.max(segStart.chain, segEnd.chain);
+      const isSegUp = segStart.chain > segEnd.chain;
 
-      // Intermediate stations ordered according to travel direction
-      const corridorOrder = isUp ? [...STATION_ORDER].reverse() : STATION_ORDER;
+      // Intermediate stations ordered according to this segment's travel direction
+      const corridorOrder = isSegUp ? [...STATION_ORDER].reverse() : STATION_ORDER;
+      const segVisited = new Set([segStart.station, segEnd.station]);
 
       corridorOrder.forEach(st => {
-        if (interpolatedStations.has(st)) return;
-        if (st === segStart.station || st === segEnd.station) return;
+        if (segVisited.has(st)) return;
         const stChain = chainageMap[st];
         if (stChain === undefined) return;
         // Station must lie strictly within this segment's chainage range
@@ -565,15 +541,13 @@ export default function LiveTrainPositionTracker({
         const interpolatedTime = segStart.timeMins + ratio * segTimeDiff;
 
         result.push({ station: st, timeMin: interpolatedTime });
-        interpolatedStations.add(st);
+        segVisited.add(st);
       });
     }
 
     // Add the final stop
     const lastStop = knownStops[knownStops.length - 1];
-    if (!interpolatedStations.has(lastStop.station)) {
-      result.push({ station: lastStop.station, timeMin: lastStop.timeMins });
-    }
+    result.push({ station: lastStop.station, timeMin: lastStop.timeMins });
 
     // Sort result by interpolated time (chronological)
     result.sort((a, b) => a.timeMin - b.timeMin);
@@ -819,7 +793,7 @@ export default function LiveTrainPositionTracker({
   };
 
   // Format Train ID into pure integer words for Kannada script (e.g. 7001 -> "ಏಳು ಸೊನ್ನೆ ಸೊನ್ನೆ ಒಂದು")
-  const formatTrainIdForSpeechKn = (trainId) => {
+  const _formatTrainIdForSpeechKn = (trainId) => {
     if (!trainId) return '';
     const clean = String(trainId).trim();
     return clean
@@ -829,7 +803,7 @@ export default function LiveTrainPositionTracker({
   };
 
   // Format Train ID into phonetic integer words for local Indian voice (e.g. 7001 -> "Yelu Sonne Sonne Ondu")
-  const formatTrainIdForSpeechKnPhonetic = (trainId) => {
+  const _formatTrainIdForSpeechKnPhonetic = (trainId) => {
     if (!trainId) return '';
     const clean = String(trainId).trim();
     return clean
@@ -1002,7 +976,7 @@ export default function LiveTrainPositionTracker({
     'karthik': 'ಕಾರ್ತಿಕ್'
   };
 
-  const formatOperatorNameKn = (name) => {
+  const _formatOperatorNameKn = (name) => {
     if (!name) return '';
     const cleaned = cleanOperatorNameEn(name);
     const words = cleaned.split(/\s+/);
@@ -1126,7 +1100,9 @@ export default function LiveTrainPositionTracker({
         try {
           window.__bmrcl_active_audio.pause();
           window.__bmrcl_active_audio.currentTime = 0;
-        } catch (e) {}
+        } catch (_e) {
+          /* ignore */
+        }
         window.__bmrcl_active_audio = null;
       }
       
@@ -1468,6 +1444,7 @@ export default function LiveTrainPositionTracker({
 
   // Aggregated deployed duties directly from DISPATCH GATEWAY CORE
   const dispatchGatewayDuties = useMemo(() => {
+    void dispatchUpdateTrigger;
     const list = [];
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
@@ -1494,7 +1471,9 @@ export default function LiveTrainPositionTracker({
           }
         }
       }
-    } catch (_e) {}
+    } catch (_e) {
+      /* ignore */
+    }
     if (consoleDeskDuties && consoleDeskDuties.length > 0) {
       list.push(...consoleDeskDuties);
     }
@@ -1739,7 +1718,7 @@ export default function LiveTrainPositionTracker({
       const tripEnd = rawEnd + delayOffset;
       // In 24h metro operations, late night hours (00:00 - 05:00 AM, timeMins < 300) belong to the rail operating day (+1440 mins)
       const evalMins = (timeMins < 300) ? timeMins + 1440 : timeMins;
-      const curMins = evalMins;
+      const _curMins = evalMins;
 
       // Check if train is actively running on this trip
       if (evalMins >= tripStart && evalMins <= tripEnd) {
@@ -2760,7 +2739,7 @@ export default function LiveTrainPositionTracker({
       liveTrainPositions: enrichedPositions, 
       reliefStationAlerts: stationAlerts 
     };
-  }, [simulatedTime, internalTimeSecs, isLiveClock, matrixRows, liveIncidents, dynamicTrainTrackingMap, stationChainageDB, activeSchedule, dailyCrewTracks, RELIEF_STATION_CONFIG, propLiveTrainTrackingMap, interpolateTripStations, kmRecalibrationCount]);
+  }, [simulatedTime, internalTimeSecs, matrixRows, liveIncidents, dynamicTrainTrackingMap, stationChainageDB, activeSchedule, dailyCrewTracks, RELIEF_STATION_CONFIG, propLiveTrainTrackingMap, interpolateTripStations, dispatchDutyOperatorMap, dispatchTrainOperatorMap, getAtsStationIndex, handoverCardsMap]);
 
   useEffect(() => {
     try {
@@ -2782,8 +2761,10 @@ export default function LiveTrainPositionTracker({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       }).catch(() => {});
-    } catch (_) {}
-  }, [activeSchedule, simulatedTime, matrixRows, liveTrainPositions]);
+    } catch (_e) {
+      /* ignore */
+    }
+  }, [activeSchedule, simulatedTime, matrixRows, liveTrainPositions, propUnifiedRows, wttMatrix]);
 
   // Automated Voice Announcement Trigger on 3-Minute Trip Completion Basis
   // STRICT RULE 1: Announce next train operator name when current driving operator's trip completes in next 3 mins.
@@ -2829,6 +2810,7 @@ export default function LiveTrainPositionTracker({
         }
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveTrainPositions, simulatedTime]);
 
   // Filter alerts for the Station Relief Alert Center UI based on selected station and track
@@ -2935,7 +2917,9 @@ export default function LiveTrainPositionTracker({
       try {
         window.__bmrcl_active_audio.pause();
         window.__bmrcl_active_audio.currentTime = 0;
-      } catch (e) {}
+      } catch (_e) {
+        /* ignore */
+      }
       window.__bmrcl_active_audio = null;
     }
 
@@ -3542,7 +3526,7 @@ export default function LiveTrainPositionTracker({
         </div>
 
         {/* Global Live Schematic Search Option */}
-        <div className="flex items-center gap-2 flex-1 min-w-[220px] sm:max-w-xs md:max-w-sm">
+        <div className="flex items-center gap-2 flex-1 min-w-55 sm:max-w-xs md:max-w-sm">
           <div className="relative w-full">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-cyan-400" />
             <input
@@ -4214,7 +4198,7 @@ export default function LiveTrainPositionTracker({
             {/* Soundboard Test PA Chime & Voice */}
             <button
               onClick={testVoiceAnnouncement}
-              className="px-3 py-1.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 rounded-lg text-xs font-black font-mono flex items-center gap-1.5 shadow-md transition-all active:scale-95"
+              className="px-3 py-1.5 bg-linear-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 rounded-lg text-xs font-black font-mono flex items-center gap-1.5 shadow-md transition-all active:scale-95"
               title="Test Web Audio API Station 2-Tone Melodic Chime & English Public Address Voice"
             >
               <Sparkles size={13} className="text-slate-950 animate-spin" />
@@ -4225,7 +4209,7 @@ export default function LiveTrainPositionTracker({
             <button
               type="button"
               onClick={() => setShowVoiceSampleModal(true)}
-              className="px-3 py-1.5 bg-gradient-to-r from-emerald-800 to-teal-800 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-xs font-black font-mono flex items-center gap-1.5 shadow-md transition-all active:scale-95 border border-emerald-500/40"
+              className="px-3 py-1.5 bg-linear-to-r from-emerald-800 to-teal-800 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-xs font-black font-mono flex items-center gap-1.5 shadow-md transition-all active:scale-95 border border-emerald-500/40"
               title="Open English Voice Studio & Soundboard: Sample different Metro English voices and pick your favorite"
             >
               <Volume2 size={13} className="text-emerald-300" />
@@ -4241,7 +4225,7 @@ export default function LiveTrainPositionTracker({
                 setIdChartModalDayType(targetModalDay);
                 setShowReliefIdChartModal(true);
               }}
-              className="px-3 py-1.5 bg-gradient-to-r from-cyan-700 to-blue-700 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg text-xs font-black font-mono flex items-center gap-1.5 shadow-md transition-all active:scale-95 border border-cyan-500/40"
+              className="px-3 py-1.5 bg-linear-to-r from-cyan-700 to-blue-700 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg text-xs font-black font-mono flex items-center gap-1.5 shadow-md transition-all active:scale-95 border border-cyan-500/40"
               title={`View Official Master Reliever ID Chart for ${activeSchedule} (Synced to Alstom ATS Relief Engine)`}
             >
               <Table size={13} className="text-cyan-200" />
@@ -5140,7 +5124,7 @@ export default function LiveTrainPositionTracker({
             </div>
             <div className="w-full bg-slate-800 rounded-full h-1 mt-1.5 overflow-hidden">
               <div 
-                className="bg-gradient-to-r from-amber-500 to-emerald-400 h-full rounded-full transition-all duration-500"
+                className="bg-linear-to-r from-amber-500 to-emerald-400 h-full rounded-full transition-all duration-500"
                 style={{ width: `${Math.min(100, Math.max(2, fleetKmSummary.progressPct))}%` }}
               />
             </div>
@@ -5694,7 +5678,7 @@ export default function LiveTrainPositionTracker({
                         <div className="flex items-center justify-center gap-1.5">
                           <div className="w-14 bg-slate-800 rounded-full h-1.5 overflow-hidden">
                             <div 
-                              className="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full rounded-full"
+                              className="bg-linear-to-r from-cyan-500 to-emerald-400 h-full rounded-full"
                               style={{ width: `${Math.min(100, Math.max(2, t.dayProgressPct))}%` }}
                             />
                           </div>
@@ -5739,7 +5723,7 @@ export default function LiveTrainPositionTracker({
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {liveTrainPositions
                   .filter(t => !t.isStabling && t.direction === 'UP')
-                  .map((t, idx) => (
+                  .map((t) => (
                     <div 
                       key={`radar_up_${t.trainId}`} 
                       onClick={() => setSelectedTrain(t)}
@@ -5786,7 +5770,7 @@ export default function LiveTrainPositionTracker({
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {liveTrainPositions
                   .filter(t => !t.isStabling && t.direction === 'DOWN')
-                  .map((t, idx) => (
+                  .map((t) => (
                     <div 
                       key={`radar_dn_${t.trainId}`} 
                       onClick={() => setSelectedTrain(t)}
@@ -6186,7 +6170,7 @@ export default function LiveTrainPositionTracker({
                   </strong>
                   <div className="w-full bg-slate-800 rounded-full h-1 mt-1.5 overflow-hidden">
                     <div 
-                      className="bg-gradient-to-r from-amber-500 to-emerald-400 h-full rounded-full"
+                      className="bg-linear-to-r from-amber-500 to-emerald-400 h-full rounded-full"
                       style={{ width: `${Math.min(100, Math.max(2, selectedTrain.dayProgressPct))}%` }}
                     />
                   </div>
@@ -6769,7 +6753,9 @@ export default function LiveTrainPositionTracker({
               }
             }
           }
-        } catch (e) {}
+        } catch (_e) {
+          /* ignore */
+        }
         (dailyDeployments || []).forEach(d => {
           const norm = normalizeDuty(d.dutyId || d.dutyNo);
           if (norm && d.empName && !activeDutyDeployedMap[norm] && d.empName !== '--' && d.empName !== '-' && !d.empName.toLowerCase().includes('unassigned')) {
@@ -6856,7 +6842,7 @@ export default function LiveTrainPositionTracker({
                         }}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
                           idChartModalDayType === tab.key
-                            ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md font-black'
+                            ? 'bg-linear-to-r from-cyan-600 to-blue-600 text-white shadow-md font-black'
                             : 'text-slate-400 hover:text-white hover:bg-slate-800'
                         }`}
                       >
@@ -6995,7 +6981,7 @@ export default function LiveTrainPositionTracker({
                                       </span>
                                     )}
                                     {opDisplayName && (
-                                      <span className="text-[7.5px] text-cyan-300 font-bold truncate max-w-[55px] leading-tight mt-0.5 block" title={opDisplayName}>
+                                      <span className="text-[7.5px] text-cyan-300 font-bold truncate max-w-13.75 leading-tight mt-0.5 block" title={opDisplayName}>
                                         {opDisplayName.split(' ')[0]}
                                       </span>
                                     )}
@@ -7031,7 +7017,7 @@ export default function LiveTrainPositionTracker({
 
       {/* ── BMRCL Public Address & English Voice Studio Modal ── */}
       {showVoiceSampleModal && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-fadeIn">
+        <div className="fixed inset-0 z-120 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-fadeIn">
           <div className="bg-slate-900 border border-cyan-800/80 rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden text-slate-200">
             {/* Header */}
             <div className="bg-slate-950 p-4 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
@@ -7076,7 +7062,7 @@ export default function LiveTrainPositionTracker({
                 const curRelDuty = activeStudioReliefTrain?.reliever?.dutyNo || activeStudioReliefTrain?.relieverDuty || '29';
 
                 return (
-                  <div className="bg-gradient-to-r from-amber-950/70 via-slate-900 to-cyan-950/70 p-3.5 rounded-xl border border-amber-500/40 shadow-lg space-y-2.5">
+                  <div className="bg-linear-to-r from-amber-950/70 via-slate-900 to-cyan-950/70 p-3.5 rounded-xl border border-amber-500/40 shadow-lg space-y-2.5">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-2">
                         <span className="flex h-2.5 w-2.5 relative">
@@ -7134,7 +7120,7 @@ export default function LiveTrainPositionTracker({
                         <span className="text-[10px] text-amber-400/90 ml-1">(Duty {curActDuty})</span>
                       </div>
                       <div className="bg-slate-950/80 p-2 rounded-lg border border-slate-800">
-                        <span className="text-[9px] text-emerald-400 block flex items-center gap-1">
+                        <span className="text-[9px] text-emerald-400 flex items-center gap-1">
                           <CheckCircle2 size={10} /> NEXT RELIEVER TO
                         </span>
                         <strong className="text-emerald-300 text-xs">{curRelName}</strong>
@@ -7191,7 +7177,7 @@ export default function LiveTrainPositionTracker({
                           <button
                             type="button"
                             onClick={() => playVoiceSample('english_female')}
-                            className="flex-1 py-1.5 bg-gradient-to-r from-pink-700 to-rose-700 hover:from-pink-600 hover:to-rose-600 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
+                            className="flex-1 py-1.5 bg-linear-to-r from-pink-700 to-rose-700 hover:from-pink-600 hover:to-rose-600 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
                           >
                             <Volume2 size={13} /> ▶ Play Sample 1 (Female)
                           </button>
@@ -7199,7 +7185,7 @@ export default function LiveTrainPositionTracker({
                             type="button"
                             onClick={() => {
                               setSelectedVoiceUri('english_female');
-                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'english_female'); } catch {}
+                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'english_female'); } catch { /* ignore */ }
                             }}
                             className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${
                               selectedVoiceUri === 'english_female' ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
@@ -7232,7 +7218,7 @@ export default function LiveTrainPositionTracker({
                           <button
                             type="button"
                             onClick={() => playVoiceSample('english_male')}
-                            className="flex-1 py-1.5 bg-gradient-to-r from-blue-700 to-cyan-700 hover:from-blue-600 hover:to-cyan-600 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
+                            className="flex-1 py-1.5 bg-linear-to-r from-blue-700 to-cyan-700 hover:from-blue-600 hover:to-cyan-600 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
                           >
                             <Volume2 size={13} /> ▶ Play Sample 2 (Male)
                           </button>
@@ -7240,7 +7226,7 @@ export default function LiveTrainPositionTracker({
                             type="button"
                             onClick={() => {
                               setSelectedVoiceUri('english_male');
-                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'english_male'); } catch {}
+                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'english_male'); } catch { /* ignore */ }
                             }}
                             className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${
                               selectedVoiceUri === 'english_male' ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
@@ -7273,7 +7259,7 @@ export default function LiveTrainPositionTracker({
                           <button
                             type="button"
                             onClick={() => playVoiceSample('english_depot')}
-                            className="flex-1 py-1.5 bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-600 hover:to-teal-600 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
+                            className="flex-1 py-1.5 bg-linear-to-r from-emerald-700 to-teal-700 hover:from-emerald-600 hover:to-teal-600 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
                           >
                             <Volume2 size={13} /> ▶ Play Sample 3 (Depot CC)
                           </button>
@@ -7281,7 +7267,7 @@ export default function LiveTrainPositionTracker({
                             type="button"
                             onClick={() => {
                               setSelectedVoiceUri('english_depot');
-                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'english_depot'); } catch {}
+                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'english_depot'); } catch { /* ignore */ }
                             }}
                             className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${
                               selectedVoiceUri === 'english_depot' ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
@@ -7314,7 +7300,7 @@ export default function LiveTrainPositionTracker({
                           <button
                             type="button"
                             onClick={() => playVoiceSample('english_clear')}
-                            className="flex-1 py-1.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
+                            className="flex-1 py-1.5 bg-linear-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow"
                           >
                             <Volume2 size={13} /> ▶ Play Sample 4 (Clear Tone)
                           </button>
@@ -7322,7 +7308,7 @@ export default function LiveTrainPositionTracker({
                             type="button"
                             onClick={() => {
                               setSelectedVoiceUri('english_clear');
-                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'english_clear'); } catch {}
+                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'english_clear'); } catch { /* ignore */ }
                             }}
                             className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${
                               selectedVoiceUri === 'english_clear' ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
@@ -7358,7 +7344,7 @@ export default function LiveTrainPositionTracker({
                       onChange={(e) => {
                         const val = parseFloat(e.target.value);
                         setSpeechRate(val);
-                        try { localStorage.setItem('pyidcc_speech_rate', String(val)); } catch {}
+                        try { localStorage.setItem('pyidcc_speech_rate', String(val)); } catch { /* ignore */ }
                       }}
                       className="w-full accent-cyan-500 bg-slate-900 h-1.5 rounded cursor-pointer"
                     />
@@ -7384,7 +7370,7 @@ export default function LiveTrainPositionTracker({
                       onChange={(e) => {
                         const val = parseFloat(e.target.value);
                         setSpeechPitch(val);
-                        try { localStorage.setItem('pyidcc_speech_pitch', String(val)); } catch {}
+                        try { localStorage.setItem('pyidcc_speech_pitch', String(val)); } catch { /* ignore */ }
                       }}
                       className="w-full accent-cyan-500 bg-slate-900 h-1.5 rounded cursor-pointer"
                     />
@@ -7486,7 +7472,7 @@ export default function LiveTrainPositionTracker({
                             type="button"
                             onClick={() => {
                               setSelectedVoiceUri('default_bmrcl_english');
-                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'default_bmrcl_english'); } catch {}
+                              try { localStorage.setItem('pyidcc_selected_tts_voice', 'default_bmrcl_english'); } catch { /* ignore */ }
                             }}
                             className={`px-3 py-1.5 rounded font-bold text-[11px] transition ${
                               (!selectedVoiceUri || selectedVoiceUri === 'default_bmrcl_english' || selectedVoiceUri === 'native_bmrcl_kannada_hd') ? 'bg-cyan-500 text-slate-950 font-black' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
@@ -7535,7 +7521,7 @@ export default function LiveTrainPositionTracker({
                                   type="button"
                                   onClick={() => {
                                     setSelectedVoiceUri(v.voiceURI || v.name);
-                                    try { localStorage.setItem('pyidcc_selected_tts_voice', v.voiceURI || v.name); } catch {}
+                                    try { localStorage.setItem('pyidcc_selected_tts_voice', v.voiceURI || v.name); } catch { /* ignore */ }
                                   }}
                                   className={`px-2.5 py-1 rounded font-bold text-[10px] transition ${
                                     isSelected ? 'bg-cyan-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
@@ -7571,7 +7557,7 @@ export default function LiveTrainPositionTracker({
                     setShowVoiceSampleModal(false);
                     testVoiceAnnouncement();
                   }}
-                  className="px-3.5 py-1.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 rounded-lg text-xs font-black font-mono shadow-md transition flex items-center gap-1.5"
+                  className="px-3.5 py-1.5 bg-linear-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 rounded-lg text-xs font-black font-mono shadow-md transition flex items-center gap-1.5"
                 >
                   <Megaphone size={12} /> Test Full 3-Min Alert
                 </button>

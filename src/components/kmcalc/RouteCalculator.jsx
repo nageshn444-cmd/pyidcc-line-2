@@ -2,7 +2,16 @@ import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { PREDEFINED_TRIPS } from '../../data/kmcalc/masterStations';
 import { PRELOADED_DUTIES } from '../../data/kmcalc/preloadedDuties';
-import { calculateDistance, parseCSVToDuties, enhanceRosterDuties, calculateKmConfidence } from '../../utils/kmCalculator';
+import { 
+  calculateDistance, 
+  parseCSVToDuties, 
+  enhanceRosterDuties, 
+  calculateKmConfidence,
+  calculateTimeBasedLocation,
+  calculateLocationBasedTime,
+  generateRouteStationSchedule,
+  DUTY_55_ROUTE_STOPS
+} from '../../utils/kmCalculator';
 import { 
   Plus, 
   Trash2, 
@@ -25,7 +34,14 @@ import {
   Maximize2,
   Smartphone,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  Clock,
+  Activity,
+  Gauge,
+  Zap,
+  Calendar,
+  Navigation,
+  CheckCircle2
 } from 'lucide-react';
 
 // 32 main passenger stations with matching serial order and coordinates for the serpentine layout
@@ -907,6 +923,22 @@ export default function RouteCalculator({
     setSelectedSequence([]);
   };
 
+  // ── Time-Based Location & Location-Based Time States (Duty #55 & Protocol) ──
+  const [routeStartTime, setRouteStartTime] = useState('15:15:00');
+  const [routeEndTime, setRouteEndTime] = useState('17:00:00');
+  const [timeQuery, setTimeQuery] = useState('15:45:00');
+  const [locationQuery, setLocationQuery] = useState('RVR');
+  const [showFullSchedule, setShowFullSchedule] = useState(false);
+  const [activeTimeLocationMode, setActiveTimeLocationMode] = useState('timeToLoc'); // 'timeToLoc' | 'locToTime'
+
+  const loadDuty55Sequence = () => {
+    setSelectedSequence(['NGSA_PT', 'NGSA', 'RVR', 'PYID']);
+    setRouteStartTime('15:15:00');
+    setRouteEndTime('17:00:00');
+    setTimeQuery('15:45:00');
+    setLocationQuery('RVR');
+  };
+
   const handleStationClick = (code) => {
     // If we click a station, we append it to the current sequence
     // If the sequence contains empty slots, fill them first, otherwise append
@@ -919,6 +951,36 @@ export default function RouteCalculator({
       setSelectedSequence([...selectedSequence, code]);
     }
   };
+
+  // Canonical Route Stops representation
+  const effectiveRouteStops = React.useMemo(() => {
+    const validCodes = selectedSequence.filter(Boolean);
+    if (validCodes.length >= 2) {
+      return validCodes.map(code => {
+        const eff = code === 'BIET' ? 'BIET_BE' : code === 'APTS' ? 'APTS_BE' : code;
+        const stn = (stations || []).find(s => s.code === eff) || (stations || []).find(s => s.code === code);
+        return {
+          code,
+          name: stn?.name || code,
+          chainage: stn?.chainage ?? 0.0,
+          isBufferOrSpecial: Boolean(stn?.isBufferOrSpecial)
+        };
+      });
+    }
+    return DUTY_55_ROUTE_STOPS;
+  }, [selectedSequence, stations]);
+
+  const timeLocationResult = React.useMemo(() => {
+    return calculateTimeBasedLocation(effectiveRouteStops, routeStartTime, routeEndTime, timeQuery);
+  }, [effectiveRouteStops, routeStartTime, routeEndTime, timeQuery]);
+
+  const locationTimeResults = React.useMemo(() => {
+    return calculateLocationBasedTime(effectiveRouteStops, routeStartTime, routeEndTime, locationQuery);
+  }, [effectiveRouteStops, routeStartTime, routeEndTime, locationQuery]);
+
+  const fullScheduleRows = React.useMemo(() => {
+    return generateRouteStationSchedule(effectiveRouteStops, routeStartTime, routeEndTime);
+  }, [effectiveRouteStops, routeStartTime, routeEndTime]);
 
   // Compute segments and values
   const segments = [];
@@ -1967,14 +2029,27 @@ export default function RouteCalculator({
                     <MapPin className="w-3.5 h-3.5 text-emerald-500" />
                     Trip Segment Station Sequence
                   </h3>
-                  <button
-                    id="btn-clear-calculator"
-                    onClick={clearSequence}
-                    className="bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-500/50 px-2.5 py-1 rounded text-[10px] font-mono font-bold transition-all flex items-center gap-1 cursor-pointer"
-                  >
-                    <Trash2 className="w-3 h-3 text-red-400" />
-                    <span>Clear All</span>
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      id="btn-load-duty55-protocol"
+                      type="button"
+                      onClick={loadDuty55Sequence}
+                      className="bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 px-2 py-1 rounded text-[10px] font-mono font-bold transition-all flex items-center gap-1 cursor-pointer"
+                      title="Load Duty #55 Route Protocol (NGSA_PT ➔ NGSA ➔ RVR ➔ PYID)"
+                    >
+                      <Zap className="w-3 h-3 text-emerald-400" />
+                      <span>Duty #55 Preset</span>
+                    </button>
+                    <button
+                      id="btn-clear-calculator"
+                      type="button"
+                      onClick={clearSequence}
+                      className="bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-500/50 px-2 py-1 rounded text-[10px] font-mono font-bold transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3 text-red-400" />
+                      <span>Clear All</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-2 max-h-60 overflow-y-auto pr-1.5 custom-scrollbar">
@@ -2118,6 +2193,431 @@ export default function RouteCalculator({
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════════════════
+              TIME-BASED LOCATION & LOCATION-BASED TIME OPERATIONAL ENGINE
+              Dedicated to Duty 55 & Multi-Leg Turnback Operations
+             ══════════════════════════════════════════════════════════════════════ */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 md:p-5 shadow-lg space-y-4 font-mono" id="time-location-engine-card">
+            {/* Header & Mode Switch */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 border-b border-slate-800 pb-3.5">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-emerald-500/10 border border-emerald-500/30 rounded text-emerald-400">
+                    <Activity className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-xs md:text-sm font-bold text-slate-100 uppercase tracking-wider">
+                    Dynamic Time ➔ Location & Location ➔ Time Calculation Suite
+                  </h3>
+                  <span className="px-2 py-0.5 bg-cyan-950 text-cyan-400 border border-cyan-800 rounded text-[9px] font-bold">
+                    Duty #55 Protocol
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 font-sans">
+                  Calculates continuous time-based location coordinates (chainage KM) and location-based arrival times for turnback and multi-segment operational trips.
+                </p>
+              </div>
+
+              {/* Mode Selector Buttons */}
+              <div className="flex items-center bg-slate-955 p-1 rounded-lg border border-slate-800 self-stretch sm:self-auto">
+                <button
+                  type="button"
+                  id="btn-mode-time-to-loc"
+                  onClick={() => setActiveTimeLocationMode('timeToLoc')}
+                  className={`flex-1 sm:flex-none px-3 py-1.5 rounded text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    activeTimeLocationMode === 'timeToLoc'
+                      ? 'bg-emerald-600 text-white shadow'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Time ➔ Location</span>
+                </button>
+                <button
+                  type="button"
+                  id="btn-mode-loc-to-time"
+                  onClick={() => setActiveTimeLocationMode('locToTime')}
+                  className={`flex-1 sm:flex-none px-3 py-1.5 rounded text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    activeTimeLocationMode === 'locToTime'
+                      ? 'bg-cyan-600 text-white shadow'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>Location ➔ Time</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Route Baseline Parameters (Timing Window & Overall Distance) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-slate-955/80 border border-slate-850 rounded-lg p-3 text-[11px]">
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">Trip Start Time</span>
+                <input
+                  type="text"
+                  id="input-route-start-time"
+                  value={routeStartTime}
+                  onChange={(e) => setRouteStartTime(e.target.value)}
+                  placeholder="15:15:00"
+                  className="w-full mt-1 px-2.5 py-1 bg-slate-900 border border-slate-800 rounded text-emerald-400 font-bold focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">Trip End Time</span>
+                <input
+                  type="text"
+                  id="input-route-end-time"
+                  value={routeEndTime}
+                  onChange={(e) => setRouteEndTime(e.target.value)}
+                  placeholder="17:00:00"
+                  className="w-full mt-1 px-2.5 py-1 bg-slate-900 border border-slate-800 rounded text-emerald-400 font-bold focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">Total Duration</span>
+                <div className="mt-1 px-2.5 py-1 bg-slate-900 border border-slate-800 rounded text-slate-200 font-bold flex items-center justify-between">
+                  <span>{timeLocationResult.durationFormatted || '01:45:00'}</span>
+                  <span className="text-[9px] text-slate-400 font-normal">
+                    {Math.round((timeLocationResult.totalDurationSec || 6300) / 60)} mins
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">Total Route Distance</span>
+                <div className="mt-1 px-2.5 py-1 bg-slate-900 border border-slate-800 rounded text-emerald-400 font-bold flex items-center justify-between">
+                  <span>{timeLocationResult.totalDistanceKm || 37.908} KM</span>
+                  <span className="text-[9px] text-slate-400 font-normal">
+                    {Math.round(timeLocationResult.totalDistanceKm || 38)} KM (Round Off)
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* MODE 1: TIME ➔ LOCATION */}
+            {activeTimeLocationMode === 'timeToLoc' && (
+              <div className="space-y-4">
+                <div className="bg-slate-955 border border-slate-800 rounded-lg p-3.5 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <label htmlFor="input-query-time" className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                      Specify Inspection Time:
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        id="input-query-time"
+                        value={timeQuery}
+                        onChange={(e) => setTimeQuery(e.target.value)}
+                        placeholder="HH:MM:SS"
+                        className="w-28 px-2 py-1 bg-slate-900 border border-slate-750 rounded text-emerald-300 font-bold text-center focus:outline-none focus:border-emerald-500"
+                      />
+                      <span className="text-[10px] text-slate-400 font-sans">(HH:MM:SS)</span>
+                    </div>
+                  </div>
+
+                  {/* Quick Preset Buttons for Duty 55 Leg 1 */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mr-1">Presets:</span>
+                    {[
+                      { label: '15:15:00 (Origin / NGSA_PT)', val: '15:15:00' },
+                      { label: '15:16:13 (NGSA Pass)', val: '15:16:13' },
+                      { label: '15:24:43 (PYID DN Pass)', val: '15:24:43' },
+                      { label: '15:45:00 (Mid Journey)', val: '15:45:00' },
+                      { label: '16:12:22 (RVR Turn Back)', val: '16:12:22' },
+                      { label: '16:30:45 (KGWA UP Pass)', val: '16:30:45' },
+                      { label: '17:00:00 (PYID Trip End)', val: '17:00:00' }
+                    ].map((btn, bIdx) => (
+                      <button
+                        key={bIdx}
+                        type="button"
+                        onClick={() => setTimeQuery(btn.val)}
+                        className={`px-2 py-0.5 rounded text-[9px] font-bold transition border cursor-pointer ${
+                          timeQuery === btn.val
+                            ? 'bg-emerald-600/30 text-emerald-300 border-emerald-500/60'
+                            : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200 hover:bg-slate-850'
+                        }`}
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Calculation Output Visualizer Card */}
+                <div className="bg-gradient-to-br from-slate-955 to-slate-900 border border-slate-800 rounded-xl p-4 space-y-4">
+                  {/* Status Bar */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full ${
+                        timeLocationResult.status === 'RUNNING' 
+                          ? 'bg-emerald-400 animate-pulse' 
+                          : timeLocationResult.status === 'COMPLETED'
+                          ? 'bg-cyan-400'
+                          : 'bg-amber-400'
+                      }`} />
+                      <span className="text-xs font-bold text-slate-200">
+                        TRAIN STATUS: <span className="text-emerald-400">{timeLocationResult.status}</span>
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-3 text-[11px]">
+                      <span className="text-slate-400">
+                        Direction:{' '}
+                        <span className={`font-bold ${
+                          timeLocationResult.direction === 'DOWN' ? 'text-cyan-400' : 'text-emerald-400'
+                        }`}>
+                          {timeLocationResult.direction === 'DOWN' ? 'DOWN LINE (Southbound)' : 'UP LINE (Northbound)'}
+                        </span>
+                      </span>
+                      <span className="text-slate-600">|</span>
+                      <span className="text-slate-400">
+                        Progress: <span className="font-bold text-slate-100">{timeLocationResult.progressPct}%</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Main Metric Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {/* Location / Chainage */}
+                    <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 space-y-1">
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">
+                        Dynamic Chainage Coordinate
+                      </span>
+                      <div className="text-xl font-black text-emerald-400">
+                        {timeLocationResult.chainageFormatted}
+                      </div>
+                      <span className="text-[9px] text-slate-500 block">
+                        Absolute rail km from Line 2 zero reference
+                      </span>
+                    </div>
+
+                    {/* Nearest Station */}
+                    <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 space-y-1">
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">
+                        Nearest Station / Landmark
+                      </span>
+                      <div className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+                        <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>{timeLocationResult.nearestStation?.code} - {timeLocationResult.nearestStation?.name}</span>
+                      </div>
+                      <span className="text-[9px] text-slate-400 block font-mono">
+                        Distance from station: {timeLocationResult.nearestStation?.distanceKm ?? '0.000'} KM
+                      </span>
+                    </div>
+
+                    {/* Active Route Segment */}
+                    <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 space-y-1">
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">
+                        Active Route Segment
+                      </span>
+                      <div className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+                        <span>{timeLocationResult.segmentFrom}</span>
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
+                        <span>{timeLocationResult.segmentTo}</span>
+                      </div>
+                      <span className="text-[9px] text-slate-500 block">
+                        Segment {timeLocationResult.segmentIndex + 1} of {timeLocationResult.totalSegments} · {timeLocationResult.segmentProgressPct}% done
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Traversed Distance Bar */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-[10px] text-slate-400">
+                      <span>Traversed: <strong className="text-emerald-400">{timeLocationResult.distanceTraversedKm} KM</strong></span>
+                      <span>Total: <strong className="text-slate-200">{timeLocationResult.totalDistanceKm} KM</strong></span>
+                      <span>Remaining: <strong className="text-slate-400">{timeLocationResult.distanceRemainingKm} KM</strong></span>
+                    </div>
+                    <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+                      <div
+                        className="bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${Math.min(100, Math.max(0, timeLocationResult.progressPct || 0))}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* MODE 2: LOCATION ➔ TIME */}
+            {activeTimeLocationMode === 'locToTime' && (
+              <div className="space-y-4">
+                <div className="bg-slate-955 border border-slate-800 rounded-lg p-3.5 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <label htmlFor="select-query-station" className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-cyan-400" />
+                      Select Target Station to Calculate Arrival/Departure:
+                    </label>
+                    <select
+                      id="select-query-station"
+                      value={locationQuery}
+                      onChange={(e) => setLocationQuery(e.target.value)}
+                      className="px-3 py-1.5 bg-slate-900 border border-slate-750 rounded text-cyan-300 font-bold text-xs focus:outline-none focus:border-cyan-500 cursor-pointer"
+                    >
+                      {effectiveRouteStops.map((stn, sIdx) => (
+                        <option key={`${stn.code}-${sIdx}`} value={stn.code}>
+                          {stn.code} - {stn.name} ({stn.chainage >= 0 ? `+${stn.chainage.toFixed(3)}` : stn.chainage.toFixed(3)} KM)
+                        </option>
+                      ))}
+                      <option disabled>────────── Mainline Line 2 ──────────</option>
+                      {(stations || []).map((stn) => (
+                        <option key={stn.id || stn.code} value={stn.code}>
+                          {stn.code} - {stn.name} ({stn.chainage >= 0 ? `+${stn.chainage.toFixed(3)}` : stn.chainage.toFixed(3)} KM)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Quick Preset Station Pills for Duty 55 */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mr-1">Duty #55 Sequence Stops:</span>
+                    {['NGSA_PT', 'NGSA', 'PYID', 'KGWA', 'RVR'].map((code) => (
+                      <button
+                        key={code}
+                        type="button"
+                        onClick={() => setLocationQuery(code)}
+                        className={`px-2 py-0.5 rounded text-[9px] font-bold transition border cursor-pointer ${
+                          locationQuery === code
+                            ? 'bg-cyan-600/30 text-cyan-300 border-cyan-500/60'
+                            : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200 hover:bg-slate-850'
+                        }`}
+                      >
+                        {code}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Location ➔ Time Results */}
+                <div className="bg-slate-955 border border-slate-800 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                      Calculated Passage Times for Station: <span className="text-cyan-300 font-extrabold">{locationQuery}</span>
+                    </h4>
+                    <span className="text-[10px] text-slate-400">
+                      Total Passes Detected: <strong className="text-slate-100">{locationTimeResults.length}</strong>
+                    </span>
+                  </div>
+
+                  {locationTimeResults.length === 0 ? (
+                    <div className="p-6 text-center text-slate-500 italic text-[11px] border border-dashed border-slate-850 rounded-lg">
+                      Station {locationQuery} was not passed during the selected route sequence.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {locationTimeResults.map((pass, pIdx) => (
+                        <div key={pIdx} className="bg-slate-900 border border-slate-800 rounded-lg p-3 space-y-2">
+                          <div className="flex items-center justify-between border-b border-slate-800/80 pb-1.5">
+                            <span className="px-2 py-0.5 bg-slate-955 text-slate-300 border border-slate-800 rounded text-[9px] font-bold">
+                              PASS #{pass.passIndex}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded text-[8px] font-bold flex items-center gap-1 ${
+                              pass.direction === 'DOWN'
+                                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                                : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                            }`}>
+                              {pass.direction === 'DOWN' ? <ArrowDownRight className="w-2.5 h-2.5" /> : <ArrowUpRight className="w-2.5 h-2.5" />}
+                              {pass.direction === 'DOWN' ? 'DOWN LINE (Southbound)' : 'UP LINE (Northbound)'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-baseline justify-between">
+                            <span className="text-[10px] text-slate-400 uppercase font-bold">Calculated Time:</span>
+                            <span className="text-xl font-black text-cyan-400">{pass.passTime}</span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-850 pt-1.5">
+                            <span>Elapsed from start: <strong className="text-slate-200">+{pass.elapsedFormatted}</strong></span>
+                            <span>Distance: <strong className="text-emerald-400">{pass.distanceTraversedKm} KM</strong></span>
+                          </div>
+
+                          <div className="text-[9px] text-slate-500 font-sans">
+                            Segment {pass.segmentIndex + 1}: {pass.segmentName}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Collapsible Complete Station Schedule Timetable */}
+            <div className="border-t border-slate-800 pt-3">
+              <button
+                type="button"
+                id="btn-toggle-full-schedule"
+                onClick={() => setShowFullSchedule(!showFullSchedule)}
+                className="w-full py-2 bg-slate-955 hover:bg-slate-850 border border-slate-800 rounded-lg text-xs font-bold text-slate-300 hover:text-emerald-300 transition flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                <span>
+                  {showFullSchedule ? 'Hide Full Passage Timetable' : 'View Complete Station-by-Station Timetable (Chronological Passages)'}
+                </span>
+                {showFullSchedule ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </button>
+
+              {showFullSchedule && (
+                <div className="mt-3 overflow-x-auto border border-slate-800 rounded-lg custom-scrollbar">
+                  <table className="w-full text-left text-[11px] border-collapse">
+                    <thead className="bg-slate-955 text-slate-400 uppercase tracking-wider text-[9px] sticky top-0">
+                      <tr>
+                        <th className="px-3 py-2 border-b border-slate-800">Stop #</th>
+                        <th className="px-3 py-2 border-b border-slate-800">Station / Point</th>
+                        <th className="px-3 py-2 border-b border-slate-800 text-right">Chainage KM</th>
+                        <th className="px-3 py-2 border-b border-slate-800 text-center">Calculated Time</th>
+                        <th className="px-3 py-2 border-b border-slate-800 text-right">Elapsed Time</th>
+                        <th className="px-3 py-2 border-b border-slate-800 text-right">Traversed KM</th>
+                        <th className="px-3 py-2 border-b border-slate-800">Direction</th>
+                        <th className="px-3 py-2 border-b border-slate-800">Segment</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-850 bg-slate-900/60">
+                      {fullScheduleRows.map((row, rIdx) => (
+                        <tr key={rIdx} className="hover:bg-slate-850/50 transition-colors">
+                          <td className="px-3 py-1.5 text-slate-400 font-bold">{row.stepIndex}</td>
+                          <td className="px-3 py-1.5 text-slate-200 font-bold">
+                            <span className="text-emerald-400">{row.stationCode}</span>
+                            <span className="text-slate-400 font-normal ml-1">({row.stationName})</span>
+                          </td>
+                          <td className="px-3 py-1.5 text-right text-slate-400 font-mono">
+                            {row.chainage >= 0 ? `+${row.chainage.toFixed(3)}` : row.chainage.toFixed(3)} KM
+                          </td>
+                          <td className="px-3 py-1.5 text-center font-black text-cyan-400 font-mono">
+                            {row.passageTime}
+                          </td>
+                          <td className="px-3 py-1.5 text-right text-slate-400 font-mono">
+                            +{row.elapsedFormatted}
+                          </td>
+                          <td className="px-3 py-1.5 text-right font-bold text-emerald-400 font-mono">
+                            {row.cumulativeDistanceKm} KM
+                          </td>
+                          <td className="px-3 py-1.5">
+                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${
+                              row.direction === 'DOWN'
+                                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                                : row.direction === 'UP'
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                : 'bg-slate-800 text-slate-400'
+                            }`}>
+                              {row.direction}
+                            </span>
+                          </td>
+                          <td className="px-3 py-1.5 text-slate-400 text-[10px] truncate max-w-[150px]">
+                            {row.segmentName}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         </div>

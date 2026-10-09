@@ -408,7 +408,7 @@ export default function OperatorRequestNotificationCenter() {
 
       {/* ── Slide-in Floating Toast / Alert on New Incoming Request ── */}
       {activePopup && (
-        <div className="fixed top-5 right-5 z-[60] max-w-md w-full animate-in slide-in-from-top-4 duration-300">
+        <div className="fixed top-5 right-5 z-60 max-w-md w-full animate-in slide-in-from-top-4 duration-300">
           <div
             className={`p-4 rounded-2xl shadow-2xl border backdrop-blur-xl transition-all ${
               activePopup.requestType === "SHIFT_EXCHANGE"
@@ -546,7 +546,7 @@ export default function OperatorRequestNotificationCenter() {
 
       {/* ── All Pending Requests Drawer / Review Modal ── */}
       {showNotificationDrawer && (
-        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200 font-mono">
+        <div className="fixed inset-0 z-70 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200 font-mono">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
             {/* Modal Header */}
             <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/60">

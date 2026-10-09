@@ -405,18 +405,18 @@ export default function ChronologicalMatrix({
           onMouseLeave={onWttMouseLeave}
           onMouseUp={onWttMouseUp}
           onMouseMove={onWttMouseMove}
-          className="overflow-auto w-full max-h-[580px] cursor-grab active:cursor-grabbing select-none"
+          className="overflow-auto w-full max-h-145 cursor-grab active:cursor-grabbing select-none"
         >
           <table className="w-full text-left border-collapse font-mono text-[11px] min-w-[2000px]">
             <thead>
               <tr className="bg-slate-950 border-b border-slate-800 text-center sticky top-0 z-30">
                 {!isTrainOperator && (
-                  <th className="w-[70px] py-2" rowSpan="2">
+                  <th className="w-17.5 py-2" rowSpan="2">
                     Actions
                   </th>
                 )}
                 <th
-                  className="w-[80px] border-r-2 border-slate-800"
+                  className="w-20 border-r-2 border-slate-800"
                   rowSpan="2"
                 >
                   TRAIN ID
@@ -434,7 +434,7 @@ export default function ChronologicalMatrix({
                   <ArrowUpCircle className="h-3.5 w-3.5 inline" /> UP LINE
                 </th>
               </tr>
-              <tr className="bg-slate-900 border-b-2 border-slate-800 text-center sticky top-[28px] z-30 text-[10px]">
+              <tr className="bg-slate-900 border-b-2 border-slate-800 text-center sticky top-7 z-30 text-[10px]">
                 <th className="py-1.5 px-2 border-r border-slate-800 text-amber-300 font-bold bg-amber-950/20">
                   MODE
                 </th>
@@ -545,7 +545,7 @@ export default function ChronologicalMatrix({
                                 e.target.value,
                               )
                             }
-                            className={`w-full h-full min-h-[28px] bg-slate-950 ${direction === "DN" ? "text-amber-400" : "text-cyan-400"} text-center font-bold text-[10px] focus:outline-none focus:ring-1 focus:ring-emerald-500`}
+                            className={`w-full h-full min-h-7 bg-slate-950 ${direction === "DN" ? "text-amber-400" : "text-cyan-400"} text-center font-bold text-[10px] focus:outline-none focus:ring-1 focus:ring-emerald-500`}
                           >
                             <option value="ATO">ATO</option>
                             <option value="ATP">ATP</option>
@@ -577,7 +577,7 @@ export default function ChronologicalMatrix({
                             )
                           }
                           onPaste={(e) => handlePaste(e, rowIdx, currentColIdx)}
-                          className={`w-full h-full min-h-[28px] ${editBg} text-emerald-400 text-center focus:outline-none focus:ring-1 focus:ring-emerald-500 font-bold`}
+                          className={`w-full h-full min-h-7 ${editBg} text-emerald-400 text-center focus:outline-none focus:ring-1 focus:ring-emerald-500 font-bold`}
                         />
                       </td>
                     );

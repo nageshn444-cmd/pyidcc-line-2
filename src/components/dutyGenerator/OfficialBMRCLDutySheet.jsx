@@ -1139,45 +1139,45 @@ export default function OfficialBMRCLDutySheet({
             {/* Header Row */}
             <tr className="bg-white text-black font-black border-b border-black text-center">
               {/* LEFT HALF HEADERS (8 Columns: Duty No + 7 Operational Cols) */}
-              <th className="border-r border-black py-1 px-1 w-[45px]">
+              <th className="border-r border-black py-1 px-1 w-11.25">
                 Duty No
               </th>
-              <th className="border-r border-black py-1 px-1.5 w-[65px]">
+              <th className="border-r border-black py-1 px-1.5 w-16.25">
                 Type
               </th>
-              <th className="border-r border-black py-1 px-1 w-[55px]">
+              <th className="border-r border-black py-1 px-1 w-13.75">
                 Sign On Time
               </th>
-              <th className="border-r border-black py-1 px-1 w-[60px]">
+              <th className="border-r border-black py-1 px-1 w-15">
                 Sign On Location
               </th>
-              <th className="border-r border-black py-1 px-2 text-left min-w-[140px]">
+              <th className="border-r border-black py-1 px-2 text-left min-w-35">
                 NAME
               </th>
-              <th className="border-r border-black py-1 px-1 w-[75px]">
+              <th className="border-r border-black py-1 px-1 w-18.75">
                 Emp No
               </th>
-              <th className="border-r border-black py-1 px-1 w-[55px]">
+              <th className="border-r border-black py-1 px-1 w-13.75">
                 Sign OFF Time
               </th>
-              <th className="border-r-2 border-black py-1 px-1 w-[60px]">
+              <th className="border-r-2 border-black py-1 px-1 w-15">
                 Sign OFF Location
               </th>
 
               {/* RIGHT HALF HEADERS (5 Columns: Type + From + Name + Emp.No. + To) */}
-              <th className="border-r border-black py-1 px-1 w-[50px]">
+              <th className="border-r border-black py-1 px-1 w-12.5">
                 Type
               </th>
-              <th className="border-r border-black py-1 px-1 w-[55px]">
+              <th className="border-r border-black py-1 px-1 w-13.75">
                 From
               </th>
-              <th className="border-r border-black py-1 px-2 text-left min-w-[140px]">
+              <th className="border-r border-black py-1 px-2 text-left min-w-35">
                 Name
               </th>
-              <th className="border-r border-black py-1 px-1 w-[75px]">
+              <th className="border-r border-black py-1 px-1 w-18.75">
                 Emp.No.
               </th>
-              <th className="py-1 px-1 w-[55px]">
+              <th className="py-1 px-1 w-13.75">
                 To
               </th>
             </tr>
@@ -1404,7 +1404,7 @@ export default function OfficialBMRCLDutySheet({
 
       {/* ── CC DESK REASSIGNMENT / LEAVE SUBSTITUTE MODAL ── */}
       {editingCcSlot && (
-        <div className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 print:hidden animate-fadeIn">
+        <div className="fixed inset-0 z-100 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 print:hidden animate-fadeIn">
           <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-lg p-6 shadow-2xl text-slate-100 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>

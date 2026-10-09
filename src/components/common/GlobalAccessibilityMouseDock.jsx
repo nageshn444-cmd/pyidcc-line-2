@@ -239,12 +239,12 @@ export default function GlobalAccessibilityMouseDock() {
         >
           <div 
             ref={dockRef}
-            className="w-full sm:w-[460px] max-h-[90vh] bg-slate-950 border-2 border-cyan-500/60 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scale-up font-mono text-slate-200"
+            className="w-full sm:w-115 max-h-[90vh] bg-slate-950 border-2 border-cyan-500/60 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scale-up font-mono text-slate-200"
           >
             {/* Dock Top Header */}
             <div className="bg-slate-900 px-4 py-3 border-b border-slate-800 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <div className="p-2 rounded-lg bg-cyan-950 border border-cyan-700/60 text-cyan-400 flex-shrink-0">
+                <div className="p-2 rounded-lg bg-cyan-950 border border-cyan-700/60 text-cyan-400 shrink-0">
                   <MousePointer size={16} />
                 </div>
                 <div className="min-w-0">
@@ -252,14 +252,14 @@ export default function GlobalAccessibilityMouseDock() {
                     Mouse Left-Pointer Controls
                   </h3>
                   <div className="flex items-center gap-1.5 text-[9.5px] text-cyan-300 truncate">
-                    <ActiveIcon size={11} className="flex-shrink-0" />
+                    <ActiveIcon size={11} className="shrink-0" />
                     <span className="truncate">{activePageInfo.title}</span>
                   </div>
                 </div>
               </div>
 
               {/* Close Button */}
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-1 shrink-0">
                 <button
                   onClick={() => setIsOpen(false)}
                   className="p-1.5 rounded-lg text-slate-400 hover:text-white bg-slate-800 hover:bg-rose-900 transition border border-slate-700"

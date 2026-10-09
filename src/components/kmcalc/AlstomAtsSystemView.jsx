@@ -163,7 +163,7 @@ function Occ4TierMonitorCanvas({
 }) {
   return (
     <div className="p-3 bg-[#3e4753] overflow-x-auto select-none border-b border-[#292f38]">
-      <div className="min-w-[1240px] max-w-full mx-auto relative" style={{ height: '780px' }}>
+      <div className="min-w-310 max-w-full mx-auto relative" style={{ height: '780px' }}>
         <svg className="w-full h-full" viewBox="0 0 1600 780">
           <defs>
             <pattern id="hatch-stage2-occ" width="10" height="10" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
@@ -1095,7 +1095,7 @@ export default function AlstomAtsSystemView({
             </div>
 
             {/* Quick Active Fleet Search Box */}
-            <div className="relative flex items-center min-w-[210px] sm:min-w-[290px]">
+            <div className="relative flex items-center min-w-52.5 sm:min-w-72.5">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-cyan-400" />
               <input
                 type="text"
@@ -1277,7 +1277,7 @@ export default function AlstomAtsSystemView({
                       });
                     }
                   }}
-                className={`flex-shrink-0 text-left px-2.5 py-1.5 rounded-lg border text-[9px] transition-all font-mono min-w-[220px] max-w-[260px] ${
+                className={`shrink-0 text-left px-2.5 py-1.5 rounded-lg border text-[9px] transition-all font-mono min-w-55 max-w-65 ${
                   isSelected 
                     ? 'bg-cyan-950/90 border-cyan-400 shadow-lg shadow-cyan-900/50 ring-1 ring-cyan-400' 
                     : has3mRelief
@@ -1356,7 +1356,7 @@ export default function AlstomAtsSystemView({
       {/* 2. OVERVIEW CONTINUOUS TRACK RIBBON (Beneath Header as in Image)    */}
       {/* ─────────────────────────────────────────────────────────────────── */}
       <div className="bg-[#373e49] border-b border-[#292f38] px-2 py-1.5 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-600">
-        <div className="flex items-center justify-between min-w-[1400px] text-[8px] font-bold text-slate-200">
+        <div className="flex items-center justify-between min-w-350 text-[8px] font-bold text-slate-200">
           {ALSTOM_LINE_STATIONS.map((st, idx) => {
             const ch = getChainage(st.code);
             const isPyidArea = st.code === 'PYID' || st.code === 'JLHL';

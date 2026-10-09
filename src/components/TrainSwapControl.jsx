@@ -1656,7 +1656,7 @@ export default function TrainSwapControl({ activeDay, setActiveDay }) {
                       }`}>
                         {cand.candidateType.replace(/_/g, ' ')}
                       </span>
-                      <div className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[180px]">
+                      <div className="text-[10px] text-slate-400 mt-0.5 truncate max-w-45">
                         {cand.designation || cand.cadre}
                       </div>
                     </td>
@@ -1697,7 +1697,7 @@ export default function TrainSwapControl({ activeDay, setActiveDay }) {
                           <span className="text-rose-400 font-bold block">
                             {cand.expectedSignOff ? `Sign-Off: ${cand.expectedSignOff}` : 'Disqualified'}
                           </span>
-                          <span className="text-[9px] text-rose-300/80 block max-w-[170px] truncate" title={cand.rejectionReason}>
+                          <span className="text-[9px] text-rose-300/80 block max-w-42.5 truncate" title={cand.rejectionReason}>
                             {cand.signOffStatus === 'PAST_SCHEDULED_SIGN_OFF' ? 'Past sign-off' : (cand.rejectionReason || 'Ineligible')}
                           </span>
                         </div>

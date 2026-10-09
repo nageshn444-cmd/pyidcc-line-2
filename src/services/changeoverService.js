@@ -38,6 +38,7 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
   serverTimestamp,
@@ -46,6 +47,9 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebase.js";
+import { WTT_MASTER_REGISTRY } from "../data/wttMasterRegistry.js";
+import { calculateDistance, normalizeStationCode } from "../utils/kmCalculator.js";
+
 
 // ─── Time helpers ────────────────────────────────────────────────
 const toSec = (tStr) => {
@@ -233,17 +237,17 @@ export const CHANGEOVER_TABLE = {
       nightBreak: "07:20:00",
       nightKms: 51,
       mornKms: 7,
-      takeoverLocation: "BT DN BE",
-      mornTrainNo: "212",
+      takeoverLocation: "BIET DnBE",
+      mornTrainNo: "217",
       mornDepTime: "06:30:00",
-      mornArrTime: "07:44:00",
-      mornTripTime: "01:14:00",
-      mornHandoverLoc: "PYID DN",
+      mornArrTime: "07:27:00",
+      mornTripTime: "00:57:00",
+      mornHandoverLoc: "PYID Dn",
       signOffTime: "07:30:00",
       signOffLocation: "PYID",
       totalKms: 58,
       dutyHrs: "10:25:00",
-      drivingHrs: "03:02:00",
+      drivingHrs: "02:45:00",
       breakTime: "07:20:00",
     },
     70: {
@@ -2299,18 +2303,474 @@ export const CHANGEOVER_TABLE = {
   },
 };
 
+// ─── Set up transition pairs & aliases ───────────────────────────
+if (!CHANGEOVER_TABLE["MONDAY__WEEKDAY"] && CHANGEOVER_TABLE["MONDAY_GH__WEEKDAY"]) {
+  CHANGEOVER_TABLE["MONDAY__WEEKDAY"] = CHANGEOVER_TABLE["MONDAY_GH__WEEKDAY"];
+}
+if (!CHANGEOVER_TABLE["WEEKDAY__WEEKDAY"] && CHANGEOVER_TABLE["WEEKDAY__SATURDAY"]) {
+  CHANGEOVER_TABLE["WEEKDAY__WEEKDAY"] = JSON.parse(JSON.stringify(CHANGEOVER_TABLE["WEEKDAY__SATURDAY"]));
+}
+if (!CHANGEOVER_TABLE["SATURDAY__SATURDAY"] && CHANGEOVER_TABLE["SATURDAY__SUNDAY"]) {
+  CHANGEOVER_TABLE["SATURDAY__SATURDAY"] = JSON.parse(JSON.stringify(CHANGEOVER_TABLE["SATURDAY__SUNDAY"]));
+}
+
+// Standard Pre-Departure Check (PDC) requirement in minutes
+export const PDC_DURATION_MINUTES = 40;
+
+// Standard BMRCL Line 2 Stabling Locations & Terminals
+export const STABLING_LOCATIONS = [
+  { code: "DEPOT", name: "Peenya Depot (DEPOT)", line: "Line 2", isDepot: true },
+  { code: "PYID",  name: "Peenya Industry (PYID)", line: "Line 2" },
+  { code: "NGSA",  name: "Nagasandra (NGSA)", line: "Line 2" },
+  { code: "BIET",  name: "Madavara / BIET", line: "Line 2" },
+  { code: "KGWA",  name: "Majestic (KGWA)", line: "Line 2" },
+  { code: "NLC",   name: "National College (NLC)", line: "Line 2" },
+  { code: "RVR",   name: "RV Road (RVR)", line: "Line 2" },
+  { code: "PUTH",  name: "Yelachenahalli (PUTH)", line: "Line 2" },
+  { code: "APTS",  name: "Silk Institute / APTS", line: "Line 2" },
+  { code: "YPM",   name: "Yeshwanthpur (YPM)", line: "Line 2" },
+  { code: "RJNR",  name: "Rajajinagar (RJNR)", line: "Line 2" },
+];
+
+// Transit positioning minutes between Line 2 stabling points and induction stations
+export const LINE2_TRANSIT_MINUTES_MAP = {
+  "DEPOT__PYID": 10,
+  "DEPOT__NGSA": 15,
+  "DEPOT__BIET": 20,
+  "DEPOT__YPM": 15,
+  "DEPOT__RJNR": 20,
+  "DEPOT__KGWA": 25,
+  "DEPOT__NLC": 25,
+  "DEPOT__RVR": 30,
+  "DEPOT__PUTH": 30,
+  "DEPOT__APTS": 35,
+
+  "PYID__NGSA": 10,
+  "PYID__BIET": 15,
+  "PYID__KGWA": 20,
+  "PYID__NLC": 25,
+  "PYID__RVR": 30,
+  "PYID__PUTH": 30,
+  "PYID__APTS": 35,
+
+  "NGSA__BIET": 10,
+  "NGSA__KGWA": 25,
+  "NGSA__PUTH": 35,
+  "NGSA__APTS": 40,
+
+  "KGWA__NLC": 10,
+  "KGWA__RVR": 15,
+  "KGWA__PUTH": 20,
+  "KGWA__APTS": 25,
+  "KGWA__NGSA": 25,
+  "KGWA__PYID": 20,
+  "KGWA__DEPOT": 25,
+
+  "NLC__RVR": 10,
+  "NLC__PUTH": 15,
+  "NLC__APTS": 20,
+
+  "RVR__PUTH": 10,
+  "RVR__APTS": 15,
+
+  "PUTH__APTS": 10,
+};
+
+export function cleanLocationCode(loc) {
+  if (!loc) return "DEPOT";
+  const s = String(loc).toUpperCase().trim().replace(/\s+(UP|DN|PF|ROAD|RD\d).*$/i, '').trim();
+  if (s.includes('DEPOT') || s.includes('DPO')) return 'DEPOT';
+  if (s.includes('PYID') || s.includes('PEENYA')) return 'PYID';
+  if (s.includes('KGWA') || s.includes('MAJESTIC')) return 'KGWA';
+  if (s.includes('PUTH') || s.includes('YELACH')) return 'PUTH';
+  if (s.includes('NGSA') || s.includes('NAGA')) return 'NGSA';
+  if (s.includes('APTS') || s.includes('SILK')) return 'APTS';
+  if (s.includes('BIET') || s.includes('MADAV')) return 'BIET';
+  if (s.includes('NLC')) return 'NLC';
+  if (s.includes('RVR')) return 'RVR';
+  if (s.includes('YPM')) return 'YPM';
+  if (s.includes('RJNR')) return 'RJNR';
+  return s;
+}
+
+export function getTransitMinutes(fromLoc, toLoc, customMap = null) {
+  const f = cleanLocationCode(fromLoc);
+  const t = cleanLocationCode(toLoc);
+  if (!f || !t || f === t) return 0;
+
+  const map = customMap || LINE2_TRANSIT_MINUTES_MAP;
+  const k1 = `${f}__${t}`;
+  const k2 = `${t}__${f}`;
+  if (map[k1] !== undefined) return map[k1];
+  if (map[k2] !== undefined) return map[k2];
+  if (map[t] !== undefined) return map[t];
+  if (map[f] !== undefined) return map[f];
+  return 20; // Default Line 2 transit positioning time
+}
+
+/**
+ * Searches WTT records for a morning train's first revenue service start time and induction station.
+ */
+export function findWttInductionForTrain(trainId, scheduleType = 'SATURDAY', wttList = null) {
+  const normTrain = String(trainId || '').replace(/^T\s*/i, '').trim();
+  if (!normTrain || normTrain === '--') return null;
+
+  const registry = Array.isArray(wttList) && wttList.length > 0 ? wttList : WTT_MASTER_REGISTRY;
+  const targetSched = String(scheduleType || 'SATURDAY').toUpperCase();
+
+  const matchingRows = registry.filter(r => {
+    const rTid = String(r.trainId || r.upTid || r.dnTid || '').trim();
+    const rSched = String(r.scheduleType || '').toUpperCase();
+    return rTid === normTrain && (rSched === targetSched || (targetSched === 'WEEKDAY' && rSched.includes('WEEK')));
+  });
+
+  if (!matchingRows.length) return null;
+
+  let earliestSec = Infinity;
+  let earliestTime = null;
+  let inductionLoc = 'DEPOT';
+  let loopRoute = '--';
+
+  const timeRegex = /^([0-2]?\d):([0-5]\d)(?::([0-5]\d))?$/;
+
+  matchingRows.forEach(row => {
+    ['upTrip', 'downTrip'].forEach(tripKey => {
+      const trip = row[tripKey];
+      if (!trip || !trip.stations) return;
+      Object.entries(trip.stations).forEach(([stn, val]) => {
+        const str = String(val || '').trim();
+        const m = str.match(timeRegex);
+        if (m) {
+          const h = parseInt(m[1], 10);
+          const min = parseInt(m[2], 10);
+          const s = m[3] ? parseInt(m[3], 10) : 0;
+          const sec = h * 3600 + min * 60 + s;
+          // Morning service induction window: 03:30 to 08:30
+          if (sec >= 3.5 * 3600 && sec < 8.5 * 3600 && sec < earliestSec) {
+            earliestSec = sec;
+            earliestTime = str;
+            inductionLoc = stn;
+            loopRoute = trip.terminalLoopRoute || loopRoute;
+          }
+        }
+      });
+    });
+  });
+
+  if (!earliestTime) return null;
+
+  return {
+    trainId: normTrain,
+    scheduleType: targetSched,
+    revenueStartTime: earliestTime,
+    inductionLocation: inductionLoc,
+    terminalLoopRoute: loopRoute
+  };
+}
+
+/**
+ * Calculates dynamic Sign-On time based on WTT induction start time, stabling location, and 40-min PDC.
+ */
+export function calculateStablingAndPdcSignOn({
+  trainId,
+  stablingLocation,
+  assignedStablingLocation,
+  revenueStartTime,
+  transitMinutesMap = null,
+  targetScheduleType = 'SATURDAY',
+  wttRegistry = null
+}) {
+  let revStart = revenueStartTime;
+  let assignedStab = assignedStablingLocation;
+
+  // Auto-resolve from WTT if revenueStartTime or assigned location is missing
+  if ((!revStart || revStart === '--' || !assignedStab || assignedStab === '--') && trainId) {
+    const wttHit = findWttInductionForTrain(trainId, targetScheduleType, wttRegistry);
+    if (wttHit) {
+      if (!revStart || revStart === '--') revStart = wttHit.revenueStartTime;
+      if (!assignedStab || assignedStab === '--') assignedStab = wttHit.inductionLocation;
+    }
+  }
+
+  if (!revStart || revStart === '--') {
+    return {
+      signOnTime: '--',
+      pdcMinutes: PDC_DURATION_MINUTES,
+      transitMinutes: 0,
+      isAlternativeStabling: false,
+      actualStablingLocation: stablingLocation || 'DEPOT',
+      assignedStablingLocation: assignedStab || 'DEPOT',
+      revenueStartTime: '--',
+      calculatedByPdcEngine: false,
+      calculationBreakdown: 'Missing revenue start time from WTT'
+    };
+  }
+
+  const assignedCode = cleanLocationCode(assignedStab || 'DEPOT');
+  const actualCode = cleanLocationCode(stablingLocation || assignedCode);
+  const isAlternativeStabling = Boolean(stablingLocation && assignedCode !== actualCode);
+
+  let transitMins = 0;
+  if (isAlternativeStabling) {
+    transitMins = getTransitMinutes(actualCode, assignedCode, transitMinutesMap);
+  }
+
+  const [h, m, s = 0] = String(revStart).split(':').map(Number);
+  const revStartSecs = ((h || 0) * 3600) + ((m || 0) * 60) + (s || 0);
+
+  const pdcSecs = PDC_DURATION_MINUTES * 60;
+  const transitSecs = transitMins * 60;
+  const totalOffsetSecs = pdcSecs + transitSecs;
+
+  let signOnSecs = revStartSecs - totalOffsetSecs;
+  if (signOnSecs < 0) signOnSecs += 86400; // Midnight boundary handling
+
+  const hrs = Math.floor(signOnSecs / 3600) % 24;
+  const mins = Math.floor((signOnSecs % 3600) / 60);
+  const secs = signOnSecs % 60;
+  const signOnTimeStr = [hrs, mins, secs].map(v => String(v).padStart(2, '0')).join(':');
+
+  const breakdown = `WTT Rev Start: ${revStart} - ${PDC_DURATION_MINUTES}m PDC${isAlternativeStabling ? ` - ${transitMins}m Transit (${actualCode} ➔ ${assignedCode})` : ''} = S/ON ${signOnTimeStr}`;
+
+  return {
+    signOnTime: signOnTimeStr,
+    pdcMinutes: PDC_DURATION_MINUTES,
+    isAlternativeStabling,
+    transitMinutes: transitMins,
+    actualStablingLocation: actualCode,
+    assignedStablingLocation: assignedCode,
+    revenueStartTime: revStart,
+    calculatedByPdcEngine: true,
+    calculationBreakdown: breakdown
+  };
+}
+
+/**
+ * Automatically compiles changeover links across all transition pairs
+ * when a new Link Roster is uploaded or modified.
+ */
+export function compileDynamicChangeoverLinks({
+  fromDayType = 'WEEKDAY',
+  toDayType = 'SATURDAY',
+  linkRosterRows = [],
+  stablingOverrides = {},
+  wttRegistry = null
+}) {
+  const normFrom = String(fromDayType).toUpperCase();
+  const normTo = String(toDayType).toUpperCase();
+  const transitionKey = `${normFrom}__${normTo}`;
+
+  const baseTable = CHANGEOVER_TABLE[transitionKey] || CHANGEOVER_TABLE[`${normFrom}__${normTo}`] || {};
+  const compiledTable = {};
+
+  if (Array.isArray(linkRosterRows) && linkRosterRows.length > 0) {
+    const nightRows = linkRosterRows.filter(r => {
+      const dNo = parseInt(String(r.dutyNo || r.dutyId || '').replace(/\D/g, ''), 10);
+      return (dNo >= 50) || r.isNight || r.shift === 'N' || String(r.signOnTime || '').startsWith('21:') || String(r.signOnTime || '').startsWith('22:') || String(r.signOnTime || '').startsWith('20:');
+    });
+
+    nightRows.forEach(row => {
+      const dutyId = String(row.dutyNo || row.dutyId || '').padStart(2, '0');
+      const baseRow = baseTable[dutyId] || baseTable[String(Number(dutyId))] || {};
+
+      const mornTrain = row.mornTrainNo || baseRow.mornTrainNo || (row.leg3TrainNo && row.leg3TrainNo !== '--' ? row.leg3TrainNo : row.leg2TrainNo) || row.trainId || '--';
+      const assignedStab = row.takeoverLocation || baseRow.takeoverLocation || row.stablingLocation || (row.leg3DepLoc && row.leg3DepLoc !== '--' ? row.leg3DepLoc : row.leg2DepLoc) || 'DEPOT';
+      const actualStab = stablingOverrides[dutyId] || stablingOverrides[mornTrain] || assignedStab;
+      const revStart = row.mornDepTime || baseRow.mornDepTime || (row.leg3DepTime && row.leg3DepTime !== '--' ? row.leg3DepTime : row.leg2DepTime) || row.revStartTime || '05:30:00';
+      const mornArr = row.mornArrTime || baseRow.mornArrTime || (row.leg3ArrTime && row.leg3ArrTime !== '--' ? row.leg3ArrTime : row.leg2ArrTime) || '--';
+      const mornTrip = row.mornTripTime || baseRow.mornTripTime || (row.leg3TimeTo && row.leg3TimeTo !== '--' ? row.leg3TimeTo : row.leg2TimeTo) || '--';
+      const mornLoc = row.mornHandoverLoc || baseRow.mornHandoverLoc || (row.leg3ArrLoc && row.leg3ArrLoc !== '--' ? row.leg3ArrLoc : row.leg2ArrLoc) || row.signOffLocation || '--';
+
+      let computedMornKms = Number(row.mornKms || baseRow.mornKms || (Number(row.leg3Km) > 0 ? row.leg3Km : (Number(row.leg2Km) > 0 ? row.leg2Km : 0))) || 0;
+      if (computedMornKms === 0 && mornTrain && mornTrain !== '--') {
+        const dCalc = calculateDistance(actualStab, mornLoc || row.signOffLocation || 'PYID');
+        if (dCalc > 0) computedMornKms = Math.round(dCalc);
+      }
+      if (dutyId === '69' || Number(dutyId) === 69) {
+        computedMornKms = 7;
+      }
+
+      const pdcCalc = calculateStablingAndPdcSignOn({
+        trainId: mornTrain,
+        stablingLocation: actualStab,
+        assignedStablingLocation: assignedStab,
+        revenueStartTime: revStart,
+        targetScheduleType: normTo,
+        wttRegistry
+      });
+
+      compiledTable[dutyId] = {
+        dutyNo: dutyId,
+        fromDayType: normFrom,
+        toDayType: normTo,
+        signOnTime: row.signOnTime || baseRow.signOnTime || pdcCalc.signOnTime,
+        signOnLocation: row.signOnLocation || baseRow.signOnLocation || actualStab,
+        nightTrainNo: row.nightTrainNo || baseRow.nightTrainNo || row.leg1TrainNo || row.trainId || '--',
+        nightDepTime: row.nightDepTime || baseRow.nightDepTime || row.leg1DepTime || '--',
+        nightArrTime: row.nightArrTime || baseRow.nightArrTime || row.leg1ArrTime || '--',
+        nightTripTime: row.nightTripTime || baseRow.nightTripTime || '--',
+        nightHandoverLoc: row.nightHandoverLoc || baseRow.nightHandoverLoc || row.leg1HandoverLoc || '--',
+        nightBreak: row.nightBreak || baseRow.nightBreak || '--',
+        nightKms: Number(row.nightKms || baseRow.nightKms || row.leg1Km) || 0,
+        mornKms: computedMornKms,
+        takeoverLocation: actualStab,
+        mornTrainNo: mornTrain,
+        mornDepTime: pdcCalc.revenueStartTime || revStart,
+        mornArrTime: mornArr,
+        mornTripTime: mornTrip,
+        mornHandoverLoc: mornLoc,
+        signOffTime: row.signOffTime || baseRow.signOffTime || '--',
+        signOffLocation: row.signOffLocation || baseRow.signOffLocation || '--',
+        totalKms: (Number(row.nightKms || baseRow.nightKms) || 0) + computedMornKms,
+        dutyHrs: row.dutyHrs || baseRow.dutyHrs || '--',
+        drivingHrs: row.drivingHrs || baseRow.drivingHrs || '--',
+        breakTime: row.breakTime || baseRow.breakTime || '--',
+        isAlternativeStabling: pdcCalc.isAlternativeStabling,
+        assignedStablingLocation: pdcCalc.assignedStablingLocation,
+        actualStablingLocation: pdcCalc.actualStablingLocation,
+        transitMinutes: pdcCalc.transitMinutes,
+        pdcMinutes: pdcCalc.pdcMinutes,
+        calculatedSignOnTime: pdcCalc.signOnTime,
+        lastUpdated: new Date().toISOString()
+      };
+    });
+  } else {
+    Object.entries(baseTable).forEach(([dutyId, baseRow]) => {
+      const mornTrain = baseRow.mornTrainNo || '--';
+      const assignedStab = baseRow.takeoverLocation || 'DEPOT';
+      const actualStab = stablingOverrides[dutyId] || stablingOverrides[mornTrain] || assignedStab;
+      const revStart = baseRow.mornDepTime || '05:30:00';
+
+      let computedMornKms = Number(baseRow.mornKms) || 0;
+      if (computedMornKms === 0 && mornTrain && mornTrain !== '--') {
+        const dCalc = calculateDistance(actualStab, baseRow.mornHandoverLoc || baseRow.signOffLocation || 'PYID');
+        if (dCalc > 0) computedMornKms = Math.round(dCalc);
+      }
+      if (dutyId === '69' || Number(dutyId) === 69) {
+        computedMornKms = 7;
+      }
+
+      const pdcCalc = calculateStablingAndPdcSignOn({
+        trainId: mornTrain,
+        stablingLocation: actualStab,
+        assignedStablingLocation: assignedStab,
+        revenueStartTime: revStart,
+        targetScheduleType: normTo,
+        wttRegistry
+      });
+
+      compiledTable[dutyId] = {
+        ...baseRow,
+        dutyNo: dutyId,
+        fromDayType: normFrom,
+        toDayType: normTo,
+        mornKms: computedMornKms,
+        totalKms: (Number(baseRow.nightKms) || 0) + computedMornKms,
+        takeoverLocation: actualStab,
+        isAlternativeStabling: pdcCalc.isAlternativeStabling,
+        assignedStablingLocation: pdcCalc.assignedStablingLocation,
+        actualStablingLocation: pdcCalc.actualStablingLocation,
+        transitMinutes: pdcCalc.transitMinutes,
+        pdcMinutes: pdcCalc.pdcMinutes,
+        calculatedSignOnTime: pdcCalc.signOnTime,
+        mornDepTime: pdcCalc.revenueStartTime || revStart,
+        lastUpdated: new Date().toISOString()
+      };
+    });
+  }
+
+  enrichChangeoverTable({ [transitionKey]: compiledTable });
+
+  if (!CHANGEOVER_TABLE[transitionKey]) {
+    CHANGEOVER_TABLE[transitionKey] = {};
+  }
+  Object.assign(CHANGEOVER_TABLE[transitionKey], compiledTable);
+
+  return compiledTable;
+}
+
+/**
+ * Persists compiled changeover mappings to Firestore
+ */
+export async function saveCompiledChangeoverMappings(tableKey, compiledTable) {
+  try {
+    const docRef = doc(db, 'system_settings', 'changeover_mappings');
+    await setDoc(docRef, { [tableKey]: compiledTable }, { merge: true });
+    return true;
+  } catch (err) {
+    console.warn('Failed to persist compiled changeover mappings to Firestore:', err);
+    return false;
+  }
+}
+
+/**
+ * Automatically syncs changeover transition matrices when a new Link Roster is uploaded.
+ */
+export async function syncLinkRosterWithChangeoverTransitions(uploadedScheduleType, uploadedDuties = []) {
+  const normType = String(uploadedScheduleType || 'WEEKDAY').toUpperCase();
+  const transitionPairsToUpdate = [];
+
+  if (normType === 'WEEKDAY') {
+    transitionPairsToUpdate.push(
+      { from: 'WEEKDAY', to: 'SATURDAY' },
+      { from: 'WEEKDAY', to: 'WEEKDAY' },
+      { from: 'MONDAY', to: 'WEEKDAY' },
+      { from: 'SATURDAY', to: 'WEEKDAY' }
+    );
+  } else if (normType === 'SATURDAY') {
+    transitionPairsToUpdate.push(
+      { from: 'WEEKDAY', to: 'SATURDAY' },
+      { from: 'SATURDAY', to: 'SUNDAY' },
+      { from: 'SATURDAY', to: 'SATURDAY' },
+      { from: 'SATURDAY', to: 'WEEKDAY' }
+    );
+  } else if (normType === 'SUNDAY') {
+    transitionPairsToUpdate.push(
+      { from: 'SATURDAY', to: 'SUNDAY' },
+      { from: 'SUNDAY', to: 'MONDAY' },
+      { from: 'SUNDAY', to: 'MONDAY_GH' }
+    );
+  } else if (normType === 'MONDAY') {
+    transitionPairsToUpdate.push(
+      { from: 'SUNDAY', to: 'MONDAY' },
+      { from: 'MONDAY', to: 'WEEKDAY' },
+      { from: 'MONDAY_GH', to: 'WEEKDAY' }
+    );
+  }
+
+  const updatedMappings = {};
+
+  for (const pair of transitionPairsToUpdate) {
+    const compiled = compileDynamicChangeoverLinks({
+      fromDayType: pair.from,
+      toDayType: pair.to,
+      linkRosterRows: uploadedDuties
+    });
+    const key = `${pair.from}__${pair.to}`;
+    updatedMappings[key] = compiled;
+  }
+
+  try {
+    const docRef = doc(db, 'system_settings', 'changeover_mappings');
+    await setDoc(docRef, updatedMappings, { merge: true });
+  } catch (err) {
+    console.warn('Could not save auto-synced changeover mappings to Firestore:', err);
+  }
+
+  return updatedMappings;
+}
+
 // ─── Helper: get the changeover table key ────────────────────────
-function getTableKey(currentDay, nextDay) {
+export function getTableKey(currentDay, nextDay) {
   const cd = currentDay.toUpperCase();
   const nd = nextDay.toUpperCase();
 
-  // ── Canonical key aliases ──────────────────────────────────────────────────
-  // Regular Monday Night → Weekday Morning uses the same changeover roster
-  // as Monday GH Night → Weekday Morning (duties 51–65, identical times).
-  // Both route to MONDAY_GH__WEEKDAY so we maintain a single source of truth.
-  if (cd === "MONDAY" && nd === "WEEKDAY") return "MONDAY_GH__WEEKDAY";
+  // Canonical key aliases
+  if (cd === "MONDAY" && nd === "WEEKDAY") {
+    if (CHANGEOVER_TABLE["MONDAY__WEEKDAY"]) return "MONDAY__WEEKDAY";
+    return "MONDAY_GH__WEEKDAY";
+  }
 
-  // ── Fallback: direct key ───────────────────────────────────────────────────
   return `${cd}__${nd}`;
 }
 
@@ -2330,9 +2790,36 @@ export function isPdcTrip(str) {
 }
 
 // ─── Build an ACTIVE_RUN duty document from a changeover row ─────
-function buildActiveRunDuty(coRow, existingCurrentDuty, operatorInfo) {
+function buildActiveRunDuty(coRow, existingCurrentDuty, operatorInfo, stablingOverride = null) {
   // Night side maps to leg1 + leg2 (existing link roster fields)
   // Morning side maps to leg3 (takeover train) fields
+
+  let effectiveSignOnTime = coRow.signOnTime;
+  let effectiveTakeoverLoc = coRow.takeoverLocation;
+  let effectiveSignOnLoc = coRow.signOnLocation;
+  let isAltStabling = Boolean(coRow.isAlternativeStabling);
+  let transitMins = coRow.transitMinutes || 0;
+  let pdcMins = PDC_DURATION_MINUTES;
+
+  if (stablingOverride || isAltStabling) {
+    const actualLoc = stablingOverride || coRow.actualStablingLocation || coRow.takeoverLocation;
+    const assignedLoc = coRow.assignedStablingLocation || coRow.takeoverLocation || 'DEPOT';
+    const pdcCalc = calculateStablingAndPdcSignOn({
+      trainId: coRow.mornTrainNo,
+      stablingLocation: actualLoc,
+      assignedStablingLocation: assignedLoc,
+      revenueStartTime: coRow.mornDepTime
+    });
+
+    if (pdcCalc.calculatedByPdcEngine) {
+      effectiveSignOnTime = pdcCalc.signOnTime;
+      effectiveTakeoverLoc = actualLoc;
+      effectiveSignOnLoc = actualLoc;
+      isAltStabling = pdcCalc.isAlternativeStabling;
+      transitMins = pdcCalc.transitMinutes;
+      pdcMins = pdcCalc.pdcMinutes;
+    }
+  }
 
   const nightDrivingSec = getLegDuration(
     coRow.nightDepTime,
@@ -2341,7 +2828,7 @@ function buildActiveRunDuty(coRow, existingCurrentDuty, operatorInfo) {
   const mornDrivingSec = getLegDuration(coRow.mornDepTime, coRow.mornArrTime);
   const totalDrivingSec = nightDrivingSec + mornDrivingSec;
 
-  const signOnSec = toSec(coRow.signOnTime);
+  const signOnSec = toSec(effectiveSignOnTime);
   const signOffSec = toSec(coRow.signOffTime);
   let workSec = signOffSec - signOnSec;
   if (workSec < 0) workSec += 86400;
@@ -2350,7 +2837,7 @@ function buildActiveRunDuty(coRow, existingCurrentDuty, operatorInfo) {
   const baseFormatting = existingCurrentDuty?.formatting || {};
 
   const isMornPdc =
-    isPdcTrip(coRow.mornTrainNo) || isPdcTrip(coRow.takeoverLocation);
+    isPdcTrip(coRow.mornTrainNo) || isPdcTrip(effectiveTakeoverLoc);
   const mornKmsVal = isMornPdc ? 0 : coRow.mornKms || 0;
   const totalKmsVal = coRow.totalKms || (coRow.nightKms || 0) + mornKmsVal;
 
@@ -2412,9 +2899,9 @@ function buildActiveRunDuty(coRow, existingCurrentDuty, operatorInfo) {
     shift: "N",
     isNight: true,
 
-    // Sign On (from changeover night side)
-    signOnTime: coRow.signOnTime,
-    signOnLocation: coRow.signOnLocation,
+    // Sign On (from changeover night side or dynamic PDC calculation)
+    signOnTime: effectiveSignOnTime,
+    signOnLocation: effectiveSignOnLoc,
     trainId: String(coRow.nightTrainNo),
 
     // Leg 1 = night drive leg
@@ -2429,10 +2916,10 @@ function buildActiveRunDuty(coRow, existingCurrentDuty, operatorInfo) {
     leg2DepTime: coRow.nightArrTime,
     leg2ArrTime: coRow.mornDepTime,
     leg2TimeTo: coRow.nightBreak || "--",
-    leg2ArrLoc: coRow.takeoverLocation,
+    leg2ArrLoc: effectiveTakeoverLoc,
 
     // Leg 3 = morning takeover train
-    leg3DepLoc: coRow.takeoverLocation,
+    leg3DepLoc: effectiveTakeoverLoc,
     leg3TrainNo: String(coRow.mornTrainNo),
     leg3DepTime: coRow.mornDepTime,
     leg3ArrTime: coRow.mornArrTime,
@@ -2460,6 +2947,13 @@ function buildActiveRunDuty(coRow, existingCurrentDuty, operatorInfo) {
     leg3Km: mornKmsVal,
     leg4Km: 0,
     totalKm: totalKmsVal,
+
+    // PDC and Stabling metadata
+    isAlternativeStabling: isAltStabling,
+    transitMinutes: transitMins,
+    pdcMinutes: pdcMins,
+    stablingLocation: effectiveTakeoverLoc,
+    assignedStablingLocation: coRow.assignedStablingLocation || coRow.takeoverLocation || 'DEPOT',
 
     // Calculated hours & swap/exchange remarks
     remarks:
@@ -2498,11 +2992,36 @@ export function enrichChangeoverTable(tableObj) {
 }
 
 function enrichRow(row) {
-  const nK = Number(row.nightKms) || 0;
-  const mK = Number(row.mornKms) || 0;
-  if (!row.totalKms || row.totalKms === "--" || Number(row.totalKms) === 0) {
-    row.totalKms = nK + mK;
+  let nK = Number(row.nightKms) || 0;
+  let mK = Number(row.mornKms) || 0;
+
+  // Station Integrity Protocol for Duty 69 Leg 3: Morning Run
+  // Train #217 from BIET_BE (Buffer End SRMB) (-9.560 KM) to PYID (-3.020 KM)
+  // Precise: 6.540 KM -> Round off: 7 KM
+  if (String(row.dutyNo) === '69') {
+    mK = 7;
+    row.mornKms = 7;
+    row.takeoverLocation = (row.takeoverLocation && row.takeoverLocation !== '--') ? row.takeoverLocation : 'BIET DnBE';
+    row.mornTrainNo = (row.mornTrainNo && row.mornTrainNo !== '--') ? row.mornTrainNo : '217';
+    row.mornDepTime = (row.mornDepTime && row.mornDepTime !== '--') ? row.mornDepTime : '06:30:00';
+    row.mornArrTime = (row.mornArrTime && row.mornArrTime !== '--') ? row.mornArrTime : '07:27:00';
+    row.mornTripTime = (row.mornTripTime && row.mornTripTime !== '--') ? row.mornTripTime : '00:57:00';
+    row.mornHandoverLoc = (row.mornHandoverLoc && row.mornHandoverLoc !== '--') ? row.mornHandoverLoc : 'PYID Dn';
+    row.signOffTime = (row.signOffTime && row.signOffTime !== '--') ? row.signOffTime : '07:30:00';
+    row.signOffLocation = (row.signOffLocation && row.signOffLocation !== '--') ? row.signOffLocation : 'PYID';
+  } else if (mK === 0 && row.mornTrainNo && row.mornTrainNo !== '--') {
+    const fromLoc = row.takeoverLocation;
+    const toLoc = row.mornHandoverLoc || row.signOffLocation || 'PYID';
+    if (fromLoc && toLoc) {
+      const d = calculateDistance(fromLoc, toLoc);
+      if (d > 0) {
+        mK = Math.round(d);
+        row.mornKms = mK;
+      }
+    }
   }
+
+  row.totalKms = nK + mK;
 
   const nDep = toSec(row.nightDepTime);
   const nArr = toSec(row.nightArrTime);
@@ -2564,7 +3083,7 @@ export function getChangeoverMappings() {
 }
 
 // ─── Main export ─────────────────────────────────────────────────
-export const triggerChangeover = async (currentDay, nextDay, operatorAssignments = {}) => {
+export const triggerChangeover = async (currentDay, nextDay, operatorAssignments = {}, stablingOverrides = {}) => {
   const tableKey = getTableKey(currentDay, nextDay);
   const coTable = CHANGEOVER_TABLE[tableKey];
 
@@ -2622,7 +3141,7 @@ export const triggerChangeover = async (currentDay, nextDay, operatorAssignments
   // ── 3. Build new ACTIVE_RUN duties ──
   const writeBatchInst = writeBatch(db);
 
-  // (a) Night changeover duties — built from the Excel table with active Night Train Operator
+  // (a) Night changeover duties — built from the Excel table with active Night Train Operator and 40-min PDC calculation
   const changeoverDutyIds = new Set();
   Object.entries(coTable).forEach(([dutyNo, coRow]) => {
     changeoverDutyIds.add(dutyNo);
@@ -2633,10 +3152,13 @@ export const triggerChangeover = async (currentDay, nextDay, operatorAssignments
       operatorAssignments[String(dutyNo).padStart(2, "0")] ||
       {};
 
+    const stablingOverride = stablingOverrides[dutyNo] || stablingOverrides[String(Number(dutyNo))] || null;
+
     const finalDuty = buildActiveRunDuty(
       { ...coRow, dutyNo },
       existingCurrentDuty,
       op,
+      stablingOverride
     );
     const docId = `link_active_run_duty_${dutyNo}`;
     writeBatchInst.set(doc(db, "crew_final_links", docId), finalDuty);
@@ -2646,10 +3168,10 @@ export const triggerChangeover = async (currentDay, nextDay, operatorAssignments
       dutyId: String(dutyNo).padStart(2, "0"),
       scheduleType: "ACTIVE_RUN",
       dutyType: `NIGHT_CHANGEOVER_${dutyNo}`,
-      signOnTime: coRow.signOnTime,
-      signOffTime: coRow.signOffTime,
-      signOnLocation: coRow.signOnLocation,
-      signOffLocation: coRow.signOffLocation,
+      signOnTime: finalDuty.signOnTime || coRow.signOnTime,
+      signOffTime: finalDuty.signOffTime || coRow.signOffTime,
+      signOnLocation: finalDuty.signOnLocation || coRow.signOnLocation,
+      signOffLocation: finalDuty.signOffLocation || coRow.signOffLocation,
       trainId: String(coRow.nightTrainNo),
       empName: finalDuty.empName || "--",
       name: finalDuty.empName || "--",
@@ -2665,6 +3187,9 @@ export const triggerChangeover = async (currentDay, nextDay, operatorAssignments
       isNight: true,
       autoDeployed: true,
       isLocked: true,
+      isAlternativeStabling: Boolean(finalDuty.isAlternativeStabling),
+      transitMinutes: finalDuty.transitMinutes || 0,
+      pdcMinutes: finalDuty.pdcMinutes || PDC_DURATION_MINUTES,
       lastUpdated: serverTimestamp(),
     };
 
@@ -2728,7 +3253,7 @@ export const triggerChangeover = async (currentDay, nextDay, operatorAssignments
     performedBy: "System Admin",
   });
 
-  return `ACTIVE_RUN (${currentDay} ➔ ${nextDay}) — ${Object.keys(coTable).length} night duties merged with DISPATCH GATEWAY CORE active operators`;
+  return `ACTIVE_RUN (${currentDay} ➔ ${nextDay}) — ${Object.keys(coTable).length} night duties merged with DISPATCH GATEWAY CORE active operators and 40-min PDC validation`;
 };
 
 export const revertToNormalRoster = async () => {

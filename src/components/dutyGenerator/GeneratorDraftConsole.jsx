@@ -725,7 +725,7 @@ export default function GeneratorDraftConsole({
           <button
             onClick={handleRunGenerator}
             disabled={isGenerating}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-black rounded-2xl shadow-xl shadow-blue-600/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-6 py-3 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-black rounded-2xl shadow-xl shadow-blue-600/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RefreshCw className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
             <span>{isGenerating ? 'Solving Roster...' : '⚡ Generate Roster'}</span>
@@ -734,9 +734,9 @@ export default function GeneratorDraftConsole({
       </div>
 
       {/* ── GCC Previous Day Reference Roster Status Card ── */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-emerald-500/30 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-lg">
+      <div className="bg-linear-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-emerald-500/30 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-lg">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center flex-shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0">
             <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
           </div>
           <div>
@@ -927,19 +927,19 @@ export default function GeneratorDraftConsole({
                 onClick={() => setSelectedPlanId(plan.id)}
                 className={`p-5 rounded-2xl border text-left transition-all relative overflow-hidden group ${
                   isSelected
-                    ? `bg-gradient-to-br ${plan.gradient === 'from-emerald-600 to-teal-600' ? 'from-emerald-950/60 to-teal-950/40 border-emerald-500/60 shadow-xl shadow-emerald-900/20' : plan.gradient === 'from-indigo-600 to-purple-600' ? 'from-indigo-950/60 to-purple-950/40 border-indigo-500/60 shadow-xl shadow-indigo-900/20' : 'from-blue-950/60 to-indigo-950/40 border-blue-500/60 shadow-xl shadow-blue-900/20'}`
+                    ? `bg-linear-to-br ${plan.gradient === 'from-emerald-600 to-teal-600' ? 'from-emerald-950/60 to-teal-950/40 border-emerald-500/60 shadow-xl shadow-emerald-900/20' : plan.gradient === 'from-indigo-600 to-purple-600' ? 'from-indigo-950/60 to-purple-950/40 border-indigo-500/60 shadow-xl shadow-indigo-900/20' : 'from-blue-950/60 to-indigo-950/40 border-blue-500/60 shadow-xl shadow-blue-900/20'}`
                     : 'bg-slate-900/70 border-slate-800 hover:border-slate-700 hover:bg-slate-900'
                 }`}
               >
                 {isSelected && (
                   <div className="absolute top-3 right-3">
-                    <span className={`text-[10px] px-2 py-0.5 bg-gradient-to-r ${plan.gradient} text-white rounded-full font-black font-mono shadow-sm`}>
+                    <span className={`text-[10px] px-2 py-0.5 bg-linear-to-r ${plan.gradient} text-white rounded-full font-black font-mono shadow-sm`}>
                       ✓ SELECTED
                     </span>
                   </div>
                 )}
                 <div className="flex items-start gap-3 mb-3">
-                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${plan.gradient} flex items-center justify-center shadow-lg flex-shrink-0`}>
+                  <div className={`w-10 h-10 rounded-xl bg-linear-to-br ${plan.gradient} flex items-center justify-center shadow-lg shrink-0`}>
                     <span className="text-white font-black text-sm">{plan.id.replace('PLAN_', '')}</span>
                   </div>
                   <div className="min-w-0">
@@ -990,12 +990,12 @@ export default function GeneratorDraftConsole({
 
       {/* ── Empty State: when no roster generated yet ── */}
       {!solutions && !isGenerating && (
-        <div className="bg-gradient-to-br from-slate-900 via-blue-950/20 to-slate-900 border border-blue-500/20 rounded-3xl p-10 flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden">
+        <div className="bg-linear-to-br from-slate-900 via-blue-950/20 to-slate-900 border border-blue-500/20 rounded-3xl p-10 flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden">
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute top-1/4 left-1/4 w-48 h-48 bg-blue-600/5 rounded-full blur-3xl" />
             <div className="absolute bottom-1/4 right-1/4 w-32 h-32 bg-indigo-600/5 rounded-full blur-2xl" />
           </div>
-          <div className="relative w-20 h-20 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-3xl flex items-center justify-center shadow-2xl shadow-blue-600/30 mb-5">
+          <div className="relative w-20 h-20 bg-linear-to-tr from-blue-600 to-indigo-500 rounded-3xl flex items-center justify-center shadow-2xl shadow-blue-600/30 mb-5">
             <Sparkles className="w-10 h-10 text-white" />
           </div>
           <h3 className="text-xl font-black text-white mb-2">Ready to Generate Duty Roster</h3>
@@ -1053,7 +1053,7 @@ export default function GeneratorDraftConsole({
                 const isActive = generationPhase === ph.id;
                 return (
                   <div key={ph.id} className="flex items-center gap-2.5">
-                    <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all ${
                       isDone ? 'bg-emerald-500' : isActive ? 'bg-blue-500 animate-pulse' : 'bg-slate-800'
                     }`}>
                       {isDone ? (
@@ -1276,17 +1276,17 @@ export default function GeneratorDraftConsole({
                   </div>
                 </div>
 
-                <div className="overflow-x-auto max-h-[680px] overflow-y-auto">
+                <div className="overflow-x-auto max-h-170 overflow-y-auto">
                   <table className="w-full text-left text-xs text-slate-300">
                     <thead className="bg-slate-950/90 text-[11px] uppercase tracking-wider text-slate-400 font-bold font-mono sticky top-0 z-10 border-b border-slate-800">
                       <tr>
                         <th className="px-4 py-3">Duty No</th>
-                        <th className="px-4 py-3 min-w-[150px]">Shift / Link</th>
+                        <th className="px-4 py-3 min-w-37.5">Shift / Link</th>
                         <th className="px-4 py-3">Sign On</th>
                         <th className="px-4 py-3">Location</th>
                         <th className="px-4 py-3 font-bold text-slate-200">Train Operator</th>
                         <th className="px-4 py-3 font-mono">Emp No</th>
-                        <th className="px-4 py-3 min-w-[120px]">D-1 Duty</th>
+                        <th className="px-4 py-3 min-w-30">D-1 Duty</th>
                         <th className="px-4 py-3">Sign Off</th>
                         <th className="px-4 py-3">Off Loc</th>
                         <th className="px-4 py-3 text-right">Actions</th>
@@ -1327,7 +1327,7 @@ export default function GeneratorDraftConsole({
                                   )}
                                 </div>
                               </td>
-                              <td className="px-4 py-3 font-mono font-bold whitespace-nowrap min-w-[150px]">
+                              <td className="px-4 py-3 font-mono font-bold whitespace-nowrap min-w-37.5">
                                 <span className={`px-2.5 py-1.5 rounded-lg text-[11px] font-mono font-bold inline-flex items-center gap-1.5 shadow-sm border ${
                                   isNight ? 'bg-indigo-950/80 text-indigo-300 border-indigo-500/50' :
                                   isBShift ? 'bg-amber-950/80 text-amber-300 border-amber-500/50' :
@@ -1478,10 +1478,10 @@ export default function GeneratorDraftConsole({
               </div>
 
               {/* RIGHT COLUMN (4 Cols): Categorized Operational Desks */}
-              <div className="lg:col-span-4 space-y-3 max-h-[700px] overflow-y-auto pr-1">
+              <div className="lg:col-span-4 space-y-3 max-h-175 overflow-y-auto pr-1">
                 
                 {/* Category 1: Crew Controllers (CC) */}
-                <div className="bg-gradient-to-br from-indigo-950/40 to-slate-900 border border-indigo-500/50 rounded-2xl p-4 shadow-xl">
+                <div className="bg-linear-to-br from-indigo-950/40 to-slate-900 border border-indigo-500/50 rounded-2xl p-4 shadow-xl">
                   <div className="flex items-center justify-between pb-3 border-b border-indigo-500/20 mb-3">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 bg-indigo-500/20 rounded-lg flex items-center justify-center">
@@ -1521,7 +1521,7 @@ export default function GeneratorDraftConsole({
                               #{emp.empId} · {emp.sOnTime && emp.sOffTime ? `${emp.sOnTime}–${formatTo24HourTime(emp.sOffTime, emp.sOnTime, emp.shift)}` : 'CC Shift'}
                             </span>
                           </div>
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <div className="flex items-center gap-1.5 shrink-0">
                             <span className="px-2 py-1 bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 rounded-lg text-[10px] font-bold font-mono">
                               {emp.assignedDutyCode || emp.role || 'CC'}
                             </span>
@@ -1579,7 +1579,7 @@ export default function GeneratorDraftConsole({
 
                 {/* Reserve Pool: Phase 11 OR_SPARE overflow — crew available but no duty slot */}
                 {reservePool.length > 0 && (
-                  <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-600/50 rounded-2xl p-4 shadow-xl">
+                  <div className="bg-linear-to-br from-slate-900 to-slate-950 border border-slate-600/50 rounded-2xl p-4 shadow-xl">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-700/50 mb-3">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 bg-slate-600/30 rounded-lg flex items-center justify-center">
@@ -1602,7 +1602,7 @@ export default function GeneratorDraftConsole({
                             <span className="text-xs font-bold text-slate-300 block">{emp.name}</span>
                             <span className="text-[10px] text-slate-600 font-mono">#{emp.empId} · {emp.fixedWo ? `WO: ${emp.fixedWo}` : 'General Reserve'}</span>
                           </div>
-                          <span className="px-2 py-1 bg-slate-800 text-slate-500 border border-slate-700 rounded-lg text-[10px] font-mono flex-shrink-0">
+                          <span className="px-2 py-1 bg-slate-800 text-slate-500 border border-slate-700 rounded-lg text-[10px] font-mono shrink-0">
                             RESERVE
                           </span>
                         </div>
@@ -1651,7 +1651,7 @@ export default function GeneratorDraftConsole({
                   const STBK_STATION_ORDER = ['NGSA', 'PUTH', 'APTS', 'BIET', 'KGWA'];
 
                   return (
-                    <div className="bg-gradient-to-br from-slate-900 to-cyan-950/20 border border-cyan-500/40 rounded-2xl p-4 shadow-xl">
+                    <div className="bg-linear-to-br from-slate-900 to-cyan-950/20 border border-cyan-500/40 rounded-2xl p-4 shadow-xl">
                       {/* Header */}
                       <div className="flex items-center justify-between pb-2.5 border-b border-cyan-500/20 mb-3">
                         <span className="text-xs font-black text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
@@ -1708,7 +1708,7 @@ export default function GeneratorDraftConsole({
                                   return (
                                     <div key={shiftCode} className="flex items-center gap-3 px-3 py-2 bg-slate-950/40 hover:bg-slate-900/60 transition-colors">
                                       {/* Shift badge */}
-                                      <span className={`text-[9px] px-1.5 py-0.5 rounded border font-mono font-black flex-shrink-0 ${shiftColor}`}>
+                                      <span className={`text-[9px] px-1.5 py-0.5 rounded border font-mono font-black shrink-0 ${shiftColor}`}>
                                         {shiftCode}
                                       </span>
 
@@ -1723,7 +1723,7 @@ export default function GeneratorDraftConsole({
                                             </div>
                                             <span className="text-[9px] text-slate-500 font-mono">#{op.empId}</span>
                                           </div>
-                                          <span className={`text-[9px] px-2 py-0.5 rounded border font-mono font-bold flex-shrink-0 ${shiftColor}`}>
+                                          <span className={`text-[9px] px-2 py-0.5 rounded border font-mono font-bold shrink-0 ${shiftColor}`}>
                                             {timeLabel}
                                           </span>
                                         </>
@@ -1927,7 +1927,7 @@ export default function GeneratorDraftConsole({
         const totalKmsFormatted = totalKms >= 1000 ? `${(totalKms / 1000).toFixed(1)}k` : String(totalKms);
 
         return (
-          <div className="bg-gradient-to-r from-slate-900/90 via-blue-950/20 to-slate-900/90 border border-blue-500/15 rounded-2xl px-5 py-4 shadow-lg">
+          <div className="bg-linear-to-r from-slate-900/90 via-blue-950/20 to-slate-900/90 border border-blue-500/15 rounded-2xl px-5 py-4 shadow-lg">
             <div className="flex items-center gap-2 mb-3">
               <Activity className="w-4 h-4 text-blue-400" />
               <span className="text-xs font-black text-slate-300 uppercase tracking-wider">Operational Intelligence</span>

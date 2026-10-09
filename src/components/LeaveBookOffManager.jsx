@@ -870,7 +870,7 @@ export default function LeaveBookOffManager() {
               <p className="text-[11px] text-slate-600">Records are automatically copied here when uploading a daily roster or submitting manual entries.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-slate-800 max-h-[550px] overflow-y-auto">
+            <div className="overflow-x-auto rounded-lg border border-slate-800 max-h-137.5 overflow-y-auto">
               <table className="w-full text-left font-mono text-xs">
                 <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] border-b border-slate-800 sticky top-0 z-10">
                   <tr>
@@ -934,7 +934,7 @@ export default function LeaveBookOffManager() {
                             {row.source || 'Manual Entry'}
                           </span>
                         </td>
-                        <td className="py-2.5 px-3 text-slate-400 text-[11px] truncate max-w-[180px]">
+                        <td className="py-2.5 px-3 text-slate-400 text-[11px] truncate max-w-45">
                           {isEditing ? (
                             <input
                               id={`leavebookoff-reason-${row.id || idx}`}

@@ -578,7 +578,7 @@ export default function ReliefTracking({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 max-h-[360px] overflow-y-auto pr-1 custom-scrollbar">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 max-h-90 overflow-y-auto pr-1 custom-scrollbar">
             {continuityAudit.map(audit => (
               <div 
                 key={`audit-${audit.trainId}`}
@@ -698,7 +698,7 @@ export default function ReliefTracking({
       {/* VIEW 1: LIVE RELIEF HANDOVER CARDS                                   */}
       {/* ─────────────────────────────────────────────────────────────────── */}
       {viewMode === 'CARDS' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 max-h-[640px] overflow-y-auto pr-1 custom-scrollbar">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 max-h-160 overflow-y-auto pr-1 custom-scrollbar">
           {finalTrackingKeys.map(tid => {
             const tracking = effectiveLiveTrackingMap[tid] || effectiveLiveTrackingMap[normalizeTrackTrainId(tid)];
             const prev = tracking?.previous;
@@ -968,7 +968,7 @@ export default function ReliefTracking({
           </div>
 
           {/* Master Grid Table (Horizontally Scrollable) */}
-          <div className="border border-slate-800 rounded-xl overflow-x-auto max-h-[640px] custom-scrollbar bg-slate-950">
+          <div className="border border-slate-800 rounded-xl overflow-x-auto max-h-160 custom-scrollbar bg-slate-950">
             <table className="w-full text-left text-xs font-mono border-collapse">
               <thead className="sticky top-0 z-20 bg-slate-900 border-b border-slate-800">
                 <tr>
@@ -1063,7 +1063,7 @@ export default function ReliefTracking({
                                   </span>
                                 )}
                                 {opDisplayName && (
-                                  <span className="text-[7px] text-slate-300 truncate max-w-[58px]" title={`${opDisplayName} (${opDisplayId})`}>
+                                  <span className="text-[7px] text-slate-300 truncate max-w-14.5" title={`${opDisplayName} (${opDisplayId})`}>
                                     {opDisplayName.split(' ')[0]}
                                   </span>
                                 )}
@@ -1100,7 +1100,7 @@ export default function ReliefTracking({
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-h-[640px] overflow-y-auto pr-1 custom-scrollbar">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-h-160 overflow-y-auto pr-1 custom-scrollbar">
             {Object.keys(dynamicDutyLegs).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map(dutyNo => {
               const legs = dynamicDutyLegs[dutyNo] || [];
               const cleanDutyQuery = dutySearch.trim().toLowerCase().replace(/^d/i, '');
@@ -1159,7 +1159,7 @@ export default function ReliefTracking({
                           </span>
                         )}
                         {meta?.remarks && meta.remarks !== '--' && !meta.remarks.startsWith('DUTY') && (
-                          <span className="text-[8px] font-mono text-slate-400 truncate max-w-[65px]" title={meta.remarks}>
+                          <span className="text-[8px] font-mono text-slate-400 truncate max-w-16.25" title={meta.remarks}>
                             {meta.remarks}
                           </span>
                         )}

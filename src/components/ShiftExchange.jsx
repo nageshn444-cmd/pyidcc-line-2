@@ -1533,7 +1533,7 @@ export default function ShiftExchange() {
   return (
     <div className='space-y-6 max-w-[100vw] font-mono'>
       {/* HEADER */}
-      <div className="rounded-xl border border-emerald-500/40 bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/40 p-4 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="rounded-xl border border-emerald-500/40 bg-linear-to-r from-slate-900 via-slate-900 to-emerald-950/40 p-4 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-emerald-500/20 rounded-xl border border-emerald-500/40">
             <Repeat className="h-6 w-6 text-emerald-400" />

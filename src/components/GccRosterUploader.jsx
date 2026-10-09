@@ -738,7 +738,7 @@ Format the response strictly as a single JSON object.`;
         {/* Input Methods Tab & Zones */}
         {extractedData.length === 0 && (
           <div className="space-y-4">
-            <div className="flex bg-slate-950 border border-slate-800 rounded-lg p-1 max-w-[280px] font-mono text-[10px]">
+            <div className="flex bg-slate-950 border border-slate-800 rounded-lg p-1 max-w-70 font-mono text-[10px]">
               <button
                 type="button"
                 onClick={() => setActiveInputTab('FILE')}

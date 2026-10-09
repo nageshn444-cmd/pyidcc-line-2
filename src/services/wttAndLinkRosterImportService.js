@@ -1118,7 +1118,7 @@ export async function parseLinkRosterExcel(fileOrBuffer, targetScheduleType = nu
             if (comp.leg2Km > 0) dutyObj.leg2Km = comp.leg2Km;
             if (comp.leg3Km > 0) dutyObj.leg3Km = comp.leg3Km;
             if (comp.leg4Km > 0) dutyObj.leg4Km = comp.leg4Km;
-            if ((!dutyObj.kms || dutyObj.kms === 0) && comp.totalKm > 0) {
+            if ((!dutyObj.kms || dutyObj.kms <= 2) && comp.totalKm > 0) {
               dutyObj.kms = comp.totalKm;
               dutyObj.totalKm = comp.totalKm;
             }
@@ -1450,6 +1450,14 @@ export async function saveLinkRosterToFirestore(duties, scheduleType, onProgress
     }
   } catch (err) {
     console.warn('In-memory canonical links update:', err);
+  }
+
+  // Auto-sync dynamic night changeover links across transition pairs (e.g. WEEKDAY ➔ SATURDAY, SATURDAY ➔ SUNDAY, etc.)
+  try {
+    const { syncLinkRosterWithChangeoverTransitions } = await import('./changeoverService.js');
+    await syncLinkRosterWithChangeoverTransitions(normSchedule, duties);
+  } catch (err) {
+    console.warn('Auto-sync changeover transitions warning:', err);
   }
 
   // Broadcast system-wide event for all Line 2 crew controls & dashboards

@@ -189,7 +189,7 @@ export default function ManualOverrideForm() {
   });
 
   return (
-    <div className="w-full text-slate-200 text-sm flex flex-col max-h-[700px]">
+    <div className="w-full text-slate-200 text-sm flex flex-col max-h-175">
       
       {!showForm ? (
         <div className="flex flex-col h-full space-y-4">
@@ -339,7 +339,7 @@ export default function ManualOverrideForm() {
             </div>
 
             <div className="col-span-1">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1" htmlFor="manualoverrideform-i7"><Clock className="w-3 h-3"/> From Time</label>
+              <label className="text-[10px] text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1" htmlFor="manualoverrideform-i7"><Clock className="w-3 h-3"/> From Time</label>
               <input id="manualoverrideform-i7" 
                 type="time"
                 name="fromTime"
@@ -351,7 +351,7 @@ export default function ManualOverrideForm() {
             </div>
 
             <div className="col-span-1">
-              <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1" htmlFor="manualoverrideform-i8"><Clock className="w-3 h-3"/> To Time</label>
+              <label className="text-[10px] text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1" htmlFor="manualoverrideform-i8"><Clock className="w-3 h-3"/> To Time</label>
               <input id="manualoverrideform-i8" 
                 type="time"
                 name="toTime"

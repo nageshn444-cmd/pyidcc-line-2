@@ -46,6 +46,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { BMRCL_CREW_REGISTRY } from '../../data/bmrclCrewRegistry';
 import { computeDutyLegKms } from '../../utils/kmCalculator'; // WTT km calculation engine
+import { getMasterLinksForDay } from '../../data/canonicalDayLinksRegistry';
+import { WTT_MASTER_REGISTRY } from '../../data/wttMasterRegistry';
 
 // ── Tab-level Suspense fallback ──
 const TabLoader = () => (
@@ -1478,7 +1480,7 @@ export default function SuperAdminLayout({
               </div>
 
               {/* Quick Link Roster Upload Banner */}
-              <div className="bg-gradient-to-r from-amber-950/35 via-slate-900 to-slate-900 border border-amber-500/25 p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md">
+              <div className="bg-linear-to-r from-amber-950/35 via-slate-900 to-slate-900 border border-amber-500/25 p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md">
                 <div className="flex items-center gap-3">
                   <div className="h-8 w-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
                     <FileSpreadsheet className="h-4 w-4" />
@@ -1737,15 +1739,6 @@ export default function SuperAdminLayout({
                     </thead>
                     <tbody className="divide-y divide-slate-800/50 text-slate-350 text-center">
                       {finalRosterLinks.map((dutyRaw, idx) => {
-                        const computedLegs = computeDutyLegKms(dutyRaw, activeDay);
-                        const formatCellVal = (rawVal, compVal) => {
-                          if (typeof compVal === 'number' && compVal > 0) return `${compVal} km`;
-                          if (typeof rawVal === 'number' && rawVal > 0) return `${rawVal} km`;
-                          if (typeof rawVal === 'string' && rawVal.trim() !== '' && rawVal.trim() !== '--' && rawVal.trim() !== '0' && rawVal.trim() !== '0 km') {
-                            return rawVal.includes('km') ? rawVal : `${rawVal} km`;
-                          }
-                          return compVal > 0 ? `${compVal} km` : '--';
-                        };
                         const normDutyId = normalizeDutyId(dutyRaw.dutyId);
                         const autoReaderMatch = autoReaderDutyMap.get(normDutyId);
                         const matchedDeploy = autoReaderMatch || deployments.find(d =>
@@ -1758,14 +1751,75 @@ export default function SuperAdminLayout({
                           ? matchedDeploy.empId
                           : '--';
 
+                        // Filter out duty aliases like B53, B54, B59, B60, D12, etc.
+                        const isDutyAlias = (val, dId) => {
+                          if (!val || val === '--' || val === '-' || val === 'UNASSIGNED') return true;
+                          const s = String(val).trim();
+                          if (/^B\d+$/i.test(s)) return true;
+                          if (/^D\d+$/i.test(s)) return true;
+                          if (/^CR\d+$/i.test(s)) return true;
+                          if (dId && (s === String(dId) || s === `0${dId}` || s === `B${dId}` || s === `B0${dId}`)) return true;
+                          return false;
+                        };
+
+                        // Look up canonical master link for fallback if needed
+                        const masterDayLinks = getMasterLinksForDay(activeDay) || [];
+                        const canonMatch = masterDayLinks.find(m => normalizeDutyId(m.dutyId) === normDutyId || normalizeDutyId(m.dutyNo) === normDutyId);
+
+                        // Resolve Authentic Train ID for Leg 1
+                        let resolvedTrainId = '--';
+                        if (!isDutyAlias(dutyRaw.leg1TrainNo, normDutyId)) {
+                          resolvedTrainId = dutyRaw.leg1TrainNo;
+                        } else if (Array.isArray(dutyRaw.trips) && dutyRaw.trips[0]?.trainNo && !isDutyAlias(dutyRaw.trips[0].trainNo, normDutyId)) {
+                          resolvedTrainId = dutyRaw.trips[0].trainNo;
+                        } else if (!isDutyAlias(dutyRaw.trainId, normDutyId)) {
+                          resolvedTrainId = dutyRaw.trainId;
+                        } else if (autoReaderMatch?.trainId && !isDutyAlias(autoReaderMatch.trainId, normDutyId)) {
+                          resolvedTrainId = autoReaderMatch.trainId;
+                        } else if (canonMatch?.trainId && !isDutyAlias(canonMatch.trainId, normDutyId)) {
+                          resolvedTrainId = canonMatch.trainId;
+                        } else if (canonMatch?.leg1TrainNo && !isDutyAlias(canonMatch.leg1TrainNo, normDutyId)) {
+                          resolvedTrainId = canonMatch.leg1TrainNo;
+                        } else {
+                          // Match against WTT by departure/arrival times
+                          const tArr = dutyRaw.leg1TimeTo || dutyRaw.leg1ArrTime;
+                          const tDep = dutyRaw.leg1TimeFrom || dutyRaw.leg1DepTime;
+                          if (tArr || tDep) {
+                            const wttMatch = (WTT_MASTER_REGISTRY || []).find(r => {
+                              if (String(r.scheduleType || 'WEEKDAY').toUpperCase() !== String(activeDay || 'WEEKDAY').toUpperCase()) return false;
+                              const upPYID = r.upTrip?.stations?.PYID;
+                              const dnPYID = r.downTrip?.stations?.PYID;
+                              if (tArr && (upPYID === tArr || dnPYID === tArr)) return true;
+                              if (tDep && (dnPYID === tDep || upPYID === tDep)) return true;
+                              return false;
+                            });
+                            if (wttMatch && wttMatch.trainId) {
+                              resolvedTrainId = wttMatch.trainId;
+                            }
+                          }
+                        }
+
                         const rowDocId = dutyRaw.id || `link_${String(activeDay || 'weekday').toLowerCase()}_duty_${normDutyId || idx}`;
-                        const duty = {
+                        const preDuty = {
                           ...dutyRaw,
                           id: rowDocId,
                           dutyId: normDutyId || String(idx + 1),
-                          trainId: (autoReaderMatch?.trainId && autoReaderMatch.trainId !== '--' && autoReaderMatch.trainId !== 'UNASSIGNED')
-                            ? autoReaderMatch.trainId
-                            : (dutyRaw.trainId || '--'),
+                          trainId: resolvedTrainId,
+                          leg1TrainNo: resolvedTrainId !== '--' ? resolvedTrainId : (dutyRaw.leg1TrainNo || '--'),
+                        };
+
+                        const computedLegs = computeDutyLegKms(preDuty, activeDay);
+                        const formatCellVal = (rawVal, compVal) => {
+                          if (typeof compVal === 'number' && compVal > 0) return `${compVal} km`;
+                          if (typeof rawVal === 'number' && rawVal > 0) return `${rawVal} km`;
+                          if (typeof rawVal === 'string' && rawVal.trim() !== '' && rawVal.trim() !== '--' && rawVal.trim() !== '0' && rawVal.trim() !== '0 km') {
+                            return rawVal.includes('km') ? rawVal : `${rawVal} km`;
+                          }
+                          return compVal > 0 ? `${compVal} km` : '--';
+                        };
+
+                        const duty = {
+                          ...preDuty,
                           signOnTime: (autoReaderMatch?.signOnTime && autoReaderMatch.signOnTime !== '--')
                             ? autoReaderMatch.signOnTime
                             : dutyRaw.signOnTime,

@@ -1083,7 +1083,7 @@ export const rosterAutoClassifierService = {
                 signOnPlace: foundSignOnPlace || (existing ? existing.signOnPlace : "PYID"),
                 signOffTime: foundSignOffTime || (existing ? existing.signOffTime : "14:00"),
                 signOffLocation: foundSignOffPlace || foundSignOnPlace || (existing ? existing.signOffLocation : "PYID"),
-                trainId: foundTrainId || currentCrrcHeaderTrainId || (existing ? existing.trainId : `B${dutyNum}`),
+                trainId: foundTrainId || currentCrrcHeaderTrainId || (existing?.trainId && !/^B\d+$/i.test(existing.trainId) ? existing.trainId : '--'),
               };
 
               // Multi-key registration so lookups by number, normalized string, or CR prefix all match
@@ -2090,7 +2090,7 @@ export const rosterAutoClassifierService = {
           empId: crrcInfo.empId || "--",
           signOffTime: crrcInfo.signOffTime || "14:00",
           signOffLocation: crrcInfo.signOffLocation || crrcInfo.signOnPlace || "PYID",
-          trainId: crrcInfo.trainId || `B${crrcInfo.dutyNum}` || "CRRC Train",
+          trainId: (crrcInfo.trainId && !/^B\d+$/i.test(crrcInfo.trainId)) ? crrcInfo.trainId : (existing?.trainId && !/^B\d+$/i.test(existing.trainId) ? existing.trainId : '--'),
           scheduleType: computedScheduleType,
           status: "PENDING",
           remarks: "CRRC Train Duty",

@@ -49,7 +49,7 @@ export default function OccControllerLayout({
     <div className={`min-h-screen flex flex-col font-mono text-slate-200 transition-colors ${emergencyMode ? 'theme-emergency' : theme}`}>
       
       {/* 1. OCC Workstation Top Bar */}
-      <header className="h-16 bg-[var(--header-bg)] backdrop-blur-md border-b border-[var(--border-color)] px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-sm">
+      <header className="h-16 bg-(--header-bg) backdrop-blur-md border-b border-(--border-color) px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-sm">
         <div className="flex items-center gap-3">
           <Radio className="h-5 w-5 text-emerald-400 animate-pulse" />
           <div>
@@ -120,7 +120,7 @@ export default function OccControllerLayout({
           {/* AI Advisor Panel Button */}
           <button 
             onClick={() => setIsAiOpen(true)}
-            className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-slate-950 font-black text-[10px] px-3.5 py-1.5 rounded-lg transition shadow-lg shadow-cyan-900/10 uppercase tracking-widest"
+            className="flex items-center gap-1.5 bg-linear-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-slate-950 font-black text-[10px] px-3.5 py-1.5 rounded-lg transition shadow-lg shadow-cyan-900/10 uppercase tracking-widest"
           >
             <Sparkles className="h-3.5 w-3.5" />
             <span>AI Dispatch Assistant</span>
@@ -172,7 +172,7 @@ export default function OccControllerLayout({
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                 Live OCC Announcements Stream
               </h4>
-              <div className="max-h-[140px] overflow-y-auto space-y-2.5 pr-1">
+              <div className="max-h-35 overflow-y-auto space-y-2.5 pr-1">
                 {liveIncidents.length === 0 ? (
                   <div className="text-[10px] text-slate-650 italic text-center py-4">No active line delays or blockages reported.</div>
                 ) : (

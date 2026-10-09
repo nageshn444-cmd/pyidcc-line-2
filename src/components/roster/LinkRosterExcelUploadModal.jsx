@@ -374,7 +374,7 @@ export default function LinkRosterExcelUploadModal({
                           <td className="py-1.5 px-2 border-r border-slate-800">{d.signOffTime}</td>
                           <td className="py-1.5 px-2 border-r border-slate-800 font-bold text-emerald-400">{d.totalKm || d.kms || '--'}</td>
                           <td className="py-1.5 px-2 border-r border-slate-800">{d.totalHours}</td>
-                          <td className="py-1.5 px-2 text-slate-400 text-left truncate max-w-[140px]" title={d.pilotMovement && d.pilotMovement !== '--' ? `${d.remarks} | ${d.pilotMovement}` : d.remarks}>
+                          <td className="py-1.5 px-2 text-slate-400 text-left truncate max-w-35" title={d.pilotMovement && d.pilotMovement !== '--' ? `${d.remarks} | ${d.pilotMovement}` : d.remarks}>
                             <span>{d.remarks}</span>
                             {d.pilotMovement && d.pilotMovement !== '--' && (
                               <span className="ml-1.5 inline-block text-[8px] text-amber-300 font-bold bg-amber-500/20 px-1 py-0.2 rounded border border-amber-500/30">
