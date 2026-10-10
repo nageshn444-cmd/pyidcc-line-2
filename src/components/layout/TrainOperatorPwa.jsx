@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { 
   Calendar, FileText, 
   Clock, MapPin, ShieldAlert, Award, RefreshCw, Send, 
-  FileSpreadsheet, Sparkles, AlertCircle
+  FileSpreadsheet, Sparkles, AlertCircle, Users, Search, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { db } from '../../firebase';
 import { doc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
@@ -22,12 +22,16 @@ export default function TrainOperatorPwa({
   attendanceLogs: _attendanceLogs,
   loading: _loading,
   fetchLiveData,
-  activeDay
+  activeDay,
+  onSwitchViewMode
 }) {
   const [signedOn, setSignedOn] = useState(false);
   const [signOnTime, setSignOnTime] = useState(null);
   const { theme } = useTheme();
   const { userProfile, currentUser, logout, hasPermission, permissions } = useAuth();
+  const isTrainOperator = userProfile?.role === 'TRAIN_OPERATOR';
+  const [allDutiesSearch, setAllDutiesSearch] = useState('');
+  const [showAllDutiesList, setShowAllDutiesList] = useState(false);
 
   // Manual Duty Registration States
   const [showManualForm, setShowManualForm] = useState(false);
@@ -230,6 +234,29 @@ export default function TrainOperatorPwa({
     return null;
   }, [empId, selectedDayOffset, myDeployment, selectedDayRoster]);
 
+  // ── All Line 2 Duties for Selected Day ──
+  const currentDayDuties = useMemo(() => {
+    if (selectedDayOffset === 0) {
+      if (selectedDayRoster?.duties && selectedDayRoster.duties.length > 0) {
+        return selectedDayRoster.duties;
+      }
+      return deployments || [];
+    }
+    return selectedDayRoster?.duties || [];
+  }, [selectedDayOffset, selectedDayRoster, deployments]);
+
+  const filteredAllDuties = useMemo(() => {
+    if (!allDutiesSearch.trim()) return currentDayDuties;
+    const q = allDutiesSearch.trim().toLowerCase();
+    return currentDayDuties.filter(d => 
+      String(d.dutyId || '').toLowerCase().includes(q) ||
+      String(d.trainId || '').toLowerCase().includes(q) ||
+      String(d.empId || '').toLowerCase().includes(q) ||
+      String(d.empName || '').toLowerCase().includes(q) ||
+      String(d.signOnLocation || '').toLowerCase().includes(q)
+    );
+  }, [currentDayDuties, allDutiesSearch]);
+
   // Handle one-click mobile sign on
   const handleSignOn = async () => {
     if (!myDeployment) return;
@@ -315,6 +342,15 @@ export default function TrainOperatorPwa({
           <span className="text-xs font-black uppercase tracking-wider text-cyan-400">BMRCL PWA OPERATOR</span>
         </div>
         <div className="flex items-center gap-2">
+          {onSwitchViewMode && (
+            <button 
+              onClick={onSwitchViewMode}
+              className="flex items-center gap-1 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/50 text-[10px] font-black px-2 py-1 rounded transition shadow-sm cursor-pointer"
+              title="Switch to Full Line 2 Operational Console"
+            >
+              <span>🖥️ CONSOLE</span>
+            </button>
+          )}
           <Link
             to="/fault-reporting"
             className="flex items-center gap-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-[10px] font-bold px-2 py-1 rounded transition"
@@ -325,7 +361,7 @@ export default function TrainOperatorPwa({
           </Link>
           <button 
             onClick={logout}
-            className="text-neutral-500 hover:text-white text-[10px] font-bold border border-neutral-850 px-2.5 py-1 rounded"
+            className="text-neutral-500 hover:text-white text-[10px] font-bold border border-neutral-850 px-2.5 py-1 rounded cursor-pointer"
           >
             Sign-Out
           </button>
@@ -432,7 +468,25 @@ export default function TrainOperatorPwa({
                     <div className="space-y-4">
                       <div className="text-center py-4 text-xs text-neutral-500 italic">No duty active for your profile today.</div>
                       
-                      {!showManualForm ? (
+                      {isTrainOperator ? (
+                        <div className="space-y-2">
+                          <button
+                            onClick={() => setShowAllDutiesList(true)}
+                            className="w-full border border-cyan-800 bg-cyan-950/60 hover:bg-cyan-900 text-cyan-300 font-bold py-2.5 rounded-lg text-xs uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            <Users className="w-4 h-4 text-cyan-400" />
+                            <span>View All Line 2 Operators' Duties ({currentDayDuties.length})</span>
+                          </button>
+                          {onSwitchViewMode && (
+                            <button
+                              onClick={onSwitchViewMode}
+                              className="w-full border border-indigo-750 bg-indigo-950/60 hover:bg-indigo-900 text-indigo-300 font-bold py-2 rounded-lg text-xs uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer"
+                            >
+                              <span>🖥️ Open Full Operational Console</span>
+                            </button>
+                          )}
+                        </div>
+                      ) : !showManualForm ? (
                         <button
                           onClick={() => setShowManualForm(true)}
                           className="w-full border border-cyan-800 bg-cyan-955 hover:bg-cyan-900 text-cyan-400 font-bold py-2.5 rounded-lg text-xs uppercase tracking-wider transition"
@@ -697,6 +751,106 @@ export default function TrainOperatorPwa({
                 )}
               </div>
             )}
+
+            {/* ── ALL OPERATORS' DUTIES DIRECT VIEW ── */}
+            <div className="border border-neutral-800 bg-neutral-950 rounded-xl overflow-hidden shadow-xl">
+              <div 
+                className="p-3.5 bg-neutral-900/90 border-b border-neutral-800 flex items-center justify-between cursor-pointer select-none"
+                onClick={() => setShowAllDutiesList(prev => !prev)}
+              >
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-cyan-400" />
+                  <div>
+                    <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                      All Line 2 Operators' Duties
+                      <span className="text-[9px] bg-cyan-950 border border-cyan-800 text-cyan-300 px-1.5 py-0.5 rounded-full font-mono">
+                        {currentDayDuties.length} Deployed
+                      </span>
+                    </h3>
+                    <p className="text-[9px] text-neutral-400">
+                      {selectedDayObj.sheetTag} • Line 2 Operational Deployment
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="text-neutral-400 hover:text-white p-1 rounded hover:bg-neutral-800 transition cursor-pointer"
+                >
+                  {showAllDutiesList ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+              </div>
+
+              {showAllDutiesList && (
+                <div className="p-3 space-y-3">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search duty, train, operator, or ID..."
+                      value={allDutiesSearch}
+                      onChange={(e) => setAllDutiesSearch(e.target.value)}
+                      className="w-full bg-neutral-900 border border-neutral-800 rounded-lg py-1.5 pl-8 pr-3 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-cyan-500 font-mono"
+                    />
+                    <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-2.5 top-2.5 pointer-events-none" />
+                  </div>
+
+                  <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                    {filteredAllDuties.length === 0 ? (
+                      <div className="text-center py-6 text-neutral-500 text-xs italic">
+                        {currentDayDuties.length === 0 
+                          ? 'No duties published yet for this date.' 
+                          : 'No duties match search query.'}
+                      </div>
+                    ) : (
+                      filteredAllDuties.map((duty, idx) => {
+                        const isMe = empId && (String(duty.empId || '').toLowerCase() === String(empId).toLowerCase());
+                        return (
+                          <div
+                            key={`duty-list-${duty.dutyId || idx}-${duty.empId || idx}`}
+                            className={`p-2.5 rounded-lg border text-xs font-mono transition ${
+                              isMe 
+                                ? 'bg-cyan-955/40 border-cyan-500/60 ring-1 ring-cyan-500/30' 
+                                : 'bg-neutral-900/60 border-neutral-850 hover:border-neutral-750'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="font-black text-cyan-300">
+                                  Duty {duty.dutyId}
+                                </span>
+                                {duty.trainId && (
+                                  <span className="text-[10px] bg-neutral-850 border border-neutral-750 px-1.5 py-0.5 rounded text-neutral-300 font-bold">
+                                    Train {duty.trainId}
+                                  </span>
+                                )}
+                              </div>
+                              {isMe && (
+                                <span className="text-[9px] bg-cyan-500 text-black px-1.5 py-0.5 rounded font-black tracking-widest uppercase">
+                                  YOU
+                                </span>
+                              )}
+                            </div>
+                            
+                            <div className="mt-1 flex items-center justify-between text-[11px]">
+                              <span className="text-neutral-200 font-semibold truncate max-w-[180px]">
+                                {duty.empName || '--'}
+                              </span>
+                              <span className="text-neutral-400 text-[10px]">
+                                ID: {duty.empId || '--'}
+                              </span>
+                            </div>
+
+                            <div className="mt-1.5 pt-1.5 border-t border-neutral-850/60 flex items-center justify-between text-[10px] text-neutral-400">
+                              <span>Sign-On: <strong className="text-neutral-200">{duty.signOnTime || '--'}</strong> ({duty.signOnLocation || 'PYID'})</span>
+                              <span>Sign-Off: <strong className="text-neutral-200">{duty.signOffTime || '--'}</strong></span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Run Legs (if duty is active) */}
             {myDeployment && myDeployment.rawLegs && (

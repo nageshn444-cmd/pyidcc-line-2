@@ -261,18 +261,27 @@ export function AuthProvider({ children }) {
   const applyTrainOpOverride = (perms, role) => {
     if (role !== 'TRAIN_OPERATOR') return perms;
     const p = { ...perms };
-    const defaults = {
-      'Dashboard': 'View', 'Crew Registry': 'View', 'Duty Roster': 'View',
-      'Shift Exchange': 'Request', 'Duty Swap': 'Request',
-      'Automated Dispatch Gate': 'View', 'Live Relief Tracking': 'View',
-      'Emergency Relief Module': 'View', 'Reports Center': 'View',
-      'KM Calculator Suite': 'View', 'Rake Registry': 'View', 'Leave Requests': 'Request',
-    };
-    Object.entries(defaults).forEach(([mod, val]) => {
-      const cur = p[mod];
-      // Only set default when unset, 'No', or leftover object from old code
-      if (!cur || cur === 'No' || typeof cur === 'object') p[mod] = val;
-    });
+    // Train Operators can VIEW all operational pages, raise Leave & Shift Exchange requests,
+    // and have strictly NO access to System Settings.
+    const systemSettingsModules = [
+      'User Control Center', 'User Management', 'Role Management', 'Settings', 'ADMIN'
+    ];
+    const requestModules = [
+      'Shift Exchange', 'Duty Swap', 'Leave Requests', 'Leave Request'
+    ];
+    const operationalViewModules = [
+      'Dashboard', 'Command Overview', 'Automated Dispatch Gate', 'Manual Override',
+      'Duty Roster', 'WTT Timetable', 'Link Roster', 'Duty Generator Suite',
+      'Crew Registry', 'Reports Center', 'Reports', 'KM Calculator Suite',
+      "JMD TO's Driving Hours", 'Rake Registry', 'Live Relief Tracking',
+      'Emergency Relief Module', 'Emergency Relief', 'Night Changeover',
+      'Changeover Link', 'OCC Modules Suite', 'Train ID Swap Engine',
+      'AI Faults Reporting', 'AI ALS Cab Inspection'
+    ];
+
+    systemSettingsModules.forEach(mod => { p[mod] = 'No'; });
+    requestModules.forEach(mod => { p[mod] = 'Request'; });
+    operationalViewModules.forEach(mod => { p[mod] = 'View'; });
     return p;
   };
 
@@ -568,6 +577,34 @@ export function AuthProvider({ children }) {
   // ─── Permission Helper ───────────────────────────────────────────────────────
   const hasPermission = (moduleName, requiredLevel) => {
     if (userProfile?.role === 'SUPER_ADMIN') return true;
+
+    // Strict Train Operator permissions enforcement:
+    // 1. Block System Settings completely
+    // 2. Block all write/modification/deletion operations (strict read-only)
+    // 3. Allow 'Request' only for Leave Requests and Shift Exchange / Duty Swap
+    // 4. Allow 'View' and 'Own' for all other operational modules across the application
+    if (userProfile?.role === 'TRAIN_OPERATOR') {
+      const isSystemSettings = [
+        'User Control Center',
+        'User Management',
+        'Role Management',
+        'Settings',
+        'ADMIN'
+      ].includes(moduleName);
+
+      if (isSystemSettings) return false;
+      if (requiredLevel === 'Full') return false;
+
+      if (requiredLevel === 'Request') {
+        return ['Leave Requests', 'Leave Request', 'Shift Exchange', 'Duty Swap'].includes(moduleName);
+      }
+
+      if (requiredLevel === 'View' || requiredLevel === 'Own') {
+        return true;
+      }
+
+      return false;
+    }
 
     const altMap = {
       'Reports Center': 'Reports',

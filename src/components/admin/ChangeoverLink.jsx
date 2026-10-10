@@ -71,6 +71,12 @@ const toTimeStr = (sec) => {
   return [hrs, mins, secs].map((v) => String(v).padStart(2, "0")).join(":");
 };
 
+// Check if a time string is STRICTLY above 20:00:01 (20:00:01 to 23:59:59)
+const isNightSignOnTime = (tStr) => {
+  const secs = toSec(tStr);
+  return secs >= 72001;
+};
+
 export default function ChangeoverLink() {
   const [isAutoSelected, setIsAutoSelected] = useState(true);
   const [selectedKey, setSelectedKey] = useState(getAutoSelectedKey);
@@ -123,6 +129,29 @@ export default function ChangeoverLink() {
         baseData = { ...baseData, ...firestoreData };
       }
       baseData = enrichChangeoverTable(baseData);
+
+      // Sanitize all changeover night duty rows so signOnTime is strictly above 20:00:01
+      Object.keys(baseData).forEach(k => {
+        const tbl = baseData[k];
+        if (tbl && typeof tbl === 'object') {
+          Object.keys(tbl).forEach(dNo => {
+            const r = tbl[dNo];
+            if (r && typeof r === 'object') {
+              if (!isNightSignOnTime(r.signOnTime)) {
+                const staticSOn = CHANGEOVER_TABLE[k]?.[dNo]?.signOnTime || r.nightSignOnTime;
+                if (isNightSignOnTime(staticSOn)) {
+                  r.signOnTime = staticSOn;
+                } else if (r.nightDepTime && isNightSignOnTime(r.nightDepTime)) {
+                  r.signOnTime = toTimeStr(Math.max(72002, toSec(r.nightDepTime) - 1020));
+                } else {
+                  r.signOnTime = '21:30:00';
+                }
+              }
+            }
+          });
+        }
+      });
+
       setAllMappings(baseData);
       setEditedTable(JSON.parse(JSON.stringify(baseData[selectedKey] || {})));
     } catch (err) {
@@ -228,13 +257,19 @@ export default function ChangeoverLink() {
   const handleApplyPdcToRoster = () => {
     if (!calculatedResult || !calculatorDuty) return;
 
+    let preservedNightSignOn = '21:30:00';
     setEditedTable(prev => {
       const copy = { ...prev };
       const current = copy[calculatorDuty] || {};
+      const baseNightSignOn = CHANGEOVER_TABLE[selectedKey]?.[calculatorDuty]?.signOnTime || current.nightSignOnTime;
+      preservedNightSignOn = isNightSignOnTime(current.signOnTime) ? current.signOnTime : (baseNightSignOn || '21:30:00');
+
       copy[calculatorDuty] = {
         ...current,
-        signOnTime: calculatedResult.signOnTime,
-        signOnLocation: calculatedResult.actualStablingLocation,
+        signOnTime: preservedNightSignOn,
+        nightSignOnTime: preservedNightSignOn,
+        calculatedSignOnTime: calculatedResult.signOnTime,
+        mornSignOnTime: calculatedResult.signOnTime,
         takeoverLocation: calculatedResult.actualStablingLocation,
         actualStablingLocation: calculatedResult.actualStablingLocation,
         assignedStablingLocation: calculatedResult.assignedStablingLocation,
@@ -248,7 +283,7 @@ export default function ChangeoverLink() {
 
     setStatusMsg({
       type: 'success',
-      text: `Applied 40-Min PDC Sign-On (${calculatedResult.signOnTime}) to Duty ${calculatorDuty} (Stabling: ${calculatedResult.actualStablingLocation}).`
+      text: `Applied 40-Min PDC Sign-On (${calculatedResult.signOnTime}) to Morning Takeover for Duty ${calculatorDuty} (Stabling: ${calculatedResult.actualStablingLocation}). Leg 1 Night Sign-On preserved (${preservedNightSignOn}).`
     });
   };
 
@@ -277,10 +312,15 @@ export default function ChangeoverLink() {
     setEditedTable(prev => {
       const copy = { ...prev };
       const row = copy[dutyNo] || {};
+      const baseNightSignOn = CHANGEOVER_TABLE[selectedKey]?.[dutyNo]?.signOnTime || row.nightSignOnTime;
+      const preservedNightSignOn = isNightSignOnTime(row.signOnTime) ? row.signOnTime : (baseNightSignOn || '21:30:00');
+
       copy[dutyNo] = {
         ...row,
-        signOnTime: res.signOnTime,
-        signOnLocation: modalActualLoc,
+        signOnTime: preservedNightSignOn,
+        nightSignOnTime: preservedNightSignOn,
+        calculatedSignOnTime: res.signOnTime,
+        mornSignOnTime: res.signOnTime,
         takeoverLocation: modalActualLoc,
         actualStablingLocation: modalActualLoc,
         assignedStablingLocation: assigned,
@@ -294,7 +334,7 @@ export default function ChangeoverLink() {
     setStablingModalDuty(null);
     setStatusMsg({
       type: 'success',
-      text: `Duty ${dutyNo} updated: Stabled at ${modalActualLoc}. Calculated Sign-On: ${res.signOnTime} (${res.isAlternativeStabling ? `+${res.transitMinutes}m transit` : 'Assigned stabling'}).`
+      text: `Duty ${dutyNo} updated: Stabled at ${modalActualLoc}. Morning Takeover PDC Sign-On: ${res.signOnTime} (${res.isAlternativeStabling ? `+${res.transitMinutes}m transit` : 'Assigned stabling'}).`
     });
   };
 
@@ -581,8 +621,19 @@ export default function ChangeoverLink() {
               onChange={(e) => setAssignedStablingLoc(e.target.value)}
               className="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-amber-300 font-bold focus:border-cyan-500 focus:outline-none"
             >
-              {STABLING_LOCATIONS.map(loc => (
-                <option key={loc.code} value={loc.code}>{loc.name}</option>
+              {Object.entries(
+                STABLING_LOCATIONS.reduce((acc, loc) => {
+                  const cat = loc.category || 'Other Locations';
+                  if (!acc[cat]) acc[cat] = [];
+                  acc[cat].push(loc);
+                  return acc;
+                }, {})
+              ).map(([cat, opts]) => (
+                <optgroup key={cat} label={cat} className="bg-slate-900 text-cyan-400 font-bold">
+                  {opts.map(loc => (
+                    <option key={loc.code} value={loc.code} className="bg-slate-955 text-slate-200">{loc.name}</option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </div>
@@ -597,8 +648,19 @@ export default function ChangeoverLink() {
               onChange={(e) => setActualStablingLoc(e.target.value)}
               className="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-purple-300 font-bold focus:border-cyan-500 focus:outline-none"
             >
-              {STABLING_LOCATIONS.map(loc => (
-                <option key={loc.code} value={loc.code}>{loc.name}</option>
+              {Object.entries(
+                STABLING_LOCATIONS.reduce((acc, loc) => {
+                  const cat = loc.category || 'Other Locations';
+                  if (!acc[cat]) acc[cat] = [];
+                  acc[cat].push(loc);
+                  return acc;
+                }, {})
+              ).map(([cat, opts]) => (
+                <optgroup key={cat} label={cat} className="bg-slate-900 text-cyan-400 font-bold">
+                  {opts.map(loc => (
+                    <option key={loc.code} value={loc.code} className="bg-slate-955 text-slate-200">{loc.name}</option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </div>
@@ -700,6 +762,11 @@ export default function ChangeoverLink() {
           </div>
         ) : (
           <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
+            <datalist id="changeover-stabling-locations">
+              {STABLING_LOCATIONS.map(loc => (
+                <option key={loc.code} value={loc.code}>{loc.name}</option>
+              ))}
+            </datalist>
             <table className="w-full text-[10px] font-mono border-collapse select-none">
               <thead className="sticky top-0 bg-slate-955 z-20">
                 <tr className="bg-slate-955 border-b border-slate-800">
@@ -831,6 +898,7 @@ export default function ChangeoverLink() {
                           type="text"
                           value={val === '--' ? '' : val}
                           placeholder="--"
+                          list={field === 'takeoverLocation' ? 'changeover-stabling-locations' : undefined}
                           onChange={e => handleCellChange(row.dutyNo, field, e.target.value)}
                           className={`bg-slate-955/50 hover:bg-slate-955/90 focus:bg-slate-955 border border-transparent focus:border-amber-600/40 text-slate-200 text-center font-mono rounded px-1.5 py-0.5 text-[9.5px] transition focus:outline-none ${width}`}
                         />
@@ -952,15 +1020,83 @@ export default function ChangeoverLink() {
 
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                  Select Actual Night Stabling Location:
+                  Select Actual Night Stabling / Takeover Location (Up &amp; Dn Line):
                 </label>
+                <div className="flex flex-wrap gap-1 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setModalActualLoc('Depot (PYID)')}
+                    className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold transition border cursor-pointer ${
+                      modalActualLoc.includes('Depot') || modalActualLoc.includes('DEPOT')
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
+                        : 'bg-slate-900 text-slate-300 hover:text-white border-slate-700'
+                    }`}
+                  >
+                    ⚡ Depot (PYID)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModalActualLoc('NLC PKT')}
+                    className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold transition border cursor-pointer ${
+                      modalActualLoc.includes('NLC PKT') || modalActualLoc === 'NLC_PT'
+                        ? 'bg-purple-500/20 text-purple-300 border-purple-500/50'
+                        : 'bg-slate-900 text-purple-400 hover:text-purple-200 border-slate-700'
+                    }`}
+                  >
+                    ⚡ NLC PKT
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModalActualLoc('MHLI PKT')}
+                    className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold transition border cursor-pointer ${
+                      modalActualLoc.includes('MHLI PKT') || modalActualLoc === 'MHLI_PT'
+                        ? 'bg-purple-500/20 text-purple-300 border-purple-500/50'
+                        : 'bg-slate-900 text-purple-400 hover:text-purple-200 border-slate-700'
+                    }`}
+                  >
+                    ⚡ MHLI PKT
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModalActualLoc('NGSA PKT')}
+                    className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold transition border cursor-pointer ${
+                      modalActualLoc.includes('NGSA PKT') || modalActualLoc === 'NPKT' || modalActualLoc === 'NGSA_PT'
+                        ? 'bg-purple-500/20 text-purple-300 border-purple-500/50'
+                        : 'bg-slate-900 text-purple-400 hover:text-purple-200 border-slate-700'
+                    }`}
+                  >
+                    ⚡ NGSA PKT
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModalActualLoc('PYID RD3')}
+                    className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold transition border cursor-pointer ${
+                      modalActualLoc.includes('RD3') || modalActualLoc.includes('Road 3')
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
+                        : 'bg-slate-900 text-emerald-400 hover:text-emerald-200 border-slate-700'
+                    }`}
+                  >
+                    ⚡ PYID RD3
+                  </button>
+                </div>
                 <select
                   value={modalActualLoc}
                   onChange={(e) => setModalActualLoc(e.target.value)}
                   className="w-full bg-slate-955 border border-slate-700 rounded-lg p-2.5 text-xs text-purple-300 font-bold focus:border-cyan-500 focus:outline-none"
                 >
-                  {STABLING_LOCATIONS.map(loc => (
-                    <option key={loc.code} value={loc.code}>{loc.name}</option>
+                  {Object.entries(
+                    STABLING_LOCATIONS.reduce((acc, loc) => {
+                      const cat = loc.category || 'Other Locations';
+                      if (!acc[cat]) acc[cat] = [];
+                      acc[cat].push(loc);
+                      return acc;
+                    }, {})
+                  ).map(([cat, opts]) => (
+                    <optgroup key={cat} label={cat} className="bg-slate-900 text-cyan-400 font-bold">
+                      {opts.map(loc => (
+                        <option key={loc.code} value={loc.code} className="bg-slate-955 text-slate-200">{loc.name}</option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>

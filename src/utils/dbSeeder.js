@@ -73,15 +73,23 @@ export const seedDatabaseIfNeeded = async (db) => {
           roleName: "TRAIN_OPERATOR",
           permissions: {
             Dashboard: "View",
-            "Crew Registry": "No",
-            "Duty Roster": "Own",
+            "Crew Registry": "View",
+            "Duty Roster": "View",
             "Shift Exchange": "Request",
             "Duty Swap": "Request",
-            "Manual Override": "No",
-            Reports: "No",
+            "Manual Override": "View",
+            "Automated Dispatch Gate": "View",
+            Reports: "View",
+            "Reports Center": "View",
+            "KM Calculator Suite": "View",
+            "Rake Registry": "View",
+            "Leave Requests": "Request",
+            "Emergency Relief Module": "View",
+            "AI ALS Cab Inspection": "View",
             "User Management": "No",
             "Role Management": "No",
-            Settings: "No"
+            Settings: "No",
+            "User Control Center": "No"
           }
         },
         VIEWER: {

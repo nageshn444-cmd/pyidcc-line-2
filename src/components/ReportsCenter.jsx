@@ -229,7 +229,7 @@ export default function ReportsCenter() {
       category: 'SAFETY & DEFECTS',
       collection: 'rolling_stock_faults',
       dateKey: 'timestamp',
-      description: 'Train defects, HVAC, door interlocks, pantograph, and depot repair work-orders.'
+      description: 'Train defects, HVAC, door interlocks, third rail shoegear (CCSD), and depot repair work-orders.'
     },
     {
       id: 'field_faults',

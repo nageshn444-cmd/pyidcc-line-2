@@ -67,6 +67,14 @@ const toTimeStr = (sec) => {
   return [hrs, mins, secs].map((v) => String(v).padStart(2, "0")).join(":");
 };
 
+// Check if a time string is STRICTLY above 20:00:01 (20:00:01 to 23:59:59)
+// 20:00:01 in seconds = 20 * 3600 + 0 * 60 + 1 = 72001 seconds.
+// Sign-on times before 20:00:01 (<= 20:00:00) are NEVER considered as night shift!
+export const isNightSignOnTime = (tStr) => {
+  const secs = toSec(tStr);
+  return secs >= 72001; // strictly above 20:00:01
+};
+
 const getLegDuration = (dep, arr) => {
   const d = toSec(dep),
     a = toSec(arr);
@@ -2317,19 +2325,95 @@ if (!CHANGEOVER_TABLE["SATURDAY__SATURDAY"] && CHANGEOVER_TABLE["SATURDAY__SUNDA
 // Standard Pre-Departure Check (PDC) requirement in minutes
 export const PDC_DURATION_MINUTES = 40;
 
-// Standard BMRCL Line 2 Stabling Locations & Terminals
+// Comprehensive BMRCL Line 2 Stations directory
+export const LINE2_ALL_STATIONS = [
+  { code: "BIET", name: "Madavara" },
+  { code: "JIDL", name: "Chikkabidarakallu" },
+  { code: "MNJN", name: "Manjunathanagar" },
+  { code: "NGSA", name: "Nagasandra" },
+  { code: "DSH",  name: "Dasarahalli" },
+  { code: "JLHL", name: "Jalahalli" },
+  { code: "PYID", name: "Peenya Industry" },
+  { code: "PEYA", name: "Peenya" },
+  { code: "YPI",  name: "Goraguntepalya" },
+  { code: "YPM",  name: "Yeshwanthpur" },
+  { code: "SSFY", name: "Sandal Soap Factory" },
+  { code: "MHLI", name: "Mahalakshmi" },
+  { code: "RJNR", name: "Rajajinagar" },
+  { code: "KVPR", name: "Mahakavi Kuvempu Road" },
+  { code: "SPRU", name: "Srirampura" },
+  { code: "SPGD", name: "Mantri Square Sampige Road" },
+  { code: "KGWA", name: "Nadaprabhu Kempegowda (Majestic)" },
+  { code: "CKPE", name: "Chickpete" },
+  { code: "KRMT", name: "Krishna Rajendra Market" },
+  { code: "NLC",  name: "National College" },
+  { code: "LBGH", name: "Lalbagh" },
+  { code: "SECE", name: "South End Circle" },
+  { code: "JYN",  name: "Jayanagar" },
+  { code: "RVR",  name: "Rashtreeya Vidyalaya Road" },
+  { code: "BSNK", name: "Banashankari" },
+  { code: "JPN",  name: "Jaya Prakash Nagar" },
+  { code: "PUTH", name: "Yelachenahalli" },
+  { code: "APRC", name: "Konanakunte Cross" },
+  { code: "KLPK", name: "Doddakallasandra" },
+  { code: "VJRH", name: "Vajarahalli" },
+  { code: "TGTP", name: "Thalaghattapura" },
+  { code: "APTS", name: "Silk Institute" }
+];
+
+// Comprehensive BMRCL Line 2 Stabling & Takeover Locations with all Station Names, Up Line & Dn Line
 export const STABLING_LOCATIONS = [
-  { code: "DEPOT", name: "Peenya Depot (DEPOT)", line: "Line 2", isDepot: true },
-  { code: "PYID",  name: "Peenya Industry (PYID)", line: "Line 2" },
-  { code: "NGSA",  name: "Nagasandra (NGSA)", line: "Line 2" },
-  { code: "BIET",  name: "Madavara / BIET", line: "Line 2" },
-  { code: "KGWA",  name: "Majestic (KGWA)", line: "Line 2" },
-  { code: "NLC",   name: "National College (NLC)", line: "Line 2" },
-  { code: "RVR",   name: "RV Road (RVR)", line: "Line 2" },
-  { code: "PUTH",  name: "Yelachenahalli (PUTH)", line: "Line 2" },
-  { code: "APTS",  name: "Silk Institute / APTS", line: "Line 2" },
-  { code: "YPM",   name: "Yeshwanthpur (YPM)", line: "Line 2" },
-  { code: "RJNR",  name: "Rajajinagar (RJNR)", line: "Line 2" },
+  // ─── Depots & Operational Sidings / Buffer Ends ───
+  { code: "Depot (PYID)", name: "Depot (PYID) — Peenya Depot", line: "Depot", isDepot: true, stationCode: "DEPOT", category: "Depots & Sidings" },
+  { code: "DEPOT (PYID)", name: "DEPOT (PYID) — Peenya Depot", line: "Depot", isDepot: true, stationCode: "DEPOT", category: "Depots & Sidings" },
+  { code: "DEPOT", name: "Peenya Depot (DEPOT)", line: "Depot", isDepot: true, stationCode: "DEPOT", category: "Depots & Sidings" },
+  { code: "Depot", name: "Depot — Peenya Depot", line: "Depot", isDepot: true, stationCode: "DEPOT", category: "Depots & Sidings" },
+  { code: "PYID Depot", name: "PYID Depot (Peenya Industry Depot)", line: "Depot", isDepot: true, stationCode: "DEPOT", category: "Depots & Sidings" },
+  { code: "APTD", name: "Anjanapura Depot (APTD)", line: "Depot", isDepot: true, stationCode: "APTD", category: "Depots & Sidings" },
+  { code: "BIET DnBE", name: "Madavara Buffer End (BIET DnBE)", line: "Dn", isBufferEnd: true, stationCode: "BIET", category: "Depots & Sidings" },
+  { code: "NGSA StBk", name: "Nagasandra Stepback (NGSA StBk)", line: "Dn", isStepback: true, stationCode: "NGSA", category: "Depots & Sidings" },
+  { code: "PUTH StBk", name: "Yelachenahalli Stepback (PUTH StBk)", line: "Dn", isStepback: true, stationCode: "PUTH", category: "Depots & Sidings" },
+  // ─── Pocket Tracks (PKT) & Operational Sidings ───
+  { code: "NLC PKT", name: "National College Pocket Track (NLC PKT)", line: "Pocket Track", isPocketTrack: true, stationCode: "NLC", category: "Pocket Tracks & Sidings (PKT / RD3)" },
+  { code: "NLC_PT", name: "National College PT (NLC_PT)", line: "Pocket Track", isPocketTrack: true, stationCode: "NLC", category: "Pocket Tracks & Sidings (PKT / RD3)" },
+  { code: "MHLI PKT", name: "Mahalakshmi Pocket Track (MHLI PKT)", line: "Pocket Track", isPocketTrack: true, stationCode: "MHLI", category: "Pocket Tracks & Sidings (PKT / RD3)" },
+  { code: "MHLI_PT", name: "Mahalakshmi PT (MHLI_PT)", line: "Pocket Track", isPocketTrack: true, stationCode: "MHLI", category: "Pocket Tracks & Sidings (PKT / RD3)" },
+  { code: "NGSA PKT", name: "Nagasandra Pocket Track (NGSA PKT / NPKT)", line: "Pocket Track", isPocketTrack: true, stationCode: "NGSA", category: "Pocket Tracks & Sidings (PKT / RD3)" },
+  { code: "NPKT", name: "Nagasandra Pocket Track (NPKT)", line: "Pocket Track", isPocketTrack: true, stationCode: "NGSA", category: "Pocket Tracks & Sidings (PKT / RD3)" },
+  { code: "NGSA_PT", name: "Nagasandra PT (NGSA_PT)", line: "Pocket Track", isPocketTrack: true, stationCode: "NGSA", category: "Pocket Tracks & Sidings (PKT / RD3)" },
+  { code: "PYID RD3", name: "Peenya Industry Road 3 (PYID RD3)", line: "Siding", isSiding: true, stationCode: "PYID", category: "Pocket Tracks & Sidings (PKT / RD3)" },
+  { code: "PYID Road 3", name: "Peenya Industry Road 3 (PYID Road 3)", line: "Siding", isSiding: true, stationCode: "PYID", category: "Pocket Tracks & Sidings (PKT / RD3)" },
+  { code: "RD3", name: "Peenya Road 3 Siding (RD3)", line: "Siding", isSiding: true, stationCode: "PYID", category: "Pocket Tracks & Sidings (PKT / RD3)" },
+
+  // ─── Line 2 Stations — Up Line (South to North / Inbound) ───
+  ...LINE2_ALL_STATIONS.map(stn => ({
+    code: `${stn.code} Up`,
+    name: `${stn.name} Up Line (${stn.code} Up)`,
+    line: "Up",
+    stationCode: stn.code,
+    stationName: stn.name,
+    category: "Up Line Stations"
+  })),
+
+  // ─── Line 2 Stations — Dn Line (North to South / Outbound) ───
+  ...LINE2_ALL_STATIONS.map(stn => ({
+    code: `${stn.code} Dn`,
+    name: `${stn.name} Dn Line (${stn.code} Dn)`,
+    line: "Dn",
+    stationCode: stn.code,
+    stationName: stn.name,
+    category: "Dn Line Stations"
+  })),
+
+  // ─── Base / Direct Station Codes (Legacy & Direct Lookup compatibility) ───
+  ...LINE2_ALL_STATIONS.map(stn => ({
+    code: stn.code,
+    name: `${stn.name} (${stn.code})`,
+    line: "Line 2",
+    stationCode: stn.code,
+    stationName: stn.name,
+    category: "General Station Codes"
+  }))
 ];
 
 // Transit positioning minutes between Line 2 stabling points and induction stations
@@ -2378,18 +2462,43 @@ export const LINE2_TRANSIT_MINUTES_MAP = {
 
 export function cleanLocationCode(loc) {
   if (!loc) return "DEPOT";
-  const s = String(loc).toUpperCase().trim().replace(/\s+(UP|DN|PF|ROAD|RD\d).*$/i, '').trim();
-  if (s.includes('DEPOT') || s.includes('DPO')) return 'DEPOT';
-  if (s.includes('PYID') || s.includes('PEENYA')) return 'PYID';
-  if (s.includes('KGWA') || s.includes('MAJESTIC')) return 'KGWA';
+  const s = String(loc).toUpperCase().trim().replace(/\s+(UP|DN|PF|BE|ROAD|RD\d|STBK|PKT).*$/i, '').trim();
+  if (s.includes('DEPOT') || s.includes('DPO') || s.includes('PNYD')) return 'DEPOT';
+  if (s.includes('APTD')) return 'APTD';
+  if (s.includes('RD3') || s.includes('ROAD 3') || s.includes('ROAD-3') || s.includes('RD-3')) return 'PYID';
+  if (s.includes('PYID') || s.includes('PEENYA INDUSTRY') || s === 'PEENYA') return 'PYID';
+  if (s.includes('KGWA') || s.includes('MAJESTIC') || s.includes('MJST')) return 'KGWA';
   if (s.includes('PUTH') || s.includes('YELACH')) return 'PUTH';
+  if (s.includes('NPKT')) return 'NGSA';
   if (s.includes('NGSA') || s.includes('NAGA')) return 'NGSA';
   if (s.includes('APTS') || s.includes('SILK')) return 'APTS';
-  if (s.includes('BIET') || s.includes('MADAV')) return 'BIET';
-  if (s.includes('NLC')) return 'NLC';
-  if (s.includes('RVR')) return 'RVR';
-  if (s.includes('YPM')) return 'YPM';
-  if (s.includes('RJNR')) return 'RJNR';
+  if (s.includes('BIET') || s.includes('MADAV') || s.includes('BIEC')) return 'BIET';
+  if (s.includes('JIDL') || s.includes('JDHL') || s.includes('CHIKKABIDAR')) return 'JIDL';
+  if (s.includes('MNJN') || s.includes('MANJUNATH')) return 'MNJN';
+  if (s.includes('DSH') || s.includes('DASARAHALLI')) return 'DSH';
+  if (s.includes('JLHL') || s.includes('JALAHALLI')) return 'JLHL';
+  if (s.includes('PEYA')) return 'PEYA';
+  if (s.includes('YPI') || s.includes('GORAGUNTE')) return 'YPI';
+  if (s.includes('YPM') || s.includes('YESHWANT')) return 'YPM';
+  if (s.includes('SSFY') || s.includes('SANDAL')) return 'SSFY';
+  if (s.includes('MHLI') || s.includes('MAHALAKSHMI')) return 'MHLI';
+  if (s.includes('RJNR') || s.includes('RAJAJINAGAR')) return 'RJNR';
+  if (s.includes('KVPR') || s.includes('KUVEMPU')) return 'KVPR';
+  if (s.includes('SPRU') || s.includes('SRIRAMPURA')) return 'SPRU';
+  if (s.includes('SPGD') || s.includes('SAMPIGE') || s.includes('MANTRI')) return 'SPGD';
+  if (s.includes('CKPE') || s.includes('CHICKPETE')) return 'CKPE';
+  if (s.includes('KRMT') || s.includes('MARKET')) return 'KRMT';
+  if (s.includes('NLC') || s.includes('NATIONAL COLLEGE')) return 'NLC';
+  if (s.includes('LBGH') || s.includes('LALBAGH')) return 'LBGH';
+  if (s.includes('SECE') || s.includes('SOUTH END')) return 'SECE';
+  if (s.includes('JYN') || s.includes('JAYANAGAR')) return 'JYN';
+  if (s.includes('RVR') || s.includes('RV ROAD')) return 'RVR';
+  if (s.includes('BSNK') || s.includes('BANASHANKARI')) return 'BSNK';
+  if (s.includes('JPN') || s.includes('JP NAGAR')) return 'JPN';
+  if (s.includes('APRC') || s.includes('KONANAKUNTE')) return 'APRC';
+  if (s.includes('KLPK') || s.includes('DODDAKALLASANDRA')) return 'KLPK';
+  if (s.includes('VJRH') || s.includes('VAJARAHALLI')) return 'VJRH';
+  if (s.includes('TGTP') || s.includes('THALAGHATTA')) return 'TGTP';
   return s;
 }
 
@@ -2405,6 +2514,24 @@ export function getTransitMinutes(fromLoc, toLoc, customMap = null) {
   if (map[k2] !== undefined) return map[k2];
   if (map[t] !== undefined) return map[t];
   if (map[f] !== undefined) return map[f];
+
+  // Dynamic transit time calculation based on Line 2 station sequence
+  const stnOrder = [
+    "BIET", "JIDL", "MNJN", "NGSA", "DSH", "JLHL", "PYID", "PEYA", "YPI", "YPM",
+    "SSFY", "MHLI", "RJNR", "KVPR", "SPRU", "SPGD", "KGWA", "CKPE", "KRMT", "NLC",
+    "LBGH", "SECE", "JYN", "RVR", "BSNK", "JPN", "PUTH", "APRC", "KLPK", "VJRH",
+    "TGTP", "APTS"
+  ];
+  
+  const fIdx = f === 'DEPOT' ? 6 : stnOrder.indexOf(f);
+  const tIdx = t === 'DEPOT' ? 6 : stnOrder.indexOf(t);
+  
+  if (fIdx !== -1 && tIdx !== -1) {
+    const diff = Math.abs(fIdx - tIdx);
+    const depotBuffer = (f === 'DEPOT' || t === 'DEPOT') ? 5 : 0;
+    return Math.max(5, Math.min(50, Math.round(diff * 2.0 + depotBuffer)));
+  }
+
   return 20; // Default Line 2 transit positioning time
 }
 
@@ -2537,8 +2664,8 @@ export function calculateStablingAndPdcSignOn({
     pdcMinutes: PDC_DURATION_MINUTES,
     isAlternativeStabling,
     transitMinutes: transitMins,
-    actualStablingLocation: actualCode,
-    assignedStablingLocation: assignedCode,
+    actualStablingLocation: stablingLocation || actualCode,
+    assignedStablingLocation: assignedStablingLocation || assignedCode,
     revenueStartTime: revStart,
     calculatedByPdcEngine: true,
     calculationBreakdown: breakdown
@@ -2566,7 +2693,7 @@ export function compileDynamicChangeoverLinks({
   if (Array.isArray(linkRosterRows) && linkRosterRows.length > 0) {
     const nightRows = linkRosterRows.filter(r => {
       const dNo = parseInt(String(r.dutyNo || r.dutyId || '').replace(/\D/g, ''), 10);
-      return (dNo >= 50) || r.isNight || r.shift === 'N' || String(r.signOnTime || '').startsWith('21:') || String(r.signOnTime || '').startsWith('22:') || String(r.signOnTime || '').startsWith('20:');
+      return (dNo >= 50) || r.isNight || r.shift === 'N' || isNightSignOnTime(r.signOnTime);
     });
 
     nightRows.forEach(row => {
@@ -2599,11 +2726,18 @@ export function compileDynamicChangeoverLinks({
         wttRegistry
       });
 
+      const leg1NightSignOn = (isNightSignOnTime(row.nightSignOnTime) ? row.nightSignOnTime : null) ||
+                              (isNightSignOnTime(row.signOnTime) ? row.signOnTime : null) ||
+                              (isNightSignOnTime(baseRow.signOnTime) ? baseRow.signOnTime : null) ||
+                              (isNightSignOnTime(baseRow.nightSignOnTime) ? baseRow.nightSignOnTime : null) ||
+                              (row.nightDepTime && isNightSignOnTime(row.nightDepTime) ? toTimeStr(Math.max(72002, toSec(row.nightDepTime) - 1020)) : "21:30:00");
+
       compiledTable[dutyId] = {
         dutyNo: dutyId,
         fromDayType: normFrom,
         toDayType: normTo,
-        signOnTime: row.signOnTime || baseRow.signOnTime || pdcCalc.signOnTime,
+        signOnTime: leg1NightSignOn,
+        nightSignOnTime: leg1NightSignOn,
         signOnLocation: row.signOnLocation || baseRow.signOnLocation || actualStab,
         nightTrainNo: row.nightTrainNo || baseRow.nightTrainNo || row.leg1TrainNo || row.trainId || '--',
         nightDepTime: row.nightDepTime || baseRow.nightDepTime || row.leg1DepTime || '--',
@@ -2631,6 +2765,7 @@ export function compileDynamicChangeoverLinks({
         transitMinutes: pdcCalc.transitMinutes,
         pdcMinutes: pdcCalc.pdcMinutes,
         calculatedSignOnTime: pdcCalc.signOnTime,
+        mornSignOnTime: pdcCalc.signOnTime,
         lastUpdated: new Date().toISOString()
       };
     });
@@ -2659,11 +2794,17 @@ export function compileDynamicChangeoverLinks({
         wttRegistry
       });
 
+      const leg1NightSignOn = (isNightSignOnTime(baseRow.nightSignOnTime) ? baseRow.nightSignOnTime : null) ||
+                              (isNightSignOnTime(baseRow.signOnTime) ? baseRow.signOnTime : null) ||
+                              (baseRow.nightDepTime && isNightSignOnTime(baseRow.nightDepTime) ? toTimeStr(Math.max(72002, toSec(baseRow.nightDepTime) - 1020)) : "21:30:00");
+
       compiledTable[dutyId] = {
         ...baseRow,
         dutyNo: dutyId,
         fromDayType: normFrom,
         toDayType: normTo,
+        signOnTime: leg1NightSignOn,
+        nightSignOnTime: leg1NightSignOn,
         mornKms: computedMornKms,
         totalKms: (Number(baseRow.nightKms) || 0) + computedMornKms,
         takeoverLocation: actualStab,
@@ -2673,6 +2814,7 @@ export function compileDynamicChangeoverLinks({
         transitMinutes: pdcCalc.transitMinutes,
         pdcMinutes: pdcCalc.pdcMinutes,
         calculatedSignOnTime: pdcCalc.signOnTime,
+        mornSignOnTime: pdcCalc.signOnTime,
         mornDepTime: pdcCalc.revenueStartTime || revStart,
         lastUpdated: new Date().toISOString()
       };
@@ -2794,12 +2936,13 @@ function buildActiveRunDuty(coRow, existingCurrentDuty, operatorInfo, stablingOv
   // Night side maps to leg1 + leg2 (existing link roster fields)
   // Morning side maps to leg3 (takeover train) fields
 
-  let effectiveSignOnTime = coRow.signOnTime;
+  let effectiveSignOnTime = isNightSignOnTime(coRow.signOnTime) ? coRow.signOnTime : (isNightSignOnTime(coRow.nightSignOnTime) ? coRow.nightSignOnTime : '21:30:00');
   let effectiveTakeoverLoc = coRow.takeoverLocation;
   let effectiveSignOnLoc = coRow.signOnLocation;
   let isAltStabling = Boolean(coRow.isAlternativeStabling);
   let transitMins = coRow.transitMinutes || 0;
   let pdcMins = PDC_DURATION_MINUTES;
+  let mornTakeoverSignOn = coRow.calculatedSignOnTime || coRow.mornSignOnTime || null;
 
   if (stablingOverride || isAltStabling) {
     const actualLoc = stablingOverride || coRow.actualStablingLocation || coRow.takeoverLocation;
@@ -2812,7 +2955,7 @@ function buildActiveRunDuty(coRow, existingCurrentDuty, operatorInfo, stablingOv
     });
 
     if (pdcCalc.calculatedByPdcEngine) {
-      effectiveSignOnTime = pdcCalc.signOnTime;
+      mornTakeoverSignOn = pdcCalc.signOnTime;
       effectiveTakeoverLoc = actualLoc;
       effectiveSignOnLoc = actualLoc;
       isAltStabling = pdcCalc.isAlternativeStabling;
@@ -2992,6 +3135,16 @@ export function enrichChangeoverTable(tableObj) {
 }
 
 function enrichRow(row) {
+  // Ensure signOnTime for night changeover duty is NEVER before 20:00:01
+  const sOnSec = toSec(row.signOnTime);
+  if (sOnSec >= 0 && sOnSec < 72001) {
+    if (isNightSignOnTime(row.nightSignOnTime)) {
+      row.signOnTime = row.nightSignOnTime;
+    } else if (row.nightDepTime && isNightSignOnTime(row.nightDepTime)) {
+      row.signOnTime = toTimeStr(Math.max(72002, toSec(row.nightDepTime) - 1020));
+    }
+  }
+
   let nK = Number(row.nightKms) || 0;
   let mK = Number(row.mornKms) || 0;
 

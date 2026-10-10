@@ -277,6 +277,7 @@ const alignRecordWithRegistry = (record) => {
 
 export default function Dashboard({ initialTab = 'DISPATCH' }) {
   const { hasPermission, userProfile } = useAuth();
+  const isOperatorOrViewer = userProfile?.role === 'TRAIN_OPERATOR' || userProfile?.role === 'VIEWER';
 
   const hasAdminRights = () => {
     return hasPermission("User Management", "Full") || userProfile?.role === 'CREW_CONTROLLER';
@@ -362,6 +363,7 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
   const [incidentsData, setIncidentsData] = useState([]);
   const [exchangesData, setExchangesData] = useState([]);
   const [reportsSubTab, setReportsSubTab] = useState('PERFORMANCE'); // 'EXPORTS' or 'PERFORMANCE'
+  const [toViewMode, setToViewMode] = useState('CONSOLE'); // 'CONSOLE' (Full Operational Workstation) | 'PWA' (Mobile View)
 
   const liveWttDataRef = useRef(WTT_MASTER_REGISTRY);
   const liveLinksDataRef = useRef(WEEKDAY_MASTER_LINKS);
@@ -1112,6 +1114,10 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
 
 
   const handleGccRosterUpload = async (e) => {
+    if (isOperatorOrViewer) {
+      alert("Read-Only Mode: Train Operators cannot upload rosters.");
+      return;
+    }
     const file = e.target.files[0];
     if (!file) return;
 
@@ -1305,6 +1311,10 @@ Format the response strictly as a single JSON object.`;
   };
 
   const handleRosterReset = async (targetDateParam) => {
+    if (isOperatorOrViewer) {
+      alert("Read-Only Mode: Train Operators cannot reset rosters.");
+      return;
+    }
     const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
     const targetDate = targetDateParam || todayStr;
     if (window.confirm(`Reset GCC rosters for ${activeDay} (${targetDate})? This will ONLY clear deployed records for ${targetDate}. Other dates will NOT be affected.`)) {
@@ -1480,6 +1490,10 @@ Format the response strictly as a single JSON object.`;
   };
 
   const handleUpdateMasterScheduleLinks = async (targetDay = activeDay) => {
+    if (isOperatorOrViewer) {
+      alert("Read-Only Mode: Train Operators cannot modify schedule links.");
+      return;
+    }
     const normDay = normalizeScheduleType(targetDay);
     const dayLinks = getMasterLinksForDay(normDay);
     const dayLabel = normDay === 'SATURDAY' ? 'Saturday & GH' : normDay === 'SUNDAY' ? 'Sunday' : normDay === 'MONDAY' ? 'Monday' : 'Weekday';
@@ -1556,6 +1570,10 @@ Format the response strictly as a single JSON object.`;
 
   const handleIncidentLogSubmit = async (e) => {
     e.preventDefault();
+    if (isOperatorOrViewer) {
+      alert("Read-Only Mode: Train Operators cannot log delay incidents.");
+      return;
+    }
     if (!targetTid || !delayMinutes) return;
     try {
       const incId = `incident_t${targetTid}_${Date.now()}`;
@@ -1565,6 +1583,10 @@ Format the response strictly as a single JSON object.`;
   };
 
   const handleClearAllIncidents = async () => {
+    if (isOperatorOrViewer) {
+      alert("Read-Only Mode: Train Operators cannot clear delay incidents.");
+      return;
+    }
     if (window.confirm("Restore all line movements back to strict master WTT schedules?")) {
       const snapshot = await getDocs(collection(db, "wtt_live_incidents"));
       const batch = writeBatch(db); snapshot.docs.forEach(doc => batch.delete(doc.ref));
@@ -1573,6 +1595,10 @@ Format the response strictly as a single JSON object.`;
   };
 
   const handleOneClickAuthorize = async (rowOrRows) => {
+    if (isOperatorOrViewer) {
+      alert("Read-Only Mode: Train Operators cannot authorize dispatch.");
+      return;
+    }
     try {
       const actualTimeStr = new Date().toTimeString().split(' ')[0];
       const rows = Array.isArray(rowOrRows) ? rowOrRows : [rowOrRows];
@@ -1605,6 +1631,10 @@ Format the response strictly as a single JSON object.`;
 
   const handleTrainIdSwap = async (e) => {
     e.preventDefault();
+    if (isOperatorOrViewer) {
+      alert("Read-Only Mode: Train Operators cannot execute Train ID swaps.");
+      return;
+    }
     if (!swapFromTid || !swapToTid) return;
     try {
       const q1 = query(collection(db, "wtt_final_matrix"), where("trainId", "==", swapFromTid));
@@ -1624,6 +1654,10 @@ Format the response strictly as a single JSON object.`;
   };
 
   const handleDeploymentCellSave = async (rowId, fieldName, dutyId) => {
+    if (isOperatorOrViewer) {
+      alert("Read-Only Mode: Train Operators cannot edit deployment records.");
+      return;
+    }
     try {
       await setDoc(doc(db, "crew_daily_deployment", `gcc_deploy_${activeDay.toLowerCase()}_duty_${dutyId}`), { [fieldName]: editValue }, { merge: true });
       fetchLiveData(); setEditingCell({ rowId: null, direction: null, station: null, isTid: false, isDeployment: false });
@@ -1631,6 +1665,10 @@ Format the response strictly as a single JSON object.`;
   };
 
   const handleWttCellSave = async (row, direction, stationName, isTidField, isModeField = false) => {
+    if (isOperatorOrViewer) {
+      alert("Read-Only Mode: Train Operators cannot edit WTT records.");
+      return;
+    }
     try {
       const targetTrip = direction === 'DN' ? row.downTrip : row.upTrip; if (!targetTrip) return;
       const targetId = targetTrip.id || `wtt_${activeDay.toLowerCase()}_${row.trainId}_${direction.toLowerCase()}`;
@@ -1664,6 +1702,10 @@ Format the response strictly as a single JSON object.`;
   };
 
   const handleWttBulkSave = async (editedRows) => {
+    if (isOperatorOrViewer) {
+      alert("Read-Only Mode: Train Operators cannot edit WTT records.");
+      return;
+    }
     try {
       const batch = writeBatch(db);
       for (const row of editedRows) {
@@ -1711,6 +1753,10 @@ Format the response strictly as a single JSON object.`;
   };
 
   const handleCellSave = async (rowId, fieldName) => {
+    if (isOperatorOrViewer) {
+      alert("Read-Only Mode: Train Operators cannot edit link roster records.");
+      return;
+    }
     try {
       await updateDoc(doc(db, "crew_final_links", rowId), { [fieldName]: editValue });
       setEditingCell({ rowId: null, direction: null, station: null, isTid: false, isDeployment: false }); fetchLiveData();
@@ -1718,6 +1764,10 @@ Format the response strictly as a single JSON object.`;
   };
 
   const handleDeleteRow = async (rowId) => {
+    if (isOperatorOrViewer) {
+      alert("Read-Only Mode: Train Operators cannot delete link roster records.");
+      return;
+    }
     if (window.confirm("Confirm deletion of this crew link run file?")) {
       await deleteDoc(doc(db, "crew_final_links", rowId));
       setLinks(prev => prev.filter(item => item.id !== rowId));
@@ -1725,6 +1775,10 @@ Format the response strictly as a single JSON object.`;
   };
 
   const handleDeleteTripRow = async (row) => {
+    if (isOperatorOrViewer) {
+      alert("Read-Only Mode: Train Operators cannot delete WTT trips.");
+      return;
+    }
     if (window.confirm(`Delete Train ID ${row.trainId} trip pair block?`)) {
       if (row.downTrip) await deleteDoc(doc(db, "wtt_final_matrix", row.downTrip.id));
       if (row.upTrip) await deleteDoc(doc(db, "wtt_final_matrix", row.upTrip.id));
@@ -1762,7 +1816,8 @@ Format the response strictly as a single JSON object.`;
           userRole === 'ADMIN_SS' || 
           userRole === 'CREW_CONTROLLER' ||
           userRole === 'ADMIN' ||
-          userRole === 'VIEWER'
+          userRole === 'VIEWER' ||
+          (userRole === 'TRAIN_OPERATOR' && toViewMode === 'CONSOLE')
         ) {
           return (
             <SuperAdminLayout
@@ -1772,94 +1827,96 @@ Format the response strictly as a single JSON object.`;
               deployments={dailyDeployment}
               attendanceLogs={attendanceLogs}
               loading={loading}
-          fetchLiveData={fetchLiveData}
-          activeDay={activeDay}
-          setActiveDay={setActiveDay}
-          onOneClickAuthorize={handleOneClickAuthorize}
-          filteredLinks={filteredLinks}
-          editingCell={editingCell}
-          setEditingCell={setEditingCell}
-          editValue={editValue}
-          setEditValue={setEditValue}
-          handleCellSave={handleCellSave}
-          handleDeleteRow={handleDeleteRow}
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          trackerSearchTerm={trackerSearchTerm}
-          setTrackerSearchTerm={setTrackerSearchTerm}
-          filteredTrackingKeys={filteredTrackingKeys}
-          dnStationOrder={dnStationOrder}
-          upStationOrder={upStationOrder}
-          handleWttCellSave={handleWttCellSave}
-          handleWttBulkSave={handleWttBulkSave}
-          handleDeleteTripRow={handleDeleteTripRow}
-          addDelayToTime={addDelayToTime}
-          handleRosterReset={handleRosterReset}
-          handleUpdateMasterScheduleLinks={handleUpdateMasterScheduleLinks}
-          handleUpdateMasterWeekdayLinks={handleUpdateMasterWeekdayLinks}
-          handleGccRosterUpload={handleGccRosterUpload}
-          targetTid={targetTid}
-          setTargetTid={setTargetTid}
-          delayMinutes={delayMinutes}
-          setDelayMinutes={setDelayMinutes}
-          incidentReason={incidentReason}
-          setIncidentReason={setIncidentReason}
-          handleIncidentLogSubmit={handleIncidentLogSubmit}
-          onWttImported={handleWttImported}
-          onLinkRosterImported={handleLinkRosterImported}
-        />
-      );
-    }
+              fetchLiveData={fetchLiveData}
+              activeDay={activeDay}
+              setActiveDay={setActiveDay}
+              onOneClickAuthorize={isOperatorOrViewer ? undefined : handleOneClickAuthorize}
+              filteredLinks={filteredLinks}
+              editingCell={editingCell}
+              setEditingCell={setEditingCell}
+              editValue={editValue}
+              setEditValue={setEditValue}
+              handleCellSave={isOperatorOrViewer ? undefined : handleCellSave}
+              handleDeleteRow={isOperatorOrViewer ? undefined : handleDeleteRow}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              trackerSearchTerm={trackerSearchTerm}
+              setTrackerSearchTerm={setTrackerSearchTerm}
+              filteredTrackingKeys={filteredTrackingKeys}
+              dnStationOrder={dnStationOrder}
+              upStationOrder={upStationOrder}
+              handleWttCellSave={isOperatorOrViewer ? undefined : handleWttCellSave}
+              handleWttBulkSave={isOperatorOrViewer ? undefined : handleWttBulkSave}
+              handleDeleteTripRow={isOperatorOrViewer ? undefined : handleDeleteTripRow}
+              addDelayToTime={addDelayToTime}
+              handleRosterReset={isOperatorOrViewer ? undefined : handleRosterReset}
+              handleUpdateMasterScheduleLinks={isOperatorOrViewer ? undefined : handleUpdateMasterScheduleLinks}
+              handleUpdateMasterWeekdayLinks={isOperatorOrViewer ? undefined : handleUpdateMasterWeekdayLinks}
+              handleGccRosterUpload={isOperatorOrViewer ? undefined : handleGccRosterUpload}
+              targetTid={targetTid}
+              setTargetTid={setTargetTid}
+              delayMinutes={delayMinutes}
+              setDelayMinutes={setDelayMinutes}
+              incidentReason={incidentReason}
+              setIncidentReason={setIncidentReason}
+              handleIncidentLogSubmit={isOperatorOrViewer ? undefined : handleIncidentLogSubmit}
+              onWttImported={handleWttImported}
+              onLinkRosterImported={handleLinkRosterImported}
+              onSwitchViewMode={() => setToViewMode('PWA')}
+            />
+          );
+        }
 
-    if (
-      userRole === 'GCC_OCC_CONTROLLER' || 
-      userRole === 'OCC_CONTROLLER' || 
-      userRole === 'GCC' || 
-      userRole === 'OCC'
-    ) {
-      return (
-        <OccControllerLayout
-          liveTrainTrackingMap={liveTrainTrackingMap}
-          unifiedRows={unifiedRows}
-          liveIncidents={liveIncidents}
-          deployments={dailyDeployment}
-          attendanceLogs={attendanceLogs}
-          loading={loading}
-          fetchLiveData={fetchLiveData}
-          activeDay={activeDay}
-        />
-      );
-    }
+        if (
+          userRole === 'GCC_OCC_CONTROLLER' || 
+          userRole === 'OCC_CONTROLLER' || 
+          userRole === 'GCC' || 
+          userRole === 'OCC'
+        ) {
+          return (
+            <OccControllerLayout
+              liveTrainTrackingMap={liveTrainTrackingMap}
+              unifiedRows={unifiedRows}
+              liveIncidents={liveIncidents}
+              deployments={dailyDeployment}
+              attendanceLogs={attendanceLogs}
+              loading={loading}
+              fetchLiveData={fetchLiveData}
+              activeDay={activeDay}
+            />
+          );
+        }
 
-    if (userRole === 'STATION_CONTROLLER') {
-      return (
-        <StationControllerLayout
-          liveTrainTrackingMap={liveTrainTrackingMap}
-          unifiedRows={unifiedRows}
-          liveIncidents={liveIncidents}
-          deployments={dailyDeployment}
-          attendanceLogs={attendanceLogs}
-          loading={loading}
-          fetchLiveData={fetchLiveData}
-          activeDay={activeDay}
-        />
-      );
-    }
+        if (userRole === 'STATION_CONTROLLER') {
+          return (
+            <StationControllerLayout
+              liveTrainTrackingMap={liveTrainTrackingMap}
+              unifiedRows={unifiedRows}
+              liveIncidents={liveIncidents}
+              deployments={dailyDeployment}
+              attendanceLogs={attendanceLogs}
+              loading={loading}
+              fetchLiveData={fetchLiveData}
+              activeDay={activeDay}
+            />
+          );
+        }
 
-    if (userRole === 'TRAIN_OPERATOR') {
-      return (
-        <TrainOperatorPwa
-          liveTrainTrackingMap={liveTrainTrackingMap}
-          unifiedRows={unifiedRows}
-          liveIncidents={liveIncidents}
-          deployments={dailyDeployment}
-          attendanceLogs={attendanceLogs}
-          loading={loading}
-          fetchLiveData={fetchLiveData}
-          activeDay={activeDay}
-        />
-      );
-    }
+        if (userRole === 'TRAIN_OPERATOR') {
+          return (
+            <TrainOperatorPwa
+              liveTrainTrackingMap={liveTrainTrackingMap}
+              unifiedRows={unifiedRows}
+              liveIncidents={liveIncidents}
+              deployments={dailyDeployment}
+              attendanceLogs={attendanceLogs}
+              loading={loading}
+              fetchLiveData={fetchLiveData}
+              activeDay={activeDay}
+              onSwitchViewMode={() => setToViewMode('CONSOLE')}
+            />
+          );
+        }
 
     return (
       <ViewerLayout

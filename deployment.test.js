@@ -251,7 +251,7 @@ describe("DISPATCH GATEWAY CORE — Date-Wise Deployment Architecture Test Suite
     // 2026-09-27 is Sunday
     assert.equal(calculateDefaultDayType("2026-09-27"), "SUNDAY");
     // 2026-10-03 is Saturday
-    assert.equal(calculateDefaultDayType("2026-10-03"), "SATURDAY_GH");
+    assert.equal(calculateDefaultDayType("2026-10-03"), "SATURDAY");
     // 2026-09-29 is Tuesday (Weekday)
     assert.equal(calculateDefaultDayType("2026-09-29"), "WEEKDAY");
   });

@@ -1958,6 +1958,7 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
     const canonicalDuties = buildCanonicalDutiesForDate(
       activeSched,
       targetDeploymentDate,
+      true,
     );
     return deduplicateDeployments(canonicalDuties);
   }, [
@@ -2455,7 +2456,7 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
             deduplicatedDeployments.length > 0 &&
             depDate === targetDeploymentDate
           ? deduplicatedDeployments
-          : buildCanonicalDutiesForDate(depDayType, depDate)
+          : buildCanonicalDutiesForDate(depDayType, depDate, true)
     ).map((d) => ({
       ...d,
       date: depDate,
@@ -3184,6 +3185,9 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
             ).trim();
             return {
               ...d,
+              date: targetDeploymentDate,
+              deploymentDate: targetDeploymentDate,
+              targetDate: targetDeploymentDate,
               dutyId: normDuty || d.dutyId,
               dutyNo: normDuty || d.dutyNo,
               operatorName: opName || d.operatorName || d.empName,
@@ -3198,13 +3202,13 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
           );
           window.dispatchEvent(
             new CustomEvent("pyidcc_dispatch_deployments_updated", {
-              detail: { duties: formattedDuties },
+              detail: { duties: formattedDuties, date: targetDeploymentDate },
             }),
           );
         }
       } catch (_e) {}
     }
-  }, [activeDeploymentDuties]);
+  }, [activeDeploymentDuties, targetDeploymentDate]);
 
   // Compute Live Train Tracking Map following Live Train Operator Relief Matrix
   // and active deployed train operators from DISPATCH GATEWAY CORE

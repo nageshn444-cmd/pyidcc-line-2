@@ -16,6 +16,10 @@ export default function WTTPage(props) {
   const [matrixStationSearch, setMatrixStationSearch] = useState('');
 
   const handleEraseOldWttData = async () => {
+    if (props.isReadOnly) {
+      alert("Read-Only Mode: Train Operators cannot modify WTT data.");
+      return;
+    }
     const day = props.activeDay || 'WEEKDAY';
     if (!window.confirm(`⚠️ Erase all old WTT timetable records for ${day}? Only newly uploaded data should be kept.`)) {
       return;
@@ -37,6 +41,10 @@ export default function WTTPage(props) {
   };
 
   const handleDeployMasterWtt = async () => {
+    if (props.isReadOnly) {
+      alert("Read-Only Mode: Train Operators cannot deploy master WTT data.");
+      return;
+    }
     try {
       const { saveWttToFirestore, normalizeScheduleType } = await import('../services/wttAndLinkRosterImportService');
       const { WTT_MASTER_REGISTRY } = await import('../data/wttMasterRegistry');
@@ -235,58 +243,62 @@ export default function WTTPage(props) {
               >
                 CLEAR
               </button>
-              <button 
-                onClick={() => setIsWttUploadOpen(true)}
-                className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 px-4 py-2 rounded-lg text-sm font-black transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.25)] h-[38px]"
-                title={`Upload new Working Time Table Excel sheet for ${props.activeDay || 'WEEKDAY'} or any day`}
-              >
-                <UploadCloud className="h-4 w-4" /> UPLOAD WTT EXCEL
-              </button>
+              {!props.isReadOnly && (
+                <button 
+                  onClick={() => setIsWttUploadOpen(true)}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 px-4 py-2 rounded-lg text-sm font-black transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.25)] h-[38px]"
+                  title={`Upload new Working Time Table Excel sheet for ${props.activeDay || 'WEEKDAY'} or any day`}
+                >
+                  <UploadCloud className="h-4 w-4" /> UPLOAD WTT EXCEL
+                </button>
+              )}
             </div>
 
             {/* Quick WTT Upload Banner Above Chronological Matrix */}
-            <div className="bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/25 p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                  <FileSpreadsheet className="h-4 w-4" />
+            {!props.isReadOnly && (
+              <div className="bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/25 p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <FileSpreadsheet className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
+                      <span>Working Time Table Dynamic Importer</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold border border-emerald-500/30">
+                        Active: {props.activeDay || 'WEEKDAY'} SCHEDULE
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-sans mt-0.5">
+                      Upload new WTT Excel (.xlsx, .xls, .csv). Extracted scheduled timings will update this chronological matrix and synchronize line-wide telemetry.
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-xs font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
-                    <span>Working Time Table Dynamic Importer</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold border border-emerald-500/30">
-                      Active: {props.activeDay || 'WEEKDAY'} SCHEDULE
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-slate-400 font-sans mt-0.5">
-                    Upload new WTT Excel (.xlsx, .xls, .csv). Extracted scheduled timings will update this chronological matrix and synchronize line-wide telemetry.
-                  </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={handleEraseOldWttData}
+                    disabled={isClearingWtt}
+                    className="bg-rose-950/70 hover:bg-rose-900 border border-rose-500/40 text-rose-300 disabled:opacity-50 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(244,63,94,0.15)]"
+                    title={`Erase old ${props.activeDay || 'WEEKDAY'} WTT records`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> {isClearingWtt ? 'Erasing...' : `Erase Old ${props.activeDay || 'WEEKDAY'} Data`}
+                  </button>
+                  <button
+                    onClick={handleDeployMasterWtt}
+                    disabled={isDeployingMaster}
+                    className="bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-slate-950 px-3.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(6,182,212,0.25)]"
+                    title={`Deploy verified 10-station Master WTT for ${props.activeDay || 'WEEKDAY'} with ATO/ATP modes`}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" /> {isDeployingMaster ? 'Deploying...' : `Deploy Verified Master WTT`}
+                  </button>
+                  <button
+                    onClick={() => setIsWttUploadOpen(true)}
+                    className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-3.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.25)]"
+                  >
+                    <UploadCloud className="h-3.5 w-3.5" /> Upload {props.activeDay || 'WEEKDAY'} WTT
+                  </button>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={handleEraseOldWttData}
-                  disabled={isClearingWtt}
-                  className="bg-rose-950/70 hover:bg-rose-900 border border-rose-500/40 text-rose-300 disabled:opacity-50 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(244,63,94,0.15)]"
-                  title={`Erase old ${props.activeDay || 'WEEKDAY'} WTT records`}
-                >
-                  <Trash2 className="h-3.5 w-3.5" /> {isClearingWtt ? 'Erasing...' : `Erase Old ${props.activeDay || 'WEEKDAY'} Data`}
-                </button>
-                <button
-                  onClick={handleDeployMasterWtt}
-                  disabled={isDeployingMaster}
-                  className="bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-slate-950 px-3.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(6,182,212,0.25)]"
-                  title={`Deploy verified 10-station Master WTT for ${props.activeDay || 'WEEKDAY'} with ATO/ATP modes`}
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" /> {isDeployingMaster ? 'Deploying...' : `Deploy Verified Master WTT`}
-                </button>
-                <button
-                  onClick={() => setIsWttUploadOpen(true)}
-                  className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-3.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.25)]"
-                >
-                  <UploadCloud className="h-3.5 w-3.5" /> Upload {props.activeDay || 'WEEKDAY'} WTT
-                </button>
-              </div>
-            </div>
+            )}
 
             <ChronologicalMatrix 
               targetTid={props.targetTid}

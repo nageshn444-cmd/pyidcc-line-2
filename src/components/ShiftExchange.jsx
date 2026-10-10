@@ -107,6 +107,10 @@ const BASE_DUTY_OPTIONS = [
 
 export default function ShiftExchange() {
   const { userProfile } = useAuth();
+  const userRole = userProfile?.role || '';
+  const isAuthorizedApprover = ['SUPER_ADMIN', 'CREW_CONTROLLER', 'ADMIN_Station_Superintendent', 'ADMIN_SS'].includes(userRole);
+  const isTrainOperator = userRole === 'TRAIN_OPERATOR';
+  const currentEmpId = normalizeCanonicalEmpId(userProfile?.employeeId || userProfile?.empId || '');
   const [exchanges, setExchanges] = useState([]);
   const [exchangeMode, setExchangeMode] = useState('PAIR'); // 'PAIR' | 'TRIPLE'
   const [formData, setFormData] = useState({
@@ -951,6 +955,13 @@ export default function ShiftExchange() {
   const handleSubmitRequest = async () => {
     const isTriple = exchangeMode === 'TRIPLE';
 
+    if (isTrainOperator && currentEmpId) {
+      if (normalizeCanonicalEmpId(formData.operator1Id) !== currentEmpId) {
+        alert("❌ As a Train Operator, you can only raise shift exchange requests for your own duty (Operator 1 must be you).");
+        return;
+      }
+    }
+
     if (isTriple) {
       if (!formData.exchangeDate || !formData.operator1Id || !formData.operator2Id || !formData.operator3Id) {
         alert("Please fill in the Date and select all three Operators for Triple Exchange.");
@@ -1037,6 +1048,16 @@ export default function ShiftExchange() {
   const handleConfirm = async (id, operatorNum) => {
     const ex = exchanges.find(e => e.id === id);
     if (!ex) return;
+
+    if (isTrainOperator) {
+      const targetOpId = operatorNum === 1 
+        ? normalizeCanonicalEmpId(ex.operator1Id) 
+        : (operatorNum === 2 ? normalizeCanonicalEmpId(ex.operator2Id) : normalizeCanonicalEmpId(ex.operator3Id));
+      if (currentEmpId && targetOpId && currentEmpId !== targetOpId) {
+        alert("❌ Unauthorized: You can only confirm a shift exchange request for your own duty.");
+        return;
+      }
+    }
 
     let field = '';
     let timeField = '';
@@ -1189,6 +1210,11 @@ export default function ShiftExchange() {
   };
 
   const handleReverseExchange = async (id) => {
+    if (!isAuthorizedApprover) {
+      alert("❌ Unauthorized: Only GCC, Crew Controller, or ALS are authorized to reverse shift exchanges.");
+      return;
+    }
+
     const ex = exchanges.find(e => e.id === id);
     if (!ex) return;
 
@@ -1389,12 +1415,17 @@ export default function ShiftExchange() {
   };
 
   const handleReject = async (id) => {
+    if (!isAuthorizedApprover) {
+      alert("❌ Unauthorized: Only GCC, Crew Controller, or ALS are authorized to reject shift exchanges.");
+      return;
+    }
+
     const ex = exchanges.find(e => e.id === id);
     if (!ex) return;
 
     await updateDoc(doc(db, 'shift_exchanges', id), {
       status: 'Rejected',
-      rejectedBy: 'GCC/Crew Controller',
+      rejectedBy: `${userProfile?.employeeName || 'GCC/Crew Controller'}`,
       rejectedAt: serverTimestamp()
     });
 
@@ -1403,17 +1434,27 @@ export default function ShiftExchange() {
       exchangeId: id,
       operator1Id: ex.operator1Id,
       operator2Id: ex.operator2Id,
-      approvedBy: 'GCC/Crew Controller',
+      approvedBy: `${userProfile?.employeeName || 'GCC/Crew Controller'}`,
       timestamp: serverTimestamp(),
       oldDuty: ex.operator1Duty,
       newDuty: ex.operator2Duty,
-      details: `Shift exchange rejected by GCC/CC between ${ex.operator1Name} and ${ex.operator2Name}`
+      details: `Shift exchange rejected by ${userProfile?.employeeName || 'GCC/CC'} between ${ex.operator1Name} and ${ex.operator2Name}`
     });
   };
 
   const handleCancel = async (id) => {
     const ex = exchanges.find(e => e.id === id);
     if (!ex) return;
+
+    if (isTrainOperator && currentEmpId) {
+      const op1Id = normalizeCanonicalEmpId(ex.operator1Id);
+      const op2Id = normalizeCanonicalEmpId(ex.operator2Id);
+      const op3Id = normalizeCanonicalEmpId(ex.operator3Id);
+      if (currentEmpId !== op1Id && currentEmpId !== op2Id && currentEmpId !== op3Id) {
+        alert("❌ Unauthorized: You can only cancel shift exchange requests in which you are a participant.");
+        return;
+      }
+    }
 
     await updateDoc(doc(db, 'shift_exchanges', id), {
       status: 'Cancelled',
@@ -2024,7 +2065,8 @@ export default function ShiftExchange() {
                         {ex.operator1Confirmed ? (
                           <span className='text-emerald-500 flex items-center gap-1 text-[10px] font-bold mt-1'><CheckCircle size={10}/> CONFIRMED</span>
                         ) : (
-                          (ex.status === 'Awaiting Second Operator Confirmation' || ex.status === 'Pending') && (
+                          (ex.status === 'Awaiting Second Operator Confirmation' || ex.status === 'Pending') && 
+                          (isAuthorizedApprover || (isTrainOperator && currentEmpId === normalizeCanonicalEmpId(ex.operator1Id))) && (
                             <button onClick={() => handleConfirm(ex.id, 1)} className='mt-1 bg-amber-900/40 border border-amber-700 hover:bg-amber-800/60 text-amber-400 text-[10px] py-1 px-2 rounded w-max transition-colors cursor-pointer'>
                               CONFIRM REQUEST
                             </button>
@@ -2041,7 +2083,8 @@ export default function ShiftExchange() {
                         {ex.operator2Confirmed ? (
                           <span className='text-emerald-500 flex items-center gap-1 text-[10px] font-bold mt-1'><CheckCircle size={10}/> CONFIRMED</span>
                         ) : (
-                          (ex.status === 'Awaiting Second Operator Confirmation' || ex.status === 'Pending') && (
+                          (ex.status === 'Awaiting Second Operator Confirmation' || ex.status === 'Pending') && 
+                          (isAuthorizedApprover || (isTrainOperator && currentEmpId === normalizeCanonicalEmpId(ex.operator2Id))) && (
                             <button onClick={() => handleConfirm(ex.id, 2)} className='mt-1 bg-cyan-900/40 border border-cyan-700 hover:bg-cyan-800/60 text-cyan-400 text-[10px] py-1 px-2 rounded w-max transition-colors cursor-pointer'>
                               CONFIRM REQUEST
                             </button>
@@ -2059,7 +2102,8 @@ export default function ShiftExchange() {
                           {ex.operator3Confirmed ? (
                             <span className='text-emerald-500 flex items-center gap-1 text-[10px] font-bold mt-1'><CheckCircle size={10}/> CONFIRMED</span>
                           ) : (
-                            (ex.status === 'Awaiting Second Operator Confirmation' || ex.status === 'Pending') && (
+                            (ex.status === 'Awaiting Second Operator Confirmation' || ex.status === 'Pending') && 
+                            (isAuthorizedApprover || (isTrainOperator && currentEmpId === normalizeCanonicalEmpId(ex.operator3Id))) && (
                               <button onClick={() => handleConfirm(ex.id, 3)} className='mt-1 bg-purple-900/40 border border-purple-700 hover:bg-purple-800/60 text-purple-400 text-[10px] py-1 px-2 rounded w-max transition-colors cursor-pointer'>
                                 CONFIRM REQUEST
                               </button>
@@ -2080,21 +2124,25 @@ export default function ShiftExchange() {
                     <td className='p-3 text-center'>
                       {ex.status === 'Awaiting GCC Approval' ? (
                         <div className='flex flex-col gap-1.5 items-center justify-center'>
-                          <div className='flex gap-1.5 justify-center'>
-                            <button 
-                              onClick={() => handleAuthorize(ex.id)} 
-                              className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black px-2.5 py-1.5 rounded text-[10px] tracking-wider uppercase transition-colors shadow-sm flex items-center gap-0.5 cursor-pointer"
-                            >
-                              <Check size={10}/> Approve
-                            </button>
-                            <button 
-                              onClick={() => handleReject(ex.id)} 
-                              className="bg-rose-950 border border-rose-500 hover:bg-rose-900 text-rose-300 font-bold px-2.5 py-1.5 rounded text-[10px] tracking-wider uppercase transition-colors shadow-sm flex items-center gap-0.5 cursor-pointer"
-                            >
-                              <X size={10}/> Reject
-                            </button>
-                          </div>
-                          {showCancel && (
+                          {isAuthorizedApprover ? (
+                            <div className='flex gap-1.5 justify-center'>
+                              <button 
+                                onClick={() => handleAuthorize(ex.id)} 
+                                className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black px-2.5 py-1.5 rounded text-[10px] tracking-wider uppercase transition-colors shadow-sm flex items-center gap-0.5 cursor-pointer"
+                              >
+                                <Check size={10}/> Approve
+                              </button>
+                              <button 
+                                onClick={() => handleReject(ex.id)} 
+                                className="bg-rose-950 border border-rose-500 hover:bg-rose-900 text-rose-300 font-bold px-2.5 py-1.5 rounded text-[10px] tracking-wider uppercase transition-colors shadow-sm flex items-center gap-0.5 cursor-pointer"
+                              >
+                                <X size={10}/> Reject
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-amber-400 font-mono italic">Awaiting Supervisor Review</span>
+                          )}
+                          {showCancel && (isAuthorizedApprover || (isTrainOperator && (currentEmpId === normalizeCanonicalEmpId(ex.operator1Id) || currentEmpId === normalizeCanonicalEmpId(ex.operator2Id) || currentEmpId === normalizeCanonicalEmpId(ex.operator3Id)))) && (
                             <button 
                               onClick={() => handleCancel(ex.id)}
                               className="text-slate-500 hover:text-slate-400 font-bold text-[9px] uppercase tracking-wider cursor-pointer"
@@ -2103,7 +2151,7 @@ export default function ShiftExchange() {
                             </button>
                           )}
                         </div>
-                      ) : (ex.status === 'Awaiting Second Operator Confirmation') ? (
+                      ) : (ex.status === 'Awaiting Second Operator Confirmation' || ex.status === 'Awaiting Second & Third Operator Confirmation' || ex.status === 'Awaiting Operator Confirmations') ? (
                         <div className='flex flex-col items-center gap-1.5'>
                           <span className='text-[10px] text-slate-500 font-bold uppercase'>
                             {ex.isTriple 
@@ -2112,7 +2160,7 @@ export default function ShiftExchange() {
                                   : (!ex.operator2Confirmed ? 'Awaiting Op 2' : 'Awaiting Op 3'))
                               : 'Awaiting Op 2'}
                           </span>
-                          {showCancel && (
+                          {showCancel && (isAuthorizedApprover || (isTrainOperator && (currentEmpId === normalizeCanonicalEmpId(ex.operator1Id) || currentEmpId === normalizeCanonicalEmpId(ex.operator2Id) || currentEmpId === normalizeCanonicalEmpId(ex.operator3Id)))) && (
                             <button 
                               onClick={() => handleCancel(ex.id)}
                               className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 px-2 py-1 rounded text-[9px] uppercase tracking-wider font-bold cursor-pointer"
@@ -2123,12 +2171,14 @@ export default function ShiftExchange() {
                         </div>
                       ) : (ex.status === 'APPROVED' || ex.status === 'Approved' || ex.status === 'Operational') ? (
                         <div className='flex flex-col items-center gap-1.5'>
-                          <button 
-                            onClick={() => handleReverseExchange(ex.id)} 
-                            className="bg-rose-950 border border-rose-500 hover:bg-rose-900 text-rose-300 font-bold px-3 py-1.5 rounded text-[10px] tracking-wider uppercase transition-colors shadow-sm flex items-center gap-0.5 cursor-pointer"
-                          >
-                            Reverse Exchange
-                          </button>
+                          {isAuthorizedApprover && (
+                            <button 
+                              onClick={() => handleReverseExchange(ex.id)} 
+                              className="bg-rose-950 border border-rose-500 hover:bg-rose-900 text-rose-300 font-bold px-3 py-1.5 rounded text-[10px] tracking-wider uppercase transition-colors shadow-sm flex items-center gap-0.5 cursor-pointer"
+                            >
+                              Reverse Exchange
+                            </button>
+                          )}
                           <span className='text-[8px] text-slate-500'>Approved by {ex.approvedBy || 'GCC/CC'}</span>
                         </div>
                       ) : ex.status === 'Rejected' ? (

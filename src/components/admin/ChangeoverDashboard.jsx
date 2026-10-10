@@ -15,10 +15,14 @@ import {
   Search, Cpu, Zap, Clock, Route
 } from 'lucide-react';
 import { db } from '../../firebase';
-import { doc, getDoc, collection, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, onSnapshot, query, where } from 'firebase/firestore';
+import { getOperatorForDuty } from '../../data/weekdayMasterDutyRoster';
+import { BMRCL_CREW_REGISTRY } from '../../data/bmrclCrewRegistry';
 import {
   checkDeploymentExists,
   validateDeploymentContext,
+  formatOperationalDate,
+  toIndianDateStr,
 } from '../../services/deploymentService';
 
 const DAY_OPTIONS = [
@@ -60,6 +64,22 @@ const normalizeSched = (s) => {
   return str;
 };
 
+// Parse time string 'HH:MM' or 'HH:MM:SS' to total seconds from 00:00:00 (0..86399)
+const parseTimeToSeconds = (tStr) => {
+  if (!tStr || typeof tStr !== 'string') return -1;
+  const parts = tStr.trim().split(':').map(Number);
+  if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return -1;
+  return (parts[0] * 3600) + (parts[1] * 60) + (parts[2] || 0);
+};
+
+// Check if a time string is STRICTLY above 20:00:01 (20:00:01 to 23:59:59)
+// 20:00:01 in seconds = 20 * 3600 + 0 * 60 + 1 = 72001 seconds.
+// Sign-on time before 20:00:01 (00:00:00 through 20:00:00, or seconds <= 72000) is NEVER considered as night shift!
+const isNightSignOnTime = (tStr) => {
+  const secs = parseTimeToSeconds(tStr);
+  return secs >= 72001; // strictly above 20:00:01
+};
+
 // Check if an operational record or shift belongs to Morning or Afternoon (Shift A / Shift B)
 const isMorningOrAfternoonShift = (item) => {
   if (!item) return false;
@@ -86,14 +106,13 @@ const isMorningOrAfternoonShift = (item) => {
     return true;
   }
 
-  // 3. Check sign-on time (Daytime 05:00:00 to 19:59:59 is Morning / Afternoon shift)
-  // Night shift operates from 20:00 to 04:59.
+  // 3. Check sign-on time:
+  // Sign-on time before 20:00:01 (00:00:00 through 20:00:00) is Daytime / Morning / Afternoon shift.
+  // ONLY sign-on times strictly above 20:00:01 are night shift.
   const sOn = String(item.signOnTime || item.sOnTime || item.signOn || item.sOn || "").trim();
-  if (sOn && shift !== 'N' && shift !== 'C' && !item.isNight) {
-    const hr = parseInt(sOn.split(":")[0], 10);
-    if (!isNaN(hr) && hr >= 5 && hr < 20) {
-      return true;
-    }
+  const sOnSecs = parseTimeToSeconds(sOn);
+  if (sOnSecs >= 0 && sOnSecs < 72001 && shift !== 'N' && shift !== 'C' && !item.isNight) {
+    return true;
   }
 
   return false;
@@ -103,6 +122,15 @@ const isMorningOrAfternoonShift = (item) => {
 const isNightDutyRecord = (item) => {
   if (!item) return false;
 
+  const sOn = String(item.signOnTime || item.sOnTime || item.signOn || item.sOn || "").trim();
+  const sOnSecs = parseTimeToSeconds(sOn);
+
+  // CRITICAL RULE: Sign-on time before 20:00:01 (<= 20:00:00) is NEVER considered as night shift!
+  // Only sign-on times strictly above 20:00:01 (20:00:01 to 23:59:59) qualify as night shift.
+  if (sOnSecs >= 0 && sOnSecs < 72001) {
+    return false;
+  }
+
   // Strict exclusion: NEVER allow morning or afternoon (A / B shift) operators
   if (isMorningOrAfternoonShift(item)) return false;
 
@@ -110,12 +138,8 @@ const isNightDutyRecord = (item) => {
   const shift = String(item.shift || item.currentShift || item.shiftCode || "").trim().toUpperCase();
   if (shift === 'N' || shift === 'C' || item.isNight === true) return true;
 
-  // 2. Sign-on time in night window (20:00 to 04:59)
-  const sOn = String(item.signOnTime || item.sOnTime || item.signOn || item.sOn || "").trim();
-  if (sOn) {
-    const hr = parseInt(sOn.split(":")[0], 10);
-    if (!isNaN(hr) && (hr >= 20 || hr < 5)) return true;
-  }
+  // 2. Sign-on time strictly above 20:00:01
+  if (sOnSecs >= 72001) return true;
 
   // 3. Duty code or remarks containing night identifiers
   const code = String(
@@ -132,14 +156,10 @@ const isNightDutyRecord = (item) => {
     return true;
   }
 
-  // 4. BMRCL Line 2 night duties (typically duties >= 64), only if not morning/afternoon
+  // 4. BMRCL Line 2 night duties (typically duties >= 64) are intrinsically night duties
+  // (unless an explicit sign-on time < 20:00:01 was present, which was already rejected above)
   const num = parseInt(normalizeDutyNo(item.dutyId || item.dutyNo), 10);
   if (!isNaN(num) && num >= 64) {
-    // If signOn is known, it must not be in daytime
-    if (sOn) {
-      const hr = parseInt(sOn.split(":")[0], 10);
-      if (!isNaN(hr) && hr >= 5 && hr < 20) return false;
-    }
     return true;
   }
 
@@ -152,6 +172,10 @@ const isExchangeNight = (ex, normTargetDuty) => {
   if (ex.shift === 'A' || ex.shift === 'B') return false;
   if (isMorningOrAfternoonShift(ex)) return false;
 
+  const sOn = String(ex.signOnTime || ex.sOnTime || "").trim();
+  const sOnSecs = parseTimeToSeconds(sOn);
+  if (sOnSecs >= 0 && sOnSecs < 72001) return false;
+
   const op1Shift = String(ex.operator1Shift || "").trim().toUpperCase();
   const op2Shift = String(ex.operator2Shift || "").trim().toUpperCase();
   const isOp1 = normalizeDutyNo(ex.operator1Duty) === normTargetDuty;
@@ -159,17 +183,43 @@ const isExchangeNight = (ex, normTargetDuty) => {
   if (targetShift === 'A' || targetShift === 'B') return false;
 
   if (ex.shift === 'N' || ex.isNight || targetShift === 'N') return true;
+  if (sOnSecs >= 72001) return true;
 
   const dutyNum = parseInt(normTargetDuty, 10);
   if (!isNaN(dutyNum) && dutyNum >= 64) return true;
 
-  const sOn = String(ex.signOnTime || ex.sOnTime || "");
-  if (sOn) {
-    const hr = parseInt(sOn.split(":")[0], 10);
-    if (!isNaN(hr) && (hr >= 20 || hr < 5)) return true;
-    if (!isNaN(hr) && hr >= 5 && hr < 20) return false;
-  }
   return false;
+};
+
+// Resolves strictly validated LEG 1 Night Shift Sign-On Time (> 20:00:01)
+const resolveCanonicalLeg1NightSignOn = (dutyNo, row, baseRow, operator) => {
+  if (isNightSignOnTime(row?.nightSignOnTime)) return row.nightSignOnTime;
+  if (isNightSignOnTime(row?.signOnTime)) return row.signOnTime;
+  if (isNightSignOnTime(baseRow?.signOnTime)) return baseRow.signOnTime;
+  if (isNightSignOnTime(baseRow?.nightSignOnTime)) return baseRow.nightSignOnTime;
+  if (isNightSignOnTime(operator?.signOnTime)) return operator.signOnTime;
+  if (isNightSignOnTime(operator?.sOnTime)) return operator.sOnTime;
+
+  for (const staticKey of ["WEEKDAY__SATURDAY", "WEEKDAY__WEEKDAY", "SUNDAY__MONDAY", "SATURDAY__SUNDAY", "SATURDAY__SATURDAY"]) {
+    const sMatch = CHANGEOVER_TABLE[staticKey]?.[dutyNo] || CHANGEOVER_TABLE[staticKey]?.[String(Number(dutyNo))];
+    if (sMatch && isNightSignOnTime(sMatch.signOnTime)) {
+      return sMatch.signOnTime;
+    }
+  }
+
+  const nDep = row?.nightDepTime || baseRow?.nightDepTime;
+  if (nDep && isNightSignOnTime(nDep)) {
+    const depSecs = parseTimeToSeconds(nDep);
+    if (depSecs > 72001) {
+      const sOnSecs = Math.max(72002, depSecs - (17 * 60));
+      const h = Math.floor(sOnSecs / 3600);
+      const m = Math.floor((sOnSecs % 3600) / 60);
+      const s = sOnSecs % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+  }
+
+  return "21:30:00";
 };
 
 // Helper to validate clean operator name (excludes placeholder / generic strings)
@@ -179,6 +229,21 @@ const isRealOperatorName = (name) => {
   if (!trimmed || trimmed === '--' || trimmed === '-' || trimmed.toUpperCase() === 'UNASSIGNED') return false;
   if (trimmed.toUpperCase().startsWith('DUTY ') || trimmed.toUpperCase() === 'TRAIN OPERATOR') return false;
   return true;
+};
+
+// Enrich operator name and employee badge number from BMRCL Crew Registry
+const enrichOperatorFromRegistry = (name, empId) => {
+  const cleanId = String(empId || "").trim();
+  const cleanN = String(name || "").trim();
+  if (cleanId && cleanId !== "--" && cleanId !== "UNASSIGNED" && cleanId !== "0") {
+    const byId = BMRCL_CREW_REGISTRY.find(c => String(c.id) === cleanId);
+    if (byId) return { name: byId.name || cleanN, empId: String(byId.id) };
+  }
+  if (cleanN && isRealOperatorName(cleanN)) {
+    const byName = BMRCL_CREW_REGISTRY.find(c => c.name && c.name.toLowerCase() === cleanN.toLowerCase());
+    if (byName) return { name: byName.name, empId: String(byName.id) };
+  }
+  return { name: cleanN, empId: cleanId };
 };
 
 const Badge = ({ children, color = 'slate' }) => {
@@ -207,12 +272,20 @@ const TimeCell = ({ t, dim }) => (
 
 export default function ChangeoverDashboard({ onRefresh }) {
   const todayStr = new Date().toISOString().split('T')[0];
-  const tomorrowStr = getNextDateStr(todayStr);
+  const initialDate = (() => {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        return window.localStorage.getItem("pyidcc_target_deployment_date") || todayStr;
+      }
+    } catch (_) {}
+    return todayStr;
+  })();
+  const tomorrowStr = getNextDateStr(initialDate);
 
   // ── Date & Schedule States ──
-  const [currentDate, setCurrentDate] = useState(todayStr);
+  const [currentDate, setCurrentDate] = useState(initialDate);
   const [nextDate, setNextDate] = useState(tomorrowStr);
-  const [currentDay, setCurrentDay] = useState(() => resolveDefaultDayType(todayStr));
+  const [currentDay, setCurrentDay] = useState(() => resolveDefaultDayType(initialDate));
   const [nextDay, setNextDay] = useState(() => resolveDefaultDayType(tomorrowStr));
 
   const [loading, setLoading] = useState(false);
@@ -221,6 +294,7 @@ export default function ChangeoverDashboard({ onRefresh }) {
 
   // ── Live Dispatch Gateway Core Synchronized States ──
   const [liveDeployments, setLiveDeployments] = useState([]);
+  const [currentDateDispatchDeployments, setCurrentDateDispatchDeployments] = useState([]);
   const [consoleData, setConsoleData] = useState(() => {
     try {
       if (typeof window !== "undefined" && window.localStorage) {
@@ -247,6 +321,8 @@ export default function ChangeoverDashboard({ onRefresh }) {
     return [];
   });
 
+  const tableKey = `${currentDay}__${nextDay}`;
+
   // ── Search and Filter Controls ──
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL"); // ALL, ASSIGNED, UNASSIGNED, RELIEF_SWAP, ABNORMAL
@@ -254,18 +330,75 @@ export default function ChangeoverDashboard({ onRefresh }) {
   const [dashboardStablingOverrides, setDashboardStablingOverrides] = useState({});
   const [stablingModalRow, setStablingModalRow] = useState(null);
   const [selectedStablingLoc, setSelectedStablingLoc] = useState('DEPOT');
+  const [stablingSearch, setStablingSearch] = useState('');
+
+  // Filtered and categorized stabling / takeover locations (All Line 2 stations with Up & Dn line + Depot)
+  const filteredStablingOptions = useMemo(() => {
+    if (!stablingSearch.trim()) return STABLING_LOCATIONS;
+    const rawQ = stablingSearch.toLowerCase().trim();
+    const cleanQ = rawQ.replace(/[\s_()/-]/g, "");
+    return STABLING_LOCATIONS.filter(l => {
+      const codeClean = (l.code || '').toLowerCase().replace(/[\s_()/-]/g, "");
+      const nameClean = (l.name || '').toLowerCase().replace(/[\s_()/-]/g, "");
+      const stnClean = (l.stationName || '').toLowerCase().replace(/[\s_()/-]/g, "");
+      const catClean = (l.category || '').toLowerCase().replace(/[\s_()/-]/g, "");
+      return codeClean.includes(cleanQ) || 
+        nameClean.includes(cleanQ) || 
+        stnClean.includes(cleanQ) || 
+        catClean.includes(cleanQ) ||
+        (l.code && l.code.toLowerCase().includes(rawQ)) ||
+        (l.name && l.name.toLowerCase().includes(rawQ));
+    });
+  }, [stablingSearch]);
+
+  const groupedStablingOptions = useMemo(() => {
+    const groups = {};
+    filteredStablingOptions.forEach(opt => {
+      const cat = opt.category || 'Other Locations';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(opt);
+    });
+    return groups;
+  }, [filteredStablingOptions]);
 
   const handleOpenStablingModal = (row) => {
     setStablingModalRow(row);
-    setSelectedStablingLoc(dashboardStablingOverrides[row.dutyNo] || row.actualStablingLocation || row.takeoverLocation || 'DEPOT');
+    setStablingSearch('');
+    const currentLoc = dashboardStablingOverrides[row.dutyNo] || 
+      (changeoverOverrides[tableKey] && changeoverOverrides[tableKey][row.dutyNo]?.takeoverLocation) ||
+      (changeoverOverrides[tableKey] && changeoverOverrides[tableKey][row.dutyNo]?.actualStablingLocation) ||
+      row.actualStablingLocation || 
+      row.takeoverLocation || 
+      'DEPOT';
+    setSelectedStablingLoc(currentLoc);
   };
 
-  const handleConfirmStabling = () => {
+  const handleConfirmStabling = async () => {
     if (!stablingModalRow) return;
+    const dutyNo = stablingModalRow.dutyNo;
+    const chosenLoc = selectedStablingLoc;
+
     setDashboardStablingOverrides(prev => ({
       ...prev,
-      [stablingModalRow.dutyNo]: selectedStablingLoc
+      [dutyNo]: chosenLoc
     }));
+
+    // Persist stabling override & takeover location to Firestore system_settings/changeover_mappings
+    try {
+      const docRef = doc(db, 'system_settings', 'changeover_mappings');
+      await setDoc(docRef, {
+        [tableKey]: {
+          [dutyNo]: {
+            takeoverLocation: chosenLoc,
+            actualStablingLocation: chosenLoc,
+            assignedStablingLocation: stablingModalRow.assignedStablingLocation || stablingModalRow.takeoverLocation || 'DEPOT',
+          }
+        }
+      }, { merge: true });
+    } catch (err) {
+      console.warn('Could not persist stabling override to Firestore:', err);
+    }
+
     setStablingModalRow(null);
   };
 
@@ -352,6 +485,37 @@ export default function ChangeoverDashboard({ onRefresh }) {
     };
     window.addEventListener("pyidcc_dispatch_deployments_updated", handleDispatchUpdate);
 
+    const handleActiveDayChanged = (e) => {
+      if (!active || !e?.detail) return;
+      if (e.detail.date) {
+        setCurrentDate(e.detail.date);
+        setCurrentDay(resolveDefaultDayType(e.detail.date));
+        const autoNext = getNextDateStr(e.detail.date);
+        setNextDate(autoNext);
+        setNextDay(resolveDefaultDayType(autoNext));
+      }
+      if (e.detail.dayType) {
+        setCurrentDay(normalizeSched(e.detail.dayType));
+      }
+    };
+    window.addEventListener("pyidcc-active-day-changed", handleActiveDayChanged);
+
+    const handleStorageChange = (e) => {
+      if (e.key === 'pyidcc_active_dispatch_deployments' && e.newValue) {
+        try {
+          setDispatchDeployments(JSON.parse(e.newValue));
+        } catch (_) {}
+      }
+      if (e.key === 'pyidcc_target_deployment_date' && e.newValue && active) {
+        setCurrentDate(e.newValue);
+        setCurrentDay(resolveDefaultDayType(e.newValue));
+        const autoNext = getNextDateStr(e.newValue);
+        setNextDate(autoNext);
+        setNextDay(resolveDefaultDayType(autoNext));
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+
     return () => {
       active = false;
       unsubDeployments();
@@ -359,8 +523,131 @@ export default function ChangeoverDashboard({ onRefresh }) {
       unsubMappings();
       unsubExchanges();
       window.removeEventListener("pyidcc_dispatch_deployments_updated", handleDispatchUpdate);
+      window.removeEventListener("pyidcc-active-day-changed", handleActiveDayChanged);
+      window.removeEventListener("storage", handleStorageChange);
     };
   }, []);
+
+  // ── Sync Official Deployment for currentDate from dispatch_deployments, dispatch_excel_cache & roster_desk_console ──
+  useEffect(() => {
+    let active = true;
+    const normDate = formatOperationalDate(currentDate);
+    const altDate = toIndianDateStr(normDate);
+    const targetSched = normalizeSched(currentDay);
+
+    const handleDocs = (docs) => {
+      if (!active || !docs || docs.length === 0) return false;
+      const matched = docs.find(d => normalizeSched(d.dayType || d.scheduleType) === targetSched) || docs[0];
+      if (matched && matched.rosterData && Array.isArray(matched.rosterData.duties) && matched.rosterData.duties.length > 0) {
+        setCurrentDateDispatchDeployments(matched.rosterData.duties);
+        return true;
+      }
+      return false;
+    };
+
+    // Listen to dispatch_deployments for normDate
+    const qDep1 = query(
+      collection(db, "dispatch_deployments"),
+      where("deploymentDate", "==", normDate)
+    );
+    const unsubDateDep1 = onSnapshot(
+      qDep1,
+      (snap) => {
+        if (!active) return;
+        if (!snap.empty) {
+          const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          if (handleDocs(docs)) return;
+        }
+      },
+      (err) => console.warn("Changeover normDate dispatch_deployments sync warning:", err)
+    );
+
+    // Listen to dispatch_deployments for altDate
+    const qDep2 = query(
+      collection(db, "dispatch_deployments"),
+      where("deploymentDate", "==", altDate)
+    );
+    const unsubDateDep2 = onSnapshot(
+      qDep2,
+      (snap) => {
+        if (!active) return;
+        if (!snap.empty) {
+          const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          if (handleDocs(docs)) return;
+        }
+      },
+      (err) => console.warn("Changeover altDate dispatch_deployments sync warning:", err)
+    );
+
+    // Also check direct document IDs in dispatch_deployments, dispatch_excel_cache and roster_desk_console
+    const fetchDateCache = async () => {
+      try {
+        const isToday = normDate === formatOperationalDate(new Date());
+        const docRefs = [
+          doc(db, "dispatch_deployments", `${normDate}_${targetSched}`),
+          doc(db, "dispatch_deployments", `${altDate}_${targetSched}`),
+          doc(db, "dispatch_deployments", `${normDate}_WEEKDAY`),
+          doc(db, "dispatch_deployments", `${altDate}_WEEKDAY`),
+          doc(db, "dispatch_deployments", normDate),
+          doc(db, "dispatch_deployments", altDate),
+          doc(db, "dispatch_excel_cache", normDate),
+          doc(db, "dispatch_excel_cache", altDate),
+          doc(db, "roster_desk_console", `date_${normDate}`),
+          doc(db, "roster_desk_console", `date_${altDate}`),
+        ];
+
+        if (isToday) {
+          docRefs.push(
+            doc(db, "roster_desk_console", "current"),
+            doc(db, "roster_desk_console", "latest"),
+            doc(db, "dispatch_excel_cache", "current")
+          );
+        }
+
+        const snaps = await Promise.all(docRefs.map(r => getDoc(r).catch(() => null)));
+        if (!active) return;
+
+        for (const s of snaps) {
+          if (!s || !s.exists()) continue;
+          const data = s.data();
+          const candidateDuties = data?.rosterData?.duties || data?.duties;
+          if (Array.isArray(candidateDuties) && candidateDuties.length > 0) {
+            setCurrentDateDispatchDeployments(candidateDuties);
+            return;
+          }
+        }
+
+        // Check local storage console caches
+        if (typeof window !== "undefined" && window.localStorage) {
+          for (const key of [
+            `pyidcc_roster_desk_console_cache_${normDate}`,
+            `pyidcc_roster_desk_console_cache_${altDate}`,
+            "pyidcc_roster_desk_console_cache"
+          ]) {
+            const raw = window.localStorage.getItem(key);
+            if (raw) {
+              try {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed?.duties) && parsed.duties.length > 0) {
+                  setCurrentDateDispatchDeployments(parsed.duties);
+                  return;
+                }
+              } catch (_) {}
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Changeover fetchDateCache warning:", err);
+      }
+    };
+    fetchDateCache();
+
+    return () => {
+      active = false;
+      unsubDateDep1();
+      unsubDateDep2();
+    };
+  }, [currentDate, currentDay]);
 
   // ── Date Change Handlers ──
   const handleCurrentDateChange = (newDate) => {
@@ -371,6 +658,13 @@ export default function ChangeoverDashboard({ onRefresh }) {
     const autoNextDate = getNextDateStr(newDate);
     setNextDate(autoNextDate);
     setNextDay(resolveDefaultDayType(autoNextDate));
+
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.setItem("pyidcc_target_deployment_date", newDate);
+        window.localStorage.setItem("pyidcc_active_day_override", resolvedCurrent);
+      }
+    } catch (_) {}
   };
 
   const handleNextDateChange = (newDate) => {
@@ -384,22 +678,54 @@ export default function ChangeoverDashboard({ onRefresh }) {
   const resolveNightShiftOperator = useCallback((dutyNo, targetDay, targetDate) => {
     const normTargetDuty = normalizeDutyNo(dutyNo);
     const targetSched = normalizeSched(targetDay);
+    const normTDate = formatOperationalDate(targetDate);
+    const altTDate = toIndianDateStr(normTDate);
 
-    // 1. Check DISPATCH GATEWAY CORE Active Deployed Duties (Primary Authoritative Source)
     let activeDep = null;
-    const matchingDispatch = (dispatchDeployments || []).filter((d) => {
-      const dNo = normalizeDutyNo(d.dutyId || d.dutyNo);
-      return dNo === normTargetDuty;
-    });
-    // Strictly find night duty record among matching dispatch duties
-    activeDep = matchingDispatch.find(isNightDutyRecord) || null;
 
-    // 2. Check Approved Shift / Duty Exchanges matching this duty (STRICTLY NIGHT SHIFT ONLY)
+    // 1. Direct match from currentDateDispatchDeployments (Synched directly from dispatch_deployments / dispatch_excel_cache for currentDate)
+    if (currentDateDispatchDeployments && currentDateDispatchDeployments.length > 0) {
+      activeDep = currentDateDispatchDeployments.find((d) => {
+        const dNo = normalizeDutyNo(d.dutyId || d.dutyNo);
+        return dNo === normTargetDuty;
+      }) || null;
+    }
+
+    // 2. DISPATCH GATEWAY CORE In-Memory & LocalStorage Active Deployments (Real-time sync from AutomatedDispatchGate.jsx)
+    if (!activeDep || !isRealOperatorName(activeDep.empName || activeDep.name || activeDep.operatorName)) {
+      let liveList = dispatchDeployments;
+      if (!liveList || liveList.length === 0) {
+        try {
+          if (typeof window !== "undefined" && window.localStorage) {
+            const raw = window.localStorage.getItem("pyidcc_active_dispatch_deployments");
+            if (raw) liveList = JSON.parse(raw);
+          }
+        } catch (_) {}
+      }
+
+      if (liveList && liveList.length > 0) {
+        const matchingDispatch = liveList.filter((d) => {
+          const dNo = normalizeDutyNo(d.dutyId || d.dutyNo);
+          if (dNo !== normTargetDuty) return false;
+          const dDate = d.date || d.deploymentDate || d.targetDate;
+          if (!dDate) return true;
+          const dNorm = formatOperationalDate(dDate);
+          return !normTDate || dNorm === normTDate;
+        });
+        const found = matchingDispatch.find(isNightDutyRecord) || matchingDispatch[0] || null;
+        if (found && isRealOperatorName(found.empName || found.name || found.operatorName)) {
+          activeDep = found;
+        }
+      }
+    }
+
+    // 3. Approved Shift / Duty Exchanges matching this duty (STRICTLY NIGHT SHIFT ONLY)
     const matchedExchange = (shiftExchanges || []).find((ex) => {
       const isApproved = ex.status === 'APPROVED' || ex.status === 'Operational' || Boolean(ex.isOperational);
       if (!isApproved) return false;
       const exDate = ex.exchangeDate || ex.date;
-      const dateMatches = !targetDate || !exDate || exDate === targetDate;
+      const exNormDate = exDate ? formatOperationalDate(exDate) : "";
+      const dateMatches = !normTDate || !exNormDate || exNormDate === normTDate;
       if (!dateMatches) return false;
       const d1 = normalizeDutyNo(ex.operator1Duty);
       const d2 = normalizeDutyNo(ex.operator2Duty);
@@ -407,51 +733,57 @@ export default function ChangeoverDashboard({ onRefresh }) {
       return isExchangeNight(ex, normTargetDuty);
     });
 
-    // 3. Search in liveDeployments (from crew_daily_deployment in Firestore)
-    if (!activeDep) {
+    // 4. Search in consoleData duties (for targetDate)
+    if ((!activeDep || !isRealOperatorName(activeDep.empName || activeDep.name || activeDep.operatorName)) && consoleData?.duties) {
+      const consoleDate = consoleData.date || consoleData.targetDate || consoleData.deploymentDate;
+      const consoleNormDate = consoleDate ? formatOperationalDate(consoleDate) : "";
+      if (!consoleNormDate || !normTDate || consoleNormDate === normTDate) {
+        const matchingConsole = (consoleData.duties || []).filter((d) => {
+          const dNo = normalizeDutyNo(d.dutyId || d.dutyNo);
+          return dNo === normTargetDuty;
+        });
+        const found = matchingConsole.find(isNightDutyRecord) || matchingConsole[0] || null;
+        if (found && isRealOperatorName(found.empName || found.name || found.operatorName)) {
+          activeDep = found;
+        }
+      }
+    }
+
+    // 5. Search in liveDeployments (from crew_daily_deployment in Firestore) — STRICT DATE ISOLATION! NO CROSS-DATE BLEED!
+    if (!activeDep || !isRealOperatorName(activeDep.empName || activeDep.name || activeDep.operatorName)) {
       const matchingDeployments = (liveDeployments || []).filter((d) => {
         const dNo = normalizeDutyNo(d.dutyId || d.dutyNo);
         if (dNo !== normTargetDuty) return false;
-        const dSched = normalizeSched(d.scheduleType);
         const dDate = d.date || d.deploymentDate || d.rosterDate;
-        const schedMatches =
-          !dSched ||
-          dSched === targetSched ||
-          dSched === "ACTIVE_RUN" ||
-          (targetDate && dDate === targetDate);
-        return schedMatches;
+        const dNormDate = dDate ? formatOperationalDate(dDate) : "";
+        const docId = String(d.id || '');
+        // STRICT DATE MATCH ONLY: Never allow unmatched dates to bleed into today!
+        const dateMatches = (normTDate && dNormDate === normTDate) ||
+                            (normTDate && docId.includes(normTDate)) ||
+                            (altTDate && docId.includes(altTDate));
+        return dateMatches;
       });
 
-      // Prioritize deployments with special operational status (SWAP, EXCHANGE, RELIEF) and recent updates
-      const sortedDeployments = [...matchingDeployments].sort((a, b) => {
-        const aIsSpecial = (a.isSwapped || a.isExchanged || a.status === 'SWAPPED_BY_CC' || a.status === 'EXCHANGED' || a.status === 'RELIEF_DISPATCHED') ? 1 : 0;
-        const bIsSpecial = (b.isSwapped || b.isExchanged || b.status === 'SWAPPED_BY_CC' || b.status === 'EXCHANGED' || b.status === 'RELIEF_DISPATCHED') ? 1 : 0;
-        if (aIsSpecial !== bIsSpecial) return bIsSpecial - aIsSpecial;
-        const tA = a.lastUpdated?.toMillis?.() || (a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0);
-        const tB = b.lastUpdated?.toMillis?.() || (b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0);
-        return tB - tA;
-      });
-
-      // STRICT Night Shift selection - NEVER fall back to morning/afternoon sortedDeployments[0]
-      activeDep = sortedDeployments.find(isNightDutyRecord) || null;
+      if (matchingDeployments.length > 0) {
+        const sortedDeployments = [...matchingDeployments].sort((a, b) => {
+          const aIsSpecial = (a.isSwapped || a.isExchanged || a.status === 'SWAPPED_BY_CC' || a.status === 'EXCHANGED' || a.status === 'RELIEF_DISPATCHED') ? 1 : 0;
+          const bIsSpecial = (b.isSwapped || b.isExchanged || b.status === 'SWAPPED_BY_CC' || b.status === 'EXCHANGED' || b.status === 'RELIEF_DISPATCHED') ? 1 : 0;
+          if (aIsSpecial !== bIsSpecial) return bIsSpecial - aIsSpecial;
+          const tA = a.lastUpdated?.toMillis?.() || (a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0);
+          const tB = b.lastUpdated?.toMillis?.() || (b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0);
+          return tB - tA;
+        });
+        activeDep = sortedDeployments.find(isNightDutyRecord) || sortedDeployments[0] || null;
+      }
     }
 
-    // 4. Search in roster_desk_console current duties (STRICT NIGHT SHIFT ONLY)
-    if (!activeDep && consoleData?.duties) {
-      const matchingConsole = (consoleData.duties || []).filter((d) => {
-        const dNo = normalizeDutyNo(d.dutyId || d.dutyNo);
-        return dNo === normTargetDuty;
-      });
-      // STRICT Night Shift selection - NEVER fall back to morning/afternoon matchingConsole[0]
-      activeDep = matchingConsole.find(isNightDutyRecord) || null;
+    // 6. Fallback to Canonical Master Duty Roster (Exact same source of truth DISPATCH GATEWAY CORE uses)
+    let canonicalOp = null;
+    if (!activeDep || !isRealOperatorName(activeDep.empName || activeDep.name || activeDep.operatorName)) {
+      canonicalOp = getOperatorForDuty(normTargetDuty);
     }
 
-    // Double check: If activeDep was somehow flagged as morning or afternoon, reject it immediately
-    if (activeDep && isMorningOrAfternoonShift(activeDep)) {
-      activeDep = null;
-    }
-
-    // 5. Extract Active On-Duty Operator Name and Shift Validation Status
+    // 7. Extract Active On-Duty Operator Name and Shift Validation Status
     const isRelieved =
       activeDep?.status === "RELIEF_DISPATCHED" ||
       Boolean(activeDep?.resolvedByEmpName) ||
@@ -495,13 +827,17 @@ export default function ChangeoverDashboard({ onRefresh }) {
     } else if (isRelieved && isRealOperatorName(activeDep?.resolvedByEmpName)) {
       activeName = activeDep.resolvedByEmpName;
       activeEmpId = activeDep.resolvedByEmpId || activeDep.empId || activeDep.empNo || "--";
-    } else if (activeDep) {
-      const candName = activeDep.empName || activeDep.name || activeDep.operatorName;
-      if (isRealOperatorName(candName)) {
-        activeName = candName;
-        activeEmpId = activeDep.empId || activeDep.empNo || activeDep.employeeId || activeDep.operatorId || "--";
-      }
+    } else if (activeDep && isRealOperatorName(activeDep.empName || activeDep.name || activeDep.operatorName)) {
+      activeName = activeDep.empName || activeDep.name || activeDep.operatorName;
+      activeEmpId = activeDep.empId || activeDep.empNo || activeDep.employeeId || activeDep.operatorId || "--";
+    } else if (canonicalOp && isRealOperatorName(canonicalOp.empName)) {
+      activeName = canonicalOp.empName;
+      activeEmpId = canonicalOp.empId || "--";
     }
+
+    const enriched = enrichOperatorFromRegistry(activeName, activeEmpId);
+    activeName = enriched.name || activeName;
+    activeEmpId = enriched.empId || activeEmpId;
 
     const isUnassigned = !isRealOperatorName(activeName);
 
@@ -524,12 +860,11 @@ export default function ChangeoverDashboard({ onRefresh }) {
       swappedWith: activeDep?.swappedWith || "",
       swappedDutyId: activeDep?.swappedDutyId || "",
       exchangedWith: exchangedWithInfo,
-      source: "DISPATCH_GATEWAY_CORE",
+      source: activeDep ? "DISPATCH_GATEWAY_CORE" : (canonicalOp ? "CANONICAL_ROSTER" : "UNASSIGNED"),
     };
-  }, [dispatchDeployments, shiftExchanges, liveDeployments, consoleData]);
+  }, [currentDateDispatchDeployments, dispatchDeployments, shiftExchanges, liveDeployments, consoleData]);
 
   // ── Compute Preview Table Rows with Night Shift Train Operators & 40-Min PDC Engine ──
-  const tableKey = `${currentDay}__${nextDay}`;
   const previewRows = useMemo(() => {
     const baseTable = CHANGEOVER_TABLE[tableKey] || {};
     const overrideTable = changeoverOverrides[tableKey] || {};
@@ -541,10 +876,18 @@ export default function ChangeoverDashboard({ onRefresh }) {
       .sort(([a], [b]) => Number(a) - Number(b))
       .map(([dutyNo, row]) => {
         const operator = resolveNightShiftOperator(dutyNo, currentDay, currentDate);
-        const actualOverrideLoc = dashboardStablingOverrides[dutyNo] || row.actualStablingLocation;
+        const actualOverrideLoc = dashboardStablingOverrides[dutyNo] || 
+          (changeoverOverrides[tableKey] && changeoverOverrides[tableKey][dutyNo]?.takeoverLocation) ||
+          (changeoverOverrides[tableKey] && changeoverOverrides[tableKey][dutyNo]?.actualStablingLocation) ||
+          row.actualStablingLocation;
 
         let effectiveRow = { ...row };
         const normDNo = normalizeDutyNo(dutyNo);
+
+        // Always resolve Leg 1 Night Shift sign-on time strictly above 20:00:01
+        const leg1NightSignOn = resolveCanonicalLeg1NightSignOn(dutyNo, row, baseTable[dutyNo], operator);
+        effectiveRow.signOnTime = leg1NightSignOn;
+        effectiveRow.nightSignOnTime = leg1NightSignOn;
 
         if (actualOverrideLoc) {
           const pdcCalc = calculateStablingAndPdcSignOn({
@@ -555,7 +898,10 @@ export default function ChangeoverDashboard({ onRefresh }) {
             targetScheduleType: nextDay
           });
           if (pdcCalc.calculatedByPdcEngine) {
-            effectiveRow.signOnTime = pdcCalc.signOnTime;
+            // Assign calculated morning PDC sign-on to Morning Takeover (Leg 3)
+            // NEVER overwrite Leg 1 Night Shift sign-on time (effectiveRow.signOnTime)!
+            effectiveRow.mornSignOnTime = pdcCalc.signOnTime;
+            effectiveRow.calculatedSignOnTime = pdcCalc.signOnTime;
             effectiveRow.takeoverLocation = actualOverrideLoc;
             effectiveRow.actualStablingLocation = actualOverrideLoc;
             effectiveRow.isAlternativeStabling = pdcCalc.isAlternativeStabling;
@@ -1174,11 +1520,6 @@ export default function ChangeoverDashboard({ onRefresh }) {
                         {/* Night Step (Leg 1) Details */}
                         <td className="px-2 py-2 text-slate-300">
                           <TimeCell t={r.signOnTime} />
-                          {r.isAlternativeStabling && (
-                            <span className="block text-[8px] text-amber-300 font-bold bg-amber-950/80 border border-amber-500/40 rounded px-1 mt-0.5" title={`40-Min PDC + ${r.transitMinutes || 20}m transit from ${r.actualStablingLocation}`}>
-                              ALT S/ON
-                            </span>
-                          )}
                         </td>
                         <td className="px-2 py-2 text-emerald-400 font-bold">{r.signOnLocation || '--'}</td>
                         <td className="px-2 py-2 text-blue-300 font-bold">{r.nightTrainNo || '--'}</td>
@@ -1194,10 +1535,24 @@ export default function ChangeoverDashboard({ onRefresh }) {
                         {/* Morning Takeover (Leg 3) Details */}
                         <td className="px-2 py-2 text-slate-400 text-[10px]">
                           <div className="flex flex-col items-center gap-0.5">
-                            <span>{r.takeoverLocation || '--'}</span>
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenStablingModal(r);
+                              }}
+                              className="font-bold text-slate-200 hover:text-cyan-300 hover:underline cursor-pointer transition select-text"
+                              title="Click to select takeover location (all stations Up / Dn line)"
+                            >
+                              {r.takeoverLocation || '--'}
+                            </span>
                             {r.isAlternativeStabling && (
                               <span className="text-[7.5px] text-amber-300 bg-amber-950/90 border border-amber-500/40 rounded px-1 font-bold">
                                 Alt Stable (+{r.transitMinutes || 20}m)
+                              </span>
+                            )}
+                            {(r.mornSignOnTime || r.calculatedSignOnTime) && (
+                              <span className="text-[7.5px] text-cyan-300 bg-cyan-950/80 border border-cyan-500/30 rounded px-1 font-mono" title="Morning 40-Min PDC Sign-On Time">
+                                PDC S/ON: {String(r.mornSignOnTime || r.calculatedSignOnTime).slice(0, 5)}
                               </span>
                             )}
                             <button
@@ -1392,18 +1747,160 @@ export default function ChangeoverDashboard({ onRefresh }) {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                    Select Actual Night Stabling Location:
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Select Takeover / Stabling Location (Up &amp; Dn Line):
+                    </label>
+                    <span className="text-[9px] font-mono text-cyan-400">
+                      {filteredStablingOptions.length} available
+                    </span>
+                  </div>
+
+                  {/* Search station filter */}
+                  <div className="relative mb-1.5">
+                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500" />
+                    <input
+                      type="text"
+                      placeholder="Search station (e.g. Depot(PYID), PUTH, APTS, Up, Dn)..."
+                      value={stablingSearch}
+                      onChange={(e) => setStablingSearch(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-8 pr-7 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
+                    />
+                    {stablingSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setStablingSearch("")}
+                        className="absolute right-2 top-2 text-slate-500 hover:text-slate-300"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Quick Shortcut Pills */}
+                  <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedStablingLoc("Depot (PYID)");
+                        setStablingSearch("Depot");
+                      }}
+                      className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold transition border cursor-pointer ${
+                        selectedStablingLoc.includes("Depot") || selectedStablingLoc.includes("DEPOT")
+                          ? "bg-amber-500/20 text-amber-300 border-amber-500/50"
+                          : "bg-slate-900 text-slate-300 hover:text-white border-slate-700"
+                      }`}
+                    >
+                      ⚡ Depot (PYID)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedStablingLoc("NLC PKT");
+                        setStablingSearch("NLC");
+                      }}
+                      className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold transition border cursor-pointer ${
+                        selectedStablingLoc.includes("NLC PKT") || selectedStablingLoc === "NLC_PT"
+                          ? "bg-purple-500/20 text-purple-300 border-purple-500/50"
+                          : "bg-slate-900 text-purple-400 hover:text-purple-200 border-slate-700"
+                      }`}
+                    >
+                      ⚡ NLC PKT
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedStablingLoc("MHLI PKT");
+                        setStablingSearch("MHLI");
+                      }}
+                      className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold transition border cursor-pointer ${
+                        selectedStablingLoc.includes("MHLI PKT") || selectedStablingLoc === "MHLI_PT"
+                          ? "bg-purple-500/20 text-purple-300 border-purple-500/50"
+                          : "bg-slate-900 text-purple-400 hover:text-purple-200 border-slate-700"
+                      }`}
+                    >
+                      ⚡ MHLI PKT
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedStablingLoc("NGSA PKT");
+                        setStablingSearch("NGSA");
+                      }}
+                      className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold transition border cursor-pointer ${
+                        selectedStablingLoc.includes("NGSA PKT") || selectedStablingLoc === "NPKT" || selectedStablingLoc === "NGSA_PT"
+                          ? "bg-purple-500/20 text-purple-300 border-purple-500/50"
+                          : "bg-slate-900 text-purple-400 hover:text-purple-200 border-slate-700"
+                      }`}
+                    >
+                      ⚡ NGSA PKT
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedStablingLoc("PYID RD3");
+                        setStablingSearch("RD3");
+                      }}
+                      className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold transition border cursor-pointer ${
+                        selectedStablingLoc.includes("RD3") || selectedStablingLoc.includes("Road 3")
+                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50"
+                          : "bg-slate-900 text-emerald-400 hover:text-emerald-200 border-slate-700"
+                      }`}
+                    >
+                      ⚡ PYID RD3
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStablingSearch("Up")}
+                      className="px-2 py-0.5 rounded text-[9px] font-mono text-cyan-400 hover:text-cyan-300 bg-cyan-950/40 border border-cyan-800/40 cursor-pointer"
+                    >
+                      Up Line
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStablingSearch("Dn")}
+                      className="px-2 py-0.5 rounded text-[9px] font-mono text-blue-400 hover:text-blue-300 bg-blue-950/40 border border-blue-800/40 cursor-pointer"
+                    >
+                      Dn Line
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStablingSearch("")}
+                      className="px-2 py-0.5 rounded text-[9px] font-mono text-slate-400 hover:text-slate-200 bg-slate-900 border border-slate-700 cursor-pointer"
+                    >
+                      All
+                    </button>
+                  </div>
+
                   <select
                     value={selectedStablingLoc}
                     onChange={(e) => setSelectedStablingLoc(e.target.value)}
-                    className="w-full bg-slate-955 border border-slate-700 rounded-lg p-2.5 text-xs text-purple-300 font-bold focus:border-cyan-500 focus:outline-none"
+                    className="w-full bg-slate-955 border border-slate-700 rounded-lg p-2 text-xs text-purple-300 font-bold focus:border-cyan-500 focus:outline-none custom-scrollbar"
+                    size={stablingSearch ? Math.min(8, Math.max(3, filteredStablingOptions.length)) : 6}
                   >
-                    {STABLING_LOCATIONS.map(loc => (
-                      <option key={loc.code} value={loc.code}>{loc.name}</option>
+                    {Object.entries(groupedStablingOptions).map(([cat, opts]) => (
+                      <optgroup key={cat} label={cat} className="bg-slate-900 text-cyan-400 font-bold py-1">
+                        {opts.map(loc => (
+                          <option key={loc.code} value={loc.code} className="bg-slate-955 text-slate-200 py-0.5">
+                            {loc.name}
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
+
+                  <div className="flex items-center justify-between text-[10px] mt-1.5 text-slate-400 font-mono">
+                    <span>Chosen: <strong className="text-amber-300 font-bold bg-amber-950/60 border border-amber-500/40 px-1.5 py-0.5 rounded">{selectedStablingLoc}</strong></span>
+                    {stablingSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setStablingSearch("")}
+                        className="text-cyan-400 hover:text-cyan-200 underline text-[9.5px]"
+                      >
+                        Show All
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="bg-cyan-955/30 border border-cyan-800/40 p-2.5 rounded-lg text-[10px] text-cyan-300 space-y-1">

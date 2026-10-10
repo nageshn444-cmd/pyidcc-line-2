@@ -114,7 +114,8 @@ export default function SuperAdminLayout({
   setIncidentReason,
   handleIncidentLogSubmit,
   onWttImported,
-  onLinkRosterImported
+  onLinkRosterImported,
+  onSwitchViewMode
 }) {
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1073,21 +1074,28 @@ export default function SuperAdminLayout({
   ];
 
   const allowedMenuItems = menuItems.filter(item => {
+    if (isTrainOperator && item.id === 'ADMIN') return false;
     return hasPermission(item.module, 'View') || hasPermission(item.module, 'Request') || hasPermission(item.module, 'Own');
   });
 
   const [activeTab, setActiveTab] = useState(() => {
-    const visible = menuItems.filter(item => hasPermission(item.module, 'View') || hasPermission(item.module, 'Request') || hasPermission(item.module, 'Own'));
+    const visible = menuItems.filter(item => {
+      if (isTrainOperator && item.id === 'ADMIN') return false;
+      return hasPermission(item.module, 'View') || hasPermission(item.module, 'Request') || hasPermission(item.module, 'Own');
+    });
     return visible.length > 0 ? visible[0].id : 'DASHBOARD';
   });
 
   useEffect(() => {
-    const visible = menuItems.filter(item => hasPermission(item.module, 'View') || hasPermission(item.module, 'Request') || hasPermission(item.module, 'Own'));
+    const visible = menuItems.filter(item => {
+      if (isTrainOperator && item.id === 'ADMIN') return false;
+      return hasPermission(item.module, 'View') || hasPermission(item.module, 'Request') || hasPermission(item.module, 'Own');
+    });
     if (visible.length > 0 && !visible.some(item => item.id === activeTab)) {
       setActiveTab(visible[0].id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [permissions, activeTab]);
+  }, [permissions, activeTab, isTrainOperator]);
 
   return (
     <div className={`min-h-screen flex bg-slate-950 font-mono text-slate-200 ${theme}`}>
@@ -1166,9 +1174,24 @@ export default function SuperAdminLayout({
             </button>
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping hidden sm:block"></span>
             <span className="text-xs font-bold uppercase text-slate-400 hidden sm:block">System Telemetry Network Status: Operational</span>
+            {isTrainOperator && (
+              <div className="hidden md:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-950/70 border border-indigo-500/40 text-indigo-300 text-[10px] font-bold uppercase tracking-wider">
+                <Shield size={12} className="text-indigo-400" />
+                <span>Operator View • Read-Only (Requests Enabled)</span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-4">
+            {isTrainOperator && onSwitchViewMode && (
+              <button 
+                onClick={onSwitchViewMode}
+                className="bg-indigo-950/70 hover:bg-indigo-900 border border-indigo-500/40 text-indigo-300 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1"
+                title="Switch to Mobile Card View"
+              >
+                <span>📱 Mobile Card View</span>
+              </button>
+            )}
             
             {/* Control Ribbon (Upload, Day Switcher, Search) */}
             <div className="hidden lg:flex items-center gap-3">
@@ -1314,16 +1337,18 @@ export default function SuperAdminLayout({
             </div>
           ) : activeTab === 'DISPATCH' ? (
             <div className="space-y-4">
-              <div className="flex justify-end gap-2 bg-slate-900 p-3 rounded-lg border border-slate-850">
-                <button onClick={handleRosterReset} className="flex items-center bg-rose-950/45 border border-rose-900/50 hover:bg-rose-900/30 transition px-3 py-1.5 rounded text-xs font-mono text-rose-400 font-bold uppercase tracking-wide">
-                  <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> RESET DAILY ROSTER ({selectedRosterDate})
-                </button>
-                <div className="flex items-center bg-slate-950 border border-slate-850 px-3 py-1.5 rounded cursor-pointer relative hover:bg-slate-850 transition">
-                  <UploadCloud className="h-3.5 w-3.5 mr-2 text-emerald-400" />
-                  <span className="text-xs font-mono text-slate-300 font-bold uppercase tracking-wide">UPLOAD GCC ROSTER</span>
-                  <input id="superadminlayout-i4" name="superadminlayout-i4" type="file" accept=".csv, .txt, .xlsx, .xls, .pdf, image/*" onChange={handleGccRosterUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
+              {!isTrainOperator && (
+                <div className="flex justify-end gap-2 bg-slate-900 p-3 rounded-lg border border-slate-850">
+                  <button onClick={handleRosterReset} className="flex items-center bg-rose-950/45 border border-rose-900/50 hover:bg-rose-900/30 transition px-3 py-1.5 rounded text-xs font-mono text-rose-400 font-bold uppercase tracking-wide">
+                    <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> RESET DAILY ROSTER ({selectedRosterDate})
+                  </button>
+                  <div className="flex items-center bg-slate-950 border border-slate-850 px-3 py-1.5 rounded cursor-pointer relative hover:bg-slate-850 transition">
+                    <UploadCloud className="h-3.5 w-3.5 mr-2 text-emerald-400" />
+                    <span className="text-xs font-mono text-slate-300 font-bold uppercase tracking-wide">UPLOAD GCC ROSTER</span>
+                    <input id="superadminlayout-i4" name="superadminlayout-i4" type="file" accept=".csv, .txt, .xlsx, .xls, .pdf, image/*" onChange={handleGccRosterUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
+                  </div>
                 </div>
-              </div>
+              )}
               <AutomatedDispatchGate 
                 ref={dispatchGateRef}
                 selectedDate={selectedRosterDate}
@@ -1333,8 +1358,9 @@ export default function SuperAdminLayout({
                 activeDay={activeDay}
                 setActiveDay={setActiveDay}
                 runningFleetCount={Object.keys(liveTrainTrackingMap).length}
-                onAuthorize={onOneClickAuthorize}
+                onAuthorize={isTrainOperator ? undefined : onOneClickAuthorize}
                 onImportComplete={fetchLiveData}
+                isReadOnly={isTrainOperator}
               />
             </div>
           ) : activeTab === 'WTT' ? (
@@ -1374,7 +1400,7 @@ export default function SuperAdminLayout({
                 setDelayMinutes={setDelayMinutes}
                 incidentReason={incidentReason}
                 setIncidentReason={setIncidentReason}
-                handleIncidentLogSubmit={handleIncidentLogSubmit}
+                handleIncidentLogSubmit={isTrainOperator ? undefined : handleIncidentLogSubmit}
                 liveIncidents={liveIncidents}
                 filteredUnifiedRows={unifiedRows.filter(row => String(row.trainId || '').toLowerCase().includes(searchTerm.toLowerCase()))}
                 dnStationOrder={dnStationOrder}
@@ -1383,13 +1409,14 @@ export default function SuperAdminLayout({
                 setEditingCell={setEditingCell}
                 editValue={editValue}
                 setEditValue={setEditValue}
-                handleWttCellSave={handleWttCellSave}
-                handleWttBulkSave={handleWttBulkSave}
-                handleDeleteTripRow={handleDeleteTripRow}
+                handleWttCellSave={isTrainOperator ? undefined : handleWttCellSave}
+                handleWttBulkSave={isTrainOperator ? undefined : handleWttBulkSave}
+                handleDeleteTripRow={isTrainOperator ? undefined : handleDeleteTripRow}
                 addDelayToTime={addDelayToTime}
                 activeDay={activeDay}
                 fetchLiveData={fetchLiveData}
                 onWttImported={onWttImported || fetchLiveData}
+                isReadOnly={isTrainOperator}
               />
             </div>
           ) : activeTab === 'ROSTER' ? (
@@ -1480,40 +1507,42 @@ export default function SuperAdminLayout({
               </div>
 
               {/* Quick Link Roster Upload Banner */}
-              <div className="bg-linear-to-r from-amber-950/35 via-slate-900 to-slate-900 border border-amber-500/25 p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md">
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
-                    <FileSpreadsheet className="h-4 w-4" />
+              {!isTrainOperator && (
+                <div className="bg-linear-to-r from-amber-950/35 via-slate-900 to-slate-900 border border-amber-500/25 p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                      <FileSpreadsheet className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
+                        <span>Official Link Roster Excel Synchronizer</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/15 text-amber-400 font-bold border border-amber-500/30">
+                          Selected: {activeDay} SCHEDULE
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-400 font-sans mt-0.5">
+                        Upload any official Link Roster spreadsheet (.xlsx, .xls, .csv). Extracted duties, timings, legs & KMs will update the roster for {activeDay} and sync everywhere.
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-xs font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
-                      <span>Official Link Roster Excel Synchronizer</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/15 text-amber-400 font-bold border border-amber-500/30">
-                        Selected: {activeDay} SCHEDULE
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-400 font-sans mt-0.5">
-                      Upload any official Link Roster spreadsheet (.xlsx, .xls, .csv). Extracted duties, timings, legs & KMs will update the roster for {activeDay} and sync everywhere.
-                    </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={handleEraseOldLinkRoster}
+                      disabled={isClearingRoster}
+                      className="bg-rose-950/70 hover:bg-rose-900 border border-rose-500/40 text-rose-300 disabled:opacity-50 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(244,63,94,0.15)]"
+                      title={`Erase old ${activeDay} Link Roster from database`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> {isClearingRoster ? 'Erasing...' : `Erase Old ${activeDay} Roster`}
+                    </button>
+                    <button
+                      onClick={() => setIsLinkRosterUploadOpen(true)}
+                      className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-3.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
+                    >
+                      <UploadCloud className="h-3.5 w-3.5" /> Upload {activeDay} Link Roster
+                    </button>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={handleEraseOldLinkRoster}
-                    disabled={isClearingRoster}
-                    className="bg-rose-950/70 hover:bg-rose-900 border border-rose-500/40 text-rose-300 disabled:opacity-50 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(244,63,94,0.15)]"
-                    title={`Erase old ${activeDay} Link Roster from database`}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" /> {isClearingRoster ? 'Erasing...' : `Erase Old ${activeDay} Roster`}
-                  </button>
-                  <button
-                    onClick={() => setIsLinkRosterUploadOpen(true)}
-                    className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-3.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
-                  >
-                    <UploadCloud className="h-3.5 w-3.5" /> Upload {activeDay} Link Roster
-                  </button>
-                </div>
-              </div>
+              )}
 
               <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
                 <div className="px-4 py-2.5 bg-slate-955 border-b border-slate-800 flex flex-wrap justify-between items-center gap-2 text-blue-400 font-mono text-xs font-bold">
@@ -2173,7 +2202,7 @@ export default function SuperAdminLayout({
               )}
             </div>
           ) : activeTab === 'CREW' ? (
-            <CrewDirectory crewData={BMRCL_CREW_REGISTRY} isAdmin={true} />
+            <CrewDirectory crewData={BMRCL_CREW_REGISTRY} isAdmin={!isTrainOperator} />
           ) : activeTab === 'EXCHANGE' ? (
             <ShiftExchange />
           ) : activeTab === 'REPORTS' ? (
@@ -2242,7 +2271,7 @@ export default function SuperAdminLayout({
             </div>
           ) : activeTab === 'ADMIN' ? (
             <div className="space-y-6">
-              <AdminPanel />
+              {!isTrainOperator && <AdminPanel />}
             </div>
           ) : activeTab === 'KM_CALC_SUITE' ? (
             <CrewKMCalculatorSuite />
