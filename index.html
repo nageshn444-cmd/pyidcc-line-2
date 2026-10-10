@@ -15,7 +15,20 @@
     </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #0a0f1d; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #94a3b8;">
+        <div style="width: 40px; height: 40px; border: 3px solid #1e293b; border-top-color: #10b981; border-radius: 50%; animation: pyidcc-spin 0.75s linear infinite;"></div>
+        <div style="margin-top: 14px; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; color: #34d399; font-weight: 700;">
+          PYIDCC CORE PLATFORM
+        </div>
+        <div style="margin-top: 4px; font-size: 10px; color: #64748b; letter-spacing: 0.05em;">
+          Initializing Peenya Industry Depot Crew Control…
+        </div>
+      </div>
+      <style>
+        @keyframes pyidcc-spin { to { transform: rotate(360deg); } }
+      </style>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

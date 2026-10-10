@@ -60,15 +60,6 @@ export default function GlobalAccessibilityMouseDock() {
     const path = location.pathname;
     const opTab = opEngine?.activeTab || '';
 
-    if (path.includes('/excel-workspace')) {
-      return {
-        id: 'EXCEL_WORKSPACE',
-        title: 'Enterprise Excel Workspace',
-        subtitle: 'Spreadsheet Grid & Live BMRCL Data Studio',
-        icon: FileText,
-        color: 'emerald'
-      };
-    }
     if (path.includes('/fault-reporting') || path.includes('/faults')) {
       return {
         id: 'AI_FAULTS',
@@ -680,7 +671,6 @@ export default function GlobalAccessibilityMouseDock() {
                       { id: 'ROSTER', name: 'Monthly Roster Publisher', route: '/', icon: FileText, badge: 'Shift Links' },
                       { id: 'EMERGENCY_RELIEF', name: 'Emergency Relief Engine', route: '/', icon: Radio, badge: 'Dispatch' },
                       { id: 'KM_CALC_SUITE', name: 'Crew KM Calculator Suite', route: '/', icon: Sliders, badge: 'Distance & SEC' },
-                      { id: 'EXCEL_WORKSPACE', name: 'Enterprise Excel Workspace', route: '/excel-workspace', icon: FileText, badge: 'Full Page' },
                       { id: 'AI_FAULTS', name: 'AI Rolling Stock Fault Reporting', route: '/fault-reporting', icon: Shield, badge: 'Defects' },
                       { id: 'REPORTS', name: 'Reports & Telemetry Center', route: '/', icon: Download, badge: 'Analytics' }
                     ].map((dest) => (

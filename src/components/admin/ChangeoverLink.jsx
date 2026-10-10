@@ -77,18 +77,72 @@ const isNightSignOnTime = (tStr) => {
   return secs >= 72001;
 };
 
+const sanitizeChangeoverData = (data) => {
+  if (!data || typeof data !== 'object') return data;
+  Object.keys(data).forEach(k => {
+    const tbl = data[k];
+    if (tbl && typeof tbl === 'object') {
+      Object.keys(tbl).forEach(dNo => {
+        const r = tbl[dNo];
+        if (r && typeof r === 'object') {
+          if (!isNightSignOnTime(r.signOnTime)) {
+            const staticSOn = CHANGEOVER_TABLE[k]?.[dNo]?.signOnTime || r.nightSignOnTime;
+            if (isNightSignOnTime(staticSOn)) {
+              r.signOnTime = staticSOn;
+            } else if (r.nightDepTime && isNightSignOnTime(r.nightDepTime)) {
+              r.signOnTime = toTimeStr(Math.max(72002, toSec(r.nightDepTime) - 1020));
+            } else {
+              r.signOnTime = '21:30:00';
+            }
+          }
+        }
+      });
+    }
+  });
+  return data;
+};
+
+const LOCAL_STORAGE_CHANGEOVER_KEY = 'pyidcc_changeover_mappings';
+
+const getDefaultInitialMappings = () => {
+  try {
+    const cached = localStorage.getItem(LOCAL_STORAGE_CHANGEOVER_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+        return sanitizeChangeoverData(parsed);
+      }
+    }
+  } catch {
+    // ignore parse errors and proceed to canonical fallback
+  }
+
+  try {
+    const base = getChangeoverMappings();
+    const enriched = enrichChangeoverTable(base);
+    return sanitizeChangeoverData(enriched);
+  } catch (err) {
+    console.error("Error creating default changeover base mappings:", err);
+    return {};
+  }
+};
+
 export default function ChangeoverLink() {
   const [isAutoSelected, setIsAutoSelected] = useState(true);
   const [selectedKey, setSelectedKey] = useState(getAutoSelectedKey);
-  const [allMappings, setAllMappings] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [allMappings, setAllMappings] = useState(getDefaultInitialMappings);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [compiling, setCompiling] = useState(false);
-  const [editedTable, setEditedTable] = useState({});
+  const [editedTable, setEditedTable] = useState(() => {
+    const initial = getDefaultInitialMappings();
+    const autoKey = getAutoSelectedKey();
+    return JSON.parse(JSON.stringify(initial[autoKey] || {}));
+  });
   const [statusMsg, setStatusMsg] = useState(null);
 
   // ── Stabling & PDC Calculator State ──
-  const [calculatorDuty, setCalculatorDuty] = useState('64');
+  const [calculatorDuty, setCalculatorDuty] = useState('59');
   const [calculatorTrain, setCalculatorTrain] = useState('210');
   const [actualStablingLoc, setActualStablingLoc] = useState('DEPOT');
   const [assignedStablingLoc, setAssignedStablingLoc] = useState('DEPOT');
@@ -118,48 +172,28 @@ export default function ChangeoverLink() {
 
   // Load all mappings from Firestore / fallback
   const loadMappings = async () => {
-    setLoading(true);
-    setStatusMsg(null);
     try {
-      // 1. Try fetching custom mappings from Firestore
-      const snap = await getDoc(doc(db, 'system_settings', 'changeover_mappings'));
-      let baseData = getChangeoverMappings();
-      if (snap.exists()) {
+      // 1. Check local base / storage first
+      let baseData = getDefaultInitialMappings();
+
+      // 2. Silently attempt background Firestore fetch with a quick 2s timeout
+      const snap = await Promise.race([
+        getDoc(doc(db, 'system_settings', 'changeover_mappings')),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+      ]);
+
+      if (snap && snap.exists()) {
         const firestoreData = snap.data();
-        baseData = { ...baseData, ...firestoreData };
+        const merged = sanitizeChangeoverData(enrichChangeoverTable({ ...baseData, ...firestoreData }));
+        try {
+          localStorage.setItem(LOCAL_STORAGE_CHANGEOVER_KEY, JSON.stringify(merged));
+        } catch {}
+        setAllMappings(merged);
+        setEditedTable(JSON.parse(JSON.stringify(merged[selectedKey] || {})));
       }
-      baseData = enrichChangeoverTable(baseData);
-
-      // Sanitize all changeover night duty rows so signOnTime is strictly above 20:00:01
-      Object.keys(baseData).forEach(k => {
-        const tbl = baseData[k];
-        if (tbl && typeof tbl === 'object') {
-          Object.keys(tbl).forEach(dNo => {
-            const r = tbl[dNo];
-            if (r && typeof r === 'object') {
-              if (!isNightSignOnTime(r.signOnTime)) {
-                const staticSOn = CHANGEOVER_TABLE[k]?.[dNo]?.signOnTime || r.nightSignOnTime;
-                if (isNightSignOnTime(staticSOn)) {
-                  r.signOnTime = staticSOn;
-                } else if (r.nightDepTime && isNightSignOnTime(r.nightDepTime)) {
-                  r.signOnTime = toTimeStr(Math.max(72002, toSec(r.nightDepTime) - 1020));
-                } else {
-                  r.signOnTime = '21:30:00';
-                }
-              }
-            }
-          });
-        }
-      });
-
-      setAllMappings(baseData);
-      setEditedTable(JSON.parse(JSON.stringify(baseData[selectedKey] || {})));
-    } catch (err) {
-      console.error(err);
-      const fallback = getChangeoverMappings();
-      setAllMappings(fallback);
-      setEditedTable(JSON.parse(JSON.stringify(fallback[selectedKey] || {})));
-      setStatusMsg({ type: 'info', text: 'Loaded default Excel changeover template.' });
+    } catch {
+      // Offline, slow network, or missing remote document:
+      // Silently continue with canonical dataset without logging warnings
     } finally {
       setLoading(false);
     }
@@ -401,6 +435,10 @@ export default function ChangeoverLink() {
         [selectedKey]: editedTable
       };
 
+      try {
+        localStorage.setItem(LOCAL_STORAGE_CHANGEOVER_KEY, JSON.stringify(updatedAll));
+      } catch {}
+
       const docRef = doc(db, 'system_settings', 'changeover_mappings');
       await setDoc(docRef, updatedAll, { merge: true });
 
@@ -423,6 +461,17 @@ export default function ChangeoverLink() {
       .sort(([a], [b]) => Number(a) - Number(b))
       .map(([dutyNo, data]) => ({ dutyNo, ...data }));
   }, [editedTable]);
+
+  // Auto-initialize calculator with first valid duty when rows are ready
+  useEffect(() => {
+    if (rows.length > 0) {
+      if (!rows.some(r => String(r.dutyNo) === String(calculatorDuty))) {
+        handleSelectDutyForCalculator(rows[0].dutyNo);
+      } else if (!calculatedResult) {
+        handleSelectDutyForCalculator(calculatorDuty);
+      }
+    }
+  }, [rows, calculatorDuty, calculatedResult, handleSelectDutyForCalculator]);
 
   return (
     <div className="flex flex-col gap-4 p-1">

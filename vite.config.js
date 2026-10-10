@@ -156,6 +156,10 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+      'Cross-Origin-Embedder-Policy': 'unsafe-none',
+    },
     hmr: {
       overlay: true,
     },
@@ -189,6 +193,10 @@ export default defineConfig({
             if (id.includes('firebase')) return 'vendor-firebase';
             if (id.includes('lucide-react')) return 'vendor-ui-icons';
           }
+          if (id.includes('src/data/wttMasterRegistry')) return 'data-wtt-master';
+          if (id.includes('src/data/bmrclCrewRegistry')) return 'data-crew-registry';
+          if (id.includes('src/data/canonicalDayLinksRegistry')) return 'data-canonical-links';
+          if (id.includes('src/data/historicalRosterIntelligence')) return 'data-historical-roster';
         },
       },
     },

@@ -10,11 +10,10 @@ import { lazyWithRetry } from './utils/lazyWithRetry';
 import OperationalErrorBoundary from './components/common/OperationalErrorBoundary';
 import OperatorRequestNotificationCenter from './components/common/OperatorRequestNotificationCenter';
 import GlobalAccessibilityMouseDock from './components/common/GlobalAccessibilityMouseDock';
-import Dashboard from './components/Dashboard';
 
-// Dashboard is the primary operational console; keep it in the stable app bundle.
+// Code-split primary consoles with retry resilience for instant initial page loading
+const Dashboard = lazyWithRetry(() => import('./components/Dashboard'));
 const Login = lazyWithRetry(() => import('./components/Login'));
-const ExcelWorkspace = lazyWithRetry(() => import('./pages/ExcelWorkspace'));
 const AIFaultReportingPage = lazyWithRetry(() => import('./pages/AIFaultReportingPage'));
 
 const RouteLoader = () => (
@@ -35,16 +34,6 @@ function MainApp() {
         <Suspense fallback={<RouteLoader />}>
           <Routes>
             <Route path="/login" element={<Login />} />
-            
-            {/* Enterprise Excel Workspace Route - Code Split & Lazy Loaded */}
-            <Route 
-              path="/excel-workspace" 
-              element={
-                <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ADMIN_SS', 'ADMIN_Station_Superintendent', 'CREW_CONTROLLER', 'STATION_CONTROLLER', 'TRAIN_OPERATOR', 'VIEWER']}>
-                  <ExcelWorkspace />
-                </ProtectedRoute>
-              } 
-            />
 
             {/* AI Faults Reporting Dedicated Page (ALS, CC, Train Operator) */}
             <Route 

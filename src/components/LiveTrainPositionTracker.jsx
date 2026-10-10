@@ -11,7 +11,7 @@ import {
   Train, MapPin, Clock, Shield, User, Sliders, Volume2, VolumeX, AlertTriangle, CheckCircle2, Megaphone, Radio,
   FileText, Download, Printer, Table, LayoutGrid, TrendingUp, Compass, Search, Check,
   Zap, Activity, Filter, ArrowUpDown, X, Smartphone, Monitor, Eye,
-  Phone, PhoneCall, UserCheck, RotateCcw, SlidersHorizontal, FileSpreadsheet, Play, Pause, Sparkles, ListFilter
+  Phone, PhoneCall, UserCheck, RotateCcw, SlidersHorizontal, FileSpreadsheet, Sparkles, ListFilter
 } from 'lucide-react';
 import { 
   STATION_CHAINAGE, 
@@ -3342,54 +3342,7 @@ export default function LiveTrainPositionTracker({
           </button>
 
           <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase tracking-wider pl-2 border-l border-slate-800">
-            <Clock className="h-3.5 w-3.5 text-cyan-400" /> Time Simulator:
-          </div>
-
-          {/* Simulation Play / Pause Button */}
-          <button
-            type="button"
-            onClick={() => {
-              const next = !isSimPlaying;
-              setIsSimPlaying(next);
-              if (next) setIsLiveClock(false);
-            }}
-            className={`px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md cursor-pointer ${
-              isSimPlaying
-                ? 'bg-amber-400 text-slate-950 shadow-[0_0_12px_rgba(251,191,36,0.6)] animate-pulse'
-                : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
-            }`}
-            title={isSimPlaying ? "Pause Timetable Simulation" : "Run Trains along Track as per WTT Schedule"}
-          >
-            {isSimPlaying ? (
-              <>
-                <Pause className="w-3 h-3 fill-slate-950" />
-                <span>PAUSE SIM</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-3 h-3 fill-slate-950" />
-                <span>RUN SIMULATION</span>
-              </>
-            )}
-          </button>
-
-          {/* Speed Multipliers */}
-          <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-md border border-slate-800">
-            {[1, 2, 5, 10, 30].map(speed => (
-              <button
-                key={speed}
-                type="button"
-                onClick={() => setSimSpeedMultiplier(speed)}
-                className={`px-1.5 py-0.5 rounded text-[9px] font-bold transition cursor-pointer ${
-                  simSpeedMultiplier === speed
-                    ? 'bg-cyan-500 text-slate-950 font-black'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-                title={`Set Simulation Speed to ${speed}x`}
-              >
-                {speed}x
-              </button>
-            ))}
+            <Clock className="h-3.5 w-3.5 text-cyan-400" /> Time:
           </div>
 
           <input

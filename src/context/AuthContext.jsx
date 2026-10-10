@@ -110,11 +110,58 @@ export function useAuth() {
   return context;
 }
 
+const CACHED_PROFILE_KEY = 'pyidcc_cached_user_profile';
+const CACHED_PERMS_KEY   = 'pyidcc_cached_user_perms';
+
+const saveProfileToCache = (profile, perms) => {
+  try {
+    if (profile && typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(CACHED_PROFILE_KEY, JSON.stringify(profile));
+    }
+    if (perms && typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(CACHED_PERMS_KEY, JSON.stringify(perms));
+    }
+  } catch (_) {}
+};
+
+const clearProfileCache = () => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem(CACHED_PROFILE_KEY);
+      window.localStorage.removeItem(CACHED_PERMS_KEY);
+    }
+  } catch (_) {}
+};
+
 export function AuthProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [userProfile, setUserProfile] = useState(null);
-  const [permissions, setPermissions] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(() => auth.currentUser);
+  const [userProfile, setUserProfile] = useState(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const cached = window.localStorage.getItem(CACHED_PROFILE_KEY);
+        return cached ? JSON.parse(cached) : null;
+      }
+    } catch (_) {}
+    return null;
+  });
+  const [permissions, setPermissions] = useState(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const cached = window.localStorage.getItem(CACHED_PERMS_KEY);
+        return cached ? JSON.parse(cached) : {};
+      }
+    } catch (_) {}
+    return {};
+  });
+  const [loading, setLoading] = useState(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const cached = window.localStorage.getItem(CACHED_PROFILE_KEY);
+        if (cached) return false;
+      }
+    } catch (_) {}
+    return !auth.currentUser;
+  });
   const [approvalPending, setApprovalPending] = useState(false);
 
   // ─── Auth State Listener ────────────────────────────────────────────────────
@@ -135,14 +182,18 @@ export function AuthProvider({ children }) {
         setUserProfile(null);
         setPermissions({});
         setApprovalPending(false);
+        clearProfileCache();
         setLoading(false);
         return;
       }
 
       // ── Owner fast-pass ──
       if (isOwner(user)) {
-        setUserProfile({ ...OWNER_PROFILE, uid: user.uid });
-        setPermissions(getRoleDefaultPermissions('SUPER_ADMIN'));
+        const ownerProf = { ...OWNER_PROFILE, uid: user.uid };
+        const ownerPerms = getRoleDefaultPermissions('SUPER_ADMIN');
+        setUserProfile(ownerProf);
+        setPermissions(ownerPerms);
+        saveProfileToCache(ownerProf, ownerPerms);
         setApprovalPending(false);
         setLoading(false);
         return;
@@ -195,11 +246,11 @@ export function AuthProvider({ children }) {
           let baseRolePermissions = {};
           
           const resolveAndSetPermissions = (rolePerms, userPermsDoc) => {
-            if (userPermsDoc.exists() && userPermsDoc.data().custom === true) {
-              setPermissions(applyTrainOpOverride(userPermsDoc.data().permissions || {}, profile.role));
-            } else {
-              setPermissions(applyTrainOpOverride(rolePerms, profile.role));
-            }
+            const finalPerms = (userPermsDoc.exists() && userPermsDoc.data().custom === true)
+              ? applyTrainOpOverride(userPermsDoc.data().permissions || {}, profile.role)
+              : applyTrainOpOverride(rolePerms, profile.role);
+            setPermissions(finalPerms);
+            saveProfileToCache(profile, finalPerms);
           };
 
           unsubscribeRole = onSnapshot(
@@ -509,7 +560,12 @@ export function AuthProvider({ children }) {
     try {
       result = await signInWithPopup(auth, provider);
     } catch (popupErr) {
-      if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/popup-closed-by-user') {
+      if (
+        popupErr.code === 'auth/popup-blocked' || 
+        popupErr.code === 'auth/popup-closed-by-user' ||
+        popupErr.code === 'auth/cancelled-popup-request' ||
+        String(popupErr?.message || '').includes('Cross-Origin-Opener-Policy')
+      ) {
         await signInWithRedirect(auth, provider);
         return { ok: true, redirected: true };
       }
@@ -567,6 +623,7 @@ export function AuthProvider({ children }) {
     if (currentUser && userProfile) {
       await logAudit('LOGOUT', currentUser.uid, userProfile.employeeName, 'Logged out of session.');
     }
+    clearProfileCache();
     await signOut(auth);
     setCurrentUser(null);
     setUserProfile(null);
