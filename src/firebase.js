@@ -112,7 +112,11 @@ if (typeof window !== 'undefined') {
 
 export const firebaseConfig = {
   apiKey: "AIzaSyDucdRrkYezPjjzZ250pqZUovb3B8MO5lg",
-  authDomain: "pyidline2crew-41022.firebaseapp.com",
+  // Use the web.app hosting domain as authDomain so that signInWithRedirect
+  // returns to the correct origin on mobile browsers (Safari, Chrome on iOS, etc.)
+  // Using firebaseapp.com causes the redirect to land on a different origin and
+  // lose the auth session on devices that block cross-origin cookies.
+  authDomain: "pyidline2crew-41022.web.app",
   projectId: "pyidline2crew-41022",
   storageBucket: "pyidline2crew-41022.firebasestorage.app",
   messagingSenderId: "783173298649",
@@ -122,21 +126,43 @@ export const firebaseConfig = {
 
 export const app = initializeApp(firebaseConfig);
 
+// Detect Safari / iOS — these browsers severely restrict IndexedDB in many
+// contexts (private mode, cross-origin iframes, some iOS WebViews) which causes
+// the Firestore persistent cache to fail silently and block all Firestore reads.
+const isSafariBrowser = typeof window !== 'undefined' && (
+  /^((?!chrome|android).)*safari/i.test(navigator.userAgent) ||
+  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.userAgent.includes('Mac') && 'ontouchend' in document)
+);
+
 let firestoreDb;
 try {
-  firestoreDb = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager()
-    })
-  });
-} catch (e) {
-  // If already initialized (e.g. across Vite HMR) or multi-tab contention occurs, reuse instance
-  try {
-    firestoreDb = getFirestore(app);
-  } catch (_) {
+  if (isSafariBrowser) {
+    // Safari: use memory cache to avoid IndexedDB permission errors
     firestoreDb = initializeFirestore(app, {
       localCache: memoryLocalCache()
     });
+  } else {
+    // Desktop Chrome / Firefox / Edge: use persistent multi-tab cache
+    firestoreDb = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
+    });
+  }
+} catch (e) {
+  // Already initialized (e.g. Vite HMR) — reuse existing instance
+  try {
+    firestoreDb = getFirestore(app);
+  } catch (_) {
+    // Last resort: memory-only cache (no persistence, always works)
+    try {
+      firestoreDb = initializeFirestore(app, {
+        localCache: memoryLocalCache()
+      });
+    } catch (__) {
+      firestoreDb = getFirestore(app);
+    }
   }
 }
 

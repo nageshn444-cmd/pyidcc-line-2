@@ -11,7 +11,11 @@ import {
   reauthenticateWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  setPersistence,
+  browserSessionPersistence,
+  browserLocalPersistence,
+  inMemoryPersistence
 } from 'firebase/auth';
 import { 
   collection, doc, getDoc, getDocs, query, where,
@@ -476,15 +480,31 @@ export function AuthProvider({ children }) {
   }, []);
 
   // ─── Google Redirect Result Handler ─────────────────────────────────────────
+  // On mobile browsers (especially Safari/iOS), getRedirectResult may throw
+  // cross-origin or operation-not-supported errors — these are always harmless
+  // and should be silenced; the onAuthStateChanged listener handles the actual
+  // session restoration after the redirect.
   useEffect(() => {
+    const KNOWN_HARMLESS_CODES = new Set([
+      'auth/operation-not-supported-in-this-environment',
+      'auth/web-storage-unsupported',
+      'auth/null-user',
+      'auth/cancelled-popup-request',
+    ]);
     getRedirectResult(auth)
       .then(async (result) => {
         if (!result?.user) return;
         await finishLogin(result.user);
       })
       .catch((err) => {
-        if (!err.message?.includes('Cross-Origin')) {
-          console.error('Redirect result error:', err);
+        const isSilent = 
+          KNOWN_HARMLESS_CODES.has(err.code) ||
+          String(err.message || '').includes('Cross-Origin') ||
+          String(err.message || '').includes('cross-origin') ||
+          String(err.message || '').includes('storage') ||
+          String(err.code || '').includes('web-storage');
+        if (!isSilent) {
+          console.warn('[Auth] Redirect result error (non-fatal):', err.code, err.message);
         }
       });
   }, []);
@@ -819,25 +839,37 @@ export function AuthProvider({ children }) {
     provider.addScope('profile');
     provider.setCustomParameters({ prompt: 'select_account' });
 
-    // On mobile devices, always use signInWithRedirect directly to avoid mobile popup blocks
-    if (isMobileDevice()) {
+    const mobile = isMobileDevice();
+
+    // On mobile devices, always use signInWithRedirect to avoid popup blocking.
+    // Set session persistence first so the redirect result survives the page
+    // reload without relying on cross-origin cookies (blocked by Safari ITP).
+    if (mobile) {
+      try {
+        await setPersistence(auth, browserSessionPersistence);
+      } catch (_) {
+        // If session persistence fails (e.g. private browsing), fall back to memory
+        try { await setPersistence(auth, inMemoryPersistence); } catch (__) {}
+      }
       try {
         await signInWithRedirect(auth, provider);
         return { ok: true, redirected: true };
       } catch (redirectErr) {
         if (redirectErr.code === 'auth/unauthorized-domain') {
-          throw new Error(`The current IP/domain (${window.location.hostname}) is not authorized in Google OAuth. Please sign in with your Employee ID & Password above.`);
+          throw new Error(`Domain (${window.location.hostname}) is not authorized in Google OAuth. Please use Staff ID Login instead.`);
         }
         throw redirectErr;
       }
     }
 
+    // Desktop: try popup first, fall back to redirect on failure
     let result;
     try {
+      await setPersistence(auth, browserLocalPersistence);
       result = await signInWithPopup(auth, provider);
     } catch (popupErr) {
       if (popupErr.code === 'auth/unauthorized-domain') {
-        throw new Error(`The current IP/domain (${window.location.hostname}) is not authorized in Google OAuth. Please sign in with your Employee ID & Password above.`);
+        throw new Error(`Domain (${window.location.hostname}) is not authorized in Google OAuth. Please use Staff ID Login instead.`);
       }
       if (
         popupErr.code === 'auth/popup-blocked' || 
