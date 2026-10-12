@@ -62,6 +62,9 @@ export class OperationalErrorBoundary extends React.Component {
 
     this.setState({ hasError: false, error: null, errorInfo: null });
     if (isDynamicImportError && typeof window !== 'undefined') {
+      try {
+        sessionStorage.clear();
+      } catch (_) {}
       window.location.reload();
       return;
     }

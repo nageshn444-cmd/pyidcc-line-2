@@ -28,15 +28,15 @@ export function lazyWithRetry(componentImport, retries = 2, delayMs = 800) {
                 attempt(attemptsLeft - 1);
               }, delayMs);
             } else if (isImportError && typeof window !== 'undefined') {
-              // Attempt a graceful reload once per session path
               const reloadKey = `chunk_reload_${window.location.pathname}`;
-              const hasReloaded = window.sessionStorage.getItem(reloadKey);
-              if (!hasReloaded) {
-                window.sessionStorage.setItem(reloadKey, 'true');
+              const lastReload = window.sessionStorage.getItem(reloadKey);
+              const now = Date.now();
+              // Auto-reload to fetch new index.html with fresh chunks if not reloaded within 15 seconds
+              if (!lastReload || (now - Number(lastReload)) > 15000) {
+                window.sessionStorage.setItem(reloadKey, String(now));
                 window.location.reload();
                 return;
               }
-              window.sessionStorage.removeItem(reloadKey);
               reject(error);
             } else {
               reject(error);
