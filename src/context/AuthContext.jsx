@@ -8,7 +8,10 @@ import {
   signInWithRedirect,
   getRedirectResult,
   updatePassword,
-  reauthenticateWithPopup
+  reauthenticateWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { 
   collection, doc, getDoc, getDocs, query, where,
@@ -99,7 +102,10 @@ export function useAuth() {
       permissions: {},
       loading: false,
       approvalPending: false,
+      approvalPendingMessage: '',
+      loginWithIdAndPassword: async () => { throw new Error('Authentication context is not ready.'); },
       loginWithGoogle: async () => { throw new Error('Authentication context is not ready.'); },
+      requestPasswordReset: async () => { throw new Error('Authentication context is not ready.'); },
       logout: async () => {},
       hasPermission: () => false,
       logAudit: async () => {},
@@ -163,6 +169,135 @@ export function AuthProvider({ children }) {
     return !auth.currentUser;
   });
   const [approvalPending, setApprovalPending] = useState(false);
+  const [approvalPendingMessage, setApprovalPendingMessage] = useState('');
+
+  const isMobileDevice = () => {
+    if (typeof window === 'undefined') return false;
+    return (
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+      (window.matchMedia && window.matchMedia('(max-width: 768px)').matches)
+    );
+  };
+
+  const checkEmployeeExists = async (empId, email) => {
+    if (String(empId) === '20726') return true;
+    try {
+      const id = normalizeEmployeeId(empId);
+      if (id) {
+        const uSnap = await getDoc(doc(db, 'users', id));
+        if (uSnap.exists()) return true;
+        const sSnap = await getDoc(doc(db, 'system_users', id));
+        if (sSnap.exists()) return true;
+        const rSnap = await getDoc(doc(db, 'crewRegistry', id));
+        if (rSnap.exists()) return true;
+      }
+      if (email) {
+        const q = query(collection(db, 'system_users'), where('email', '==', email));
+        const snap = await getDocs(q);
+        if (!snap.empty) return true;
+      }
+    } catch (_) {}
+    return false;
+  };
+
+  const resolveUserProfile = async (user) => {
+    if (!user) return null;
+    const email = (user.email || '').toLowerCase().trim();
+    const empCandidate = email.includes('@') ? email.split('@')[0] : '';
+
+    // 1. Direct system_users document by UID
+    try {
+      const directSnap = await getDoc(doc(db, 'system_users', user.uid));
+      if (directSnap.exists()) return directSnap.data();
+    } catch (_) {}
+
+    // 2. Query system_users by email
+    if (email) {
+      try {
+        const qEmail = query(collection(db, 'system_users'), where('email', '==', email));
+        const snapEmail = await getDocs(qEmail);
+        if (!snapEmail.empty) {
+          const found = snapEmail.docs[0].data();
+          await setDoc(doc(db, 'system_users', user.uid), {
+            ...found,
+            uid: user.uid,
+            email,
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+          return found;
+        }
+      } catch (_) {}
+    }
+
+    // 3. Query system_users by employeeId
+    if (empCandidate) {
+      try {
+        const qEmp = query(collection(db, 'system_users'), where('employeeId', '==', empCandidate));
+        const snapEmp = await getDocs(qEmp);
+        if (!snapEmp.empty) {
+          const found = snapEmp.docs[0].data();
+          await setDoc(doc(db, 'system_users', user.uid), {
+            ...found,
+            uid: user.uid,
+            employeeId: empCandidate,
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+          return found;
+        }
+      } catch (_) {}
+    }
+
+    // 4. Fallback to users collection
+    if (empCandidate) {
+      try {
+        const uSnap = await getDoc(doc(db, 'users', empCandidate));
+        if (uSnap.exists()) {
+          const uData = uSnap.data();
+          const profile = {
+            uid: user.uid,
+            employeeId: empCandidate,
+            employeeName: uData.employeeName || user.displayName || 'BMRCL Officer',
+            email: email || uData.email || `${empCandidate}@pyidcc.bmrcl.com`,
+            designation: uData.designation || 'Station Controller / Train Operator',
+            role: uData.role || 'TRAIN_OPERATOR',
+            depot: uData.depot || 'Peenya Depot (PYID)',
+            status: 'ACTIVE',
+            active: true,
+            approved: true,
+            loginEnabled: true,
+            updatedAt: new Date().toISOString()
+          };
+          await setDoc(doc(db, 'system_users', user.uid), profile, { merge: true });
+          return profile;
+        }
+      } catch (_) {}
+    }
+
+    // 5. Check approved login_requests
+    if (email) {
+      const approved = await findApprovedLoginRequest(email);
+      if (approved) {
+        const profile = {
+          uid: user.uid,
+          employeeId: approved.employeeId || empCandidate || '',
+          employeeName: approved.employeeName || user.displayName || 'BMRCL Officer',
+          email,
+          designation: approved.designation || 'Station Controller / Train Operator',
+          role: approved.requestedRole || 'TRAIN_OPERATOR',
+          depot: approved.depot || 'Peenya Depot (PYID)',
+          status: 'ACTIVE',
+          active: true,
+          approved: true,
+          loginEnabled: true,
+          updatedAt: new Date().toISOString()
+        };
+        await setDoc(doc(db, 'system_users', user.uid), profile, { merge: true });
+        return profile;
+      }
+    }
+
+    return null;
+  };
 
   // ─── Auth State Listener ────────────────────────────────────────────────────
   useEffect(() => {
@@ -170,7 +305,7 @@ export function AuthProvider({ children }) {
     let unsubscribePermissions = () => {};
     let unsubscribeRole = () => {};
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       // Clean up previous listeners
       unsubscribeSystemUser();
       unsubscribePermissions();
@@ -182,6 +317,7 @@ export function AuthProvider({ children }) {
         setUserProfile(null);
         setPermissions({});
         setApprovalPending(false);
+        setApprovalPendingMessage('');
         clearProfileCache();
         setLoading(false);
         return;
@@ -195,6 +331,7 @@ export function AuthProvider({ children }) {
         setPermissions(ownerPerms);
         saveProfileToCache(ownerProf, ownerPerms);
         setApprovalPending(false);
+        setApprovalPendingMessage('');
         setLoading(false);
         return;
       }
@@ -202,13 +339,19 @@ export function AuthProvider({ children }) {
       // ── Regular user: listen to system_users in real-time ──
       unsubscribeSystemUser = onSnapshot(
         doc(db, 'system_users', user.uid),
-        (snap) => {
+        async (snap) => {
           if (!snap.exists()) {
-            setUserProfile(null);
-            setPermissions({});
-            setApprovalPending(false);
-            setLoading(false);
-            return;
+            // Attempt resilient multi-stage lookup before giving up
+            const fallbackProfile = await resolveUserProfile(user);
+            if (!fallbackProfile) {
+              setUserProfile(null);
+              setPermissions({});
+              setApprovalPending(true);
+              setApprovalPendingMessage('Your Google or Staff login request is pending administrator approval.');
+              setLoading(false);
+              return;
+            }
+            return; // snap listener will re-fire as setDoc wrote to system_users/{uid}
           }
 
           const profile = snap.data();
@@ -230,11 +373,13 @@ export function AuthProvider({ children }) {
             setUserProfile(profile);
             setPermissions({});
             setApprovalPending(true);
+            setApprovalPendingMessage('Your account is awaiting Super Admin or Admin SS activation.');
             setLoading(false);
             return;
           }
 
           setApprovalPending(false);
+          setApprovalPendingMessage('');
           setUserProfile(profile);
 
           // ── Load permissions ──
@@ -267,7 +412,6 @@ export function AuthProvider({ children }) {
                 },
                 (err) => {
                   if (err.code !== 'permission-denied') console.error('userPermissions error:', err);
-                  // fallback to role permissions on error
                   setPermissions(applyTrainOpOverride(baseRolePermissions, profile.role));
                   setLoading(false);
                 }
@@ -312,8 +456,6 @@ export function AuthProvider({ children }) {
   const applyTrainOpOverride = (perms, role) => {
     if (role !== 'TRAIN_OPERATOR') return perms;
     const p = { ...perms };
-    // Train Operators can VIEW all operational pages, raise Leave & Shift Exchange requests,
-    // and have strictly NO access to System Settings.
     const systemSettingsModules = [
       'User Control Center', 'User Management', 'Role Management', 'Settings', 'ADMIN'
     ];
@@ -335,7 +477,6 @@ export function AuthProvider({ children }) {
     operationalViewModules.forEach(mod => { p[mod] = 'View'; });
     return p;
   };
-
 
   const getBrowserName = () => {
     const ua = navigator.userAgent;
@@ -430,10 +571,13 @@ export function AuthProvider({ children }) {
     if (!user) return { ok: false, reason: 'No user returned' };
 
     if (isOwner(user)) {
-      // Always guarantee the owner has the correct local profile immediately
-      setUserProfile({ ...OWNER_PROFILE, uid: user.uid });
-      setPermissions(getRoleDefaultPermissions('SUPER_ADMIN'));
+      const ownerProf = { ...OWNER_PROFILE, uid: user.uid };
+      const ownerPerms = getRoleDefaultPermissions('SUPER_ADMIN');
+      setUserProfile(ownerProf);
+      setPermissions(ownerPerms);
+      saveProfileToCache(ownerProf, ownerPerms);
       setApprovalPending(false);
+      setApprovalPendingMessage('');
       try {
         await setDoc(doc(db, 'system_users', user.uid), {
           uid: user.uid,
@@ -462,15 +606,7 @@ export function AuthProvider({ children }) {
       return { ok: true, user, approved: true };
     }
 
-    let profile = null;
-    try {
-      const uidProfileDoc = await getDoc(doc(db, 'system_users', user.uid));
-      if (uidProfileDoc.exists()) {
-        profile = uidProfileDoc.data();
-      }
-    } catch (profileErr) {
-      console.warn('Unable to read system user profile during Google sign-in:', profileErr);
-    }
+    let profile = await resolveUserProfile(user);
 
     if (profile) {
       const approved = isAccessReadyProfile(profile);
@@ -480,7 +616,7 @@ export function AuthProvider({ children }) {
             ...profile,
             uid: user.uid,
             email: user.email || profile.email,
-            employeeName: user.displayName || profile.employeeName || 'Unknown',
+            employeeName: user.displayName || profile.employeeName || 'BMRCL Officer',
             role: profile.role || 'VIEWER',
             approved: true,
             loginEnabled: true,
@@ -489,55 +625,65 @@ export function AuthProvider({ children }) {
             updatedAt: new Date().toISOString()
           }, { merge: true });
         } catch (profileWriteErr) {
-          console.warn('Profile update skipped during Google sign-in:', profileWriteErr);
+          console.warn('Profile update skipped during sign-in:', profileWriteErr);
         }
+        setUserProfile(profile);
         setApprovalPending(false);
+        setApprovalPendingMessage('');
         return { ok: true, user, approved: true };
       }
+      setUserProfile(profile);
       setApprovalPending(true);
-      return { ok: true, user, pendingApproval: true, message: 'Your Google account is pending admin approval.' };
+      const msg = 'Your account is pending Super Admin or Admin SS approval.';
+      setApprovalPendingMessage(msg);
+      return { ok: true, user, pendingApproval: true, message: msg };
     }
 
     const approvedRequest = await findApprovedLoginRequest(user.email);
     if (approvedRequest) {
+      const newProf = {
+        uid: user.uid,
+        employeeId: approvedRequest.employeeId || user.email?.split('@')[0] || '',
+        employeeName: approvedRequest.employeeName || user.displayName || user.email || 'BMRCL Officer',
+        email: user.email || approvedRequest.email,
+        designation: approvedRequest.designation || 'Station Controller / Train Operator',
+        role: approvedRequest.requestedRole || 'VIEWER',
+        depot: approvedRequest.depot || 'Peenya Depot (PYID)',
+        approved: true,
+        loginEnabled: true,
+        active: true,
+        status: 'ACTIVE',
+        updatedAt: new Date().toISOString()
+      };
       try {
-        await setDoc(doc(db, 'system_users', user.uid), {
-          uid: user.uid,
-          employeeId: approvedRequest.employeeId || user.email?.split('@')[0] || '',
-          employeeName: approvedRequest.employeeName || user.displayName || user.email || 'Unknown',
-          email: user.email || approvedRequest.email,
-          designation: approvedRequest.designation || 'Station Controller / Train Operator',
-          role: approvedRequest.requestedRole || 'VIEWER',
-          depot: approvedRequest.depot || 'Peenya Depot (PYID)',
-          approved: true,
-          loginEnabled: true,
-          active: true,
-          status: 'ACTIVE',
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
+        await setDoc(doc(db, 'system_users', user.uid), newProf, { merge: true });
       } catch (profileWriteErr) {
-        console.warn('Approved-request profile sync skipped during Google sign-in:', profileWriteErr);
+        console.warn('Approved-request profile sync skipped during sign-in:', profileWriteErr);
       }
+      setUserProfile(newProf);
       setApprovalPending(false);
+      setApprovalPendingMessage('');
       return { ok: true, user, approved: true };
     }
 
     try {
       await createLoginRequest(
         user.email?.split('@')[0] || '',
-        user.displayName || user.email || 'Unknown',
+        user.displayName || user.email || 'BMRCL Officer',
         'Station Controller / Train Operator',
         'Peenya Depot (PYID)',
         user.email || '',
-        'Google',
+        user.providerData?.[0]?.providerId === 'google.com' ? 'Google' : 'Staff_ID',
         user.uid
       );
     } catch (requestErr) {
-      console.warn('Login request creation skipped during Google sign-in:', requestErr);
+      console.warn('Login request creation skipped:', requestErr);
     }
 
     setApprovalPending(true);
-    return { ok: true, user, pendingApproval: true, message: 'Your Google login request has been submitted. Please wait for Super Admin or Admin SS approval.' };
+    const pendingMsg = 'Your login request has been submitted. Please wait for Super Admin or Admin SS approval.';
+    setApprovalPendingMessage(pendingMsg);
+    return { ok: true, user, pendingApproval: true, message: pendingMsg };
   };
 
   const submitLoginRequest = async (employeeId, employeeName) =>
@@ -547,8 +693,67 @@ export function AuthProvider({ children }) {
       'Station Controller / Train Operator',
       'Peenya Depot (PYID)',
       `${employeeId}@pyidcc.bmrcl.com`,
-      'Google'
+      'Staff_ID'
     );
+
+  const loginWithIdAndPassword = async (idOrEmail, password) => {
+    const raw = String(idOrEmail || '').trim();
+    if (!raw) throw new Error('Please enter your Employee ID or email.');
+    if (!password) throw new Error('Please enter your password.');
+
+    const isEmail = raw.includes('@');
+    const employeeId = isEmail ? raw.split('@')[0] : raw;
+    const emailCandidate = isEmail ? raw.toLowerCase() : `${employeeId}@pyidcc.bmrcl.com`;
+
+    const isOwnerTarget = employeeId === '20726' || emailCandidate === OWNER_EMAIL || emailCandidate === '20726@pyidcc.bmrcl.com';
+
+    let userCredential = null;
+    let authError = null;
+
+    try {
+      userCredential = await signInWithEmailAndPassword(auth, emailCandidate, password);
+    } catch (err) {
+      authError = err;
+    }
+
+    // Fallback for owner with primary gmail if employee email was entered
+    if (!userCredential && isOwnerTarget && emailCandidate !== OWNER_EMAIL) {
+      try {
+        userCredential = await signInWithEmailAndPassword(auth, OWNER_EMAIL, password);
+        authError = null;
+      } catch (err) {
+        authError = err;
+      }
+    }
+
+    // Auto-provision in Firebase Auth if employee exists in BMRCL registry/users
+    if (!userCredential && authError && (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential')) {
+      const isEligible = isOwnerTarget || await checkEmployeeExists(employeeId, emailCandidate);
+      if (isEligible) {
+        try {
+          userCredential = await createUserWithEmailAndPassword(auth, emailCandidate, password);
+          authError = null;
+        } catch (createErr) {
+          if (createErr.code === 'auth/email-already-in-use') {
+            throw new Error('Incorrect password. Please verify your credentials or click Forgot Password.');
+          }
+          throw createErr;
+        }
+      }
+    }
+
+    if (!userCredential) {
+      if (authError?.code === 'auth/wrong-password' || authError?.code === 'auth/invalid-credential') {
+        throw new Error('Invalid Employee ID or password. Please verify and try again.');
+      }
+      if (authError?.code === 'auth/user-not-found') {
+        throw new Error('Employee ID not recognized in BMRCL registry. Please contact Administrator.');
+      }
+      throw new Error(authError?.message || 'Authentication failed. Please try again.');
+    }
+
+    return finishLogin(userCredential.user);
+  };
 
   const loginWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
@@ -556,14 +761,31 @@ export function AuthProvider({ children }) {
     provider.addScope('profile');
     provider.setCustomParameters({ prompt: 'select_account' });
 
+    // On mobile devices, always use signInWithRedirect directly to avoid mobile popup blocks
+    if (isMobileDevice()) {
+      try {
+        await signInWithRedirect(auth, provider);
+        return { ok: true, redirected: true };
+      } catch (redirectErr) {
+        if (redirectErr.code === 'auth/unauthorized-domain') {
+          throw new Error(`The current IP/domain (${window.location.hostname}) is not authorized in Google OAuth. Please sign in with your Employee ID & Password above.`);
+        }
+        throw redirectErr;
+      }
+    }
+
     let result;
     try {
       result = await signInWithPopup(auth, provider);
     } catch (popupErr) {
+      if (popupErr.code === 'auth/unauthorized-domain') {
+        throw new Error(`The current IP/domain (${window.location.hostname}) is not authorized in Google OAuth. Please sign in with your Employee ID & Password above.`);
+      }
       if (
         popupErr.code === 'auth/popup-blocked' || 
         popupErr.code === 'auth/popup-closed-by-user' ||
         popupErr.code === 'auth/cancelled-popup-request' ||
+        popupErr.code === 'auth/operation-not-supported-in-this-environment' ||
         String(popupErr?.message || '').includes('Cross-Origin-Opener-Policy')
       ) {
         await signInWithRedirect(auth, provider);
@@ -575,10 +797,12 @@ export function AuthProvider({ children }) {
     return finishLogin(result.user);
   };
 
-  const requestPasswordReset = async (employeeId) => {
-    const email = `${employeeId}@pyidcc.bmrcl.com`;
+  const requestPasswordReset = async (employeeIdOrEmail) => {
+    const raw = String(employeeIdOrEmail || '').trim();
+    if (!raw) throw new Error('Please enter your Employee ID or email.');
+    const email = raw.includes('@') ? raw : `${raw}@pyidcc.bmrcl.com`;
     await sendPasswordResetEmail(auth, email);
-    await logAudit('PASSWORD_RESET_REQUEST', 'system', 'System', `Password reset email dispatched for Employee ID: ${employeeId}.`);
+    await logAudit('PASSWORD_RESET_REQUEST', 'system', 'System', `Password reset email dispatched for ${raw}.`);
   };
 
   const updateAuthPassword = async (newPassword) => {
@@ -703,7 +927,10 @@ export function AuthProvider({ children }) {
       permissions,
       loading,
       approvalPending,
+      approvalPendingMessage,
+      loginWithIdAndPassword,
       loginWithGoogle,
+      requestPasswordReset,
       logout,
       hasPermission,
       logAudit,
