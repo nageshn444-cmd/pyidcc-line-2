@@ -66,7 +66,14 @@ const findSystemUserProfile = async (employeeId, email = '') => {
     const numericId = Number(id);
     if (!Number.isNaN(numericId)) candidates.push({ field: 'employeeId', value: numericId });
   }
-  if (email) candidates.push({ field: 'email', value: email });
+  if (email) {
+    candidates.push({ field: 'email', value: email });
+    // Also try the pyidcc.bmrcl.com variant if a different email was given
+    if (email.includes('@') && !email.endsWith('@pyidcc.bmrcl.com')) {
+      const localPart = email.split('@')[0];
+      candidates.push({ field: 'email', value: `${localPart}@pyidcc.bmrcl.com` });
+    }
+  }
 
   for (const candidate of candidates) {
     try {
@@ -184,17 +191,34 @@ export function AuthProvider({ children }) {
     try {
       const id = normalizeEmployeeId(empId);
       if (id) {
+        // users collection is keyed by employeeId
         const uSnap = await getDoc(doc(db, 'users', id));
         if (uSnap.exists()) return true;
-        const sSnap = await getDoc(doc(db, 'system_users', id));
-        if (sSnap.exists()) return true;
+        // crewRegistry is keyed by employeeId
         const rSnap = await getDoc(doc(db, 'crewRegistry', id));
         if (rSnap.exists()) return true;
+        // system_users is keyed by UID — must query by field
+        const sQ = query(collection(db, 'system_users'), where('employeeId', '==', id));
+        const sSnap = await getDocs(sQ);
+        if (!sSnap.empty) return true;
+        // Try numeric form as well
+        const numId = Number(id);
+        if (!Number.isNaN(numId)) {
+          const sQNum = query(collection(db, 'system_users'), where('employeeId', '==', numId));
+          const sSnapNum = await getDocs(sQNum);
+          if (!sSnapNum.empty) return true;
+        }
       }
       if (email) {
-        const q = query(collection(db, 'system_users'), where('email', '==', email));
-        const snap = await getDocs(q);
-        if (!snap.empty) return true;
+        const emailVariants = [email];
+        if (!email.endsWith('@pyidcc.bmrcl.com')) {
+          emailVariants.push(`${email.split('@')[0]}@pyidcc.bmrcl.com`);
+        }
+        for (const ev of emailVariants) {
+          const q = query(collection(db, 'system_users'), where('email', '==', ev));
+          const snap = await getDocs(q);
+          if (!snap.empty) return true;
+        }
       }
     } catch (_) {}
     return false;
@@ -337,22 +361,35 @@ export function AuthProvider({ children }) {
       }
 
       // ── Regular user: listen to system_users in real-time ──
+      // Track whether this is the first snapshot callback for this login session
+      let firstSnapshotReceived = false;
+
       unsubscribeSystemUser = onSnapshot(
         doc(db, 'system_users', user.uid),
         async (snap) => {
           if (!snap.exists()) {
-            // Attempt resilient multi-stage lookup before giving up
-            const fallbackProfile = await resolveUserProfile(user);
-            if (!fallbackProfile) {
+            if (!firstSnapshotReceived) {
+              firstSnapshotReceived = true;
+              // First callback: doc doesn't exist yet — try multi-stage lookup
+              // This is common right after staff login creates a new Firebase Auth account
+              const fallbackProfile = await resolveUserProfile(user);
+              if (fallbackProfile) {
+                // resolveUserProfile wrote to system_users/{uid}, listener will re-fire
+                return;
+              }
+              // Genuinely new user: show pending approval
               setUserProfile(null);
               setPermissions({});
               setApprovalPending(true);
-              setApprovalPendingMessage('Your Google or Staff login request is pending administrator approval.');
+              setApprovalPendingMessage('Your login request has been submitted. Please wait for Super Admin or Admin SS approval.');
               setLoading(false);
               return;
             }
-            return; // snap listener will re-fire as setDoc wrote to system_users/{uid}
+            // Subsequent callbacks where doc still doesn't exist: keep pending state
+            setLoading(false);
+            return;
           }
+          firstSnapshotReceived = true;
 
           const profile = snap.data();
 
@@ -703,39 +740,57 @@ export function AuthProvider({ children }) {
 
     const isEmail = raw.includes('@');
     const employeeId = isEmail ? raw.split('@')[0] : raw;
-    const emailCandidate = isEmail ? raw.toLowerCase() : `${employeeId}@pyidcc.bmrcl.com`;
+    // Build all email variants to try, in priority order
+    const pyidccEmail = `${employeeId}@pyidcc.bmrcl.com`;
+    const bmrclEmail  = `${employeeId}@bmrc.co.in`;
+    const gmailEmail  = isEmail && raw.toLowerCase().endsWith('@gmail.com') ? raw.toLowerCase() : null;
+    const primaryEmail = isEmail ? raw.toLowerCase() : pyidccEmail;
 
-    const isOwnerTarget = employeeId === '20726' || emailCandidate === OWNER_EMAIL || emailCandidate === '20726@pyidcc.bmrcl.com';
+    const isOwnerTarget = employeeId === '20726' || primaryEmail === OWNER_EMAIL ||
+      primaryEmail === '20726@pyidcc.bmrcl.com' || raw === '20726';
 
     let userCredential = null;
     let authError = null;
 
-    try {
-      userCredential = await signInWithEmailAndPassword(auth, emailCandidate, password);
-    } catch (err) {
-      authError = err;
-    }
+    // Build ordered list of emails to attempt sign-in
+    const emailsToTry = [primaryEmail];
+    if (primaryEmail !== pyidccEmail) emailsToTry.push(pyidccEmail);
+    if (primaryEmail !== bmrclEmail)  emailsToTry.push(bmrclEmail);
+    if (gmailEmail && !emailsToTry.includes(gmailEmail)) emailsToTry.push(gmailEmail);
+    if (isOwnerTarget && !emailsToTry.includes(OWNER_EMAIL)) emailsToTry.push(OWNER_EMAIL);
 
-    // Fallback for owner with primary gmail if employee email was entered
-    if (!userCredential && isOwnerTarget && emailCandidate !== OWNER_EMAIL) {
+    for (const emailAttempt of emailsToTry) {
       try {
-        userCredential = await signInWithEmailAndPassword(auth, OWNER_EMAIL, password);
+        userCredential = await signInWithEmailAndPassword(auth, emailAttempt, password);
         authError = null;
+        break;
       } catch (err) {
         authError = err;
+        // Only continue trying other emails if the user/credential doesn't exist
+        // Stop immediately on wrong-password (the account exists but password is wrong)
+        if (
+          err.code !== 'auth/user-not-found' &&
+          err.code !== 'auth/invalid-credential' &&
+          err.code !== 'auth/invalid-email'
+        ) {
+          break;
+        }
       }
     }
 
     // Auto-provision in Firebase Auth if employee exists in BMRCL registry/users
     if (!userCredential && authError && (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential')) {
-      const isEligible = isOwnerTarget || await checkEmployeeExists(employeeId, emailCandidate);
+      const isEligible = isOwnerTarget || await checkEmployeeExists(employeeId, primaryEmail);
       if (isEligible) {
+        // Provision using the primary pyidcc email (canonical format)
+        const provisionEmail = isOwnerTarget ? OWNER_EMAIL : pyidccEmail;
         try {
-          userCredential = await createUserWithEmailAndPassword(auth, emailCandidate, password);
+          userCredential = await createUserWithEmailAndPassword(auth, provisionEmail, password);
           authError = null;
         } catch (createErr) {
           if (createErr.code === 'auth/email-already-in-use') {
-            throw new Error('Incorrect password. Please verify your credentials or click Forgot Password.');
+            // Account exists but password is wrong — the multi-attempt above missed it
+            throw new Error('Incorrect password. Please verify your credentials or use Forgot Password.');
           }
           throw createErr;
         }
@@ -747,7 +802,10 @@ export function AuthProvider({ children }) {
         throw new Error('Invalid Employee ID or password. Please verify and try again.');
       }
       if (authError?.code === 'auth/user-not-found') {
-        throw new Error('Employee ID not recognized in BMRCL registry. Please contact Administrator.');
+        throw new Error('Employee ID not found in BMRCL registry. Please contact Administrator.');
+      }
+      if (authError?.code === 'auth/too-many-requests') {
+        throw new Error('Too many failed attempts. Please wait a few minutes and try again, or use Forgot Password.');
       }
       throw new Error(authError?.message || 'Authentication failed. Please try again.');
     }
