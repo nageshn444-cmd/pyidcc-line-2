@@ -112,11 +112,7 @@ if (typeof window !== 'undefined') {
 
 export const firebaseConfig = {
   apiKey: "AIzaSyDucdRrkYezPjjzZ250pqZUovb3B8MO5lg",
-  // Use the web.app hosting domain as authDomain so that signInWithRedirect
-  // returns to the correct origin on mobile browsers (Safari, Chrome on iOS, etc.)
-  // Using firebaseapp.com causes the redirect to land on a different origin and
-  // lose the auth session on devices that block cross-origin cookies.
-  authDomain: "pyidline2crew-41022.web.app",
+  authDomain: "pyidline2crew-41022.firebaseapp.com",
   projectId: "pyidline2crew-41022",
   storageBucket: "pyidline2crew-41022.firebasestorage.app",
   messagingSenderId: "783173298649",

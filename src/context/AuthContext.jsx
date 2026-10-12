@@ -888,34 +888,16 @@ export function AuthProvider({ children }) {
     provider.addScope('profile');
     provider.setCustomParameters({ prompt: 'select_account' });
 
-    const mobile = isMobileDevice();
-
-    // On mobile devices, always use signInWithRedirect to avoid popup blocking.
-    // Set session persistence first so the redirect result survives the page
-    // reload without relying on cross-origin cookies (blocked by Safari ITP).
-    if (mobile) {
-      try {
-        await setPersistence(auth, browserSessionPersistence);
-      } catch (_) {
-        // If session persistence fails (e.g. private browsing), fall back to memory
-        try { await setPersistence(auth, inMemoryPersistence); } catch (__) {}
-      }
-      try {
-        await signInWithRedirect(auth, provider);
-        return { ok: true, redirected: true };
-      } catch (redirectErr) {
-        if (redirectErr.code === 'auth/unauthorized-domain') {
-          throw new Error(`Domain (${window.location.hostname}) is not authorized in Google OAuth. Please use Staff ID Login instead.`);
-        }
-        throw redirectErr;
-      }
-    }
-
-    // Desktop: try popup first, fall back to redirect on failure
-    let result;
+    // Try popup first (works cleanly on both desktop and mobile user-tap gestures).
+    // If popup is blocked or unsupported, fall back seamlessly to signInWithRedirect.
     try {
-      await setPersistence(auth, browserLocalPersistence);
-      result = await signInWithPopup(auth, provider);
+      try {
+        await setPersistence(auth, browserLocalPersistence);
+      } catch (_) {
+        try { await setPersistence(auth, browserSessionPersistence); } catch (__) {}
+      }
+      const result = await signInWithPopup(auth, provider);
+      return finishLogin(result.user);
     } catch (popupErr) {
       if (popupErr.code === 'auth/unauthorized-domain') {
         throw new Error(`Domain (${window.location.hostname}) is not authorized in Google OAuth. Please use Staff ID Login instead.`);
@@ -925,15 +907,19 @@ export function AuthProvider({ children }) {
         popupErr.code === 'auth/popup-closed-by-user' ||
         popupErr.code === 'auth/cancelled-popup-request' ||
         popupErr.code === 'auth/operation-not-supported-in-this-environment' ||
-        String(popupErr?.message || '').includes('Cross-Origin-Opener-Policy')
+        String(popupErr?.message || '').includes('Cross-Origin-Opener-Policy') ||
+        isMobileDevice()
       ) {
+        try {
+          await setPersistence(auth, browserSessionPersistence);
+        } catch (_) {
+          try { await setPersistence(auth, inMemoryPersistence); } catch (__) {}
+        }
         await signInWithRedirect(auth, provider);
         return { ok: true, redirected: true };
       }
       throw popupErr;
     }
-
-    return finishLogin(result.user);
   };
 
   const requestPasswordReset = async (employeeIdOrEmail) => {
