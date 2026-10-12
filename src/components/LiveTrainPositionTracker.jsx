@@ -2811,9 +2811,13 @@ export default function LiveTrainPositionTracker({
 
   // Filter alerts for the Station Relief Alert Center UI based on selected station and track
   const filteredReliefAlerts = useMemo(() => {
+    const seen = new Set();
     return reliefStationAlerts.filter(a => {
       if (stationFilter !== 'ALL' && a.stationCode !== stationFilter) return false;
       if (trackFilter !== 'ALL' && a.direction !== trackFilter) return false;
+      const dedupeKey = `${a.trainId}_${a.stationCode}_${a.direction}_${a.dutyNo || ''}`;
+      if (seen.has(dedupeKey)) return false;
+      seen.add(dedupeKey);
       return true;
     });
   }, [reliefStationAlerts, stationFilter, trackFilter]);
@@ -3723,7 +3727,7 @@ export default function LiveTrainPositionTracker({
                   No trains match filter "{mobileFleetFilter}" or search "{mobileSearchQuery}"
                 </div>
               ) : (
-                filteredMobileTrains.map((t) => {
+                filteredMobileTrains.map((t, idx) => {
                   const isSelected = selectedTrain && String(selectedTrain.trainId) === String(t.trainId);
                   const hasRelieverAssigned = t.hasReliever && t.reliever?.name && t.reliever.name !== '--' && t.reliever.name !== '-';
                   const opContact = t.contact || getOperatorContact(t.operatorId, t.operatorName);
@@ -3731,7 +3735,7 @@ export default function LiveTrainPositionTracker({
 
                   return (
                     <div
-                      key={`mobile-train-${t.trainId}`}
+                      key={`mobile-train-${t.trainId}_${idx}`}
                       className={`bg-slate-900/90 rounded-2xl border p-3.5 transition-all flex flex-col justify-between ${
                         isSelected
                           ? 'border-cyan-400 ring-2 ring-cyan-500/30 bg-slate-900 shadow-xl'
@@ -4016,11 +4020,11 @@ export default function LiveTrainPositionTracker({
                   No trains match active criteria
                 </div>
               ) : (
-                filteredMobileTrains.map((t) => {
+                filteredMobileTrains.map((t, idx) => {
                   const hasRelieverAssigned = t.hasReliever && t.reliever?.name && t.reliever.name !== '--' && t.reliever.name !== '-';
                   return (
                     <div
-                      key={`stream-${t.trainId}`}
+                      key={`stream-${t.trainId}_${idx}`}
                       className="bg-slate-900/90 border border-slate-800 hover:border-cyan-500/50 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs transition"
                     >
                       <div className="flex items-center gap-2">
@@ -4295,7 +4299,7 @@ export default function LiveTrainPositionTracker({
                 </span>
               </div>
               <div className="space-y-3">
-                {filteredReliefAlerts.filter(t => t.direction === 'UP').map(t => {
+                {filteredReliefAlerts.filter(t => t.direction === 'UP').map((t, idx) => {
                   const isDeparted = t.isDeparted;
                   const hasReliever = t.hasReliever;
                   const isVerifiedReliever = t.isVerifiedReliever;
@@ -4305,7 +4309,7 @@ export default function LiveTrainPositionTracker({
 
                   return (
                     <div 
-                      key={`split_up_${t.trainId}_${t.stationCode}`}
+                      key={`split_up_${t.trainId}_${t.stationCode}_${t.dutyNo || ''}_${idx}`}
                       className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all duration-200 ${
                         isDeparted
                           ? 'bg-slate-900/40 border-slate-800 text-slate-400 opacity-60'
@@ -4476,7 +4480,7 @@ export default function LiveTrainPositionTracker({
                 </span>
               </div>
               <div className="space-y-3">
-                {filteredReliefAlerts.filter(t => t.direction === 'DOWN').map(t => {
+                {filteredReliefAlerts.filter(t => t.direction === 'DOWN').map((t, idx) => {
                   const isDeparted = t.isDeparted;
                   const hasReliever = t.hasReliever;
                   const isVerifiedReliever = t.isVerifiedReliever;
@@ -4486,7 +4490,7 @@ export default function LiveTrainPositionTracker({
 
                   return (
                     <div 
-                      key={`split_dn_${t.trainId}_${t.stationCode}`}
+                      key={`split_dn_${t.trainId}_${t.stationCode}_${t.dutyNo || ''}_${idx}`}
                       className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all duration-200 ${
                         isDeparted
                           ? 'bg-slate-900/40 border-slate-800 text-slate-400 opacity-60'
@@ -4648,7 +4652,7 @@ export default function LiveTrainPositionTracker({
         ) : (
           /* Combined Alert Feed Grid */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {filteredReliefAlerts.map(t => {
+            {filteredReliefAlerts.map((t, idx) => {
               const isDeparted = t.isDeparted;
               const hasReliever = t.hasReliever;
               const isVerifiedReliever = t.isVerifiedReliever;
@@ -4658,7 +4662,7 @@ export default function LiveTrainPositionTracker({
 
               return (
                 <div 
-                  key={`${t.trainId}_${t.stationCode}_${t.direction}`}
+                  key={`${t.trainId}_${t.stationCode}_${t.direction}_${t.dutyNo || ''}_${idx}`}
                   className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all duration-200 ${
                     isDeparted
                       ? 'bg-slate-900/40 border-slate-800 text-slate-400 opacity-60'
@@ -5672,9 +5676,9 @@ export default function LiveTrainPositionTracker({
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {liveTrainPositions
                   .filter(t => !t.isStabling && t.direction === 'UP')
-                  .map((t) => (
+                  .map((t, idx) => (
                     <div 
-                      key={`radar_up_${t.trainId}`} 
+                      key={`radar_up_${t.trainId}_${idx}`} 
                       onClick={() => setSelectedTrain(t)}
                       className="bg-slate-950 border border-slate-850 p-3 rounded-xl hover:border-emerald-500/40 transition cursor-pointer font-mono"
                     >
@@ -5719,9 +5723,9 @@ export default function LiveTrainPositionTracker({
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {liveTrainPositions
                   .filter(t => !t.isStabling && t.direction === 'DOWN')
-                  .map((t) => (
+                  .map((t, idx) => (
                     <div 
-                      key={`radar_dn_${t.trainId}`} 
+                      key={`radar_dn_${t.trainId}_${idx}`} 
                       onClick={() => setSelectedTrain(t)}
                       className="bg-slate-950 border border-slate-850 p-3 rounded-xl hover:border-cyan-500/40 transition cursor-pointer font-mono"
                     >
@@ -5797,8 +5801,8 @@ export default function LiveTrainPositionTracker({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-850">
-                    {filteredAndSortedFleet.map(t => (
-                      <tr key={`eng_${t.trainId}`} className="hover:bg-slate-900/50">
+                    {filteredAndSortedFleet.map((t, idx) => (
+                      <tr key={`eng_${t.trainId}_${idx}`} className="hover:bg-slate-900/50">
                         <td className="py-2 px-3 font-bold text-cyan-300">T{t.trainId}</td>
                         <td className="py-2 px-3">{t.dayDistanceCoveredKm} KM</td>
                         <td className="py-2 px-3 text-slate-300">{t.grossTractionKwh} kWh</td>
@@ -5863,8 +5867,8 @@ export default function LiveTrainPositionTracker({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-850">
-                    {filteredAndSortedFleet.map(t => (
-                      <tr key={`maint_${t.trainId}`} className="hover:bg-slate-900/50">
+                    {filteredAndSortedFleet.map((t, idx) => (
+                      <tr key={`maint_${t.trainId}_${idx}`} className="hover:bg-slate-900/50">
                         <td className="py-2 px-3 font-bold text-cyan-300">T{t.trainId}</td>
                         <td className="py-2 px-3">
                           <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${
