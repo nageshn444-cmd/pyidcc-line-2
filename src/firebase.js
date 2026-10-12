@@ -126,19 +126,22 @@ export const firebaseConfig = {
 
 export const app = initializeApp(firebaseConfig);
 
-// Detect Safari / iOS — these browsers severely restrict IndexedDB in many
-// contexts (private mode, cross-origin iframes, some iOS WebViews) which causes
-// the Firestore persistent cache to fail silently and block all Firestore reads.
-const isSafariBrowser = typeof window !== 'undefined' && (
+// Detect mobile devices or Safari / iOS — these browsers restrict IndexedDB in many
+// contexts (private mode, mobile tab sleeping, WebView sandbox) which causes
+// the Firestore persistent cache to fail or hang queries. Using memoryLocalCache on mobile
+// guarantees fast, crash-free operation.
+const isMobileOrSafari = typeof window !== 'undefined' && (
+  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
   /^((?!chrome|android).)*safari/i.test(navigator.userAgent) ||
   /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-  (navigator.userAgent.includes('Mac') && 'ontouchend' in document)
+  (navigator.userAgent.includes('Mac') && 'ontouchend' in document) ||
+  (window.matchMedia && window.matchMedia('(max-width: 768px)').matches)
 );
 
 let firestoreDb;
 try {
-  if (isSafariBrowser) {
-    // Safari: use memory cache to avoid IndexedDB permission errors
+  if (isMobileOrSafari) {
+    // Mobile / Safari: use memory cache to avoid IndexedDB permission & lock errors
     firestoreDb = initializeFirestore(app, {
       localCache: memoryLocalCache()
     });

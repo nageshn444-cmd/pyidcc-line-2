@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, isOwnerUser } from '../context/AuthContext';
 import { 
   Train, Globe, ShieldAlert, Lock, User, 
   Eye, EyeOff, KeyRound, CheckCircle2, RefreshCw, LogOut 
@@ -36,17 +36,17 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isOwnerUser = currentUser?.email === 'nageshn444@gmail.com' || userProfile?.employeeId === '20726';
-  const isReady = Boolean(userProfile) && (
+  const isOwner = isOwnerUser(currentUser, userProfile);
+  const isReady = (Boolean(userProfile) && (
     userProfile.approved === true || 
     userProfile.active === true || 
     userProfile.status === 'ACTIVE' || 
-    userProfile.loginEnabled === true ||
-    isOwnerUser
-  );
+    userProfile.loginEnabled === true
+  )) || isOwner;
 
   useEffect(() => {
-    if (!currentUser || authLoading || approvalPending) return;
+    if (!currentUser || authLoading) return;
+    if (approvalPending && !isOwner) return;
 
     if (isReady) {
       const dest = location.state?.from?.pathname && location.state.from.pathname !== '/login' 
@@ -54,15 +54,17 @@ export default function Login() {
         : '/';
       navigate(dest, { replace: true });
     }
-  }, [currentUser?.uid, Boolean(userProfile), userProfile?.approved, userProfile?.active, userProfile?.status, userProfile?.loginEnabled, authLoading, approvalPending, isReady, navigate, location.state]);
+  }, [currentUser?.uid, Boolean(userProfile), userProfile?.approved, userProfile?.active, userProfile?.status, userProfile?.loginEnabled, authLoading, approvalPending, isReady, isOwner, navigate, location.state]);
 
   const handleStaffLogin = async (e) => {
     e.preventDefault();
-    if (!employeeId.trim()) {
+    const cleanId = employeeId.trim();
+    const cleanPassword = password.trim();
+    if (!cleanId) {
       setError('Please enter your Employee ID or email.');
       return;
     }
-    if (!password) {
+    if (!cleanPassword) {
       setError('Please enter your password.');
       return;
     }
@@ -71,8 +73,8 @@ export default function Login() {
     setLocalPendingMessage('');
     setIsSubmitting(true);
     try {
-      const result = await loginWithIdAndPassword(employeeId, password);
-      if (result?.pendingApproval) {
+      const result = await loginWithIdAndPassword(cleanId, cleanPassword);
+      if (result?.pendingApproval && !isOwnerUser(result?.user, null)) {
         setLocalPendingMessage(result.message || 'Your account is pending administrator approval.');
       }
     } catch (err) {
@@ -153,7 +155,7 @@ export default function Login() {
         )}
 
         {/* PENDING APPROVAL SCREEN */}
-        {(approvalPending || displayPendingMessage) && (
+        {((approvalPending || displayPendingMessage) && !isOwner) && (
           <div className="mb-6 p-4 border-2 rounded-xl bg-amber-950/20 border-amber-500/40 space-y-3 animate-in fade-in">
             <div className="flex items-start gap-3">
               <ShieldAlert className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
@@ -235,6 +237,9 @@ export default function Login() {
                   type="text"
                   inputMode="text"
                   autoComplete="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck="false"
                   required
                   value={employeeId}
                   onChange={(e) => setEmployeeId(e.target.value)}
@@ -262,6 +267,9 @@ export default function Login() {
                 <input 
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck="false"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

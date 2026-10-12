@@ -26,6 +26,22 @@ import { getRoleDefaultPermissions } from '../utils/dbSeeder';
 const OWNER_EMAIL = 'nageshn444@gmail.com';
 const OWNER_UID   = 'EByfpLYSWsM2nxTKB1urzXgHjV02';
 
+export const isOwnerUser = (user, profile) => {
+  if (!user && !profile) return false;
+  const userEmail = String(user?.email || '').toLowerCase().trim();
+  const profEmail = String(profile?.email || '').toLowerCase().trim();
+  const empId = String(profile?.employeeId || user?.employeeId || '').trim();
+  const uid = user?.uid;
+
+  if (uid === OWNER_UID) return true;
+  if (userEmail === OWNER_EMAIL || profEmail === OWNER_EMAIL) return true;
+  if (userEmail.startsWith('20726@') || profEmail.startsWith('20726@')) return true;
+  if (userEmail.includes('20726') || profEmail.includes('20726')) return true;
+  if (empId === '20726') return true;
+  if (profile?.role === 'SUPER_ADMIN') return true;
+  return false;
+};
+
 const OWNER_PROFILE = {
   employeeId: '20726',
   employeeName: 'Nagesha N',
@@ -41,8 +57,16 @@ const OWNER_PROFILE = {
 };
 
 const isOwner = (user) => {
-  const email = String(user?.email || '').toLowerCase();
-  return email === OWNER_EMAIL || email === '20726@pyidcc.bmrcl.com' || user?.uid === OWNER_UID;
+  if (!user) return false;
+  const email = String(user?.email || '').toLowerCase().trim();
+  const empId = String(user?.employeeId || '').trim();
+  return (
+    user?.uid === OWNER_UID ||
+    email === OWNER_EMAIL ||
+    email.startsWith('20726@') ||
+    email.includes('20726') ||
+    empId === '20726'
+  );
 };
 
 const normalizeEmployeeId = (value) => String(value ?? '').trim();
@@ -758,27 +782,56 @@ export function AuthProvider({ children }) {
     if (!raw) throw new Error('Please enter your Employee ID or email.');
     if (!password) throw new Error('Please enter your password.');
 
+    const cleanRaw = raw.toLowerCase();
     const isEmail = raw.includes('@');
-    const employeeId = isEmail ? raw.split('@')[0] : raw;
-    // Build all email variants to try, in priority order
-    const pyidccEmail = `${employeeId}@pyidcc.bmrcl.com`;
-    const bmrclEmail  = `${employeeId}@bmrc.co.in`;
-    const gmailEmail  = isEmail && raw.toLowerCase().endsWith('@gmail.com') ? raw.toLowerCase() : null;
-    const primaryEmail = isEmail ? raw.toLowerCase() : pyidccEmail;
+    const employeeId = isEmail ? raw.split('@')[0].trim() : raw.trim();
 
-    const isOwnerTarget = employeeId === '20726' || primaryEmail === OWNER_EMAIL ||
-      primaryEmail === '20726@pyidcc.bmrcl.com' || raw === '20726';
+    // Identify if targeting Super Admin (ID 20726 or Nagesh variations)
+    const isOwnerTarget = (
+      employeeId === '20726' ||
+      cleanRaw === '20726' ||
+      cleanRaw === OWNER_EMAIL ||
+      cleanRaw.includes('nagesh') ||
+      cleanRaw === 'admin' ||
+      cleanRaw === 'superadmin' ||
+      cleanRaw.startsWith('20726@')
+    );
+
+    const canonicalEmpId = isOwnerTarget ? '20726' : employeeId;
+    const pyidccEmail = `${canonicalEmpId}@pyidcc.bmrcl.com`;
+    const bmrclEmail  = `${canonicalEmpId}@bmrc.co.in`;
+    const gmailEmail  = isEmail && cleanRaw.endsWith('@gmail.com') ? cleanRaw : null;
+    const primaryEmail = isEmail ? cleanRaw : pyidccEmail;
+
+    // Ensure session persistence is set before login attempt
+    try {
+      await setPersistence(auth, browserLocalPersistence);
+    } catch (_) {
+      try {
+        await setPersistence(auth, browserSessionPersistence);
+      } catch (__) {
+        try { await setPersistence(auth, inMemoryPersistence); } catch (___) {}
+      }
+    }
 
     let userCredential = null;
     let authError = null;
 
     // Build ordered list of emails to attempt sign-in
-    const emailsToTry = [primaryEmail];
-    if (primaryEmail !== pyidccEmail) emailsToTry.push(pyidccEmail);
-    if (primaryEmail !== bmrclEmail)  emailsToTry.push(bmrclEmail);
-    if (gmailEmail && !emailsToTry.includes(gmailEmail)) emailsToTry.push(gmailEmail);
-    if (isOwnerTarget && !emailsToTry.includes(OWNER_EMAIL)) emailsToTry.push(OWNER_EMAIL);
+    const emailsToTry = [];
+    if (isOwnerTarget) {
+      emailsToTry.push(pyidccEmail);
+      if (!emailsToTry.includes(OWNER_EMAIL)) emailsToTry.push(OWNER_EMAIL);
+      if (!emailsToTry.includes(bmrclEmail))  emailsToTry.push(bmrclEmail);
+      if (primaryEmail && !emailsToTry.includes(primaryEmail)) emailsToTry.push(primaryEmail);
+    } else {
+      emailsToTry.push(primaryEmail);
+      if (primaryEmail !== pyidccEmail) emailsToTry.push(pyidccEmail);
+      if (primaryEmail !== bmrclEmail)  emailsToTry.push(bmrclEmail);
+      if (gmailEmail && !emailsToTry.includes(gmailEmail)) emailsToTry.push(gmailEmail);
+    }
 
+    // Attempt sign-in with each candidate email
     for (const emailAttempt of emailsToTry) {
       try {
         userCredential = await signInWithEmailAndPassword(auth, emailAttempt, password);
@@ -786,15 +839,7 @@ export function AuthProvider({ children }) {
         break;
       } catch (err) {
         authError = err;
-        // Only continue trying other emails if the user/credential doesn't exist
-        // Stop immediately on wrong-password (the account exists but password is wrong)
-        if (
-          err.code !== 'auth/user-not-found' &&
-          err.code !== 'auth/invalid-credential' &&
-          err.code !== 'auth/invalid-email'
-        ) {
-          break;
-        }
+        // Don't break on wrong-password/invalid-credential — try remaining emails in the list!
       }
     }
 
@@ -802,15 +847,14 @@ export function AuthProvider({ children }) {
     if (!userCredential && authError && (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential')) {
       const isEligible = isOwnerTarget || await checkEmployeeExists(employeeId, primaryEmail);
       if (isEligible) {
-        // Provision using the primary pyidcc email (canonical format)
-        const provisionEmail = isOwnerTarget ? OWNER_EMAIL : pyidccEmail;
+        // Always provision using pyidccEmail so it never conflicts with OWNER_EMAIL Google SSO
+        const provisionEmail = pyidccEmail;
         try {
           userCredential = await createUserWithEmailAndPassword(auth, provisionEmail, password);
           authError = null;
         } catch (createErr) {
           if (createErr.code === 'auth/email-already-in-use') {
-            // Account exists but password is wrong — the multi-attempt above missed it
-            throw new Error('Incorrect password. Please verify your credentials or use Forgot Password.');
+            throw new Error('Incorrect password. Please verify your credentials or use Forgot Password / Google SSO.');
           }
           throw createErr;
         }
@@ -1025,7 +1069,9 @@ export function AuthProvider({ children }) {
       hasPermission,
       logAudit,
       submitLoginRequest,
-      updateAuthPassword
+      updateAuthPassword,
+      isOwner: isOwnerUser(currentUser, userProfile),
+      isOwnerUser
     }}>
       {children}
     </AuthContext.Provider>

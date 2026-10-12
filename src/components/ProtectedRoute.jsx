@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, isOwnerUser } from '../context/AuthContext';
 import { ShieldAlert } from 'lucide-react';
 import ResetPassword from './ResetPassword';
 
@@ -22,7 +22,7 @@ export default function ProtectedRoute({ children, allowedRoles }) {
   }
 
   // 2. OWNER OVERRIDE: If it's you, bypass all checks
-  const isOwner = currentUser?.email === 'nageshn444@gmail.com' || userProfile?.employeeId === '20726';
+  const isOwner = isOwnerUser(currentUser, userProfile);
   const isApprovedUser = Boolean(
     currentUser && (
       userProfile?.approved === true ||
