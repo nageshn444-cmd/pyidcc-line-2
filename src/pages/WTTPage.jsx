@@ -187,7 +187,8 @@ export default function WTTPage(props) {
             liveTrainTrackingMap={props.liveTrainTrackingMap}
             activeDay={props.activeDay || 'WEEKDAY'}
             simulatedTime={props.simulatedTime}
-            linkRoster={props.linkRoster || props.deployments}
+            linkRoster={props.linkRoster}
+            allLinks={props.allLinks}
           />
         )}
         

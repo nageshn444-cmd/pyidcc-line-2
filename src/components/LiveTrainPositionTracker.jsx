@@ -33,7 +33,8 @@ import {
   resolveLiveRelieverOperator,
   buildDutyRosterFromLinkRoster,
   buildMasterIdChartFromDutyRoster,
-  buildHandoverCardsFromMasterIdChart
+  buildHandoverCardsFromMasterIdChart,
+  getCleanLinksForDay
 } from '../data/weekdayReliefIdChartRegistry';
 import { getMasterLinksForDay } from '../data/canonicalDayLinksRegistry';
 import AlstomAtsSystemView from './kmcalc/AlstomAtsSystemView';
@@ -1537,13 +1538,8 @@ export default function LiveTrainPositionTracker({
   // Follows linkRoster prop or canonical Master Link Roster for activeSchedule
   const activeDayLinks = useMemo(() => {
     const normDay = normalizeScheduleDay(activeSchedule || 'WEEKDAY');
-    if (Array.isArray(linkRoster) && linkRoster.length > 0) {
-      const first = linkRoster[0];
-      const linkDay = first?.dayType || first?.scheduleType || first?.day;
-      if (!linkDay || normalizeScheduleDay(linkDay) === normDay) {
-        return linkRoster;
-      }
-    }
+    const cleanFromProp = getCleanLinksForDay(linkRoster, normDay);
+    if (cleanFromProp.length > 0) return cleanFromProp;
     return getMasterLinksForDay(normDay);
   }, [linkRoster, activeSchedule]);
 

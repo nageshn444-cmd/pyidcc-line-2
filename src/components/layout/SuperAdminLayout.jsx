@@ -8,7 +8,8 @@ import {
   Settings, AlertTriangle, Sparkles, LayoutGrid, Search, Maximize2, 
   Minimize2, FileText, ClipboardList, RefreshCw, 
   Train, Calendar, Radio, ShieldAlert, Trash2, RotateCcw, UploadCloud, FileSpreadsheet,
-  Calculator, Sliders, Repeat, Clock, Copy, Plus, ArrowRightLeft, CheckCircle2
+  Calculator, Sliders, Repeat, Clock, Copy, Plus, ArrowRightLeft, CheckCircle2,
+  Hand, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 import { lazyWithRetry } from '../../utils/lazyWithRetry';
@@ -85,6 +86,7 @@ export default function SuperAdminLayout({
 
   // Additional Roster grid props
   filteredLinks = [],
+  allLinks = [],
   editingCell,
   setEditingCell,
   editValue,
@@ -122,6 +124,56 @@ export default function SuperAdminLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLinkRosterUploadOpen, setIsLinkRosterUploadOpen] = useState(false);
   const [isClearingRoster, setIsClearingRoster] = useState(false);
+  const [isTerminalMaximized, setIsTerminalMaximized] = useState(false);
+  const [terminalZoom, setTerminalZoom] = useState('100%');
+  const [rosterScrollMode, setRosterScrollMode] = useState('page'); // 'page' (All Duties Continuous) | 'viewport' (Boxed Viewport)
+  const [isPanMode, setIsPanMode] = useState(false);
+  const [isUploadBannerExpanded, setIsUploadBannerExpanded] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1920));
+
+  const scrollToDuty = (targetDuty) => {
+    if (targetDuty === 'TOP' || targetDuty === 1 || targetDuty === '1') {
+      if (rosterScrollRef.current) rosterScrollRef.current.scrollTop = 0;
+      const mainEl = document.querySelector('main');
+      if (mainEl) mainEl.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    const norm = normalizeDutyId(targetDuty);
+    const el = document.getElementById(`roster-row-${norm}`) || document.getElementById(`roster-row-${targetDuty}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  const handleDayTabChange = (dayId) => {
+    setActiveDay(dayId);
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('pyidcc_active_day_override', dayId);
+        window.dispatchEvent(new CustomEvent('pyidcc:active_day_changed', { detail: { day: dayId, dayType: dayId } }));
+        window.dispatchEvent(new CustomEvent('pyidcc-active-day-changed', { detail: { day: dayId, dayType: dayId } }));
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const fitScale = useMemo(() => {
+    const availWidth = windowWidth - (isTerminalMaximized ? 40 : 120);
+    return Math.min(1, Math.max(0.40, Math.round((availWidth / 3050) * 100) / 100));
+  }, [windowWidth, isTerminalMaximized]);
+
+  const effectiveZoomValue = useMemo(() => {
+    if (terminalZoom === 'fit') return fitScale;
+    if (terminalZoom === '100%') return 1;
+    const parsed = parseFloat(terminalZoom) / 100;
+    return isNaN(parsed) ? 1 : parsed;
+  }, [terminalZoom, fitScale]);
+
   const [selectedRosterDate, setSelectedRosterDate] = useState(() => 
     new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
   );
@@ -272,9 +324,15 @@ export default function SuperAdminLayout({
             newFlash.add(`${duty.id}:${field}`);
           }
         });
-        batch.update(fdoc2(db2, 'crew_final_links', duty.id), updates);
+        batch.set(fdoc2(db2, 'crew_final_links', duty.id), updates, { merge: true });
       });
       await batch.commit();
+      window.dispatchEvent(new CustomEvent('pyidcc:link_roster_updated', {
+        detail: { scheduleType: activeDay, timestamp: Date.now() }
+      }));
+      window.dispatchEvent(new CustomEvent('pyidcc_link_roster_updated', {
+        detail: { scheduleType: activeDay, timestamp: Date.now() }
+      }));
       setFlashCells(newFlash);
       setTimeout(() => setFlashCells(new Set()), 1800);
       fetchLiveData();
@@ -309,11 +367,12 @@ export default function SuperAdminLayout({
         setRangeAnchor(null);
         setRangeFocus(null);
         setContextMenu(null);
+        setIsTerminalMaximized(false);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [rangeAnchor, rangeFocus, isPasteMode]);
+  }, [rangeAnchor, rangeFocus, isPasteMode, isTerminalMaximized]);
 
   // ── Bulk Roster Operations States & Handlers ──
   const [selectedRowIds, setSelectedRowIds] = useState([]);
@@ -358,6 +417,12 @@ export default function SuperAdminLayout({
       });
       await batch.commit();
       setSelectedRowIds([]);
+      window.dispatchEvent(new CustomEvent('pyidcc:link_roster_updated', {
+        detail: { scheduleType: activeDay, timestamp: Date.now() }
+      }));
+      window.dispatchEvent(new CustomEvent('pyidcc_link_roster_updated', {
+        detail: { scheduleType: activeDay, timestamp: Date.now() }
+      }));
       alert(`Deleted ${selectedRowIds.length} crew links successfully.`);
       fetchLiveData();
     } catch (err) {
@@ -385,6 +450,12 @@ export default function SuperAdminLayout({
       await batch.commit();
       setClipboard([]);
       setSelectedRowIds([]);
+      window.dispatchEvent(new CustomEvent('pyidcc:link_roster_updated', {
+        detail: { scheduleType: activeDay, timestamp: Date.now() }
+      }));
+      window.dispatchEvent(new CustomEvent('pyidcc_link_roster_updated', {
+        detail: { scheduleType: activeDay, timestamp: Date.now() }
+      }));
       alert(`✅ Pasted ${clipboard.length} crew links successfully into ${activeDay}.`);
       fetchLiveData();
     } catch (err) {
@@ -402,15 +473,22 @@ export default function SuperAdminLayout({
     try {
       const batch = writeBatch(db);
       selectedRowIds.forEach(id => {
-        batch.update(doc(db, 'crew_final_links', id), {
+        batch.set(doc(db, 'crew_final_links', id), {
           [bulkEditField]: bulkEditValue,
+          scheduleType: activeDay,
           lastModified: serverTimestamp()
-        });
+        }, { merge: true });
       });
       await batch.commit();
       setBulkEditValue('');
       setBulkEditField('');
       setSelectedRowIds([]);
+      window.dispatchEvent(new CustomEvent('pyidcc:link_roster_updated', {
+        detail: { scheduleType: activeDay, timestamp: Date.now() }
+      }));
+      window.dispatchEvent(new CustomEvent('pyidcc_link_roster_updated', {
+        detail: { scheduleType: activeDay, timestamp: Date.now() }
+      }));
       alert(`✅ Bulk updated ${selectedRowIds.length} crew links successfully.`);
       fetchLiveData();
     } catch (err) {
@@ -546,7 +624,7 @@ export default function SuperAdminLayout({
     return map;
   }, [deployments, firestoreConsoleDuties, autoReaderUpdateTrigger]);
 
-  const finalRosterLinks = useMemo(() => {
+  const allDayRosterLinks = useMemo(() => {
     let sourceList = filteredLinks;
 
     // If active duties exist in autoReaderDutyMap:
@@ -578,14 +656,18 @@ export default function SuperAdminLayout({
       );
     }
 
-    if (!rosterDutySearch) return sourceList;
+    return sourceList;
+  }, [filteredLinks, autoReaderDutyMap, showOnlyActiveDuties, activeDay]);
+
+  const finalRosterLinks = useMemo(() => {
+    if (!rosterDutySearch) return allDayRosterLinks;
     const query = rosterDutySearch.toLowerCase().trim();
     
     // Extract numeric values for exact numeric matching
     const cleanQuery = query.replace(/\D/g, '');
     const queryNum = cleanQuery ? parseInt(cleanQuery, 10) : NaN;
     
-    return sourceList.filter(l => {
+    return allDayRosterLinks.filter(l => {
       const dutyStr = String(l.dutyId || '').toLowerCase().trim();
       const cleanDuty = dutyStr.replace(/\D/g, '');
       const dutyNum = cleanDuty ? parseInt(cleanDuty, 10) : NaN; // base 10
@@ -597,7 +679,7 @@ export default function SuperAdminLayout({
       // Fallback for non-numeric search
       return dutyStr.includes(query);
     });
-  }, [filteredLinks, autoReaderDutyMap, showOnlyActiveDuties, rosterDutySearch, activeDay]);
+  }, [allDayRosterLinks, rosterDutySearch]);
 
   const [editingHeaderIdx, setEditingHeaderIdx] = useState(null);
   const [editHeaderValue, setEditHeaderValue] = useState('');
@@ -1013,7 +1095,9 @@ export default function SuperAdminLayout({
   const [rosterScrollTop, setRosterScrollTop] = useState(0);
 
   const onRosterMouseDown = (e) => {
-    // Ignore input text paste, select dropdowns, or delete buttons clicks
+    // Only drag when pan mode is toggled, middle mouse button (1) clicked, or Alt key held
+    if (!isPanMode && e.button !== 1 && !e.altKey) return;
+    // Ignore inputs, selects, textareas, buttons
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA' || e.target.closest('button') || e.target.closest('input')) return;
     setIsRosterDragging(true);
     setRosterStartX(e.pageX - rosterScrollRef.current.offsetLeft);
@@ -1037,8 +1121,10 @@ export default function SuperAdminLayout({
     const y = e.pageY - rosterScrollRef.current.offsetTop;
     const walkX = (x - rosterStartX) * 1.5;
     const walkY = (y - rosterStartY) * 1.5;
-    rosterScrollRef.current.scrollLeft = rosterScrollLeft - walkX;
-    rosterScrollRef.current.scrollTop = rosterScrollTop - walkY;
+    if (rosterScrollRef.current) {
+      rosterScrollRef.current.scrollLeft = rosterScrollLeft - walkX;
+      rosterScrollRef.current.scrollTop = rosterScrollTop - walkY;
+    }
   };
 
   const toggleFullscreen = () => {
@@ -1286,6 +1372,8 @@ export default function SuperAdminLayout({
                 unifiedRows={unifiedRows}
                 activeDay={activeDay}
                 onScheduleChange={setActiveDay}
+                linkRoster={allDayRosterLinks}
+                allLinks={allLinks && allLinks.length > 0 ? allLinks : filteredLinks}
               />
 
               {/* System Health Indicators */}
@@ -1361,7 +1449,7 @@ export default function SuperAdminLayout({
                     {dayTabs.map(tab => (
                       <button
                         key={tab.id}
-                        onClick={() => setActiveDay(tab.id)}
+                        onClick={() => handleDayTabChange(tab.id)}
                         className={`px-3 py-1.5 rounded text-xs font-bold font-mono transition-all ${
                           activeDay === tab.id 
                             ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.1)]' 
@@ -1402,6 +1490,8 @@ export default function SuperAdminLayout({
                 handleDeleteTripRow={isTrainOperator ? undefined : handleDeleteTripRow}
                 addDelayToTime={addDelayToTime}
                 activeDay={activeDay}
+                linkRoster={allDayRosterLinks}
+                allLinks={allLinks && allLinks.length > 0 ? allLinks : filteredLinks}
                 fetchLiveData={fetchLiveData}
                 onWttImported={onWttImported || fetchLiveData}
                 isReadOnly={isTrainOperator}
@@ -1417,7 +1507,7 @@ export default function SuperAdminLayout({
                     {dayTabs.map(tab => (
                       <button
                         key={tab.id}
-                        onClick={() => setActiveDay(tab.id)}
+                        onClick={() => handleDayTabChange(tab.id)}
                         className={`px-3 py-1.5 rounded text-xs font-bold font-mono transition-all ${
                           activeDay === tab.id 
                             ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.1)]' 
@@ -1494,48 +1584,94 @@ export default function SuperAdminLayout({
                 </div>
               </div>
 
-              {/* Quick Link Roster Upload Banner */}
+              {/* Quick Link Roster Upload Banner (Collapsible to maximize viewing area) */}
               {!isTrainOperator && (
-                <div className="bg-linear-to-r from-amber-950/35 via-slate-900 to-slate-900 border border-amber-500/25 p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
-                      <FileSpreadsheet className="h-4 w-4" />
+                isUploadBannerExpanded ? (
+                  <div className="bg-linear-to-r from-amber-950/35 via-slate-900 to-slate-900 border border-amber-500/25 p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                        <FileSpreadsheet className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
+                          <span>Official Link Roster Excel Synchronizer</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/15 text-amber-400 font-bold border border-amber-500/30">
+                            Selected: {activeDay} SCHEDULE
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 font-sans mt-0.5">
+                          Upload any official Link Roster spreadsheet (.xlsx, .xls, .csv). Extracted duties, timings, legs & KMs will update the roster for {activeDay} and sync everywhere.
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-xs font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
-                        <span>Official Link Roster Excel Synchronizer</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/15 text-amber-400 font-bold border border-amber-500/30">
-                          Selected: {activeDay} SCHEDULE
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-slate-400 font-sans mt-0.5">
-                        Upload any official Link Roster spreadsheet (.xlsx, .xls, .csv). Extracted duties, timings, legs & KMs will update the roster for {activeDay} and sync everywhere.
-                      </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={handleEraseOldLinkRoster}
+                        disabled={isClearingRoster}
+                        className="bg-rose-950/70 hover:bg-rose-900 border border-rose-500/40 text-rose-300 disabled:opacity-50 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(244,63,94,0.15)] cursor-pointer"
+                        title={`Erase old ${activeDay} Link Roster from database`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> {isClearingRoster ? 'Erasing...' : `Erase Old ${activeDay} Roster`}
+                      </button>
+                      <button
+                        onClick={() => setIsLinkRosterUploadOpen(true)}
+                        className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-3.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.25)] cursor-pointer"
+                      >
+                        <UploadCloud className="h-3.5 w-3.5" /> Upload {activeDay} Link Roster
+                      </button>
+                      <button
+                        onClick={() => setIsUploadBannerExpanded(false)}
+                        className="bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                        title="Collapse banner to view more duties"
+                      >
+                        <ChevronUp className="h-3.5 w-3.5" /> Collapse
+                      </button>
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      onClick={handleEraseOldLinkRoster}
-                      disabled={isClearingRoster}
-                      className="bg-rose-950/70 hover:bg-rose-900 border border-rose-500/40 text-rose-300 disabled:opacity-50 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(244,63,94,0.15)]"
-                      title={`Erase old ${activeDay} Link Roster from database`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" /> {isClearingRoster ? 'Erasing...' : `Erase Old ${activeDay} Roster`}
-                    </button>
-                    <button
-                      onClick={() => setIsLinkRosterUploadOpen(true)}
-                      className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-3.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
-                    >
-                      <UploadCloud className="h-3.5 w-3.5" /> Upload {activeDay} Link Roster
-                    </button>
+                ) : (
+                  <div className="bg-slate-900/80 border border-slate-800 hover:border-slate-750 px-3 py-1.5 rounded-xl flex flex-wrap items-center justify-between gap-2 shadow-sm text-xs transition-colors">
+                    <div className="flex items-center gap-2">
+                      <FileSpreadsheet className="h-3.5 w-3.5 text-amber-400" />
+                      <span className="font-bold text-slate-300 uppercase tracking-wide text-[11px]">Official Link Roster Excel Synchronizer</span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-400 font-bold border border-amber-500/30">
+                        {activeDay}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setIsLinkRosterUploadOpen(true)}
+                        className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wide transition-all flex items-center gap-1 shadow-sm cursor-pointer"
+                      >
+                        <UploadCloud className="h-3 w-3" /> Upload Excel Roster
+                      </button>
+                      <button
+                        onClick={handleEraseOldLinkRoster}
+                        disabled={isClearingRoster}
+                        className="bg-rose-950/60 hover:bg-rose-900 border border-rose-500/30 text-rose-300 disabled:opacity-50 px-2 py-1 rounded text-[10px] font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                        title={`Erase old ${activeDay} Link Roster`}
+                      >
+                        <Trash2 className="h-3 w-3" /> Erase
+                      </button>
+                      <button
+                        onClick={() => setIsUploadBannerExpanded(true)}
+                        className="text-slate-450 hover:text-amber-400 text-[10px] font-bold uppercase flex items-center gap-0.5 ml-1 cursor-pointer"
+                        title="Show instructions and sync details"
+                      >
+                        Instructions <ChevronDown className="h-3 w-3" />
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )
               )}
 
-              <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
-                <div className="px-4 py-2.5 bg-slate-955 border-b border-slate-800 flex flex-wrap justify-between items-center gap-2 text-blue-400 font-mono text-xs font-bold">
+              <div className={`bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl transition-all ${
+                isTerminalMaximized 
+                  ? 'fixed inset-0 z-50 rounded-none bg-slate-950 flex flex-col p-2.5 sm:p-3 m-0 shadow-none' 
+                  : ''
+              }`}>
+                <div className="px-4 py-2 bg-slate-955 border-b border-slate-800 flex flex-wrap justify-between items-center gap-2 text-blue-400 font-mono text-xs font-bold">
                   <div className="flex items-center gap-2.5 flex-wrap">
-                    <span>DYNAMIC CONTROL ROSTER OPERATIONAL MONITOR TERMINAL</span>
+                    <span className="tracking-wide">DYNAMIC CONTROL ROSTER OPERATIONAL MONITOR TERMINAL</span>
                     <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 font-bold">
                       <Sparkles className="w-3 h-3 text-emerald-400" />
                       EXCEL AUTO-READER &amp; CLASSIFIER SYNC
@@ -1547,11 +1683,74 @@ export default function SuperAdminLayout({
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* View Scale & Zoom Preset Dropdown */}
+                    <div className="flex items-center bg-slate-900 border border-slate-700/80 rounded px-2 py-0.5 gap-1.5 text-[10px]">
+                      <span className="text-slate-400 font-bold uppercase tracking-wider text-[9px]">Screen View:</span>
+                      <select
+                        value={terminalZoom}
+                        onChange={(e) => setTerminalZoom(e.target.value)}
+                        className="bg-slate-950 text-cyan-400 border border-slate-800 rounded px-1.5 py-0.5 font-bold focus:outline-none cursor-pointer"
+                        title="Adjust scale to view complete page with all 35 columns and rows without truncation"
+                      >
+                        <option value="fit">Fit Width (Complete Page - {Math.round(fitScale * 100)}%)</option>
+                        <option value="60%">60% (All 35 Columns)</option>
+                        <option value="70%">70% (Fit Screen)</option>
+                        <option value="80%">80% (Wide View)</option>
+                        <option value="90%">90% (Compact)</option>
+                        <option value="100%">100% (Default 1:1)</option>
+                      </select>
+                    </div>
+
+                    {/* Scroll View Mode Dropdown */}
+                    <div className="flex items-center bg-slate-900 border border-slate-700/80 rounded px-2 py-0.5 gap-1.5 text-[10px]">
+                      <span className="text-slate-400 font-bold uppercase tracking-wider text-[9px]">Scroll Mode:</span>
+                      <select
+                        value={rosterScrollMode}
+                        onChange={(e) => setRosterScrollMode(e.target.value)}
+                        className="bg-slate-950 text-amber-400 border border-slate-800 rounded px-1.5 py-0.5 font-bold focus:outline-none cursor-pointer"
+                        title="Choose between continuous page scroll down (view all duties smoothly) or a fixed viewport box"
+                      >
+                        <option value="page">📜 Page Scroll (View All {finalRosterLinks.length} Duties)</option>
+                        <option value="viewport">🖥️ Fixed Box Viewport</option>
+                      </select>
+                    </div>
+
+                    {/* Hand Pan Tool Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => setIsPanMode(p => !p)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border transition-all flex items-center gap-1 cursor-pointer ${
+                        isPanMode 
+                          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/60 shadow-[0_0_10px_rgba(6,182,212,0.2)]' 
+                          : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+                      }`}
+                      title={isPanMode ? "Hand Pan enabled: Click and drag anywhere to pan table. Click to disable." : "Click to enable Hand Pan drag tool (or hold Alt / middle-click)"}
+                    >
+                      <Hand className="w-3 h-3" />
+                      <span>{isPanMode ? 'Pan: ON' : 'Pan'}</span>
+                    </button>
+
+                    {/* Quick Duty Jump */}
+                    <div className="hidden xl:flex items-center bg-slate-900 border border-slate-700/80 rounded px-2 py-0.5 gap-1 text-[10px]">
+                      <span className="text-slate-400 font-bold uppercase tracking-wider text-[9px] mr-0.5">Jump:</span>
+                      {['01', '20', '40', '60', '80'].map((dId) => (
+                        <button
+                          key={dId}
+                          type="button"
+                          onClick={() => scrollToDuty(dId)}
+                          className="px-1.5 py-0.2 rounded bg-slate-950 hover:bg-cyan-500/20 text-slate-300 hover:text-cyan-400 border border-slate-800 text-[9px] font-mono font-bold transition-colors cursor-pointer"
+                          title={`Scroll directly to Duty ${dId}`}
+                        >
+                          D{dId}
+                        </button>
+                      ))}
+                    </div>
+
                     <button
                       type="button"
                       onClick={() => setShowOnlyActiveDuties(prev => !prev)}
-                      className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider font-mono transition-all flex items-center gap-1.5 border ${
+                      className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider font-mono transition-all flex items-center gap-1.5 border cursor-pointer ${
                         showOnlyActiveDuties
                           ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
                           : 'bg-slate-900 text-slate-300 border-slate-700 hover:text-white hover:border-slate-500'
@@ -1561,10 +1760,31 @@ export default function SuperAdminLayout({
                       <CheckCircle2 className="w-3 h-3" />
                       {showOnlyActiveDuties ? `Only Active Duties (${finalRosterLinks.length})` : `Show All Links (${filteredLinks.length})`}
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsTerminalMaximized(prev => !prev)}
+                      className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider font-mono transition-all flex items-center gap-1.5 border cursor-pointer ${
+                        isTerminalMaximized
+                          ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.25)] font-black'
+                          : 'bg-slate-900 text-blue-400 border-blue-500/40 hover:bg-blue-950/40 hover:text-blue-300'
+                      }`}
+                      title={isTerminalMaximized ? "Exit full view screen (Esc)" : "Expand terminal to complete viewing screen"}
+                    >
+                      {isTerminalMaximized ? (
+                        <>
+                          <Minimize2 className="w-3 h-3" /> Exit Full View (ESC)
+                        </>
+                      ) : (
+                        <>
+                          <Maximize2 className="w-3 h-3" /> Complete Page View
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
                 {(selectedRowIds.length > 0 || clipboard.length > 0) && (
-                  <div className="px-4 py-3 bg-slate-950 border-y border-slate-800 flex flex-wrap items-center justify-between gap-4 font-mono text-xs">
+                  <div className="px-4 py-2.5 bg-slate-950 border-y border-slate-800 flex flex-wrap items-center justify-between gap-4 font-mono text-xs">
                     <div className="flex items-center gap-3 text-slate-300">
                       <span className="bg-amber-500/10 text-amber-400 border border-amber-500/35 px-2 py-0.5 rounded font-bold uppercase tracking-wider text-[10px]">
                         {selectedRowIds.length} Selected
@@ -1641,62 +1861,77 @@ export default function SuperAdminLayout({
                     </div>
                   </div>
                 )}
+
+                {/* ── Range Copy/Paste Banner ── */}
+                {(rangeAnchor || isPasteMode || rangeClipboard) && (
+                  <div className={`flex items-center gap-3 px-3 py-2 font-mono text-[11px] border-b ${isPasteMode ? 'bg-amber-950/80 border-amber-700/50' : 'bg-blue-950/80 border-blue-700/50'}`}>
+                    {isPasteMode ? (
+                      <>
+                        <span className="text-amber-400 font-black uppercase tracking-wider animate-pulse">📋 Paste Mode — Click the TOP-LEFT cell where you want to paste</span>
+                        <span className="text-amber-300 ml-1">({rangeClipboard?.rowCount} rows × {rangeClipboard?.colCount} cols = {(rangeClipboard?.rowCount || 0) * (rangeClipboard?.colCount || 0)} cells)</span>
+                        <button
+                          onClick={() => { setIsPasteMode(false); setRangeAnchor(null); setRangeFocus(null); }}
+                          className="ml-auto bg-amber-500/20 hover:bg-amber-500/40 text-amber-400 border border-amber-500/40 rounded px-2 py-0.5 text-[10px] font-black uppercase"
+                        >✕ Cancel</button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-blue-400 font-bold">
+                          {(() => { const r = getRangeRect(); return r ? `${r.r2 - r.r1 + 1} rows × ${r.c2 - r.c1 + 1} cols selected` : 'No selection'; })()}
+                        </span>
+                        <button
+                          id="btnRangeCopy"
+                          onClick={() => handleRangeCopy(finalRosterLinks)}
+                          className="bg-blue-500/20 hover:bg-blue-500/40 text-blue-400 border border-blue-500/40 rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wide transition-all flex items-center gap-1"
+                        >
+                          <Copy className="h-3 w-3" /> Copy Range (Ctrl+C)
+                        </button>
+                        <button
+                          onClick={() => { setRangeAnchor(null); setRangeFocus(null); setRangeClipboard(null); }}
+                          className="bg-slate-700/50 hover:bg-slate-700 text-slate-400 border border-slate-600/40 rounded px-2 py-0.5 text-[10px] font-black uppercase transition-all"
+                        >✕ Clear</button>
+                        <span className="ml-auto text-slate-500 text-[9px]">Shift+click to extend · Drag to select · Esc to cancel</span>
+                      </>
+                    )}
+                  </div>
+                )}
+
                 <div
                   ref={rosterScrollRef}
                   onMouseDown={onRosterMouseDown}
                   onMouseLeave={onRosterMouseLeave}
                   onMouseUp={onRosterMouseUp}
                   onMouseMove={onRosterMouseMove}
-                  className="overflow-auto w-full max-h-[62vh] cursor-grab active:cursor-grabbing select-none border border-slate-800 rounded-lg"
+                  className={`w-full border border-slate-800 rounded-lg custom-scrollbar transition-all ${
+                    isPanMode ? 'cursor-grab active:cursor-grabbing select-none' : ''
+                  } ${
+                    isTerminalMaximized 
+                      ? 'flex-1 h-full max-h-none overflow-auto' 
+                      : rosterScrollMode === 'page'
+                        ? 'min-h-0 h-auto max-h-none overflow-x-auto overflow-y-visible'
+                        : 'h-[calc(100vh-270px)] min-h-[420px] max-h-[calc(100vh-220px)] overflow-auto'
+                  }`}
                 >
-                  {/* ── Range Copy/Paste Banner ── */}
-                  {(rangeAnchor || isPasteMode || rangeClipboard) && (
-                    <div className={`sticky top-0 z-20 flex items-center gap-3 px-3 py-2 font-mono text-[11px] border-b ${isPasteMode ? 'bg-amber-950/80 border-amber-700/50' : 'bg-blue-950/80 border-blue-700/50'}`}>
-                      {isPasteMode ? (
-                        <>
-                          <span className="text-amber-400 font-black uppercase tracking-wider animate-pulse">📋 Paste Mode — Click the TOP-LEFT cell where you want to paste</span>
-                          <span className="text-amber-300 ml-1">({rangeClipboard?.rowCount} rows × {rangeClipboard?.colCount} cols = {(rangeClipboard?.rowCount || 0) * (rangeClipboard?.colCount || 0)} cells)</span>
-                          <button
-                            onClick={() => { setIsPasteMode(false); setRangeAnchor(null); setRangeFocus(null); }}
-                            className="ml-auto bg-amber-500/20 hover:bg-amber-500/40 text-amber-400 border border-amber-500/40 rounded px-2 py-0.5 text-[10px] font-black uppercase"
-                          >✕ Cancel</button>
-                        </>
-                      ) : (
-                        <>
-                          <span className="text-blue-400 font-bold">
-                            {(() => { const r = getRangeRect(); return r ? `${r.r2 - r.r1 + 1} rows × ${r.c2 - r.c1 + 1} cols selected` : 'No selection'; })()}
-                          </span>
-                          <button
-                            id="btnRangeCopy"
-                            onClick={() => handleRangeCopy(finalRosterLinks)}
-                            className="bg-blue-500/20 hover:bg-blue-500/40 text-blue-400 border border-blue-500/40 rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wide transition-all flex items-center gap-1"
-                          >
-                            <Copy className="h-3 w-3" /> Copy Range (Ctrl+C)
-                          </button>
-                          <button
-                            onClick={() => { setRangeAnchor(null); setRangeFocus(null); setRangeClipboard(null); }}
-                            className="bg-slate-700/50 hover:bg-slate-700 text-slate-400 border border-slate-600/40 rounded px-2 py-0.5 text-[10px] font-black uppercase transition-all"
-                          >✕ Clear</button>
-                          <span className="ml-auto text-slate-500 text-[9px]">Shift+click to extend · Drag to select · Esc to cancel</span>
-                        </>
-                      )}
-                    </div>
-                  )}
-                  <table className="w-full text-left border-collapse font-mono text-[11px] min-w-[3050px] table-fixed">
+                  <table 
+                    style={{
+                      zoom: effectiveZoomValue !== 1 ? effectiveZoomValue : undefined
+                    }}
+                    className="w-full text-left border-collapse font-mono text-[11px] min-w-[3050px] table-fixed"
+                  >
                     <thead>
-                      <tr className="bg-slate-950/80 border-b border-slate-800 text-slate-400 text-center font-bold uppercase tracking-wider">
-                        {!isTrainOperator && <th className="w-15 bg-slate-950">Kill</th>}
-                        <th className="w-20 bg-slate-950 border-r border-slate-800">Duty ID</th>
-                        <th className="w-37.5 bg-slate-950 border-r border-slate-800 text-emerald-400">Train Operator</th>
-                        <th colSpan="8" className="py-2 border-r border-slate-800 text-blue-400 bg-blue-950/5">LEG 1: Primary Sign-On Duty Frame</th>
-                        <th colSpan="7" className="py-2 border-r border-slate-800 text-amber-400 bg-amber-950/5">LEG 2: Mid-Shift Operational Workings</th>
-                        <th colSpan="7" className="py-2 border-r border-slate-800 text-cyan-400 bg-cyan-950/5">LEG 3: Secondary Handover Working Loop</th>
-                        <th colSpan="7" className="py-2 border-r border-slate-800 text-purple-400 bg-purple-950/5">LEG 4: Final Closing Target Leg</th>
+                      <tr className="sticky top-0 z-30 bg-slate-950 border-b border-slate-800 text-slate-400 text-center font-bold uppercase tracking-wider">
+                        {!isTrainOperator && <th className="w-[60px] min-w-[60px] max-w-[60px] bg-slate-950 sticky left-0 z-40 border-r border-slate-800">Kill</th>}
+                        <th className={`w-[80px] min-w-[80px] max-w-[80px] bg-slate-950 border-r border-slate-800 sticky ${isTrainOperator ? 'left-0' : 'left-[60px]'} z-40`}>Duty ID</th>
+                        <th className={`w-[150px] min-w-[150px] max-w-[150px] bg-slate-950 border-r border-slate-800 text-emerald-400 sticky ${isTrainOperator ? 'left-[80px]' : 'left-[140px]'} z-40`}>Train Operator</th>
+                        <th colSpan="8" className="py-2 border-r border-slate-800 text-blue-400 bg-blue-950/20">LEG 1: Primary Sign-On Duty Frame</th>
+                        <th colSpan="7" className="py-2 border-r border-slate-800 text-amber-400 bg-amber-950/20">LEG 2: Mid-Shift Operational Workings</th>
+                        <th colSpan="7" className="py-2 border-r border-slate-800 text-cyan-400 bg-cyan-950/20">LEG 3: Secondary Handover Working Loop</th>
+                        <th colSpan="7" className="py-2 border-r border-slate-800 text-purple-400 bg-purple-950/20">LEG 4: Final Closing Target Leg</th>
                         <th colSpan="8" className="py-2 text-slate-300 bg-slate-900">Total Shift Summary</th>
                       </tr>
-                    <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 text-center font-semibold">
+                    <tr className="sticky top-[33px] z-30 bg-slate-950 border-b border-slate-800 text-slate-400 text-center font-semibold">
                       {!isTrainOperator && (
-                        <th className="py-2 px-1 border-r border-slate-800 text-center w-15 select-none">
+                        <th className="py-2 px-1 border-r border-slate-800 text-center w-[60px] min-w-[60px] max-w-[60px] select-none sticky left-0 z-40 bg-slate-950">
                           <input id="superadminlayout-i8" name="superadminlayout-i8"
                             type="checkbox"
                             checked={finalRosterLinks.length > 0 && selectedRowIds.length === finalRosterLinks.length}
@@ -1705,8 +1940,8 @@ export default function SuperAdminLayout({
                           />
                         </th>
                       )}
-                      <th className="py-2 px-2 border-r border-slate-800/50 w-20">Duty ID</th>
-                      <th className="py-2 px-2 border-r border-slate-800/50 w-37.5">Operator Name</th>
+                      <th className={`py-2 px-2 border-r border-slate-800/50 w-[80px] min-w-[80px] max-w-[80px] sticky ${isTrainOperator ? 'left-0' : 'left-[60px]'} z-40 bg-slate-950`}>Duty ID</th>
+                      <th className={`py-2 px-2 border-r border-slate-800/50 w-[150px] min-w-[150px] max-w-[150px] sticky ${isTrainOperator ? 'left-[80px]' : 'left-[140px]'} z-40 bg-slate-950`}>Operator Name</th>
                       {headers.map((hdr, idx) => {
                         // Section borders logic
                         const isSectionEnd = ['leg1Km', 'leg2Km', 'leg3Km', 'leg4Km', 'leg1HandoverLoc', 'leg2ArrLoc', 'leg3ArrLoc', 'leg4FinalArrLoc'].includes(hdr.key);
@@ -2031,21 +2266,27 @@ export default function SuperAdminLayout({
                           );
                         };
                         return (
-                          <tr key={duty.id || `roster-row-${duty.dutyId || idx}-${idx}`} className={`${rowBgClass} ${selectedRowIds.includes(duty.id) ? 'bg-amber-500/5' : ''} hover:bg-slate-850/20 border-b border-slate-800/40 transition-colors`}>
+                          <tr 
+                            id={`roster-row-${normDutyId}`}
+                            key={duty.id || `roster-row-${duty.dutyId || idx}-${idx}`} 
+                            className={`${rowBgClass} ${selectedRowIds.includes(duty.id) ? 'bg-amber-500/5' : ''} hover:bg-slate-850/20 border-b border-slate-800/40 transition-colors`}
+                          >
                             {!isTrainOperator && (
-                              <td className="py-2 border-r border-slate-800 text-center font-bold flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                                <input id={`superadmin-row-${duty.id}`} name={`superadmin_row_${duty.id}`} aria-label={`Select row ${duty.dutyId || duty.id}`}
-                                  type="checkbox"
-                                  checked={selectedRowIds.includes(duty.id)}
-                                  onChange={() => handleToggleSelectRow(duty.id)}
-                                  className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 focus:ring-offset-0 h-3.5 w-3.5 cursor-pointer"
-                                />
-                                <button onClick={() => handleDeleteRow(duty.id)} className="text-rose-500 hover:text-rose-450 p-0.5 transition-colors" title="Delete single duty"><Trash2 className="h-3.5 w-3.5" /></button>
+                              <td className={`py-2 border-r border-slate-800 text-center font-bold sticky left-0 z-20 w-[60px] min-w-[60px] max-w-[60px] shadow-sm ${stickyDutyBgClass}`} onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <input id={`superadmin-row-${duty.id}`} name={`superadmin_row_${duty.id}`} aria-label={`Select row ${duty.dutyId || duty.id}`}
+                                    type="checkbox"
+                                    checked={selectedRowIds.includes(duty.id)}
+                                    onChange={() => handleToggleSelectRow(duty.id)}
+                                    className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 focus:ring-offset-0 h-3.5 w-3.5 cursor-pointer"
+                                  />
+                                  <button onClick={() => handleDeleteRow(duty.id)} className="text-rose-500 hover:text-rose-450 p-0.5 transition-colors" title="Delete single duty"><Trash2 className="h-3.5 w-3.5" /></button>
+                                </div>
                               </td>
                             )}
-                            <td className={`py-2 px-2 text-center border-r border-slate-800 font-bold text-blue-400 sticky left-0 z-10 shadow-sm ${stickyDutyBgClass}`}>{duty.dutyId}</td>
-                            <td className={`py-2 px-2 text-center border-r border-slate-800 relative group ${matchedDeploy?.isExchanged ? 'bg-yellow-500/10 border-l border-r border-yellow-500/20' : ''}`}>
-                              <div className="font-bold text-emerald-400 text-[11px] truncate max-w-36.25">{operatorName}</div>
+                            <td className={`py-2 px-2 text-center border-r border-slate-800 font-bold text-blue-400 sticky ${isTrainOperator ? 'left-0' : 'left-[60px]'} z-20 shadow-sm w-[80px] min-w-[80px] max-w-[80px] ${stickyDutyBgClass}`}>{duty.dutyId}</td>
+                            <td className={`py-2 px-2 text-center border-r border-slate-800 sticky ${isTrainOperator ? 'left-[80px]' : 'left-[140px]'} z-20 shadow-sm w-[150px] min-w-[150px] max-w-[150px] ${stickyDutyBgClass} relative group ${matchedDeploy?.isExchanged ? 'bg-yellow-500/10 border-l border-r border-yellow-500/20' : ''}`}>
+                              <div className="font-bold text-emerald-400 text-[11px] truncate max-w-[140px]">{operatorName}</div>
                               {operatorId && operatorId !== '--' && (
                                 <div className="text-[9px] text-slate-500 font-mono mt-0.5">ID: {operatorId}</div>
                               )}
@@ -2104,6 +2345,30 @@ export default function SuperAdminLayout({
                     </tbody>
                   </table>
                 </div>
+
+                {/* ── Terminal Table Footer Bar ── */}
+                <div className="px-4 py-2 bg-slate-955 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs font-mono text-slate-400">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-emerald-400 font-bold flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Viewing all {finalRosterLinks.length} duties
+                    </span>
+                    <span className="text-slate-600">·</span>
+                    <span className="text-slate-400">Active Roster: <strong className="text-amber-400">{activeDay} SCHEDULE</strong></span>
+                    <span className="text-slate-600">·</span>
+                    <span className="text-slate-500 text-[11px]">Duties {finalRosterLinks[0]?.dutyId || '01'} to {finalRosterLinks[finalRosterLinks.length - 1]?.dutyId || finalRosterLinks.length}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500 text-[10px] hidden sm:inline">Use mouse scroll or touch gesture to browse all duties</span>
+                    <button
+                      type="button"
+                      onClick={() => scrollToDuty('TOP')}
+                      className="bg-slate-900 hover:bg-slate-850 text-cyan-400 hover:text-cyan-300 border border-slate-800 hover:border-cyan-500/40 px-2.5 py-1 rounded text-[10px] font-bold uppercase transition-all flex items-center gap-1 shadow-sm cursor-pointer"
+                      title="Scroll back to top of roster"
+                    >
+                      ▲ Back to Top
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* ── Cell Right-Click Context Menu ── */}
@@ -2142,11 +2407,23 @@ export default function SuperAdminLayout({
                         onClick={async () => {
                           if (!window.confirm(`Paste "${cellClipboard.value}" into this cell?`)) return;
                           try {
-                            await import('firebase/firestore').then(({ doc: fdoc, updateDoc }) =>
-                              updateDoc(fdoc(db, 'crew_final_links', contextMenu.rowId), {
-                                [contextMenu.fieldName]: cellClipboard.value
-                              })
-                            );
+                            const { doc: fdoc, setDoc: fSetDoc } = await import('firebase/firestore');
+                            await fSetDoc(fdoc(db, 'crew_final_links', contextMenu.rowId), {
+                              [contextMenu.fieldName]: cellClipboard.value,
+                              scheduleType: activeDay,
+                              lastModified: new Date().toISOString()
+                            }, { merge: true });
+
+                            const eventDetail = {
+                              scheduleType: activeDay,
+                              timestamp: Date.now(),
+                              rowId: contextMenu.rowId,
+                              fieldName: contextMenu.fieldName,
+                              value: cellClipboard.value
+                            };
+                            window.dispatchEvent(new CustomEvent('pyidcc:link_roster_updated', { detail: eventDetail }));
+                            window.dispatchEvent(new CustomEvent('pyidcc_link_roster_updated', { detail: eventDetail }));
+
                             fetchLiveData();
                           } catch (err) {
                             console.error(err);

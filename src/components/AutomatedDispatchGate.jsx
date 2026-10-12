@@ -3244,13 +3244,35 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
     return set;
   }, [deduplicatedDeployments]);
 
-  // Available crew from BMRCL Crew Registry not currently on active mainline duties
+  // Available crew from Active Candidate Roster (BMRCL Regular TOs + JMD Contract TDs) not currently on active mainline duties
   const availableCrewPool = useMemo(() => {
-    return (BMRCL_CREW_REGISTRY || []).filter((c) => {
+    const SUPERVISORY_NON_DRIVING = new Set(['20726', '20038', '20037', '20018', '20019', '20057', '20087', '21502']);
+    const bmrclTOs = (BMRCL_CREW_REGISTRY || []).filter((c) => {
       const id = String(c.id || "").trim();
       if (!id || activeOperatorIdSet.has(id)) return false;
+      if (SUPERVISORY_NON_DRIVING.has(id)) return false;
+      if (c.role && (c.role.includes('Superintendent') || c.role === 'OFFICIAL_CREW_CONTROLLER' || c.role === 'Official ALS' || c.role === 'Official GCC')) return false;
+      if (c.designation && c.designation.includes('Station Superintendent')) return false;
+      if (c.canDriveTrain === false) return false;
       return true;
     });
+
+    const jmdTDs = (OFFICIAL_JMD_TD_REGISTRY || []).filter((j) => {
+      const id = String(j.empId || "").trim();
+      if (!id || activeOperatorIdSet.has(id)) return false;
+      return true;
+    }).map((j) => ({
+      id: String(j.empId),
+      name: j.name,
+      designation: 'Train Driver (JMD Contract)',
+      role: 'Train Driver (JMD)',
+      canDriveTrain: true,
+      activeCrew: true,
+      depot: 'Peenya Depot (PYID)',
+      isJmd: true
+    }));
+
+    return [...bmrclTOs, ...jmdTDs];
   }, [activeOperatorIdSet]);
 
   // Excel Path Reader & Control Engine States

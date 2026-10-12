@@ -1137,7 +1137,7 @@ export const WEEKDAY_RELIEF_ID_CHART_2026_META = WEEKDAY_RELIEF_ID_CHART_2024_ME
 export const MONDAY_RELIEF_ID_CHART = {
   '201': [
     { from: '06:35', to: '08:18', duty: '14' },
-    { from: '08:18', to: '10:28', duty: '03' },
+    { from: '08:18', to: '10:28', duty: '10' },
     { from: '10:28', to: '12:41', duty: '16' },
     { from: '12:41', to: '14:57', duty: '26' },
     { from: '14:57', to: '17:13', duty: '51' },
@@ -1186,7 +1186,7 @@ export const MONDAY_RELIEF_ID_CHART = {
   ],
   '206': [
     { from: '06:45', to: '08:28', duty: '19' },
-    { from: '08:28', to: '10:38', duty: '08' },
+    { from: '08:28', to: '10:38', duty: '03' },
     { from: '10:38', to: '12:49', duty: '32' },
     { from: '12:49', to: '13:23', duty: '33' },
     { from: '13:23', to: '15:05', duty: '35' },
@@ -1219,7 +1219,7 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '21:32', to: '00:10', duty: '70' }
   ],
   '209': [
-    { from: '06:13', to: '07:48', duty: '03' },
+    { from: '06:13', to: '07:48', duty: '08' },
     { from: '07:48', to: '09:58', duty: '28' },
     { from: '09:58', to: '12:12', duty: '24' },
     { from: '12:41', to: '14:25', duty: '22' },
@@ -1251,10 +1251,10 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '21:31', to: '22:00', duty: '62' }
   ],
   '212': [
-    { from: '06:10', to: '08:03', duty: '05' },
+    { from: '06:10', to: '08:03', duty: '03' },
     { from: '08:03', to: '09:43', duty: '30' },
     { from: '09:43', to: '11:23', duty: '06' },
-    { from: '11:23', to: '13:37', duty: '03' },
+    { from: '11:23', to: '13:37', duty: '05' },
     { from: '13:37', to: '15:53', duty: '32' },
     { from: '15:53', to: '18:07', duty: '35' },
     { from: '18:07', to: '20:17', duty: '54' },
@@ -1302,7 +1302,7 @@ export const MONDAY_RELIEF_ID_CHART = {
   '217': [
     { from: '07:25', to: '09:08', duty: '06' },
     { from: '09:08', to: '11:18', duty: '15' },
-    { from: '11:18', to: '13:29', duty: '31' },
+    { from: '11:18', to: '13:29', duty: '03' },
     { from: '13:29', to: '14:03', duty: '12' },
     { from: '14:01', to: '15:45', duty: '31' },
     { from: '15:45', to: '17:41', duty: '34' },
@@ -1856,20 +1856,63 @@ export function timeStringToSeconds(timeStr) {
 }
 
 /**
+ * Detects whether a string is a non-train duty, standby, proctor, pilot, or reserve code
+ * rather than an active Line-2 revenue train set (Trains 201-225).
+ */
+export function isNonTrainDutyLabel(val) {
+  if (val === null || val === undefined) return false;
+  const s = String(val).trim().toLowerCase();
+  if (!s || s === '--' || s === '-') return false;
+  
+  // Non-revenue designations: Pro, Proctor, Pilot, Standby, Stby, Rd3 Stby, OR, CC, Resv, Shunt, Yard, Couns, etc.
+  if (
+    /^(pro\b|pro\s*\d|proctor|pilot|stby|standby|rd\s*\d*\s*stby|dpo\s*stby|depo\s*stby|or\b|or\s*\d+|cc\s*\d*|reserve|resv|shunt|shunting|yard|depo\b|depot\b|leave|off|rest|pme|training|medical|sick)/i.test(s)
+  ) {
+    return true;
+  }
+  if (s.includes('standby') || s.includes('stby') || s.includes('proctor') || s.includes('reserve') || s.includes('resv')) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Checks whether a duty record or template represents a Standby, Proctor, OR, or non-driving duty.
+ */
+export function isStandbyOrProDuty(dutyItem) {
+  if (!dutyItem) return false;
+  const fields = [
+    dutyItem.dutyProfile,
+    dutyItem.remarks,
+    dutyItem.dutyType,
+    dutyItem.trainId,
+    dutyItem.dutyDesc,
+    dutyItem.shiftType
+  ];
+  return fields.some(f => isNonTrainDutyLabel(f));
+}
+
+/**
  * Normalizes any train identifier format (e.g. 'T-206', 'T206', '206', '06', '6')
  * to standard Line-2 3-digit rake format (e.g. '206') or clean ID.
+ * Non-revenue duty labels (Pro 1, Rd3 Stby, OR1, etc.) are strictly rejected.
  */
 export function normalizeTrackTrainId(rawId) {
   if (rawId === null || rawId === undefined || rawId === '' || rawId === '--' || rawId === '-') return '';
   const str = String(rawId).trim();
   if (str.toLowerCase().startsWith('couns')) return 'Couns';
-  const digits = str.replace(/^[^\d]+/, '').replace(/[^\d].*$/, '');
-  const num = parseInt(digits, 10);
-  if (!isNaN(num)) {
-    if (num >= 1 && num <= 25) return String(200 + num);
-    if (num >= 201 && num <= 225) return String(num);
+  if (isNonTrainDutyLabel(str)) return '';
+
+  const trainPattern = /^(?:T-?|Train\s*|TR-?)?0?(\d+)[A-Za-z]?$/i;
+  const match = str.match(trainPattern);
+  if (match) {
+    const num = parseInt(match[1], 10);
+    if (!isNaN(num)) {
+      if (num >= 1 && num <= 25) return String(200 + num);
+      if (num >= 201 && num <= 225) return String(num);
+    }
   }
-  return str;
+  return '';
 }
 
 /**
@@ -1928,12 +1971,20 @@ export function buildDutyLegsFromMasterLinks(masterLinks = [], baseChart = null)
     if (!rawDuty) return;
     const normDuty = rawDuty.padStart(2, '0');
 
-    if (!map[normDuty] || map[normDuty].length === 0) {
+    const isStandbyOrPro = isStandbyOrProDuty(item);
+
+    // If duty is explicitly a Standby / Proctor duty, it must have 0 train legs
+    if (isStandbyOrPro) {
+      map[normDuty] = [];
+    } else if (!map[normDuty] || map[normDuty].length === 0) {
       map[normDuty] = [];
       const trips = item.trips || [];
       if (trips.length > 0) {
         trips.forEach(tr => {
-          const tName = String(tr.trainNo || item.trainId || '--').replace(/^Train\s*/i, '');
+          const rawT = String(tr.trainNo || item.trainId || '--').replace(/^Train\s*/i, '').trim();
+          if (isNonTrainDutyLabel(rawT)) return;
+          const tName = normalizeTrackTrainId(rawT);
+          if (!tName) return;
           const from = (tr.timeFrm || item.signOnTime || '--').slice(0, 5);
           const to = (tr.timeTo || item.signOffTime || '--').slice(0, 5);
           map[normDuty].push({
@@ -1947,34 +1998,65 @@ export function buildDutyLegsFromMasterLinks(masterLinks = [], baseChart = null)
           });
         });
       } else {
-        const from = (item.signOnTime || '06:00:00').slice(0, 5);
-        const to = (item.signOffTime || '14:00:00').slice(0, 5);
-        map[normDuty].push({
-          trainId: item.trainId || item.dutyProfile || item.remarks || 'STBY',
-          from,
-          to,
-          startSec: timeStringToSeconds(from),
-          endSec: timeStringToSeconds(to),
-          fromLoc: item.signOnLocation || 'PYID',
-          toLoc: item.signOffLocation || 'PYID'
+        // Fallback to operational leg columns (supports 1, 2, 3, 4 legs)
+        [1, 2, 3, 4].forEach(idx => {
+          const p = `leg${idx}`;
+          const rawT = String(
+            item[`${p}TrainNo`] || 
+            item[`${p}Train`] || 
+            item[`${p}FinalTrainNo`] ||
+            (idx === 4 ? (item.leg4FinalTrainNo || item.leg4TrainNo || item.finalTrainNo) : '') ||
+            (idx === 1 ? item.trainId : '') || 
+            ''
+          ).trim();
+          if (!rawT || isNonTrainDutyLabel(rawT)) return;
+          const tName = normalizeTrackTrainId(rawT);
+          if (!tName) return;
+          const f = String(item[`${p}TimeFrom`] || item[`${p}DepTime`] || item[`${p}FinalDepTime`] || item.signOnTime || '--').slice(0, 5);
+          let to = String(item[`${p}ArrTime`] || item[`${p}FinalArrTime`] || item[`${p}EndTime`] || '').slice(0, 5);
+          if (!to || to === '--') {
+            const rawTimeTo = String(item[`${p}TimeTo`] || '').slice(0, 5);
+            if (rawTimeTo && rawTimeTo !== '--') {
+              const startSec = timeStringToSeconds(f);
+              const toSec = timeStringToSeconds(rawTimeTo);
+              if (startSec < 999999 && toSec > startSec && (toSec - startSec) <= 5 * 3600) {
+                to = rawTimeTo;
+              } else if (startSec < 999999 && toSec > 0) {
+                const calcSec = (startSec + toSec) % (24 * 3600);
+                to = `${String(Math.floor(calcSec / 3600)).padStart(2, '0')}:${String(Math.floor((calcSec % 3600) / 60)).padStart(2, '0')}`;
+              }
+            }
+          }
+          if (!to || to === '--') to = (item.signOffTime || '--').slice(0, 5);
+          map[normDuty].push({
+            trainId: tName,
+            from: f,
+            to,
+            startSec: timeStringToSeconds(f),
+            endSec: timeStringToSeconds(to),
+            fromLoc: item[`${p}DepLoc`] || item[`${p}FinalDepLoc`] || item.signOnLocation || 'PYID',
+            toLoc: item[`${p}ArrLoc`] || item[`${p}FinalArrLoc`] || item.signOffLocation || 'PYID'
+          });
         });
       }
     }
 
     // Attach duty-level operational metadata
+    const hasLegs = map[normDuty] && map[normDuty].length > 0;
     map[normDuty].meta = {
       dutyId: normDuty,
       dutyNo: item.dutyNo || String(parseInt(normDuty, 10)),
-      dutyType: item.dutyType || 'A',
+      dutyType: item.dutyType || (isStandbyOrPro ? (item.dutyProfile || item.remarks || 'STBY') : 'A'),
       dutyProfile: item.dutyProfile || '',
       remarks: item.remarks || '',
       signOnTime: (item.signOnTime || '').slice(0, 5),
       signOffTime: (item.signOffTime || '').slice(0, 5),
       signOnLocation: item.signOnLocation || 'PYID',
       signOffLocation: item.signOffLocation || 'PYID',
-      totalKm: item.totalKm || item.kms || 0,
-      drivingHrs: (item.drivingHrs || '00:00:00').slice(0, 5),
-      breakTime: (item.breakTime || '00:00:00').slice(0, 5)
+      totalKm: (!hasLegs || isStandbyOrPro) ? 0 : (item.totalKm || item.kms || 0),
+      drivingHrs: (!hasLegs || isStandbyOrPro) ? '00:00' : (item.drivingHrs || '00:00:00').slice(0, 5),
+      breakTime: (item.breakTime || '00:00:00').slice(0, 5),
+      isStandbyOrPro: Boolean(isStandbyOrPro || !hasLegs)
     };
   });
 
@@ -2561,10 +2643,69 @@ export function resolveLiveRelieverOperator({
   };
 }
 
+/**
+ * Matches a link roster item or duty record to the target schedule day.
+ * Robust against varied schema keys and doc ID patterns (e.g. link_mon_duty_03, duty_sun_05, etc.)
+ */
+export function linkMatchesScheduleDay(link, targetDay) {
+  if (!link) return false;
+  const targetNorm = normalizeScheduleDay(targetDay);
+
+  // 1. Check direct schedule type fields
+  const linkDayRaw = link.scheduleType || link.dayType || link.day || link.schedule || link.schedule_type;
+  if (linkDayRaw) {
+    const linkNorm = normalizeScheduleDay(linkDayRaw);
+    if (targetNorm === 'SATURDAY' || targetNorm === 'GH') {
+      return linkNorm === 'SATURDAY' || linkNorm === 'GH';
+    }
+    return linkNorm === targetNorm;
+  }
+
+  // 2. Check doc ID or duty string
+  const id = String(link.id || link.docId || '').toLowerCase();
+  if (id) {
+    if (targetNorm === 'MONDAY' && (id.includes('mon') || id.includes('monday'))) return true;
+    if ((targetNorm === 'SATURDAY' || targetNorm === 'GH') && (id.includes('sat') || id.includes('gh') || id.includes('holiday'))) return true;
+    if (targetNorm === 'SUNDAY' && (id.includes('sun') || id.includes('sunday'))) return true;
+    if (targetNorm === 'WEEKDAY' && (id.includes('week') || id.includes('wd') || (!id.includes('mon') && !id.includes('sat') && !id.includes('sun') && !id.includes('gh')))) return true;
+  }
+
+  if (targetNorm === 'WEEKDAY') return true;
+  return false;
+}
+
+/**
+ * Filters and sanitizes raw links for the target day, deduplicating by normalized duty ID.
+ */
+export function getCleanLinksForDay(source, targetDay) {
+  if (!Array.isArray(source) || source.length === 0) return [];
+  // Ensure we do not treat pure daily crew deployments (1-leg tasks) as link roster
+  const isDeploymentList = source.length > 0 && source.every(d => d.date && !d.leg1TimeFrom && !d.leg1TrainNo && !d.leg2TrainNo && !d.trips && !d.signOnLocation);
+  if (isDeploymentList) return [];
+
+  const matched = source.filter(l => linkMatchesScheduleDay(l, targetDay));
+  if (matched.length === 0) return [];
+
+  // Deduplicate by normalized duty ID
+  const map = new Map();
+  matched.forEach(item => {
+    const rawDuty = item.dutyId || item.dutyNo || item.rawDutyId;
+    if (!rawDuty) return;
+    const normDuty = normalizeDutyId(rawDuty);
+    if (!map.has(normDuty)) {
+      map.set(normDuty, item);
+    }
+  });
+
+  return Array.from(map.values()).sort((a, b) =>
+    String(a.dutyId || a.dutyNo).localeCompare(String(b.dutyId || b.dutyNo), undefined, { numeric: true })
+  );
+}
+
 // ============================================================================
 // 6. DYNAMIC LINKED RELIEF PIPELINE
 // Strict Dependency Hierarchy:
-// Link Roster ➔ Duty Roster ➔ Master ID Chart ➔ Handover Cards ➔ Live Relief Tracking
+// Terminal (Link Roster) ➔ Duty Roster ➔ Master ID Chart ➔ Handover Cards ➔ Live Relief Tracking
 // If the Link Roster changes, all downstream charts & cards dynamically update.
 // ============================================================================
 
@@ -2579,45 +2720,204 @@ export function buildDutyRosterFromLinkRoster(links = [], dispatchOperatorMap = 
     const rawDuty = String(item.dutyId || item.dutyNo || item.rawDutyId || '').trim();
     if (!rawDuty) return;
     const normDuty = normalizeDutyId(rawDuty);
+    const isStandbyOrPro = isStandbyOrProDuty(item);
 
     // Extract all train driving legs from this duty
     const legs = [];
 
-    // Format A: Explicit trips array
-    if (Array.isArray(item.trips) && item.trips.length > 0) {
-      item.trips.forEach(tr => {
-        const rawT = String(tr.trainNo || tr.trainId || '').trim();
-        const t = normalizeTrackTrainId(rawT) || rawT.replace(/^Train\s*/i, '').trim();
-        const f = String(tr.timeFrm || tr.depTime || '').slice(0, 5);
-        const to = String(tr.timeTo || tr.arrTime || '').slice(0, 5);
-        if (t && t !== '--' && t !== '-' && f && f !== '--') {
+    // Standby / Proctor / Reserve duties have strictly NO train legs (0 Legs).
+    if (!isStandbyOrPro) {
+      // Format 1 (HIGHEST PRIORITY): Operational Leg Columns from DYNAMIC CONTROL ROSTER OPERATIONAL MONITOR TERMINAL
+      // (item.trainId / item.leg1TrainNo, item.leg2TrainNo, item.leg3TrainNo, item.leg4TrainNo)
+      const opLegTrains = [1, 2, 3, 4].map(idx => {
+        const p = `leg${idx}`;
+        const rawT = String(
+          item[`${p}TrainNo`] || 
+          item[`${p}Train`] || 
+          item[`${p}FinalTrainNo`] ||
+          (idx === 4 ? (item.leg4FinalTrainNo || item.leg4TrainNo || item.finalTrainNo) : '') ||
+          (idx === 1 ? item.trainId : '') || 
+          (item.trips?.[idx - 1]?.trainNo) ||
+          ''
+        ).trim();
+        if (!rawT || rawT === '--' || rawT === '-' || isNonTrainDutyLabel(rawT)) return null;
+        const clean = normalizeTrackTrainId(rawT);
+        return (clean && clean !== '--' && clean !== '-' && !isNonTrainDutyLabel(clean)) ? clean : null;
+      });
+
+      const hasOpLegs = opLegTrains.some(t => Boolean(t));
+
+      if (hasOpLegs) {
+        const activeLegCount = opLegTrains.filter(Boolean).length;
+        [1, 2, 3, 4].forEach(idx => {
+          const t = opLegTrains[idx - 1];
+          if (!t) return;
+          const p = `leg${idx}`;
+          const tripObj = Array.isArray(item.trips) && item.trips[idx - 1] ? item.trips[idx - 1] : null;
+
+          // Departure / from time
+          let f = String(
+            item[`${p}TimeFrom`] ||
+            item[`${p}DepTime`] ||
+            item[`${p}FinalDepTime`] ||
+            item[`${p}StartTime`] ||
+            tripObj?.timeFrm ||
+            tripObj?.depTime ||
+            ''
+          ).trim().slice(0, 5);
+
+          if (!f || f === '--') {
+            if (idx === 1) {
+              f = String(item.signOnTime || '06:00').trim().slice(0, 5);
+            } else {
+              const prevLeg = legs[legs.length - 1];
+              f = (prevLeg?.to && prevLeg.to !== '--') ? prevLeg.to : '08:00';
+            }
+          }
+
+          // Arrival / to time
+          let to = String(
+            item[`${p}ArrTime`] ||
+            item[`${p}FinalArrTime`] ||
+            item[`${p}EndTime`] ||
+            tripObj?.timeTo ||
+            tripObj?.arrTime ||
+            ''
+          ).trim().slice(0, 5);
+
+          if ((!to || to === '--') && idx === 1 && item[`${p}TimeTo`]) {
+            const rawT = String(item[`${p}TimeTo`]).trim().slice(0, 5);
+            if (rawT && rawT !== '--') {
+              to = rawT;
+            }
+          }
+
+          if (!to || to === '--') {
+            const rawTimeTo = String(item[`${p}TimeTo`] || '').trim().slice(0, 5);
+            if (rawTimeTo && rawTimeTo !== '--') {
+              to = rawTimeTo;
+            }
+          }
+
+          // Lookahead to next leg departure or signOffTime
+          if (!to || to === '--') {
+            let nextDep = '';
+            for (let n = idx + 1; n <= 4; n++) {
+              if (opLegTrains[n - 1]) {
+                nextDep = String(
+                  item[`leg${n}TimeFrom`] ||
+                  item[`leg${n}DepTime`] ||
+                  item[`leg${n}FinalDepTime`] ||
+                  (item.trips?.[n - 1]?.timeFrm) ||
+                  ''
+                ).trim().slice(0, 5);
+                if (nextDep && nextDep !== '--') break;
+              }
+            }
+            if (nextDep && nextDep !== '--') {
+              to = nextDep;
+            } else if (item.signOffTime && idx === activeLegCount) {
+              to = String(item.signOffTime).trim().slice(0, 5);
+            } else {
+              const sSec = timeStringToSeconds(f);
+              const eSec = (sSec + 2 * 3600) % (24 * 3600);
+              to = `${String(Math.floor(eSec / 3600)).padStart(2, '0')}:${String(Math.floor((eSec % 3600) / 60)).padStart(2, '0')}`;
+            }
+          }
+
           const startSec = timeStringToSeconds(f);
           let endSec = timeStringToSeconds(to);
+
+          // Handle trip duration strings (e.g. 02:41, 00:34) incorrectly placed into arrival field
+          if (startSec < 999999 && endSec < 999999) {
+            const signOffSec = timeStringToSeconds(item.signOffTime || '14:00');
+            // If arrival timestamp is earlier than departure and adding it fits within the shift:
+            if (endSec < startSec && (startSec + endSec) <= (signOffSec + 3600)) {
+              const calcSec = (startSec + endSec) % (24 * 3600);
+              const hh = String(Math.floor(calcSec / 3600)).padStart(2, '0');
+              const mm = String(Math.floor((calcSec % 3600) / 60)).padStart(2, '0');
+              to = `${hh}:${mm}`;
+              endSec = calcSec;
+            }
+          }
           if (endSec < startSec) endSec += 24 * 3600;
+
           legs.push({
             trainId: t,
             from: f,
-            to: to,
+            to: to && to !== '--' ? to : f,
             startStr: f,
-            endStr: to,
+            endStr: to && to !== '--' ? to : f,
             startSec,
             endSec,
-            fromLoc: tr.takeoverLocation || tr.depLoc || item.signOnLocation || 'PYID',
-            toLoc: tr.handoverLocation || tr.arrLoc || item.signOffLocation || 'PYID'
+            fromLoc: item[`${p}DepLoc`] || item[`${p}FinalDepLoc`] || tripObj?.takeoverLocation || (idx === 1 ? item.signOnLocation : '') || 'PYID',
+            toLoc: item[`${p}ArrLoc`] || item[`${p}FinalArrLoc`] || item[`${p}HandoverLoc`] || tripObj?.handoverLocation || (idx === activeLegCount ? item.signOffLocation : '') || 'PYID'
           });
-        }
-      });
-    }
+        });
+      }
 
-    // Format B: rawLegs object (from Dispatch Gateway deployments)
-    if (legs.length === 0 && item.rawLegs) {
-      const rl = item.rawLegs;
-      [1, 2, 3, 4].forEach(i => {
-        const rawT = String(rl[`l${i}Train`] || '').trim();
-        const t = normalizeTrackTrainId(rawT) || rawT.replace(/^Train\s*/i, '').trim();
-        const f = String(rl[`l${i}Start`] || '').slice(0, 5);
-        const to = String(rl[`l${i}End`] || '').slice(0, 5);
-        if (t && t !== '--' && t !== '-' && f && f !== '--') {
+      // Format 2: rawLegs object (from Dispatch Gateway deployments)
+      if (legs.length === 0 && item.rawLegs) {
+        const rl = item.rawLegs;
+        [1, 2, 3, 4].forEach(i => {
+          const rawT = String(rl[`l${i}Train`] || '').trim();
+          if (isNonTrainDutyLabel(rawT)) return;
+          const t = normalizeTrackTrainId(rawT);
+          const f = String(rl[`l${i}Start`] || '').slice(0, 5);
+          const to = String(rl[`l${i}End`] || '').slice(0, 5);
+          if (t && t !== '--' && t !== '-' && f && f !== '--') {
+            const startSec = timeStringToSeconds(f);
+            let endSec = timeStringToSeconds(to);
+            if (endSec < startSec) endSec += 24 * 3600;
+            legs.push({
+              trainId: t,
+              from: f,
+              to: to,
+              startStr: f,
+              endStr: to,
+              startSec,
+              endSec,
+              fromLoc: item.signOnLocation || 'PYID',
+              toLoc: item.signOffLocation || 'PYID'
+            });
+          }
+        });
+      }
+
+      // Format 3: Explicit trips array (Fallback if operational columns were not populated)
+      if (legs.length === 0 && Array.isArray(item.trips) && item.trips.length > 0) {
+        item.trips.forEach(tr => {
+          const rawT = String(tr.trainNo || tr.trainId || '').trim();
+          if (isNonTrainDutyLabel(rawT)) return;
+          const t = normalizeTrackTrainId(rawT);
+          const f = String(tr.timeFrm || tr.depTime || '').slice(0, 5);
+          const to = String(tr.timeTo || tr.arrTime || '').slice(0, 5);
+          if (t && t !== '--' && t !== '-' && f && f !== '--') {
+            const startSec = timeStringToSeconds(f);
+            let endSec = timeStringToSeconds(to);
+            if (endSec < startSec) endSec += 24 * 3600;
+            legs.push({
+              trainId: t,
+              from: f,
+              to: to,
+              startStr: f,
+              endStr: to,
+              startSec,
+              endSec,
+              fromLoc: tr.takeoverLocation || tr.depLoc || item.signOnLocation || 'PYID',
+              toLoc: tr.handoverLocation || tr.arrLoc || item.signOffLocation || 'PYID'
+            });
+          }
+        });
+      }
+
+      // Format 4: Single train assignment (Only for actual revenue trains, never standby/pro)
+      if (legs.length === 0 && item.trainId && item.trainId !== '--' && item.trainId !== '-' && !isNonTrainDutyLabel(item.trainId)) {
+        const rawT = String(item.trainId).trim();
+        const t = normalizeTrackTrainId(rawT);
+        if (t) {
+          const f = String(item.signOnTime || '06:00').slice(0, 5);
+          const to = String(item.signOffTime || '14:00').slice(0, 5);
           const startSec = timeStringToSeconds(f);
           let endSec = timeStringToSeconds(to);
           if (endSec < startSec) endSec += 24 * 3600;
@@ -2633,60 +2933,41 @@ export function buildDutyRosterFromLinkRoster(links = [], dispatchOperatorMap = 
             toLoc: item.signOffLocation || 'PYID'
           });
         }
-      });
-    }
-
-    // Format C: Standard leg1 to leg4 fields
-    if (legs.length === 0) {
-      [1, 2, 3, 4].forEach(idx => {
-        const p = `leg${idx}`;
-        const rawT = String(item[`${p}TrainNo`] || item[`${p}Train`] || (idx === 1 ? item.trainId : '') || '').trim();
-        const t = normalizeTrackTrainId(rawT) || rawT.replace(/^Train\s*/i, '').trim();
-        const f = String(item[`${p}DepTime`] || item[`${p}FinalDepTime`] || item[`${p}TimeFrom`] || item[`${p}StartTime`] || (idx === 1 ? item.signOnTime : '') || '').slice(0, 5);
-        const to = String(item[`${p}ArrTime`] || item[`${p}FinalArrTime`] || item[`${p}TimeTo`] || item[`${p}EndTime`] || (idx === 1 ? item.leg1TimeTo : '') || (idx === 1 ? item.signOffTime : '') || '').slice(0, 5);
-        if (t && t !== '--' && t !== '-' && f && f !== '--') {
-          const startSec = timeStringToSeconds(f);
-          let endSec = timeStringToSeconds(to);
-          if (endSec < startSec) endSec += 24 * 3600;
-          legs.push({
-            trainId: t,
-            from: f,
-            to: to,
-            startStr: f,
-            endStr: to,
-            startSec,
-            endSec,
-            fromLoc: item[`${p}DepLoc`] || item[`${p}FinalDepLoc`] || item.signOnLocation || 'PYID',
-            toLoc: item[`${p}ArrLoc`] || item[`${p}FinalArrLoc`] || item.signOffLocation || 'PYID'
-          });
-        }
-      });
-    }
-
-    // Format D: Single train assignment
-    if (legs.length === 0 && item.trainId && item.trainId !== '--' && item.trainId !== '-') {
-      const rawT = String(item.trainId).trim();
-      const t = normalizeTrackTrainId(rawT) || rawT.replace(/^Train\s*/i, '').trim();
-      const f = String(item.signOnTime || '06:00').slice(0, 5);
-      const to = String(item.signOffTime || '14:00').slice(0, 5);
-      const startSec = timeStringToSeconds(f);
-      let endSec = timeStringToSeconds(to);
-      if (endSec < startSec) endSec += 24 * 3600;
-      legs.push({
-        trainId: t,
-        from: f,
-        to: to,
-        startStr: f,
-        endStr: to,
-        startSec,
-        endSec,
-        fromLoc: item.signOnLocation || 'PYID',
-        toLoc: item.signOffLocation || 'PYID'
-      });
+      }
     }
 
     // Sort this duty's legs chronologically
     legs.sort((a, b) => a.startSec - b.startSec);
+
+    // Dynamic Driving Hours calculation
+    let totalDriveSecs = 0;
+    legs.forEach(l => {
+      if (l.endSec > l.startSec && l.trainId !== 'STANDBY') {
+        totalDriveSecs += (l.endSec - l.startSec);
+      }
+    });
+
+    let drivingHrs = '00:00';
+    if (legs.length > 0 && totalDriveSecs > 0) {
+      const dh = String(Math.floor(totalDriveSecs / 3600)).padStart(2, '0');
+      const dm = String(Math.floor((totalDriveSecs % 3600) / 60)).padStart(2, '0');
+      drivingHrs = `${dh}:${dm}`;
+    }
+
+    let totalKm = 0;
+    if (legs.length > 0) {
+      let sumKm = 0;
+      [1, 2, 3, 4].forEach(i => {
+        const k = Number(item[`leg${i}Km`]);
+        if (!isNaN(k) && k > 0) sumKm += k;
+      });
+      if (sumKm > 0) {
+        totalKm = sumKm;
+      } else {
+        const estKm = Math.round((totalDriveSecs / 3600) * 30 * 100) / 100;
+        totalKm = estKm > 0 ? estKm : legs.length * 59.5;
+      }
+    }
 
     // Resolve assigned Train Operator
     const dispatchOp = dispatchOperatorMap[normDuty];
@@ -2733,16 +3014,17 @@ export function buildDutyRosterFromLinkRoster(links = [], dispatchOperatorMap = 
       },
       meta: {
         dutyNo: normDuty,
-        dutyType: item.dutyType || 'A',
-        remarks: item.remarks || '',
-        dutyProfile: item.dutyProfile || '',
-        signOnTime: (item.signOnTime || '').slice(0, 5),
-        signOffTime: (item.signOffTime || '').slice(0, 5),
-        signOnLocation: item.signOnLocation || 'PYID',
-        signOffLocation: item.signOffLocation || 'PYID',
-        totalKm: Number(item.totalKm || item.kms || 0),
-        drivingHrs: (item.drivingHrs || '00:00:00').slice(0, 5),
-        breakTime: (item.breakTime || '00:00:00').slice(0, 5)
+        dutyType: (item.dutyType && item.dutyType !== '--') ? item.dutyType : ((item.remarks && item.remarks !== '--') ? item.remarks : (isStandbyOrPro ? (item.dutyProfile || item.trainId || 'STBY') : 'A')),
+        remarks: (item.remarks && item.remarks !== '--') ? item.remarks : (isStandbyOrPro ? (item.dutyProfile || item.trainId || 'STANDBY') : ''),
+        dutyProfile: (item.dutyProfile && item.dutyProfile !== '--') ? item.dutyProfile : (isStandbyOrPro ? (item.trainId || item.remarks || 'STANDBY') : ''),
+        signOnTime: (item.signOnTime || (legs[0]?.from) || '06:00').slice(0, 5),
+        signOffTime: (item.signOffTime || (legs[legs.length - 1]?.to) || '14:00').slice(0, 5),
+        signOnLocation: item.signOnLocation || legs[0]?.fromLoc || 'PYID',
+        signOffLocation: item.signOffLocation || legs[legs.length - 1]?.toLoc || 'PYID',
+        totalKm: Number(totalKm || 0),
+        drivingHrs: drivingHrs || '00:00',
+        breakTime: (item.breakTime || '00:00:00').slice(0, 5),
+        isStandbyOrPro: Boolean(isStandbyOrPro || legs.length === 0)
       }
     };
   });
@@ -2753,78 +3035,94 @@ export function buildDutyRosterFromLinkRoster(links = [], dispatchOperatorMap = 
 /**
  * 2. Derives Master ID Chart directly from the Duty Roster of that day.
  * Inverts duty legs into train-centric chronological shift leg sequences.
- * If the Link Roster / Duty Roster changes, this chart updates automatically.
+ * When Duty Roster updates, this chart updates 100% automatically without stale fallback pollution.
  */
 export function buildMasterIdChartFromDutyRoster(dutyRoster = {}, fallbackBaseChart = null) {
   const trainMap = {};
+  const hasDynamicDuties = dutyRoster && typeof dutyRoster === 'object' && Object.keys(dutyRoster).length > 0;
 
-  // Step 1: Collect legs from Duty Roster
-  Object.values(dutyRoster).forEach(dutyRecord => {
-    const dId = dutyRecord.dutyId;
-    const op = dutyRecord.assignedOperator;
+  if (hasDynamicDuties) {
+    // Step 1: Collect legs from Duty Roster strictly
+    Object.values(dutyRoster).forEach(dutyRecord => {
+      const dId = dutyRecord.dutyId;
+      const op = dutyRecord.assignedOperator;
 
-    (dutyRecord.legs || []).forEach(leg => {
-      const rawTid = String(leg.trainId || '').trim();
-      if (!rawTid || rawTid === '--' || rawTid === '-') return;
-      const cleanTid = normalizeTrackTrainId(rawTid) || rawTid;
+      (dutyRecord.legs || []).forEach(leg => {
+        const rawTid = String(leg.trainId || '').trim();
+        if (!rawTid || rawTid === '--' || rawTid === '-' || isNonTrainDutyLabel(rawTid)) return;
+        const cleanTid = normalizeTrackTrainId(rawTid);
+        if (!cleanTid) return;
 
-      if (!trainMap[cleanTid]) trainMap[cleanTid] = [];
+        if (!trainMap[cleanTid]) trainMap[cleanTid] = [];
 
-      trainMap[cleanTid].push({
-        duty: dId,
-        dutyId: dId,
-        from: leg.from,
-        to: leg.to,
-        startStr: leg.from,
-        endStr: leg.to,
-        fromLoc: leg.fromLoc,
-        toLoc: leg.toLoc,
-        startSec: leg.startSec,
-        endSec: leg.endSec,
-        empName: op?.empName || `Duty ${dId}`,
-        empId: op?.empId || '--',
-        isExchanged: Boolean(op?.isExchanged),
-        originalEmpName: op?.originalEmpName || '',
-        originalEmpId: op?.originalEmpId || ''
+        trainMap[cleanTid].push({
+          duty: dId,
+          dutyId: dId,
+          from: leg.from,
+          to: leg.to,
+          startStr: leg.from,
+          endStr: leg.to,
+          fromLoc: leg.fromLoc || 'PYID',
+          toLoc: leg.toLoc || 'PYID',
+          startSec: leg.startSec,
+          endSec: leg.endSec,
+          empName: op?.empName || `Duty ${dId}`,
+          empId: op?.empId || '--',
+          isExchanged: Boolean(op?.isExchanged),
+          originalEmpName: op?.originalEmpName || '',
+          originalEmpId: op?.originalEmpId || ''
+        });
       });
     });
-  });
 
-  // Step 2: Merge with fallback base chart for any trains present in fallbackBaseChart but not yet in trainMap
-  if (fallbackBaseChart && typeof fallbackBaseChart === 'object') {
+    // Initialize all standard fleet trains (201-225 + Couns) so they appear as columns in Master ID Chart
+    for (let i = 201; i <= 225; i++) {
+      const tid = String(i);
+      if (!trainMap[tid]) trainMap[tid] = [];
+    }
+    if (!trainMap['Couns']) trainMap['Couns'] = [];
+  } else if (fallbackBaseChart && typeof fallbackBaseChart === 'object') {
+    // Fallback ONLY used if dutyRoster is completely empty
     Object.entries(fallbackBaseChart).forEach(([tid, baseLegs]) => {
-      if (!trainMap[tid] || trainMap[tid].length === 0) {
-        trainMap[tid] = (baseLegs || []).map(b => {
-          const normD = normalizeDutyId(b.duty);
-          const startSec = timeStringToSeconds(b.from);
-          let endSec = timeStringToSeconds(b.to);
-          if (endSec < startSec) endSec += 24 * 3600;
-          const defOp = getOperatorForDuty(normD);
-          return {
-            duty: normD,
-            dutyId: normD,
-            from: b.from,
-            to: b.to,
-            startStr: b.from,
-            endStr: b.to,
-            fromLoc: b.fromLoc || 'PYID',
-            toLoc: b.toLoc || 'PYID',
-            startSec,
-            endSec,
-            empName: defOp?.empName || `Duty ${normD}`,
-            empId: defOp?.empId || '--',
-            isExchanged: false,
-            originalEmpName: '',
-            originalEmpId: ''
-          };
-        });
-      }
+      trainMap[tid] = (baseLegs || []).map(b => {
+        const normD = normalizeDutyId(b.duty);
+        const startSec = timeStringToSeconds(b.from);
+        let endSec = timeStringToSeconds(b.to);
+        if (endSec < startSec) endSec += 24 * 3600;
+        const defOp = getOperatorForDuty(normD);
+        return {
+          duty: normD,
+          dutyId: normD,
+          from: b.from,
+          to: b.to,
+          startStr: b.from,
+          endStr: b.to,
+          fromLoc: b.fromLoc || 'PYID',
+          toLoc: b.toLoc || 'PYID',
+          startSec,
+          endSec,
+          empName: defOp?.empName || `Duty ${normD}`,
+          empId: defOp?.empId || '--',
+          isExchanged: false,
+          originalEmpName: '',
+          originalEmpId: ''
+        };
+      });
     });
   }
 
-  // Step 3: Sort each train's leg timeline chronologically
+  // Deduplicate and sort each train's leg timeline chronologically
   Object.keys(trainMap).forEach(tid => {
-    trainMap[tid].sort((a, b) => a.startSec - b.startSec);
+    const seen = new Set();
+    const unique = [];
+    (trainMap[tid] || []).forEach(leg => {
+      const key = `${leg.dutyId}_${leg.startSec}_${leg.endSec}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(leg);
+      }
+    });
+    trainMap[tid] = unique.sort((a, b) => a.startSec - b.startSec);
   });
 
   return trainMap;

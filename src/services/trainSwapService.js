@@ -711,12 +711,15 @@ export function findDutyAndTripFromRoster(dayType = DAY_TYPES.WEEKDAY, trainId, 
 
 /**
  * Authoritative Canonical BMRCL Line 2 Weekday Duty Roster Assignments.
- * Ensures official duty-to-operator assignments (e.g. Duty 35 -> Shamukha Rao B #22245, Duty 54 -> Venkatesh N #22455).
+ * Ensures official duty-to-operator assignments (e.g. Duty 35 -> Shamukha Rao B #22245, Duty 50 -> Siddalingaswamy #22256, Duty 54 -> Venkatesh N #22455, Duty 74 -> Madhu R #22465).
  */
 export const CANONICAL_WEEKDAY_DUTY_OPERATORS = {
   ...WEEKDAY_MASTER_DUTY_ROSTER,
   '35': { empId: '22245', empName: 'Shamukha Rao B', dutyNo: '35' },
-  '54': { empId: '22455', empName: 'Venkatesh N', dutyNo: '54' }
+  '50': { empId: '22256', empName: 'Siddalingaswamy', dutyNo: '50' },
+  '54': { empId: '22455', empName: 'Venkatesh N', dutyNo: '54' },
+  '74': { empId: '22465', empName: 'Madhu R', dutyNo: '74' },
+  '80': { empId: '21434', empName: 'PRUTHVIRAJ L K', dutyNo: '80' }
 };
 
 export function lookupDeployedOperatorFromCore(deployments = [], crewRegistry = [], dutyNo, dayType = DAY_TYPES.WEEKDAY) {
@@ -747,7 +750,6 @@ export function lookupDeployedOperatorFromCore(deployments = [], crewRegistry = 
   }
 
   const isExchanged = Boolean(deployed?.isExchanged || deployed?.status === 'SWAPPED_BY_CC' || deployed?.status === 'RELIEF_DISPATCHED');
-  const isJmdMisassigned = empId && String(empId).startsWith('88');
   const hasValidActiveDeployment = Boolean(
     empName && 
     empName !== '--' && 
@@ -755,8 +757,7 @@ export function lookupDeployedOperatorFromCore(deployments = [], crewRegistry = 
     empName !== 'UNASSIGNED' && 
     !empName.toLowerCase().includes('unassigned') && 
     !empName.startsWith('Train Operator') && 
-    !empName.startsWith('Duty ') &&
-    !isJmdMisassigned
+    !empName.startsWith('Duty ')
   );
 
   // 2. Check cached Roster Desk Console duties (pyidcc_roster_desk_console_cache) from AutomatedDispatchGate
@@ -811,8 +812,8 @@ export function lookupDeployedOperatorFromCore(deployments = [], crewRegistry = 
     }
   }
 
-  // 4. Canonical & Deterministic Active Driving TO Mapping (Strictly Train Operators from Dispatch Gateway Core)
-  // Ensures distinct duties receive their respective qualified drivers
+  // 5. Canonical & Deterministic Active Driving TO Mapping (Strictly Train Operators from Dispatch Gateway Core)
+  // Ensures distinct duties receive their respective qualified drivers (BMRCL Regular TOs + JMD Contract TDs)
   if (!empId || empId === '--' || empId === 'UNASSIGNED') {
     if (canonicalAssignment) {
       empId = canonicalAssignment.empId;
@@ -821,7 +822,7 @@ export function lookupDeployedOperatorFromCore(deployments = [], crewRegistry = 
       const drivingOnly = activeCandidatePool.filter(c => 
         !c.isMaternity && 
         !SUPERVISORY_NON_DRIVING_IDS.has(Number(c.empId)) && 
-        c.role === 'TRAIN_OPERATOR'
+        (c.role === 'TRAIN_OPERATOR' || c.role === 'TRAIN_DRIVER' || c.isJmd || c.cadre?.includes('JMD') || c.cadre?.includes('Regular'))
       );
 
       if (drivingOnly.length > 0) {
@@ -842,12 +843,12 @@ export function lookupDeployedOperatorFromCore(deployments = [], crewRegistry = 
   return {
     empId: String(empId || profile.empId || '20787'),
     empName: empName || profile.name || 'Baskar S',
-    designation: profile.designation || 'Station Controller / Train Operator',
-    cadre: profile.cadre || 'BMRCL Regular TO',
+    designation: profile.designation || (String(empId).startsWith('8') ? 'Train Driver (JMD Contract)' : 'Station Controller / Train Operator'),
+    cadre: profile.cadre || (String(empId).startsWith('8') ? 'JMD Contract TD' : 'BMRCL Regular TO'),
     dutyId: normDuty,
     isOnDuty: status !== 'ABSENT' && status !== 'NOT_REPORTING' && status !== 'OFF_DUTY',
     status,
-    isJmd: Boolean(profile.isJmd),
+    isJmd: Boolean(profile.isJmd || String(empId).startsWith('8')),
     crtValidTill: profile.crtValidTill || '2027-06-30',
     medicalValidTill: profile.medicalValidTill || '2027-12-31',
     pdcValidTill: profile.pdcValidTill || '2028-12-31',

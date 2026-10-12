@@ -247,8 +247,8 @@ export const WEEKDAY_MASTER_DUTY_ROSTER = {
   },
   "50": {
     "dutyId": "50",
-    "empId": "22245",
-    "empName": "Shamukha Rao B",
+    "empId": "22256",
+    "empName": "Siddalingaswamy",
     "designation": "Station Controller / Train Operator"
   },
   "51": {
@@ -391,8 +391,8 @@ export const WEEKDAY_MASTER_DUTY_ROSTER = {
   },
   "74": {
     "dutyId": "74",
-    "empId": "22455",
-    "empName": "Venkatesh N",
+    "empId": "22465",
+    "empName": "Madhu R",
     "designation": "Station Controller / Train Operator"
   },
   "75": {
@@ -481,9 +481,9 @@ export const WEEKDAY_MASTER_DUTY_ROSTER = {
   },
   "80": {
     "dutyId": "80",
-    "empId": "20022",
-    "empName": "Angel Rani",
-    "designation": "Station Controller / Train Operator"
+    "empId": "21434",
+    "empName": "PRUTHVIRAJ L K",
+    "designation": "Train Operator (BMRCL Regular)"
   }
 };
 

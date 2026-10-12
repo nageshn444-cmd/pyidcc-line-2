@@ -1512,6 +1512,9 @@ Format the response strictly as a single JSON object.`;
       });
 
       await batch.commit();
+      window.dispatchEvent(new CustomEvent('pyidcc:link_roster_updated', {
+        detail: { scheduleType: normDay, timestamp: Date.now() }
+      }));
       alert(`✅ ${dayLabel} Link Roster successfully updated and saved to database with verified ${dutyCount} duties!`);
       fetchLiveData();
     } catch (err) {
@@ -1566,6 +1569,9 @@ Format the response strictly as a single JSON object.`;
     if (typeof fetchLiveData === 'function') {
       await fetchLiveData();
     }
+    window.dispatchEvent(new CustomEvent('pyidcc:link_roster_updated', {
+      detail: { scheduleType, timestamp: Date.now() }
+    }));
   };
 
   const handleIncidentLogSubmit = async (e) => {
@@ -1758,9 +1764,40 @@ Format the response strictly as a single JSON object.`;
       return;
     }
     try {
-      await updateDoc(doc(db, "crew_final_links", rowId), { [fieldName]: editValue });
-      setEditingCell({ rowId: null, direction: null, station: null, isTid: false, isDeployment: false }); fetchLiveData();
-    } catch (err) { console.error(err); }
+      await setDoc(doc(db, "crew_final_links", rowId), {
+        [fieldName]: editValue,
+        scheduleType: activeDay,
+        lastModified: new Date().toISOString()
+      }, { merge: true });
+
+      setEditingCell({ rowId: null, direction: null, station: null, isTid: false, isDeployment: false });
+
+      // Update in-memory state immediately
+      setLinks(prev => {
+        const next = prev.map(l => {
+          if (l.id === rowId || l.dutyId === rowId || normalizeDutyId(l.dutyId) === normalizeDutyId(rowId)) {
+            return { ...l, [fieldName]: editValue, scheduleType: activeDay };
+          }
+          return l;
+        });
+        liveLinksDataRef.current = next;
+        return next;
+      });
+
+      const eventDetail = {
+        scheduleType: activeDay,
+        timestamp: Date.now(),
+        rowId,
+        fieldName,
+        value: editValue
+      };
+      window.dispatchEvent(new CustomEvent('pyidcc:link_roster_updated', { detail: eventDetail }));
+      window.dispatchEvent(new CustomEvent('pyidcc_link_roster_updated', { detail: eventDetail }));
+
+      fetchLiveData();
+    } catch (err) {
+      console.error("handleCellSave error:", err);
+    }
   };
 
   const handleDeleteRow = async (rowId) => {
@@ -1771,6 +1808,9 @@ Format the response strictly as a single JSON object.`;
     if (window.confirm("Confirm deletion of this crew link run file?")) {
       await deleteDoc(doc(db, "crew_final_links", rowId));
       setLinks(prev => prev.filter(item => item.id !== rowId));
+      window.dispatchEvent(new CustomEvent('pyidcc:link_roster_updated', {
+        detail: { scheduleType: activeDay, timestamp: Date.now() }
+      }));
     }
   };
 
@@ -1832,6 +1872,7 @@ Format the response strictly as a single JSON object.`;
               setActiveDay={setActiveDay}
               onOneClickAuthorize={isOperatorOrViewer ? undefined : handleOneClickAuthorize}
               filteredLinks={filteredLinks}
+              allLinks={(liveLinksDataRef.current && liveLinksDataRef.current.length > 0) ? liveLinksDataRef.current : links}
               editingCell={editingCell}
               setEditingCell={setEditingCell}
               editValue={editValue}

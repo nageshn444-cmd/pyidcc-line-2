@@ -1466,6 +1466,9 @@ export async function saveLinkRosterToFirestore(duties, scheduleType, onProgress
       window.dispatchEvent(new CustomEvent('pyidcc:link_roster_updated', {
         detail: { scheduleType: normSchedule, duties, timestamp: Date.now() }
       }));
+      window.dispatchEvent(new CustomEvent('pyidcc_link_roster_updated', {
+        detail: { scheduleType: normSchedule, duties, timestamp: Date.now() }
+      }));
     }
   } catch {}
 

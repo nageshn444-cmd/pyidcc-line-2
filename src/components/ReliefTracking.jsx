@@ -33,10 +33,14 @@ import {
   normalizeDutyId,
   buildDutyRosterFromLinkRoster,
   buildMasterIdChartFromDutyRoster,
-  buildHandoverCardsFromMasterIdChart
+  buildHandoverCardsFromMasterIdChart,
+  getCleanLinksForDay,
+  linkMatchesScheduleDay
 } from '../data/weekdayReliefIdChartRegistry';
 import { getMasterLinksForDay } from '../data/canonicalDayLinksRegistry';
 import { getOperatorForDuty } from '../data/weekdayMasterDutyRoster';
+import { db } from '../firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 
 const ALL_LINE2_FLEET = [
   '201', '202', '203', '204', '205', '206', '207', '208', '209', '210',
@@ -51,7 +55,8 @@ export default function ReliefTracking({
   liveTrainTrackingMap = {},
   activeDay = 'WEEKDAY',
   simulatedTime = null,
-  linkRoster = null
+  linkRoster = null,
+  allLinks = null
 }) {
   // View mode: 'CARDS' | 'ID_CHART' | 'DUTY_SUMMARY'
   const [viewMode, setViewMode] = useState('CARDS');
@@ -63,6 +68,33 @@ export default function ReliefTracking({
       setSelectedDay(normalizeScheduleDay(activeDay));
     }
   }, [activeDay]);
+
+  useEffect(() => {
+    const handleDayChanged = (e) => {
+      const d = e?.detail?.day || e?.detail?.dayType;
+      if (d) {
+        setSelectedDay(normalizeScheduleDay(d));
+      }
+    };
+    window.addEventListener('pyidcc-active-day-changed', handleDayChanged);
+    window.addEventListener('pyidcc:active_day_changed', handleDayChanged);
+    return () => {
+      window.removeEventListener('pyidcc-active-day-changed', handleDayChanged);
+      window.removeEventListener('pyidcc:active_day_changed', handleDayChanged);
+    };
+  }, []);
+
+  const handleSelectScheduleDay = (dayId) => {
+    const norm = normalizeScheduleDay(dayId);
+    setSelectedDay(norm);
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('pyidcc_active_day_override', norm);
+        window.dispatchEvent(new CustomEvent('pyidcc-active-day-changed', { detail: { day: norm, dayType: norm } }));
+        window.dispatchEvent(new CustomEvent('pyidcc:active_day_changed', { detail: { day: norm, dayType: norm } }));
+      }
+    } catch (_e) {}
+  };
 
   // Fleet View Mode: 'SCHEDULED' (only active timetable trains) vs 'ALL_FLEET' (all 201 to 223)
   const [fleetScope, setFleetScope] = useState('SCHEDULED');
@@ -207,18 +239,70 @@ export default function ReliefTracking({
     return map;
   }, [dispatchUpdateTrigger]);
 
-  // ── 1. LINK ROSTER (RESPECTIVE DAY) ──
-  // Follows linkRoster prop or canonical Master Link Roster for selectedDay
-  const activeLinkRoster = useMemo(() => {
-    if (Array.isArray(linkRoster) && linkRoster.length > 0) {
-      const first = linkRoster[0];
-      const linkDay = first?.dayType || first?.scheduleType || first?.day;
-      if (!linkDay || normalizeScheduleDay(linkDay) === selectedDay) {
-        return linkRoster;
+  // ── 0. Authoritative Real-Time Link Roster Listener from Firestore & Events ──
+  const [liveFirestoreLinks, setLiveFirestoreLinks] = useState([]);
+  const [linkUpdateTrigger, setLinkUpdateTrigger] = useState(0);
+
+  useEffect(() => {
+    // A. Real-time Firestore listener on 'crew_final_links'
+    const unsub = onSnapshot(collection(db, 'crew_final_links'), (snap) => {
+      if (!snap.empty) {
+        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setLiveFirestoreLinks(docs);
+        setLinkUpdateTrigger(prev => prev + 1);
       }
-    }
+    }, (err) => {
+      console.warn('ReliefTracking crew_final_links subscription:', err);
+    });
+
+    // B. Window event listener for link roster updates (uploads, cell edits, resets)
+    const handleLinkUpdate = (e) => {
+      setLinkUpdateTrigger(prev => prev + 1);
+      if (e?.detail?.duties && Array.isArray(e.detail.duties)) {
+        setLiveFirestoreLinks(prev => {
+          const sType = normalizeScheduleDay(e.detail.scheduleType || 'WEEKDAY');
+          const remaining = prev.filter(p => normalizeScheduleDay(p.scheduleType) !== sType);
+          return [...remaining, ...e.detail.duties];
+        });
+      } else if (e?.detail?.rowId && e?.detail?.fieldName) {
+        setLiveFirestoreLinks(prev => {
+          return prev.map(l => {
+            if (l.id === e.detail.rowId || l.dutyId === e.detail.rowId || normalizeDutyId(l.dutyId) === normalizeDutyId(e.detail.rowId)) {
+              return { ...l, [e.detail.fieldName]: e.detail.value };
+            }
+            return l;
+          });
+        });
+      }
+    };
+    window.addEventListener('pyidcc:link_roster_updated', handleLinkUpdate);
+    window.addEventListener('pyidcc_link_roster_updated', handleLinkUpdate);
+
+    return () => {
+      unsub();
+      window.removeEventListener('pyidcc:link_roster_updated', handleLinkUpdate);
+      window.removeEventListener('pyidcc_link_roster_updated', handleLinkUpdate);
+    };
+  }, []);
+
+  // ── 1. AUTHORITATIVE LINK ROSTER (RESPECTIVE DAY) ──
+  // Follows linkRoster prop, allLinks prop, liveFirestoreLinks from crew_final_links, or canonical master
+  const activeLinkRoster = useMemo(() => {
+    // 1. Check linkRoster prop (if matching selectedDay)
+    const fromProp = getCleanLinksForDay(linkRoster, selectedDay);
+    if (fromProp.length > 0) return fromProp;
+
+    // 2. Check allLinks prop (filtered for selectedDay)
+    const fromAll = getCleanLinksForDay(allLinks, selectedDay);
+    if (fromAll.length > 0) return fromAll;
+
+    // 3. Check liveFirestoreLinks from real-time crew_final_links
+    const fromFirestore = getCleanLinksForDay(liveFirestoreLinks, selectedDay);
+    if (fromFirestore.length > 0) return fromFirestore;
+
+    // 4. Fallback to canonical master registry
     return getMasterLinksForDay(selectedDay);
-  }, [linkRoster, selectedDay]);
+  }, [linkRoster, allLinks, liveFirestoreLinks, selectedDay, linkUpdateTrigger]);
 
   // ── 2. DUTY ROSTER (FOLLOWS TRAIN ID OF EACH DUTY OF LINK ROSTER) ──
   // Derives all duties, trip sequences, and operator assignments from activeLinkRoster
@@ -420,6 +504,10 @@ export default function ReliefTracking({
                 <ShieldCheck size={11} className="text-emerald-400" />
                 ALSTOM ATS RELIEF ENGINE
               </span>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-950/90 text-emerald-300 border border-emerald-600/70 text-[9px] font-black uppercase font-mono flex items-center gap-1 shadow-sm" title="Real-time pipeline: Terminal changes automatically update Duty Roster, Master ID Chart, and Handover Cards">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                TERMINAL ➔ DUTY ROSTER ➔ MASTER ID ➔ HANDOVERS
+              </span>
             </div>
             <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5 flex items-center gap-1.5 flex-wrap">
               <span>{activeMeta.title}</span>
@@ -512,7 +600,7 @@ export default function ReliefTracking({
               <button
                 key={day.id}
                 type="button"
-                onClick={() => setSelectedDay(day.id)}
+                onClick={() => handleSelectScheduleDay(day.id)}
                 className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all ${
                   selectedDay === day.id
                     ? 'bg-cyan-500 text-slate-950 font-black shadow-sm'
@@ -1089,10 +1177,10 @@ export default function ReliefTracking({
           <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex justify-between items-center text-xs flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <span className="text-white font-bold">
-                Duty Roster Leg Sequence (Derived from {activeMeta.title})
+                Duty Roster Leg Sequence (Synced to {selectedDay} Link Roster • Dynamic Operational Terminal)
               </span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold font-mono">
-                {activeMeta.dutyCount || Object.keys(dynamicDutyLegs).length} Duties Master ({activeMeta.badge || selectedDay})
+                {Object.keys(dynamicDutyLegs).length} Duties Master ({selectedDay} LINK)
               </span>
             </div>
             <span className="text-[10px] text-slate-400 font-mono">
@@ -1103,15 +1191,18 @@ export default function ReliefTracking({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-h-160 overflow-y-auto pr-1 custom-scrollbar">
             {Object.keys(dynamicDutyLegs).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map(dutyNo => {
               const legs = dynamicDutyLegs[dutyNo] || [];
+              const normD = dutyNo.padStart(2, '0');
               const cleanDutyQuery = dutySearch.trim().toLowerCase().replace(/^d/i, '');
-              const matchesDuty = !cleanDutyQuery || dutyNo.includes(cleanDutyQuery);
+              const matchesDuty = !cleanDutyQuery || 
+                dutyNo.toLowerCase().includes(cleanDutyQuery) || 
+                normD.includes(cleanDutyQuery) ||
+                String(parseInt(dutyNo, 10)).includes(cleanDutyQuery);
 
               if (!matchesDuty) return null;
 
               const activeLeg = legs.find(l => currentTimeSecs >= l.startSec && currentTimeSecs <= l.endSec);
               const meta = legs.meta;
 
-              const normD = dutyNo.padStart(2, '0');
               const dispatchOp = dispatchDutyOperatorMap[normD];
               const defaultRosterOp = getOperatorForDuty(normD);
               const liveOpMatch = Object.values(effectiveLiveTrackingMap).find(t => 
@@ -1164,9 +1255,15 @@ export default function ReliefTracking({
                           </span>
                         )}
                       </div>
-                      <span className="text-[9.5px] px-2 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-800 font-bold">
-                        {legs.length} Leg{legs.length > 1 ? 's' : ''}
-                      </span>
+                      {legs.length === 0 ? (
+                        <span className="text-[9.5px] px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-800 font-bold">
+                          NO TRIP (STANDBY/PRO)
+                        </span>
+                      ) : (
+                        <span className="text-[9.5px] px-2 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-800 font-bold">
+                          {legs.length} Leg{legs.length > 1 ? 's' : ''}
+                        </span>
+                      )}
                     </div>
 
                     {/* Sign On / Off Times */}
@@ -1178,30 +1275,42 @@ export default function ReliefTracking({
                       </div>
                     )}
 
-                    {/* Ordered Train Legs */}
-                    <div className="space-y-1.5">
-                      {legs.map((leg, idx) => {
-                        const isLegActive = currentTimeSecs >= leg.startSec && currentTimeSecs <= leg.endSec;
-                        return (
-                          <div 
-                            key={`leg-${dutyNo}-${idx}`}
-                            className={`p-1.5 rounded-lg flex items-center justify-between text-[10px] ${
-                              isLegActive 
-                                ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40' 
-                                : 'bg-slate-900/60 text-slate-300'
-                            }`}
-                          >
-                            <div className="flex items-center gap-1.5">
-                              <Train size={11} className={isLegActive ? 'text-emerald-400' : 'text-slate-500'} />
-                              <strong className="text-white">T-{leg.trainId}</strong>
+                    {/* Ordered Train Legs or Standby/Pro Notice */}
+                    {legs.length === 0 ? (
+                      <div className="p-3 rounded-lg bg-amber-950/20 border border-amber-600/30 text-amber-300/90 flex flex-col items-center justify-center text-center space-y-1.5 my-1">
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-300">
+                          <AlertTriangle size={13} className="text-amber-400" />
+                          <span>NO TRAIN TRIP ASSIGNED</span>
+                        </div>
+                        <span className="text-[9px] font-mono text-amber-400/80 font-bold px-2 py-0.5 rounded bg-amber-950/60 border border-amber-800/40">
+                          {meta?.dutyProfile || meta?.remarks || 'STANDBY / PROCTOR DUTY'}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {legs.map((leg, idx) => {
+                          const isLegActive = currentTimeSecs >= leg.startSec && currentTimeSecs <= leg.endSec;
+                          return (
+                            <div 
+                              key={`leg-${dutyNo}-${idx}`}
+                              className={`p-1.5 rounded-lg flex items-center justify-between text-[10px] ${
+                                isLegActive 
+                                  ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40' 
+                                  : 'bg-slate-900/60 text-slate-300'
+                              }`}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <Train size={11} className={isLegActive ? 'text-emerald-400' : 'text-slate-500'} />
+                                <strong className="text-white">T-{leg.trainId}</strong>
+                              </div>
+                              <span className="font-mono text-[9px] text-slate-400">
+                                {leg.from} ➔ {leg.to}
+                              </span>
                             </div>
-                            <span className="font-mono text-[9px] text-slate-400">
-                              {leg.from} ➔ {leg.to}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   {/* Footer: KM, Driving Hours & Assigned Operator */}
