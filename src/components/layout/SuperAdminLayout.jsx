@@ -7,7 +7,7 @@ import {
   Users, Activity, Table, CalendarClock, 
   Settings, AlertTriangle, Sparkles, LayoutGrid, Search, Maximize2, 
   Minimize2, FileText, ClipboardList, RefreshCw, 
-  Train, Calendar, Radio, ShieldAlert, Trash2, RotateCcw, UploadCloud, FileSpreadsheet,
+  Train, Calendar, Radio, Shield, ShieldAlert, Trash2, RotateCcw, UploadCloud, FileSpreadsheet,
   Calculator, Sliders, Repeat, Clock, Copy, Plus, ArrowRightLeft, CheckCircle2,
   Hand, ChevronDown, ChevronUp
 } from 'lucide-react';
