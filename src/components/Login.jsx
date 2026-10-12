@@ -45,10 +45,11 @@ export default function Login() {
   )) || isOwner;
 
   useEffect(() => {
-    if (!currentUser || authLoading) return;
+    if (!currentUser) return;
+    if (authLoading && !isOwner) return;
     if (approvalPending && !isOwner) return;
 
-    if (isReady) {
+    if (isReady || isOwner) {
       const dest = location.state?.from?.pathname && location.state.from.pathname !== '/login' 
         ? location.state.from.pathname 
         : '/';
@@ -76,6 +77,11 @@ export default function Login() {
       const result = await loginWithIdAndPassword(cleanId, cleanPassword);
       if (result?.pendingApproval && !isOwnerUser(result?.user, null)) {
         setLocalPendingMessage(result.message || 'Your account is pending administrator approval.');
+      } else {
+        const dest = location.state?.from?.pathname && location.state.from.pathname !== '/login' 
+          ? location.state.from.pathname 
+          : '/';
+        navigate(dest, { replace: true });
       }
     } catch (err) {
       setError(err.message || 'Unable to log in. Please check your credentials.');
@@ -90,8 +96,16 @@ export default function Login() {
     setIsSubmitting(true);
     try {
       const result = await loginWithGoogle();
-      if (result?.pendingApproval) {
+      if (result?.redirected) {
+        return; // Redirect flow in progress
+      }
+      if (result?.pendingApproval && !isOwnerUser(result?.user, null)) {
         setLocalPendingMessage(result.message || 'Your Google login request is pending approval.');
+      } else if (result?.ok) {
+        const dest = location.state?.from?.pathname && location.state.from.pathname !== '/login' 
+          ? location.state.from.pathname 
+          : '/';
+        navigate(dest, { replace: true });
       }
     } catch (err) {
       if (err.code === 'ACCOUNT_DEACTIVATED') {

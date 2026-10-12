@@ -8,21 +8,28 @@ export default function ProtectedRoute({ children, allowedRoles }) {
   const { currentUser, userProfile, loading } = useAuth();
   const location = useLocation();
 
+  // 1. OWNER OVERRIDE: Check owner FIRST before loading check to prevent redirect loops on mobile!
+  const isOwner = isOwnerUser(currentUser, userProfile);
+  if (isOwner) {
+    return children;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="text-slate-300 text-sm uppercase tracking-wider">Preparing your workspace…</div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-amber-500 border-t-transparent" />
+          <div className="text-slate-300 text-xs font-mono uppercase tracking-wider">Preparing your workspace…</div>
+        </div>
       </div>
     );
   }
 
-  // 1. Check if logged in
+  // 2. Check if logged in
   if (!currentUser) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // 2. OWNER OVERRIDE: If it's you, bypass all checks
-  const isOwner = isOwnerUser(currentUser, userProfile);
   const isApprovedUser = Boolean(
     currentUser && (
       userProfile?.approved === true ||
@@ -38,7 +45,7 @@ export default function ProtectedRoute({ children, allowedRoles }) {
     return <ResetPassword />;
   }
 
-  if (isOwner || isApprovedUser) return children;
+  if (isApprovedUser) return children;
 
   // 3. Normal Role Check for everyone else
   const userRole = userProfile?.role;

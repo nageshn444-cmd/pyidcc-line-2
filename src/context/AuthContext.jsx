@@ -214,6 +214,14 @@ export function AuthProvider({ children }) {
     );
   };
 
+  // Safety watchdog: never keep loading stuck on mobile devices if connection stalls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 3500);
+    return () => clearTimeout(timer);
+  }, []);
+
   const checkEmployeeExists = async (empId, email) => {
     if (String(empId) === '20726') return true;
     try {
@@ -651,6 +659,8 @@ export function AuthProvider({ children }) {
   const finishLogin = async (user) => {
     if (!user) return { ok: false, reason: 'No user returned' };
 
+    setCurrentUser(user);
+
     if (isOwner(user)) {
       const ownerProf = { ...OWNER_PROFILE, uid: user.uid };
       const ownerPerms = getRoleDefaultPermissions('SUPER_ADMIN');
@@ -659,8 +669,11 @@ export function AuthProvider({ children }) {
       saveProfileToCache(ownerProf, ownerPerms);
       setApprovalPending(false);
       setApprovalPendingMessage('');
-      try {
-        await setDoc(doc(db, 'system_users', user.uid), {
+      setLoading(false);
+
+      // Non-blocking background sync — never block navigation on mobile network latency
+      Promise.all([
+        setDoc(doc(db, 'system_users', user.uid), {
           uid: user.uid,
           ...OWNER_PROFILE,
           email: user.email || OWNER_PROFILE.email,
@@ -673,17 +686,18 @@ export function AuthProvider({ children }) {
           firstLogin: false,
           passwordResetRequired: false,
           updatedAt: new Date().toISOString()
-        }, { merge: true });
-        await setDoc(doc(db, 'users', '20726'), {
+        }, { merge: true }),
+        setDoc(doc(db, 'users', '20726'), {
           employeeId: '20726',
           ...OWNER_PROFILE,
           email: user.email || OWNER_PROFILE.email,
           operationalCrew: 'YES',
           updatedAt: new Date().toISOString()
-        }, { merge: true });
-      } catch (profileErr) {
-        console.warn('Owner profile sync skipped due to Firestore permissions:', profileErr);
-      }
+        }, { merge: true })
+      ]).catch((profileErr) => {
+        console.warn('Owner background sync skipped:', profileErr);
+      });
+
       return { ok: true, user, approved: true };
     }
 
@@ -691,29 +705,20 @@ export function AuthProvider({ children }) {
 
     if (profile) {
       const approved = isAccessReadyProfile(profile);
+      setUserProfile(profile);
+      setLoading(false);
+
       if (approved) {
-        try {
-          await setDoc(doc(db, 'system_users', user.uid), {
-            ...profile,
-            uid: user.uid,
-            email: user.email || profile.email,
-            employeeName: user.displayName || profile.employeeName || 'BMRCL Officer',
-            role: profile.role || 'VIEWER',
-            approved: true,
-            loginEnabled: true,
-            active: true,
-            status: 'ACTIVE',
-            updatedAt: new Date().toISOString()
-          }, { merge: true });
-        } catch (profileWriteErr) {
-          console.warn('Profile update skipped during sign-in:', profileWriteErr);
-        }
-        setUserProfile(profile);
         setApprovalPending(false);
         setApprovalPendingMessage('');
+        setDoc(doc(db, 'system_users', user.uid), {
+          ...profile,
+          uid: user.uid,
+          email: user.email || profile.email,
+          updatedAt: new Date().toISOString()
+        }, { merge: true }).catch(() => {});
         return { ok: true, user, approved: true };
       }
-      setUserProfile(profile);
       setApprovalPending(true);
       const msg = 'Your account is pending Super Admin or Admin SS approval.';
       setApprovalPendingMessage(msg);
