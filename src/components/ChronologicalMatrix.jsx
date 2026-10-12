@@ -2,9 +2,13 @@
 import {
   ArrowDownCircle,
   ArrowUpCircle,
+  ArrowDown,
+  ArrowUp,
   Copy,
   Download,
   Edit3,
+  Maximize2,
+  Minimize2,
   Plus,
   Save,
   Train,
@@ -50,6 +54,9 @@ export default function ChronologicalMatrix({
       .toLowerCase()
       .includes("viewer");
 
+  // Complete page view mode: defaults to true so all rows are visible down the complete page
+  const [isCompleteView, setIsCompleteView] = useState(true);
+
   // Grab-to-scroll vertical/horizontal table management
   const wttScrollRef = useRef(null);
   const [isWttDragging, setIsWttDragging] = useState(false);
@@ -58,6 +65,26 @@ export default function ChronologicalMatrix({
   const [wttScrollLeft, setWttScrollLeft] = useState(0);
   const [wttScrollTop, setWttScrollTop] = useState(0);
 
+  const scrollToTop = () => {
+    if (wttScrollRef.current) {
+      wttScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    const mainEl = document.querySelector('main');
+    if (mainEl) {
+      mainEl.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const scrollToBottom = () => {
+    if (wttScrollRef.current) {
+      wttScrollRef.current.scrollTo({ top: wttScrollRef.current.scrollHeight, behavior: 'smooth' });
+    }
+    const mainEl = document.querySelector('main');
+    if (mainEl) {
+      mainEl.scrollTo({ top: mainEl.scrollHeight, behavior: 'smooth' });
+    }
+  };
+
   const onWttMouseDown = (e) => {
     // Ignore input text inputs, paste events, selects, or button clicks
     if (
@@ -65,9 +92,11 @@ export default function ChronologicalMatrix({
       e.target.tagName === "SELECT" ||
       e.target.tagName === "TEXTAREA" ||
       e.target.closest("button") ||
-      e.target.closest("input")
+      e.target.closest("input") ||
+      e.button !== 0
     )
       return;
+    if (isCompleteView) return; // Allow native scrolling and selection in complete view
     setIsWttDragging(true);
     setWttStartX(e.pageX - wttScrollRef.current.offsetLeft);
     setWttStartY(e.pageY - wttScrollRef.current.offsetTop);
@@ -99,9 +128,9 @@ export default function ChronologicalMatrix({
 
   const sortedRows = useMemo(() => {
     const rowMap = new Map();
-    (filteredUnifiedRows || []).forEach((row) => {
+    (filteredUnifiedRows || []).forEach((row, rowIdx) => {
       if (!row) return;
-      const key = row.id || `${row.trainId}_${row.excelRow || ""}`;
+      const key = row.id || (row.excelRow ? `${row.trainId}_${row.excelRow}` : (row.rowSeq ? `${row.trainId}_${row.rowSeq}` : `${row.trainId}_${rowIdx}`));
       if (!rowMap.has(key)) {
         rowMap.set(key, row);
       }
@@ -323,80 +352,126 @@ export default function ChronologicalMatrix({
   return (
     <div className="w-full">
       <div className="w-full bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
-        <div className="px-4 py-2.5 bg-slate-950 border-b border-slate-800 flex justify-between items-center text-slate-200 font-mono text-xs font-bold">
-          <span className="flex items-center gap-1.5 text-emerald-400">
-            <Train className="h-4 w-4" /> RE-ALIGNED CHRONOLOGICAL MATRIX SHEET
-          </span>
+        <div className="px-4 py-2.5 bg-slate-950 border-b border-slate-800 flex flex-wrap justify-between items-center gap-2 text-slate-200 font-mono text-xs font-bold">
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5 text-emerald-400">
+              <Train className="h-4 w-4" /> RE-ALIGNED CHRONOLOGICAL MATRIX SHEET
+            </span>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+              {displayRows.length} Trips Displayed
+            </span>
+          </div>
 
-          {!isTrainOperator && (
-            <div className="flex gap-2">
-              {!isEditMode ? (
-                <button
-                  onClick={toggleEditMode}
-                  className="bg-blue-950/40 border border-blue-500/30 px-3 py-1.5 rounded text-blue-400 font-bold uppercase hover:bg-blue-900/50 transition-colors"
-                >
-                  <Edit3 className="h-3.5 w-3.5 inline mr-1" /> EDIT / PASTE
-                  MODE
-                </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* View Mode Toggle: Complete Page View vs Windowed */}
+            <button
+              onClick={() => setIsCompleteView((prev) => !prev)}
+              className={`px-3 py-1.5 rounded font-bold uppercase transition-all flex items-center gap-1.5 text-xs ${
+                isCompleteView
+                  ? "bg-emerald-600/25 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/35 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+                  : "bg-slate-800/60 border border-slate-600 text-slate-300 hover:bg-slate-700/60"
+              }`}
+              title={
+                isCompleteView
+                  ? "Currently showing all trips on complete page. Click to switch to windowed (82vh) view."
+                  : "Click to switch to complete full-page view (unconstrained height)."
+              }
+            >
+              {isCompleteView ? (
+                <Minimize2 className="h-3.5 w-3.5 text-emerald-400" />
               ) : (
-                <>
+                <Maximize2 className="h-3.5 w-3.5 text-cyan-400" />
+              )}
+              <span>
+                {isCompleteView ? "COMPLETE VIEW: ACTIVE" : "FIT TO WINDOW"}
+              </span>
+            </button>
+
+            {/* Quick Navigation: Top / Bottom */}
+            <button
+              onClick={scrollToTop}
+              className="bg-slate-800/40 border border-slate-500/30 px-2.5 py-1.5 rounded text-slate-300 font-bold uppercase hover:bg-slate-700/50 transition-colors text-xs flex items-center gap-1"
+              title="Jump to Top Trip"
+            >
+              <ArrowUp className="h-3 w-3" /> TOP
+            </button>
+            <button
+              onClick={scrollToBottom}
+              className="bg-slate-800/40 border border-slate-500/30 px-2.5 py-1.5 rounded text-slate-300 font-bold uppercase hover:bg-slate-700/50 transition-colors text-xs flex items-center gap-1"
+              title="Jump to Bottom Trip"
+            >
+              <ArrowDown className="h-3 w-3" /> BOTTOM
+            </button>
+
+            {!isTrainOperator && (
+              <>
+                {!isEditMode ? (
                   <button
                     onClick={toggleEditMode}
-                    className="bg-rose-950/40 border border-rose-500/30 px-3 py-1.5 rounded text-rose-400 font-bold uppercase hover:bg-rose-900/50 transition-colors"
+                    className="bg-blue-950/40 border border-blue-500/30 px-3 py-1.5 rounded text-blue-400 font-bold uppercase hover:bg-blue-900/50 transition-colors"
                   >
-                    <XCircle className="h-3.5 w-3.5 inline mr-1" /> CANCEL
+                    <Edit3 className="h-3.5 w-3.5 inline mr-1" /> EDIT / PASTE MODE
                   </button>
-                  <button
-                    onClick={handleSaveBulk}
-                    className="bg-emerald-950/40 border border-emerald-500/30 px-3 py-1.5 rounded text-emerald-400 font-bold uppercase hover:bg-emerald-900/50 transition-colors"
-                  >
-                    <Save className="h-3.5 w-3.5 inline mr-1" /> SAVE CHANGES
-                  </button>
-                </>
-              )}
+                ) : (
+                  <>
+                    <button
+                      onClick={toggleEditMode}
+                      className="bg-rose-950/40 border border-rose-500/30 px-3 py-1.5 rounded text-rose-400 font-bold uppercase hover:bg-rose-900/50 transition-colors"
+                    >
+                      <XCircle className="h-3.5 w-3.5 inline mr-1" /> CANCEL
+                    </button>
+                    <button
+                      onClick={handleSaveBulk}
+                      className="bg-emerald-950/40 border border-emerald-500/30 px-3 py-1.5 rounded text-emerald-400 font-bold uppercase hover:bg-emerald-900/50 transition-colors"
+                    >
+                      <Save className="h-3.5 w-3.5 inline mr-1" /> SAVE CHANGES
+                    </button>
+                  </>
+                )}
 
-              <button
-                onClick={() => {
-                  if (sortedRows.length === 0)
-                    return alert("No data to export");
-                  const headers = [
-                    "TRAIN ID",
-                    "DN_MODE",
-                    ...dnStationOrder.map((st) => `DN_${st}`),
-                    "UP_MODE",
-                    ...upStationOrder.map((st) => `UP_${st}`),
-                  ];
-                  const csvRows = [headers.join(",")];
-                  sortedRows.forEach((row) => {
-                    const csvRow = [
-                      row.trainId,
-                      row.dnMode || row.downTrip?.mode || row.mode || "ATO",
-                      ...dnStationOrder.map(
-                        (st) => row.downTrip?.stations?.[st] || "--",
-                      ),
-                      row.upMode || row.upTrip?.mode || row.mode || "ATO",
-                      ...upStationOrder.map(
-                        (st) => row.upTrip?.stations?.[st] || "--",
-                      ),
+                <button
+                  onClick={() => {
+                    if (sortedRows.length === 0)
+                      return alert("No data to export");
+                    const headers = [
+                      "TRAIN ID",
+                      "DN_MODE",
+                      ...dnStationOrder.map((st) => `DN_${st}`),
+                      "UP_MODE",
+                      ...upStationOrder.map((st) => `UP_${st}`),
                     ];
-                    csvRows.push(csvRow.join(","));
-                  });
-                  const blob = new Blob([csvRows.join("\n")], {
-                    type: "text/csv;charset=utf-8;",
-                  });
-                  const link = document.createElement("a");
-                  link.href = URL.createObjectURL(blob);
-                  link.download = `WTT_Matrix_${activeDay || "data"}_${new Date().toISOString().split("T")[0]}.csv`;
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                }}
-                className="bg-slate-800/40 border border-slate-500/30 px-3 py-1.5 rounded text-slate-400 font-bold uppercase hover:bg-slate-700/50 transition-colors"
-              >
-                <Download className="h-3.5 w-3.5 inline mr-1" /> EXPORT CSV
-              </button>
-            </div>
-          )}
+                    const csvRows = [headers.join(",")];
+                    sortedRows.forEach((row) => {
+                      const csvRow = [
+                        row.trainId,
+                        row.dnMode || row.downTrip?.mode || row.mode || "ATO",
+                        ...dnStationOrder.map(
+                          (st) => row.downTrip?.stations?.[st] || "--",
+                        ),
+                        row.upMode || row.upTrip?.mode || row.mode || "ATO",
+                        ...upStationOrder.map(
+                          (st) => row.upTrip?.stations?.[st] || "--",
+                        ),
+                      ];
+                      csvRows.push(csvRow.join(","));
+                    });
+                    const blob = new Blob([csvRows.join("\n")], {
+                      type: "text/csv;charset=utf-8;",
+                    });
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `WTT_Matrix_${activeDay || "data"}_${new Date().toISOString().split("T")[0]}.csv`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                  className="bg-slate-800/40 border border-slate-500/30 px-3 py-1.5 rounded text-slate-400 font-bold uppercase hover:bg-slate-700/50 transition-colors"
+                >
+                  <Download className="h-3.5 w-3.5 inline mr-1" /> EXPORT CSV
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         <div
@@ -405,7 +480,11 @@ export default function ChronologicalMatrix({
           onMouseLeave={onWttMouseLeave}
           onMouseUp={onWttMouseUp}
           onMouseMove={onWttMouseMove}
-          className="overflow-auto w-full max-h-145 cursor-grab active:cursor-grabbing select-none"
+          className={`overflow-x-auto w-full transition-all duration-200 ${
+            isCompleteView
+              ? "max-h-none overflow-y-visible"
+              : "max-h-[82vh] overflow-y-auto cursor-grab active:cursor-grabbing select-none"
+          } [scrollbar-width:thin] [scrollbar-color:#334155_#0f172a] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-slate-950`}
         >
           <table className="w-full text-left border-collapse font-mono text-[11px] min-w-[2000px]">
             <thead>
@@ -773,6 +852,37 @@ export default function ChronologicalMatrix({
               </button>
             </div>
           )}
+        </div>
+
+        {/* Complete View Footer with Summary & Quick Navigation */}
+        <div className="px-4 py-2.5 bg-slate-950 border-t border-slate-800 flex flex-wrap justify-between items-center gap-2 text-slate-400 font-mono text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-emerald-400 font-bold">✓ COMPLETE SCHEDULE VIEW</span>
+            <span>•</span>
+            <span className="text-slate-300 font-bold">{displayRows.length} Total Trips Displayed</span>
+            {displayRows.length > 0 && (
+              <>
+                <span className="text-slate-600">|</span>
+                <span>First: <strong className="text-cyan-400">TID {displayRows[0]?.trainId}</strong></span>
+                <span className="text-slate-600">|</span>
+                <span>Last: <strong className="text-cyan-400">TID {displayRows[displayRows.length - 1]?.trainId}</strong></span>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={scrollToTop}
+              className="text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1 text-xs transition-colors"
+            >
+              <ArrowUp className="h-3.5 w-3.5" /> Back to Top
+            </button>
+            <button
+              onClick={scrollToBottom}
+              className="text-slate-400 hover:text-slate-200 font-bold flex items-center gap-1 text-xs transition-colors"
+            >
+              <ArrowDown className="h-3.5 w-3.5" /> Jump to Bottom
+            </button>
+          </div>
         </div>
       </div>
     </div>
