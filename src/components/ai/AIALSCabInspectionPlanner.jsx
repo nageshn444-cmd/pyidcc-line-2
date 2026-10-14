@@ -11,17 +11,20 @@ import {
   RefreshCw, FileSpreadsheet, PlusCircle, Save, 
   Check, Trash2, Calendar, Activity, 
   Compass, Users, UserCheck, ShieldCheck, Share2, Printer,
-  Layers, CheckSquare, FileText, Award, Download
+  Layers, CheckSquare, FileText, Award, Download,
+  Edit3, Plus, ArrowRightLeft, RotateCcw, X
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
   OFFICIAL_ALS_MENTORS, 
   getStoredMentors, 
+  saveMentors,
   getMentorByName, 
   HARSH_JOSHI_NOMINEES,
   ARUNA_KUMAR_DS_NOMINEES,
   SHANTIRAJ_NOMINEES
 } from '../../data/mentorTrainOperatorRegistry.js';
+import { BMRCL_CREW_MASTER_BACKUP } from '../../data/bmrclCrewRegistry.js';
 import { 
   generateALSCabInspectionPlan,
   GREEN_LINE_STATIONS_LIST,
@@ -87,6 +90,223 @@ export default function AIALSCabInspectionPlanner() {
     remarks: '',
     alsName: activeMentor.name
   });
+
+  // ── Tab 4: Editable Notice Board States & Autocomplete ──
+  const [boardSearch, setBoardSearch] = useState('');
+  const [editingOp, setEditingOp] = useState(null); // { mentorId, originalEmpId, empId, name }
+  const [showAddOpModal, setShowAddOpModal] = useState(false);
+  const [addOpTargetMentorId, setAddOpTargetMentorId] = useState('');
+  const [addOpForm, setAddOpForm] = useState({ empId: '', name: '' });
+  const [addOpCrewQuery, setAddOpCrewQuery] = useState('');
+  const [transferTarget, setTransferTarget] = useState(null); // { operator, fromMentorId }
+  const [boardActionFeedback, setBoardActionFeedback] = useState(null); // { type: 'success'|'error', message }
+
+  // Sync ALS Mentors from Firestore (als_nomination_board)
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'system_config', 'als_nomination_board'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (Array.isArray(data?.mentors) && data.mentors.length > 0) {
+          setMentorsList(data.mentors);
+          saveMentors(data.mentors);
+        }
+      }
+    }, (err) => {
+      console.warn('Firestore ALS nomination board sync error:', err);
+    });
+    return () => unsub();
+  }, []);
+
+  // Listen for local custom event pyidcc_mentors_updated
+  useEffect(() => {
+    const handleMentorsUpdate = (e) => {
+      if (e.detail?.mentors) {
+        setMentorsList(e.detail.mentors);
+      }
+    };
+    window.addEventListener('pyidcc_mentors_updated', handleMentorsUpdate);
+    return () => window.removeEventListener('pyidcc_mentors_updated', handleMentorsUpdate);
+  }, []);
+
+  const persistMentors = async (updated) => {
+    setMentorsList(updated);
+    saveMentors(updated);
+    try {
+      await setDoc(doc(db, 'system_config', 'als_nomination_board'), {
+        mentors: updated,
+        updatedAt: new Date().toISOString(),
+        updatedBy: userProfile?.employeeName || userProfile?.employeeId || 'ALS Officer'
+      }, { merge: true });
+    } catch (e) {
+      console.warn('Firestore als_nomination_board sync failed:', e);
+    }
+  };
+
+  const crewMatches = useMemo(() => {
+    if (!addOpCrewQuery.trim() || addOpCrewQuery.trim().length < 2) return [];
+    const q = addOpCrewQuery.toLowerCase().trim();
+    return BMRCL_CREW_MASTER_BACKUP.filter(c => {
+      const id = String(c.id || c.employeeId || '').toLowerCase();
+      const name = String(c.name || c.employeeName || '').toLowerCase();
+      return id.includes(q) || name.includes(q);
+    }).slice(0, 8);
+  }, [addOpCrewQuery]);
+
+  const handleSaveNewOperator = (e) => {
+    if (e) e.preventDefault();
+    const cleanId = String(addOpForm.empId || '').trim();
+    const cleanName = String(addOpForm.name || '').trim();
+    if (!cleanId || !cleanName) {
+      setBoardActionFeedback({ type: 'error', message: 'Both Employee ID and Name are required.' });
+      return;
+    }
+    const targetId = addOpTargetMentorId || mentorsList[0]?.id;
+    const targetMentor = mentorsList.find(m => String(m.id) === String(targetId));
+    if (!targetMentor) return;
+
+    // Check duplicate
+    const exists = targetMentor.assignedOperators?.some(op => String(op.empId).trim() === cleanId);
+    if (exists) {
+      setBoardActionFeedback({ type: 'error', message: `Officer #${cleanId} is already assigned to ${targetMentor.name}.` });
+      return;
+    }
+
+    const updated = mentorsList.map(m => {
+      if (String(m.id) === String(targetId)) {
+        return {
+          ...m,
+          assignedOperators: [...(m.assignedOperators || []), { empId: cleanId, name: cleanName }]
+        };
+      }
+      return m;
+    });
+
+    persistMentors(updated);
+    setShowAddOpModal(false);
+    setAddOpForm({ empId: '', name: '' });
+    setAddOpCrewQuery('');
+    setBoardActionFeedback({ type: 'success', message: `Added ${cleanName} (#${cleanId}) to ${targetMentor.name}.` });
+    setTimeout(() => setBoardActionFeedback(null), 4000);
+  };
+
+  const handleSaveInlineEdit = () => {
+    if (!editingOp) return;
+    const { mentorId, originalEmpId, empId, name } = editingOp;
+    const cleanId = String(empId || '').trim();
+    const cleanName = String(name || '').trim();
+    if (!cleanId || !cleanName) {
+      setBoardActionFeedback({ type: 'error', message: 'Employee ID and Name cannot be blank.' });
+      return;
+    }
+
+    const updated = mentorsList.map(m => {
+      if (String(m.id) === String(mentorId)) {
+        const nextOps = (m.assignedOperators || []).map(op => {
+          if (String(op.empId).trim() === String(originalEmpId).trim()) {
+            return { empId: cleanId, name: cleanName };
+          }
+          return op;
+        });
+        return { ...m, assignedOperators: nextOps };
+      }
+      return m;
+    });
+
+    persistMentors(updated);
+    setEditingOp(null);
+    setBoardActionFeedback({ type: 'success', message: `Updated officer #${cleanId} (${cleanName}).` });
+    setTimeout(() => setBoardActionFeedback(null), 4000);
+  };
+
+  const handleDeleteOperator = (mentorId, empId, opName) => {
+    const mentor = mentorsList.find(m => String(m.id) === String(mentorId));
+    const confirmMsg = `Remove ${opName || 'officer'} (#${empId}) from ${mentor?.name || 'this ALS mentor'}?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    const updated = mentorsList.map(m => {
+      if (String(m.id) === String(mentorId)) {
+        return {
+          ...m,
+          assignedOperators: (m.assignedOperators || []).filter(op => String(op.empId).trim() !== String(empId).trim())
+        };
+      }
+      return m;
+    });
+
+    persistMentors(updated);
+    setBoardActionFeedback({ type: 'success', message: `Removed #${empId} from ${mentor?.name}.` });
+    setTimeout(() => setBoardActionFeedback(null), 4000);
+  };
+
+  const handleTransferOperator = (fromMentorId, toMentorId, op) => {
+    if (String(fromMentorId) === String(toMentorId)) return;
+    const targetMentor = mentorsList.find(m => String(m.id) === String(toMentorId));
+    if (!targetMentor) return;
+
+    const cleanId = String(op.empId).trim();
+    if (targetMentor.assignedOperators?.some(o => String(o.empId).trim() === cleanId)) {
+      setBoardActionFeedback({ type: 'error', message: `Officer #${cleanId} is already in ${targetMentor.name}'s list.` });
+      return;
+    }
+
+    const updated = mentorsList.map(m => {
+      if (String(m.id) === String(fromMentorId)) {
+        return {
+          ...m,
+          assignedOperators: (m.assignedOperators || []).filter(o => String(o.empId).trim() !== cleanId)
+        };
+      }
+      if (String(m.id) === String(toMentorId)) {
+        return {
+          ...m,
+          assignedOperators: [...(m.assignedOperators || []), { empId: cleanId, name: op.name }]
+        };
+      }
+      return m;
+    });
+
+    persistMentors(updated);
+    setTransferTarget(null);
+    setBoardActionFeedback({ type: 'success', message: `Transferred ${op.name} (#${cleanId}) to ${targetMentor.name}.` });
+    setTimeout(() => setBoardActionFeedback(null), 4000);
+  };
+
+  const handleResetBaseline = () => {
+    if (!window.confirm('Reset all ALS Train Operator nominations back to the official BMRCL baseline (W.E.F 23/06/2026)? This will overwrite custom edits.')) {
+      return;
+    }
+    persistMentors(OFFICIAL_ALS_MENTORS);
+    setBoardActionFeedback({ type: 'success', message: 'Restored Official BMRCL Nomination baseline.' });
+    setTimeout(() => setBoardActionFeedback(null), 4000);
+  };
+
+  const handleExportNoticeBoardExcel = () => {
+    try {
+      const rows = [];
+      mentorsList.forEach(m => {
+        (m.assignedOperators || []).forEach((op, idx) => {
+          rows.push({
+            'SL No': idx + 1,
+            'ALS Mentor Name': m.name,
+            'ALS Emp ID': m.id,
+            'ALS Designation': m.designation,
+            'ALS Weekly Off': m.fixedWo,
+            'Operator Emp ID': op.empId,
+            'Train Operator Name': op.name,
+            'Base Station': m.defaultBaseStation || 'PYID',
+            'Nomination Order': 'W.E.F 23/06/2026'
+          });
+        });
+      });
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'ALS Nomination Board');
+      XLSX.writeFile(wb, `BMRCL_ALS_Nomination_Notice_Board_${new Date().toISOString().split('T')[0]}.xlsx`);
+    } catch (err) {
+      console.error('Export error:', err);
+      alert('Unable to export Notice Board: ' + err.message);
+    }
+  };
 
   // Listen for Dispatch Core changes
   useEffect(() => {
@@ -925,91 +1145,282 @@ export default function AIALSCabInspectionPlanner() {
 
       {/* ── TAB 4: OFFICIAL BMRCL NOMINATION NOTICE BOARD MASTER ── */}
       {activeTab === 'OFFICIAL_MASTER' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-6">
-          <div className="border-b border-slate-800 pb-3">
-            <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider block">Official BMRCL Crew Control Document</span>
-            <h3 className="text-sm font-black text-slate-100 uppercase tracking-widest mt-0.5">
-              ALS NOMINATION OF LINE-2 TOs • CREW CONTROL - PYID W.E.F 23/6/2026
-            </h3>
-            <p className="text-[10px] text-slate-400 mt-1">
-              Signed by Naveen Kumar HN, Manager (Train Operation), 25/06/2026 • Peenya Depot
-            </p>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-5">
+          {/* Header & Notice Metadata */}
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 border-b border-slate-800 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider block">Official BMRCL Crew Control Document</span>
+                <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 px-1.5 py-0.5 rounded text-[9px] font-bold">
+                  Editable & Synced
+                </span>
+              </div>
+              <h3 className="text-sm font-black text-slate-100 uppercase tracking-widest mt-0.5">
+                ALS NOMINATION OF LINE-2 TOs • CREW CONTROL - PYID W.E.F 23/6/2026
+              </h3>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Authoritative Master Roster • Signed by Naveen Kumar HN, Manager (Train Operation), 25/06/2026
+              </p>
+            </div>
+
+            {/* Quick Action Toolbar */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500" />
+                <input
+                  type="text"
+                  value={boardSearch}
+                  onChange={(e) => setBoardSearch(e.target.value)}
+                  placeholder="Filter TO name or ID..."
+                  className="bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 w-48 transition"
+                />
+                {boardSearch && (
+                  <button 
+                    onClick={() => setBoardSearch('')}
+                    className="absolute right-2 top-2 text-slate-500 hover:text-slate-300 text-xs"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAddOpTargetMentorId(mentorsList[0]?.id || '');
+                  setAddOpForm({ empId: '', name: '' });
+                  setAddOpCrewQuery('');
+                  setShowAddOpModal(true);
+                }}
+                className="bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-black px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition shadow-sm cursor-pointer"
+              >
+                <Plus size={13} /> Add Train Operator
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportNoticeBoardExcel}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer"
+                title="Export Notice Board to Excel"
+              >
+                <Download size={13} /> Export Excel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResetBaseline}
+                className="bg-slate-950 hover:bg-rose-950/40 text-slate-400 hover:text-rose-300 border border-slate-800 hover:border-rose-800 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer"
+                title="Reset back to official 23/06/2026 baseline document"
+              >
+                <RotateCcw size={12} /> Baseline
+              </button>
+            </div>
           </div>
 
+          {/* Action Feedback Banner */}
+          {boardActionFeedback && (
+            <div className={`p-2.5 rounded-lg text-xs font-bold flex items-center justify-between animate-in fade-in ${
+              boardActionFeedback.type === 'error' 
+                ? 'bg-rose-950/60 border border-rose-500/50 text-rose-200' 
+                : 'bg-emerald-950/60 border border-emerald-500/50 text-emerald-200'
+            }`}>
+              <span>{boardActionFeedback.message}</span>
+              <button 
+                onClick={() => setBoardActionFeedback(null)}
+                className="text-slate-400 hover:text-white text-xs ml-2"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* 3 Columns Grid for ALS Mentors */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            
-            {/* Column 1: Harsh Joshi */}
-            <div className="bg-slate-950 border border-cyan-800/80 rounded-xl p-4 space-y-3">
-              <div className="flex justify-between items-center border-b border-cyan-900/40 pb-2">
-                <div>
-                  <strong className="text-cyan-300 font-black text-xs block">ALS HARSH JOSHI</strong>
-                  <span className="text-[9px] text-slate-400 font-bold">Emp ID: #20087 • Official ALS</span>
-                </div>
-                <span className="bg-cyan-950 text-cyan-400 border border-cyan-800 px-2 py-0.5 rounded text-[9px] font-black">
-                  {HARSH_JOSHI_NOMINEES.length} TOs
-                </span>
-              </div>
-              <div className="max-h-[500px] overflow-y-auto space-y-1 pr-1">
-                {HARSH_JOSHI_NOMINEES.map((op, idx) => (
-                  <div key={op.empId} className="bg-slate-900/60 p-2 rounded flex justify-between items-center text-[10px]">
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-500 font-mono w-5">{idx + 1}.</span>
-                      <strong className="text-slate-200">{op.name}</strong>
-                    </div>
-                    <span className="text-slate-400 font-mono font-bold">#{op.empId}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            {mentorsList.map((mentor, mIdx) => {
+              const theme = [
+                {
+                  border: 'border-cyan-800/80',
+                  headerBg: 'bg-cyan-950/40',
+                  headerBorder: 'border-cyan-900/40',
+                  title: 'text-cyan-300',
+                  badge: 'bg-cyan-950 text-cyan-400 border-cyan-800',
+                  btnAdd: 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border-cyan-500/40',
+                  rowHighlight: 'hover:border-cyan-700/60'
+                },
+                {
+                  border: 'border-indigo-800/80',
+                  headerBg: 'bg-indigo-950/40',
+                  headerBorder: 'border-indigo-900/40',
+                  title: 'text-indigo-300',
+                  badge: 'bg-indigo-950 text-indigo-400 border-indigo-800',
+                  btnAdd: 'bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border-indigo-500/40',
+                  rowHighlight: 'hover:border-indigo-700/60'
+                },
+                {
+                  border: 'border-purple-800/80',
+                  headerBg: 'bg-purple-950/40',
+                  headerBorder: 'border-purple-900/40',
+                  title: 'text-purple-300',
+                  badge: 'bg-purple-950 text-purple-400 border-purple-800',
+                  btnAdd: 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border-purple-500/40',
+                  rowHighlight: 'hover:border-purple-700/60'
+                }
+              ][mIdx % 3];
 
-            {/* Column 2: Aruna Kumar DS */}
-            <div className="bg-slate-950 border border-indigo-800/80 rounded-xl p-4 space-y-3">
-              <div className="flex justify-between items-center border-b border-indigo-900/40 pb-2">
-                <div>
-                  <strong className="text-indigo-300 font-black text-xs block">ALS ARUNA KUMAR DS</strong>
-                  <span className="text-[9px] text-slate-400 font-bold">Emp ID: #20018 • Official ALS</span>
-                </div>
-                <span className="bg-indigo-950 text-indigo-400 border border-indigo-800 px-2 py-0.5 rounded text-[9px] font-black">
-                  {ARUNA_KUMAR_DS_NOMINEES.length} TOs
-                </span>
-              </div>
-              <div className="max-h-[500px] overflow-y-auto space-y-1 pr-1">
-                {ARUNA_KUMAR_DS_NOMINEES.map((op, idx) => (
-                  <div key={op.empId} className="bg-slate-900/60 p-2 rounded flex justify-between items-center text-[10px]">
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-500 font-mono w-5">{idx + 1}.</span>
-                      <strong className="text-slate-200">{op.name}</strong>
-                    </div>
-                    <span className="text-slate-400 font-mono font-bold">#{op.empId}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+              const allOps = mentor.assignedOperators || [];
+              const q = boardSearch.toLowerCase().trim();
+              const visibleOps = q 
+                ? allOps.filter(o => 
+                    String(o.empId).toLowerCase().includes(q) || 
+                    String(o.name).toLowerCase().includes(q)
+                  )
+                : allOps;
 
-            {/* Column 3: Shantiraj */}
-            <div className="bg-slate-950 border border-purple-800/80 rounded-xl p-4 space-y-3">
-              <div className="flex justify-between items-center border-b border-purple-900/40 pb-2">
-                <div>
-                  <strong className="text-purple-300 font-black text-xs block">ALS SHANTIRAJ</strong>
-                  <span className="text-[9px] text-slate-400 font-bold">Emp ID: #20057 • Official ALS</span>
-                </div>
-                <span className="bg-purple-950 text-purple-400 border border-purple-800 px-2 py-0.5 rounded text-[9px] font-black">
-                  {SHANTIRAJ_NOMINEES.length} TOs
-                </span>
-              </div>
-              <div className="max-h-[500px] overflow-y-auto space-y-1 pr-1">
-                {SHANTIRAJ_NOMINEES.map((op, idx) => (
-                  <div key={op.empId} className="bg-slate-900/60 p-2 rounded flex justify-between items-center text-[10px]">
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-500 font-mono w-5">{idx + 1}.</span>
-                      <strong className="text-slate-200">{op.name}</strong>
+              return (
+                <div key={mentor.id || mentor.name} className={`bg-slate-950 border ${theme.border} rounded-xl p-4 space-y-3 flex flex-col justify-between`}>
+                  {/* Column Header */}
+                  <div>
+                    <div className={`flex justify-between items-start border-b ${theme.headerBorder} pb-2.5`}>
+                      <div>
+                        <strong className={`${theme.title} font-black text-xs block uppercase tracking-wide`}>
+                          ALS {mentor.name}
+                        </strong>
+                        <span className="text-[9px] text-slate-400 font-bold block mt-0.5">
+                          Emp ID: #{mentor.id} • {mentor.designation || 'Official ALS'}
+                        </span>
+                        <span className="text-[9px] text-slate-500">
+                          WO: {mentor.fixedWo || 'Sunday'} • Desk: {mentor.desk || 'PYID ALS Desk'}
+                        </span>
+                      </div>
+                      <div className="flex flex-col items-end gap-1.5">
+                        <span className={`${theme.badge} border px-2 py-0.5 rounded text-[9px] font-black`}>
+                          {allOps.length} TOs
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAddOpTargetMentorId(mentor.id);
+                            setAddOpForm({ empId: '', name: '' });
+                            setAddOpCrewQuery('');
+                            setShowAddOpModal(true);
+                          }}
+                          className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${theme.btnAdd} transition flex items-center gap-1 cursor-pointer`}
+                        >
+                          <Plus size={10} /> Add TO
+                        </button>
+                      </div>
                     </div>
-                    <span className="text-slate-400 font-mono font-bold">#{op.empId}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
 
+                    {/* Operator List */}
+                    <div className="max-h-[520px] overflow-y-auto space-y-1.5 pr-1 mt-3">
+                      {visibleOps.length === 0 ? (
+                        <div className="text-center py-6 text-slate-600 text-xs">
+                          {boardSearch ? 'No matching TO found.' : 'No operators assigned yet.'}
+                        </div>
+                      ) : (
+                        visibleOps.map((op, idx) => {
+                          const isEditingThis = editingOp?.mentorId === mentor.id && String(editingOp?.originalEmpId) === String(op.empId);
+
+                          if (isEditingThis) {
+                            return (
+                              <div key={op.empId} className="bg-slate-900 border border-amber-500/50 p-2 rounded-lg space-y-1.5">
+                                <div className="text-[9px] font-bold text-amber-400 uppercase tracking-wider">Edit Operator</div>
+                                <div className="grid grid-cols-2 gap-1.5">
+                                  <input
+                                    type="text"
+                                    value={editingOp.name}
+                                    onChange={(e) => setEditingOp(prev => ({ ...prev, name: e.target.value }))}
+                                    placeholder="Name"
+                                    className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={editingOp.empId}
+                                    onChange={(e) => setEditingOp(prev => ({ ...prev, empId: e.target.value }))}
+                                    placeholder="Emp ID"
+                                    className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white"
+                                  />
+                                </div>
+                                <div className="flex justify-end gap-1.5 pt-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingOp(null)}
+                                    className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[9px] font-bold uppercase cursor-pointer"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleSaveInlineEdit}
+                                    className="px-2.5 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 rounded text-[9px] font-black uppercase flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Check size={11} /> Save
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div 
+                              key={op.empId} 
+                              className={`group bg-slate-900/70 border border-slate-800/80 ${theme.rowHighlight} p-2 rounded-lg flex justify-between items-center text-[10px] transition`}
+                            >
+                              <div className="flex items-center gap-2 truncate pr-2">
+                                <span className="text-slate-500 font-mono w-5 shrink-0">{idx + 1}.</span>
+                                <strong className="text-slate-200 truncate">{op.name}</strong>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-slate-400 font-mono font-bold bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 text-[9px]">
+                                  #{op.empId}
+                                </span>
+                                
+                                {/* Edit & Transfer & Delete Action Icons (Visible on group hover or always accessible) */}
+                                <div className="opacity-70 group-hover:opacity-100 flex items-center gap-1 transition">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingOp({ mentorId: mentor.id, originalEmpId: op.empId, empId: op.empId, name: op.name })}
+                                    className="p-1 hover:bg-slate-800 text-slate-400 hover:text-amber-300 rounded transition cursor-pointer"
+                                    title="Edit Operator Name/ID"
+                                  >
+                                    <Edit3 size={11} />
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => setTransferTarget({ operator: op, fromMentorId: mentor.id })}
+                                    className="p-1 hover:bg-slate-800 text-slate-400 hover:text-cyan-300 rounded transition cursor-pointer"
+                                    title="Transfer TO to another ALS"
+                                  >
+                                    <ArrowRightLeft size={11} />
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteOperator(mentor.id, op.empId, op.name)}
+                                    className="p-1 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 rounded transition cursor-pointer"
+                                    title="Remove TO from this ALS"
+                                  >
+                                    <Trash2 size={11} />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Column Footer */}
+                  <div className="pt-2 border-t border-slate-900 text-[9px] text-slate-500 flex justify-between items-center">
+                    <span>Base: {mentor.defaultBaseStation || 'PYID'}</span>
+                    <span>Shift: {mentor.defaultShift || '09:00 - 17:30'}</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -1124,6 +1535,205 @@ export default function AIALSCabInspectionPlanner() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── 6. ADD TRAIN OPERATOR TO NOTICE BOARD MODAL ── */}
+      {showAddOpModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-xl shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-sm font-black text-slate-100 uppercase tracking-widest flex items-center gap-2">
+                  <Plus className="text-cyan-400 h-4 w-4" /> Add Train Operator to Notice Board
+                </h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Nominate a Train Operator to an Official ALS Mentor
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowAddOpModal(false)}
+                className="text-slate-500 hover:text-slate-300 font-bold text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveNewOperator} className="space-y-4">
+              {/* Target ALS Mentor */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Assign To ALS Mentor
+                </label>
+                <select
+                  value={addOpTargetMentorId}
+                  onChange={(e) => setAddOpTargetMentorId(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-bold"
+                >
+                  {mentorsList.map(m => (
+                    <option key={m.id} value={m.id}>
+                      ALS {m.name} (#{m.id}) • {m.assignedOperators?.length || 0} TOs
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Quick Autocomplete Search from BMRCL Crew Master */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Quick Search BMRCL Crew Registry
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500" />
+                  <input
+                    type="text"
+                    value={addOpCrewQuery}
+                    onChange={(e) => setAddOpCrewQuery(e.target.value)}
+                    placeholder="Type name or Emp ID (e.g. 21414, Harsha)..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+
+                {crewMatches.length > 0 && (
+                  <div className="mt-1 bg-slate-950 border border-slate-800 rounded-lg max-h-36 overflow-y-auto divide-y divide-slate-900 shadow-xl">
+                    {crewMatches.map(c => (
+                      <div
+                        key={c.id || c.employeeId}
+                        onClick={() => {
+                          setAddOpForm({
+                            empId: String(c.id || c.employeeId),
+                            name: c.name || c.employeeName
+                          });
+                          setAddOpCrewQuery('');
+                        }}
+                        className="p-2 hover:bg-cyan-950/40 text-xs flex justify-between items-center cursor-pointer transition"
+                      >
+                        <span className="font-bold text-slate-200">{c.name || c.employeeName}</span>
+                        <span className="font-mono text-cyan-400 text-[10px]">#{c.id || c.employeeId}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Direct Inputs */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    Employee ID *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={addOpForm.empId}
+                    onChange={(e) => setAddOpForm(prev => ({ ...prev, empId: e.target.value }))}
+                    placeholder="e.g. 21414"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    Operator Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={addOpForm.name}
+                    onChange={(e) => setAddOpForm(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g. Harsha N"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowAddOpModal(false)}
+                  className="bg-slate-950 border border-slate-800 hover:bg-slate-800 text-slate-400 px-4 py-2 rounded-lg font-bold uppercase text-[10px] transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-black px-4 py-2 rounded-lg font-bold uppercase text-[10px] transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                >
+                  <Plus size={13} /> Add to Board
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── 7. TRANSFER TRAIN OPERATOR MODAL ── */}
+      {transferTarget && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-xl shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-sm font-black text-slate-100 uppercase tracking-widest flex items-center gap-2">
+                  <ArrowRightLeft className="text-cyan-400 h-4 w-4" /> Transfer Train Operator
+                </h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Reassign TO nomination to another Official ALS Mentor
+                </p>
+              </div>
+              <button 
+                onClick={() => setTransferTarget(null)}
+                className="text-slate-500 hover:text-slate-300 font-bold text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-slate-950 border border-slate-800 p-3 rounded-lg text-xs space-y-1">
+              <div className="text-slate-400 text-[10px] uppercase font-bold">Selected Train Operator</div>
+              <div className="text-slate-200 font-black text-sm flex items-center justify-between">
+                <span>{transferTarget.operator.name}</span>
+                <span className="font-mono text-cyan-400 text-xs">#{transferTarget.operator.empId}</span>
+              </div>
+              <div className="text-[10px] text-slate-500 pt-1">
+                Currently Assigned to: <strong className="text-slate-300">ALS {mentorsList.find(m => String(m.id) === String(transferTarget.fromMentorId))?.name || 'Current ALS'}</strong>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Select Destination ALS Mentor:
+              </label>
+              <div className="space-y-1.5">
+                {mentorsList
+                  .filter(m => String(m.id) !== String(transferTarget.fromMentorId))
+                  .map(m => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => handleTransferOperator(transferTarget.fromMentorId, m.id, transferTarget.operator)}
+                      className="w-full bg-slate-950 hover:bg-cyan-950/40 border border-slate-800 hover:border-cyan-700/60 p-3 rounded-lg flex items-center justify-between text-left transition cursor-pointer"
+                    >
+                      <div>
+                        <strong className="text-xs text-slate-200 block">ALS {m.name}</strong>
+                        <span className="text-[9px] text-slate-500">#{m.id} • WO: {m.fixedWo || 'Sunday'}</span>
+                      </div>
+                      <span className="text-[9px] font-bold px-2 py-1 rounded bg-slate-900 text-cyan-300 border border-slate-700 flex items-center gap-1">
+                        Move Here <ArrowRight size={10} />
+                      </span>
+                    </button>
+                  ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setTransferTarget(null)}
+                className="bg-slate-950 border border-slate-800 hover:bg-slate-800 text-slate-400 px-4 py-2 rounded-lg font-bold uppercase text-[10px] transition cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
