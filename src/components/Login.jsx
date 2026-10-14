@@ -60,13 +60,10 @@ export default function Login() {
   const handleStaffLogin = async (e) => {
     e.preventDefault();
     const cleanId = employeeId.trim();
-    const cleanPassword = password.trim();
+    // Default to Employee ID if password field is left empty
+    const cleanPassword = password.trim() || cleanId;
     if (!cleanId) {
-      setError('Please enter your Employee ID or email.');
-      return;
-    }
-    if (!cleanPassword) {
-      setError('Please enter your password.');
+      setError('Please enter your Employee ID (5-digit starting with 2 for regular staff or 10-digit starting with 8 for JMD TD).');
       return;
     }
 
@@ -76,7 +73,7 @@ export default function Login() {
     try {
       const result = await loginWithIdAndPassword(cleanId, cleanPassword);
       if (result?.pendingApproval && !isOwnerUser(result?.user, null)) {
-        setLocalPendingMessage(result.message || 'Your account is pending administrator approval.');
+        setLocalPendingMessage(result.message || 'Your account is pending administrator activation.');
       } else {
         const dest = location.state?.from?.pathname && location.state.from.pathname !== '/login' 
           ? location.state.from.pathname 
@@ -264,10 +261,26 @@ export default function Login() {
         {/* TAB 1: STAFF ID LOGIN (Works on Mobile, LAN, & Any Device) */}
         {activeTab === 'staff' && (
           <form onSubmit={handleStaffLogin} className="space-y-4">
+            {/* Guide Banner */}
+            <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-[10px] space-y-1">
+              <div className="text-amber-400 font-bold flex items-center justify-between">
+                <span>Employee ID Login Notice</span>
+                <span className="text-[9px] text-slate-400 font-normal">All Ranks</span>
+              </div>
+              <div className="text-slate-400 text-[9px] leading-relaxed">
+                • <strong className="text-slate-300">Regular Staff</strong>: 5-digit ID (starting with 2, e.g. 20xxx)<br/>
+                • <strong className="text-slate-300">JMD Train Drivers (TD)</strong>: 10-digit ID (starting with 8, e.g. 8xxxxxxxxx)<br/>
+                • <strong className="text-emerald-400">Password</strong>: Use the <strong className="text-emerald-300">same Employee ID</strong> as your password.
+              </div>
+            </div>
+
             <div>
-              <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-1.5">
-                Employee ID or Email
-              </label>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+                  Employee ID
+                </label>
+                <span className="text-[9px] text-slate-500 font-mono">5-digit (2xxxx) / 10-digit (8xxxxxxxxx)</span>
+              </div>
               <div className="relative">
                 <User className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-500" />
                 <input 
@@ -280,7 +293,7 @@ export default function Login() {
                   required
                   value={employeeId}
                   onChange={(e) => setEmployeeId(e.target.value)}
-                  placeholder="e.g. 20726 or official email"
+                  placeholder="e.g. 20726 or 88000087 / 8000000001"
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500 transition-colors"
                 />
               </div>
@@ -291,13 +304,25 @@ export default function Login() {
                 <label className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
                   Password
                 </label>
-                <button 
-                  type="button"
-                  onClick={() => setShowForgotModal(true)}
-                  className="text-[9px] font-bold text-amber-400 hover:text-amber-300 uppercase tracking-wider"
-                >
-                  Forgot Password?
-                </button>
+                <div className="flex items-center gap-2">
+                  {employeeId.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => setPassword(employeeId.trim())}
+                      className="text-[9px] font-bold text-emerald-400 hover:text-emerald-300 underline uppercase tracking-wider"
+                      title="Set password to match your Employee ID"
+                    >
+                      Use Employee ID
+                    </button>
+                  )}
+                  <button 
+                    type="button"
+                    onClick={() => setShowForgotModal(true)}
+                    className="text-[9px] font-bold text-amber-400 hover:text-amber-300 uppercase tracking-wider"
+                  >
+                    Forgot?
+                  </button>
+                </div>
               </div>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-500" />
@@ -307,10 +332,9 @@ export default function Login() {
                   autoCapitalize="none"
                   autoCorrect="off"
                   spellCheck="false"
-                  required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  placeholder="Same as Employee ID by default"
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-10 py-3 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500 transition-colors"
                 />
                 <button
@@ -321,6 +345,9 @@ export default function Login() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              <p className="text-[9px] text-slate-500 mt-1">
+                Leave blank or enter your Employee ID to sign in with default credentials.
+              </p>
             </div>
 
             <button 

@@ -22,6 +22,8 @@ import {
   setDoc, addDoc, serverTimestamp, updateDoc, onSnapshot 
 } from 'firebase/firestore';
 import { getRoleDefaultPermissions } from '../utils/dbSeeder';
+import { BMRCL_CREW_MASTER_BACKUP } from '../data/bmrclCrewRegistry';
+import { OFFICIAL_JMD_TD_REGISTRY } from '../data/jmdCrewMaster';
 
 const OWNER_EMAIL = 'nageshn444@gmail.com';
 const OWNER_UID   = 'EByfpLYSWsM2nxTKB1urzXgHjV02';
@@ -126,15 +128,116 @@ const findSystemUserProfile = async (employeeId, email = '') => {
   return null;
 };
 
+export const findRegistryEmployee = (employeeId) => {
+  if (!employeeId) return null;
+  const idStr = String(employeeId).trim();
+  if (!idStr) return null;
+
+  // 1. Check Super Admin
+  if (idStr === '20726') {
+    return {
+      employeeId: '20726',
+      employeeName: 'Nagesha N',
+      email: OWNER_EMAIL,
+      designation: 'Station Superintendent',
+      role: 'SUPER_ADMIN',
+      depot: 'Peenya Depot (PYID)',
+      isJmd: false
+    };
+  }
+
+  // 2. Check BMRCL regular crew registry (5-digit IDs or other regular employees)
+  const bmrclMatch = BMRCL_CREW_MASTER_BACKUP.find(c => 
+    String(c.id || c.employeeId || c.empId).trim() === idStr
+  );
+  if (bmrclMatch) {
+    const rawRole = bmrclMatch.role || bmrclMatch.designation || '';
+    let mappedRole = 'TRAIN_OPERATOR';
+    if (rawRole.includes('Superintendent') || rawRole.includes('Station Superintendent')) {
+      mappedRole = 'ADMIN_Station_Superintendent';
+    } else if (rawRole.includes('Crew Controller')) {
+      mappedRole = 'CREW_CONTROLLER';
+    } else if (rawRole === 'Station Controller') {
+      mappedRole = 'STATION_CONTROLLER';
+    } else {
+      mappedRole = 'TRAIN_OPERATOR';
+    }
+
+    return {
+      employeeId: idStr,
+      employeeName: bmrclMatch.name || bmrclMatch.employeeName || `Officer ${idStr}`,
+      email: bmrclMatch.email || `${idStr}@pyidcc.bmrcl.com`,
+      designation: bmrclMatch.designation || 'Station Controller / Train Operator',
+      role: mappedRole,
+      depot: bmrclMatch.depot || 'Peenya Depot (PYID)',
+      isJmd: false
+    };
+  }
+
+  // 3. Check OFFICIAL_JMD_TD_REGISTRY (8-series / 10-digit IDs)
+  const jmdMatch = OFFICIAL_JMD_TD_REGISTRY.find(j =>
+    String(j.empId || j.id || j.employeeId).trim() === idStr
+  );
+  if (jmdMatch) {
+    return {
+      employeeId: idStr,
+      employeeName: jmdMatch.name || `JMD Driver ${idStr}`,
+      email: `${idStr}@pyidcc.bmrcl.com`,
+      designation: jmdMatch.designation || 'Train Driver (JMD Contract)',
+      role: 'TRAIN_OPERATOR',
+      depot: jmdMatch.boardingStation === 'PYID' ? 'Peenya Depot (PYID)' : (jmdMatch.depot || 'Peenya Depot (PYID)'),
+      isJmd: true
+    };
+  }
+
+  // 4. Pattern-based fallback:
+  // JMD TD: 8-series (starts with 8, 8 to 10 digits)
+  if (idStr.startsWith('8')) {
+    return {
+      employeeId: idStr,
+      employeeName: `Train Driver (${idStr})`,
+      email: `${idStr}@pyidcc.bmrcl.com`,
+      designation: 'Train Driver (JMD Contract)',
+      role: 'TRAIN_OPERATOR',
+      depot: 'Peenya Depot (PYID)',
+      isJmd: true
+    };
+  }
+
+  // Regular BMRCL employee: 5-digit ID (starts with 2)
+  if (/^2\d{4}$/.test(idStr) || idStr.startsWith('2')) {
+    return {
+      employeeId: idStr,
+      employeeName: `Train Operator (${idStr})`,
+      email: `${idStr}@pyidcc.bmrcl.com`,
+      designation: 'Station Controller / Train Operator',
+      role: 'TRAIN_OPERATOR',
+      depot: 'Peenya Depot (PYID)',
+      isJmd: false
+    };
+  }
+
+  // Generic staff fallback
+  return {
+    employeeId: idStr,
+    employeeName: `BMRCL Staff (${idStr})`,
+    email: `${idStr}@pyidcc.bmrcl.com`,
+    designation: 'Station Controller / Train Operator',
+    role: 'TRAIN_OPERATOR',
+    depot: 'Peenya Depot (PYID)',
+    isJmd: false
+  };
+};
+
 const mapDesignationToRole = (employeeId, designation) => {
   if (String(employeeId) === '20726') return 'SUPER_ADMIN';
-  if (!designation) return 'VIEWER';
+  if (!designation) return 'TRAIN_OPERATOR';
   const d = String(designation).trim();
-  if (d === 'Station Superintendent') return 'ADMIN_Station_Superintendent';
-  if (d === 'Crew Controller' || d === 'CREW_CONTROLLER') return 'CREW_CONTROLLER';
+  if (d.includes('Superintendent') || d.includes('Station Superintendent')) return 'ADMIN_Station_Superintendent';
+  if (d.includes('Crew Controller') || d.includes('CREW_CONTROLLER')) return 'CREW_CONTROLLER';
   if (d === 'Station Controller') return 'STATION_CONTROLLER';
-  if (d === 'Train Operator' || d === 'Station Controller / Train Operator') return 'TRAIN_OPERATOR';
-  return 'VIEWER';
+  if (d.includes('Train Driver') || d.includes('Train Operator') || d.includes('Driver') || d.includes('Operator')) return 'TRAIN_OPERATOR';
+  return 'TRAIN_OPERATOR';
 };
 
 const AuthContext = createContext();
@@ -249,6 +352,9 @@ export function AuthProvider({ children }) {
 
   const checkEmployeeExists = async (empId, email) => {
     if (String(empId) === '20726') return true;
+    const strId = String(empId || '').trim();
+    if (strId.startsWith('2') || strId.startsWith('8')) return true;
+    if (findRegistryEmployee(strId)) return true;
     try {
       const id = normalizeEmployeeId(empId);
       if (id) {
@@ -282,7 +388,7 @@ export function AuthProvider({ children }) {
         }
       }
     } catch (_) {}
-    return false;
+    return true; // Default allow staff employee IDs
   };
 
   const resolveUserProfile = async (user) => {
@@ -313,7 +419,13 @@ export function AuthProvider({ children }) {
         if (isOwner(user) || isOwnerUser(user, dData) || String(dData.employeeId) === '20726') {
           return { ...OWNER_PROFILE, ...dData, uid: user.uid, role: 'SUPER_ADMIN' };
         }
-        return dData;
+        return {
+          ...dData,
+          approved: dData.approved !== false,
+          active: dData.active !== false,
+          loginEnabled: dData.loginEnabled !== false,
+          status: dData.status || 'ACTIVE'
+        };
       }
     } catch (_) {}
 
@@ -324,13 +436,18 @@ export function AuthProvider({ children }) {
         const snapEmail = await getDocs(qEmail);
         if (!snapEmail.empty) {
           const found = snapEmail.docs[0].data();
-          await setDoc(doc(db, 'system_users', user.uid), {
+          const merged = {
             ...found,
             uid: user.uid,
             email,
+            approved: true,
+            active: true,
+            loginEnabled: true,
+            status: 'ACTIVE',
             updatedAt: new Date().toISOString()
-          }, { merge: true });
-          return found;
+          };
+          await setDoc(doc(db, 'system_users', user.uid), merged, { merge: true });
+          return merged;
         }
       } catch (_) {}
     }
@@ -342,67 +459,68 @@ export function AuthProvider({ children }) {
         const snapEmp = await getDocs(qEmp);
         if (!snapEmp.empty) {
           const found = snapEmp.docs[0].data();
-          await setDoc(doc(db, 'system_users', user.uid), {
+          const merged = {
             ...found,
             uid: user.uid,
             employeeId: empCandidate,
+            approved: true,
+            active: true,
+            loginEnabled: true,
+            status: 'ACTIVE',
             updatedAt: new Date().toISOString()
-          }, { merge: true });
-          return found;
+          };
+          await setDoc(doc(db, 'system_users', user.uid), merged, { merge: true });
+          return merged;
         }
       } catch (_) {}
     }
 
-    // 4. Fallback to users collection
+    // 4. Registry Lookup or users collection fallback
+    const registryInfo = findRegistryEmployee(empCandidate);
+    let uData = null;
     if (empCandidate) {
       try {
         const uSnap = await getDoc(doc(db, 'users', empCandidate));
         if (uSnap.exists()) {
-          const uData = uSnap.data();
-          const profile = {
-            uid: user.uid,
-            employeeId: empCandidate,
-            employeeName: uData.employeeName || user.displayName || 'BMRCL Officer',
-            email: email || uData.email || `${empCandidate}@pyidcc.bmrcl.com`,
-            designation: uData.designation || 'Station Controller / Train Operator',
-            role: uData.role || 'TRAIN_OPERATOR',
-            depot: uData.depot || 'Peenya Depot (PYID)',
-            status: 'ACTIVE',
-            active: true,
-            approved: true,
-            loginEnabled: true,
-            updatedAt: new Date().toISOString()
-          };
-          await setDoc(doc(db, 'system_users', user.uid), profile, { merge: true });
-          return profile;
+          uData = uSnap.data();
         }
       } catch (_) {}
     }
 
-    // 5. Check approved login_requests
-    if (email) {
-      const approved = await findApprovedLoginRequest(email);
-      if (approved) {
-        const profile = {
-          uid: user.uid,
-          employeeId: approved.employeeId || empCandidate || '',
-          employeeName: approved.employeeName || user.displayName || 'BMRCL Officer',
-          email,
-          designation: approved.designation || 'Station Controller / Train Operator',
-          role: approved.requestedRole || 'TRAIN_OPERATOR',
-          depot: approved.depot || 'Peenya Depot (PYID)',
-          status: 'ACTIVE',
-          active: true,
-          approved: true,
-          loginEnabled: true,
-          updatedAt: new Date().toISOString()
-        };
-        await setDoc(doc(db, 'system_users', user.uid), profile, { merge: true });
-        return profile;
-      }
-    }
+    const assignedRole = uData?.role || registryInfo?.role || 'TRAIN_OPERATOR';
+    const assignedDesignation = uData?.designation || registryInfo?.designation || 'Station Controller / Train Operator';
+    const assignedName = uData?.employeeName || user.displayName || registryInfo?.employeeName || `Officer ${empCandidate}`;
+    const assignedDepot = uData?.depot || registryInfo?.depot || 'Peenya Depot (PYID)';
 
-    return null;
+    const profile = {
+      uid: user.uid,
+      employeeId: empCandidate || user.uid.substring(0, 8),
+      employeeName: assignedName,
+      email: email || `${empCandidate}@pyidcc.bmrcl.com`,
+      designation: assignedDesignation,
+      role: assignedRole,
+      depot: assignedDepot,
+      status: 'ACTIVE',
+      active: true,
+      approved: true,
+      loginEnabled: true,
+      passwordResetRequired: false,
+      firstLogin: false,
+      updatedAt: new Date().toISOString()
+    };
+
+    // Commit active profile and role permissions to Firestore in background
+    Promise.all([
+      setDoc(doc(db, 'system_users', user.uid), profile, { merge: true }),
+      setDoc(doc(db, 'users', profile.employeeId), profile, { merge: true }),
+      setDoc(doc(db, 'userPermissions', profile.employeeId), {
+        employeeId: profile.employeeId,
+        permissions: getRoleDefaultPermissions(profile.role),
+        updatedAt: new Date().toISOString()
+      }, { merge: true })
+    ]).catch(() => {});
+
+    return profile;
   };
 
   // ─── Auth State Listener ────────────────────────────────────────────────────
@@ -570,9 +688,9 @@ export function AuthProvider({ children }) {
           }
 
           // Block check
-          const approved      = profile.approved === true;
-          const loginEnabled  = profile.loginEnabled === true;
-          const active        = profile.active === true || profile.status === 'ACTIVE';
+          const approved      = profile.approved !== false;
+          const loginEnabled  = profile.loginEnabled !== false;
+          const active        = profile.active !== false && profile.status !== 'SUSPENDED' && profile.status !== 'BLOCKED';
 
           if (!approved || !loginEnabled || !active) {
             setUserProfile(profile);
@@ -849,72 +967,41 @@ export function AuthProvider({ children }) {
     let profile = await resolveUserProfile(user);
 
     if (profile) {
-      const approved = isAccessReadyProfile(profile);
       setUserProfile(profile);
       setLoading(false);
-
-      if (approved) {
-        setApprovalPending(false);
-        setApprovalPendingMessage('');
-        setDoc(doc(db, 'system_users', user.uid), {
-          ...profile,
-          uid: user.uid,
-          email: user.email || profile.email,
-          updatedAt: new Date().toISOString()
-        }, { merge: true }).catch(() => {});
-        return { ok: true, user, approved: true };
-      }
-      setApprovalPending(true);
-      const msg = 'Your account is pending Super Admin or Admin SS approval.';
-      setApprovalPendingMessage(msg);
-      return { ok: true, user, pendingApproval: true, message: msg };
-    }
-
-    const approvedRequest = await findApprovedLoginRequest(user.email);
-    if (approvedRequest) {
-      const newProf = {
-        uid: user.uid,
-        employeeId: approvedRequest.employeeId || user.email?.split('@')[0] || '',
-        employeeName: approvedRequest.employeeName || user.displayName || user.email || 'BMRCL Officer',
-        email: user.email || approvedRequest.email,
-        designation: approvedRequest.designation || 'Station Controller / Train Operator',
-        role: approvedRequest.requestedRole || 'VIEWER',
-        depot: approvedRequest.depot || 'Peenya Depot (PYID)',
-        approved: true,
-        loginEnabled: true,
-        active: true,
-        status: 'ACTIVE',
-        updatedAt: new Date().toISOString()
-      };
-      try {
-        await setDoc(doc(db, 'system_users', user.uid), newProf, { merge: true });
-      } catch (profileWriteErr) {
-        console.warn('Approved-request profile sync skipped during sign-in:', profileWriteErr);
-      }
-      setUserProfile(newProf);
       setApprovalPending(false);
       setApprovalPendingMessage('');
+      setDoc(doc(db, 'system_users', user.uid), {
+        ...profile,
+        uid: user.uid,
+        email: user.email || profile.email,
+        updatedAt: new Date().toISOString()
+      }, { merge: true }).catch(() => {});
       return { ok: true, user, approved: true };
     }
 
-    try {
-      await createLoginRequest(
-        user.email?.split('@')[0] || '',
-        user.displayName || user.email || 'BMRCL Officer',
-        'Station Controller / Train Operator',
-        'Peenya Depot (PYID)',
-        user.email || '',
-        user.providerData?.[0]?.providerId === 'google.com' ? 'Google' : 'Staff_ID',
-        user.uid
-      );
-    } catch (requestErr) {
-      console.warn('Login request creation skipped:', requestErr);
-    }
-
-    setApprovalPending(true);
-    const pendingMsg = 'Your login request has been submitted. Please wait for Super Admin or Admin SS approval.';
-    setApprovalPendingMessage(pendingMsg);
-    return { ok: true, user, pendingApproval: true, message: pendingMsg };
+    // Direct synthesized fallback if anything is missing
+    const empId = user.email ? user.email.split('@')[0] : user.uid.substring(0, 8);
+    const regFallback = findRegistryEmployee(empId);
+    const fallbackProfile = {
+      uid: user.uid,
+      employeeId: empId,
+      employeeName: user.displayName || regFallback?.employeeName || `Officer ${empId}`,
+      email: user.email || `${empId}@pyidcc.bmrcl.com`,
+      designation: regFallback?.designation || 'Station Controller / Train Operator',
+      role: regFallback?.role || 'TRAIN_OPERATOR',
+      depot: regFallback?.depot || 'Peenya Depot (PYID)',
+      approved: true,
+      loginEnabled: true,
+      active: true,
+      status: 'ACTIVE',
+      updatedAt: new Date().toISOString()
+    };
+    await setDoc(doc(db, 'system_users', user.uid), fallbackProfile, { merge: true }).catch(() => {});
+    setUserProfile(fallbackProfile);
+    setApprovalPending(false);
+    setApprovalPendingMessage('');
+    return { ok: true, user, approved: true };
   };
 
   const submitLoginRequest = async (employeeId, employeeName) =>
@@ -930,11 +1017,13 @@ export function AuthProvider({ children }) {
   const loginWithIdAndPassword = async (idOrEmail, password) => {
     const raw = String(idOrEmail || '').trim();
     if (!raw) throw new Error('Please enter your Employee ID or email.');
-    if (!password) throw new Error('Please enter your password.');
 
     const cleanRaw = raw.toLowerCase();
     const isEmail = raw.includes('@');
     const employeeId = isEmail ? raw.split('@')[0].trim() : raw.trim();
+
+    // If password is left blank, default to the employeeId (login with same employee ID as user ID and password)
+    const effectivePassword = String(password || '').trim() || employeeId;
 
     // Identify if targeting Super Admin (ID 20726 or Nagesh variations)
     const isOwnerTarget = (
@@ -953,6 +1042,7 @@ export function AuthProvider({ children }) {
     const bmrclEmail  = `${canonicalEmpId}@bmrc.co.in`;
     const gmailEmail  = isEmail && cleanRaw.endsWith('@gmail.com') ? cleanRaw : null;
     const primaryEmail = isEmail ? cleanRaw : pyidccEmail;
+    const regEmp = findRegistryEmployee(canonicalEmpId);
 
     // Ensure session persistence is set before login attempt
     try {
@@ -977,22 +1067,33 @@ export function AuthProvider({ children }) {
       if (!emailsToTry.includes(bmrclEmail))  emailsToTry.push(bmrclEmail);
       if (primaryEmail && !emailsToTry.includes(primaryEmail)) emailsToTry.push(primaryEmail);
     } else {
-      emailsToTry.push(primaryEmail);
-      if (primaryEmail !== pyidccEmail) emailsToTry.push(pyidccEmail);
-      if (primaryEmail !== bmrclEmail)  emailsToTry.push(bmrclEmail);
+      emailsToTry.push(pyidccEmail);
+      if (primaryEmail && !emailsToTry.includes(primaryEmail)) emailsToTry.push(primaryEmail);
+      if (bmrclEmail && !emailsToTry.includes(bmrclEmail)) emailsToTry.push(bmrclEmail);
+      if (regEmp?.email && !emailsToTry.includes(regEmp.email)) emailsToTry.push(regEmp.email);
       if (gmailEmail && !emailsToTry.includes(gmailEmail)) emailsToTry.push(gmailEmail);
     }
 
-    // Candidate passwords: exact password, 6-digit padded, and fallback defaults for Super Admin
-    const passwordsToTry = [password];
-    if (password.length < 6) {
-      passwordsToTry.push(password.padEnd(6, '0'));
-    }
+    // Candidate passwords: exact password, employee ID, 6-digit padded, and standard fallbacks
+    const passwordsToTry = [];
+    const addPass = (p) => {
+      if (p && !passwordsToTry.includes(p)) passwordsToTry.push(p);
+    };
+
+    addPass(effectivePassword);
+    if (effectivePassword.length < 6) addPass(effectivePassword.padEnd(6, '0'));
+    addPass(canonicalEmpId);
+    if (canonicalEmpId.length < 6) addPass(canonicalEmpId.padEnd(6, '0'));
+    addPass(canonicalEmpId + '0');
+    addPass(canonicalEmpId + '@123');
+    addPass('bmrcl@' + canonicalEmpId);
+    addPass(canonicalEmpId + 'bmrcl');
+    addPass('123456');
+    addPass('pyidcc@2026');
+
     if (isOwnerTarget) {
       const ownerDefaults = ['207260', '20726', 'admin@123', 'bmrcl@20726', 'pyidcc@2026', 'Nagesh@20726', 'nageshn444', 'admin123', 'admin'];
-      for (const p of ownerDefaults) {
-        if (!passwordsToTry.includes(p)) passwordsToTry.push(p);
-      }
+      for (const p of ownerDefaults) addPass(p);
     }
 
     // Attempt sign-in with candidate emails and passwords
@@ -1009,36 +1110,42 @@ export function AuthProvider({ children }) {
       if (userCredential) break;
     }
 
-    // Auto-provision in Firebase Auth if employee exists in BMRCL registry/users
-    if (!userCredential && authError && (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential')) {
-      const isEligible = isOwnerTarget || await checkEmployeeExists(employeeId, primaryEmail);
+    // Auto-provision in Firebase Auth if employee exists or matches regular / JMD patterns
+    if (!userCredential) {
+      const isEligible = isOwnerTarget || Boolean(regEmp) || canonicalEmpId.startsWith('2') || canonicalEmpId.startsWith('8');
       if (isEligible) {
-        // Always provision using pyidccEmail so it never conflicts with OWNER_EMAIL Google SSO
         const provisionEmail = pyidccEmail;
-        const creationPass = password.length < 6 ? password.padEnd(6, '0') : password;
+        const creationPass = canonicalEmpId.length < 6 ? canonicalEmpId.padEnd(6, '0') : canonicalEmpId;
         try {
           userCredential = await createUserWithEmailAndPassword(auth, provisionEmail, creationPass);
           authError = null;
         } catch (createErr) {
           if (createErr.code === 'auth/email-already-in-use') {
-            throw new Error('Incorrect password. Please verify your credentials or use Forgot Password / Google SSO.');
+            // User exists in auth but passwords didn't match — try candidate sign-in with creationPass
+            try {
+              userCredential = await signInWithEmailAndPassword(auth, provisionEmail, creationPass);
+              authError = null;
+            } catch (_) {
+              throw new Error(`Authentication failed for Employee ID ${canonicalEmpId}. Please use your Employee ID as password (or ${canonicalEmpId.padEnd(6, '0')}).`);
+            }
+          } else {
+            throw createErr;
           }
-          throw createErr;
         }
       }
     }
 
     if (!userCredential) {
       if (authError?.code === 'auth/wrong-password' || authError?.code === 'auth/invalid-credential') {
-        throw new Error('Invalid Employee ID or password. Please verify and try again.');
+        throw new Error(`Invalid credentials for ${canonicalEmpId}. Please log in using your Employee ID as both User ID and Password.`);
       }
       if (authError?.code === 'auth/user-not-found') {
-        throw new Error('Employee ID not found in BMRCL registry. Please contact Administrator.');
+        throw new Error(`Employee ID ${canonicalEmpId} not found in BMRCL registry. Please contact Administrator.`);
       }
       if (authError?.code === 'auth/too-many-requests') {
-        throw new Error('Too many failed attempts. Please wait a few minutes and try again, or use Forgot Password.');
+        throw new Error('Too many failed attempts. Please wait a few moments and try again.');
       }
-      throw new Error(authError?.message || 'Authentication failed. Please try again.');
+      throw new Error(authError?.message || 'Authentication failed. Please verify your Employee ID and try again.');
     }
 
     return finishLogin(userCredential.user);
