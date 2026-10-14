@@ -212,9 +212,8 @@ export default function AdminSSLayout({
                   </div>
                 </div>
 
-                {/* Performance Metrics Summary */}
+                {/* Daily Duty History Calendar & Tracker */}
                 <TrainOperatorPerformance />
-                <PerformanceMetrics incidents={liveIncidents} />
               </div>
             ) : activeTab === 'LEAVES' ? (
               <div className="space-y-6">

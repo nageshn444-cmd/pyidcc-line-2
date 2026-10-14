@@ -2496,9 +2496,6 @@ export default function SuperAdminLayout({
           ) : activeTab === 'REPORTS' ? (
             <div className="space-y-6">
               <TrainOperatorPerformance />
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                <PerformanceMetrics incidents={liveIncidents} />
-              </div>
               <ReportsCenter />
             </div>
           ) : activeTab === 'RAKE' ? (
