@@ -6,7 +6,7 @@ import {
   Search, RefreshCw, ArrowDownCircle, ArrowUpCircle, Train,
   Trash2, RotateCcw, AlertTriangle, Clock, UploadCloud, Calendar, Download, Activity
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, isOwnerUser } from '../context/AuthContext';
 import { WTT_MASTER_REGISTRY } from '../data/wttMasterRegistry';
 import { buildWeekdayLiveTrainTrackingMap, buildLiveTrainTrackingMap } from '../data/weekdayReliefIdChartRegistry';
 
@@ -276,8 +276,9 @@ const alignRecordWithRegistry = (record) => {
 
 
 export default function Dashboard({ initialTab = 'DISPATCH' }) {
-  const { hasPermission, userProfile } = useAuth();
-  const isOperatorOrViewer = userProfile?.role === 'TRAIN_OPERATOR' || userProfile?.role === 'VIEWER';
+  const { hasPermission, userProfile, currentUser } = useAuth();
+  const isOwner = isOwnerUser(currentUser, userProfile);
+  const isOperatorOrViewer = !isOwner && (userProfile?.role === 'TRAIN_OPERATOR' || userProfile?.role === 'VIEWER');
 
   const hasAdminRights = () => {
     return hasPermission("User Management", "Full") || userProfile?.role === 'CREW_CONTROLLER';
@@ -1847,7 +1848,7 @@ Format the response strictly as a single JSON object.`;
   return (
     <Suspense fallback={<ModuleLoader />}>
       {(() => {
-        const userRole = userProfile?.role || 'VIEWER';
+        const userRole = isOwner ? 'SUPER_ADMIN' : (userProfile?.role || 'VIEWER');
 
         if (
           userRole === 'SUPER_ADMIN' || 

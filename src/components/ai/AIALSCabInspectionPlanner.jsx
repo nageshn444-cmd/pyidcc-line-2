@@ -2,554 +2,213 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../../firebase';
 import { 
   collection, doc, onSnapshot, setDoc, addDoc, 
-  serverTimestamp, query, where, getDocs, updateDoc, deleteDoc 
+  serverTimestamp 
 } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
 import { 
-  Sparkles, ShieldAlert, CheckCircle, AlertTriangle, 
+  Sparkles, CheckCircle, AlertTriangle, 
   MapPin, Clock, Search, User, ArrowRight, 
   RefreshCw, FileSpreadsheet, PlusCircle, Save, 
-  Play, Check, Trash2, ChevronRight, Bell, Calendar,
-  Activity, ArrowDownRight, Compass, HelpCircle, Eye
+  Check, Trash2, Calendar, Activity, 
+  Compass, Users, UserCheck, ShieldCheck, Share2, Printer,
+  Layers, CheckSquare, FileText, Award, Download
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { aiService } from '../../services/aiService';
-
-// Constant list of stations in Green Line sequence
-const GREEN_LINE_STATIONS = [
-  { code: "BIET", name: "Madavara" },
-  { code: "JIDL", name: "Chikkabidarakallu" },
-  { code: "MNJN", name: "Manjunathanagar" },
-  { code: "NGSA", name: "Nagasandra" },
-  { code: "DSH", name: "Dasarahalli" },
-  { code: "JLHL", name: "Jalahalli" },
-  { code: "PYID", name: "Peenya Industry" },
-  { code: "PEYA", name: "Peenya" },
-  { code: "YPI", name: "Goraguntepalya" },
-  { code: "YPM", name: "Yeshwanthpur" },
-  { code: "SSFY", name: "Sandal Soap Factory" },
-  { code: "MHLI", name: "Mahalakshmi" },
-  { code: "RJNR", name: "Rajajinagar" },
-  { code: "KVPR", name: "Mahakavi Kuvempu Road" },
-  { code: "SPRU", name: "Srirampura" },
-  { code: "SPGD", name: "Mantri Square Sampige Road" },
-  { code: "KGWA", name: "Nadaprabhu Kempegowda" },
-  { code: "CKPE", name: "Chickpete" },
-  { code: "KRMT", name: "Krishna Rajendra Market" },
-  { code: "NLC", name: "National College" },
-  { code: "LBGH", name: "Lalbagh" },
-  { code: "SECE", name: "South End Circle" },
-  { code: "JYN", name: "Jayanagar" },
-  { code: "RVR", name: "Rashtreeya Vidyalaya Road" },
-  { code: "BSNK", name: "Banashankari" },
-  { code: "JPN", name: "Jaya Prakash Nagar" },
-  { code: "PUTH", name: "Yelachenahalli" },
-  { code: "APRC", name: "Konanakunte Cross" },
-  { code: "KLPK", name: "Doddakallasandra" },
-  { code: "VJRH", name: "Vajarahalli" },
-  { code: "TGTP", name: "Thalaghattapura" },
-  { code: "APTS", name: "Silk Institute" }
-];
-
-const ALS_OFFICERS = [
-  "SHANTHIRAJ S",
-  "ARUNKUMAR D S",
-  "HARSH JOSHI"
-];
+import { 
+  OFFICIAL_ALS_MENTORS, 
+  getStoredMentors, 
+  getMentorByName, 
+  HARSH_JOSHI_NOMINEES,
+  ARUNA_KUMAR_DS_NOMINEES,
+  SHANTIRAJ_NOMINEES
+} from '../../data/mentorTrainOperatorRegistry.js';
+import { 
+  generateALSCabInspectionPlan,
+  GREEN_LINE_STATIONS_LIST,
+  STATION_NAMES_MAP,
+  timeStrToMins,
+  minsToTimeStr
+} from '../../services/alsInspectionPlannerService.js';
+import { normalizeScheduleDay } from '../../data/weekdayReliefIdChartRegistry.js';
 
 export default function AIALSCabInspectionPlanner() {
-  const { currentUser, userProfile, hasPermission } = useAuth();
+  const { userProfile, hasPermission } = useAuth();
 
-  // ── 1. Planning Context States ──
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [startingStation, setStartingStation] = useState('PYID');
-  const [startingTime, setStartingTime] = useState('08:30');
-  const [activeOfficer, setActiveOfficer] = useState(ALS_OFFICERS[0]);
-  
-  // ── 2. Data Collections States ──
-  const [wttMatrix, setWttMatrix] = useState([]);
-  const [linkRoster, setLinkRoster] = useState([]);
-  const [dutyRoster, setDutyRoster] = useState([]);
-  const [crewRegistry, setCrewRegistry] = useState([]);
-  const [completedInspections, setCompletedInspections] = useState([]);
-  const [liveIncidents, setLiveIncidents] = useState([]);
-  const [shiftExchanges, setShiftExchanges] = useState([]);
-  const [stepbackDuties, setStepbackDuties] = useState([]);
-  const [dailyCrewTracks, setDailyCrewTracks] = useState([]);
-  const [emergencyRelief, setEmergencyRelief] = useState([]);
-  const [dispatchEvents, setDispatchEvents] = useState([]);
-  const [liveAttendance, setLiveAttendance] = useState([]);
-  
-  // ── 3. Selected Operators & Active Journey ──
-  const [selectedOperatorIds, setSelectedOperatorIds] = useState([]);
-  const [journeyPlan, setJourneyPlan] = useState(null);
-  const [isCalculating, setIsCalculating] = useState(false);
-  const [crossoverAlerts, setCrossoverAlerts] = useState([]);
-  const [notifications, setNotifications] = useState([]);
+  // ── 1. Concerned ALS Officer ──
+  const [mentorsList, setMentorsList] = useState(() => getStoredMentors());
+  const [selectedMentorName, setSelectedMentorName] = useState("HARSH JOSHI");
 
-  // ── 4. UI Control States ──
-  const [activeTab, setActiveTab] = useState('PLANNER'); // PLANNER, TIMELINE, REPORTS
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterShift, setFilterShift] = useState('ALL'); // ALL, MORNING, AFTERNOON, NIGHT
-  const [showLogModal, setShowLogModal] = useState(false);
-  const [selectedOpToInspect, setSelectedOpToInspect] = useState(null);
-  const [inspectionForm, setInspectionForm] = useState({
-    overallScore: 8,
-    inspectionResult: 'PASS',
-    remarks: '',
-    photo: '',
-    alsName: ALS_OFFICERS[0]
-  });
+  const activeMentor = useMemo(() => {
+    return mentorsList.find(m => 
+      String(m.name).toUpperCase().trim() === String(selectedMentorName).toUpperCase().trim()
+    ) || mentorsList[0];
+  }, [mentorsList, selectedMentorName]);
 
-  // Convert Date to Schedule Type
+  // ── 2. Operational Planning Context ──
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [shiftStartTime, setShiftStartTime] = useState('09:00');
+  const [shiftEndTime, setShiftEndTime] = useState('17:30');
+  const [baseStation, setBaseStation] = useState('PYID');
+
+  // Convert Date to Schedule Day Type
   const scheduleType = useMemo(() => {
     const d = new Date(selectedDate);
-    const day = d.getDay(); // 0 = Sunday, 1 = Monday, 6 = Saturday
+    const day = d.getDay(); // 0 = Sun, 1 = Mon, 6 = Sat
     if (day === 0) return 'SUNDAY';
     if (day === 1) return 'MONDAY';
     if (day === 6) return 'SATURDAY';
     return 'WEEKDAY';
   }, [selectedDate]);
 
-  // ── 5. Real-Time Firestore Sync ──
+  // ── 3. Real-Time Data from Firestore & Dispatch Gateway Core ──
+  const [dutyRoster, setDutyRoster] = useState([]);
+  const [completedInspections, setCompletedInspections] = useState([]);
+  const [dispatchSyncVersion, setDispatchSyncVersion] = useState(0);
+
+  // Focus filter for user-selected operators
+  const [selectedOperatorIds, setSelectedOperatorIds] = useState([]);
+
+  // Active Sub-Tab
+  const [activeTab, setActiveTab] = useState('JOURNEY_PLAN'); // JOURNEY_PLAN, NOMINATED_DRIVERS, INSPECTION_HISTORY, OFFICIAL_MASTER
+  const [driverFilter, setDriverFilter] = useState('IN_CAB'); // ALL, IN_CAB, OTHER
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Inspection Modal States
+  const [showLogModal, setShowLogModal] = useState(false);
+  const [selectedOpToInspect, setSelectedOpToInspect] = useState(null);
+  const [inspectionForm, setInspectionForm] = useState({
+    criteria1: 2, // Signal Observation & Aspect Call-Out
+    criteria2: 2, // ATP / Speed Restriction Adherence
+    criteria3: 2, // Accurate Platform Berthing & Stopping Mark
+    criteria4: 2, // Emergency Drill & Radio Discipline
+    criteria5: 2, // Cab Cleanliness, Logbook & Alertness
+    overallScore: 10,
+    inspectionResult: 'PASS',
+    remarks: '',
+    alsName: activeMentor.name
+  });
+
+  // Listen for Dispatch Core changes
   useEffect(() => {
-    // A. WTT Matrix
-    const unsubWtt = onSnapshot(collection(db, 'wtt_final_matrix'), (snap) => {
-      setWttMatrix(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
+    const handleDispatchUpdate = () => setDispatchSyncVersion(v => v + 1);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('pyidcc_dispatch_deployments_updated', handleDispatchUpdate);
+      window.addEventListener('storage', handleDispatchUpdate);
+      return () => {
+        window.removeEventListener('pyidcc_dispatch_deployments_updated', handleDispatchUpdate);
+        window.removeEventListener('storage', handleDispatchUpdate);
+      };
+    }
+  }, []);
 
-    // B. Link Roster
-    const unsubLinks = onSnapshot(collection(db, 'crew_final_links'), (snap) => {
-      setLinkRoster(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    // C. Duty Roster
+  // Listen to Firestore duties & completed inspections
+  useEffect(() => {
     const unsubDuties = onSnapshot(collection(db, 'crew_daily_deployment'), (snap) => {
       setDutyRoster(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-
-    // D. Crew Registry
-    const unsubCrew = onSnapshot(collection(db, 'crewRegistry'), (snap) => {
-      setCrewRegistry(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    // E. Completed Inspections
     const unsubCompleted = onSnapshot(collection(db, 'alsCompletedInspection'), (snap) => {
       setCompletedInspections(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-
-    // F. Live Incidents (Delays / Cancellations)
-    const unsubIncidents = onSnapshot(collection(db, 'wtt_live_incidents'), (snap) => {
-      setLiveIncidents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    // G. Shift Exchanges & Duty Swaps
-    const unsubExchanges = onSnapshot(collection(db, 'shift_exchanges'), (snap) => {
-      setShiftExchanges(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    // H. Stepback Duties (Control Roster Monitor)
-    const unsubStepback = onSnapshot(collection(db, 'stepback_duties'), (snap) => {
-      setStepbackDuties(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    // I. Daily Crew Tracks (Date specific operator allocations)
-    const unsubTracks = onSnapshot(collection(db, 'daily_crew_tracks'), (snap) => {
-      setDailyCrewTracks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    // J. Emergency Relief Reports
-    const unsubRelief = onSnapshot(collection(db, 'emergency_relief_reports'), (snap) => {
-      setEmergencyRelief(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    // K. Dispatch Gate Live Attendance
-    const unsubDispatch = onSnapshot(collection(db, 'automated_dispatch_gate'), (snap) => {
-      setDispatchEvents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    // L. Live Attendance Logs
-    const unsubAttendance = onSnapshot(collection(db, 'crew_live_attendance'), (snap) => {
-      setLiveAttendance(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
     return () => {
-      unsubWtt();
-      unsubLinks();
       unsubDuties();
-      unsubCrew();
       unsubCompleted();
-      unsubIncidents();
-      unsubExchanges();
-      unsubStepback();
-      unsubTracks();
-      unsubRelief();
-      unsubDispatch();
-      unsubAttendance();
     };
   }, []);
 
-  // ── 6. Resolve Active Operators on Duty for the Selected Date ──
-  const activeDeployments = useMemo(() => {
-    const activeDayLinks = linkRoster.filter(l => String(l.scheduleType || '').toUpperCase() === scheduleType);
-    const activeDayDuties = dutyRoster.filter(d => String(d.scheduleType || '').toUpperCase() === scheduleType);
+  // Sync ALS default shift when mentor changes
+  useEffect(() => {
+    if (activeMentor) {
+      if (activeMentor.defaultShiftStart) setShiftStartTime(activeMentor.defaultShiftStart);
+      if (activeMentor.defaultShiftEnd) setShiftEndTime(activeMentor.defaultShiftEnd);
+      if (activeMentor.defaultBaseStation) setBaseStation(activeMentor.defaultBaseStation);
+      setInspectionForm(prev => ({ ...prev, alsName: activeMentor.name }));
+    }
+  }, [activeMentor]);
 
-    // Build crew status mapping from crewRegistry
-    const crewStatusMap = new Map();
-    crewRegistry.forEach(c => {
-      const id = String(c.employeeId || c.id || '').trim();
-      if (id) {
-        crewStatusMap.set(id, c);
-      }
+  // ── 4. AUTOMATIC CAB INSPECTION PLAN GENERATION ──
+  // The system ALWAYS computes the easiest, most accurate plan immediately!
+  const generatedPlan = useMemo(() => {
+    return generateALSCabInspectionPlan({
+      mentorName: activeMentor.name,
+      scheduleDay: scheduleType,
+      shiftStartTime,
+      shiftEndTime,
+      baseStation,
+      deployments: dutyRoster,
+      completedInspections,
+      selectedOperatorIds
     });
+  }, [activeMentor, scheduleType, shiftStartTime, shiftEndTime, baseStation, dutyRoster, completedInspections, selectedOperatorIds, dispatchSyncVersion]);
 
-    // Helper: Is the employee on leave, weekoff, or absent?
-    const isExcluded = (empId, statusFromDuty) => {
-      if (!empId || empId === '--' || empId === '-') return true;
-
-      // Check crewRegistry
-      const registryEmp = crewStatusMap.get(String(empId).trim());
-      if (registryEmp) {
-        const regStatus = String(registryEmp.currentStatus || '').toUpperCase().trim();
-        if (['CL', 'EL', 'ML', 'ABSENT', 'WO', 'REST', 'WEEKOFF', 'LEAVE', 'OFF'].includes(regStatus) || registryEmp.deleted === true) {
-          return true;
-        }
-      }
-
-      // Check duty roster status / remarks
-      const dutyStatus = String(statusFromDuty || '').toUpperCase().trim();
-      if (['CL', 'EL', 'ML', 'ABSENT', 'WO', 'REST', 'WEEKOFF', 'LEAVE', 'OFF'].includes(dutyStatus)) {
-        return true;
-      }
-
-      return false;
-    };
-
-    const list = [];
-    const processedEmpIds = new Set();
-
-    // A. Process standard links
-    activeDayLinks.forEach(link => {
-      const normLinkId = String(link.dutyId).padStart(2, '0');
-      const matchingDuty = activeDayDuties.find(d => String(d.dutyId).padStart(2, '0') === normLinkId);
-      
-      const trackId = `${selectedDate}_${matchingDuty?.trainId || link.trainId}`;
-      const matchedTrack = dailyCrewTracks.find(t => t.id === trackId);
-      
-      const empId = matchedTrack?.currentOperator?.employeeId || matchingDuty?.empId || '--';
-      const empName = matchedTrack?.currentOperator?.name || matchingDuty?.empName || '--';
-
-      if (empId === '--') return;
-      if (isExcluded(empId, matchingDuty?.status || matchingDuty?.remarks)) return;
-      if (processedEmpIds.has(String(empId).trim())) return;
-
-      // Check if signed-on in automated dispatch gate or crew live attendance
-      const hasLiveAttendance = liveAttendance.some(a => 
-        String(a.dutyId).padStart(2, '0') === normLinkId && 
-        String(a.scheduleType).toUpperCase() === scheduleType
-      );
-
-      const hasDispatchSignOn = dispatchEvents.some(e => {
-        if (String(e.currentDutyId).padStart(2, '0') !== normLinkId) return false;
-        if (e.incidentType !== 'SIGN_ON') return false;
-        if (e.timestamp) {
-          const tDate = e.timestamp.toDate ? e.timestamp.toDate() : new Date(e.timestamp);
-          const tDateStr = tDate.toISOString().split('T')[0];
-          return tDateStr === selectedDate;
-        }
-        return true;
-      });
-
-      const isSignedOn = hasLiveAttendance || hasDispatchSignOn || matchedTrack?.currentOperator ? true : false;
-      
-      // Filter out if not signed on (since they are absent or not yet on duty)
-      if (!isSignedOn) return;
-
-      const signOnTime = matchingDuty?.signOnTime || link.signOnTime || '08:00';
-      const signOnHour = parseInt(signOnTime.split(':')[0], 10);
-      let shiftGroup = 'MORNING';
-      if (signOnHour >= 12 && signOnHour < 18) shiftGroup = 'AFTERNOON';
-      if (signOnHour >= 18 || signOnHour < 5) shiftGroup = 'NIGHT';
-
-      const rawLegs = {
-        l1Train: matchingDuty?.rawLegs?.l1Train || link.trainId || '--',
-        l1Start: matchingDuty?.rawLegs?.l1Start || link.leg1TimeFrom || link.signOnTime || '--',
-        l1End: matchingDuty?.rawLegs?.l1End || link.leg1TimeTo || '--',
-        l2Train: matchingDuty?.rawLegs?.l2Train || link.leg2TrainNo || '--',
-        l2Start: matchingDuty?.rawLegs?.l2Start || link.leg2DepTime || '--',
-        l2End: matchingDuty?.rawLegs?.l2End || link.leg2ArrTime || '--',
-        l3Train: matchingDuty?.rawLegs?.l3Train || link.leg3TrainNo || '--',
-        l3Start: matchingDuty?.rawLegs?.l3Start || link.leg3DepTime || '--',
-        l3End: matchingDuty?.rawLegs?.l3End || link.leg3ArrTime || '--',
-        l4Train: matchingDuty?.rawLegs?.l4Train || link.leg4TrainNo || '--',
-        l4Start: matchingDuty?.rawLegs?.l4Start || link.leg4FinalDepTime || '--',
-        l4End: matchingDuty?.rawLegs?.l4End || link.leg4FinalArrTime || '--'
-      };
-
-      processedEmpIds.add(String(empId).trim());
-      list.push({
-        id: `link_${link.id}`,
-        dutyId: normLinkId,
-        empId,
-        empName,
-        signOnTime,
-        trainId: matchingDuty?.trainId || link.trainId || '--',
-        shiftGroup,
-        isSignedOn: true,
-        isExchanged: matchingDuty?.isExchanged || false,
-        rawLegs,
-        type: 'REGULAR'
-      });
-    });
-
-    // B. Process Extra Train Operators
-    const linkedDutyIds = new Set(activeDayLinks.map(l => String(l.dutyId).padStart(2, '0')));
-    activeDayDuties.forEach(d => {
-      const normDutyId = String(d.dutyId).padStart(2, '0');
-      const empId = d.empId || d.employeeId;
-      const empName = d.empName || d.name;
-
-      if (!empId || empId === '--' || processedEmpIds.has(String(empId).trim())) return;
-      if (isExcluded(empId, d.status || d.remarks)) return;
-
-      const isExtra = !linkedDutyIds.has(normDutyId) || 
-        String(d.dutyId).toLowerCase().includes('extra') ||
-        String(d.remarks || '').toLowerCase().includes('extra');
-
-      if (!isExtra) return;
-
-      const hasLiveAttendance = liveAttendance.some(a => 
-        String(a.dutyId).padStart(2, '0') === normDutyId && 
-        String(a.scheduleType).toUpperCase() === scheduleType
-      );
-
-      const hasDispatchSignOn = dispatchEvents.some(e => {
-        if (String(e.currentDutyId).padStart(2, '0') !== normDutyId) return false;
-        if (e.incidentType !== 'SIGN_ON') return false;
-        if (e.timestamp) {
-          const tDate = e.timestamp.toDate ? e.timestamp.toDate() : new Date(e.timestamp);
-          const tDateStr = tDate.toISOString().split('T')[0];
-          return tDateStr === selectedDate;
-        }
-        return true;
-      });
-
-      const isSignedOn = hasLiveAttendance || hasDispatchSignOn || d.status === 'ACTIVE' || d.status === 'PRESENT';
-      if (!isSignedOn) return;
-
-      const signOnTime = d.signOnTime || '08:00';
-      const signOnHour = parseInt(signOnTime.split(':')[0], 10);
-      let shiftGroup = 'MORNING';
-      if (signOnHour >= 12 && signOnHour < 18) shiftGroup = 'AFTERNOON';
-      if (signOnHour >= 18 || signOnHour < 5) shiftGroup = 'NIGHT';
-
-      processedEmpIds.add(String(empId).trim());
-      list.push({
-        id: `extra_${d.id || normDutyId}`,
-        dutyId: normDutyId,
-        empId,
-        empName,
-        signOnTime,
-        trainId: d.trainId || '--',
-        shiftGroup,
-        isSignedOn: true,
-        isExchanged: d.isExchanged || false,
-        rawLegs: d.rawLegs || {
-          l1Train: d.trainId || '--',
-          l1Start: signOnTime,
-          l1End: '--'
-        },
-        type: 'EXTRA'
-      });
-    });
-
-    // C. Process Stepback (stbk) Operators
-    stepbackDuties.forEach(s => {
-      const empId = s.empId || s.employeeId;
-      const empName = s.empName || s.name;
-
-      if (!empId || empId === '--' || processedEmpIds.has(String(empId).trim())) return;
-      if (isExcluded(empId)) return;
-
-      if (s.timestamp) {
-        const tDate = s.timestamp.toDate ? s.timestamp.toDate() : new Date(s.timestamp);
-        const tDateStr = tDate.toISOString().split('T')[0];
-        if (tDateStr !== selectedDate) return;
-      }
-
-      processedEmpIds.add(String(empId).trim());
-      list.push({
-        id: `stepback_${s.id || empId}`,
-        dutyId: s.dutyId || 'STBK',
-        empId,
-        empName,
-        signOnTime: s.startTime || '08:00',
-        trainId: s.trainId || '--',
-        shiftGroup: 'MORNING',
-        isSignedOn: true,
-        isExchanged: false,
-        rawLegs: {
-          l1Train: s.trainId || '--',
-          l1Start: s.startTime || '08:00',
-          l1End: s.endTime || '--'
-        },
-        type: 'STEPBACK'
-      });
-    });
-
-    return list;
-  }, [linkRoster, dutyRoster, dailyCrewTracks, dispatchEvents, liveAttendance, stepbackDuties, crewRegistry, scheduleType, selectedDate]);
-
-  const currentMonthStr = useMemo(() => {
-    return selectedDate.substring(0, 7);
-  }, [selectedDate]);
-
+  // Monthly completed map for quick badge check
+  const currentMonthStr = useMemo(() => selectedDate.substring(0, 7), [selectedDate]);
   const monthlyCompletedMap = useMemo(() => {
     const map = new Map();
     completedInspections.forEach(insp => {
       if (insp.inspectionDate && insp.inspectionDate.startsWith(currentMonthStr)) {
-        map.set(insp.employeeId, insp);
+        map.set(String(insp.employeeId).trim(), insp);
       }
     });
     return map;
   }, [completedInspections, currentMonthStr]);
 
-  const processedOperators = useMemo(() => {
-    return activeDeployments.map(op => {
-      const alreadyInspected = monthlyCompletedMap.has(op.empId);
-      let statusText = 'Inspection Pending';
-      let priorityScore = 50;
+  // Available driving segments breakdown
+  const availableSegments = generatedPlan?.availableSegments || [];
 
-      const allPrev = completedInspections.filter(i => i.employeeId === op.empId);
-      if (alreadyInspected) {
-        statusText = 'Inspection Completed';
-        priorityScore = 0;
-      } else if (allPrev.length > 0) {
-        allPrev.sort((a, b) => b.inspectionDate.localeCompare(a.inspectionDate));
-        const lastDate = new Date(allPrev[0].inspectionDate);
-        const diffDays = Math.ceil((new Date(selectedDate) - lastDate) / (1000 * 60 * 60 * 24));
-        if (diffDays > 45) {
-          statusText = 'Inspection Overdue';
-          priorityScore = 150;
-        } else if (diffDays > 30) {
-          statusText = 'Inspection Due';
-          priorityScore = 100;
-        }
-      } else {
-        statusText = 'Inspection Overdue';
-        priorityScore = 150;
+  // Filtered segments for Nominated Operators Tab
+  const filteredNominees = useMemo(() => {
+    const allNominees = activeMentor.assignedOperators || [];
+    return allNominees.filter(op => {
+      const empId = String(op.empId).trim();
+      const drivingSeg = availableSegments.find(s => s.operatorId === empId);
+      const isDrivingInShift = Boolean(drivingSeg);
+
+      if (driverFilter === 'IN_CAB' && !isDrivingInShift) return false;
+      if (driverFilter === 'OTHER' && isDrivingInShift) return false;
+
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matchName = op.name.toLowerCase().includes(q);
+        const matchId = empId.includes(q);
+        const matchTrain = drivingSeg && String(drivingSeg.trainId).includes(q);
+        const matchDuty = drivingSeg && String(drivingSeg.dutyId).includes(q);
+        return matchName || matchId || matchTrain || matchDuty;
       }
-
-      const hasIncidents = liveIncidents.some(i => String(i.trainId) === String(op.trainId));
-      if (hasIncidents) priorityScore += 20;
-
-      return {
-        ...op,
-        alreadyInspected,
-        statusText,
-        priorityScore
-      };
-    }).sort((a, b) => b.priorityScore - a.priorityScore);
-  }, [activeDeployments, monthlyCompletedMap, completedInspections, selectedDate, liveIncidents]);
-
-  const filteredOperators = useMemo(() => {
-    return processedOperators.filter(op => {
-      const matchSearch = searchQuery === '' || 
-        op.empName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        String(op.empId).includes(searchQuery) ||
-        String(op.trainId).includes(searchQuery) ||
-        String(op.dutyId).includes(searchQuery);
-
-      const matchShift = filterShift === 'ALL' || op.shiftGroup === filterShift;
-      return matchSearch && matchShift;
+      return true;
     });
-  }, [processedOperators, searchQuery, filterShift]);
+  }, [activeMentor, availableSegments, driverFilter, searchQuery]);
 
-  const calculateRoute = () => {
-    if (selectedOperatorIds.length === 0) {
-      alert("Please select at least one Train Operator to inspect.");
-      return;
-    }
-    setIsCalculating(true);
-    
-    const result = aiService.calculateALSInspectionRoute({
-      startingStation,
-      startingTime,
-      selectedOperatorIds,
-      deployments: activeDeployments,
-      linkRoster,
-      dutyRoster,
-      wttMatrix,
-      liveIncidents,
-      completedInspections,
-      activeDay: scheduleType
-    });
-
-    setJourneyPlan(result);
-    setActiveTab('TIMELINE');
-    setIsCalculating(false);
-
-    const crossovers = aiService.detectCrossoverOpportunities({
-      deployments: activeDeployments,
-      wttMatrix,
-      liveIncidents,
-      activeDay: scheduleType
-    });
-    setCrossoverAlerts(crossovers);
-
-    const alerts = [];
-    result.steps.forEach(step => {
-      if (step.action === 'BOARD') {
-        alerts.push({
-          id: Math.random().toString(),
-          time: step.time,
-          text: `Prepare to board Train ${step.trainId} ${step.direction} at ${step.stationName}.`,
-          type: 'BOARD'
-        });
-      } else if (step.action === 'INSPECT') {
-        alerts.push({
-          id: Math.random().toString(),
-          time: step.time.split(' - ')[0],
-          text: `Cab Inspection active for Operator ${step.operatorName} (Train ${step.trainId}).`,
-          type: 'INSPECT'
-        });
-      }
-    });
-    setNotifications(alerts.slice(0, 5));
-  };
-
-  useEffect(() => {
-    if (journeyPlan && selectedOperatorIds.length > 0) {
-      const result = aiService.calculateALSInspectionRoute({
-        startingStation,
-        startingTime,
-        selectedOperatorIds,
-        deployments: activeDeployments,
-        linkRoster,
-        dutyRoster,
-        wttMatrix,
-        liveIncidents,
-        completedInspections,
-        activeDay: scheduleType
-      });
-      setJourneyPlan(result);
-    }
-  }, [liveIncidents, activeDeployments, wttMatrix]);
-
-  if (userProfile?.role === 'TRAIN_OPERATOR' || userProfile?.role === 'STATION_CONTROLLER' || userProfile?.role === 'VIEWER' || !hasPermission('AI ALS Cab Inspection', 'View')) {
-    return null;
-  }
-
+  // Modal open & calculation
   const openInspectionForm = (op) => {
     setSelectedOpToInspect(op);
     setInspectionForm({
-      overallScore: 8,
+      criteria1: 2,
+      criteria2: 2,
+      criteria3: 2,
+      criteria4: 2,
+      criteria5: 2,
+      overallScore: 10,
       inspectionResult: 'PASS',
       remarks: '',
-      photo: '',
-      alsName: activeOfficer
+      alsName: activeMentor.name
     });
     setShowLogModal(true);
+  };
+
+  const handleScoreChange = (field, val) => {
+    const num = Math.min(2, Math.max(0, parseInt(val, 10) || 0));
+    setInspectionForm(prev => {
+      const updated = { ...prev, [field]: num };
+      const total = (updated.criteria1 || 0) + (updated.criteria2 || 0) + (updated.criteria3 || 0) + (updated.criteria4 || 0) + (updated.criteria5 || 0);
+      let result = 'PASS';
+      if (total < 6) result = 'NEEDS_TRAINING';
+      else if (total < 8) result = 'SATISFACTORY';
+      return {
+        ...updated,
+        overallScore: total,
+        inspectionResult: result
+      };
+    });
   };
 
   const handleInspectionSubmit = async (e) => {
@@ -558,8 +217,8 @@ export default function AIALSCabInspectionPlanner() {
 
     const timeStr = new Date().toTimeString().split(' ')[0];
     const payload = {
-      employeeId: selectedOpToInspect.empId || selectedOpToInspect.operatorId,
-      employeeName: selectedOpToInspect.empName || selectedOpToInspect.operatorName,
+      employeeId: selectedOpToInspect.operatorId || selectedOpToInspect.empId,
+      employeeName: selectedOpToInspect.operatorName || selectedOpToInspect.name,
       trainId: selectedOpToInspect.trainId || '214',
       dutyNumber: selectedOpToInspect.dutyId || 'N/A',
       inspectionDate: selectedDate,
@@ -568,7 +227,13 @@ export default function AIALSCabInspectionPlanner() {
       overallScore: Number(inspectionForm.overallScore),
       inspectionResult: inspectionForm.inspectionResult,
       remarks: inspectionForm.remarks,
-      photo: inspectionForm.photo || '',
+      checklistScores: {
+        signalObservation: inspectionForm.criteria1,
+        speedCompliance: inspectionForm.criteria2,
+        berthingAccuracy: inspectionForm.criteria3,
+        emergencyPreparedness: inspectionForm.criteria4,
+        cabDiscipline: inspectionForm.criteria5
+      },
       timestamp: serverTimestamp()
     };
 
@@ -578,22 +243,12 @@ export default function AIALSCabInspectionPlanner() {
 
       await addDoc(collection(db, 'alsInspectionHistory'), {
         event: 'INSPECTION_COMPLETED',
-        description: `Cab Inspection completed for Operator ${payload.employeeName}. Result: ${payload.inspectionResult}, Score: ${payload.overallScore}/10`,
+        description: `Cab Inspection completed for ${payload.employeeName} on Train ${payload.trainId}. Result: ${payload.inspectionResult}, Score: ${payload.overallScore}/10`,
         officer: payload.alsName,
         timestamp: serverTimestamp()
       });
 
-      if (journeyPlan) {
-        const updatedSteps = journeyPlan.steps.map(step => {
-          if (step.operatorId === payload.employeeId && step.action === 'INSPECT') {
-            return { ...step, status: 'COMPLETED' };
-          }
-          return step;
-        });
-        setJourneyPlan(prev => ({ ...prev, steps: updatedSteps }));
-      }
-
-      alert("Inspection report successfully saved to Firestore.");
+      alert(`Official Cab Inspection logged successfully for ${payload.employeeName}!`);
       setShowLogModal(false);
       setSelectedOpToInspect(null);
     } catch (err) {
@@ -602,777 +257,870 @@ export default function AIALSCabInspectionPlanner() {
     }
   };
 
-  const handleMissedStep = async (step) => {
-    if (!window.confirm(`Mark inspection for ${step.operatorName} as Missed? This will automatically recalculate the journey.`)) return;
-    
-    await addDoc(collection(db, 'alsInspectionHistory'), {
-      event: 'INSPECTION_MISSED',
-      description: `Missed planned inspection on Train ${step.trainId} for ${step.operatorName}.`,
-      officer: activeOfficer,
-      timestamp: serverTimestamp()
+  const handleCopyWhatsAppOrder = () => {
+    if (!generatedPlan || !generatedPlan.steps || generatedPlan.steps.length === 0) {
+      alert("No journey plan available.");
+      return;
+    }
+    let text = `*BMRCL LINE-2 OFFICIAL CAB INSPECTION JOURNEY ORDER*\n`;
+    text += `*Concerned ALS:* ${activeMentor.name} (Shift: ${shiftStartTime}–${shiftEndTime})\n`;
+    text += `*Date:* ${selectedDate} (${scheduleType}) | *Base Station:* ${baseStation}\n`;
+    text += `*Status:* ${generatedPlan.coveredInspectionsCount} Cab Inspections Planned\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    generatedPlan.steps.forEach(s => {
+      if (s.action === 'BOARD') {
+        text += `🟢 *${s.time}* - *BOARD Train ${s.trainId}* at ${s.stationName} (${s.platform})\n`;
+        text += `   Driver in Cab: *${s.operatorName}* (#${s.operatorId})\n`;
+      } else if (s.action === 'INSPECT') {
+        text += `🟣 *${s.time}* - *CAB INSPECTION* ${s.fromStation} ➔ ${s.toStation}\n`;
+      } else if (s.action === 'DEBOARD') {
+        text += `🛑 *${s.time}* - *DEBOARD Train ${s.trainId}* at ${s.stationName}\n`;
+        if (s.relieverName && s.relieverName !== '--') {
+          text += `   *Reliever:* ${s.relieverName} (Duty ${s.relieverDutyId}) takes over\n`;
+        }
+      } else if (s.action === 'TRANSFER') {
+        text += `🔄 *${s.time}* - ${s.details}\n`;
+      } else if (s.action === 'LEAVE' || s.action === 'COMPLETED') {
+        text += `🏁 *${s.time}* - ${s.details}\n`;
+      }
     });
+    text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nGenerated via BMRCL AI ALS Cab Inspection Planner • Peenya Depot`;
 
-    const newSelection = selectedOperatorIds.filter(id => id !== step.operatorId);
-    setSelectedOperatorIds(newSelection);
-    
-    alert("Planner dynamically rerouted. Remaining operator journeys updated.");
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(text);
+      alert("Official Cab Inspection Order copied to clipboard for WhatsApp!");
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
   };
 
   const handleExportExcel = () => {
-    const formattedData = completedInspections.map(e => ({
-      "Inspection Date": e.inspectionDate,
-      "Inspection Time": e.inspectionTime,
-      "ALS Inspector": e.alsName,
-      "Operator Name": e.employeeName,
-      "Employee ID": e.employeeId,
-      "Train ID": e.trainId,
-      "Duty ID": e.dutyNumber,
-      "Overall Score (10)": e.overallScore,
-      "Result Decision": e.inspectionResult,
-      "Remarks": e.remarks
+    const rows = (generatedPlan?.steps || []).map(s => ({
+      "Step #": s.stepIndex,
+      "Time": s.time,
+      "Action": s.action,
+      "Station": s.stationName,
+      "Platform": s.platform || '--',
+      "Train ID": s.trainId || '--',
+      "Operator in Cab": s.operatorName || '--',
+      "Operator ID": s.operatorId || '--',
+      "Reliever Name": s.relieverName || '--',
+      "Reliever Duty": s.relieverDutyId || '--',
+      "Details": s.details
     }));
 
-    const ws = XLSX.utils.json_to_sheet(formattedData);
+    const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Inspections Registry");
-    XLSX.writeFile(wb, `BMRCL_ALS_Cab_Inspections_${selectedDate}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, "Cab Inspection Journey");
+    XLSX.writeFile(wb, `BMRCL_ALS_Cab_Inspection_${activeMentor.name.replace(/\s+/g, '_')}_${selectedDate}.xlsx`);
   };
 
-  const selectAllDue = () => {
-    const dueIds = processedOperators
-      .filter(o => o.statusText === 'Inspection Overdue' || o.statusText === 'Inspection Due')
-      .map(o => o.empId);
-    setSelectedOperatorIds(dueIds);
-  };
-
-  const selectEntireShift = (shift) => {
-    const shiftIds = processedOperators
-      .filter(o => o.shiftGroup === shift)
-      .map(o => o.empId);
-    setSelectedOperatorIds(shiftIds);
-  };
-
-  const toggleSelectOp = (id) => {
-    if (selectedOperatorIds.includes(id)) {
-      setSelectedOperatorIds(prev => prev.filter(x => x !== id));
-    } else {
-      setSelectedOperatorIds(prev => [...prev, id]);
-    }
-  };
+  if (userProfile?.role === 'TRAIN_OPERATOR' || userProfile?.role === 'STATION_CONTROLLER' || userProfile?.role === 'VIEWER' || !hasPermission('AI ALS Cab Inspection', 'View')) {
+    return null;
+  }
 
   return (
     <div className="space-y-6 text-xs font-mono text-slate-200">
       
-      {/* ── HEADER PANEL ── */}
-      <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl shadow-lg flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+      {/* ── 1. OFFICIAL TOP HEADER PANEL ── */}
+      <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl shadow-xl flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
         <div>
-          <h1 className="text-sm font-black text-slate-100 flex items-center gap-2 uppercase tracking-wider">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-black px-2 py-0.5 rounded tracking-wider uppercase">
+              BMRCL Line 2 Peenya Depot Crew Control
+            </span>
+            <span className="bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[10px] font-black px-2 py-0.5 rounded tracking-wider uppercase flex items-center gap-1">
+              <Activity className="h-3 w-3 animate-pulse" /> Live Synced @DISPATCH GATEWAY CORE & Relief Chart
+            </span>
+          </div>
+          <h1 className="text-lg font-black text-slate-100 flex items-center gap-2 uppercase tracking-wider mt-1.5">
             <Sparkles className="text-cyan-400 h-5 w-5 animate-pulse" /> AI ALS Cab Inspection Planner
           </h1>
-          <p className="text-[10px] text-slate-450 mt-1 uppercase">Metro Operations Planning Assistant & Route Optimization Engine</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            Automated Mainline Train Boarding, In-Cab Evaluation, and Reliever Handover Route Planner
+          </p>
         </div>
 
+        {/* Operational Context Controls */}
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-          <div className="bg-slate-950 border border-slate-850 p-1.5 rounded-lg flex items-center gap-2">
-            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider px-1">Officer:</span>
-            <select id="aialscabinspectionpl-i1" name="aialscabinspectionpl-i1"
-              value={activeOfficer}
+          {/* ALS Officer Selector */}
+          <div className="bg-slate-950 border border-cyan-800/80 p-2 rounded-lg flex items-center gap-2 shadow-inner">
+            <User className="h-4 w-4 text-cyan-400" />
+            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Concerned ALS:</span>
+            <select
+              value={selectedMentorName}
               onChange={e => {
-                setActiveOfficer(e.target.value);
-                setInspectionForm(prev => ({ ...prev, alsName: e.target.value }));
+                setSelectedMentorName(e.target.value);
+                setSelectedOperatorIds([]);
               }}
-              className="bg-transparent border-none text-cyan-400 font-bold focus:outline-none cursor-pointer"
+              className="bg-transparent border-none text-cyan-300 font-black text-xs focus:outline-none cursor-pointer"
             >
-              {ALS_OFFICERS.map(o => (
-                <option key={o} value={o}>{o}</option>
+              {mentorsList.map(m => (
+                <option key={m.id || m.name} value={m.name} className="bg-slate-900 text-slate-100 font-bold">
+                  {m.displayName || m.name}
+                </option>
               ))}
             </select>
           </div>
 
-          <div className="bg-slate-950 border border-slate-850 p-1.5 rounded-lg flex items-center gap-2">
+          {/* Date Selector */}
+          <div className="bg-slate-950 border border-slate-800 p-2 rounded-lg flex items-center gap-2">
             <Calendar className="h-3.5 w-3.5 text-indigo-400" />
             <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Date:</span>
-            <input id="aialscabinspectionpl-i2" name="aialscabinspectionpl-i2"
+            <input
               type="date"
               value={selectedDate}
               onChange={e => {
                 setSelectedDate(e.target.value);
                 setSelectedOperatorIds([]);
-                setJourneyPlan(null);
               }}
-              className="bg-transparent border-none text-indigo-400 font-bold outline-none cursor-pointer focus:ring-0 w-28"
+              className="bg-transparent border-none text-indigo-300 font-black outline-none cursor-pointer w-28 text-xs"
             />
-            <span className="bg-indigo-950 text-indigo-400 px-1.5 py-0.2 rounded text-[9px] font-black">{scheduleType}</span>
-          </div>
-
-          <div className="bg-slate-950 border border-slate-850 p-1.5 rounded-lg flex items-center gap-2">
-            <MapPin className="h-3.5 w-3.5 text-emerald-400" />
-            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Start:</span>
-            <select id="aialscabinspectionpl-i3" name="aialscabinspectionpl-i3"
-              value={startingStation}
-              onChange={e => setStartingStation(e.target.value)}
-              className="bg-transparent border-none text-emerald-400 font-bold focus:outline-none cursor-pointer"
-            >
-              {GREEN_LINE_STATIONS.map(st => (
-                <option key={st.code} value={st.code}>{st.name} ({st.code})</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="bg-slate-950 border border-slate-850 p-1.5 rounded-lg flex items-center gap-2">
-            <Clock className="h-3.5 w-3.5 text-amber-400" />
-            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Time:</span>
-            <input id="aialscabinspectionpl-i4" name="aialscabinspectionpl-i4"
-              type="time"
-              value={startingTime}
-              onChange={e => setStartingTime(e.target.value)}
-              className="bg-transparent border-none text-amber-400 font-bold outline-none w-16 cursor-pointer"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* ── LIVE SYNC STATUS BAR ── */}
-      <div className="bg-slate-955 border border-slate-900 px-4 py-2 rounded-lg flex flex-wrap justify-between items-center gap-2 text-[10px]">
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span className="text-slate-400 font-bold uppercase tracking-wider">Live Synchronization Status:</span>
-          <span className="text-slate-500">WTT ({wttMatrix.length}), links ({linkRoster.length}), Duties ({dutyRoster.length}) active</span>
-        </div>
-        <div className="flex items-center gap-4 text-slate-400 font-bold uppercase">
-          <span>Swaps: <span className="text-cyan-400">{shiftExchanges.length}</span></span>
-          <span>Reliefs: <span className="text-amber-500">{emergencyRelief.length}</span></span>
-          <span>Delays: <span className="text-rose-500">{liveIncidents.reduce((acc, c) => acc + (c.delayMins || 0), 0)} mins</span></span>
-        </div>
-      </div>
-
-      {/* ── SUB TAB NAVIGATION ── */}
-      <div className="flex border-b border-slate-800 pb-3 gap-2">
-        {[
-          { id: 'PLANNER', label: '1. Select Operators & Plan' },
-          { id: 'TIMELINE', label: '2. Interactive Journey Timeline' },
-          { id: 'REPORTS', label: '3. Reports & Audits' }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 font-bold rounded-lg transition-colors border ${
-              activeTab === tab.id 
-                ? 'bg-cyan-950/40 text-cyan-400 border-cyan-855 shadow-md' 
-                : 'bg-slate-900 border-transparent text-slate-400 hover:bg-slate-850'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── TAB 1: OPERATOR SELECTOR & PLAN ── */}
-      {activeTab === 'PLANNER' && (
-        <div className="space-y-6">
-          {journeyPlan && journeyPlan.isValid === false && (
-            <div className="bg-rose-955/20 border border-rose-900/40 p-4 rounded-xl space-y-2">
-              <h3 className="text-xs font-black text-rose-400 uppercase tracking-widest flex items-center gap-1.5 border-b border-rose-900/30 pb-1.5">
-                ⚠️ Unable to generate inspection route because Duty Roster, Link Roster and WTT do not match
-              </h3>
-              <ul className="list-disc list-inside space-y-1 text-[10px] text-rose-350 font-mono">
-                {journeyPlan.validationErrors.map((err, idx) => (
-                  <li key={idx}>{err}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <div className="bg-slate-900 border border-slate-850 p-4 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={selectAllDue}
-                className="bg-indigo-950/50 hover:bg-indigo-900 border border-indigo-900/40 text-indigo-400 font-bold px-3 py-1.5 rounded transition"
-              >
-                Select All Due/Overdue
-              </button>
-              <button
-                onClick={() => selectEntireShift('MORNING')}
-                className="bg-slate-950 hover:bg-slate-800 border border-slate-850 text-slate-300 font-bold px-3 py-1.5 rounded transition"
-              >
-                Morning Shift
-              </button>
-              <button
-                onClick={() => selectEntireShift('AFTERNOON')}
-                className="bg-slate-950 hover:bg-slate-800 border border-slate-850 text-slate-300 font-bold px-3 py-1.5 rounded transition"
-              >
-                Afternoon Shift
-              </button>
-              <button
-                onClick={() => setSelectedOperatorIds(activeDeployments.map(o => o.empId))}
-                className="bg-cyan-950/30 hover:bg-cyan-900 border border-cyan-900/30 text-cyan-400 font-bold px-3 py-1.5 rounded transition"
-              >
-                Entire Depot (All On-duty)
-              </button>
-              <button
-                onClick={() => setSelectedOperatorIds([])}
-                className="bg-slate-950 hover:bg-slate-850 border border-slate-850 text-rose-455 font-bold px-3 py-1.5 rounded transition"
-              >
-                Clear Selection
-              </button>
-            </div>
-
-            <span className="text-cyan-405 font-black tracking-widest text-[10px] uppercase bg-cyan-950/20 px-3 py-1 rounded border border-cyan-900/30">
-              {selectedOperatorIds.length} Operators Selected
+            <span className="bg-indigo-950 text-indigo-400 px-1.5 py-0.5 rounded text-[9px] font-black border border-indigo-900">
+              {scheduleType}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="space-y-4">
-              <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-xl space-y-4">
-                <h3 className="text-xs font-black text-slate-200 uppercase tracking-widest border-b border-slate-800 pb-2">Filter Operators</h3>
-                
-                <div className="space-y-1">
-                  <label className="text-[9px] text-slate-500 font-bold uppercase block" htmlFor="aialscabinspectionpl-i5">Search Name or ID</label>
-                  <div className="relative">
-                    <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-slate-500" />
-                    <input id="aialscabinspectionpl-i5" name="aialscabinspectionpl-i5"
-                      type="text"
-                      placeholder="e.g. BHARATH"
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-850 rounded pl-7 pr-2 py-1.5 outline-none focus:border-cyan-500 text-slate-200"
-                    />
-                  </div>
-                </div>
+          {/* Shift Hours */}
+          <div className="bg-slate-950 border border-slate-800 p-2 rounded-lg flex items-center gap-2">
+            <Clock className="h-3.5 w-3.5 text-amber-400" />
+            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Shift:</span>
+            <input
+              type="time"
+              value={shiftStartTime}
+              onChange={e => setShiftStartTime(e.target.value)}
+              className="bg-transparent border-none text-amber-300 font-black outline-none w-16 cursor-pointer"
+              title="Shift Start Time"
+            />
+            <span className="text-slate-600 font-bold">➔</span>
+            <input
+              type="time"
+              value={shiftEndTime}
+              onChange={e => setShiftEndTime(e.target.value)}
+              className="bg-transparent border-none text-amber-300 font-black outline-none w-16 cursor-pointer"
+              title="Shift End Time"
+            />
+          </div>
 
-                <div className="space-y-1">
-                  <label className="text-[9px] text-slate-500 font-bold uppercase block" htmlFor="aialscabinspectionpl-i6">Shift Filter</label>
-                  <select id="aialscabinspectionpl-i6" name="aialscabinspectionpl-i6"
-                    value={filterShift}
-                    onChange={e => setFilterShift(e.target.value)}
-                    className="w-full bg-slate-955 border border-slate-850 p-2 rounded outline-none text-slate-355 cursor-pointer focus:border-cyan-500"
-                  >
-                    <option value="ALL">All Shifts</option>
-                    <option value="MORNING">Morning Shift</option>
-                    <option value="AFTERNOON">Afternoon Shift</option>
-                    <option value="NIGHT">Night Shift</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-indigo-950/20 to-purple-950/20 border border-indigo-900/30 p-4 rounded-xl space-y-3">
-                <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1">
-                  <Sparkles size={13} /> AI Assistant
-                </h4>
-                <p className="text-[10px] text-slate-350 leading-relaxed font-sans">
-                  Use the multi-select tools to choose operators. Once selected, click the button below to compute the optimal sequential cab boarding route based on WTT segments and delays.
-                </p>
-                <button
-                  onClick={calculateRoute}
-                  disabled={isCalculating || selectedOperatorIds.length === 0}
-                  className="w-full bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-slate-950 font-black py-2 rounded-lg uppercase tracking-wider text-[10px] transition disabled:opacity-50"
-                >
-                  {isCalculating ? 'Computing Optimal Journey...' : 'Calculate AI Journey'}
-                </button>
-              </div>
-            </div>
-
-            <div className="lg:col-span-3 bg-slate-900/20 border border-slate-800 rounded-xl overflow-hidden shadow">
-              <div className="px-4 py-3 bg-slate-950 border-b border-slate-800 flex justify-between items-center">
-                <h3 className="text-xs font-black text-slate-200 uppercase tracking-widest">On-Duty Operators Registry</h3>
-                <span className="text-[10px] text-slate-500 font-bold">{filteredOperators.length} Active Records</span>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left whitespace-nowrap">
-                  <thead className="text-[9px] text-slate-500 uppercase tracking-wider bg-slate-950/50 border-b border-slate-850">
-                    <tr>
-                      <th className="p-3 text-center w-12">Select</th>
-                      <th className="p-3">Employee</th>
-                      <th className="p-3">Mainline Train</th>
-                      <th className="p-3">Duty Run</th>
-                      <th className="p-3">Sign-On</th>
-                      <th className="p-3">Monthly Status</th>
-                      <th className="p-3 text-right">Priority</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-850 text-slate-350">
-                    {filteredOperators.length === 0 ? (
-                      <tr>
-                        <td colSpan="7" className="p-8 text-center text-slate-500 italic">No operators on duty match the selected criteria.</td>
-                      </tr>
-                    ) : (
-                      filteredOperators.map((op, opIdx) => {
-                        const isSelected = selectedOperatorIds.includes(op.empId);
-                        
-                        let badgeColor = 'bg-slate-950 text-slate-555 border-slate-900';
-                        if (op.statusText === 'Inspection Completed') badgeColor = 'bg-emerald-955 text-emerald-400 border-emerald-900/30';
-                        if (op.statusText === 'Inspection Due') badgeColor = 'bg-amber-955 text-amber-500 border-amber-900/20';
-                        if (op.statusText === 'Inspection Overdue') badgeColor = 'bg-rose-955 text-rose-500 border-rose-900/30';
-                        if (op.statusText === 'Inspection Pending') badgeColor = 'bg-cyan-950 text-cyan-400 border-cyan-900/30';
-
-                        return (
-                          <tr 
-                            key={op.id || `op_${op.empId}_${op.dutyId}_${opIdx}`} 
-                            onClick={() => toggleSelectOp(op.empId)}
-                            className={`hover:bg-slate-955/40 cursor-pointer transition ${isSelected ? 'bg-cyan-950/10' : ''}`}
-                          >
-                            <td className="p-3 text-center" onClick={e => e.stopPropagation()}>
-                              <input id={`als-op-select-${op.empId || opIdx}`} name={`als_op_select_${op.empId || opIdx}`} aria-label={`Select ${op.empName || op.operatorName || op.empId}`}
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => toggleSelectOp(op.empId)}
-                                className="rounded border-slate-800 bg-slate-950 text-cyan-500 focus:ring-0 focus:ring-offset-0 cursor-pointer h-3.5 w-3.5"
-                              />
-                            </td>
-                            <td className="p-3">
-                              <div className="flex items-center gap-2">
-                                <div className="h-6 w-6 bg-slate-900 border border-slate-800 rounded-full flex items-center justify-center font-bold text-slate-555 text-[9px]">
-                                  TO
-                                </div>
-                                <div>
-                                  <strong className="text-slate-150 font-bold block uppercase">{op.empName}</strong>
-                                  <span className="text-[9px] text-slate-500 font-bold">ID: #{op.empId}</span>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="p-3">
-                              <span className="flex items-center gap-1 font-bold text-slate-200">
-                                <Activity className="h-3 w-3 text-indigo-400" /> Train {op.trainId}
-                              </span>
-                            </td>
-                            <td className="p-3 font-bold text-slate-350">Duty {op.dutyId}</td>
-                            <td className="p-3 text-slate-400 font-bold">{op.signOnTime}</td>
-                            <td className="p-3">
-                              <span className={`px-2 py-0.5 rounded text-[8.5px] font-bold border ${badgeColor}`}>
-                                {op.statusText}
-                              </span>
-                            </td>
-                            <td className="p-3 text-right font-black text-cyan-400">+{op.priorityScore} Pts</td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          {/* Base Station */}
+          <div className="bg-slate-950 border border-slate-800 p-2 rounded-lg flex items-center gap-2">
+            <MapPin className="h-3.5 w-3.5 text-emerald-400" />
+            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Base:</span>
+            <select
+              value={baseStation}
+              onChange={e => setBaseStation(e.target.value)}
+              className="bg-transparent border-none text-emerald-300 font-black focus:outline-none cursor-pointer"
+            >
+              {GREEN_LINE_STATIONS_LIST.map(st => (
+                <option key={st.code} value={st.code} className="bg-slate-900 text-slate-200">
+                  {st.code} ({st.name})
+                </option>
+              ))}
+            </select>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* ── TAB 2: INTERACTIVE JOURNEY TIMELINE ── */}
-      {activeTab === 'TIMELINE' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-slate-900/40 border border-slate-800 p-5 rounded-xl space-y-6">
-            <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
-              <div>
-                <h3 className="text-xs font-black text-slate-200 uppercase tracking-widest">ALS Daily Cab Inspection Journey</h3>
-                <p className="text-[10px] text-slate-500 mt-0.5">Calculated sequence for optimized boarding and deboarding</p>
-              </div>
-              
+      {/* ── 2. METRICS DASHBOARD CARDS ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
+          <div className="flex justify-between items-center text-slate-400 text-[10px] font-bold uppercase">
+            <span>Nominated Mentees</span>
+            <Users className="h-4 w-4 text-cyan-400" />
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-cyan-300">{activeMentor.assignedOperators?.length || 0}</span>
+            <span className="text-[10px] text-slate-500 font-bold uppercase">TOs under {activeMentor.name.split(' ')[0]}</span>
+          </div>
+        </div>
+
+        <div className="bg-emerald-950/20 border border-emerald-900/40 p-3.5 rounded-xl">
+          <div className="flex justify-between items-center text-emerald-400 text-[10px] font-bold uppercase">
+            <span>In Train Driving Now</span>
+            <Activity className="h-4 w-4 text-emerald-400 animate-pulse" />
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-emerald-400">{generatedPlan.activeInShiftCount}</span>
+            <span className="text-[10px] text-emerald-500 font-bold uppercase">Active Targets Today</span>
+          </div>
+        </div>
+
+        <div className="bg-cyan-955/20 border border-cyan-900/40 p-3.5 rounded-xl">
+          <div className="flex justify-between items-center text-cyan-400 text-[10px] font-bold uppercase">
+            <span>Planned Inspections</span>
+            <ShieldCheck className="h-4 w-4 text-cyan-400" />
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-cyan-300">{generatedPlan.coveredInspectionsCount}</span>
+            <span className="text-[10px] text-slate-400 font-bold uppercase">Scheduled in Plan</span>
+          </div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
+          <div className="flex justify-between items-center text-slate-400 text-[10px] font-bold uppercase">
+            <span>Plan Route Efficiency</span>
+            <Compass className="h-4 w-4 text-indigo-400" />
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-indigo-300">{generatedPlan.efficiency}%</span>
+            <span className="text-[10px] text-emerald-400 font-bold uppercase">Easiest Sequential Route</span>
+          </div>
+        </div>
+
+        <div className="bg-amber-955/20 border border-amber-900/30 p-3.5 rounded-xl">
+          <div className="flex justify-between items-center text-amber-400 text-[10px] font-bold uppercase">
+            <span>Shift Time Window</span>
+            <Clock className="h-4 w-4 text-amber-400" />
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-base font-black text-amber-300 font-mono">{shiftStartTime} ➔ {shiftEndTime}</span>
+            <span className="text-[10px] text-slate-500 font-bold uppercase">8h 30m</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 3. SUB TAB NAVIGATION ── */}
+      <div className="flex flex-wrap border-b border-slate-800 pb-3 gap-2 justify-between items-center">
+        <div className="flex flex-wrap gap-2">
+          {[
+            { id: 'JOURNEY_PLAN', label: '1. Official Cab Inspection Journey Plan', icon: Compass },
+            { id: 'NOMINATED_DRIVERS', label: `2. Nominated Train Operators (${activeMentor.assignedOperators?.length || 0})`, icon: Users },
+            { id: 'INSPECTION_HISTORY', label: '3. Inspection Logs & Audit Records', icon: ShieldCheck },
+            { id: 'OFFICIAL_MASTER', label: '4. Official BMRCL Nomination Notice Board', icon: FileText }
+          ].map(tab => {
+            const Icon = tab.icon;
+            return (
               <button
-                onClick={calculateRoute}
-                className="bg-slate-950 border border-slate-850 hover:bg-slate-800 text-cyan-400 px-3 py-1.5 rounded font-bold flex items-center gap-1 transition"
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2 font-bold rounded-lg transition-colors border flex items-center gap-2 cursor-pointer ${
+                  activeTab === tab.id 
+                    ? 'bg-cyan-950/40 text-cyan-300 border-cyan-800 shadow-md' 
+                    : 'bg-slate-900 border-transparent text-slate-400 hover:bg-slate-850'
+                }`}
               >
-                <RefreshCw size={11} /> Re-Calculate
+                <Icon size={14} /> {tab.label}
               </button>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setDispatchSyncVersion(v => v + 1)}
+            className="bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 font-bold px-3 py-1.5 rounded flex items-center gap-1.5 transition text-[10px] cursor-pointer"
+            title="Reload live active train operators from @DISPATCH GATEWAY CORE"
+          >
+            <RefreshCw size={12} className="text-cyan-400" /> Refresh Live Dispatches
+          </button>
+        </div>
+      </div>
+
+      {/* ── TAB 1: OFFICIAL CAB INSPECTION JOURNEY PLAN ── */}
+      {activeTab === 'JOURNEY_PLAN' && (
+        <div className="space-y-6">
+          
+          {/* Top Plan Directive Card */}
+          <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950/40 border border-slate-800 p-4 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-lg">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="bg-cyan-950/80 text-cyan-300 border border-cyan-800 px-2.5 py-0.5 rounded text-[10px] font-black uppercase">
+                  {activeMentor.name} • CAB INSPECTION ORDER
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  Base: <strong className="text-emerald-400">{baseStation} (Peenya Industry)</strong> | Shift: <strong className="text-amber-400">{shiftStartTime} ➔ {shiftEndTime}</strong>
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 font-sans mt-1">
+                Easiest sequential boarding plan using <strong>Relief ID Chart & WTT</strong>. Below is your step-by-step itinerary detailing where to board, which train ID, which nominated operator is in the cab, where to deboard, and who relieves them.
+              </p>
             </div>
 
-            <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-[1.5px] before:bg-slate-800">
-              {journeyPlan && journeyPlan.isValid === false ? (
-                <div className="bg-rose-955/20 border border-rose-900/40 p-4 rounded-xl space-y-2">
-                  <h4 className="text-xs font-black text-rose-400 uppercase tracking-widest flex items-center gap-1.5 border-b border-rose-900/30 pb-1.5">
-                    ⚠️ Mismatch Warnings
-                  </h4>
-                  <ul className="list-disc list-inside space-y-1 text-[10px] text-rose-350 font-mono">
-                    {journeyPlan.validationErrors.map((err, idx) => (
-                      <li key={idx}>{err}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : journeyPlan?.steps && journeyPlan.steps.length > 0 ? (
-                journeyPlan.steps.map((step, idx) => {
-                  const isInspect = step.action === 'INSPECT';
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleCopyWhatsAppOrder}
+                className="bg-emerald-950/50 hover:bg-emerald-900 border border-emerald-800 text-emerald-300 px-3.5 py-1.5 rounded font-black flex items-center gap-1.5 transition text-[10px] cursor-pointer shadow"
+              >
+                <Share2 size={13} /> WhatsApp Order
+              </button>
+              <button
+                onClick={handlePrint}
+                className="bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 px-3.5 py-1.5 rounded font-bold flex items-center gap-1.5 transition text-[10px] cursor-pointer"
+              >
+                <Printer size={13} /> Print Sheet
+              </button>
+              <button
+                onClick={handleExportExcel}
+                className="bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 px-3.5 py-1.5 rounded font-bold flex items-center gap-1.5 transition text-[10px] cursor-pointer"
+              >
+                <FileSpreadsheet size={13} /> Excel
+              </button>
+            </div>
+          </div>
+
+          {/* Step-by-Step Interactive Itinerary */}
+          <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-xl space-y-4">
+            <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
+              <h3 className="text-xs font-black text-slate-100 uppercase tracking-widest flex items-center gap-2">
+                <Compass className="h-4 w-4 text-cyan-400" />
+                Step-by-Step Itinerary for ALS {activeMentor.name}
+              </h3>
+              <span className="text-[10px] text-slate-400 font-bold">
+                {generatedPlan.steps?.length || 0} Sequential Actions
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {generatedPlan.steps && generatedPlan.steps.length > 0 ? (
+                generatedPlan.steps.map((step, idx) => {
                   const isBoard = step.action === 'BOARD';
+                  const isInspect = step.action === 'INSPECT';
+                  const isDeboard = step.action === 'DEBOARD';
+                  const isTransfer = step.action === 'TRANSFER';
                   const isWait = step.action === 'WAIT';
                   const isLeave = step.action === 'LEAVE';
-                  const isTransit = step.action === 'TRANSIT';
-                  const isCompleted = step.status === 'COMPLETED';
-
-                  let dotColor = 'bg-slate-700 ring-slate-900';
-                  if (isInspect) dotColor = isCompleted ? 'bg-emerald-500 ring-emerald-950/40' : 'bg-cyan-500 ring-cyan-950/40';
-                  if (isBoard) dotColor = 'bg-indigo-500 ring-indigo-950/40';
-                  if (isWait) dotColor = 'bg-amber-500 ring-amber-950/40';
-                  if (isLeave) dotColor = 'bg-purple-500 ring-purple-950/40';
-                  if (isTransit) dotColor = 'bg-slate-500 ring-slate-900';
+                  const isCompleted = step.action === 'COMPLETED';
 
                   return (
-                    <div key={idx} className="relative group">
-                      <span className={`absolute -left-6 top-2.5 h-3.5 w-3.5 rounded-full ring-4 ${dotColor} transition`}></span>
-
-                      <div className="bg-slate-950/40 border border-slate-850/80 p-4 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:border-slate-750 transition">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-slate-400 bg-slate-900 border border-slate-850 px-2 py-0.5 rounded flex items-center gap-1">
-                              <Clock size={11} className="text-slate-500" /> {step.time}
+                    <div 
+                      key={idx}
+                      className={`p-4 rounded-xl border transition-all ${
+                        isInspect ? 'bg-cyan-950/20 border-cyan-800/80 shadow-md' :
+                        isBoard ? 'bg-indigo-950/20 border-indigo-800/80 shadow-sm' :
+                        isDeboard ? 'bg-rose-955/20 border-rose-800/80' :
+                        isTransfer ? 'bg-purple-955/20 border-purple-800/80' :
+                        isCompleted ? 'bg-emerald-955/20 border-emerald-800/80' :
+                        'bg-slate-950 border-slate-800'
+                      }`}
+                    >
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                        <div className="space-y-1.5 flex-1">
+                          
+                          {/* Badges Bar */}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[10px] font-black text-slate-200 bg-slate-900 border border-slate-750 px-2 py-0.5 rounded flex items-center gap-1 font-mono">
+                              <Clock size={11} className="text-cyan-400" /> {step.time}
                             </span>
-                            <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded border ${
-                              isInspect ? 'bg-cyan-955 text-cyan-400 border-cyan-900/30' :
-                              isBoard ? 'bg-indigo-955 text-indigo-400 border-indigo-900/30' :
-                              isWait ? 'bg-amber-955/40 text-amber-500 border-amber-900/20' :
-                              isLeave ? 'bg-purple-955 text-purple-400 border-purple-900/30' :
-                              'bg-slate-955 text-slate-550 border-slate-900'
+                            
+                            <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${
+                              isBoard ? 'bg-indigo-950 text-indigo-300 border-indigo-700' :
+                              isInspect ? 'bg-cyan-950 text-cyan-300 border-cyan-700' :
+                              isDeboard ? 'bg-rose-955 text-rose-300 border-rose-700' :
+                              isTransfer ? 'bg-purple-955 text-purple-300 border-purple-700' :
+                              isCompleted ? 'bg-emerald-955 text-emerald-300 border-emerald-700' :
+                              'bg-slate-900 text-slate-300 border-slate-700'
                             }`}>
                               {step.action}
                             </span>
+
+                            {step.trainId && (
+                              <span className="bg-slate-900 text-indigo-300 border border-indigo-800 px-2 py-0.5 rounded text-[9.5px] font-black">
+                                🚆 Train {step.trainId} {step.direction ? `(${step.direction})` : ''}
+                              </span>
+                            )}
+
+                            {step.stationName && (
+                              <span className="text-[9.5px] text-slate-400 font-bold flex items-center gap-1">
+                                <MapPin size={11} className="text-emerald-400" /> {step.stationName}
+                              </span>
+                            )}
                           </div>
-                          
-                          <p className="text-slate-200 font-bold text-[11px] mt-1">{step.details}</p>
-                          
-                          {isInspect && (
-                            <span className="text-[9.5px] text-slate-450 block font-bold">
-                              Station: {step.stationName} | Train Platform {step.direction === 'UP' ? '1 (UP)' : '2 (DN)'}
-                            </span>
+
+                          {/* Primary Description */}
+                          <p className="text-slate-100 font-bold text-xs mt-1 leading-relaxed">
+                            {step.details}
+                          </p>
+
+                          {/* Operator in Cab details if inspecting or boarding */}
+                          {(isBoard || isInspect) && step.operatorName && (
+                            <div className="mt-2 bg-slate-950/80 border border-slate-800 p-2.5 rounded-lg flex flex-wrap items-center justify-between gap-2 text-[10px]">
+                              <div>
+                                <span className="text-slate-400 font-bold">Driver in Cab: </span>
+                                <strong className="text-cyan-300 font-black uppercase">{step.operatorName}</strong>
+                                <span className="text-slate-500 font-bold"> (ID: #{step.operatorId} • Duty: {step.dutyId})</span>
+                              </div>
+                              <span className="bg-cyan-950/60 text-cyan-300 border border-cyan-800 px-2 py-0.5 rounded text-[9px] font-black uppercase">
+                                {activeMentor.name.split(' ')[0]} Nominee
+                              </span>
+                            </div>
                           )}
+
+                          {/* Reliever details on Deboard step */}
+                          {isDeboard && step.relieverName && step.relieverName !== '--' && (
+                            <div className="mt-2 bg-rose-955/20 border border-rose-900/40 p-2.5 rounded-lg flex flex-wrap items-center gap-2 text-[10px]">
+                              <span className="text-rose-400 font-black uppercase">🔄 Handover / Reliever:</span>
+                              <strong className="text-slate-200 font-bold">{step.relieverName}</strong>
+                              <span className="text-slate-400 font-bold">(Duty #{step.relieverDutyId}) takes over Train {step.trainId}</span>
+                            </div>
+                          )}
+
                         </div>
 
-                        {isInspect && !isCompleted && (
-                          <div className="flex items-center gap-2 w-full md:w-auto justify-end border-t md:border-t-0 border-slate-850 pt-2.5 md:pt-0">
+                        {/* Action Buttons for Log Inspection */}
+                        {isInspect && (
+                          <div className="flex items-center gap-2">
                             <button
-                              onClick={() => {
-                                const matchedCrew = processedOperators.find(c => c.empId === step.operatorId);
-                                openInspectionForm(matchedCrew || step);
-                              }}
-                              className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black px-3.5 py-1.5 rounded uppercase tracking-wider text-[9px] flex items-center gap-1 transition"
+                              onClick={() => openInspectionForm(step)}
+                              className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black px-4 py-2 rounded-lg uppercase tracking-wider text-[10px] flex items-center gap-1.5 transition shadow cursor-pointer"
                             >
-                              <Check size={12} /> Log Pass
-                            </button>
-                            <button
-                              onClick={() => handleMissedStep(step)}
-                              className="bg-slate-900 border border-slate-800 hover:bg-slate-855 text-rose-400 px-3.5 py-1.5 rounded uppercase tracking-wider text-[9px] flex items-center gap-1 transition"
-                            >
-                              <Trash2 size={12} /> Missed
+                              <Award size={13} /> Log Cab Inspection
                             </button>
                           </div>
-                        )}
-
-                        {isInspect && isCompleted && (
-                          <span className="flex items-center gap-1 text-[9.5px] font-bold text-emerald-450 uppercase tracking-widest bg-emerald-950/20 border border-emerald-900/40 px-2 py-1 rounded">
-                            <CheckCircle size={11} /> Completed
-                          </span>
                         )}
                       </div>
                     </div>
                   );
                 })
               ) : (
-                <div className="text-center py-12 text-slate-500 italic">No daily schedule calculated. Select operators in the first tab and click Calculate.</div>
+                <div className="p-8 text-center text-slate-500 italic">
+                  Generating inspection itinerary...
+                </div>
               )}
             </div>
           </div>
+        </div>
+      )}
 
-          <div className="space-y-6">
-            {journeyPlan && (
-              <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-xl space-y-4">
-                <h3 className="text-xs font-black text-slate-200 uppercase tracking-widest flex items-center gap-1.5 border-b border-slate-800 pb-2">
-                  <Sparkles size={14} className="text-cyan-400" /> AI Recommendation
-                </h3>
-
-                <div className="space-y-3.5">
-                  <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 flex justify-between items-center">
-                    <div>
-                      <span className="text-[8px] text-slate-500 font-bold block uppercase">Confidence Rating</span>
-                      <strong className="text-cyan-400 text-base font-black">98.5%</strong>
-                    </div>
-                    <span className="bg-cyan-955 text-cyan-400 px-2 py-0.5 rounded text-[9px] font-bold uppercase">Optimal Route</span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 bg-slate-950/40 p-3 rounded-lg border border-slate-850 text-[10px]">
-                    <div>
-                      <span className="text-slate-555 block">Est Travel Time</span>
-                      <strong className="text-slate-250 font-bold">{journeyPlan.travelTime} mins</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-555 block">Est Waiting Time</span>
-                      <strong className="text-slate-250 font-bold">{journeyPlan.waitingTime} mins</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-555 block">Total Inspections</span>
-                      <strong className="text-emerald-455 font-bold">{journeyPlan.completedCount} Coverages</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-555 block">Planner Efficiency</span>
-                      <strong className="text-indigo-400 font-bold">{journeyPlan.efficiency}%</strong>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-950/45 border border-slate-850 p-3 rounded-lg flex gap-2">
-                    <Compass className="h-4.5 w-4.5 text-cyan-400 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="text-[8.5px] text-slate-500 font-bold block uppercase">AI Optimization Logic</span>
-                      <p className="text-[10px] text-slate-350 italic mt-0.5 leading-relaxed">
-                        "Optimized journey routes using real-time WTT schedules for a {scheduleType} shift. Minimizes walking and platform switching at peak interchange junctions."
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {crossoverAlerts.length > 0 && (
-              <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-xl space-y-3.5">
-                <h3 className="text-xs font-black text-slate-200 uppercase tracking-widest flex items-center gap-1.5 border-b border-slate-800 pb-2">
-                  <Bell size={13} className="text-amber-500" /> Crossover Opportunities
-                </h3>
-
-                <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                  {crossoverAlerts.map((c, idx) => (
-                    <div key={idx} className="bg-slate-955 border-l-2 border-cyan-500 p-3 rounded text-[10px] space-y-1">
-                      <div className="flex justify-between items-center text-slate-400 font-bold">
-                        <span>@{c.stationName} ({c.stationCode})</span>
-                        <span className="text-cyan-400">{c.timeStr}</span>
-                      </div>
-                      <p className="text-slate-300 leading-normal">{c.reason}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-xl space-y-3.5">
-              <h3 className="text-xs font-black text-slate-200 uppercase tracking-widest flex items-center gap-1.5 border-b border-slate-800 pb-2">
-                <Activity size={13} className="text-rose-500 animate-pulse" /> Live incident monitor
+      {/* ── TAB 2: NOMINATED TRAIN OPERATORS & DUTIES TABLE ── */}
+      {activeTab === 'NOMINATED_DRIVERS' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-slate-800 pb-3">
+            <div>
+              <h3 className="text-xs font-black text-slate-100 uppercase tracking-widest flex items-center gap-2">
+                <Users size={14} className="text-cyan-400" />
+                Train Operators Nominated under ALS {activeMentor.name}
               </h3>
-
-              <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1 text-[10px]">
-                {liveIncidents.length === 0 ? (
-                  <div className="text-center py-4 text-slate-500 italic">No active delays reported.</div>
-                ) : (
-                  liveIncidents.map((inc, idx) => (
-                    <div key={idx} className="bg-slate-950 border-l-2 border-rose-500 p-2 rounded flex gap-2">
-                      <AlertTriangle className="h-4.5 w-4.5 text-rose-500 shrink-0 mt-0.5" />
-                      <div>
-                        <strong className="text-rose-405 font-bold block uppercase">Train {inc.trainId} Delayed</strong>
-                        <p className="text-slate-450 mt-0.5">Delay: {inc.delayMins} mins | Reason: {inc.reason}</p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Official crew list from Crew Control Peenya Depot • Status on current date & shift
+              </p>
             </div>
+
+            {/* Scope Filter Buttons */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setDriverFilter('IN_CAB')}
+                className={`px-3 py-1.5 rounded font-black text-[10px] border transition cursor-pointer ${
+                  driverFilter === 'IN_CAB'
+                    ? 'bg-emerald-950 text-emerald-300 border-emerald-700'
+                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-850'
+                }`}
+              >
+                🟢 Driving in Shift ({generatedPlan.activeInShiftCount})
+              </button>
+              <button
+                onClick={() => setDriverFilter('ALL')}
+                className={`px-3 py-1.5 rounded font-black text-[10px] border transition cursor-pointer ${
+                  driverFilter === 'ALL'
+                    ? 'bg-cyan-950 text-cyan-300 border-cyan-700'
+                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-850'
+                }`}
+              >
+                All Nominees ({activeMentor.assignedOperators?.length || 0})
+              </button>
+              <button
+                onClick={() => setDriverFilter('OTHER')}
+                className={`px-3 py-1.5 rounded font-black text-[10px] border transition cursor-pointer ${
+                  driverFilter === 'OTHER'
+                    ? 'bg-amber-955 text-amber-300 border-amber-700'
+                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-850'
+                }`}
+              >
+                Other Shifts / Standby
+              </button>
+            </div>
+          </div>
+
+          {/* Search Box */}
+          <div className="relative max-w-sm">
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search by name, employee ID, train..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded pl-8 pr-2 py-1.5 outline-none focus:border-cyan-500 text-slate-200 text-xs"
+            />
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left whitespace-nowrap">
+              <thead className="text-[9px] text-slate-400 uppercase tracking-wider bg-slate-950/70 border-b border-slate-800">
+                <tr>
+                  <th className="p-3">#</th>
+                  <th className="p-3">Train Operator</th>
+                  <th className="p-3">Mainline Train</th>
+                  <th className="p-3">Driving Time (Relief Chart)</th>
+                  <th className="p-3">Duty #</th>
+                  <th className="p-3">Reliever Taking Over</th>
+                  <th className="p-3">Monthly Inspection</th>
+                  <th className="p-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800 text-slate-350 text-[10px]">
+                {filteredNominees.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="p-8 text-center text-slate-500 italic">
+                      No nominated operators match the current filter.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredNominees.map((op, idx) => {
+                    const empId = String(op.empId).trim();
+                    const drivingSeg = availableSegments.find(s => s.operatorId === empId);
+                    const isInspectedThisMonth = monthlyCompletedMap.has(empId);
+
+                    return (
+                      <tr key={empId || idx} className="hover:bg-slate-850/40">
+                        <td className="p-3 text-slate-500 font-bold">{idx + 1}</td>
+                        <td className="p-3">
+                          <strong className="text-slate-100 font-bold block">{op.name}</strong>
+                          <span className="text-[9px] text-slate-500">ID: #{empId}</span>
+                        </td>
+                        <td className="p-3">
+                          {drivingSeg ? (
+                            <span className="bg-indigo-950/80 text-indigo-300 border border-indigo-800 px-2 py-0.5 rounded font-black">
+                              Train {drivingSeg.trainId}
+                            </span>
+                          ) : (
+                            <span className="text-slate-500 italic">Not in cab during shift</span>
+                          )}
+                        </td>
+                        <td className="p-3 font-mono font-bold text-slate-200">
+                          {drivingSeg ? `${drivingSeg.legFromTime} ➔ ${drivingSeg.legToTime}` : '--:--'}
+                        </td>
+                        <td className="p-3 font-bold text-slate-300">
+                          {drivingSeg ? `Duty ${drivingSeg.dutyId}` : '--'}
+                        </td>
+                        <td className="p-3">
+                          {drivingSeg && drivingSeg.relieverName ? (
+                            <div>
+                              <strong className="text-slate-200 block">{drivingSeg.relieverName}</strong>
+                              <span className="text-[9px] text-slate-500">Duty #{drivingSeg.relieverDutyId}</span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-500">--</span>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          {isInspectedThisMonth ? (
+                            <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded text-[8.5px] font-black uppercase">
+                              Completed
+                            </span>
+                          ) : (
+                            <span className="bg-cyan-950 text-cyan-400 border border-cyan-800 px-2 py-0.5 rounded text-[8.5px] font-black uppercase">
+                              Pending
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 text-right">
+                          <button
+                            onClick={() => openInspectionForm({
+                              operatorId: empId,
+                              operatorName: op.name,
+                              trainId: drivingSeg?.trainId || '214',
+                              dutyId: drivingSeg?.dutyId || 'N/A'
+                            })}
+                            className="bg-cyan-950/60 hover:bg-cyan-900 border border-cyan-800 text-cyan-300 px-3 py-1 rounded text-[9px] font-bold uppercase transition cursor-pointer"
+                          >
+                            Log Inspection
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
-      {/* ── TAB 3: REPORTS & AUDITS ── */}
-      {activeTab === 'REPORTS' && (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-lg">
+      {/* ── TAB 3: INSPECTION LOGS & AUDIT RECORDS ── */}
+      {activeTab === 'INSPECTION_HISTORY' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+          <div className="flex justify-between items-center border-b border-slate-800 pb-3">
             <div>
-              <h3 className="text-xs font-black text-slate-200 uppercase tracking-widest">Inspection Audit Center</h3>
-              <p className="text-[10px] text-slate-500 mt-0.5">Historical logs and driver coverage rankings</p>
+              <h3 className="text-xs font-black text-slate-100 uppercase tracking-widest flex items-center gap-2">
+                <ShieldCheck size={14} className="text-cyan-400" />
+                Completed Cab Inspection Evaluation Reports
+              </h3>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Archived evaluations committed to Firestore by Assistant Loco Superintendents
+              </p>
             </div>
-            
             <button
-              onClick={handleExportExcel}
-              className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black px-4 py-2 rounded-lg text-[10px] uppercase transition flex items-center gap-1.5"
+              onClick={() => {
+                const data = completedInspections.map(e => ({
+                  "Date": e.inspectionDate,
+                  "Time": e.inspectionTime,
+                  "ALS Officer": e.alsName,
+                  "Operator Name": e.employeeName,
+                  "Employee ID": e.employeeId,
+                  "Train ID": e.trainId,
+                  "Duty ID": e.dutyNumber,
+                  "Score (10)": e.overallScore,
+                  "Result": e.inspectionResult,
+                  "Remarks": e.remarks
+                }));
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Inspections");
+                XLSX.writeFile(wb, `BMRCL_ALS_Cab_Inspection_Log.xlsx`);
+              }}
+              className="bg-emerald-950 hover:bg-emerald-900 border border-emerald-800 text-emerald-300 px-3.5 py-1.5 rounded font-bold text-[10px] transition flex items-center gap-1.5 cursor-pointer"
             >
-              <FileSpreadsheet size={13} /> Export Excel
+              <Download size={13} /> Export Excel
             </button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-slate-900/40 border border-slate-800 p-5 rounded-xl space-y-4">
-              <h4 className="text-xs font-black text-slate-200 uppercase tracking-widest border-b border-slate-800 pb-2">Completed Inspections Registry</h4>
-              
-              <div className="max-h-[380px] overflow-y-auto space-y-2.5 pr-1 text-[10px]">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left whitespace-nowrap">
+              <thead className="text-[9px] text-slate-400 uppercase tracking-wider bg-slate-950/70 border-b border-slate-800">
+                <tr>
+                  <th className="p-3">Date & Time</th>
+                  <th className="p-3">ALS Officer</th>
+                  <th className="p-3">Train Operator</th>
+                  <th className="p-3">Train & Duty</th>
+                  <th className="p-3">Overall Score</th>
+                  <th className="p-3">Decision</th>
+                  <th className="p-3">Observations / Remarks</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800 text-slate-350 text-[10px]">
                 {completedInspections.length === 0 ? (
-                  <div className="text-center py-12 text-slate-500 italic">No completed inspections logged in Firestore.</div>
+                  <tr>
+                    <td colSpan="7" className="p-8 text-center text-slate-500 italic">
+                      No cab inspection evaluations logged yet.
+                    </td>
+                  </tr>
                 ) : (
-                  completedInspections.map((item, idx) => (
-                    <div key={idx} className="bg-slate-950 border border-slate-850 p-3 rounded-lg flex justify-between items-start">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <strong className="text-slate-150 font-bold text-xs uppercase">{item.employeeName}</strong>
-                          <span className={`px-1.5 py-0.2 rounded font-black text-[9px] border ${
-                            item.inspectionResult === 'PASS' ? 'bg-emerald-950 text-emerald-400 border-emerald-900/30' : 'bg-rose-955 text-rose-500 border-rose-900/30'
-                          }`}>{item.inspectionResult}</span>
-                        </div>
-                        
-                        <p className="text-slate-400">
-                          Inspected by <strong className="text-cyan-400">{item.alsName}</strong> on {item.inspectionDate} @ {item.inspectionTime}
-                        </p>
-                        
-                        {item.remarks && <p className="text-slate-500 italic">"{item.remarks}"</p>}
-                      </div>
-                      
-                      <div className="text-right space-y-1 font-mono">
-                        <span className="text-purple-400 font-bold bg-purple-950/20 border border-purple-900/30 px-2 py-0.5 rounded text-[10px]">
-                          Score: {item.overallScore}/10
+                  completedInspections.map((insp, idx) => (
+                    <tr key={insp.id || idx} className="hover:bg-slate-850/40">
+                      <td className="p-3 font-mono">{insp.inspectionDate} {insp.inspectionTime}</td>
+                      <td className="p-3 font-bold text-slate-200">{insp.alsName}</td>
+                      <td className="p-3 font-bold text-slate-100">{insp.employeeName} (#{insp.employeeId})</td>
+                      <td className="p-3">Train {insp.trainId} (Duty {insp.dutyNumber})</td>
+                      <td className="p-3 font-black text-cyan-400 text-xs">{insp.overallScore}/10</td>
+                      <td className="p-3">
+                        <span className={`px-2 py-0.5 rounded text-[8.5px] font-black uppercase ${
+                          insp.inspectionResult === 'PASS' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' :
+                          insp.inspectionResult === 'SATISFACTORY' ? 'bg-amber-955 text-amber-400 border border-amber-800' :
+                          'bg-rose-955 text-rose-400 border border-rose-800'
+                        }`}>
+                          {insp.inspectionResult}
                         </span>
-                        <span className="block text-[8.5px] text-slate-555 uppercase mt-1">Train: {item.trainId} | Duty: {item.dutyNumber}</span>
-                      </div>
-                    </div>
+                      </td>
+                      <td className="p-3 text-slate-400 truncate max-w-xs">{insp.remarks || '--'}</td>
+                    </tr>
                   ))
                 )}
-              </div>
-            </div>
-
-            <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-xl space-y-4">
-              <h4 className="text-xs font-black text-slate-200 uppercase tracking-widest border-b border-slate-800 pb-2">ALS Performance Metrics</h4>
-              
-              <div className="space-y-4 text-[10px]">
-                <div className="bg-slate-950 p-4 rounded-lg border border-slate-850 space-y-1">
-                  <span className="text-slate-500 block uppercase font-bold text-[8px]">Monthly Completion %</span>
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 bg-slate-900 rounded-full h-2">
-                      <div 
-                        className="bg-cyan-500 h-2 rounded-full transition-all" 
-                        style={{ width: `${Math.min(100, Math.round((monthlyCompletedMap.size / Math.max(1, activeDeployments.length)) * 100))}%` }}
-                      ></div>
-                    </div>
-                    <strong className="text-cyan-400 font-bold">
-                      {Math.min(100, Math.round((monthlyCompletedMap.size / Math.max(1, activeDeployments.length)) * 100))}%
-                    </strong>
-                  </div>
-                  <span className="text-slate-500 text-[8.5px] block mt-1">
-                    {monthlyCompletedMap.size} of {activeDeployments.length} operators inspected this month
-                  </span>
-                </div>
-
-                <div className="bg-slate-955 p-4 rounded-lg border border-slate-850 space-y-2">
-                  <span className="text-slate-500 block uppercase font-bold text-[8px]">Inspection Outcomes</span>
-                  <div className="flex justify-between items-center text-slate-350">
-                    <span>Passes / Stable:</span>
-                    <strong className="text-emerald-455">{completedInspections.filter(i => i.inspectionResult === 'PASS').length} Logs</strong>
-                  </div>
-                  <div className="flex justify-between items-center text-slate-350">
-                    <span>Needs Improvement:</span>
-                    <strong className="text-amber-500">{completedInspections.filter(i => i.inspectionResult === 'NEEDS_IMPROVEMENT').length} Logs</strong>
-                  </div>
-                  <div className="flex justify-between items-center text-slate-350">
-                    <span>Fails / Suspended:</span>
-                    <strong className="text-rose-500">{completedInspections.filter(i => i.inspectionResult === 'FAIL').length} Logs</strong>
-                  </div>
-                </div>
-
-                <div className="bg-slate-950 p-4 rounded-lg border border-slate-850 space-y-1">
-                  <span className="text-slate-500 block uppercase font-bold text-[8px]">Average Driver Score</span>
-                  <div className="flex justify-between items-center mt-1">
-                    <span className="text-slate-400">Inspected Avg:</span>
-                    <strong className="text-purple-400 text-xs font-black">
-                      {completedInspections.length > 0
-                        ? (Math.round((completedInspections.reduce((acc, i) => acc + i.overallScore, 0) / completedInspections.length) * 10) / 10)
-                        : '0'}
-                      /10
-                    </strong>
-                  </div>
-                </div>
-              </div>
-            </div>
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
-      {/* ── LOG CAB INSPECTION FILE MODAL ── */}
+      {/* ── TAB 4: OFFICIAL BMRCL NOMINATION NOTICE BOARD MASTER ── */}
+      {activeTab === 'OFFICIAL_MASTER' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-6">
+          <div className="border-b border-slate-800 pb-3">
+            <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider block">Official BMRCL Crew Control Document</span>
+            <h3 className="text-sm font-black text-slate-100 uppercase tracking-widest mt-0.5">
+              ALS NOMINATION OF LINE-2 TOs • CREW CONTROL - PYID W.E.F 23/6/2026
+            </h3>
+            <p className="text-[10px] text-slate-400 mt-1">
+              Signed by Naveen Kumar HN, Manager (Train Operation), 25/06/2026 • Peenya Depot
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            
+            {/* Column 1: Harsh Joshi */}
+            <div className="bg-slate-950 border border-cyan-800/80 rounded-xl p-4 space-y-3">
+              <div className="flex justify-between items-center border-b border-cyan-900/40 pb-2">
+                <div>
+                  <strong className="text-cyan-300 font-black text-xs block">ALS HARSH JOSHI</strong>
+                  <span className="text-[9px] text-slate-400 font-bold">Emp ID: #20087 • Official ALS</span>
+                </div>
+                <span className="bg-cyan-950 text-cyan-400 border border-cyan-800 px-2 py-0.5 rounded text-[9px] font-black">
+                  {HARSH_JOSHI_NOMINEES.length} TOs
+                </span>
+              </div>
+              <div className="max-h-[500px] overflow-y-auto space-y-1 pr-1">
+                {HARSH_JOSHI_NOMINEES.map((op, idx) => (
+                  <div key={op.empId} className="bg-slate-900/60 p-2 rounded flex justify-between items-center text-[10px]">
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-500 font-mono w-5">{idx + 1}.</span>
+                      <strong className="text-slate-200">{op.name}</strong>
+                    </div>
+                    <span className="text-slate-400 font-mono font-bold">#{op.empId}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Column 2: Aruna Kumar DS */}
+            <div className="bg-slate-950 border border-indigo-800/80 rounded-xl p-4 space-y-3">
+              <div className="flex justify-between items-center border-b border-indigo-900/40 pb-2">
+                <div>
+                  <strong className="text-indigo-300 font-black text-xs block">ALS ARUNA KUMAR DS</strong>
+                  <span className="text-[9px] text-slate-400 font-bold">Emp ID: #20018 • Official ALS</span>
+                </div>
+                <span className="bg-indigo-950 text-indigo-400 border border-indigo-800 px-2 py-0.5 rounded text-[9px] font-black">
+                  {ARUNA_KUMAR_DS_NOMINEES.length} TOs
+                </span>
+              </div>
+              <div className="max-h-[500px] overflow-y-auto space-y-1 pr-1">
+                {ARUNA_KUMAR_DS_NOMINEES.map((op, idx) => (
+                  <div key={op.empId} className="bg-slate-900/60 p-2 rounded flex justify-between items-center text-[10px]">
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-500 font-mono w-5">{idx + 1}.</span>
+                      <strong className="text-slate-200">{op.name}</strong>
+                    </div>
+                    <span className="text-slate-400 font-mono font-bold">#{op.empId}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Column 3: Shantiraj */}
+            <div className="bg-slate-950 border border-purple-800/80 rounded-xl p-4 space-y-3">
+              <div className="flex justify-between items-center border-b border-purple-900/40 pb-2">
+                <div>
+                  <strong className="text-purple-300 font-black text-xs block">ALS SHANTIRAJ</strong>
+                  <span className="text-[9px] text-slate-400 font-bold">Emp ID: #20057 • Official ALS</span>
+                </div>
+                <span className="bg-purple-950 text-purple-400 border border-purple-800 px-2 py-0.5 rounded text-[9px] font-black">
+                  {SHANTIRAJ_NOMINEES.length} TOs
+                </span>
+              </div>
+              <div className="max-h-[500px] overflow-y-auto space-y-1 pr-1">
+                {SHANTIRAJ_NOMINEES.map((op, idx) => (
+                  <div key={op.empId} className="bg-slate-900/60 p-2 rounded flex justify-between items-center text-[10px]">
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-500 font-mono w-5">{idx + 1}.</span>
+                      <strong className="text-slate-200">{op.name}</strong>
+                    </div>
+                    <span className="text-slate-400 font-mono font-bold">#{op.empId}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ── 5. LOG CAB INSPECTION FILE MODAL ── */}
       {showLogModal && selectedOpToInspect && (
-        <div className="fixed inset-0 bg-slate-955/80 backdrop-blur-sm flex items-center justify-center p-4 z-40">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl max-w-md w-full flex flex-col">
-            <div className="p-4 bg-slate-950 border-b border-slate-800 flex justify-between items-center">
-              <h3 className="text-xs font-black text-cyan-400 uppercase tracking-widest flex items-center gap-1.5">
-                <PlusCircle size={15} /> Log Cab Inspection File
-              </h3>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-xl rounded-xl shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-sm font-black text-slate-100 uppercase tracking-widest flex items-center gap-2">
+                  <ShieldCheck className="text-cyan-400 h-5 w-5" /> Official BMRCL Cab Inspection Report
+                </h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Line 2 Mainline Evaluation Checklist • Peenya Industry Depot
+                </p>
+              </div>
               <button 
-                onClick={() => { setShowLogModal(false); setSelectedOpToInspect(null); }} 
-                className="text-slate-400 hover:text-slate-200"
+                onClick={() => setShowLogModal(false)}
+                className="text-slate-500 hover:text-slate-300 font-bold text-lg cursor-pointer"
               >
-                Cancel
+                ✕
               </button>
             </div>
 
-            <form onSubmit={handleInspectionSubmit} className="p-5 space-y-4 text-xs">
-              <div className="bg-slate-950 p-3.5 rounded-lg border border-slate-850 space-y-1.5">
-                <span className="text-[8px] text-slate-550 font-bold uppercase tracking-wider block">Target Operator</span>
-                <strong className="text-slate-200 font-bold block text-sm uppercase">{selectedOpToInspect.empName || selectedOpToInspect.operatorName}</strong>
-                <span className="text-[9.5px] text-slate-500 block">
-                  Employee ID: #{selectedOpToInspect.empId || selectedOpToInspect.operatorId} | Train ID: {selectedOpToInspect.trainId}
+            {/* Operator Card */}
+            <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-xl grid grid-cols-2 gap-3 text-[10px]">
+              <div>
+                <span className="text-slate-500 block uppercase">Train Operator</span>
+                <strong className="text-slate-100 text-xs font-black">{selectedOpToInspect.operatorName || selectedOpToInspect.name}</strong>
+                <span className="text-slate-500 block">ID: #{selectedOpToInspect.operatorId || selectedOpToInspect.empId}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block uppercase">Mainline Train & Duty</span>
+                <strong className="text-cyan-400 text-xs font-black">Train {selectedOpToInspect.trainId || '214'}</strong>
+                <span className="text-slate-500 block">Duty: {selectedOpToInspect.dutyId || 'N/A'}</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleInspectionSubmit} className="space-y-4">
+              {/* 5 Official Criteria */}
+              <div className="space-y-3">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                  Evaluation Criteria (0–2 Points Each)
                 </span>
+
+                {[
+                  { id: 'criteria1', label: '1. Signal Observation & Aspect Call-Out Discipline' },
+                  { id: 'criteria2', label: '2. ATP / Speed Restrictions & Curve Adherence' },
+                  { id: 'criteria3', label: '3. Platform Berthing & Dwell Stopping Accuracy' },
+                  { id: 'criteria4', label: '4. Emergency Preparedness & Radio Discipline' },
+                  { id: 'criteria5', label: '5. Cab Cleanliness, Logbook Entry & Alertness' }
+                ].map(crit => (
+                  <div key={crit.id} className="bg-slate-950 p-2.5 rounded-lg border border-slate-800/80 flex justify-between items-center text-[10px]">
+                    <span className="text-slate-200 font-bold">{crit.label}</span>
+                    <select
+                      value={inspectionForm[crit.id]}
+                      onChange={e => handleScoreChange(crit.id, e.target.value)}
+                      className="bg-slate-900 border border-slate-750 text-cyan-400 font-black px-2 py-1 rounded outline-none cursor-pointer"
+                    >
+                      <option value="2">2 - Excellent (Pass)</option>
+                      <option value="1">1 - Satisfactory (Minor)</option>
+                      <option value="0">0 - Non-Compliant</option>
+                    </select>
+                  </div>
+                ))}
               </div>
 
-              <div className="space-y-1">
-                <label className="text-slate-400 font-bold block" htmlFor="aialscabinspectionpl-i8">ALS Officer Name*</label>
-                <select id="aialscabinspectionpl-i8" name="aialscabinspectionpl-i8"
-                  value={inspectionForm.alsName}
-                  onChange={e => setInspectionForm({ ...inspectionForm, alsName: e.target.value })}
-                  className="w-full bg-slate-955 border border-slate-750 rounded p-2 focus:border-cyan-500 outline-none text-slate-255 cursor-pointer"
-                >
-                  {ALS_OFFICERS.map(o => (
-                    <option key={o} value={o}>{o}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-slate-400 font-bold block" htmlFor="aialscabinspectionpl-i9">Overall Inspection Score (1-10)*</label>
-                <div className="flex items-center gap-3">
-                  <input id="aialscabinspectionpl-i9" name="aialscabinspectionpl-i9"
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={inspectionForm.overallScore}
-                    onChange={e => setInspectionForm({ ...inspectionForm, overallScore: e.target.value })}
-                    className="flex-1 accent-cyan-500"
-                  />
-                  <strong className="text-cyan-400 text-sm font-bold w-6 text-center">{inspectionForm.overallScore}</strong>
+              {/* Overall Score & Result Decision */}
+              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+                <div>
+                  <span className="text-[9px] text-slate-500 font-bold uppercase block">Overall Score (Out of 10)</span>
+                  <strong className="text-xl font-black text-cyan-400">{inspectionForm.overallScore} / 10</strong>
+                </div>
+                <div>
+                  <span className="text-[9px] text-slate-500 font-bold uppercase block">Evaluation Decision</span>
+                  <span className={`px-2.5 py-1 rounded text-[10px] font-black uppercase ${
+                    inspectionForm.inspectionResult === 'PASS' ? 'bg-emerald-955 text-emerald-400 border border-emerald-800' :
+                    inspectionForm.inspectionResult === 'SATISFACTORY' ? 'bg-amber-955 text-amber-400 border border-amber-800' :
+                    'bg-rose-955 text-rose-400 border border-rose-800'
+                  }`}>
+                    {inspectionForm.inspectionResult}
+                  </span>
                 </div>
               </div>
 
+              {/* Remarks */}
               <div className="space-y-1">
-                <label className="text-slate-400 font-bold block" htmlFor="aialscabinspectionpl-i10">Result Decision*</label>
-                <select id="aialscabinspectionpl-i10" name="aialscabinspectionpl-i10"
-                  value={inspectionForm.inspectionResult}
-                  onChange={e => setInspectionForm({ ...inspectionForm, inspectionResult: e.target.value })}
-                  className="w-full bg-slate-955 border border-slate-750 rounded p-2 focus:border-cyan-500 outline-none text-slate-255 cursor-pointer"
-                >
-                  <option value="PASS">PASS / STABLE</option>
-                  <option value="NEEDS_IMPROVEMENT">NEEDS IMPROVEMENT</option>
-                  <option value="FAIL">FAIL / SUSPEND FROM DUTY</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-slate-400 font-bold block" htmlFor="aialscabinspectionpl-i11">Remarks & Observational Notes</label>
-                <textarea id="aialscabinspectionpl-i11" name="aialscabinspectionpl-i11"
-                  placeholder="e.g. Followed all safety protocols, punctual sign-on, tidy cab cabin."
+                <label className="text-[9px] text-slate-400 font-bold uppercase block">ALS Officer Observations & Remarks</label>
+                <textarea
+                  rows="2"
                   value={inspectionForm.remarks}
-                  onChange={e => setInspectionForm({ ...inspectionForm, remarks: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-750 rounded p-2.5 focus:border-cyan-500 outline-none text-slate-250 h-20"
+                  onChange={e => setInspectionForm(prev => ({ ...prev, remarks: e.target.value }))}
+                  placeholder="e.g. Crisp signal call-out; smooth train handling into Kempegowda station platform."
+                  className="w-full bg-slate-950 border border-slate-800 rounded p-2.5 outline-none focus:border-cyan-500 text-slate-200"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-slate-400 font-bold block" htmlFor="aialscabinspectionpl-i12">Photo Asset Link URL (Optional)</label>
-                <input id="aialscabinspectionpl-i12" name="aialscabinspectionpl-i12"
-                  type="text"
-                  placeholder="e.g. /assets/photos/insp_20009.jpg"
-                  value={inspectionForm.photo}
-                  onChange={e => setInspectionForm({ ...inspectionForm, photo: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-750 rounded p-2 focus:border-cyan-500 outline-none text-slate-250"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800 -mx-5 -mb-5 p-4 bg-slate-950/20">
+              <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => { setShowLogModal(false); setSelectedOpToInspect(null); }}
-                  className="bg-slate-900 border border-slate-700 hover:bg-slate-850 text-slate-350 font-bold px-4 py-2 rounded"
+                  onClick={() => setShowLogModal(false)}
+                  className="bg-slate-950 border border-slate-800 hover:bg-slate-800 text-slate-400 px-4 py-2 rounded font-bold uppercase text-[10px] transition cursor-pointer"
                 >
-                  Close
+                  Cancel
                 </button>
                 <button
                   type="submit"
-                  className="bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-black px-6 py-2 rounded flex items-center gap-1 transition"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black px-5 py-2 rounded font-bold uppercase text-[10px] transition flex items-center gap-1.5 shadow-md cursor-pointer"
                 >
-                  <Save size={13} /> Save Record
+                  <Save size={13} /> Save Cab Inspection Record
                 </button>
               </div>
             </form>

@@ -44,7 +44,7 @@ const TrainSwapControl           = lazyWithRetry(() => import('../TrainSwapContr
 const LinkRosterExcelUploadModal = lazyWithRetry(() => import('../roster/LinkRosterExcelUploadModal'));
 
 import { useTheme } from '../../context/ThemeContext';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, isOwnerUser } from '../../context/AuthContext';
 import { BMRCL_CREW_REGISTRY } from '../../data/bmrclCrewRegistry';
 import { computeDutyLegKms } from '../../utils/kmCalculator'; // WTT km calculation engine
 import { getMasterLinksForDay } from '../../data/canonicalDayLinksRegistry';
@@ -950,8 +950,10 @@ export default function SuperAdminLayout({
     }
   };
   const { theme, rawTheme, setTheme, accessibility, setAccessibility } = useTheme();
-  const { userProfile, logout, hasPermission, permissions } = useAuth();
-  const isTrainOperator = !['SUPER_ADMIN', 'CREW_CONTROLLER', 'ADMIN_SS', 'ADMIN_Station_Superintendent', 'JMD'].includes(userProfile?.role) && 
+  const { userProfile, logout, hasPermission, permissions, currentUser } = useAuth();
+  const isOwner = isOwnerUser(currentUser, userProfile);
+  const isTrainOperator = !isOwner && 
+                          !['SUPER_ADMIN', 'CREW_CONTROLLER', 'ADMIN_SS', 'ADMIN_Station_Superintendent', 'JMD'].includes(userProfile?.role) && 
                           !String(userProfile?.role || '').toLowerCase().includes('admin') && (
                             userProfile?.role === 'TRAIN_OPERATOR' || 
                             userProfile?.role === 'STATION_CONTROLLER' || 
@@ -1231,7 +1233,7 @@ export default function SuperAdminLayout({
         {/* Footer info & Logout */}
         <div className="border-t border-slate-850 pt-4 mt-6 space-y-3">
           <div className="text-[9px] text-slate-500 uppercase">
-            Logged In: {userProfile?.employeeName || 'SuperAdmin'}
+            Logged In: {isOwner ? 'Nagesha N (Super Admin)' : (userProfile?.employeeName || 'SuperAdmin')}
           </div>
           <button 
             onClick={logout}
@@ -1260,12 +1262,17 @@ export default function SuperAdminLayout({
             </button>
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping hidden sm:block"></span>
             <span className="text-xs font-bold uppercase text-slate-400 hidden sm:block">System Telemetry Network Status: Operational</span>
-            {isTrainOperator && (
+            {isOwner ? (
+              <div className="hidden md:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-950/70 border border-amber-500/40 text-amber-300 text-[10px] font-bold uppercase tracking-wider shadow-sm">
+                <Shield size={12} className="text-amber-400" />
+                <span>Super Admin • Full Control</span>
+              </div>
+            ) : isTrainOperator ? (
               <div className="hidden md:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-950/70 border border-indigo-500/40 text-indigo-300 text-[10px] font-bold uppercase tracking-wider">
                 <Shield size={12} className="text-indigo-400" />
                 <span>Operator View • Read-Only (Requests Enabled)</span>
               </div>
-            )}
+            ) : null}
           </div>
 
           <div className="flex items-center gap-4">

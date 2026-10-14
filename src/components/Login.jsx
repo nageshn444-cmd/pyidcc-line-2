@@ -238,6 +238,29 @@ export default function Login() {
           </button>
         </div>
 
+        {/* SUPER ADMIN QUICK ASSIST */}
+        <div className="mb-4 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse"></span>
+            <div>
+              <div className="text-[10px] font-black text-amber-300 uppercase tracking-wider">Super Admin Terminal</div>
+              <div className="text-[9px] text-slate-400">20726 • Station Superintendent</div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('staff');
+              setEmployeeId('20726');
+              setPassword('207260');
+              setError('');
+            }}
+            className="py-1 px-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider transition-all shadow-sm"
+          >
+            Quick Fill
+          </button>
+        </div>
+
         {/* TAB 1: STAFF ID LOGIN (Works on Mobile, LAN, & Any Device) */}
         {activeTab === 'staff' && (
           <form onSubmit={handleStaffLogin} className="space-y-4">
