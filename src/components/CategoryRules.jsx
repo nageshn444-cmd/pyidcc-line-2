@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { 
   Save, RotateCcw, AlertCircle, CheckCircle, 
-  HelpCircle, Settings, Plus, Trash2, Cpu
+  HelpCircle, Settings, Plus, Trash2, Cpu, Search, CheckCircle2
 } from 'lucide-react';
 import { DEFAULT_CATEGORY_RULES } from '../utils/categoryRulesEngine';
 
@@ -20,11 +20,13 @@ const DESTINATION_POOLS = [
 ];
 
 export default function CategoryRules() {
-  const [rules, setRules] = useState({});
+  const [rules, setRules] = useState(DEFAULT_CATEGORY_RULES);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState(null);
   const [message, setMessage] = useState({ type: '', text: '' });
-  const [editingCategory, setEditingCategory] = useState(null);
+  const [searchFilter, setSearchFilter] = useState('');
+  const [poolFilter, setPoolFilter] = useState('ALL');
 
   // New category creation states
   const [newCatName, setNewCatName] = useState('');
@@ -37,45 +39,70 @@ export default function CategoryRules() {
   });
 
   useEffect(() => {
-    fetchCategoryRules();
-  }, []);
-
-  const fetchCategoryRules = async () => {
     setLoading(true);
-    try {
-      const docRef = doc(db, 'system_settings', 'category_rules');
-      const snap = await getDoc(docRef);
-      if (snap.exists()) {
-        setRules(snap.data().rules || DEFAULT_CATEGORY_RULES);
+    const docRef = doc(db, 'system_settings', 'category_rules');
+    const unsub = onSnapshot(docRef, (snap) => {
+      if (snap.exists() && snap.data()?.rules) {
+        setRules(snap.data().rules);
       } else {
         setRules(DEFAULT_CATEGORY_RULES);
       }
-    } catch (err) {
-      console.error(err);
-      setMessage({ type: 'error', text: 'Failed to retrieve category behavior matrix.' });
-    } finally {
       setLoading(false);
+    }, (err) => {
+      console.warn("Category rules listener error:", err);
+      setRules(DEFAULT_CATEGORY_RULES);
+      setLoading(false);
+    });
+
+    return () => unsub();
+  }, []);
+
+  const persistRules = async (newRules) => {
+    try {
+      setSaving(true);
+      const docRef = doc(db, 'system_settings', 'category_rules');
+      await setDoc(docRef, {
+        rules: newRules,
+        lastUpdated: new Date().toISOString(),
+        version: "1.0.0"
+      }, { merge: true });
+      setLastSaved(new Date().toLocaleTimeString());
+      setMessage({ type: 'success', text: 'Category rules auto-saved to system_settings.' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+    } catch (err) {
+      console.error("Auto-save error:", err);
+      setMessage({ type: 'error', text: 'Error auto-saving category rules: ' + err.message });
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleToggleRule = (cat, field) => {
-    setRules(prev => ({
-      ...prev,
+    const updated = {
+      ...rules,
       [cat]: {
-        ...prev[cat],
-        [field]: !prev[cat][field]
+        ...rules[cat],
+        [field]: !rules[cat][field]
       }
-    }));
+    };
+    // 1. INSTANT 0ms Optimistic UI Update
+    setRules(updated);
+    // 2. Persist in background
+    persistRules(updated);
   };
 
   const handlePoolChange = (cat, pool) => {
-    setRules(prev => ({
-      ...prev,
+    const updated = {
+      ...rules,
       [cat]: {
-        ...prev[cat],
+        ...rules[cat],
         destinationPool: pool
       }
-    }));
+    };
+    // 1. INSTANT 0ms Optimistic UI Update
+    setRules(updated);
+    // 2. Persist in background
+    persistRules(updated);
   };
 
   const handleAddCategory = () => {
@@ -88,48 +115,32 @@ export default function CategoryRules() {
       alert("This category already exists.");
       return;
     }
-    setRules(prev => ({
-      ...prev,
+    const updated = {
+      ...rules,
       [code]: { ...newCatRule }
-    }));
+    };
+    setRules(updated);
     setNewCatName('');
-    setMessage({ type: 'success', text: `Category ${code} added to current grid. Remember to save changes.` });
+    persistRules(updated);
   };
 
   const handleDeleteCategory = (cat) => {
     if (window.confirm(`Delete behavior rules configuration for category ${cat}?`)) {
-      setRules(prev => {
-        const copy = { ...prev };
-        delete copy[cat];
-        return copy;
-      });
-      setMessage({ type: 'success', text: `Removed category ${cat}. Save to persist changes.` });
+      const copy = { ...rules };
+      delete copy[cat];
+      setRules(copy);
+      persistRules(copy);
     }
   };
 
   const handleSaveChanges = async () => {
-    setSaving(true);
-    setMessage({ type: '', text: '' });
-    try {
-      const docRef = doc(db, 'system_settings', 'category_rules');
-      await setDoc(docRef, {
-        rules: rules,
-        lastUpdated: new Date().toISOString(),
-        version: "1.0.0"
-      });
-      setMessage({ type: 'success', text: 'Category behavior rules saved successfully to system_settings/category_rules.' });
-    } catch (err) {
-      console.error(err);
-      setMessage({ type: 'error', text: 'Error saving category rules: ' + err.message });
-    } finally {
-      setSaving(false);
-    }
+    await persistRules(rules);
   };
 
   const handleResetToDefaults = async () => {
     if (window.confirm("Reset all category behaviors to BMRCL Depot defaults? This will overwrite your active configuration.")) {
       setRules(DEFAULT_CATEGORY_RULES);
-      setMessage({ type: 'success', text: 'Reset grid to default settings. Click Save Changes to commit.' });
+      await persistRules(DEFAULT_CATEGORY_RULES);
     }
   };
 
@@ -156,20 +167,54 @@ export default function CategoryRules() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
+          {lastSaved && (
+            <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 bg-emerald-950/30 border border-emerald-800/40 px-2.5 py-1 rounded">
+              <CheckCircle2 size={12} />
+              <span>Live Synced {lastSaved}</span>
+            </div>
+          )}
           <button
             onClick={handleResetToDefaults}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-lg text-xs font-bold transition border border-slate-800"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-lg text-xs font-bold transition border border-slate-800 cursor-pointer"
           >
             <RotateCcw size={13} /> Reset Default Matrix
           </button>
           <button
             onClick={handleSaveChanges}
             disabled={saving}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-slate-950 rounded-lg text-xs font-black transition"
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-slate-950 rounded-lg text-xs font-black transition cursor-pointer"
           >
             <Save size={13} /> {saving ? 'Saving...' : 'Save Changes'}
           </button>
+        </div>
+      </div>
+
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-950/30 border border-slate-850 p-3 rounded-xl">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-500" />
+          <input
+            type="text"
+            placeholder="Search category code (e.g. WO, L, STBY, CO)..."
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            className="w-full pl-9 pr-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-slate-500 font-bold uppercase">Pool:</span>
+          <select id="categoryrules-filter-pool" name="categoryrules-filter-pool"
+            value={poolFilter}
+            onChange={(e) => setPoolFilter(e.target.value)}
+            className="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-emerald-500 cursor-pointer"
+          >
+            <option value="ALL">All Pools ({Object.keys(rules).length})</option>
+            {DESTINATION_POOLS.map(p => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -201,7 +246,14 @@ export default function CategoryRules() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-850">
-              {Object.keys(rules).sort().map(cat => {
+              {Object.keys(rules)
+                .filter(cat => {
+                  const matchSearch = !searchFilter.trim() || cat.toLowerCase().includes(searchFilter.trim().toLowerCase());
+                  const matchPool = poolFilter === 'ALL' || rules[cat]?.destinationPool === poolFilter;
+                  return matchSearch && matchPool;
+                })
+                .sort()
+                .map(cat => {
                 const rule = rules[cat];
                 return (
                   <tr key={cat} className="hover:bg-slate-950/40 transition">

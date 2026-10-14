@@ -1,7 +1,7 @@
 import React, { useState, Suspense } from 'react';
 import { 
   Activity, Train, AlertOctagon, HelpCircle, ShieldAlert, Sparkles, 
-  MapPin, Clock, Maximize2, Minimize2, Radio 
+  MapPin, Clock, Maximize2, Minimize2, Radio, LogOut 
 } from 'lucide-react';
 import MetroMapNavigation from '../MetroMapNavigation';
 import ReliefTracking from '../ReliefTracking';
@@ -128,10 +128,13 @@ export default function OccControllerLayout({
 
 
           <button 
+            type="button"
             onClick={logout}
-            className="bg-slate-800 border border-slate-700 hover:bg-slate-750 text-slate-350 text-[10px] font-bold px-3 py-1.5 rounded-lg transition uppercase"
+            className="flex items-center gap-1.5 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 hover:border-rose-700 text-rose-300 hover:text-white font-bold text-[10px] px-3 py-1.5 rounded-lg transition shadow-sm uppercase tracking-wider cursor-pointer"
+            title="Sign off terminal session"
           >
-            Sign-Off
+            <LogOut size={12} className="text-rose-400" />
+            <span>Sign-Off</span>
           </button>
         </div>
       </header>

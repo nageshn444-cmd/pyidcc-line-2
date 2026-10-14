@@ -148,53 +148,85 @@ export default function UserManagement() {
     };
   }, []);
 
-  // 2. Approval & Rejection Logic
+  // 2. Approval & Rejection Logic with 0ms instant response
   const handleApproveRequest = async (req) => {
+    // 1. INSTANT 0ms Optimistic UI Removal
+    const reqId = req.requestId || req.id;
+    const empId = String(req.employeeId || '');
+    setLoginRequests(prev => prev.filter(r => (r.id !== reqId && r.requestId !== reqId)));
+    setRegistrationRequests(prev => prev.filter(r => (r.id !== reqId && r.requestId !== reqId)));
+
     try {
-      // 1. Run full provisioning service check/creation
-      await provisioningService.approveLoginRequest(req, userProfile.employeeName);
+      const today = new Date();
+      const approvedDate = today.toLocaleDateString('en-GB').replace(/\//g, '-');
+      const approvedTime = today.toTimeString().split(' ')[0].substring(0, 5);
+      const approverName = userProfile?.employeeName || 'Super Admin';
+      const assignedRole = req.requestedRole || 'Train Operator';
+      const assignedDesignation = req.designation || 'Station Controller / Train Operator';
+      const assignedDepot = req.depot || 'Peenya Depot (PYID)';
+      const assignedName = req.employeeName || `Officer ${empId}`;
+      const email = req.email || `${empId}@pyidcc.bmrcl.com`;
 
-      // Get the user's UID to update system_users status to 'approved'
-      let uid = req.firebaseUid || '';
-      if (!uid) {
-        const q = query(collection(db, 'system_users'), where('employeeId', '==', String(req.employeeId)));
-        const qSnap = await getDocs(q);
-        if (!qSnap.empty) {
-          uid = qSnap.docs[0].id;
-        }
+      const approvalData = {
+        employeeId: empId,
+        employeeName: assignedName,
+        email,
+        designation: assignedDesignation,
+        role: assignedRole,
+        depot: assignedDepot,
+        department: 'Operations',
+        status: 'ACTIVE',
+        approved: true,
+        loginEnabled: true,
+        active: true,
+        operationalCrew: 'YES',
+        approvedBy: approverName,
+        approvedDate,
+        approvedTime,
+        updatedAt: new Date().toISOString()
+      };
+
+      const tasks = [
+        setDoc(doc(db, 'users', empId), approvalData, { merge: true }),
+        setDoc(doc(db, 'userAccessControl', empId), {
+          employeeId: empId,
+          canLogin: true,
+          canAccessWebApp: true,
+          canAccessMobileApp: true,
+          deviceStatus: 'ACTIVE',
+          active: true,
+          canApproveRequests: ['SUPER_ADMIN', 'ADMIN_Station_Superintendent', 'ADMIN_SS', 'CREW_CONTROLLER'].includes(assignedRole),
+          canAccessAdminModules: ['SUPER_ADMIN', 'ADMIN_Station_Superintendent', 'ADMIN_SS'].includes(assignedRole),
+          canManageUsers: ['SUPER_ADMIN', 'ADMIN_Station_Superintendent', 'ADMIN_SS'].includes(assignedRole)
+        }, { merge: true }),
+        setDoc(doc(db, 'userPermissions', empId), {
+          employeeId: empId,
+          permissions: getRoleDefaultPermissions(assignedRole),
+          updatedAt: new Date().toISOString()
+        }, { merge: true }),
+        deleteDoc(doc(db, 'login_requests', reqId)).catch(() => {})
+      ];
+
+      // Update system_users if UID is available or search for it
+      let targetUid = req.firebaseUid || '';
+      if (!targetUid) {
+        const qSnap = await getDocs(query(collection(db, 'system_users'), where('employeeId', '==', empId)));
+        if (!qSnap.empty) targetUid = qSnap.docs[0].id;
+      }
+      if (targetUid) {
+        tasks.push(setDoc(doc(db, 'system_users', targetUid), { uid: targetUid, ...approvalData }, { merge: true }));
       }
 
-      if (uid) {
-        const userRef = doc(db, 'system_users', uid);
-        const userSnap = await getDoc(userRef);
-        const pendingUser = userSnap.exists() ? userSnap.data() : {
-          uid: uid,
-          employeeId: req.employeeId,
-          employeeName: req.employeeName,
-          email: req.email,
-          designation: req.designation,
-          role: req.requestedRole || 'Train Operator',
-          depot: req.depot,
-          department: 'Operations'
-        };
-
-        await setDoc(doc(db, 'system_users', pendingUser.uid), {
-           ...pendingUser,
-           status: 'ACTIVE',
-           approved: true,
-           loginEnabled: true,
-           active: true
-        });
-      }
-
-      // 2. Delete the pending request
-      const requestRef = doc(db, 'login_requests', req.requestId);
-      await deleteDoc(requestRef); 
-
-      alert("User Approved. Access granted.");
+      await Promise.all(tasks);
+      logAudit("USER_APPROVE", userProfile?.employeeId || 'admin', approverName, `Approved login for ${assignedName} (${empId})`).catch(() => {});
     } catch (err) {
       console.error("Error approving:", err);
-      alert("Failed to approve request: " + err.message);
+      // Fallback to legacy provisioningService if needed
+      try {
+        await provisioningService.approveLoginRequest(req, userProfile?.employeeName || 'Super Admin');
+      } catch (e) {
+        alert("Failed to approve request: " + e.message);
+      }
     }
   };
 
@@ -374,52 +406,51 @@ export default function UserManagement() {
     if (selectedUser.employeeId === '20726') {
       return alert("SUPER_ADMIN (NAGESHA N) role cannot be modified.");
     }
+
+    const empId = String(selectedUser.employeeId);
+    const docId = selectedUser.id || selectedUser.uid;
+    const targetRole = newRole;
+
+    // 1. INSTANT 0ms Optimistic UI Update & Modal Close
+    setUsers(prev => prev.map(u => (u.employeeId === empId || u.id === docId) ? { ...u, role: targetRole } : u));
+    setShowRoleModal(false);
+    setSelectedUser(null);
+
     try {
-      const empId = String(selectedUser.employeeId);
-      const docId = selectedUser.id || selectedUser.uid;
+      const isManagement = ['SUPER_ADMIN', 'ADMIN_Station_Superintendent', 'ADMIN_SS', 'CREW_CONTROLLER'].includes(targetRole);
+      const isSuper = targetRole === 'SUPER_ADMIN';
+      const isSS = ['SUPER_ADMIN', 'ADMIN_Station_Superintendent', 'ADMIN_SS'].includes(targetRole);
+
+      const tasks = [
+        setDoc(doc(db, 'users', empId), {
+          role: targetRole,
+          updatedAt: new Date().toISOString(),
+          updatedBy: userProfile?.employeeName || 'Super Admin'
+        }, { merge: true }),
+        setDoc(doc(db, 'userPermissions', empId), {
+          employeeId: empId,
+          permissions: getRoleDefaultPermissions(targetRole)
+        }, { merge: true }),
+        setDoc(doc(db, 'userAccessControl', empId), {
+          canApproveRequests: isManagement,
+          canAccessAdminModules: isSS,
+          canManageUsers: isSuper
+        }, { merge: true })
+      ];
 
       if (docId) {
-        await updateDoc(doc(db, 'system_users', docId), {
-          role: newRole,
+        tasks.push(setDoc(doc(db, 'system_users', docId), {
+          role: targetRole,
           updatedAt: new Date().toISOString(),
-          updatedBy: userProfile.employeeName
-        });
-      }
-      
-      try {
-        await updateDoc(doc(db, 'users', empId), {
-          role: newRole,
-          updatedAt: new Date().toISOString(),
-          updatedBy: userProfile.employeeName
-        });
-      } catch (err) {
-        console.warn("Skipping legacy users update:", err);
+          updatedBy: userProfile?.employeeName || 'Super Admin'
+        }, { merge: true }));
       }
 
-      try {
-        await setDoc(doc(db, 'userPermissions', empId), {
-          employeeId: empId,
-          permissions: getRoleDefaultPermissions(newRole)
-        }, { merge: true });
-      } catch (err) {
-        console.warn("Skipping userPermissions update:", err);
-      }
-
-      try {
-        await updateDoc(doc(db, 'userAccessControl', empId), {
-          canApproveRequests: ['SUPER_ADMIN', 'ADMIN_Station_Superintendent', 'ADMIN_SS', 'CREW_CONTROLLER'].includes(newRole),
-          canAccessAdminModules: ['SUPER_ADMIN', 'ADMIN_Station_Superintendent', 'ADMIN_SS'].includes(newRole),
-          canManageUsers: ['SUPER_ADMIN', 'ADMIN_Station_Superintendent', 'ADMIN_SS'].includes(newRole)
-        });
-      } catch (err) {
-        console.warn("Skipping userAccessControl update:", err);
-      }
-
-      await logAudit("USER_ROLE_CHANGE", userProfile.employeeId, userProfile.employeeName, `Assigned role ${newRole} to ${selectedUser.employeeName} (${empId})`);
-      alert(`Role updated successfully to ${newRole}`);
-      setShowRoleModal(false);
-      setSelectedUser(null);
+      await Promise.all(tasks);
+      logAudit("USER_ROLE_CHANGE", userProfile?.employeeId || 'admin', userProfile?.employeeName || 'Super Admin', 
+        `Assigned role ${targetRole} to ${selectedUser.employeeName || empId} (${empId})`).catch(() => {});
     } catch (err) {
+      console.error("Failed to update role:", err);
       alert("Failed to update role: " + err.message);
     }
   };

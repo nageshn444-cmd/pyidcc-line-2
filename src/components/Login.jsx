@@ -45,6 +45,10 @@ export default function Login() {
   )) || isOwner;
 
   useEffect(() => {
+    // If the user explicitly performed a Terminal Sign-Off, do NOT auto-redirect to dashboard!
+    const manualLogout = typeof window !== 'undefined' && window.sessionStorage?.getItem('pyidcc_manual_logout') === 'true';
+    if (manualLogout) return;
+
     if (!currentUser) return;
     if (authLoading && !isOwner) return;
     if (approvalPending && !isOwner) return;
@@ -71,6 +75,11 @@ export default function Login() {
     setLocalPendingMessage('');
     setIsSubmitting(true);
     try {
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        window.sessionStorage.removeItem('pyidcc_manual_logout');
+      }
+    } catch (_) {}
+    try {
       const result = await loginWithIdAndPassword(cleanId, cleanPassword);
       if (result?.pendingApproval && !isOwnerUser(result?.user, null)) {
         setLocalPendingMessage(result.message || 'Your account is pending administrator activation.');
@@ -91,6 +100,11 @@ export default function Login() {
     setError('');
     setLocalPendingMessage('');
     setIsSubmitting(true);
+    try {
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        window.sessionStorage.removeItem('pyidcc_manual_logout');
+      }
+    } catch (_) {}
     try {
       const result = await loginWithGoogle();
       if (result?.cancelled) {

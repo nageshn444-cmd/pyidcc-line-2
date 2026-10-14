@@ -165,65 +165,57 @@ export default function UserControlCenter() {
 
     if (!window.confirm(`Are you sure you want to change the role of ${idsToUpdate.length} selected operator(s) to ${newRole}? Permissions will reset to the template defaults.`)) return;
 
+    const templatePerms = getRoleDefaultPermissions(newRole);
+
+    // 1. INSTANT 0ms Optimistic UI Update
+    setEmployees(prev => prev.map(e => idsToUpdate.includes(e.employeeId) ? { ...e, role: newRole } : e));
+    if (selectedEmpId && idsToUpdate.includes(selectedEmpId)) {
+      setSelectedUser(prev => prev ? ({ ...prev, role: newRole }) : null);
+      setSelectedPermissions(templatePerms);
+    }
+    const savedIds = [...selectedEmpIds];
+    setSelectedEmpIds([]);
+
     try {
-      const templatePerms = getRoleDefaultPermissions(newRole);
       const batch = writeBatch(db);
-      
+      const isManagement = ['SUPER_ADMIN', 'ADMIN_Station_Superintendent', 'ADMIN_SS', 'CREW_CONTROLLER'].includes(newRole);
+      const isSuper = newRole === 'SUPER_ADMIN';
+      const isSS = ['SUPER_ADMIN', 'ADMIN_Station_Superintendent', 'ADMIN_SS'].includes(newRole);
+
       for (const empId of idsToUpdate) {
-        const emp = employees.find(e => e.employeeId === empId);
-        const oldRole = emp?.role || 'Unknown';
-
-        batch.update(doc(db, 'users', empId), { role: newRole });
-        batch.update(doc(db, 'userPermissions', empId), { permissions: templatePerms });
-
-        const isManagement = ['SUPER_ADMIN', 'ADMIN_Station_Superintendent', 'ADMIN_SS', 'CREW_CONTROLLER'].includes(newRole);
-        const isSuper = newRole === 'SUPER_ADMIN';
-        const isSS = ['SUPER_ADMIN', 'ADMIN_Station_Superintendent', 'ADMIN_SS'].includes(newRole);
-        
-        batch.update(doc(db, 'userAccessControl', empId), {
+        batch.set(doc(db, 'users', empId), { role: newRole }, { merge: true });
+        batch.set(doc(db, 'userPermissions', empId), { permissions: templatePerms }, { merge: true });
+        batch.set(doc(db, 'userAccessControl', empId), {
           canApproveRequests: isManagement,
           canAccessAdminModules: isSS,
           canManageUsers: isSuper
-        });
-
-        await addDoc(collection(db, 'auditLogs'), {
-          employeeId: empId,
-          employeeName: emp?.employeeName || 'Unknown',
-          action: 'BULK_ROLE_CHANGE',
-          module: 'Role Management',
-          oldValue: oldRole,
-          newValue: newRole,
-          changedBy: userProfile?.employeeName || 'System Admin',
-          timestamp: serverTimestamp()
-        });
+        }, { merge: true });
       }
 
       await batch.commit();
 
-      for (const empId of idsToUpdate) {
-        let systemUserDocId = null;
-        const qSystemStr = query(collection(db, 'system_users'), where('employeeId', '==', String(empId)));
-        const snapSystemStr = await getDocs(qSystemStr);
-        if (!snapSystemStr.empty) {
-          systemUserDocId = snapSystemStr.docs[0].id;
-        } else {
-          const qSystemNum = query(collection(db, 'system_users'), where('employeeId', '==', Number(empId)));
-          const snapSystemNum = await getDocs(qSystemNum);
-          if (!snapSystemNum.empty) {
-            systemUserDocId = snapSystemNum.docs[0].id;
+      // Parallelize system_users sync in background
+      Promise.all(idsToUpdate.map(async (empId) => {
+        try {
+          const qStr = query(collection(db, 'system_users'), where('employeeId', '==', String(empId)));
+          const snap = await getDocs(qStr);
+          if (!snap.empty) {
+            await updateDoc(doc(db, 'system_users', snap.docs[0].id), { role: newRole });
+          } else {
+            const qNum = query(collection(db, 'system_users'), where('employeeId', '==', Number(empId)));
+            const snapNum = await getDocs(qNum);
+            if (!snapNum.empty) {
+              await updateDoc(doc(db, 'system_users', snapNum.docs[0].id), { role: newRole });
+            }
           }
-        }
-        if (systemUserDocId) {
-          await updateDoc(doc(db, 'system_users', systemUserDocId), { role: newRole });
-        }
-      }
+        } catch (_) {}
+      })).catch(() => {});
 
-      await logAudit("UCC_BULK_CHANGE", userProfile.employeeId, userProfile.employeeName, 
-        `Updated role in bulk for ${idsToUpdate.length} operators to ${newRole}`);
-
-      alert(`Successfully changed role to ${newRole} for ${idsToUpdate.length} operator(s).`);
-      setSelectedEmpIds([]);
+      logAudit("UCC_BULK_CHANGE", userProfile?.employeeId || 'admin', userProfile?.employeeName || 'Admin', 
+        `Updated role in bulk for ${idsToUpdate.length} operators to ${newRole}`).catch(() => {});
     } catch (err) {
+      console.error("Bulk role update error:", err);
+      setSelectedEmpIds(savedIds);
       alert("Failed to update roles in bulk: " + err.message);
     }
   };
@@ -340,7 +332,7 @@ export default function UserControlCenter() {
   // Check if selected employee is NAGESHA N (20726)
   const isSelectedOwner = selectedEmpId === '20726';
 
-  // Toggle module permissions
+  // Toggle module permissions with 0ms optimistic response
   const handlePermissionToggle = async (moduleName, permissionType) => {
     if (isSelectedOwner) {
       alert("SUPER_ADMIN (NAGESHA N) permissions are permanent and cannot be modified.");
@@ -359,22 +351,28 @@ export default function UserControlCenter() {
       }
     };
 
-    try {
-      await updateDoc(doc(db, 'userPermissions', selectedEmpId), {
-        permissions: updatedPermissions
-      });
-      await writeUccAuditLog(
-        `TOGGLE_PERMISSION`,
-        moduleName,
-        `${permissionType}:${currentVal}`,
-        `${permissionType}:${newVal}`
-      );
-    } catch (err) {
+    // 1. INSTANT 0ms Optimistic UI Update
+    setSelectedPermissions(updatedPermissions);
+
+    // 2. Persist in background non-blockingly
+    updateDoc(doc(db, 'userPermissions', selectedEmpId), {
+      permissions: updatedPermissions
+    }).catch(err => {
+      console.error("Permission toggle error:", err);
+      // Revert if write failed
+      setSelectedPermissions(selectedPermissions);
       alert("Failed to update permission: " + err.message);
-    }
+    });
+
+    writeUccAuditLog(
+      `TOGGLE_PERMISSION`,
+      moduleName,
+      `${permissionType}:${currentVal}`,
+      `${permissionType}:${newVal}`
+    );
   };
 
-  // Role changes update permissions automatically
+  // Role changes update permissions automatically with 0ms instant response
   const handleRoleChange = async (newRole) => {
     if (isSelectedOwner) {
       alert("SUPER_ADMIN (NAGESHA N) role is permanent and cannot be downgraded.");
@@ -389,54 +387,68 @@ export default function UserControlCenter() {
 
     // Ask if they want to reset permissions or preserve them
     const resetPerms = window.confirm(`Apply default permission templates for ${newRole}? Click Cancel to keep current custom permissions.`);
+    const templatePerms = resetPerms ? getRoleDefaultPermissions(newRole) : null;
+
+    // 1. INSTANT 0ms Optimistic UI Updates
+    const prevUserData = { ...selectedUser };
+    const prevPermsData = selectedPermissions ? { ...selectedPermissions } : null;
+
+    setSelectedUser(prev => prev ? ({ ...prev, role: newRole }) : null);
+    setEmployees(prev => prev.map(e => e.employeeId === selectedEmpId ? { ...e, role: newRole } : e));
+    if (templatePerms) {
+      setSelectedPermissions(templatePerms);
+    }
 
     try {
-      // Update users collection
-      await updateDoc(doc(db, 'users', selectedEmpId), { role: newRole });
-      
-      // Update system_users collection if they exist there (checking both string and number types)
-      let systemUserDocId = null;
-      const qSystemStr = query(collection(db, 'system_users'), where('employeeId', '==', String(selectedEmpId)));
-      const snapSystemStr = await getDocs(qSystemStr);
-      if (!snapSystemStr.empty) {
-        systemUserDocId = snapSystemStr.docs[0].id;
-      } else {
-        const qSystemNum = query(collection(db, 'system_users'), where('employeeId', '==', Number(selectedEmpId)));
-        const snapSystemNum = await getDocs(qSystemNum);
-        if (!snapSystemNum.empty) {
-          systemUserDocId = snapSystemNum.docs[0].id;
-        }
-      }
-
-      if (systemUserDocId) {
-        await updateDoc(doc(db, 'system_users', systemUserDocId), { role: newRole });
-      }
-
-      // Update userPermissions collection ONLY if resetting permissions is requested
-      if (resetPerms) {
-        const templatePerms = getRoleDefaultPermissions(newRole);
-        await updateDoc(doc(db, 'userPermissions', selectedEmpId), { permissions: templatePerms });
-      }
-
-      // Update access control flags based on role defaults
       const isManagement = ['SUPER_ADMIN', 'ADMIN_Station_Superintendent', 'ADMIN_SS', 'CREW_CONTROLLER'].includes(newRole);
       const isSuper = newRole === 'SUPER_ADMIN';
       const isSS = ['SUPER_ADMIN', 'ADMIN_Station_Superintendent', 'ADMIN_SS'].includes(newRole);
 
-      await updateDoc(doc(db, 'userAccessControl', selectedEmpId), {
-        canApproveRequests: isManagement,
-        canAccessAdminModules: isSS,
-        canManageUsers: isSuper
-      });
+      // 2. Parallelized background Firestore commits
+      const tasks = [
+        setDoc(doc(db, 'users', selectedEmpId), { role: newRole }, { merge: true }),
+        setDoc(doc(db, 'userAccessControl', selectedEmpId), {
+          canApproveRequests: isManagement,
+          canAccessAdminModules: isSS,
+          canManageUsers: isSuper
+        }, { merge: true })
+      ];
 
-      await writeUccAuditLog("ROLE_CHANGE", "Role Management", oldRole, newRole);
-      alert(`Role successfully changed to ${newRole}.${resetPerms ? ' Template permissions applied.' : ' Existing permissions preserved.'}`);
+      if (templatePerms) {
+        tasks.push(setDoc(doc(db, 'userPermissions', selectedEmpId), { permissions: templatePerms }, { merge: true }));
+      }
+
+      await Promise.all(tasks);
+
+      // Sync system_users by query in background
+      (async () => {
+        try {
+          const qSystemStr = query(collection(db, 'system_users'), where('employeeId', '==', String(selectedEmpId)));
+          const snapSystemStr = await getDocs(qSystemStr);
+          if (!snapSystemStr.empty) {
+            await updateDoc(doc(db, 'system_users', snapSystemStr.docs[0].id), { role: newRole });
+          } else {
+            const qSystemNum = query(collection(db, 'system_users'), where('employeeId', '==', Number(selectedEmpId)));
+            const snapSystemNum = await getDocs(qSystemNum);
+            if (!snapSystemNum.empty) {
+              await updateDoc(doc(db, 'system_users', snapSystemNum.docs[0].id), { role: newRole });
+            }
+          }
+        } catch (_) {}
+      })();
+
+      writeUccAuditLog("ROLE_CHANGE", "Role Management", oldRole, newRole);
     } catch (err) {
+      console.error("Role update error:", err);
+      // Revert on error
+      setSelectedUser(prevUserData);
+      setEmployees(prev => prev.map(e => e.employeeId === selectedEmpId ? { ...e, role: prevUserData.role } : e));
+      if (prevPermsData) setSelectedPermissions(prevPermsData);
       alert("Failed to update role: " + err.message);
     }
   };
 
-  // Apply one-click permission template
+  // Apply one-click permission template with instant 0ms update
   const handleApplyTemplate = async (templateRole) => {
     if (isSelectedOwner) {
       alert("SUPER_ADMIN (NAGESHA N) permissions are permanent and cannot be modified.");
@@ -446,17 +458,23 @@ export default function UserControlCenter() {
 
     if (!window.confirm(`Apply default template for "${templateRole}" to ${selectedUser.employeeName}? This will reset all current module toggles.`)) return;
 
+    const templatePerms = getRoleDefaultPermissions(templateRole);
+    const prevPerms = selectedPermissions ? { ...selectedPermissions } : null;
+
+    // 1. Instant optimistic update
+    setSelectedPermissions(templatePerms);
+
     try {
-      const templatePerms = getRoleDefaultPermissions(templateRole);
-      await updateDoc(doc(db, 'userPermissions', selectedEmpId), { permissions: templatePerms });
-      await writeUccAuditLog("APPLY_TEMPLATE", "Permission Templates", selectedUser.role, templateRole);
-      alert(`Applied "${templateRole}" permission template successfully.`);
+      await setDoc(doc(db, 'userPermissions', selectedEmpId), { permissions: templatePerms }, { merge: true });
+      writeUccAuditLog("APPLY_TEMPLATE", "Permission Templates", selectedUser.role, templateRole);
     } catch (err) {
+      console.error("Template error:", err);
+      if (prevPerms) setSelectedPermissions(prevPerms);
       alert("Failed to apply template: " + err.message);
     }
   };
 
-  // Toggle general access controls
+  // Toggle general access controls with instant 0ms update
   const handleAccessControlToggle = async (fieldName) => {
     if (isSelectedOwner && ['canLogin', 'canAccessWebApp', 'canAccessMobileApp', 'canManageUsers', 'canAccessAdminModules', 'canApproveRequests'].includes(fieldName)) {
       alert("SUPER_ADMIN (NAGESHA N) access controls are permanent and cannot be modified.");
@@ -467,33 +485,45 @@ export default function UserControlCenter() {
     const oldVal = !!selectedAccess[fieldName];
     const newVal = !oldVal;
 
+    // 1. Instant 0ms Optimistic UI Updates
+    setSelectedAccess(prev => prev ? ({ ...prev, [fieldName]: newVal }) : null);
+    if (fieldName === 'canLogin') {
+      setSelectedUser(prev => prev ? ({ ...prev, active: newVal, status: newVal ? "ACTIVE" : "INACTIVE" }) : null);
+      setEmployees(prev => prev.map(e => e.employeeId === selectedEmpId ? { ...e, active: newVal, status: newVal ? "ACTIVE" : "INACTIVE" } : e));
+    }
+
     try {
-      await updateDoc(doc(db, 'userAccessControl', selectedEmpId), { [fieldName]: newVal });
+      const tasks = [
+        setDoc(doc(db, 'userAccessControl', selectedEmpId), { [fieldName]: newVal }, { merge: true })
+      ];
       
-      // If toggling canLogin or active flag, update user's active status in users collection too
       if (fieldName === 'canLogin') {
-        await updateDoc(doc(db, 'users', selectedEmpId), { active: newVal, status: newVal ? "ACTIVE" : "INACTIVE" });
+        tasks.push(setDoc(doc(db, 'users', selectedEmpId), { active: newVal, status: newVal ? "ACTIVE" : "INACTIVE" }, { merge: true }));
         
-        // Sync with system_users if registered
-        let systemUserDocId = null;
-        const qSystemStr = query(collection(db, 'system_users'), where('employeeId', '==', String(selectedEmpId)));
-        const snapSystemStr = await getDocs(qSystemStr);
-        if (!snapSystemStr.empty) {
-          systemUserDocId = snapSystemStr.docs[0].id;
-        } else {
-          const qSystemNum = query(collection(db, 'system_users'), where('employeeId', '==', Number(selectedEmpId)));
-          const snapSystemNum = await getDocs(qSystemNum);
-          if (!snapSystemNum.empty) {
-            systemUserDocId = snapSystemNum.docs[0].id;
-          }
-        }
-        if (systemUserDocId) {
-          await updateDoc(doc(db, 'system_users', systemUserDocId), { active: newVal });
-        }
+        // Sync system_users in background
+        (async () => {
+          try {
+            const qStr = query(collection(db, 'system_users'), where('employeeId', '==', String(selectedEmpId)));
+            const snap = await getDocs(qStr);
+            if (!snap.empty) {
+              await updateDoc(doc(db, 'system_users', snap.docs[0].id), { active: newVal, status: newVal ? "ACTIVE" : "INACTIVE", loginEnabled: newVal });
+            } else {
+              const qNum = query(collection(db, 'system_users'), where('employeeId', '==', Number(selectedEmpId)));
+              const snapNum = await getDocs(qNum);
+              if (!snapNum.empty) {
+                await updateDoc(doc(db, 'system_users', snapNum.docs[0].id), { active: newVal, status: newVal ? "ACTIVE" : "INACTIVE", loginEnabled: newVal });
+              }
+            }
+          } catch (_) {}
+        })();
       }
 
-      await writeUccAuditLog("TOGGLE_ACCESS_CONTROL", "Login Control", `${fieldName}:${oldVal}`, `${fieldName}:${newVal}`);
+      await Promise.all(tasks);
+      writeUccAuditLog("TOGGLE_ACCESS_CONTROL", "Login Control", `${fieldName}:${oldVal}`, `${fieldName}:${newVal}`);
     } catch (err) {
+      console.error("Access control update error:", err);
+      // Revert on error
+      setSelectedAccess(prev => prev ? ({ ...prev, [fieldName]: oldVal }) : null);
       alert("Failed to update access control: " + err.message);
     }
   };

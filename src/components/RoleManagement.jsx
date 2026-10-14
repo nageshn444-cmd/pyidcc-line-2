@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, getDocs, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { useAuth, isOwnerUser } from '../context/AuthContext';
-import { Shield, ShieldAlert, Check, X, RefreshCw } from 'lucide-react';
+import { Shield, ShieldAlert, Check, X, RefreshCw, Search, CheckCircle2 } from 'lucide-react';
 
 const MODULES = [
   "Dashboard",
@@ -27,22 +27,20 @@ export default function RoleManagement() {
   const { userProfile, logAudit, currentUser } = useAuth();
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  const fetchRoles = async () => {
-    try {
-      setLoading(true);
-      const rolesSnap = await getDocs(collection(db, 'roles'));
-      setRoles(rolesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [lastSaved, setLastSaved] = useState(null);
+  const [moduleFilter, setModuleFilter] = useState('');
 
   useEffect(() => {
-    fetchRoles();
+    setLoading(true);
+    const unsub = onSnapshot(collection(db, 'roles'), (snap) => {
+      setRoles(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    }, (err) => {
+      console.warn("Roles snapshot error:", err);
+      setLoading(false);
+    });
+
+    return () => unsub();
   }, []);
 
   const handlePermissionChange = async (roleId, moduleName, newValue) => {
@@ -50,33 +48,31 @@ export default function RoleManagement() {
       return alert("SUPER_ADMIN role permissions cannot be modified to prevent system lockout.");
     }
 
-    try {
-      setSaving(true);
-      const targetRole = roles.find(r => r.id === roleId);
-      if (!targetRole) return;
+    const targetRole = roles.find(r => r.id === roleId);
+    if (!targetRole) return;
 
-      const updatedPermissions = {
-        ...targetRole.permissions,
-        [moduleName]: newValue
-      };
+    const updatedPermissions = {
+      ...targetRole.permissions,
+      [moduleName]: newValue
+    };
 
-      await setDoc(doc(db, 'roles', roleId), {
-        permissions: updatedPermissions
-      }, { merge: true });
-      await setDoc(doc(db, 'role_permissions', roleId), {
-        permissions: updatedPermissions
-      }, { merge: true });
+    // 1. INSTANT 0ms Optimistic UI Update: dropdown updates without any delay or disabled state
+    setRoles(prev => prev.map(r => r.id === roleId ? { ...r, permissions: updatedPermissions } : r));
+    setLastSaved(new Date().toLocaleTimeString());
 
-      await logAudit("ROLE_PERMISSIONS_CHANGE", userProfile.employeeId, userProfile.employeeName, 
-        `Updated role ${roleId} module ${moduleName} permission to ${newValue}`);
-
-      // Update local state
-      setRoles(prev => prev.map(r => r.id === roleId ? { ...r, permissions: updatedPermissions } : r));
-    } catch (err) {
+    // 2. Parallel Background Sync
+    Promise.all([
+      setDoc(doc(db, 'roles', roleId), { permissions: updatedPermissions }, { merge: true }),
+      setDoc(doc(db, 'role_permissions', roleId), { permissions: updatedPermissions }, { merge: true })
+    ]).then(() => {
+      logAudit("ROLE_PERMISSIONS_CHANGE", userProfile?.employeeId || 'admin', userProfile?.employeeName || 'Super Admin', 
+        `Updated role ${roleId} module ${moduleName} permission to ${newValue}`).catch(() => {});
+    }).catch(err => {
+      console.error("Role permission save failed:", err);
+      // Revert if write fails
+      setRoles(prev => prev.map(r => r.id === roleId ? targetRole : r));
       alert("Failed to save changes: " + err.message);
-    } finally {
-      setSaving(false);
-    }
+    });
   };
 
   const isOwner = isOwnerUser(currentUser, userProfile) || 
@@ -101,11 +97,32 @@ export default function RoleManagement() {
   return (
     <div className="space-y-6 font-mono text-slate-100">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
-        <Shield className="h-6 w-6 text-amber-500" />
-        <div>
-          <h2 className="text-lg font-black tracking-wider uppercase">System Access Control Matrix</h2>
-          <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Adjust role authorizations dynamically across operational modules</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+        <div className="flex items-center gap-3">
+          <Shield className="h-6 w-6 text-amber-500" />
+          <div>
+            <h2 className="text-lg font-black tracking-wider uppercase">System Access Control Matrix</h2>
+            <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Adjust role authorizations dynamically across operational modules (0ms instant updates)</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {lastSaved && (
+            <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 bg-emerald-950/30 border border-emerald-800/40 px-2.5 py-1 rounded">
+              <CheckCircle2 size={12} />
+              <span>Synced {lastSaved}</span>
+            </div>
+          )}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Filter modules..."
+              value={moduleFilter}
+              onChange={(e) => setModuleFilter(e.target.value)}
+              className="pl-8 pr-3 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-amber-500"
+            />
+          </div>
         </div>
       </div>
 
@@ -119,7 +136,7 @@ export default function RoleManagement() {
               <thead className="bg-slate-900 text-slate-500 uppercase tracking-widest text-[9px] border-b border-slate-800">
                 <tr>
                   <th className="p-3 w-48 font-black">Role / Module</th>
-                  {MODULES.map(mod => (
+                  {MODULES.filter(m => !moduleFilter.trim() || m.toLowerCase().includes(moduleFilter.toLowerCase())).map(mod => (
                     <th key={mod} className="p-3 text-center font-black">{mod}</th>
                   ))}
                 </tr>
@@ -133,7 +150,7 @@ export default function RoleManagement() {
                         <span className="block text-[8px] text-red-400 font-black mt-0.5 uppercase tracking-wider">LOCKED SYSTEM ROLE</span>
                       )}
                     </td>
-                    {MODULES.map(mod => {
+                    {MODULES.filter(m => !moduleFilter.trim() || m.toLowerCase().includes(moduleFilter.toLowerCase())).map(mod => {
                       const currentVal = role.permissions?.[mod] || 'No';
                       const isSuper = role.id === 'SUPER_ADMIN';
 
@@ -145,7 +162,6 @@ export default function RoleManagement() {
                             <select id={`role-perm-${role.id}-${mod.toLowerCase().replace(/[^a-z0-9]/g, '-')}`} name={`role_perm_${role.id}_${mod.toLowerCase().replace(/[^a-z0-9]/g, '_')}`} aria-label={`Permission for ${role.roleName} in ${mod}`}
                               value={currentVal}
                               onChange={(e) => handlePermissionChange(role.id, mod, e.target.value)}
-                              disabled={saving}
                               className={`bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-[10px] font-bold text-center w-24 focus:outline-none focus:border-amber-500 cursor-pointer ${
                                 currentVal === 'Full' ? 'text-emerald-400 bg-emerald-950/20' : 
                                 currentVal === 'View' ? 'text-blue-400 bg-blue-950/20' : 

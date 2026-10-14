@@ -52,10 +52,11 @@ export default function ViewerLayout({
             <span>Telemetry Refresh in: <strong className="text-cyan-400">{countdown}s</strong></span>
           </div>
           <button 
+            type="button"
             onClick={logout}
-            className="text-[10px] font-bold text-slate-500 border border-slate-800 px-3 py-1.5 rounded hover:bg-slate-800/50"
+            className="text-[10px] font-bold text-rose-300 hover:text-white border border-rose-900/40 bg-rose-950/20 px-3 py-1.5 rounded hover:bg-rose-900/40 transition cursor-pointer"
           >
-            EXIT KIOSK
+            EXIT KIOSK / SIGN OFF
           </button>
         </div>
       </header>

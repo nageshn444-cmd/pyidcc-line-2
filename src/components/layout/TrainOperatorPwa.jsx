@@ -360,10 +360,12 @@ export default function TrainOperatorPwa({
             <span>FAULT</span>
           </Link>
           <button 
+            type="button"
             onClick={logout}
-            className="text-neutral-500 hover:text-white text-[10px] font-bold border border-neutral-850 px-2.5 py-1 rounded cursor-pointer"
+            className="text-rose-300 hover:text-white bg-rose-950/20 hover:bg-rose-900/40 text-[10px] font-bold border border-rose-900/40 px-2.5 py-1 rounded cursor-pointer transition shadow-xs"
+            title="Sign out of operator terminal"
           >
-            Sign-Out
+            Sign-Off
           </button>
         </div>
       </header>

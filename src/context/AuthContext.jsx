@@ -1308,34 +1308,51 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    try {
-      if (currentUser && userProfile) {
-        await logAudit('LOGOUT', currentUser.uid, userProfile.employeeName, 'Logged out of session.').catch(() => {});
-      }
-    } catch (_) {}
-
-    clearProfileCache();
-
+    // 1. Immediately flag sessionStorage that a clean manual sign-off was executed
     try {
       if (typeof window !== 'undefined' && window.sessionStorage) {
-        window.sessionStorage.clear();
-      }
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.removeItem('pyidcc_active_day_override');
+        window.sessionStorage.setItem('pyidcc_manual_logout', 'true');
       }
     } catch (_) {}
 
+    // 2. Clear local memory state immediately for 0ms UI reaction
     setCurrentUser(null);
     setUserProfile(null);
     setPermissions({});
     setApprovalPending(false);
+    setApprovalPendingMessage('');
 
+    // 3. Clear profile cache and local storage user tokens
+    clearProfileCache();
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem(CACHED_PROFILE_KEY);
+        window.localStorage.removeItem(CACHED_PERMS_KEY);
+        window.localStorage.removeItem('pyidcc_active_day_override');
+        // Clear Firebase Auth localStorage keys if any
+        Object.keys(window.localStorage).forEach(key => {
+          if (key.startsWith('firebase:authUser:') || key.startsWith('firebase:sent_email:')) {
+            window.localStorage.removeItem(key);
+          }
+        });
+      }
+    } catch (_) {}
+
+    // 4. Non-blocking audit log in background
+    try {
+      if (currentUser && userProfile) {
+        logAudit('LOGOUT', currentUser.uid, userProfile.employeeName, 'Terminal Sign-Off executed').catch(() => {});
+      }
+    } catch (_) {}
+
+    // 5. Cleanly sign out Firebase Auth
     try {
       await signOut(auth);
     } catch (_) {}
 
+    // 6. Hard redirect to /login with replacement so back button cannot restore workstation
     if (typeof window !== 'undefined') {
-      window.location.href = '/login';
+      window.location.replace('/login');
     }
   };
 

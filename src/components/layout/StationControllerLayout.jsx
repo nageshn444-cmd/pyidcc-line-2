@@ -96,10 +96,12 @@ export default function StationControllerLayout({
             Station: {userProfile?.employeeName || 'StationController'}
           </div>
           <button 
+            type="button"
             onClick={logout}
-            className="w-full bg-slate-800 border border-slate-700 hover:bg-slate-750 text-slate-350 text-xs font-bold py-2 rounded-lg transition-colors uppercase tracking-wider text-center"
+            className="w-full bg-rose-950/30 border border-rose-900/50 hover:bg-rose-900/40 text-rose-300 hover:text-white text-xs font-bold py-2.5 rounded-lg transition-colors uppercase tracking-wider text-center flex items-center justify-center gap-2 cursor-pointer shadow-sm"
           >
-            Terminal logout
+            <LogOut size={13} className="text-rose-400" />
+            <span>Terminal Sign-Off</span>
           </button>
         </div>
       </aside>
@@ -138,6 +140,17 @@ export default function StationControllerLayout({
                 <option value="large">Large</option>
               </select>
             </div>
+
+            {/* Quick Sign-Off Button */}
+            <button
+              type="button"
+              onClick={logout}
+              className="flex items-center gap-1.5 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 hover:border-rose-700 text-rose-300 hover:text-white font-bold text-[10px] px-3 py-1.5 rounded-lg transition shadow-sm uppercase tracking-wider cursor-pointer"
+              title="Sign off terminal session"
+            >
+              <LogOut size={13} className="text-rose-400" />
+              <span className="hidden sm:inline">Sign Off</span>
+            </button>
           </div>
         </header>
 
