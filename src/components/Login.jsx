@@ -93,8 +93,15 @@ export default function Login() {
     setIsSubmitting(true);
     try {
       const result = await loginWithGoogle();
+      if (result?.cancelled) {
+        return; // User closed popup or cancelled
+      }
       if (result?.redirected) {
         return; // Redirect flow in progress
+      }
+      if (result?.error) {
+        setError(result.error);
+        return;
       }
       if (result?.pendingApproval && !isOwnerUser(result?.user, null)) {
         setLocalPendingMessage(result.message || 'Your Google login request is pending approval.');

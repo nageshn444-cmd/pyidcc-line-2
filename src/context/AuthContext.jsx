@@ -24,6 +24,7 @@ import {
 import { getRoleDefaultPermissions } from '../utils/dbSeeder';
 import { BMRCL_CREW_MASTER_BACKUP } from '../data/bmrclCrewRegistry';
 import { OFFICIAL_JMD_TD_REGISTRY } from '../data/jmdCrewMaster';
+import { EMPLOYEE_MASTER_REGISTRY } from '../data/employeeProfileMaster';
 
 const OWNER_EMAIL = 'nageshn444@gmail.com';
 const OWNER_UID   = 'EByfpLYSWsM2nxTKB1urzXgHjV02';
@@ -128,13 +129,18 @@ const findSystemUserProfile = async (employeeId, email = '') => {
   return null;
 };
 
-export const findRegistryEmployee = (employeeId) => {
-  if (!employeeId) return null;
-  const idStr = String(employeeId).trim();
-  if (!idStr) return null;
+export const findRegistryEmployee = (employeeId, email = '') => {
+  const idStr = String(employeeId || '').trim();
+  const emailStr = String(email || '').toLowerCase().trim();
 
   // 1. Check Super Admin
-  if (idStr === '20726') {
+  if (
+    idStr === '20726' ||
+    emailStr === OWNER_EMAIL ||
+    emailStr === 'nageshn@bmrc.co.in' ||
+    emailStr.includes('nageshn444') ||
+    idStr.toLowerCase().includes('nagesh')
+  ) {
     return {
       employeeId: '20726',
       employeeName: 'Nagesha N',
@@ -146,10 +152,31 @@ export const findRegistryEmployee = (employeeId) => {
     };
   }
 
-  // 2. Check BMRCL regular crew registry (5-digit IDs or other regular employees)
-  const bmrclMatch = BMRCL_CREW_MASTER_BACKUP.find(c => 
-    String(c.id || c.employeeId || c.empId).trim() === idStr
-  );
+  // 2. Check BMRCL regular crew registry (by ID or by Email)
+  let bmrclMatch = BMRCL_CREW_MASTER_BACKUP.find(c => {
+    const matchId = idStr && String(c.id || c.employeeId || c.empId).trim() === idStr;
+    const matchEmail = emailStr && String(c.email || '').toLowerCase().trim() === emailStr;
+    return matchId || matchEmail;
+  });
+
+  if (!bmrclMatch && Array.isArray(EMPLOYEE_MASTER_REGISTRY)) {
+    const empMatch = EMPLOYEE_MASTER_REGISTRY.find(e => {
+      const matchId = idStr && String(e.empId || e.id || e.employeeId).trim() === idStr;
+      const matchEmail = emailStr && String(e.email || '').toLowerCase().trim() === emailStr;
+      return matchId || matchEmail;
+    });
+    if (empMatch) {
+      bmrclMatch = {
+        id: String(empMatch.empId || empMatch.id),
+        name: empMatch.name,
+        email: empMatch.email,
+        designation: empMatch.designation,
+        role: empMatch.role,
+        depot: 'Peenya Depot (PYID)'
+      };
+    }
+  }
+
   if (bmrclMatch) {
     const rawRole = bmrclMatch.role || bmrclMatch.designation || '';
     let mappedRole = 'TRAIN_OPERATOR';
@@ -163,10 +190,11 @@ export const findRegistryEmployee = (employeeId) => {
       mappedRole = 'TRAIN_OPERATOR';
     }
 
+    const resolvedId = String(bmrclMatch.id || bmrclMatch.employeeId || idStr);
     return {
-      employeeId: idStr,
-      employeeName: bmrclMatch.name || bmrclMatch.employeeName || `Officer ${idStr}`,
-      email: bmrclMatch.email || `${idStr}@pyidcc.bmrcl.com`,
+      employeeId: resolvedId,
+      employeeName: bmrclMatch.name || bmrclMatch.employeeName || `Officer ${resolvedId}`,
+      email: bmrclMatch.email || emailStr || `${resolvedId}@pyidcc.bmrcl.com`,
       designation: bmrclMatch.designation || 'Station Controller / Train Operator',
       role: mappedRole,
       depot: bmrclMatch.depot || 'Peenya Depot (PYID)',
@@ -175,14 +203,17 @@ export const findRegistryEmployee = (employeeId) => {
   }
 
   // 3. Check OFFICIAL_JMD_TD_REGISTRY (8-series / 10-digit IDs)
-  const jmdMatch = OFFICIAL_JMD_TD_REGISTRY.find(j =>
-    String(j.empId || j.id || j.employeeId).trim() === idStr
-  );
+  const jmdMatch = OFFICIAL_JMD_TD_REGISTRY.find(j => {
+    const matchId = idStr && String(j.empId || j.id || j.employeeId).trim() === idStr;
+    const matchEmail = emailStr && String(j.email || '').toLowerCase().trim() === emailStr;
+    return matchId || matchEmail;
+  });
   if (jmdMatch) {
+    const resolvedId = String(jmdMatch.empId || idStr);
     return {
-      employeeId: idStr,
-      employeeName: jmdMatch.name || `JMD Driver ${idStr}`,
-      email: `${idStr}@pyidcc.bmrcl.com`,
+      employeeId: resolvedId,
+      employeeName: jmdMatch.name || `JMD Driver ${resolvedId}`,
+      email: jmdMatch.email || emailStr || `${resolvedId}@pyidcc.bmrcl.com`,
       designation: jmdMatch.designation || 'Train Driver (JMD Contract)',
       role: 'TRAIN_OPERATOR',
       depot: jmdMatch.boardingStation === 'PYID' ? 'Peenya Depot (PYID)' : (jmdMatch.depot || 'Peenya Depot (PYID)'),
@@ -196,7 +227,7 @@ export const findRegistryEmployee = (employeeId) => {
     return {
       employeeId: idStr,
       employeeName: `Train Driver (${idStr})`,
-      email: `${idStr}@pyidcc.bmrcl.com`,
+      email: emailStr || `${idStr}@pyidcc.bmrcl.com`,
       designation: 'Train Driver (JMD Contract)',
       role: 'TRAIN_OPERATOR',
       depot: 'Peenya Depot (PYID)',
@@ -209,7 +240,7 @@ export const findRegistryEmployee = (employeeId) => {
     return {
       employeeId: idStr,
       employeeName: `Train Operator (${idStr})`,
-      email: `${idStr}@pyidcc.bmrcl.com`,
+      email: emailStr || `${idStr}@pyidcc.bmrcl.com`,
       designation: 'Station Controller / Train Operator',
       role: 'TRAIN_OPERATOR',
       depot: 'Peenya Depot (PYID)',
@@ -218,10 +249,11 @@ export const findRegistryEmployee = (employeeId) => {
   }
 
   // Generic staff fallback
+  const fallbackId = idStr || (emailStr ? emailStr.split('@')[0] : 'staff');
   return {
-    employeeId: idStr,
-    employeeName: `BMRCL Staff (${idStr})`,
-    email: `${idStr}@pyidcc.bmrcl.com`,
+    employeeId: fallbackId,
+    employeeName: `BMRCL Staff (${fallbackId})`,
+    email: emailStr || `${fallbackId}@pyidcc.bmrcl.com`,
     designation: 'Station Controller / Train Operator',
     role: 'TRAIN_OPERATOR',
     depot: 'Peenya Depot (PYID)',
@@ -476,11 +508,12 @@ export function AuthProvider({ children }) {
     }
 
     // 4. Registry Lookup or users collection fallback
-    const registryInfo = findRegistryEmployee(empCandidate);
+    const registryInfo = findRegistryEmployee(empCandidate, email);
     let uData = null;
-    if (empCandidate) {
+    const lookupId = registryInfo?.employeeId || empCandidate;
+    if (lookupId) {
       try {
-        const uSnap = await getDoc(doc(db, 'users', empCandidate));
+        const uSnap = await getDoc(doc(db, 'users', lookupId));
         if (uSnap.exists()) {
           uData = uSnap.data();
         }
@@ -489,14 +522,14 @@ export function AuthProvider({ children }) {
 
     const assignedRole = uData?.role || registryInfo?.role || 'TRAIN_OPERATOR';
     const assignedDesignation = uData?.designation || registryInfo?.designation || 'Station Controller / Train Operator';
-    const assignedName = uData?.employeeName || user.displayName || registryInfo?.employeeName || `Officer ${empCandidate}`;
+    const assignedName = user.displayName || uData?.employeeName || registryInfo?.employeeName || `Officer ${lookupId}`;
     const assignedDepot = uData?.depot || registryInfo?.depot || 'Peenya Depot (PYID)';
 
     const profile = {
       uid: user.uid,
-      employeeId: empCandidate || user.uid.substring(0, 8),
+      employeeId: lookupId || user.uid.substring(0, 8),
       employeeName: assignedName,
-      email: email || `${empCandidate}@pyidcc.bmrcl.com`,
+      email: email || `${lookupId}@pyidcc.bmrcl.com`,
       designation: assignedDesignation,
       role: assignedRole,
       depot: assignedDepot,
@@ -1157,37 +1190,69 @@ export function AuthProvider({ children }) {
     provider.addScope('profile');
     provider.setCustomParameters({ prompt: 'select_account' });
 
-    // Try popup first (works cleanly on both desktop and mobile user-tap gestures).
-    // If popup is blocked or unsupported, fall back seamlessly to signInWithRedirect.
+    // Initiate persistence in background without delaying user gesture
+    setPersistence(auth, browserLocalPersistence).catch(() => {
+      setPersistence(auth, browserSessionPersistence).catch(() => {});
+    });
+
     try {
-      try {
-        await setPersistence(auth, browserLocalPersistence);
-      } catch (_) {
-        try { await setPersistence(auth, browserSessionPersistence); } catch (__) {}
-      }
       const result = await signInWithPopup(auth, provider);
       return finishLogin(result.user);
     } catch (popupErr) {
-      if (popupErr.code === 'auth/unauthorized-domain') {
-        throw new Error(`Domain (${window.location.hostname}) is not authorized in Google OAuth. Please use Staff ID Login instead.`);
+      // 1. User voluntarily closed popup or cancelled
+      if (
+        popupErr.code === 'auth/popup-closed-by-user' ||
+        popupErr.code === 'auth/cancelled-popup-request'
+      ) {
+        return { ok: false, cancelled: true };
       }
+
+      // 2. Domain not authorized in Firebase Console
+      if (popupErr.code === 'auth/unauthorized-domain') {
+        throw new Error(`Domain (${window.location.hostname}) is not authorized for Google OAuth in Firebase Console. Please log in using the Staff ID Login tab or visit https://pyidline2crew-41022.web.app.`);
+      }
+
+      // 3. Account exists with different credential (e.g. staff ID & password)
+      if (popupErr.code === 'auth/account-exists-with-different-credential') {
+        const accEmail = popupErr.customData?.email || popupErr.email || 'this email';
+        throw new Error(`An account already exists for ${accEmail} with Staff ID & Password. Please log in using the Staff ID Login tab.`);
+      }
+
+      // 4. Fallback to redirect if popup is blocked, unsupported, or on mobile browsers
       if (
         popupErr.code === 'auth/popup-blocked' || 
-        popupErr.code === 'auth/popup-closed-by-user' ||
-        popupErr.code === 'auth/cancelled-popup-request' ||
         popupErr.code === 'auth/operation-not-supported-in-this-environment' ||
         String(popupErr?.message || '').includes('Cross-Origin-Opener-Policy') ||
-        isMobileDevice()
+        (typeof isMobileDevice === 'function' && isMobileDevice())
       ) {
         try {
-          await setPersistence(auth, browserSessionPersistence);
-        } catch (_) {
-          try { await setPersistence(auth, inMemoryPersistence); } catch (__) {}
+          await setPersistence(auth, browserSessionPersistence).catch(() => {});
+          await signInWithRedirect(auth, provider);
+          return { ok: true, redirected: true };
+        } catch (redirectErr) {
+          if (redirectErr.code === 'auth/unauthorized-domain') {
+            throw new Error(`Domain (${window.location.hostname}) is not authorized for Google OAuth in Firebase Console. Please use Staff ID Login.`);
+          }
+          if (redirectErr.code === 'auth/popup-closed-by-user' || redirectErr.code === 'auth/cancelled-popup-request') {
+            return { ok: false, cancelled: true };
+          }
+          throw redirectErr;
         }
-        await signInWithRedirect(auth, provider);
-        return { ok: true, redirected: true };
       }
-      throw popupErr;
+
+      if (popupErr.code === 'auth/user-disabled') {
+        throw new Error('This Google account has been disabled in the system. Please contact the Station Superintendent.');
+      }
+
+      if (popupErr.code === 'auth/network-request-failed') {
+        throw new Error('Network connection failed. Please check your internet connection or use Staff ID Login.');
+      }
+
+      if (popupErr.code === 'auth/operation-not-allowed') {
+        throw new Error('Google Sign-In is not enabled in Firebase configuration. Please use Staff ID Login.');
+      }
+
+      throw new Error(popupErr.message || 'Google Sign-In failed. Please try again or use Staff ID Login.');
     }
   };
 
