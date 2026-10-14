@@ -60,7 +60,7 @@ const OWNER_PROFILE = {
   passwordResetRequired: false
 };
 
-const isOwner = (user) => {
+export const isOwner = (user) => {
   if (!user) return false;
   const email = String(user?.email || '').toLowerCase().trim();
   const empId = String(user?.employeeId || '').trim();
@@ -453,6 +453,26 @@ export function AuthProvider({ children }) {
           ...ownerProf,
           updatedAt: new Date().toISOString()
         }, { merge: true }).catch(() => {});
+
+        // Keep userPermissions and users docs in sync
+        setDoc(doc(db, 'userPermissions', '20726'), {
+          employeeId: '20726',
+          permissions: ownerPerms,
+          updatedAt: new Date().toISOString()
+        }, { merge: true }).catch(() => {});
+        setDoc(doc(db, 'users', '20726'), {
+          employeeId: '20726',
+          employeeName: 'Nagesha N',
+          email: OWNER_EMAIL,
+          role: 'SUPER_ADMIN',
+          designation: 'Station Superintendent',
+          status: 'ACTIVE',
+          active: true,
+          approved: true,
+          loginEnabled: true,
+          operationalCrew: 'YES',
+          updatedAt: new Date().toISOString()
+        }, { merge: true }).catch(() => {});
         return;
       }
 
@@ -517,6 +537,25 @@ export function AuthProvider({ children }) {
             setApprovalPending(false);
             setApprovalPendingMessage('');
             setLoading(false);
+
+            setDoc(doc(db, 'userPermissions', '20726'), {
+              employeeId: '20726',
+              permissions: ownerPerms,
+              updatedAt: new Date().toISOString()
+            }, { merge: true }).catch(() => {});
+            setDoc(doc(db, 'users', '20726'), {
+              employeeId: '20726',
+              employeeName: 'Nagesha N',
+              email: OWNER_EMAIL,
+              role: 'SUPER_ADMIN',
+              designation: 'Station Superintendent',
+              status: 'ACTIVE',
+              active: true,
+              approved: true,
+              loginEnabled: true,
+              operationalCrew: 'YES',
+              updatedAt: new Date().toISOString()
+            }, { merge: true }).catch(() => {});
             return;
           }
 
@@ -793,6 +832,11 @@ export function AuthProvider({ children }) {
           email: user.email || OWNER_PROFILE.email,
           role: 'SUPER_ADMIN',
           operationalCrew: 'YES',
+          updatedAt: new Date().toISOString()
+        }, { merge: true }),
+        setDoc(doc(db, 'userPermissions', '20726'), {
+          employeeId: '20726',
+          permissions: ownerPerms,
           updatedAt: new Date().toISOString()
         }, { merge: true })
       ]).catch((profileErr) => {
@@ -1105,7 +1149,16 @@ export function AuthProvider({ children }) {
 
   // ─── Permission Helper ───────────────────────────────────────────────────────
   const hasPermission = (moduleName, requiredLevel) => {
-    if (userProfile?.role === 'SUPER_ADMIN') return true;
+    if (
+      isOwner(currentUser) ||
+      isOwnerUser(currentUser, userProfile) ||
+      userProfile?.role === 'SUPER_ADMIN' ||
+      String(userProfile?.employeeId) === '20726' ||
+      String(currentUser?.email || '').toLowerCase() === OWNER_EMAIL ||
+      String(userProfile?.email || '').toLowerCase() === OWNER_EMAIL
+    ) {
+      return true;
+    }
 
     // Strict Train Operator permissions enforcement:
     // 1. Block System Settings completely

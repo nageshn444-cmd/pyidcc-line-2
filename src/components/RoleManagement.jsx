@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, getDocs, doc, updateDoc, setDoc } from 'firebase/firestore';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, isOwnerUser } from '../context/AuthContext';
 import { Shield, ShieldAlert, Check, X, RefreshCw } from 'lucide-react';
 
 const MODULES = [
@@ -24,7 +24,7 @@ const MODULES = [
 const PERMISSION_OPTIONS = ["Full", "View", "Own", "Request", "No"];
 
 export default function RoleManagement() {
-  const { userProfile, logAudit } = useAuth();
+  const { userProfile, logAudit, currentUser } = useAuth();
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -79,7 +79,12 @@ export default function RoleManagement() {
     }
   };
 
-  const isAuthorized = userProfile?.role === 'SUPER_ADMIN' || 
+  const isOwner = isOwnerUser(currentUser, userProfile) || 
+                  userProfile?.role === 'SUPER_ADMIN' || 
+                  String(userProfile?.employeeId) === '20726';
+
+  const isAuthorized = isOwner ||
+                       userProfile?.role === 'SUPER_ADMIN' || 
                        userProfile?.role === 'ADMIN_Station_Superintendent' || 
                        userProfile?.role === 'ADMIN_SS' || 
                        userProfile?.role === 'ADMIN' || 

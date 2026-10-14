@@ -17,7 +17,7 @@ import {
   limit,
   orderBy
 } from 'firebase/firestore';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, isOwnerUser } from '../context/AuthContext';
 import { provisioningService } from '../services/ProvisioningService';
 import { getRoleDefaultPermissions } from '../utils/dbSeeder';
 import { 
@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 
 export default function UserManagement() {
-  const { userProfile, logAudit } = useAuth();
+  const { userProfile, logAudit, currentUser } = useAuth();
   
   // Data States
   const [users, setUsers] = useState([]);
@@ -542,7 +542,12 @@ export default function UserManagement() {
   const pendingPasswordResetsCount = users.filter(u => u.passwordResetRequired === true).length;
   const pendingRoleRequestsCount = roleRequests.filter(r => r.status === 'PENDING').length;
 
-  const isAuthorized = userProfile?.role === 'SUPER_ADMIN' || 
+  const isOwner = isOwnerUser(currentUser, userProfile) || 
+                  userProfile?.role === 'SUPER_ADMIN' || 
+                  String(userProfile?.employeeId) === '20726';
+
+  const isAuthorized = isOwner ||
+                       userProfile?.role === 'SUPER_ADMIN' || 
                        userProfile?.role === 'ADMIN_Station_Superintendent' || 
                        userProfile?.role === 'ADMIN_SS' || 
                        userProfile?.role === 'ADMIN' || 

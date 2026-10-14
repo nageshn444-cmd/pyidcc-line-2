@@ -7,7 +7,7 @@ import {
   Users,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useAuth, isOwnerUser } from "../context/AuthContext";
 
 import AuditLogs from "./AuditLogs";
 import CategoryRules from "./CategoryRules";
@@ -17,7 +17,10 @@ import UserControlCenter from "./UserControlCenter";
 import UserManagement from "./UserManagement";
 
 export default function AdminPanel() {
-  const { hasPermission, userProfile } = useAuth();
+  const { hasPermission, userProfile, currentUser } = useAuth();
+  const isOwner = isOwnerUser(currentUser, userProfile) || 
+                  userProfile?.role === "SUPER_ADMIN" || 
+                  String(userProfile?.employeeId) === "20726";
 
   const subTabs = [
     {
@@ -25,6 +28,7 @@ export default function AdminPanel() {
       label: "User Control Center",
       icon: Fingerprint,
       show:
+        isOwner ||
         userProfile?.role === "SUPER_ADMIN" ||
         userProfile?.role === "ADMIN_Station_Superintendent" ||
         userProfile?.role === "ADMIN_SS",
@@ -34,6 +38,7 @@ export default function AdminPanel() {
       label: "Category Rules",
       icon: Cpu,
       show:
+        isOwner ||
         userProfile?.role === "SUPER_ADMIN" ||
         userProfile?.role === "ADMIN_Station_Superintendent" ||
         userProfile?.role === "ADMIN_SS",
@@ -43,19 +48,25 @@ export default function AdminPanel() {
       id: "USER_MGMT",
       label: "User Management",
       icon: Users,
-      show: hasPermission("User Management", "Full"),
+      show:
+        isOwner ||
+        userProfile?.role === "SUPER_ADMIN" ||
+        hasPermission("User Management", "Full"),
     },
     {
       id: "ROLE_MGMT",
       label: "Role Management",
       icon: Shield,
-      show: hasPermission("Role Management", "Full"),
+      show:
+        isOwner ||
+        userProfile?.role === "SUPER_ADMIN" ||
+        hasPermission("Role Management", "Full"),
     },
     {
       id: "AUDIT_LOGS",
       label: "Audit Logs",
       icon: Terminal,
-      show: userProfile?.role === "SUPER_ADMIN",
+      show: isOwner || userProfile?.role === "SUPER_ADMIN",
     },
   ];
 

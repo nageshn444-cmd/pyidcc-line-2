@@ -1162,12 +1162,14 @@ export default function SuperAdminLayout({
   ];
 
   const allowedMenuItems = menuItems.filter(item => {
+    if (isOwner) return true;
     if (isTrainOperator && item.id === 'ADMIN') return false;
     return hasPermission(item.module, 'View') || hasPermission(item.module, 'Request') || hasPermission(item.module, 'Own');
   });
 
   const [activeTab, setActiveTab] = useState(() => {
     const visible = menuItems.filter(item => {
+      if (isOwner) return true;
       if (isTrainOperator && item.id === 'ADMIN') return false;
       return hasPermission(item.module, 'View') || hasPermission(item.module, 'Request') || hasPermission(item.module, 'Own');
     });
@@ -1176,6 +1178,7 @@ export default function SuperAdminLayout({
 
   useEffect(() => {
     const visible = menuItems.filter(item => {
+      if (isOwner) return true;
       if (isTrainOperator && item.id === 'ADMIN') return false;
       return hasPermission(item.module, 'View') || hasPermission(item.module, 'Request') || hasPermission(item.module, 'Own');
     });
@@ -1183,7 +1186,7 @@ export default function SuperAdminLayout({
       setActiveTab(visible[0].id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [permissions, activeTab, isTrainOperator]);
+  }, [permissions, activeTab, isTrainOperator, isOwner]);
 
   return (
     <div className={`min-h-screen flex bg-slate-950 font-mono text-slate-200 ${theme}`}>
@@ -2543,7 +2546,7 @@ export default function SuperAdminLayout({
             </div>
           ) : activeTab === 'ADMIN' ? (
             <div className="space-y-6">
-              {!isTrainOperator && <AdminPanel />}
+              <AdminPanel />
             </div>
           ) : activeTab === 'KM_CALC_SUITE' ? (
             <CrewKMCalculatorSuite />
