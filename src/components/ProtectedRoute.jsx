@@ -8,7 +8,12 @@ export default function ProtectedRoute({ children, allowedRoles }) {
   const { currentUser, userProfile, loading } = useAuth();
   const location = useLocation();
 
-  // 1. OWNER OVERRIDE: Check owner FIRST before loading check to prevent redirect loops on mobile!
+  // 1. Check if logged in — if no authenticated session, redirect to /login
+  if (!currentUser) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // 2. OWNER OVERRIDE: Check owner after verifying user is authenticated
   const isOwner = isOwnerUser(currentUser, userProfile);
   if (isOwner) {
     return children;
@@ -23,11 +28,6 @@ export default function ProtectedRoute({ children, allowedRoles }) {
         </div>
       </div>
     );
-  }
-
-  // 2. Check if logged in
-  if (!currentUser) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   const isApprovedUser = Boolean(

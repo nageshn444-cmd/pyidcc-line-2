@@ -30,7 +30,7 @@ const OWNER_EMAIL = 'nageshn444@gmail.com';
 const OWNER_UID   = 'EByfpLYSWsM2nxTKB1urzXgHjV02';
 
 export const isOwnerUser = (user, profile) => {
-  if (!user && !profile) return false;
+  if (!user) return false;
   const userEmail = String(user?.email || '').toLowerCase().trim();
   const profEmail = String(profile?.email || '').toLowerCase().trim();
   const empId = String(profile?.employeeId || user?.employeeId || '').trim();
@@ -1308,15 +1308,35 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    if (currentUser && userProfile) {
-      await logAudit('LOGOUT', currentUser.uid, userProfile.employeeName, 'Logged out of session.');
-    }
+    try {
+      if (currentUser && userProfile) {
+        await logAudit('LOGOUT', currentUser.uid, userProfile.employeeName, 'Logged out of session.').catch(() => {});
+      }
+    } catch (_) {}
+
     clearProfileCache();
-    await signOut(auth);
+
+    try {
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        window.sessionStorage.clear();
+      }
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem('pyidcc_active_day_override');
+      }
+    } catch (_) {}
+
     setCurrentUser(null);
     setUserProfile(null);
     setPermissions({});
     setApprovalPending(false);
+
+    try {
+      await signOut(auth);
+    } catch (_) {}
+
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
   };
 
   // ─── Permission Helper ───────────────────────────────────────────────────────

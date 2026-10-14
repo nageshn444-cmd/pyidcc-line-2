@@ -9,7 +9,7 @@ import {
   Minimize2, FileText, ClipboardList, RefreshCw, 
   Train, Calendar, Radio, Shield, ShieldAlert, Trash2, RotateCcw, UploadCloud, FileSpreadsheet,
   Calculator, Sliders, Repeat, Clock, Copy, Plus, ArrowRightLeft, CheckCircle2,
-  Hand, ChevronDown, ChevronUp
+  Hand, ChevronDown, ChevronUp, LogOut
 } from 'lucide-react';
 
 import { lazyWithRetry } from '../../utils/lazyWithRetry';
@@ -1239,10 +1239,12 @@ export default function SuperAdminLayout({
             Logged In: {isOwner ? 'Nagesha N (Super Admin)' : (userProfile?.employeeName || 'SuperAdmin')}
           </div>
           <button 
+            type="button"
             onClick={logout}
-            className="w-full bg-rose-950/20 border border-rose-900/40 hover:bg-rose-900/20 text-rose-400 text-xs font-bold py-2 rounded-lg transition-colors uppercase tracking-wider text-center"
+            className="w-full bg-rose-950/30 border border-rose-900/50 hover:bg-rose-900/40 text-rose-300 hover:text-white text-xs font-bold py-2.5 rounded-lg transition-colors uppercase tracking-wider text-center flex items-center justify-center gap-2 cursor-pointer shadow-sm"
           >
-            Terminal Sign-Off
+            <LogOut size={13} className="text-rose-400" />
+            <span>Terminal Sign-Off</span>
           </button>
         </div>
       </aside>
@@ -1362,10 +1364,21 @@ export default function SuperAdminLayout({
             {/* AI Assistant Trigger */}
             <button 
               onClick={() => setIsAiOpen(true)}
-              className="flex items-center gap-1.5 bg-linear-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-slate-950 font-black text-[10px] px-3.5 py-1.5 rounded-lg transition shadow-lg shadow-cyan-900/10 uppercase tracking-widest"
+              className="flex items-center gap-1.5 bg-linear-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-slate-950 font-black text-[10px] px-3.5 py-1.5 rounded-lg transition shadow-lg shadow-cyan-900/10 uppercase tracking-widest cursor-pointer"
             >
               <Sparkles className="h-3.5 w-3.5" />
               <span>Ask AI</span>
+            </button>
+
+            {/* Terminal Sign-Off Quick Button */}
+            <button
+              type="button"
+              onClick={logout}
+              className="flex items-center gap-1.5 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 hover:border-rose-700 text-rose-300 hover:text-white font-bold text-[10px] px-3 py-1.5 rounded-lg transition shadow-sm uppercase tracking-wider cursor-pointer"
+              title="Sign off terminal session and lock workstation"
+            >
+              <LogOut size={13} className="text-rose-400" />
+              <span className="hidden sm:inline">Sign Off</span>
             </button>
           </div>
         </header>
