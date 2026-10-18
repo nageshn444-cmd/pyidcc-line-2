@@ -581,9 +581,33 @@ export default function LiveTrainPositionTracker({
   };
 
   const getStationInfo = (stCode) => {
-    const found = RELIEF_STATION_CONFIG.find(s => s.code === stCode);
+    if (!stCode || stCode === '--' || stCode === '-') {
+      return { code: 'PYID', label: 'Peenya Industry (PYID)', nameEn: 'Peenya Industry', nameKn: 'ಪೀಣ್ಯ ಇಂಡಸ್ಟ್ರಿ', chainage: -3.020 };
+    }
+    const raw = String(stCode).trim();
+    const clean = raw.toUpperCase().replace(/\s+/g, ' ');
+
+    // Match specialized relieving stations & tracks (Road 3, PYID RD3, Depot, etc.)
+    if (clean.includes('RD3') || clean.includes('RD 3') || clean.includes('ROAD 3') || clean.includes('ROAD-3') || clean.includes('RD-3')) {
+      return { code: 'PYID RD 3', label: 'Peenya Depot Road 3 (PYID RD 3)', nameEn: 'Peenya Depot Road 3', nameKn: 'ಪೀಣ್ಯ ಡಿಪೋ ರೋಡ್ 3', chainage: -3.020 };
+    }
+    if (clean.includes('DPO') || clean.includes('DEPOT') || clean.includes('DHO')) {
+      return { code: 'PYID', label: 'Peenya Industry (PYID)', nameEn: 'Peenya Industry', nameKn: 'ಪೀಣ್ಯ ಇಂಡಸ್ಟ್ರಿ', chainage: -3.020 };
+    }
+    if (clean.includes('PUTH') || clean.includes('YELACH') || clean.includes('YELACHENAHALLI')) {
+      return { code: 'PUTH', label: 'Yelachenahalli (PUTH)', nameEn: 'Yelachenahalli', nameKn: 'ಯಲಚೇನಹಳ್ಳಿ', chainage: 17.780 };
+    }
+    if (clean.includes('KGWA') || clean.includes('MAJESTIC') || clean.includes('KEMPEGOWDA')) {
+      return { code: 'KGWA', label: 'Kempegowda Majestic (KGWA)', nameEn: 'Kempegowda Majestic', nameKn: 'ಕೆಂಪೇಗೌಡ ಮೆಜೆಸ್ಟಿಕ್', chainage: 7.569 };
+    }
+    if (clean.includes('PYID') || clean.includes('PEENYA IND')) {
+      return { code: 'PYID', label: 'Peenya Industry (PYID)', nameEn: 'Peenya Industry', nameKn: 'ಪೀಣ್ಯ ಇಂಡಸ್ಟ್ರಿ', chainage: -3.020 };
+    }
+
+    const found = RELIEF_STATION_CONFIG.find(s => s.code === clean || s.code === raw);
     if (found) return found;
-    return { code: stCode, label: `${stCode}`, nameEn: stCode, nameKn: stCode, chainage: 0 };
+
+    return { code: raw, label: `${raw}`, nameEn: raw, nameKn: raw, chainage: 0 };
   };
 
   // ── Audio Context Management for Public Address Chime & Audio Autoplay Compliance ──
@@ -1961,20 +1985,33 @@ export default function LiveTrainPositionTracker({
         }
 
         let scheduledHandoverStation = null;
-        if (relieverOp && relieverOp.startSec < 999999) {
+        // Priority 1: Check if reliever or current leg has an explicit relieving station code
+        const rawRelStation = relieverOp?.fromLoc || relieverOp?.station || currentOp?.toLoc || currentOp?.station || null;
+        if (rawRelStation && rawRelStation !== '--' && rawRelStation !== '-') {
+          const matchedSt = getStationInfo(rawRelStation);
+          if (matchedSt && matchedSt.code) {
+            scheduledHandoverStation = matchedSt.code;
+          }
+        }
+
+        // Priority 2: Match scheduled handover time against intermediate WTT trip stations
+        if (!scheduledHandoverStation && relieverOp && relieverOp.startSec < 999999) {
           const targetMin = Math.round(relieverOp.startSec / 60);
           for (const [stCode, timeStr] of Object.entries(trip.stations || {})) {
             if (timeStr && timeStr !== '--' && timeStr !== '-') {
               const stMin = timeToMinutes(timeStr);
               if (Math.abs(stMin - targetMin) <= 4) {
-                scheduledHandoverStation = stCode;
+                scheduledHandoverStation = getStationInfo(stCode).code;
                 break;
               }
             }
           }
         }
+
+        // Priority 3: Fallback to trip endpoint or depot
         if (!scheduledHandoverStation) {
-          scheduledHandoverStation = relieverOp?.fromLoc || 'PYID';
+          const lastTripStation = stations && stations.length > 0 ? stations[stations.length - 1].station : null;
+          scheduledHandoverStation = getStationInfo(lastTripStation || 'PYID').code;
         }
 
         const isVerifiedReliever = Boolean(
@@ -2436,17 +2473,24 @@ export default function LiveTrainPositionTracker({
         !reliever.name.startsWith('Duty ')
       );
 
-      const idResult = generate4DigitTrainId(tId, null);
+      const stabledTripObj = {
+        tripId: `stbl_${tId}`,
+        originStationId: firstStabStation || (stabDir === 'UP' ? 'APTS' : 'BIET'),
+        destinationStationId: lastStabStation || stabStation || (stabDir === 'UP' ? 'BIET' : 'APTS'),
+        direction: stabDir === 'UP' ? 'UP' : 'DN',
+        dayType: activeSchedule
+      };
+      const idResult = generate4DigitTrainId(tId, stabledTripObj);
       const particularIdStr = idResult.particularTrainIdStr || formatParticularTrainId(tId) || tId;
 
       positions.push({
         rowId: `stbl_${tId}`,
-        trainId: tId,
+        trainId: idResult.computedTrainId || tId,
         particularTrainId: particularIdStr,
-        destinationId: null,
-        computedTrainId: null,
+        destinationId: idResult.destinationId,
+        computedTrainId: idResult.computedTrainId,
         trainIdStatus: idResult.status,
-        displayTrainId: `T-${particularIdStr} (STABLED)`,
+        displayTrainId: idResult.computedTrainId ? `T-${idResult.computedTrainId} (STABLED)` : `T-${particularIdStr} (STABLED)`,
         operatorName: stabCurName && stabCurName !== '--' ? stabCurName : `Train Operator ${tId}`,
         operatorId: stabCurId || '--',
         dutyNo: currentOp?.dutyId || '--',
@@ -2463,7 +2507,7 @@ export default function LiveTrainPositionTracker({
         distanceRemaining: 0,
         pctLine: Math.max(0, Math.min(1, stabPctLine)),
         reliever,
-        scheduledHandoverStation: 'PYID',
+        scheduledHandoverStation: getStationInfo(relieverOp?.fromLoc || stabStation || 'PYID').code,
         isVerifiedReliever,
         tripCompletionSec: null,
         timeRemainingToCompletionSec: 999999,
@@ -2935,7 +2979,7 @@ export default function LiveTrainPositionTracker({
       liveTrainPositions.find(t => !t.isStabling) ||
       liveTrainPositions[0];
 
-    const targetTrainId = activeRelief?.particularTrainId || activeRelief?.trainId || '201';
+    const targetTrainId = activeRelief?.computedTrainId || activeRelief?.trainId || '7001';
     const targetDir = activeRelief?.direction || 'UP';
     const targetReliever = activeRelief?.reliever?.name || activeRelief?.relieverName || 'Duty 29';
     const targetActive = activeRelief?.operatorName || 'Ashish Kumar';
@@ -3035,7 +3079,7 @@ export default function LiveTrainPositionTracker({
     }
 
     const t = activeStudioReliefTrain;
-    const targetTrainId = t?.particularTrainId || t?.trainId || '201';
+    const targetTrainId = t?.computedTrainId || t?.trainId || '7001';
     const targetDir = t?.direction || 'UP';
     const targetReliever = t?.reliever?.name || t?.relieverName || 'Duty 29';
     const targetActive = t?.operatorName || 'Ashish Kumar';
@@ -7222,13 +7266,14 @@ export default function LiveTrainPositionTracker({
                             className="bg-slate-900 text-amber-200 border border-amber-600/50 rounded px-2 py-1 text-[11px] font-mono font-bold focus:outline-none focus:border-amber-400"
                           >
                             {studioReliefCandidateTrains.map(ct => {
-                              const cid = String(ct.particularTrainId || ct.trainId);
+                              const cid = String(ct.computedTrainId || ct.trainId);
+                              const cpart = ct.particularTrainId ? ` (Rake ${ct.particularTrainId})` : '';
                               const cst = ct.scheduledHandoverStation || ct.stationCode || 'PYID';
                               const cact = ct.operatorName || 'TO';
                               const crel = ct.reliever?.name || ct.relieverName || 'Duty ' + (ct.reliever?.dutyNo || ct.relieverDuty || '--');
                               return (
                                 <option key={cid} value={cid}>
-                                  Train {cid} ({cst}) • {cact} ➔ {crel}
+                                  Train {cid}{cpart} @ {cst} • {cact} ➔ {crel}
                                 </option>
                               );
                             })}
@@ -7241,11 +7286,14 @@ export default function LiveTrainPositionTracker({
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-slate-200 font-mono text-[11px]">
                       <div className="bg-slate-950/80 p-2 rounded-lg border border-slate-800">
                         <span className="text-[9px] text-slate-400 block">TRAIN ID & PLATFORM</span>
-                        <strong className="text-amber-300 text-xs">Train {curTId}</strong>
+                        <strong className="text-amber-300 text-xs">Train {activeStudioReliefTrain?.computedTrainId || curTId}</strong>
+                        {activeStudioReliefTrain?.particularTrainId && (
+                          <span className="text-[10px] text-amber-400/80 ml-1">({activeStudioReliefTrain.particularTrainId})</span>
+                        )}
                         <span className="text-[10px] text-slate-400 ml-1">• Platform {curPlat}</span>
                       </div>
                       <div className="bg-slate-950/80 p-2 rounded-lg border border-slate-800">
-                        <span className="text-[9px] text-slate-400 block">HANDOVER STATION</span>
+                        <span className="text-[9px] text-slate-400 block">RELIEVING STATION</span>
                         <strong className="text-cyan-300 text-xs">{curSt.nameEn}</strong>
                         <span className="text-[10px] text-cyan-400/80 ml-1">({curSt.code})</span>
                       </div>
@@ -7270,7 +7318,7 @@ export default function LiveTrainPositionTracker({
 
               {/* SECTION 1: Curated BMRCL English Voice Samples */}
               {(() => {
-                const curTId = activeStudioReliefTrain?.particularTrainId || activeStudioReliefTrain?.trainId || '201';
+                const curTId = activeStudioReliefTrain?.computedTrainId || activeStudioReliefTrain?.trainId || '7001';
                 const curCleanDigits = String(curTId).replace(/\D/g, '') || String(curTId);
                 const curStCode = activeStudioReliefTrain?.scheduledHandoverStation || activeStudioReliefTrain?.stationCode || 'PYID';
                 const curSt = getStationInfo(curStCode);
