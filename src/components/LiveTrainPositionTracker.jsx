@@ -75,7 +75,15 @@ export default function LiveTrainPositionTracker({
   const [wttMatrix, setWttMatrix] = useState([]);
   const [liveIncidents, setLiveIncidents] = useState([]);
   const [stationChainageDB, setStationChainageDB] = useState({});
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [voiceEnabled, setVoiceEnabled] = useState(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = window.localStorage.getItem('pyidcc_voice_enabled');
+        if (saved !== null) return saved !== 'false';
+      }
+    } catch { /* ignore */ }
+    return true;
+  });
   const [announcementLogs, setAnnouncementLogs] = useState([]);
   
   const announcedSetRef = useRef(new Set());
@@ -1066,9 +1074,19 @@ export default function LiveTrainPositionTracker({
     overrideVoice = null,
     overrideRate = null,
     overridePitch = null,
-    forceAnnouncement = false
+    forceAnnouncement = false,
+    overrideText = null
   ) => {
-    if (!voiceEnabled || isAudioMuted || !('speechSynthesis' in window)) return;
+    if (!('speechSynthesis' in window)) return;
+    if (!forceAnnouncement && (!voiceEnabled || isAudioMuted)) return;
+
+    if (forceAnnouncement) {
+      if (typeof window !== 'undefined') {
+        window.__bmrcl_user_activated = true;
+      }
+      if (!voiceEnabled) setVoiceEnabled(true);
+      if (isAudioMuted) setIsAudioMuted(false);
+    }
     
     // Autoplay compliance: Automated announcements are suppressed until the user has performed at least one interaction on the page
     if (!forceAnnouncement && !checkUserGestureActive()) {
@@ -1145,7 +1163,7 @@ export default function LiveTrainPositionTracker({
           ? `Current train operator ${displayActiveEn}, duty will conclude in ${minutesRemaining} minutes. ` 
           : `Train trip will be completed in ${minutesRemaining} minutes. `;
         
-        const enText = `Attention please. Train ${trainEn}, approaching ${stInfo.nameEn}, Platform ${platformNumber}. ${enActivePart}Next train operator ${displayRelieverEn}, please proceed to the platform immediately for train handover.`;
+        const enText = overrideText || `Attention please. Train ${trainEn}, approaching ${stInfo.nameEn}, Platform ${platformNumber}. ${enActivePart}Next train operator ${displayRelieverEn}, please proceed to the platform immediately for train handover.`;
 
         const utterEn = new SpeechSynthesisUtterance(enText);
         if (overrideVoice && ((overrideVoice.lang || '').includes('en') || (overrideVoice.lang || '').includes('IN'))) {
@@ -2824,6 +2842,15 @@ export default function LiveTrainPositionTracker({
 
   // Soundboard Test Button Function (Dynamically synced to Line-2 Station Relief Alert Center)
   const testVoiceAnnouncement = () => {
+    if (typeof window !== 'undefined') {
+      window.__bmrcl_user_activated = true;
+    }
+    setVoiceEnabled(true);
+    setIsAudioMuted(false);
+    try {
+      localStorage.setItem('pyidcc_voice_enabled', 'true');
+    } catch { /* ignore */ }
+
     const activeRelief = 
       filteredReliefAlerts.find(a => a.shouldAnnounceReliever && (a.reliever?.name || a.relieverName)) ||
       filteredReliefAlerts.find(a => a.hasReliever && (a.reliever?.name || a.relieverName)) ||
@@ -2856,7 +2883,7 @@ export default function LiveTrainPositionTracker({
         null,
         null,
         null,
-        true
+        true // forceAnnouncement = true for soundboard test
       );
       setHandoverToast({
         message: `🔔 Line-2 Live Relief Announcement: Train ${targetTrainId} (${targetStation}) • Active: ${targetActive} (Duty ${targetActDuty}) ➔ Reliever: ${targetReliever} (Duty ${targetRelDuty})`,
@@ -2910,6 +2937,15 @@ export default function LiveTrainPositionTracker({
 
   // ── Voice Studio Sample Player (Dynamically following Line-2 Relief Alert Center) ──
   const playVoiceSample = (sampleType, voice = null, customRate = null, customPitch = null) => {
+    if (typeof window !== 'undefined') {
+      window.__bmrcl_user_activated = true;
+    }
+    setVoiceEnabled(true);
+    setIsAudioMuted(false);
+    try {
+      localStorage.setItem('pyidcc_voice_enabled', 'true');
+    } catch { /* ignore */ }
+
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
@@ -2936,10 +2972,17 @@ export default function LiveTrainPositionTracker({
     let targetRate = customRate;
     let targetPitch = customPitch;
     let targetVoice = voice;
+    let customText = null;
 
     const allVoices = (typeof window !== 'undefined' && 'speechSynthesis' in window) 
       ? (window.speechSynthesis.getVoices() || []) 
       : [];
+
+    const stInfo = getStationInfo(targetStation);
+    const platformNumber = targetDir === 'UP' ? '1' : '2';
+    const trainEn = formatTrainIdForSpeechEn(String(targetTrainId).replace(/\D/g, '') || String(targetTrainId));
+    const enActive = cleanOperatorNameEn(targetActive);
+    const enReliever = cleanOperatorNameEn(targetReliever);
 
     if (sampleType === 'english_female' || sampleType === 'female_classical' || sampleType === 'kannada_female') {
       if (targetRate === null) targetRate = 0.84;
@@ -2951,6 +2994,7 @@ export default function LiveTrainPositionTracker({
           return (l.includes('en') || l.includes('in')) && (n.includes('female') || n.includes('heera') || n.includes('neerja') || n.includes('veena') || n.includes('zira'));
         }) || null;
       }
+      customText = `Attention please. Train ${trainEn}, approaching ${stInfo.nameEn}, Platform ${platformNumber}. Current train operator ${enActive} (Duty ${targetActDuty}), duty will conclude in ${targetMins} minutes. Next train operator ${enReliever} (Duty ${targetRelDuty}), please proceed to the platform immediately for train handover.`;
     } else if (sampleType === 'english_male' || sampleType === 'male_controller' || sampleType === 'kannada_male') {
       if (targetRate === null) targetRate = 0.88;
       if (targetPitch === null) targetPitch = 0.95;
@@ -2961,12 +3005,22 @@ export default function LiveTrainPositionTracker({
           return (l.includes('en') || l.includes('in')) && (n.includes('male') || n.includes('ravi') || n.includes('prabhat') || n.includes('david'));
         }) || null;
       }
+      customText = `Attention Station Staff and Operators. Train ${trainEn}, approaching ${stInfo.nameEn}, Platform ${platformNumber}. Active operator ${enActive} (Duty ${targetActDuty}). Next reliever operator ${enReliever} (Duty ${targetRelDuty}), report to platform immediately.`;
     } else if (sampleType === 'english_depot' || sampleType === 'crew_control' || sampleType === 'kannada_depot') {
       if (targetRate === null) targetRate = 0.86;
       if (targetPitch === null) targetPitch = 1.00;
+      if (!targetVoice) {
+        targetVoice = allVoices.find(v => {
+          const n = (v.name || '').toLowerCase();
+          const l = (v.lang || '').toLowerCase();
+          return (l.includes('en') || l.includes('in')) && (n.includes('male') || n.includes('ravi') || n.includes('david') || n.includes('george'));
+        }) || null;
+      }
+      customText = `Peenya Depot Crew Control Broadcast: Train ${trainEn} arriving at ${stInfo.nameEn}. Outgoing operator ${enActive} (Duty ${targetActDuty}), incoming operator ${enReliever} (Duty ${targetRelDuty}), initiate handover protocol.`;
     } else if (sampleType === 'english_clear' || sampleType === 'phonetic_clear' || sampleType === 'kannada_clear' || sampleType === 'default_bmrcl_english' || sampleType === 'native_bmrcl_kannada_hd') {
       if (targetRate === null) targetRate = 0.82;
       if (targetPitch === null) targetPitch = 1.00;
+      customText = `Attention please. Train ${trainEn}, approaching ${stInfo.nameEn}, Platform ${platformNumber}. Duty ${targetActDuty} concludes in ${targetMins} minutes. Next operator ${enReliever}, please take charge at platform.`;
     }
 
     triggerBilingualAnnouncement(
@@ -2981,7 +3035,8 @@ export default function LiveTrainPositionTracker({
       targetVoice,
       targetRate,
       targetPitch,
-      true // forceAnnouncement = true for Voice Studio preview
+      true, // forceAnnouncement = true for Voice Studio preview
+      customText
     );
 
     setHandoverToast({
@@ -3313,7 +3368,23 @@ export default function LiveTrainPositionTracker({
         {/* Simulated Time & Voice Audio Controls */}
         <div className="flex flex-wrap items-center gap-3 bg-slate-950 p-2.5 rounded-lg border border-slate-800">
           <button
-            onClick={() => setVoiceEnabled(!voiceEnabled)}
+            onClick={() => {
+              const nextVal = !voiceEnabled;
+              setVoiceEnabled(nextVal);
+              if (nextVal) {
+                setIsAudioMuted(false);
+                if (typeof window !== 'undefined') {
+                  window.__bmrcl_user_activated = true;
+                }
+                const ctx = getAudioContext();
+                if (ctx && ctx.state === 'suspended') {
+                  ctx.resume().catch(() => {});
+                }
+              }
+              try {
+                localStorage.setItem('pyidcc_voice_enabled', String(nextVal));
+              } catch { /* ignore */ }
+            }}
             className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded transition-colors ${
               voiceEnabled ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-950 text-rose-300 border border-rose-800'
             }`}

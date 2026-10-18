@@ -525,11 +525,14 @@ export default function RouteCalculator({
             const dutyNo = sanitizeDutyNo(rawDutyVal);
             if (!dutyNo || dutyNo.toLowerCase().includes('total') || dutyNo.toLowerCase().includes('prepared') || dutyNo.startsWith('~')) continue;
 
-            const sOnTime = sOnTimeIdx !== -1 ? row[sOnTimeIdx]?.val : '06:00:00';
+            let sOnTime = sOnTimeIdx !== -1 ? row[sOnTimeIdx]?.val : '06:00:00';
             const signOnLocation = signOnLocIdx !== -1 ? row[signOnLocIdx]?.val : 'PYID';
-            const sOffTime = sOffTimeIdx !== -1 ? row[sOffTimeIdx]?.val : '14:00:00';
+            let sOffTime = sOffTimeIdx !== -1 ? row[sOffTimeIdx]?.val : '14:00:00';
             const signOffLocation = signOffLocIdx !== -1 ? row[signOffLocIdx]?.val : 'PYID';
             const kms = kmsIdx !== -1 ? (parseFloat(row[kmsIdx]?.val) || 0) : 0;
+
+            if (sOnTime && String(sOnTime).includes('.') && !String(sOnTime).includes(':')) sOnTime = String(sOnTime).replace(/\./g, ':');
+            if (sOffTime && String(sOffTime).includes('.') && !String(sOffTime).includes(':')) sOffTime = String(sOffTime).replace(/\./g, ':');
 
             const trips = [];
 
@@ -540,18 +543,25 @@ export default function RouteCalculator({
               const takeoverCell = lCol.takeoverCol !== -1 ? row[lCol.takeoverCol] : null;
               const handoverCell = lCol.handoverCol !== -1 ? row[lCol.handoverCol] : null;
 
-              const trainNo = trainCell?.val || '';
-              const timeFrm = timeFrmCell?.val || '';
-              const timeTo = timeToCell?.val || '';
+              let trainNo = trainCell?.val || '';
+              let timeFrm = timeFrmCell?.val || '';
+              let timeTo = timeToCell?.val || '';
               const takeoverLocation = takeoverCell?.val || '';
               const handoverLocation = handoverCell?.val || '';
 
-              if ((trainNo || timeFrm) && !/^\d{1,2}:\d{2}(:\d{2})?$/.test(String(trainNo).trim())) {
+              if (timeFrm && String(timeFrm).includes('.') && !String(timeFrm).includes(':')) {
+                timeFrm = String(timeFrm).replace(/\./g, ':');
+              }
+              if (timeTo && String(timeTo).includes('.') && !String(timeTo).includes(':')) {
+                timeTo = String(timeTo).replace(/\./g, ':');
+              }
+
+              if ((trainNo || timeFrm) && !/^\d{1,2}[:.]\d{2}([:.]\d{2})?$/.test(String(trainNo).trim())) {
                 const isUnderlined = Boolean(trainCell?.underline);
                 const isFrmTimeBold = Boolean(timeFrmCell?.bold);
                 const isToTimeBold = Boolean(timeToCell?.bold);
                 const isBoldedTime = isFrmTimeBold || isToTimeBold;
-                const trainLower = trainNo.toLowerCase();
+                const trainLower = String(trainNo).toLowerCase();
                 const isCounselling = trainLower.includes('couns') || trainLower.includes('counseling');
 
                 trips.push({
@@ -583,11 +593,12 @@ export default function RouteCalculator({
               row.forEach(cellObj => {
                 const val = String(cellObj?.val || '').trim();
                 if (!val) return;
-                if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(val)) {
-                  timeCells.push({ val, bold: cellObj.bold });
-                } else if (/(PYID|KGWA|PUTH|DEPOT|DEPO|DPO|DHO|NLC|APTS|RJNR|YPM|NGSA|BIET|RD3)/i.test(val)) {
+                if (/^\d{1,2}[:.]\d{2}([:.]\d{2})?$/.test(val)) {
+                  const normT = val.includes('.') && !val.includes(':') ? val.replace(/\./g, ':') : val;
+                  timeCells.push({ val: normT, bold: cellObj.bold });
+                } else if (/(PYID|KGWA|PUTH|DEPOT|DEPO|DPO|DHO|NLC|APTS|RJNR|YPM|NGSA|BIET|RD3|RVR)/i.test(val)) {
                   locationCells.push(val);
-                } else if (/^(\d{3}|pro\s*\d*|rd3\s*stby|stby)$/i.test(val)) {
+                } else if (/^(\d{2,3}|pro\s*\d*|rd3\s*stby|stby)$/i.test(val)) {
                   trainCells.push({ val, underline: cellObj.underline });
                 }
               });
