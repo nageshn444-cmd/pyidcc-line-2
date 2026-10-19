@@ -18,20 +18,43 @@ export class OperationalErrorBoundary extends React.Component {
 
   handlePurgeAndReload = async () => {
     try {
+      // 1. Force Firestore to boot into memory cache on next reload (bypasses corrupted IndexedDB mutation batchId)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('__PYIDCC_USE_MEMORY_CACHE__', '1');
+        sessionStorage.setItem('__PYIDCC_USE_MEMORY_CACHE__', '1');
+        sessionStorage.setItem('__PYIDCC_PURGE_FIRESTORE__', '1');
+      }
+
+      // 2. Terminate active Firestore instance to release open IndexedDB lock
+      try {
+        const { db } = await import('../../firebase.js');
+        const { terminate } = await import('firebase/firestore');
+        if (db) await terminate(db);
+      } catch (_) {}
+
+      // 3. Await IndexedDB deletion properly
       if (typeof window !== 'undefined' && window.indexedDB) {
+        const deleteDbPromise = (name) => new Promise((resolve) => {
+          try {
+            const req = window.indexedDB.deleteDatabase(name);
+            req.onsuccess = () => resolve(true);
+            req.onerror = () => resolve(false);
+            req.onblocked = () => resolve(false);
+            setTimeout(() => resolve(false), 600);
+          } catch (_) {
+            resolve(false);
+          }
+        });
+
         if (typeof window.indexedDB.databases === 'function') {
           const dbs = await window.indexedDB.databases();
           for (const d of dbs) {
             if (d.name && (d.name.includes('firestore') || d.name.includes('pyidline2crew'))) {
-              try {
-                window.indexedDB.deleteDatabase(d.name);
-              } catch (_) {}
+              await deleteDbPromise(d.name);
             }
           }
         }
-        try {
-          window.indexedDB.deleteDatabase('firestore/[DEFAULT]/pyidline2crew-41022/main');
-        } catch (_) {}
+        await deleteDbPromise('firestore/[DEFAULT]/pyidline2crew-41022/main');
       }
       sessionStorage.clear();
     } catch (e) {

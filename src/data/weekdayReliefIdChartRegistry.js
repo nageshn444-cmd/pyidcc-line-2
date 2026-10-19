@@ -2728,7 +2728,7 @@ export function buildDutyRosterFromLinkRoster(links = [], dispatchOperatorMap = 
     // Standby / Proctor / Reserve duties have strictly NO train legs (0 Legs).
     if (!isStandbyOrPro) {
       // Format 1 (HIGHEST PRIORITY): Operational Leg Columns from DYNAMIC CONTROL ROSTER OPERATIONAL MONITOR TERMINAL
-      // (item.trainId / item.leg1TrainNo, item.leg2TrainNo, item.leg3TrainNo, item.leg4TrainNo)
+      // (item.trainId / item.leg1TrainNo, item.leg2TrainNo, item.leg3TrainNo, item.leg4TrainNo, followTrain)
       const opLegTrains = [1, 2, 3, 4].map(idx => {
         const p = `leg${idx}`;
         const rawT = String(
@@ -2736,7 +2736,8 @@ export function buildDutyRosterFromLinkRoster(links = [], dispatchOperatorMap = 
           item[`${p}Train`] || 
           item[`${p}FinalTrainNo`] ||
           (idx === 4 ? (item.leg4FinalTrainNo || item.leg4TrainNo || item.finalTrainNo) : '') ||
-          (idx === 1 ? item.trainId : '') || 
+          (idx === 2 ? (item.leg2TrainNo || item.followTrain || item.followTrainNo) : '') ||
+          (idx === 1 ? (item.leg1TrainNo || item.trainId) : '') || 
           (item.trips?.[idx - 1]?.trainNo) ||
           ''
         ).trim();
@@ -2761,6 +2762,7 @@ export function buildDutyRosterFromLinkRoster(links = [], dispatchOperatorMap = 
             item[`${p}DepTime`] ||
             item[`${p}FinalDepTime`] ||
             item[`${p}StartTime`] ||
+            (idx === 2 ? (item.followTimeFrom || item.followDepTime) : '') ||
             tripObj?.timeFrm ||
             tripObj?.depTime ||
             ''
@@ -2780,6 +2782,7 @@ export function buildDutyRosterFromLinkRoster(links = [], dispatchOperatorMap = 
             item[`${p}ArrTime`] ||
             item[`${p}FinalArrTime`] ||
             item[`${p}EndTime`] ||
+            (idx === 2 ? (item.followTimeTo || item.followArrTime || item.followTripTime) : '') ||
             tripObj?.timeTo ||
             tripObj?.arrTime ||
             ''
@@ -2850,8 +2853,8 @@ export function buildDutyRosterFromLinkRoster(links = [], dispatchOperatorMap = 
             endStr: to && to !== '--' ? to : f,
             startSec,
             endSec,
-            fromLoc: item[`${p}DepLoc`] || item[`${p}FinalDepLoc`] || tripObj?.takeoverLocation || (idx === 1 ? item.signOnLocation : '') || 'PYID',
-            toLoc: item[`${p}ArrLoc`] || item[`${p}FinalArrLoc`] || item[`${p}HandoverLoc`] || tripObj?.handoverLocation || (idx === activeLegCount ? item.signOffLocation : '') || 'PYID'
+            fromLoc: item[`${p}DepLoc`] || item[`${p}FinalDepLoc`] || (idx === 2 ? item.followTakeoverLoc : '') || tripObj?.takeoverLocation || (idx === 1 ? item.signOnLocation : '') || 'PYID',
+            toLoc: item[`${p}ArrLoc`] || item[`${p}FinalArrLoc`] || item[`${p}HandoverLoc`] || (idx === 2 ? item.followHandoverLoc : '') || tripObj?.handoverLocation || (idx === activeLegCount ? item.signOffLocation : '') || 'PYID'
           });
         });
       }
@@ -3167,47 +3170,42 @@ export function buildHandoverCardsFromMasterIdChart(
       let endSec = l.endSec !== undefined ? l.endSec : timeStringToSeconds(l.to);
       if (endSec < startSec) endSec += 24 * 3600;
 
-      const dispatchOp = dispatchDutyOperatorMap[normDuty];
-      const propTracking = liveTrainTrackingMap[tid] || liveTrainTrackingMap[normalizeTrackTrainId(tid)];
-      let matchedOp = (propTracking?.current?.dutyId === normDuty) ? propTracking.current
-                      : (propTracking?.nextReliver?.dutyId === normDuty) ? propTracking.nextReliver
-                      : (propTracking?.previous?.dutyId === normDuty) ? propTracking.previous
-                      : null;
-
-      if (!matchedOp && liveTrainTrackingMap) {
-        for (const t of Object.values(liveTrainTrackingMap)) {
-          if (t?.current?.dutyId === normDuty) { matchedOp = t.current; break; }
-          if (t?.nextReliver?.dutyId === normDuty) { matchedOp = t.nextReliver; break; }
-          if (t?.previous?.dutyId === normDuty) { matchedOp = t.previous; break; }
-        }
-      }
-
-      const defaultRosterOp = getOperatorForDuty(normDuty);
-
-      let empName = l.empName;
-      let empId = l.empId || '--';
+      // Priority 1: Master ID Chart leg operator (strictly derived from that day's Duty Roster & Link Roster)
+      let empName = (l.empName && !l.empName.startsWith('Duty ')) ? l.empName : null;
+      let empId = (l.empId && l.empId !== '--') ? l.empId : '--';
       let isExchanged = Boolean(l.isExchanged);
       let originalEmpName = l.originalEmpName || '';
       let originalEmpId = l.originalEmpId || '';
 
+      // Priority 2: Real-time Dispatch Gateway swap or exchange on this duty
+      const dispatchOp = dispatchDutyOperatorMap[normDuty];
       if (dispatchOp?.empName && !dispatchOp.empName.startsWith('Duty ')) {
         empName = dispatchOp.empName;
         empId = dispatchOp.empId || '--';
         isExchanged = Boolean(dispatchOp.isExchanged || dispatchOp.isSwapped);
         originalEmpName = dispatchOp.rawRecord?.originalEmpName || '';
         originalEmpId = dispatchOp.rawRecord?.originalEmpId || '';
-      } else if (matchedOp?.empName && matchedOp.empName !== '--' && !matchedOp.empName.startsWith('Duty ') && !matchedOp.empName.startsWith('Train Operator')) {
-        empName = matchedOp.empName;
-        empId = matchedOp.empId || matchedOp.empNo || '--';
-        isExchanged = Boolean(matchedOp.isExchanged);
-        originalEmpName = matchedOp.originalEmpName || '';
-        originalEmpId = matchedOp.originalEmpId || '';
-      } else if (!empName || empName.startsWith('Duty ')) {
-        if (defaultRosterOp?.empName) {
-          empName = defaultRosterOp.empName;
-          empId = defaultRosterOp.empId || '--';
+      } else if (!empName) {
+        // Fallback: Check active live tracking or static default roster
+        const propTracking = liveTrainTrackingMap[tid] || liveTrainTrackingMap[normalizeTrackTrainId(tid)];
+        let matchedOp = (propTracking?.current?.dutyId === normDuty) ? propTracking.current
+                        : (propTracking?.nextReliver?.dutyId === normDuty) ? propTracking.nextReliver
+                        : (propTracking?.previous?.dutyId === normDuty) ? propTracking.previous
+                        : null;
+        if (matchedOp?.empName && !matchedOp.empName.startsWith('Duty ') && !matchedOp.empName.startsWith('Train Operator')) {
+          empName = matchedOp.empName;
+          empId = matchedOp.empId || matchedOp.empNo || '--';
+          isExchanged = Boolean(matchedOp.isExchanged);
+          originalEmpName = matchedOp.originalEmpName || '';
+          originalEmpId = matchedOp.originalEmpId || '';
         } else {
-          empName = `Duty ${normDuty}`;
+          const defaultRosterOp = getOperatorForDuty(normDuty);
+          if (defaultRosterOp?.empName) {
+            empName = defaultRosterOp.empName;
+            empId = defaultRosterOp.empId || '--';
+          } else {
+            empName = `Duty ${normDuty}`;
+          }
         }
       }
 

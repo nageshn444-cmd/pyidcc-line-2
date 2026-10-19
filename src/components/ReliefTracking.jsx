@@ -20,7 +20,7 @@ import {
   Users, Search, Train, ArrowRight, User, Clock, Filter, 
   Table, LayoutGrid, Calendar, ShieldCheck, Sparkles, Layers,
   CheckCircle2, Radio, AlertCircle, AlertTriangle, Shield, RefreshCw, 
-  ChevronRight, Activity, CalendarDays
+  ChevronRight, Activity, CalendarDays, Edit3, X, Save
 } from 'lucide-react';
 import { 
   WEEKDAY_RELIEF_ID_CHART, 
@@ -40,7 +40,7 @@ import {
 import { getMasterLinksForDay } from '../data/canonicalDayLinksRegistry';
 import { getOperatorForDuty } from '../data/weekdayMasterDutyRoster';
 import { db } from '../firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, setDoc, doc } from 'firebase/firestore';
 
 const ALL_LINE2_FLEET = [
   '201', '202', '203', '204', '205', '206', '207', '208', '209', '210',
@@ -158,19 +158,7 @@ export default function ReliefTracking({
     }
   }, []);
 
-  // Train columns from active schedule or full Line 2 fleet (201 to 223)
-  const scheduledTrains = useMemo(() => {
-    return activeMeta.trains || Object.keys(activeChart);
-  }, [activeMeta, activeChart]);
-
-  const trainColumns = useMemo(() => {
-    if (fleetScope === 'ALL_FLEET') {
-      const set = new Set([...ALL_LINE2_FLEET]);
-      if (activeChart['Couns']) set.add('Couns');
-      return Array.from(set);
-    }
-    return scheduledTrains;
-  }, [fleetScope, scheduledTrains, activeChart]);
+  // (scheduledTrains and trainColumns are now dynamically derived below dynamicMasterIdChart)
 
   // ── Authoritative DISPATCH GATEWAY CORE Deployments Map ──
   const dispatchDutyOperatorMap = useMemo(() => {
@@ -260,15 +248,21 @@ export default function ReliefTracking({
       setLinkUpdateTrigger(prev => prev + 1);
       if (e?.detail?.duties && Array.isArray(e.detail.duties)) {
         setLiveFirestoreLinks(prev => {
-          const sType = normalizeScheduleDay(e.detail.scheduleType || 'WEEKDAY');
+          const sType = normalizeScheduleDay(e.detail.scheduleType || selectedDay || 'WEEKDAY');
           const remaining = prev.filter(p => normalizeScheduleDay(p.scheduleType) !== sType);
           return [...remaining, ...e.detail.duties];
         });
       } else if (e?.detail?.rowId && e?.detail?.fieldName) {
         setLiveFirestoreLinks(prev => {
-          return prev.map(l => {
+          const sType = normalizeScheduleDay(e.detail.scheduleType || selectedDay || 'WEEKDAY');
+          const baseList = prev.length > 0 ? prev : getMasterLinksForDay(sType);
+          const found = baseList.some(l => l.id === e.detail.rowId || l.dutyId === e.detail.rowId || normalizeDutyId(l.dutyId) === normalizeDutyId(e.detail.rowId));
+          if (!found) {
+            return [...baseList, { id: e.detail.rowId, dutyId: e.detail.rowId, [e.detail.fieldName]: e.detail.value, scheduleType: sType }];
+          }
+          return baseList.map(l => {
             if (l.id === e.detail.rowId || l.dutyId === e.detail.rowId || normalizeDutyId(l.dutyId) === normalizeDutyId(e.detail.rowId)) {
-              return { ...l, [e.detail.fieldName]: e.detail.value };
+              return { ...l, [e.detail.fieldName]: e.detail.value, scheduleType: sType };
             }
             return l;
           });
@@ -283,22 +277,22 @@ export default function ReliefTracking({
       window.removeEventListener('pyidcc:link_roster_updated', handleLinkUpdate);
       window.removeEventListener('pyidcc_link_roster_updated', handleLinkUpdate);
     };
-  }, []);
+  }, [selectedDay]);
 
   // ── 1. AUTHORITATIVE LINK ROSTER (RESPECTIVE DAY) ──
-  // Follows linkRoster prop, allLinks prop, liveFirestoreLinks from crew_final_links, or canonical master
+  // Priority: liveFirestoreLinks from crew_final_links / live edits ➔ linkRoster prop ➔ allLinks prop ➔ canonical master
   const activeLinkRoster = useMemo(() => {
-    // 1. Check linkRoster prop (if matching selectedDay)
+    // 1. Check liveFirestoreLinks from real-time crew_final_links (highest priority: latest uploaded or edited)
+    const fromFirestore = getCleanLinksForDay(liveFirestoreLinks, selectedDay);
+    if (fromFirestore.length > 0) return fromFirestore;
+
+    // 2. Check linkRoster prop (if matching selectedDay)
     const fromProp = getCleanLinksForDay(linkRoster, selectedDay);
     if (fromProp.length > 0) return fromProp;
 
-    // 2. Check allLinks prop (filtered for selectedDay)
+    // 3. Check allLinks prop (filtered for selectedDay)
     const fromAll = getCleanLinksForDay(allLinks, selectedDay);
     if (fromAll.length > 0) return fromAll;
-
-    // 3. Check liveFirestoreLinks from real-time crew_final_links
-    const fromFirestore = getCleanLinksForDay(liveFirestoreLinks, selectedDay);
-    if (fromFirestore.length > 0) return fromFirestore;
 
     // 4. Fallback to canonical master registry
     return getMasterLinksForDay(selectedDay);
@@ -337,6 +331,28 @@ export default function ReliefTracking({
     return buildMasterIdChartFromDutyRoster(dynamicDutyRoster, activeChart);
   }, [dynamicDutyRoster, activeChart]);
 
+  // Dynamic train columns: Strictly derived from trains that have shift legs in dynamicMasterIdChart
+  const scheduledTrains = useMemo(() => {
+    const activeTrains = Object.keys(dynamicMasterIdChart).filter(tid => (dynamicMasterIdChart[tid] || []).length > 0);
+    if (activeTrains.length > 0) {
+      return activeTrains.sort((a, b) => {
+        if (a === 'Couns') return 1;
+        if (b === 'Couns') return -1;
+        return a.localeCompare(b, undefined, { numeric: true });
+      });
+    }
+    return activeMeta.trains || Object.keys(activeChart);
+  }, [dynamicMasterIdChart, activeMeta, activeChart]);
+
+  const trainColumns = useMemo(() => {
+    if (fleetScope === 'ALL_FLEET') {
+      const set = new Set([...ALL_LINE2_FLEET]);
+      if (activeChart['Couns'] || dynamicMasterIdChart['Couns']) set.add('Couns');
+      return Array.from(set);
+    }
+    return scheduledTrains;
+  }, [fleetScope, scheduledTrains, activeChart, dynamicMasterIdChart]);
+
   // ── 4. HANDOVER CARDS (FOLLOWS MASTER ID CHART) ──
   // ── 5. LIVE RELIEF TRACKING (FOLLOWS HANDOVER CARDS) ──
   // Evaluates previous, current (at controls), and next reliever at currentTimeSecs
@@ -349,6 +365,128 @@ export default function ReliefTracking({
       liveTrainTrackingMap
     );
   }, [dynamicMasterIdChart, currentTimeSecs, trainColumns, dispatchDutyOperatorMap, liveTrainTrackingMap]);
+
+  // ── Quick Duty Edit State & Handlers ──
+  const [editingDutyModal, setEditingDutyModal] = useState(null);
+  const [isSavingDuty, setIsSavingDuty] = useState(false);
+  const [dutyFormData, setDutyFormData] = useState({
+    dutyId: '',
+    empName: '',
+    empId: '',
+    signOnTime: '06:00',
+    signOffTime: '14:00',
+    signOnLocation: 'PYID',
+    signOffLocation: 'PYID',
+    leg1TrainNo: '',
+    leg1TimeFrom: '',
+    leg1TimeTo: '',
+    leg2TrainNo: '',
+    leg2DepTime: '',
+    leg2ArrTime: '',
+    leg3TrainNo: '',
+    leg3DepTime: '',
+    leg3ArrTime: '',
+    leg4TrainNo: '',
+    leg4FinalDepTime: '',
+    leg4FinalArrTime: ''
+  });
+
+  const handleOpenDutyEdit = (dutyId) => {
+    const norm = normalizeDutyId(dutyId);
+    const existing = dynamicDutyRoster[norm] || {};
+    const linkItem = activeLinkRoster.find(l => normalizeDutyId(l.dutyId) === norm || normalizeDutyId(l.dutyNo) === norm) || {};
+    const legs = existing.legs || [];
+
+    setDutyFormData({
+      dutyId: norm,
+      empName: existing.assignedOperator?.empName && !existing.assignedOperator.empName.startsWith('Duty ') ? existing.assignedOperator.empName : (linkItem.empName || linkItem.operatorName || ''),
+      empId: existing.assignedOperator?.empId !== '--' ? existing.assignedOperator.empId : (linkItem.empId || linkItem.operatorId || ''),
+      signOnTime: existing.meta?.signOnTime || linkItem.signOnTime || '06:00',
+      signOffTime: existing.meta?.signOffTime || linkItem.signOffTime || '14:00',
+      signOnLocation: existing.meta?.signOnLocation || linkItem.signOnLocation || 'PYID',
+      signOffLocation: existing.meta?.signOffLocation || linkItem.signOffLocation || 'PYID',
+      leg1TrainNo: legs[0]?.trainId || linkItem.leg1TrainNo || linkItem.trainId || '',
+      leg1TimeFrom: legs[0]?.from || linkItem.leg1TimeFrom || '',
+      leg1TimeTo: legs[0]?.to || linkItem.leg1TimeTo || '',
+      leg2TrainNo: legs[1]?.trainId || linkItem.leg2TrainNo || linkItem.followTrain || '',
+      leg2DepTime: legs[1]?.from || linkItem.leg2DepTime || linkItem.followTimeFrom || '',
+      leg2ArrTime: legs[1]?.to || linkItem.leg2ArrTime || linkItem.followTimeTo || '',
+      leg3TrainNo: legs[2]?.trainId || linkItem.leg3TrainNo || '',
+      leg3DepTime: legs[2]?.from || linkItem.leg3DepTime || '',
+      leg3ArrTime: legs[2]?.to || linkItem.leg3ArrTime || '',
+      leg4TrainNo: legs[3]?.trainId || linkItem.leg4TrainNo || linkItem.leg4FinalTrainNo || '',
+      leg4FinalDepTime: legs[3]?.from || linkItem.leg4FinalDepTime || '',
+      leg4FinalArrTime: legs[3]?.to || linkItem.leg4FinalArrTime || ''
+    });
+    setEditingDutyModal(norm);
+  };
+
+  const handleSaveDutyEdit = async (e) => {
+    e.preventDefault();
+    if (!dutyFormData.dutyId) return;
+    setIsSavingDuty(true);
+    try {
+      const norm = normalizeDutyId(dutyFormData.dutyId);
+      const sType = normalizeScheduleDay(selectedDay || 'WEEKDAY');
+      const docId = `link_${sType.toLowerCase()}_duty_${norm}`;
+
+      const updatePayload = {
+        id: docId,
+        dutyId: norm,
+        dutyNo: norm,
+        scheduleType: sType,
+        empName: dutyFormData.empName.trim() || `Duty ${norm}`,
+        operatorName: dutyFormData.empName.trim() || `Duty ${norm}`,
+        empId: dutyFormData.empId.trim() || '--',
+        operatorId: dutyFormData.empId.trim() || '--',
+        signOnTime: dutyFormData.signOnTime.slice(0, 5),
+        signOffTime: dutyFormData.signOffTime.slice(0, 5),
+        signOnLocation: dutyFormData.signOnLocation,
+        signOffLocation: dutyFormData.signOffLocation,
+        trainId: dutyFormData.leg1TrainNo.trim() || '--',
+        leg1TrainNo: dutyFormData.leg1TrainNo.trim() || '--',
+        leg1TimeFrom: dutyFormData.leg1TimeFrom.slice(0, 5) || '--',
+        leg1TimeTo: dutyFormData.leg1TimeTo.slice(0, 5) || '--',
+        leg2TrainNo: dutyFormData.leg2TrainNo.trim() || '--',
+        leg2DepTime: dutyFormData.leg2DepTime.slice(0, 5) || '--',
+        leg2ArrTime: dutyFormData.leg2ArrTime.slice(0, 5) || '--',
+        leg3TrainNo: dutyFormData.leg3TrainNo.trim() || '--',
+        leg3DepTime: dutyFormData.leg3DepTime.slice(0, 5) || '--',
+        leg3ArrTime: dutyFormData.leg3ArrTime.slice(0, 5) || '--',
+        leg4TrainNo: dutyFormData.leg4TrainNo.trim() || '--',
+        leg4FinalDepTime: dutyFormData.leg4FinalDepTime.slice(0, 5) || '--',
+        leg4FinalArrTime: dutyFormData.leg4FinalArrTime.slice(0, 5) || '--',
+        lastModified: new Date().toISOString()
+      };
+
+      // 1. Save to Firestore
+      await setDoc(doc(db, 'crew_final_links', docId), updatePayload, { merge: true });
+
+      // 2. Immediately update in-memory live Firestore links state for zero latency
+      setLiveFirestoreLinks(prev => {
+        const remaining = prev.filter(l => !(normalizeScheduleDay(l.scheduleType) === sType && normalizeDutyId(l.dutyId || l.dutyNo) === norm));
+        return [...remaining, updatePayload];
+      });
+      setLinkUpdateTrigger(p => p + 1);
+
+      // 3. Dispatch broadcast events to all open consoles and layout views
+      const eventDetail = {
+        scheduleType: sType,
+        dutyId: norm,
+        duties: [updatePayload],
+        timestamp: Date.now()
+      };
+      window.dispatchEvent(new CustomEvent('pyidcc:link_roster_updated', { detail: eventDetail }));
+      window.dispatchEvent(new CustomEvent('pyidcc_link_roster_updated', { detail: eventDetail }));
+
+      setEditingDutyModal(null);
+    } catch (err) {
+      console.error("Save duty error:", err);
+      alert("Failed to save duty changes: " + err.message);
+    } finally {
+      setIsSavingDuty(false);
+    }
+  };
 
   // ── Continuity & Stabling Audit Engine ──
   // Audits dynamic master ID chart to verify 100% continuous run, mid-day breaks, and stabling before termination
@@ -498,15 +636,15 @@ export default function ReliefTracking({
               </span>
               <span className="px-2 py-0.5 rounded-full bg-blue-950 text-blue-300 border border-blue-700/60 text-[9px] font-black uppercase font-mono flex items-center gap-1">
                 <Sparkles size={10} className="text-blue-400" />
-                MASTER ID CHART ({activeMeta.dutyCount || Object.keys(activeDutyLegs).length} DUTIES)
+                MASTER ID CHART ({Object.keys(dynamicDutyRoster).length || activeMeta.dutyCount || 79} DUTIES • {trainColumns.length} TRAINS)
               </span>
               <span className="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700/60 text-[9px] font-black uppercase font-mono flex items-center gap-1">
                 <ShieldCheck size={11} className="text-emerald-400" />
                 ALSTOM ATS RELIEF ENGINE
               </span>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-950/90 text-emerald-300 border border-emerald-600/70 text-[9px] font-black uppercase font-mono flex items-center gap-1 shadow-sm" title="Real-time pipeline: Terminal changes automatically update Duty Roster, Master ID Chart, and Handover Cards">
+              <span className="px-2 py-0.5 rounded-full bg-emerald-950/90 text-emerald-300 border border-emerald-600/70 text-[9px] font-black uppercase font-mono flex items-center gap-1 shadow-sm" title="Real-time pipeline: Link Roster changes automatically update Duty Roster, Master ID Chart, and Handover Cards">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                TERMINAL ➔ DUTY ROSTER ➔ MASTER ID ➔ HANDOVERS
+                LINK ROSTER ➔ DUTY ROSTER ➔ MASTER ID ➔ HANDOVERS
               </span>
             </div>
             <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5 flex items-center gap-1.5 flex-wrap">
@@ -514,7 +652,7 @@ export default function ReliefTracking({
               <span className="text-slate-600">•</span>
               <span className="text-emerald-400 font-bold">Verified Reliever-Only Handover System</span>
               <span className="text-slate-600">•</span>
-              <span className="text-cyan-400 font-bold">{scheduledTrains.length} Timetabled Trains</span>
+              <span className="text-cyan-400 font-bold">{trainColumns.length} Timetabled Trains</span>
             </p>
           </div>
         </div>
@@ -1113,34 +1251,52 @@ export default function ReliefTracking({
                                         : null;
                         const defaultRosterOp = getOperatorForDuty(normDuty);
 
+                        const dynamicRosterItem = dynamicDutyRoster[normDuty];
+                        const legEmpName = leg.empName || dynamicRosterItem?.assignedOperator?.empName;
+                        const legEmpId = leg.empId || dynamicRosterItem?.assignedOperator?.empId;
+
                         const opDisplayName = dispatchOp?.empName
                           || (matchedOp?.empName && matchedOp.empName !== '--' && !matchedOp.empName.startsWith('Train Operator') && !matchedOp.empName.startsWith('Duty ') ? matchedOp.empName : null)
+                          || (legEmpName && legEmpName !== '--' && !legEmpName.startsWith('Duty ') ? legEmpName : null)
                           || defaultRosterOp?.empName
                           || '';
                         const opDisplayId = dispatchOp?.empId
                           || (matchedOp?.empId && matchedOp.empId !== '--' ? matchedOp.empId : null)
+                          || (legEmpId && legEmpId !== '--' ? legEmpId : null)
                           || defaultRosterOp?.empId
                           || '';
 
                         return (
                           <React.Fragment key={`cell-${trainId}-${rowIndex}`}>
-                            <td className={`py-1.5 px-1.5 text-center text-[10.5px] font-bold ${
-                              isActiveNow ? 'bg-emerald-950/60 text-emerald-300 font-black' : 'text-slate-300'
-                            }`}>
+                            <td 
+                              onDoubleClick={() => handleOpenDutyEdit(leg.duty || leg.dutyId)}
+                              className={`py-1.5 px-1.5 text-center text-[10.5px] font-bold cursor-pointer transition-colors hover:bg-slate-800/80 ${
+                                isActiveNow ? 'bg-emerald-950/60 text-emerald-300 font-black' : 'text-slate-300'
+                              }`}
+                              title="Double-click to quick-edit duty in roster"
+                            >
                               {leg.from}
                             </td>
-                            <td className={`py-1.5 px-1.5 text-center text-[10.5px] font-bold ${
-                              isActiveNow ? 'bg-emerald-950/60 text-emerald-300 font-black' : 'text-slate-300'
-                            }`}>
+                            <td 
+                              onDoubleClick={() => handleOpenDutyEdit(leg.duty || leg.dutyId)}
+                              className={`py-1.5 px-1.5 text-center text-[10.5px] font-bold cursor-pointer transition-colors hover:bg-slate-800/80 ${
+                                isActiveNow ? 'bg-emerald-950/60 text-emerald-300 font-black' : 'text-slate-300'
+                              }`}
+                              title="Double-click to quick-edit duty in roster"
+                            >
                               {leg.to}
                             </td>
-                            <td className={`py-1.5 px-1.5 text-center border-r border-slate-800 ${
-                              isActiveNow 
-                                ? 'bg-emerald-950/80 text-emerald-300 font-black' 
-                                : isDutyMatched
-                                ? 'bg-cyan-950 text-cyan-300 font-black'
-                                : 'text-amber-400 font-black'
-                            }`} title={opDisplayName ? `Operator: ${opDisplayName} (${opDisplayId})` : `Duty ${leg.duty || leg.dutyId}`}>
+                            <td 
+                              onDoubleClick={() => handleOpenDutyEdit(leg.duty || leg.dutyId)}
+                              className={`py-1.5 px-1.5 text-center border-r border-slate-800 cursor-pointer transition-colors hover:bg-cyan-900/40 ${
+                                isActiveNow 
+                                  ? 'bg-emerald-950/80 text-emerald-300 font-black' 
+                                  : isDutyMatched
+                                  ? 'bg-cyan-950 text-cyan-300 font-black'
+                                  : 'text-amber-400 font-black'
+                              }`} 
+                              title={opDisplayName ? `Operator: ${opDisplayName} (${opDisplayId}) • Double-click to edit Duty ${leg.duty || leg.dutyId}` : `Duty ${leg.duty || leg.dutyId} • Double-click to edit`}
+                            >
                               <div className="flex flex-col items-center">
                                 <span className="text-[11px] leading-tight">
                                   {leg.duty || leg.dutyId}
@@ -1255,15 +1411,25 @@ export default function ReliefTracking({
                           </span>
                         )}
                       </div>
-                      {legs.length === 0 ? (
-                        <span className="text-[9.5px] px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-800 font-bold">
-                          NO TRIP (STANDBY/PRO)
-                        </span>
-                      ) : (
-                        <span className="text-[9.5px] px-2 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-800 font-bold">
-                          {legs.length} Leg{legs.length > 1 ? 's' : ''}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {legs.length === 0 ? (
+                          <span className="text-[9.5px] px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-800 font-bold">
+                            NO TRIP (STANDBY/PRO)
+                          </span>
+                        ) : (
+                          <span className="text-[9.5px] px-2 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-800 font-bold">
+                            {legs.length} Leg{legs.length > 1 ? 's' : ''}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDutyEdit(dutyNo)}
+                          className="px-1.5 py-0.5 rounded bg-cyan-950/80 hover:bg-cyan-800 text-cyan-300 border border-cyan-700/60 text-[9px] font-bold flex items-center gap-1 transition-all"
+                          title="Quick Edit this Duty and synchronize sub-systems"
+                        >
+                          <Edit3 size={10} /> Edit
+                        </button>
+                      </div>
                     </div>
 
                     {/* Sign On / Off Times */}
@@ -1337,6 +1503,279 @@ export default function ReliefTracking({
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* QUICK EDIT DUTY MODAL (Instantly Cascade: Link -> Duty -> Master ID -> Handover) */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {editingDutyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-cyan-500/40 rounded-2xl p-5 w-full max-w-xl shadow-2xl shadow-cyan-950/50 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center border border-cyan-500/40 font-black">
+                  <Edit3 size={16} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                    Edit Duty {editingDutyModal}
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-700/60 font-mono">
+                      {selectedDay} SCHEDULE
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-slate-400">
+                    Saves directly to database and cascades automatically to Duty Roster, Master ID Chart, and Handover Cards.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingDutyModal(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveDutyEdit} className="space-y-4">
+              {/* Operator Details */}
+              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 space-y-3">
+                <span className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider block">
+                  Assigned Train Operator Details
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-1">Operator Name</label>
+                    <input
+                      type="text"
+                      value={dutyFormData.empName}
+                      onChange={e => setDutyFormData(prev => ({ ...prev, empName: e.target.value }))}
+                      placeholder="e.g. Ramesh Kumar"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-400 font-sans"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-1">Operator Employee ID</label>
+                    <input
+                      type="text"
+                      value={dutyFormData.empId}
+                      onChange={e => setDutyFormData(prev => ({ ...prev, empId: e.target.value }))}
+                      placeholder="e.g. BMRCL-1042"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-400 font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Shift Hours */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-slate-850">
+                  <div>
+                    <label className="text-[9px] text-slate-400 block mb-0.5">Sign On Time</label>
+                    <input
+                      type="time"
+                      value={dutyFormData.signOnTime}
+                      onChange={e => setDutyFormData(prev => ({ ...prev, signOnTime: e.target.value }))}
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-cyan-400 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-slate-400 block mb-0.5">Sign On Place</label>
+                    <input
+                      type="text"
+                      value={dutyFormData.signOnLocation}
+                      onChange={e => setDutyFormData(prev => ({ ...prev, signOnLocation: e.target.value }))}
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-cyan-400 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-slate-400 block mb-0.5">Sign Off Time</label>
+                    <input
+                      type="time"
+                      value={dutyFormData.signOffTime}
+                      onChange={e => setDutyFormData(prev => ({ ...prev, signOffTime: e.target.value }))}
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-cyan-400 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-slate-400 block mb-0.5">Sign Off Place</label>
+                    <input
+                      type="text"
+                      value={dutyFormData.signOffLocation}
+                      onChange={e => setDutyFormData(prev => ({ ...prev, signOffLocation: e.target.value }))}
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-cyan-400 font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Legs Working Configuration */}
+              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 space-y-3">
+                <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider block">
+                  Train Legs Working (Roster Sequence)
+                </span>
+
+                {/* Leg 1 */}
+                <div className="p-2 rounded-lg bg-slate-900/60 border border-slate-800 space-y-1.5">
+                  <span className="text-[9.5px] font-bold text-slate-300 block">Leg 1 Working</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[8.5px] text-slate-500 block">Train No</label>
+                      <input
+                        type="text"
+                        value={dutyFormData.leg1TrainNo}
+                        onChange={e => setDutyFormData(prev => ({ ...prev, leg1TrainNo: e.target.value }))}
+                        placeholder="e.g. 101 or 1"
+                        className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[8.5px] text-slate-500 block">From Time</label>
+                      <input
+                        type="time"
+                        value={dutyFormData.leg1TimeFrom}
+                        onChange={e => setDutyFormData(prev => ({ ...prev, leg1TimeFrom: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[8.5px] text-slate-500 block">To Time</label>
+                      <input
+                        type="time"
+                        value={dutyFormData.leg1TimeTo}
+                        onChange={e => setDutyFormData(prev => ({ ...prev, leg1TimeTo: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Leg 2 */}
+                <div className="p-2 rounded-lg bg-slate-900/60 border border-slate-800 space-y-1.5">
+                  <span className="text-[9.5px] font-bold text-slate-300 block">Leg 2 Working (Follow Train)</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[8.5px] text-slate-500 block">Train No</label>
+                      <input
+                        type="text"
+                        value={dutyFormData.leg2TrainNo}
+                        onChange={e => setDutyFormData(prev => ({ ...prev, leg2TrainNo: e.target.value }))}
+                        placeholder="e.g. 102 or --"
+                        className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[8.5px] text-slate-500 block">From Time</label>
+                      <input
+                        type="time"
+                        value={dutyFormData.leg2DepTime}
+                        onChange={e => setDutyFormData(prev => ({ ...prev, leg2DepTime: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[8.5px] text-slate-500 block">To Time</label>
+                      <input
+                        type="time"
+                        value={dutyFormData.leg2ArrTime}
+                        onChange={e => setDutyFormData(prev => ({ ...prev, leg2ArrTime: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Leg 3 */}
+                <div className="p-2 rounded-lg bg-slate-900/60 border border-slate-800 space-y-1.5">
+                  <span className="text-[9.5px] font-bold text-slate-300 block">Leg 3 Working (Optional)</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[8.5px] text-slate-500 block">Train No</label>
+                      <input
+                        type="text"
+                        value={dutyFormData.leg3TrainNo}
+                        onChange={e => setDutyFormData(prev => ({ ...prev, leg3TrainNo: e.target.value }))}
+                        placeholder="e.g. 103 or --"
+                        className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[8.5px] text-slate-500 block">From Time</label>
+                      <input
+                        type="time"
+                        value={dutyFormData.leg3DepTime}
+                        onChange={e => setDutyFormData(prev => ({ ...prev, leg3DepTime: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[8.5px] text-slate-500 block">To Time</label>
+                      <input
+                        type="time"
+                        value={dutyFormData.leg3ArrTime}
+                        onChange={e => setDutyFormData(prev => ({ ...prev, leg3ArrTime: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Leg 4 */}
+                <div className="p-2 rounded-lg bg-slate-900/60 border border-slate-800 space-y-1.5">
+                  <span className="text-[9.5px] font-bold text-slate-300 block">Leg 4 Working (Final Leg)</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[8.5px] text-slate-500 block">Train No</label>
+                      <input
+                        type="text"
+                        value={dutyFormData.leg4TrainNo}
+                        onChange={e => setDutyFormData(prev => ({ ...prev, leg4TrainNo: e.target.value }))}
+                        placeholder="e.g. 104 or --"
+                        className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[8.5px] text-slate-500 block">From Time</label>
+                      <input
+                        type="time"
+                        value={dutyFormData.leg4FinalDepTime}
+                        onChange={e => setDutyFormData(prev => ({ ...prev, leg4FinalDepTime: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[8.5px] text-slate-500 block">To Time</label>
+                      <input
+                        type="time"
+                        value={dutyFormData.leg4FinalArrTime}
+                        onChange={e => setDutyFormData(prev => ({ ...prev, leg4FinalArrTime: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingDutyModal(null)}
+                  disabled={isSavingDuty}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingDuty}
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-black shadow-lg shadow-cyan-900/40 flex items-center gap-2 transition-all disabled:opacity-50"
+                >
+                  <Save size={14} className={isSavingDuty ? "animate-spin" : ""} />
+                  {isSavingDuty ? "Synchronizing Sub-Systems..." : "Save & Synchronize All Sub-Systems"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

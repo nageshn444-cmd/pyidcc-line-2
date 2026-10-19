@@ -45,8 +45,9 @@ if (typeof window !== 'undefined') {
 
   window.addEventListener('unhandledrejection', (event) => {
     if (isFatalFirestoreAssertion(event.reason)) {
-      console.warn('[BMRCL Firestore Guard] Caught internal Firestore assertion error. Queuing local cache purge...', event.reason);
+      console.warn('[BMRCL Firestore Guard] Caught internal Firestore assertion error. Switching to memory cache...', event.reason);
       sessionStorage.setItem('__PYIDCC_PURGE_FIRESTORE__', '1');
+      localStorage.setItem('__PYIDCC_USE_MEMORY_CACHE__', '1');
       try {
         if (window.indexedDB) {
           window.indexedDB.deleteDatabase('firestore/[DEFAULT]/pyidline2crew-41022/main');
@@ -57,8 +58,9 @@ if (typeof window !== 'undefined') {
 
   window.addEventListener('error', (event) => {
     if (isFatalFirestoreAssertion(event.error)) {
-      console.warn('[BMRCL Firestore Guard] Caught internal Firestore error:', event.error);
+      console.warn('[BMRCL Firestore Guard] Caught internal Firestore error. Switching to memory cache...', event.error);
       sessionStorage.setItem('__PYIDCC_PURGE_FIRESTORE__', '1');
+      localStorage.setItem('__PYIDCC_USE_MEMORY_CACHE__', '1');
       try {
         if (window.indexedDB) {
           window.indexedDB.deleteDatabase('firestore/[DEFAULT]/pyidline2crew-41022/main');
@@ -72,7 +74,8 @@ if (typeof window !== 'undefined') {
 if (typeof window !== 'undefined') {
   const needsPurge = 
     sessionStorage.getItem('__PYIDCC_PURGE_FIRESTORE__') === '1' ||
-    localStorage.getItem('__PYIDCC_FORCE_FIRESTORE_RESET__') === '1';
+    localStorage.getItem('__PYIDCC_FORCE_FIRESTORE_RESET__') === '1' ||
+    localStorage.getItem('__PYIDCC_USE_MEMORY_CACHE__') === '1';
 
   if (needsPurge) {
     sessionStorage.removeItem('__PYIDCC_PURGE_FIRESTORE__');
@@ -134,13 +137,37 @@ const isMobileOrSafari = typeof window !== 'undefined' && (
   (window.matchMedia && window.matchMedia('(max-width: 768px)').matches)
 );
 
+// If memory cache is forced (due to corrupted IndexedDB mutation batchId)
+const forceMemoryCache = typeof window !== 'undefined' && (
+  localStorage.getItem('__PYIDCC_USE_MEMORY_CACHE__') === '1' ||
+  sessionStorage.getItem('__PYIDCC_USE_MEMORY_CACHE__') === '1' ||
+  sessionStorage.getItem('__PYIDCC_PURGE_FIRESTORE__') === '1'
+);
+
 let firestoreDb;
 try {
-  if (isMobileOrSafari) {
-    // Mobile / Safari: use memory cache to avoid IndexedDB permission & lock errors
+  if (isMobileOrSafari || forceMemoryCache) {
+    // Mobile / Safari or corrupted IndexedDB recovery: use memory cache to bypass all corrupt mutations
     firestoreDb = initializeFirestore(app, {
       localCache: memoryLocalCache()
     });
+    // In background, purge the orphaned/corrupted IndexedDB without lock contention
+    if (typeof window !== 'undefined' && window.indexedDB) {
+      setTimeout(async () => {
+        try {
+          if (typeof window.indexedDB.databases === 'function') {
+            const dbs = await window.indexedDB.databases();
+            for (const d of dbs) {
+              if (d.name && (d.name.includes('firestore') || d.name.includes('pyidline2crew'))) {
+                window.indexedDB.deleteDatabase(d.name);
+              }
+            }
+          }
+          window.indexedDB.deleteDatabase('firestore/[DEFAULT]/pyidline2crew-41022/main');
+          localStorage.removeItem('__PYIDCC_USE_MEMORY_CACHE__');
+        } catch (_) {}
+      }, 1500);
+    }
   } else {
     // Desktop Chrome / Firefox / Edge: use persistent multi-tab cache
     firestoreDb = initializeFirestore(app, {
@@ -150,18 +177,13 @@ try {
     });
   }
 } catch (e) {
-  // Already initialized (e.g. Vite HMR) — reuse existing instance
+  // Already initialized or persistent cache setup failed — fallback safely to memoryLocalCache
   try {
-    firestoreDb = getFirestore(app);
+    firestoreDb = initializeFirestore(app, {
+      localCache: memoryLocalCache()
+    });
   } catch (_) {
-    // Last resort: memory-only cache (no persistence, always works)
-    try {
-      firestoreDb = initializeFirestore(app, {
-        localCache: memoryLocalCache()
-      });
-    } catch (__) {
-      firestoreDb = getFirestore(app);
-    }
+    firestoreDb = getFirestore(app);
   }
 }
 

@@ -625,6 +625,11 @@ export default function SuperAdminLayout({
   }, [deployments, firestoreConsoleDuties, autoReaderUpdateTrigger]);
 
   const allDayRosterLinks = useMemo(() => {
+    // If filteredLinks is empty or explicitly erased, do not synthesize ghost duties!
+    if (!filteredLinks || filteredLinks.length === 0) {
+      return [];
+    }
+
     let sourceList = filteredLinks;
 
     // If active duties exist in autoReaderDutyMap:
@@ -936,12 +941,29 @@ export default function SuperAdminLayout({
     }
     setIsClearingRoster(true);
     try {
+      // 1. Mark schedule as erased in localStorage immediately
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(`pyidcc_schedule_erased_${activeDay.toLowerCase()}`, 'true');
+        window.localStorage.removeItem(`pyidcc_canonical_links_${activeDay.toLowerCase()}`);
+        window.localStorage.removeItem('pyidcc_roster_desk_console_cache');
+        window.localStorage.removeItem('pyidcc_active_dispatch_deployments');
+      }
+
+      // 2. Immediately notify parent (Dashboard) and subsequent systems (ReliefTracking, LiveTrainPositionTracker)
+      if (typeof onLinkRosterImported === 'function') {
+        onLinkRosterImported({ scheduleType: activeDay, duties: [], erased: true });
+      }
+
+      // 3. Broadcast system-wide events immediately to all open components and listeners
+      const eventDetail = { scheduleType: activeDay, duties: [], erased: true, timestamp: Date.now() };
+      window.dispatchEvent(new CustomEvent('pyidcc:link_roster_updated', { detail: eventDetail }));
+      window.dispatchEvent(new CustomEvent('pyidcc_link_roster_updated', { detail: eventDetail }));
+
+      // 4. Erase from Firestore and in-memory master registry
       const { clearLinkRosterForDay } = await import('../../services/wttAndLinkRosterImportService');
       await clearLinkRosterForDay(activeDay);
-      if (typeof fetchLiveData === 'function') {
-        await fetchLiveData();
-      }
-      alert(`✅ Erased old ${activeDay} Link Roster duties. Upload new Link Roster spreadsheet to deploy latest duties.`);
+
+      alert(`✅ Erased old ${activeDay} Link Roster duties completely. Upload new Link Roster spreadsheet to deploy latest duties.`);
     } catch (err) {
       console.error(err);
       alert(`Failed to erase old Link Roster: ${err.message}`);
@@ -1513,8 +1535,8 @@ export default function SuperAdminLayout({
                 handleDeleteTripRow={isTrainOperator ? undefined : handleDeleteTripRow}
                 addDelayToTime={addDelayToTime}
                 activeDay={activeDay}
-                linkRoster={allDayRosterLinks}
-                allLinks={allLinks && allLinks.length > 0 ? allLinks : filteredLinks}
+                linkRoster={allDayRosterLinks && allDayRosterLinks.length > 0 ? allDayRosterLinks : filteredLinks}
+                allLinks={allLinks && allLinks.length > 0 ? allLinks : (allDayRosterLinks && allDayRosterLinks.length > 0 ? allDayRosterLinks : filteredLinks)}
                 fetchLiveData={fetchLiveData}
                 onWttImported={onWttImported || fetchLiveData}
                 isReadOnly={isTrainOperator}

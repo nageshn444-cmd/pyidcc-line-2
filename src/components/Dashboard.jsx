@@ -669,8 +669,12 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       // Check if DB has uploaded / custom links for this targetSchedule
       const hasUploadedLinks = rawDayLinks.some(l => l.isUploaded === true);
 
-      // Fallback ONLY when database has zero links for this schedule day (initial load before upload)
-      if (rawDayLinks.length === 0) {
+      // Check if user explicitly erased this schedule day
+      const isExplicitlyErased = typeof window !== 'undefined' && window.localStorage &&
+        Boolean(window.localStorage.getItem(`pyidcc_schedule_erased_${targetSchedule.toLowerCase()}`));
+
+      // Fallback ONLY when database has zero links AND schedule has not been explicitly erased
+      if (rawDayLinks.length === 0 && !isExplicitlyErased) {
         if (targetSchedule === 'SATURDAY') {
           rawDayLinks = SATURDAY_MASTER_LINKS;
         } else if (targetSchedule === 'SUNDAY') {
@@ -925,13 +929,15 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
   const fetchLiveData = async () => {
     try {
       setLoading(true);
-      const [wttSnapshot, linksSnapshot, deploySnapshot, attSnapshot, incSnapshot] = await Promise.all([
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('fetchLiveData timeout')), 2500));
+      const fetchPromise = Promise.all([
         getDocs(collection(db, "wtt_final_matrix")),
         getDocs(collection(db, "crew_final_links")),
         getDocs(collection(db, "crew_daily_deployment")),
         getDocs(collection(db, "crew_live_attendance")),
         getDocs(collection(db, "wtt_live_incidents"))
       ]);
+      const [wttSnapshot, linksSnapshot, deploySnapshot, attSnapshot, incSnapshot] = await Promise.race([fetchPromise, timeoutPromise]);
       const wttData = wttSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       const linksData = linksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       const deployData = deploySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -944,7 +950,7 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       setLiveIncidents(incData);
       processAndSyncData(wttData, linksData, deployData, attData, incData);
     } catch (error) {
-      console.error("fetchLiveData error:", error);
+      console.warn("fetchLiveData fast-fallback (real-time listeners maintain sync):", error);
     } finally {
       setLoading(false);
     }
@@ -1561,17 +1567,35 @@ Format the response strictly as a single JSON object.`;
     }
   };
 
-  const handleLinkRosterImported = async ({ scheduleType, duties }) => {
+  const handleLinkRosterImported = async ({ scheduleType, duties, erased }) => {
     if (scheduleType) setActiveDay(scheduleType);
-    if (Array.isArray(duties) && duties.length > 0) {
-      setLinks(duties);
-      liveLinksDataRef.current = duties;
+    const validDuties = Array.isArray(duties) ? duties : [];
+    setLinks(validDuties);
+    liveLinksDataRef.current = validDuties;
+
+    if (erased) {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(`pyidcc_schedule_erased_${(scheduleType || '').toLowerCase()}`, 'true');
+        }
+      } catch (_) {}
+    } else if (validDuties.length > 0) {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem(`pyidcc_schedule_erased_${(scheduleType || '').toLowerCase()}`);
+        }
+      } catch (_) {}
     }
-    if (typeof fetchLiveData === 'function') {
-      await fetchLiveData();
-    }
+
+    // Immediately synchronize unified rows with current in-memory data
+    const activeWtt = (liveWttDataRef.current && liveWttDataRef.current.length > 0) ? liveWttDataRef.current : WTT_MASTER_REGISTRY;
+    processAndSyncData(activeWtt, validDuties, dailyDeployment || [], attendanceLogs || [], liveIncidents || []);
+
     window.dispatchEvent(new CustomEvent('pyidcc:link_roster_updated', {
-      detail: { scheduleType, timestamp: Date.now() }
+      detail: { scheduleType, duties: validDuties, erased: !!erased, timestamp: Date.now() }
+    }));
+    window.dispatchEvent(new CustomEvent('pyidcc_link_roster_updated', {
+      detail: { scheduleType, duties: validDuties, erased: !!erased, timestamp: Date.now() }
     }));
   };
 
