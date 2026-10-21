@@ -1378,6 +1378,18 @@ export async function saveWttToFirestore(wttRows, scheduleType, onProgress = () 
     message: `Deployed ${wttRows.length} trips successfully!`
   });
 
+  // 4. Broadcast system-wide WTT update events for zero-latency module synchronization
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('pyidcc:wtt_updated', {
+        detail: { scheduleType: normSchedule, wttRows, timestamp: Date.now() }
+      }));
+      window.dispatchEvent(new CustomEvent('pyidcc_wtt_updated', {
+        detail: { scheduleType: normSchedule, wttRows, timestamp: Date.now() }
+      }));
+    }
+  } catch {}
+
   return {
     success: true,
     scheduleType: normSchedule,

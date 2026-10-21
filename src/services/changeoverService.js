@@ -2605,7 +2605,9 @@ export function calculateStablingAndPdcSignOn({
   revenueStartTime,
   transitMinutesMap = null,
   targetScheduleType = 'SATURDAY',
-  wttRegistry = null
+  wttRegistry = null,
+  pdcDurationMinutes = PDC_DURATION_MINUTES,
+  pdcDisabled = false
 }) {
   let revStart = revenueStartTime;
   let assignedStab = assignedStablingLocation;
@@ -2619,10 +2621,13 @@ export function calculateStablingAndPdcSignOn({
     }
   }
 
+  const effectivePdcMinutes = pdcDisabled ? 0 : (typeof pdcDurationMinutes === 'number' ? pdcDurationMinutes : PDC_DURATION_MINUTES);
+
   if (!revStart || revStart === '--') {
     return {
       signOnTime: '--',
-      pdcMinutes: PDC_DURATION_MINUTES,
+      pdcMinutes: effectivePdcMinutes,
+      pdcDisabled: effectivePdcMinutes === 0,
       transitMinutes: 0,
       isAlternativeStabling: false,
       actualStablingLocation: stablingLocation || 'DEPOT',
@@ -2645,7 +2650,7 @@ export function calculateStablingAndPdcSignOn({
   const [h, m, s = 0] = String(revStart).split(':').map(Number);
   const revStartSecs = ((h || 0) * 3600) + ((m || 0) * 60) + (s || 0);
 
-  const pdcSecs = PDC_DURATION_MINUTES * 60;
+  const pdcSecs = effectivePdcMinutes * 60;
   const transitSecs = transitMins * 60;
   const totalOffsetSecs = pdcSecs + transitSecs;
 
@@ -2657,11 +2662,12 @@ export function calculateStablingAndPdcSignOn({
   const secs = signOnSecs % 60;
   const signOnTimeStr = [hrs, mins, secs].map(v => String(v).padStart(2, '0')).join(':');
 
-  const breakdown = `WTT Rev Start: ${revStart} - ${PDC_DURATION_MINUTES}m PDC${isAlternativeStabling ? ` - ${transitMins}m Transit (${actualCode} ➔ ${assignedCode})` : ''} = S/ON ${signOnTimeStr}`;
+  const breakdown = `WTT Rev Start: ${revStart}${effectivePdcMinutes > 0 ? ` - ${effectivePdcMinutes}m PDC` : ' (0m PDC / 40m Removed)'}${isAlternativeStabling ? ` - ${transitMins}m Transit (${actualCode} ➔ ${assignedCode})` : ''} = S/ON ${signOnTimeStr}`;
 
   return {
     signOnTime: signOnTimeStr,
-    pdcMinutes: PDC_DURATION_MINUTES,
+    pdcMinutes: effectivePdcMinutes,
+    pdcDisabled: effectivePdcMinutes === 0,
     isAlternativeStabling,
     transitMinutes: transitMins,
     actualStablingLocation: stablingLocation || actualCode,

@@ -36,6 +36,7 @@ import {
   buildHandoverCardsFromMasterIdChart,
   getCleanLinksForDay
 } from '../data/weekdayReliefIdChartRegistry';
+import { enrichMasterIdChartWithWttLocations } from '../services/wttLocationResolverEngine.js';
 import { getMasterLinksForDay } from '../data/canonicalDayLinksRegistry';
 import AlstomAtsSystemView from './kmcalc/AlstomAtsSystemView';
 import { generate4DigitTrainId, formatParticularTrainId } from '../utils/trainIdResolver';
@@ -1667,12 +1668,13 @@ export default function LiveTrainPositionTracker({
     return buildDutyRosterFromLinkRoster(activeDayLinks, dispatchDutyOperatorMap, normDay);
   }, [activeDayLinks, dispatchDutyOperatorMap, activeSchedule]);
 
-  // ── 3. DYNAMIC MASTER ID CHART (FOLLOWS DUTY ROSTER) ──
-  // Inverts duty legs into train-centric shift sequences (Trains 201-223 + Couns)
+  // ── 3. DYNAMIC MASTER ID CHART (FOLLOWS DUTY ROSTER & CORRELATED WTT) ──
+  // Inverts duty legs into train-centric shift sequences with exact Station Code + Line + Platform from WTT
   const dynamicMasterIdChart = useMemo(() => {
     const normDay = normalizeScheduleDay(activeSchedule || 'WEEKDAY');
     const dayChartObj = getReliefIdChartForDay(normDay);
-    return buildMasterIdChartFromDutyRoster(dynamicDutyRoster, dayChartObj?.chart || WEEKDAY_RELIEF_ID_CHART_2024);
+    const base = buildMasterIdChartFromDutyRoster(dynamicDutyRoster, dayChartObj?.chart || WEEKDAY_RELIEF_ID_CHART_2024);
+    return enrichMasterIdChartWithWttLocations(base, normDay);
   }, [dynamicDutyRoster, activeSchedule]);
 
   // ── 4. HANDOVER CARDS OF LIVE RELIEF TRACKING (AUTHORITATIVE OPERATOR SOURCE) ──

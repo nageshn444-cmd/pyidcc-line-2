@@ -12,7 +12,7 @@ import { calculateDistance } from '../../utils/kmCalculator';
 import { 
   RefreshCw, Play, Shield, Moon, Sun, CheckCircle2, 
   ChevronDown, ChevronUp, Eye, X, AlertCircle, User, AlertTriangle, 
-  Search, Cpu, Zap, Clock, Route
+  Search, Cpu, Zap, Clock, Route, Plus, Minus, Train, Undo, RotateCcw
 } from 'lucide-react';
 import { db } from '../../firebase';
 import { doc, getDoc, setDoc, collection, onSnapshot, query, where } from 'firebase/firestore';
@@ -332,6 +332,83 @@ export default function ChangeoverDashboard({ onRefresh }) {
   const [selectedStablingLoc, setSelectedStablingLoc] = useState('DEPOT');
   const [stablingSearch, setStablingSearch] = useState('');
 
+  // ── 40-Min PDC Override & Mutual View Toggle (PDC Sign-On vs Leg 3 Dep) ──
+  const [showPdcSignOnCol, setShowPdcSignOnCol] = useState(false);
+  const [globalPdcMode, setGlobalPdcMode] = useState('DEFAULT'); // 'DEFAULT' | 'ALL_ADDED' | 'ALL_REMOVED'
+  const [dutyPdcOverrides, setDutyPdcOverrides] = useState({}); // { [dutyNo]: boolean }
+  const [modalPdcActive, setModalPdcActive] = useState(true);
+
+  // Helper to determine if 40-min PDC is active for a given duty
+  const isDutyPdcEnabled = useCallback((dutyNo, rowOverride = null) => {
+    if (dutyPdcOverrides[dutyNo] !== undefined) {
+      return Boolean(dutyPdcOverrides[dutyNo]);
+    }
+    if (rowOverride && typeof rowOverride === 'object' && rowOverride.pdcDisabled !== undefined) {
+      return !rowOverride.pdcDisabled;
+    }
+    if (globalPdcMode === 'ALL_REMOVED') return false;
+    return true; // Default: 40-min PDC is included
+  }, [dutyPdcOverrides, globalPdcMode]);
+
+  // Bulk: Add 40-min PDC to All Duties
+  const handleAddPdcAll = useCallback(() => {
+    setGlobalPdcMode('ALL_ADDED');
+    setDutyPdcOverrides(prev => {
+      const next = { ...prev };
+      Object.keys(CHANGEOVER_TABLE[tableKey] || {}).forEach(d => {
+        next[d] = true;
+      });
+      return next;
+    });
+  }, [tableKey]);
+
+  // Bulk: Remove 40-min PDC from All Duties (0m PDC)
+  const handleRemovePdcAll = useCallback(() => {
+    setGlobalPdcMode('ALL_REMOVED');
+    setDutyPdcOverrides(prev => {
+      const next = { ...prev };
+      Object.keys(CHANGEOVER_TABLE[tableKey] || {}).forEach(d => {
+        next[d] = false;
+      });
+      return next;
+    });
+  }, [tableKey]);
+
+  // Individual: Toggle 40-min PDC for a single duty
+  const toggleDutyPdc = useCallback((dutyNo) => {
+    setDutyPdcOverrides(prev => {
+      const currentVal = prev[dutyNo] !== undefined 
+        ? prev[dutyNo] 
+        : (globalPdcMode === 'ALL_REMOVED' ? false : true);
+      return {
+        ...prev,
+        [dutyNo]: !currentVal
+      };
+    });
+  }, [globalPdcMode]);
+
+  // ── Track in-session manual modifications (Never saved permanently to Firestore) ──
+  const hasManualModifications = useMemo(() => {
+    return Object.keys(dashboardStablingOverrides).length > 0 || 
+           Object.keys(dutyPdcOverrides).length > 0 || 
+           globalPdcMode !== 'DEFAULT';
+  }, [dashboardStablingOverrides, dutyPdcOverrides, globalPdcMode]);
+
+  // Restore canonical default stabling data and PDC settings
+  const handleRestoreOriginalData = useCallback(() => {
+    setDashboardStablingOverrides({});
+    setDutyPdcOverrides({});
+    setGlobalPdcMode('DEFAULT');
+    setShowPdcSignOnCol(false);
+  }, []);
+
+  // Automatically reset in-session modifications when switching changeover schedule pairs
+  useEffect(() => {
+    setDashboardStablingOverrides({});
+    setDutyPdcOverrides({});
+    setGlobalPdcMode('DEFAULT');
+  }, [tableKey]);
+
   // Filtered and categorized stabling / takeover locations (All Line 2 stations with Up & Dn line + Depot)
   const filteredStablingOptions = useMemo(() => {
     if (!stablingSearch.trim()) return STABLING_LOCATIONS;
@@ -364,40 +441,60 @@ export default function ChangeoverDashboard({ onRefresh }) {
   const handleOpenStablingModal = (row) => {
     setStablingModalRow(row);
     setStablingSearch('');
-    const currentLoc = dashboardStablingOverrides[row.dutyNo] || 
-      (changeoverOverrides[tableKey] && changeoverOverrides[tableKey][row.dutyNo]?.takeoverLocation) ||
-      (changeoverOverrides[tableKey] && changeoverOverrides[tableKey][row.dutyNo]?.actualStablingLocation) ||
+    const baseRow = CHANGEOVER_TABLE[tableKey]?.[row.dutyNo] || {};
+    const originalLoc = baseRow.takeoverLocation || baseRow.actualStablingLocation || baseRow.assignedStablingLocation || 'DEPOT';
+    const currentLoc = dashboardStablingOverrides[row.dutyNo]?.takeoverLocation ||
+      (typeof dashboardStablingOverrides[row.dutyNo] === 'string' ? dashboardStablingOverrides[row.dutyNo] : null) || 
       row.actualStablingLocation || 
-      row.takeoverLocation || 
-      'DEPOT';
+      originalLoc;
     setSelectedStablingLoc(currentLoc);
+
+    // Initialize modal PDC active state from duty override or row state
+    const isPdcActive = isDutyPdcEnabled(row.dutyNo, dashboardStablingOverrides[row.dutyNo]);
+    setModalPdcActive(isPdcActive);
   };
 
-  const handleConfirmStabling = async () => {
+  const handleConfirmStabling = () => {
     if (!stablingModalRow) return;
     const dutyNo = stablingModalRow.dutyNo;
     const chosenLoc = selectedStablingLoc;
+    const isPdcActive = modalPdcActive;
+    const originalDefault = stablingModalRow.originalDefaultLoc || 'DEPOT';
 
+    // If reset to canonical default stabling and default PDC (included), remove the override entirely
+    if (chosenLoc === originalDefault && isPdcActive === true) {
+      setDashboardStablingOverrides(prev => {
+        const copy = { ...prev };
+        delete copy[dutyNo];
+        return copy;
+      });
+      setDutyPdcOverrides(prev => {
+        const copy = { ...prev };
+        delete copy[dutyNo];
+        return copy;
+      });
+      setStablingModalRow(null);
+      return;
+    }
+
+    // IN-SESSION TEMPORARY MODIFICATION ONLY:
+    // Strictly modifies local React state for current session/run.
+    // NEVER overwrites or deletes the canonical original default data in Firestore!
+    // When the user refreshes the page, original default data is 100% restored automatically!
     setDashboardStablingOverrides(prev => ({
       ...prev,
-      [dutyNo]: chosenLoc
+      [dutyNo]: {
+        takeoverLocation: chosenLoc,
+        actualStablingLocation: chosenLoc,
+        pdcDisabled: !isPdcActive,
+        pdcMinutes: isPdcActive ? 40 : 0
+      }
     }));
 
-    // Persist stabling override & takeover location to Firestore system_settings/changeover_mappings
-    try {
-      const docRef = doc(db, 'system_settings', 'changeover_mappings');
-      await setDoc(docRef, {
-        [tableKey]: {
-          [dutyNo]: {
-            takeoverLocation: chosenLoc,
-            actualStablingLocation: chosenLoc,
-            assignedStablingLocation: stablingModalRow.assignedStablingLocation || stablingModalRow.takeoverLocation || 'DEPOT',
-          }
-        }
-      }, { merge: true });
-    } catch (err) {
-      console.warn('Could not persist stabling override to Firestore:', err);
-    }
+    setDutyPdcOverrides(prev => ({
+      ...prev,
+      [dutyNo]: isPdcActive
+    }));
 
     setStablingModalRow(null);
   };
@@ -872,30 +969,45 @@ export default function ChangeoverDashboard({ onRefresh }) {
 
     if (!Object.keys(mergedTable).length) return [];
 
-    return Object.entries(mergedTable)
+    return Object.entries(baseTable)
       .sort(([a], [b]) => Number(a) - Number(b))
-      .map(([dutyNo, row]) => {
+      .map(([dutyNo, baseRow]) => {
         const operator = resolveNightShiftOperator(dutyNo, currentDay, currentDate);
-        const actualOverrideLoc = dashboardStablingOverrides[dutyNo] || 
-          (changeoverOverrides[tableKey] && changeoverOverrides[tableKey][dutyNo]?.takeoverLocation) ||
-          (changeoverOverrides[tableKey] && changeoverOverrides[tableKey][dutyNo]?.actualStablingLocation) ||
-          row.actualStablingLocation;
+        
+        // Sacred canonical default stabling location - NEVER deleted or overwritten!
+        const originalDefaultLoc = baseRow.takeoverLocation || baseRow.actualStablingLocation || baseRow.assignedStablingLocation || 'DEPOT';
+        
+        // In-session temporary manual modification at Night Changeover Control
+        const rawOverride = dashboardStablingOverrides[dutyNo];
+        const actualOverrideLoc = (rawOverride && typeof rawOverride === 'object')
+          ? (rawOverride.takeoverLocation || rawOverride.actualStablingLocation || originalDefaultLoc)
+          : (rawOverride || originalDefaultLoc);
 
-        let effectiveRow = { ...row };
+        const isPdcActive = isDutyPdcEnabled(dutyNo, rawOverride);
+
+        let effectiveRow = { ...baseRow };
         const normDNo = normalizeDutyNo(dutyNo);
 
         // Always resolve Leg 1 Night Shift sign-on time strictly above 20:00:01
-        const leg1NightSignOn = resolveCanonicalLeg1NightSignOn(dutyNo, row, baseTable[dutyNo], operator);
+        const leg1NightSignOn = resolveCanonicalLeg1NightSignOn(dutyNo, baseRow, baseTable[dutyNo], operator);
         effectiveRow.signOnTime = leg1NightSignOn;
         effectiveRow.nightSignOnTime = leg1NightSignOn;
+        effectiveRow.isPdcActive = isPdcActive;
+        effectiveRow.originalDefaultLoc = originalDefaultLoc;
+        effectiveRow.isManuallyModified = Boolean(
+          (rawOverride && actualOverrideLoc !== originalDefaultLoc) ||
+          dutyPdcOverrides[dutyNo] !== undefined ||
+          globalPdcMode !== 'DEFAULT'
+        );
 
-        if (actualOverrideLoc) {
+        if (actualOverrideLoc || baseRow.mornDepTime) {
           const pdcCalc = calculateStablingAndPdcSignOn({
-            trainId: row.mornTrainNo,
+            trainId: baseRow.mornTrainNo,
             stablingLocation: actualOverrideLoc,
-            assignedStablingLocation: row.assignedStablingLocation || row.takeoverLocation || 'DEPOT',
-            revenueStartTime: row.mornDepTime,
-            targetScheduleType: nextDay
+            assignedStablingLocation: baseRow.assignedStablingLocation || originalDefaultLoc,
+            revenueStartTime: baseRow.mornDepTime,
+            targetScheduleType: nextDay,
+            pdcDisabled: !isPdcActive
           });
           if (pdcCalc.calculatedByPdcEngine) {
             // Assign calculated morning PDC sign-on to Morning Takeover (Leg 3)
@@ -907,6 +1019,7 @@ export default function ChangeoverDashboard({ onRefresh }) {
             effectiveRow.isAlternativeStabling = pdcCalc.isAlternativeStabling;
             effectiveRow.transitMinutes = pdcCalc.transitMinutes;
             effectiveRow.pdcMinutes = pdcCalc.pdcMinutes;
+            effectiveRow.isPdcActive = isPdcActive;
           }
         }
 
@@ -1083,6 +1196,17 @@ export default function ChangeoverDashboard({ onRefresh }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {hasManualModifications && (
+              <button
+                type="button"
+                onClick={handleRestoreOriginalData}
+                className="flex items-center gap-1.5 bg-amber-950/80 hover:bg-amber-900 border border-amber-500/60 px-2.5 py-1 rounded text-[9.5px] font-bold text-amber-300 transition cursor-pointer shadow-md animate-pulse"
+                title="Discard all in-session modifications and restore canonical default stabling & PDC"
+              >
+                <RotateCcw className="h-3 w-3 text-amber-400" />
+                <span>RESTORE OLD DATA</span>
+              </button>
+            )}
             <div className="flex items-center gap-1.5 bg-emerald-950/60 border border-emerald-700/60 px-2.5 py-1 rounded text-[9.5px] font-bold text-emerald-300">
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" /> LIVE CORE ENGINE
             </div>
@@ -1366,6 +1490,91 @@ export default function ChangeoverDashboard({ onRefresh }) {
           </div>
         </div>
 
+        {/* 40-Min PDC Control & Mutual Column Switcher (PDC S/ON vs Leg 3 Dep) */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 p-2.5 bg-slate-955 border border-slate-800/80 rounded-lg text-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5 text-cyan-400" /> Morning Display Mode:
+            </span>
+            <div className="inline-flex rounded-lg border border-slate-750 bg-slate-900 p-0.5">
+              <button
+                type="button"
+                onClick={() => setShowPdcSignOnCol(false)}
+                className={`px-2.5 py-1 rounded text-[10px] font-bold font-mono transition flex items-center gap-1.5 cursor-pointer ${
+                  !showPdcSignOnCol
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Unhide Leg 3 Departure Time (Automatically hides 40-Min PDC Sign-On)"
+              >
+                <Train className="h-3 w-3 text-amber-400" />
+                <span>Show Leg 3 Dep</span>
+                <span className="text-[8px] px-1 py-0.2 rounded bg-amber-950/80 text-amber-300">PDC S/ON Hidden</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPdcSignOnCol(true)}
+                className={`px-2.5 py-1 rounded text-[10px] font-bold font-mono transition flex items-center gap-1.5 cursor-pointer ${
+                  showPdcSignOnCol
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Unhide 40-Min PDC Sign-On Time (Automatically hides Leg 3 Dep)"
+              >
+                <Clock className="h-3 w-3 text-cyan-400" />
+                <span>Show 40-Min PDC S/ON</span>
+                <span className="text-[8px] px-1 py-0.2 rounded bg-cyan-950/80 text-cyan-300">Leg 3 Dep Hidden</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              Batch 40-Min PDC:
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleAddPdcAll}
+                className="px-2.5 py-1 rounded text-[10px] font-bold bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 transition flex items-center gap-1 cursor-pointer shadow-sm"
+                title="Add 40-Min Pre-Departure Check sign-on offset to ALL duties at once"
+              >
+                <Plus className="h-3 w-3" /> Add 40m (All Duties)
+              </button>
+              <button
+                type="button"
+                onClick={handleRemovePdcAll}
+                className="px-2.5 py-1 rounded text-[10px] font-bold bg-rose-950/70 hover:bg-rose-900 border border-rose-500/40 text-rose-300 transition flex items-center gap-1 cursor-pointer shadow-sm"
+                title="Remove 40-Min Pre-Departure Check offset from ALL duties at once (0m PDC)"
+              >
+                <Minus className="h-3 w-3" /> Remove 40m (All Duties)
+              </button>
+            </div>
+
+            <div className="h-4 w-px bg-slate-800 mx-1 hidden sm:block" />
+
+            {/* In-Session Stabling & PDC Reset / Restore Action */}
+            {hasManualModifications ? (
+              <button
+                type="button"
+                onClick={handleRestoreOriginalData}
+                className="px-2.5 py-1 rounded text-[10px] font-bold bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                title="Discard all manual in-session modifications and restore original canonical default stabling data (also restored automatically on page refresh)"
+              >
+                <RotateCcw className="h-3 w-3 text-amber-400" />
+                <span>Restore Original Data</span>
+                <span className="text-[8px] px-1.5 py-0.2 rounded-full bg-amber-950 text-amber-200 border border-amber-600/40 font-mono">
+                  {Object.keys(dashboardStablingOverrides).length + Object.keys(dutyPdcOverrides).length} in-session
+                </span>
+              </button>
+            ) : (
+              <span className="px-2 py-1 rounded text-[9.5px] font-mono text-slate-400 border border-slate-800/80 bg-slate-900/50 flex items-center gap-1" title="Default stabling locations are canonical and protected. Never deleted.">
+                <Shield className="h-3 w-3 text-emerald-500" /> Default Stabling Intact
+              </span>
+            )}
+          </div>
+        </div>
+
         {/* Table Grid */}
         {hasData ? (
           <div className="overflow-x-auto border border-slate-850 rounded-lg custom-scrollbar">
@@ -1398,7 +1607,24 @@ export default function ChangeoverDashboard({ onRefresh }) {
                   <th className="px-2 py-1.5 border-r border-slate-800 text-blue-300 font-bold bg-blue-950/40">Night Leg Km</th>
                   <th className="px-2 py-1.5">Takeover Loc</th>
                   <th className="px-2 py-1.5 text-amber-400 font-bold">Train</th>
-                  <th className="px-2 py-1.5">Dep</th>
+                  {/* Mutual Exclusive Header: PDC S/ON (40m) vs Leg 3 Dep */}
+                  {showPdcSignOnCol ? (
+                    <th 
+                      onClick={() => setShowPdcSignOnCol(false)} 
+                      className="px-2 py-1.5 text-cyan-300 font-bold bg-cyan-955/50 border-r border-slate-800 cursor-pointer hover:bg-cyan-900/60 transition"
+                      title="40-Min PDC S/ON is unhidden (Leg 3 Dep is hidden). Click to toggle to Leg 3 Dep."
+                    >
+                      <span className="inline-flex items-center gap-1"><Clock className="h-2.5 w-2.5 text-cyan-400" /> PDC S/ON (40m) ⇄</span>
+                    </th>
+                  ) : (
+                    <th 
+                      onClick={() => setShowPdcSignOnCol(true)} 
+                      className="px-2 py-1.5 text-amber-300 font-bold bg-amber-955/30 border-r border-slate-800 cursor-pointer hover:bg-amber-900/50 transition"
+                      title="Leg 3 Dep is unhidden (40-Min PDC S/ON is hidden). Click to toggle to 40-Min PDC S/ON."
+                    >
+                      <span className="inline-flex items-center gap-1"><Train className="h-2.5 w-2.5 text-amber-400" /> Leg 3 Dep ⇄</span>
+                    </th>
+                  )}
                   <th className="px-2 py-1.5">Arr</th>
                   <th className="px-2 py-1.5">Sign Off</th>
                   <th className="px-2 py-1.5">Off Loc</th>
@@ -1545,6 +1771,14 @@ export default function ChangeoverDashboard({ onRefresh }) {
                             >
                               {r.takeoverLocation || '--'}
                             </span>
+                            {r.isManuallyModified && (
+                              <span 
+                                className="text-[7.5px] text-amber-300 bg-amber-950/90 border border-amber-500/40 rounded px-1 font-bold inline-flex items-center gap-0.5" 
+                                title={`In-session modification (Canonical default: ${r.originalDefaultLoc}). Will restore on page refresh.`}
+                              >
+                                ✎ In-Session (Def: {r.originalDefaultLoc})
+                              </span>
+                            )}
                             {r.isAlternativeStabling && (
                               <span className="text-[7.5px] text-amber-300 bg-amber-950/90 border border-amber-500/40 rounded px-1 font-bold">
                                 Alt Stable (+{r.transitMinutes || 20}m)
@@ -1552,24 +1786,59 @@ export default function ChangeoverDashboard({ onRefresh }) {
                             )}
                             {(r.mornSignOnTime || r.calculatedSignOnTime) && (
                               <span className="text-[7.5px] text-cyan-300 bg-cyan-950/80 border border-cyan-500/30 rounded px-1 font-mono" title="Morning 40-Min PDC Sign-On Time">
-                                PDC S/ON: {String(r.mornSignOnTime || r.calculatedSignOnTime).slice(0, 5)}
+                                {r.isPdcActive ? `PDC S/ON: ${String(r.mornSignOnTime || r.calculatedSignOnTime).slice(0, 5)}` : `S/ON: ${String(r.mornSignOnTime || r.mornDepTime).slice(0, 5)}`}
                               </span>
                             )}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenStablingModal(r);
-                              }}
-                              className="text-[8px] text-cyan-400 hover:text-cyan-200 underline cursor-pointer"
-                              title="Click to override night stabling location & recalculate 40-min PDC"
-                            >
-                              Stabling ✎
-                            </button>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleDutyPdc(r.dutyNo);
+                                }}
+                                className={`text-[8px] px-1 py-0.5 rounded font-bold border transition cursor-pointer ${
+                                  r.isPdcActive
+                                    ? 'bg-cyan-950/90 text-cyan-300 border-cyan-500/50 hover:bg-cyan-900'
+                                    : 'bg-rose-950/80 text-rose-300 border-rose-500/50 hover:bg-rose-900'
+                                }`}
+                                title={r.isPdcActive ? `Duty ${r.dutyNo}: 40-Min PDC Active (+40m). Click to remove 40m PDC` : `Duty ${r.dutyNo}: 40-Min PDC Removed (0m). Click to add 40m PDC`}
+                              >
+                                {r.isPdcActive ? '+40m PDC' : '-40m (0m)'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenStablingModal(r);
+                                }}
+                                className="text-[8px] text-cyan-400 hover:text-cyan-200 underline cursor-pointer"
+                                title="Click to override night stabling location & 40-min PDC"
+                              >
+                                Stabling ✎
+                              </button>
+                            </div>
                           </div>
                         </td>
                         <td className="px-2 py-2 text-amber-300 font-bold">{r.mornTrainNo || '--'}</td>
-                        <td className="px-2 py-2 text-slate-300"><TimeCell t={r.mornDepTime} /></td>
+                        {/* Mutual Exclusive Cell: 40-Min PDC S/ON vs Leg 3 Dep */}
+                        {showPdcSignOnCol ? (
+                          <td 
+                            className="px-2 py-2 text-cyan-300 font-mono font-bold bg-cyan-955/20 border-r border-slate-800/40"
+                            title={r.isPdcActive ? `Duty ${r.dutyNo} 40-Min PDC S/ON: ${r.mornSignOnTime || r.calculatedSignOnTime} (WTT Dep: ${r.mornDepTime})` : `Duty ${r.dutyNo} PDC Removed: ${r.mornSignOnTime || r.mornDepTime}`}
+                          >
+                            {r.isPdcActive ? (
+                              <TimeCell t={r.mornSignOnTime || r.calculatedSignOnTime} />
+                            ) : (
+                              <span className="text-slate-500 line-through text-[10px]" title="40-Min PDC Removed (No 40m buffer)">
+                                {r.mornSignOnTime ? String(r.mornSignOnTime).slice(0, 5) : String(r.mornDepTime).slice(0, 5)}
+                              </span>
+                            )}
+                          </td>
+                        ) : (
+                          <td className="px-2 py-2 text-slate-300">
+                            <TimeCell t={r.mornDepTime} />
+                          </td>
+                        )}
                         <td className="px-2 py-2 text-slate-300"><TimeCell t={r.mornArrTime} /></td>
                         <td className="px-2 py-2 text-slate-300"><TimeCell t={r.signOffTime} /></td>
                         <td className="px-2 py-2 text-amber-400 font-bold">{r.signOffLocation || '--'}</td>
@@ -1737,8 +2006,11 @@ export default function ChangeoverDashboard({ onRefresh }) {
                     <strong className="text-cyan-300">{stablingModalRow.mornTrainNo || '--'}</strong>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Assigned Stabling Point:</span>
-                    <strong className="text-amber-300">{stablingModalRow.assignedStablingLocation || stablingModalRow.takeoverLocation || 'DEPOT'}</strong>
+                    <span className="text-slate-400">Canonical Default Stabling:</span>
+                    <strong className="text-emerald-400 font-bold flex items-center gap-1">
+                      <Shield className="h-3 w-3 text-emerald-400" />
+                      {stablingModalRow.originalDefaultLoc || stablingModalRow.assignedStablingLocation || 'DEPOT'}
+                    </strong>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">WTT Revenue Departure:</span>
@@ -1903,32 +2175,109 @@ export default function ChangeoverDashboard({ onRefresh }) {
                   </div>
                 </div>
 
-                <div className="bg-cyan-955/30 border border-cyan-800/40 p-2.5 rounded-lg text-[10px] text-cyan-300 space-y-1">
-                  <div className="font-bold flex items-center gap-1">
-                    <Zap className="h-3.5 w-3.5" /> 40-Min PDC Auto-Recalculation
+                {/* 40-Min PDC Inclusion/Removal Controls */}
+                <div className="bg-slate-955 p-3 rounded-xl border border-slate-800 space-y-2.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5 text-cyan-400" /> 40-Min Pre-Departure Check (PDC) Status
+                    </span>
+                    <span className={`text-[9.5px] px-2 py-0.5 rounded font-bold border ${
+                      modalPdcActive 
+                        ? 'bg-emerald-955 text-emerald-300 border-emerald-500/50 shadow-sm' 
+                        : 'bg-rose-955 text-rose-300 border-rose-500/50 shadow-sm'
+                    }`}>
+                      {modalPdcActive ? '40-MIN PDC INCLUDED (+40m)' : '40-MIN PDC REMOVED (0m)'}
+                    </span>
                   </div>
-                  <p className="text-slate-400">
-                    Sign-On time will be recalculated automatically: WTT Revenue Departure minus 40m PDC minus transit positioning offset ({getTransitMinutes(selectedStablingLoc, stablingModalRow.assignedStablingLocation || 'DEPOT')}m).
-                  </p>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setModalPdcActive(true)}
+                      className={`py-2 px-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 border cursor-pointer ${
+                        modalPdcActive
+                          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/60 shadow-md ring-1 ring-cyan-500/30'
+                          : 'bg-slate-900 text-slate-400 border-slate-750 hover:text-slate-200'
+                      }`}
+                    >
+                      <Plus className="h-3.5 w-3.5 text-cyan-400" />
+                      <span>Add 40-Min PDC</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModalPdcActive(false)}
+                      className={`py-2 px-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 border cursor-pointer ${
+                        !modalPdcActive
+                          ? 'bg-rose-500/20 text-rose-300 border-rose-500/60 shadow-md ring-1 ring-rose-500/30'
+                          : 'bg-slate-900 text-slate-400 border-slate-750 hover:text-slate-200'
+                      }`}
+                    >
+                      <Minus className="h-3.5 w-3.5 text-rose-400" />
+                      <span>Remove 40-Min PDC</span>
+                    </button>
+                  </div>
+
+                  {/* Live Recalculation Preview */}
+                  {(() => {
+                    const previewPdcCalc = calculateStablingAndPdcSignOn({
+                      trainId: stablingModalRow.mornTrainNo,
+                      stablingLocation: selectedStablingLoc,
+                      assignedStablingLocation: stablingModalRow.assignedStablingLocation || stablingModalRow.takeoverLocation || 'DEPOT',
+                      revenueStartTime: stablingModalRow.mornDepTime,
+                      targetScheduleType: nextDay,
+                      pdcDisabled: !modalPdcActive
+                    });
+
+                    return (
+                      <div className="bg-slate-900/90 border border-cyan-800/40 p-2.5 rounded-lg text-[10px] space-y-1">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400 font-bold uppercase">Resulting Morning Sign-On:</span>
+                          <strong className="text-sm font-black font-mono text-cyan-300">
+                            {previewPdcCalc.signOnTime}
+                          </strong>
+                        </div>
+                        <p className="text-slate-400 text-[9.5px]">
+                          {previewPdcCalc.calculationBreakdown}
+                        </p>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+              <div className="flex items-center justify-between pt-2 border-t border-slate-800 flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => setStablingModalRow(null)}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer"
+                  onClick={() => {
+                    setSelectedStablingLoc(stablingModalRow.originalDefaultLoc || 'DEPOT');
+                    setModalPdcActive(true);
+                  }}
+                  className="px-2.5 py-1.5 rounded text-[10px] font-bold text-amber-400 hover:text-amber-200 border border-amber-500/40 bg-amber-950/40 hover:bg-amber-950/70 transition flex items-center gap-1 cursor-pointer"
+                  title="Reset to canonical default stabling location and default PDC (+40m)"
                 >
-                  Cancel
+                  <RotateCcw className="h-3 w-3" /> Reset to Default Stabling
                 </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmStabling}
-                  className="bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-black px-4 py-2 rounded-lg text-xs uppercase tracking-wider shadow-md transition cursor-pointer"
-                >
-                  Apply Stabling &amp; Recalculate S/ON
-                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStablingModalRow(null)}
+                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmStabling}
+                    className="bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-black px-4 py-2 rounded-lg text-xs uppercase tracking-wider shadow-md transition cursor-pointer"
+                  >
+                    Apply In-Session Modification
+                  </button>
+                </div>
               </div>
+              <p className="text-[9px] text-slate-500 italic text-center">
+                🛡️ In-session modification only. Original default stabling will be restored automatically upon page refresh.
+              </p>
             </div>
           </div>
         )}

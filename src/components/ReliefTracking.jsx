@@ -37,6 +37,7 @@ import {
   getCleanLinksForDay,
   linkMatchesScheduleDay
 } from '../data/weekdayReliefIdChartRegistry';
+import { enrichMasterIdChartWithWttLocations } from '../services/wttLocationResolverEngine.js';
 import { getMasterLinksForDay } from '../data/canonicalDayLinksRegistry';
 import { getOperatorForDuty } from '../data/weekdayMasterDutyRoster';
 import { db } from '../firebase';
@@ -269,13 +270,20 @@ export default function ReliefTracking({
         });
       }
     };
+    const handleWttUpdate = () => {
+      setLinkUpdateTrigger(prev => prev + 1);
+    };
     window.addEventListener('pyidcc:link_roster_updated', handleLinkUpdate);
     window.addEventListener('pyidcc_link_roster_updated', handleLinkUpdate);
+    window.addEventListener('pyidcc:wtt_updated', handleWttUpdate);
+    window.addEventListener('pyidcc_wtt_updated', handleWttUpdate);
 
     return () => {
       unsub();
       window.removeEventListener('pyidcc:link_roster_updated', handleLinkUpdate);
       window.removeEventListener('pyidcc_link_roster_updated', handleLinkUpdate);
+      window.removeEventListener('pyidcc:wtt_updated', handleWttUpdate);
+      window.removeEventListener('pyidcc_wtt_updated', handleWttUpdate);
     };
   }, [selectedDay]);
 
@@ -325,11 +333,12 @@ export default function ReliefTracking({
     return Object.keys(res).length > 0 ? res : activeDutyLegs;
   }, [dynamicDutyRoster, activeDutyLegs]);
 
-  // ── 3. MASTER ID CHART (FOLLOWS DUTY ROSTER) ──
-  // Inverts duty legs into train-centric shift sequences (Trains 201-223 + Couns)
+  // ── 3. MASTER ID CHART (FOLLOWS DUTY ROSTER & CORRELATED WTT) ──
+  // Inverts duty legs into train-centric shift sequences with exact Station Code + Line + Platform from WTT
   const dynamicMasterIdChart = useMemo(() => {
-    return buildMasterIdChartFromDutyRoster(dynamicDutyRoster, activeChart);
-  }, [dynamicDutyRoster, activeChart]);
+    const baseChart = buildMasterIdChartFromDutyRoster(dynamicDutyRoster, activeChart);
+    return enrichMasterIdChartWithWttLocations(baseChart, selectedDay);
+  }, [dynamicDutyRoster, activeChart, selectedDay, linkUpdateTrigger]);
 
   // Dynamic train columns: Strictly derived from trains that have shift legs in dynamicMasterIdChart
   const scheduledTrains = useMemo(() => {
@@ -1199,7 +1208,7 @@ export default function ReliefTracking({
               <thead className="sticky top-0 z-20 bg-slate-900 border-b border-slate-800">
                 <tr>
                   {filteredIdChartColumns.map(trainId => (
-                    <th key={`hdr-${trainId}`} colSpan={3} className="p-2 text-center border-r border-slate-800 bg-slate-900">
+                    <th key={`hdr-${trainId}`} colSpan={5} className="p-2 text-center border-r border-slate-800 bg-slate-900">
                       <div className="flex items-center justify-center gap-1.5">
                         <Train size={12} className="text-cyan-400" />
                         <span className="font-black text-white text-xs tracking-wider">{trainId}</span>
@@ -1207,12 +1216,14 @@ export default function ReliefTracking({
                     </th>
                   ))}
                 </tr>
-                <tr className="bg-slate-950/80 text-[10px] text-slate-400 uppercase tracking-wider border-b border-slate-800">
+                <tr className="bg-slate-950/80 text-[10px] text-slate-400 uppercase tracking-wider border-b border-slate-800 font-bold">
                   {filteredIdChartColumns.map(trainId => (
                     <React.Fragment key={`sub-${trainId}`}>
-                      <th className="py-1 px-1.5 text-center text-slate-500 w-14">From</th>
-                      <th className="py-1 px-1.5 text-center text-slate-500 w-14">To</th>
-                      <th className="py-1 px-1.5 text-center text-cyan-400 w-14 border-r border-slate-800">Duty</th>
+                      <th className="py-1 px-1 text-center text-amber-400 w-12 border-r border-slate-800/40">Duty</th>
+                      <th className="py-1 px-1.5 text-center text-emerald-400/90 w-24 border-r border-slate-800/40">TOC</th>
+                      <th className="py-1 px-1 text-center text-slate-400 w-12 border-r border-slate-800/40">From</th>
+                      <th className="py-1 px-1 text-center text-slate-400 w-12 border-r border-slate-800/40">To</th>
+                      <th className="py-1 px-1.5 text-center text-cyan-300 w-20 border-r border-slate-800">HOC</th>
                     </React.Fragment>
                   ))}
                 </tr>
@@ -1228,9 +1239,11 @@ export default function ReliefTracking({
                         if (!leg) {
                           return (
                             <React.Fragment key={`cell-${trainId}-${rowIndex}`}>
-                              <td className="py-1.5 px-1.5 text-center text-slate-700">-</td>
-                              <td className="py-1.5 px-1.5 text-center text-slate-700">-</td>
-                              <td className="py-1.5 px-1.5 text-center text-slate-700 border-r border-slate-800">-</td>
+                              <td className="py-1.5 px-1 text-center text-slate-700 border-r border-slate-800/30">-</td>
+                              <td className="py-1.5 px-1 text-center text-slate-700 border-r border-slate-800/30">-</td>
+                              <td className="py-1.5 px-1 text-center text-slate-700 border-r border-slate-800/30">-</td>
+                              <td className="py-1.5 px-1 text-center text-slate-700 border-r border-slate-800/30">-</td>
+                              <td className="py-1.5 px-1 text-center text-slate-700 border-r border-slate-800">-</td>
                             </React.Fragment>
                           );
                         }
@@ -1268,27 +1281,10 @@ export default function ReliefTracking({
 
                         return (
                           <React.Fragment key={`cell-${trainId}-${rowIndex}`}>
+                            {/* 1. DUTY */}
                             <td 
                               onDoubleClick={() => handleOpenDutyEdit(leg.duty || leg.dutyId)}
-                              className={`py-1.5 px-1.5 text-center text-[10.5px] font-bold cursor-pointer transition-colors hover:bg-slate-800/80 ${
-                                isActiveNow ? 'bg-emerald-950/60 text-emerald-300 font-black' : 'text-slate-300'
-                              }`}
-                              title="Double-click to quick-edit duty in roster"
-                            >
-                              {leg.from}
-                            </td>
-                            <td 
-                              onDoubleClick={() => handleOpenDutyEdit(leg.duty || leg.dutyId)}
-                              className={`py-1.5 px-1.5 text-center text-[10.5px] font-bold cursor-pointer transition-colors hover:bg-slate-800/80 ${
-                                isActiveNow ? 'bg-emerald-950/60 text-emerald-300 font-black' : 'text-slate-300'
-                              }`}
-                              title="Double-click to quick-edit duty in roster"
-                            >
-                              {leg.to}
-                            </td>
-                            <td 
-                              onDoubleClick={() => handleOpenDutyEdit(leg.duty || leg.dutyId)}
-                              className={`py-1.5 px-1.5 text-center border-r border-slate-800 cursor-pointer transition-colors hover:bg-cyan-900/40 ${
+                              className={`py-1.5 px-1 text-center border-r border-slate-800/40 cursor-pointer transition-colors hover:bg-cyan-900/40 ${
                                 isActiveNow 
                                   ? 'bg-emerald-950/80 text-emerald-300 font-black' 
                                   : isDutyMatched
@@ -1298,20 +1294,62 @@ export default function ReliefTracking({
                               title={opDisplayName ? `Operator: ${opDisplayName} (${opDisplayId}) • Double-click to edit Duty ${leg.duty || leg.dutyId}` : `Duty ${leg.duty || leg.dutyId} • Double-click to edit`}
                             >
                               <div className="flex flex-col items-center">
-                                <span className="text-[11px] leading-tight">
+                                <span className="text-[11px] leading-tight font-black">
                                   {leg.duty || leg.dutyId}
                                 </span>
                                 {isActiveNow && (
-                                  <span className="text-[7.5px] uppercase tracking-tighter text-emerald-400 font-black flex items-center gap-0.5">
+                                  <span className="text-[7px] uppercase tracking-tighter text-emerald-400 font-black flex items-center gap-0.5">
                                     <span className="h-1 w-1 rounded-full bg-emerald-400 animate-ping"></span> LIVE
                                   </span>
                                 )}
                                 {opDisplayName && (
-                                  <span className="text-[7px] text-slate-300 truncate max-w-14.5" title={`${opDisplayName} (${opDisplayId})`}>
+                                  <span className="text-[7.5px] text-slate-300 truncate max-w-12" title={`${opDisplayName} (${opDisplayId})`}>
                                     {opDisplayName.split(' ')[0]}
                                   </span>
                                 )}
                               </div>
+                            </td>
+
+                            {/* 2. TOC (Takeover Location) */}
+                            <td 
+                              className={`py-1.5 px-1.5 text-center text-[9px] font-bold border-r border-slate-800/40 whitespace-nowrap ${
+                                leg.toc ? 'text-emerald-400/90 font-bold' : 'text-slate-650'
+                              } ${isActiveNow ? 'bg-emerald-950/60' : ''}`}
+                              title={leg.toc ? `Takeover Location: ${leg.toc}` : 'Standard TOC / Not Specified'}
+                            >
+                              {leg.toc || '-'}
+                            </td>
+
+                            {/* 3. FROM */}
+                            <td 
+                              onDoubleClick={() => handleOpenDutyEdit(leg.duty || leg.dutyId)}
+                              className={`py-1.5 px-1 text-center text-[10px] font-mono font-bold border-r border-slate-800/40 cursor-pointer transition-colors hover:bg-slate-800/80 whitespace-nowrap ${
+                                isActiveNow ? 'bg-emerald-950/60 text-emerald-300 font-black' : 'text-slate-300'
+                              }`}
+                              title="Double-click to quick-edit duty in roster"
+                            >
+                              {leg.from || '-'}
+                            </td>
+
+                            {/* 4. TO */}
+                            <td 
+                              onDoubleClick={() => handleOpenDutyEdit(leg.duty || leg.dutyId)}
+                              className={`py-1.5 px-1 text-center text-[10px] font-mono font-bold border-r border-slate-800/40 cursor-pointer transition-colors hover:bg-slate-800/80 whitespace-nowrap ${
+                                isActiveNow ? 'bg-emerald-950/60 text-emerald-300 font-black' : 'text-slate-300'
+                              }`}
+                              title="Double-click to quick-edit duty in roster"
+                            >
+                              {leg.to || '-'}
+                            </td>
+
+                            {/* 5. HOC (Handover Location) */}
+                            <td 
+                              className={`py-1.5 px-1.5 text-center text-[9px] font-bold border-r border-slate-800 whitespace-nowrap ${
+                                leg.hoc ? 'text-cyan-300/90 font-bold' : 'text-slate-650'
+                              } ${isActiveNow ? 'bg-emerald-950/60' : ''}`}
+                              title={leg.hoc ? `Handover Location: ${leg.hoc}` : 'Standard HOC / Not Specified'}
+                            >
+                              {leg.hoc || '-'}
                             </td>
                           </React.Fragment>
                         );
