@@ -115,6 +115,7 @@ export default function ReliefTracking({
       const filename = exportMasterIdChartToExcel({
         scope,
         activeDay: selectedDay,
+        activeMasterIdChart: dynamicMasterIdChart,
         customWttRows: null,
         dispatchDutyOperatorMap
       });

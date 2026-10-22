@@ -338,11 +338,13 @@ function buildFlatLegsWorksheet(dayTypes, customWttRows, dispatchDutyOperatorMap
 
 /**
  * Main export function for Master ID Chart.
- * Produces the exact 3-train-per-block layout matching the official physical BMRCL ID Chart.
+ * Produces the exact 3-train-per-block layout matching the official physical BMRCL ID Chart,
+ * complete with all TOC and HOC station names across all train legs and days.
  */
 export function exportMasterIdChartToExcel({
   scope = 'ALL_DAYS', // 'ALL_DAYS' | 'ACTIVE_DAY'
   activeDay = 'WEEKDAY',
+  activeMasterIdChart = null,
   customWttRows = null,
   dispatchDutyOperatorMap = {}
 }) {
@@ -358,14 +360,19 @@ export function exportMasterIdChartToExcel({
     const wsSummary = buildSummaryWorksheet(dayTypes, customWttRows);
     XLSX.utils.book_append_sheet(wb, wsSummary, 'Stabling & Induction');
 
-    // 2. Sheets: Visual 3-Train-Block Matrix Grid for each Day Type
+    // 2. Sheets: Visual 3-Train-Block Matrix Grid for each Day Type with accurate TOC & HOC station names
     dayTypes.forEach(day => {
       const data = getReliefIdChartForDay(day);
-      const rawChart = data.chart || data;
+      const rawChart = (day === normalizeScheduleDay(activeDay) && activeMasterIdChart)
+        ? activeMasterIdChart
+        : (data.chart || data);
       const meta = data.meta;
+      const enrichedChart = (day === normalizeScheduleDay(activeDay) && activeMasterIdChart)
+        ? activeMasterIdChart
+        : enrichMasterIdChartWithWttLocations(rawChart, day, customWttRows);
 
       const sheetName = day === 'GH' ? 'GH (Holiday)' : day;
-      const wsMatrix = build3TrainBlockWorksheet(rawChart, day, meta);
+      const wsMatrix = build3TrainBlockWorksheet(enrichedChart, day, meta);
       XLSX.utils.book_append_sheet(wb, wsMatrix, sheetName);
     });
 
@@ -374,13 +381,15 @@ export function exportMasterIdChartToExcel({
     XLSX.utils.book_append_sheet(wb, wsFlat, 'All Legs Registry');
   } else {
     // Single Day (e.g. WEEKDAY) Workbook:
-    // Primary Sheet: Visual 3-Train-Block Matrix Grid matching paper chart
+    // Primary Sheet: Visual 3-Train-Block Matrix Grid matching paper chart with accurate TOC & HOC
     const targetDay = dayTypes[0];
     const data = getReliefIdChartForDay(targetDay);
-    const rawChart = data.chart || data;
     const meta = data.meta;
+    const enrichedChart = (targetDay === normalizeScheduleDay(activeDay) && activeMasterIdChart)
+      ? activeMasterIdChart
+      : enrichMasterIdChartWithWttLocations(data.chart || data, targetDay, customWttRows);
 
-    const wsMatrix = build3TrainBlockWorksheet(rawChart, targetDay, meta);
+    const wsMatrix = build3TrainBlockWorksheet(enrichedChart, targetDay, meta);
     XLSX.utils.book_append_sheet(wb, wsMatrix, `${targetDay} ID Chart`);
 
     // Stabling & Induction Summary
