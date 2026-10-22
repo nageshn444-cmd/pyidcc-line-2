@@ -15,7 +15,7 @@
  */
 
 import { WTT_MASTER_REGISTRY } from '../data/wttMasterRegistry.js';
-import { normalizeScheduleDay } from '../data/weekdayReliefIdChartRegistry.js';
+import { normalizeScheduleDay, getTrainInductionsForDay } from '../data/weekdayReliefIdChartRegistry.js';
 
 // Canonical BMRCL Line 2 Station metadata
 export const LINE2_STATION_NAMES = {
@@ -61,7 +61,7 @@ export function resolveWttLocation(
     return rawHint || '-';
   }
 
-  // 1. Preserved special operational terminal/depot codes
+  // 1. Preserved special operational terminal/depot codes & canonical train inductions
   if (upHint.includes('DHO')) {
     // Depot Handover (e.g. 'B DHO' = BIET Depot Handover, 'P DHO' = Peenya Depot Handover)
     return upHint.includes('B') ? 'B DHO (BIET SBL)' : 'P DHO (Peenya Depot SBL)';
@@ -69,9 +69,32 @@ export function resolveWttLocation(
   if (upHint.includes('PDC')) {
     return 'PDC (Peenya Depot Rd-3)';
   }
+
+  // Exact canonical train induction locations from timetable
+  if (upHint === 'SPGD DN' || upHint === 'SPGD DN PF') return 'SPGD DN';
+  if (upHint === 'NGSA DN' || upHint === 'NGSA DN PF') return 'NGSA DN';
+  if (upHint === 'BIET DN PF') return 'BIET DN PF';
+  if (upHint === 'BIET UP PF') return 'BIET UP PF';
+  if (upHint === 'BIET DN') return 'BIET DN';
+  if (upHint === 'BIET UP') return 'BIET UP';
+  if (upHint === 'NGSA UP' || upHint === 'NGSA UP PF') return 'NGSA UP';
+  if (upHint.includes('JLHL DN')) return 'JLHL DN-PF';
+  if (upHint === '-PYID UP-B' || upHint === 'PYID UP-B' || upHint === 'PYID UP-BE' || upHint === '-PYID UP-BE') return '-PYID UP-B';
+  if (upHint === 'NLC UP' || upHint === 'NLC UP PF') return 'NLC UP';
+  if (upHint === 'PUTHUP' || upHint === 'PUTH UP' || upHint === 'PUTH UP PF') return rawHint.includes(' ') ? 'PUTH UP' : 'PUTHUP';
+  if (upHint === 'APTS UP' || upHint === 'APTS UP PF') return 'APTS UP';
+  if (upHint === 'APTS DN' || upHint === 'APTS DN PF') return 'APTS DN';
+  if (upHint === 'PUTH DN' || upHint === 'PUTH DN PF') return 'PUTH DN';
+  if (upHint === 'PYID RD3' || upHint === 'PYID-RD3') return 'PYID RD3';
+  if (upHint === 'DPO-RD3' || upHint === 'DPO - RD3') return 'Dpo-Rd3';
+  if (upHint === 'DEPOT-RD3' || upHint === 'DEPOT - RD3') return 'DEPOT-RD3';
+  if (upHint.includes('NGSA PKT')) return 'NGSA PKT';
+  if (upHint === 'BIET BN BE' || upHint === 'BIET DN BE' || upHint.includes('BIET DN B/E') || upHint.includes('BIET DNBE')) return explicitHint.includes('BN') ? 'BIET BN BE' : 'BIET DN BE';
   if (upHint.includes('BT DN') || upHint.includes('BT') || upHint.includes('B/E')) {
-    return 'BT DN B/E (Buffer End)';
+    return 'BT DN BE';
   }
+  if (upHint === 'JIDL UP' || upHint === 'JIDL UP PF') return 'JIDL UP';
+
   if (upHint.includes('RD3') || upHint.includes('DPO-RD3') || upHint.includes('DPO - RD3')) {
     return 'PYID Dpo-Rd3';
   }
@@ -155,6 +178,10 @@ export function resolveWttLocation(
 
   // Early morning or late night depot induction fallback
   if (targetSec <= 7 * 3600) {
+    const dayInductions = getTrainInductionsForDay(normSchedule);
+    if (cleanTid && dayInductions?.[cleanTid]) {
+      return dayInductions[cleanTid];
+    }
     return 'PYID Dpo-Rd3';
   }
 
@@ -165,7 +192,7 @@ export function resolveWttLocation(
  * Enriches an entire Master ID Chart with WTT-correlated Station Codes and UP/DN Lines.
  *
  * @param {Object} rawChart - Map of trainId -> legs array
- * @param {string} scheduleType - e.g. 'SATURDAY', 'WEEKDAY'
+ * @param {string} scheduleType - e.g. 'SATURDAY', 'WEEKDAY', 'MONDAY', 'SUNDAY'
  * @param {Array} [customWttRows=null] - Live WTT records from Firestore
  * @returns {Object} Deeply enriched chart with exact Station Codes and UP/DN lines
  */
@@ -175,6 +202,8 @@ export function enrichMasterIdChartWithWttLocations(
   customWttRows = null
 ) {
   const enriched = {};
+  const normSchedule = normalizeScheduleDay(scheduleType);
+  const dayInductions = getTrainInductionsForDay(normSchedule);
 
   Object.entries(rawChart || {}).forEach(([tid, legs]) => {
     if (tid === 'Couns') {
@@ -187,16 +216,23 @@ export function enrichMasterIdChartWithWttLocations(
       return;
     }
 
-    enriched[tid] = (legs || []).map((leg, idx) => {
+    const enrichedLegs = [];
+    (legs || []).forEach((leg, idx) => {
       const fromTime = leg.from;
       const toTime = leg.to;
+
+      // Leg 0 is the morning induction
+      let hintToc = leg.toc || '';
+      if (idx === 0 && dayInductions?.[tid]) {
+        hintToc = dayInductions[tid];
+      }
 
       // Correlate Take Over Location (TOC)
       let resolvedToc = resolveWttLocation(
         scheduleType,
         tid,
         fromTime,
-        leg.toc || '',
+        hintToc,
         customWttRows
       );
 
@@ -210,11 +246,11 @@ export function enrichMasterIdChartWithWttLocations(
       );
 
       // Ensure sequential continuity: Next leg's TOC matches current leg's HOC if same train
-      if ((!leg.toc || leg.toc === '-') && idx > 0 && legs[idx - 1]?.hoc) {
-        resolvedToc = legs[idx - 1].hoc;
+      if ((!leg.toc || leg.toc === '-') && idx > 0 && enrichedLegs[idx - 1]?.hoc) {
+        resolvedToc = enrichedLegs[idx - 1].hoc;
       }
 
-      return {
+      const enrichedLeg = {
         ...leg,
         toc: resolvedToc,
         hoc: resolvedHoc,
@@ -223,7 +259,10 @@ export function enrichMasterIdChartWithWttLocations(
         fromLoc: resolvedToc,
         toLoc: resolvedHoc
       };
+      enrichedLegs.push(enrichedLeg);
     });
+
+    enriched[tid] = enrichedLegs;
   });
 
   return enriched;

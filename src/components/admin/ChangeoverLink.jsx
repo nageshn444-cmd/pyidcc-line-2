@@ -85,14 +85,33 @@ const sanitizeChangeoverData = (data) => {
       Object.keys(tbl).forEach(dNo => {
         const r = tbl[dNo];
         if (r && typeof r === 'object') {
-          if (!isNightSignOnTime(r.signOnTime)) {
-            const staticSOn = CHANGEOVER_TABLE[k]?.[dNo]?.signOnTime || r.nightSignOnTime;
-            if (isNightSignOnTime(staticSOn)) {
-              r.signOnTime = staticSOn;
-            } else if (r.nightDepTime && isNightSignOnTime(r.nightDepTime)) {
-              r.signOnTime = toTimeStr(Math.max(72002, toSec(r.nightDepTime) - 1020));
+          const sOn = r.signOnTime || r.nightSignOnTime;
+          const nDep = r.nightDepTime || r.leg1DepTime || r.leg1TimeFrom;
+          const staticRow = CHANGEOVER_TABLE[k]?.[dNo];
+          const staticSOn = staticRow?.signOnTime || staticRow?.nightSignOnTime;
+          const staticNDep = staticRow?.nightDepTime;
+
+          if (isNightSignOnTime(sOn)) {
+            // Valid night sign-on
+          } else if (isNightSignOnTime(staticSOn)) {
+            r.signOnTime = staticSOn;
+          } else if (nDep && isNightSignOnTime(nDep)) {
+            r.signOnTime = toTimeStr(Math.max(72002, toSec(nDep) - 1020));
+          } else if (staticNDep && isNightSignOnTime(staticNDep)) {
+            r.signOnTime = toTimeStr(Math.max(72002, toSec(staticNDep) - 1020));
+          } else {
+            // STRICT RULE: Duty sign-on must be after 20:00 hrs.
+            // Do NOT accept duties before 20:00 and do NOT consider them.
+            delete tbl[dNo];
+            return;
+          }
+
+          // Ensure nightDepTime if present is not daytime <= 20:00
+          if (r.nightDepTime && toSec(r.nightDepTime) >= 0 && toSec(r.nightDepTime) <= 72000) {
+            if (staticNDep && isNightSignOnTime(staticNDep)) {
+              r.nightDepTime = staticNDep;
             } else {
-              r.signOnTime = '21:30:00';
+              delete tbl[dNo];
             }
           }
         }
@@ -374,6 +393,29 @@ export default function ChangeoverLink() {
 
   // Handle cell change and re-calculate derived metrics
   const handleCellChange = (dutyNo, field, val) => {
+    // Validate: sign-on time must be after 20:00 (leg 1 train start after 20:00)
+    // Do NOT accept sign-on at or before 20:00!
+    if (field === 'signOnTime' || field === 'nightSignOnTime') {
+      const s = toSec(val);
+      if (s >= 0 && s <= 72000) {
+        setStatusMsg({
+          type: 'error',
+          text: `⚠️ Duty ${dutyNo}: Sign-on time must be after 20:00 hrs (Leg 1 train start after 20:00). Time "${val}" is at or before 20:00 and cannot be accepted.`
+        });
+        return; // Reject edit
+      }
+    }
+    if (field === 'nightDepTime') {
+      const s = toSec(val);
+      if (s >= 0 && s <= 72000) {
+        setStatusMsg({
+          type: 'error',
+          text: `⚠️ Duty ${dutyNo}: Leg 1 train start time must be after 20:00 hrs. Time "${val}" is at or before 20:00 and cannot be accepted.`
+        });
+        return; // Reject edit
+      }
+    }
+
     setEditedTable(prev => {
       const copy = { ...prev };
       if (!copy[dutyNo]) {
@@ -406,7 +448,7 @@ export default function ChangeoverLink() {
       setEditedTable(JSON.parse(JSON.stringify(compiled)));
       setStatusMsg({
         type: 'success',
-        text: `Dynamically compiled changeover matrix for ${sourceDayType} ➔ ${targetDayType} with 40-Min PDC engine.`
+        text: `Dynamically compiled changeover matrix for ${sourceDayType} ➔ ${targetDayType} with 40-Min PDC engine (strictly night duties > 20:00 hrs).`
       });
     } catch (err) {
       console.error(err);
@@ -430,9 +472,34 @@ export default function ChangeoverLink() {
     setSaving(true);
     setStatusMsg(null);
     try {
+      // Strictly enforce: only duties with sign-on time after 20:00 (leg 1 train start after 20:00)
+      const cleanTable = {};
+      let purgedCount = 0;
+      Object.entries(editedTable).forEach(([dNo, row]) => {
+        const sOn = row.signOnTime || row.nightSignOnTime;
+        const dep = row.nightDepTime;
+        if (isNightSignOnTime(sOn) || isNightSignOnTime(dep)) {
+          // If signOnTime itself is <= 20:00:00, ensure it is resolved to night timing
+          const sOnSec = toSec(row.signOnTime);
+          if (sOnSec <= 72000) {
+            if (isNightSignOnTime(row.nightSignOnTime)) {
+              row.signOnTime = row.nightSignOnTime;
+            } else if (isNightSignOnTime(dep)) {
+              row.signOnTime = toTimeStr(Math.max(72002, toSec(dep) - 1020));
+            } else {
+              purgedCount++;
+              return;
+            }
+          }
+          cleanTable[dNo] = row;
+        } else {
+          purgedCount++;
+        }
+      });
+
       const updatedAll = {
         ...allMappings,
-        [selectedKey]: editedTable
+        [selectedKey]: cleanTable
       };
 
       try {
@@ -443,9 +510,10 @@ export default function ChangeoverLink() {
       await setDoc(docRef, updatedAll, { merge: true });
 
       setAllMappings(updatedAll);
+      setEditedTable(cleanTable);
       setStatusMsg({
         type: 'success',
-        text: `Successfully saved changeover mappings & PDC stabling settings for ${DAY_OPTIONS.find(o => o.value === selectedKey)?.label}.`
+        text: `Successfully saved changeover mappings & PDC stabling settings for ${DAY_OPTIONS.find(o => o.value === selectedKey)?.label}.${purgedCount > 0 ? ` (Excluded ${purgedCount} duties with sign-on ≤ 20:00 hrs).` : ''}`
       });
     } catch (err) {
       console.error(err);
@@ -455,9 +523,16 @@ export default function ChangeoverLink() {
     }
   };
 
-  // Sort rows numerically
+  // Sort and filter rows: strictly only accept & consider duties with sign-on time after 20:00 (leg 1 train start after 20:00)
   const rows = useMemo(() => {
     return Object.entries(editedTable)
+      .filter(([dutyNo, data]) => {
+        if (!data || typeof data !== 'object') return false;
+        const sOn = data.signOnTime || data.nightSignOnTime;
+        const dep = data.nightDepTime || data.leg1DepTime || data.leg1TimeFrom;
+        // Strictly after 20:00 (seconds > 72000)
+        return isNightSignOnTime(sOn) || isNightSignOnTime(dep);
+      })
       .sort(([a], [b]) => Number(a) - Number(b))
       .map(([dutyNo, data]) => ({ dutyNo, ...data }));
   }, [editedTable]);
@@ -1186,6 +1261,7 @@ export default function ChangeoverLink() {
         <div>
           <span className="font-bold text-slate-400">💡 Dynamic Night Changeover &amp; Stabling Guide:</span>
           <ul className="list-disc pl-4 space-y-0.5 mt-1">
+            <li><strong className="text-emerald-400">Strict Night Shift Sign-On Rule:</strong> Only duty numbers with sign-on time strictly after 20:00 hrs (Leg 1 train start after 20:00) are accepted and considered across all day transitions (Weekday, Monday, Saturday &amp; GH, Sunday). Duties with sign-on at or before 20:00:00 are daytime/afternoon duties and are never accepted.</li>
             <li>Any alternative stabling location prompts the controller and automatically computes the Sign-On (S/ON) time including the mandatory 40-minute Pre-Departure Check (PDC).</li>
             <li>Transit positioning minutes are dynamically calculated using the BMRCL Line 2 station distance matrix between stabling points and induction stations.</li>
             <li>Clicking <strong className="text-amber-400">Save Mappings</strong> commits the configuration to Firestore (<code className="text-cyan-400">changeover_mappings</code>) so that Night Changeover Control on the Dispatch Gateway Core immediately utilizes the adjusted Sign-On times.</li>

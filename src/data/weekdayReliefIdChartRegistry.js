@@ -21,12 +21,126 @@ import { SATURDAY_MASTER_LINKS, SUNDAY_MASTER_LINKS, MONDAY_MASTER_LINKS } from 
 // ============================================================================
 // 1. WEEKDAY RELIEF ID CHART (WEF 22/Nov/2024 for TT 20/Nov/2024 APTS-BIET - 79 Duties)
 // ============================================================================
+// Canonical Weekday Train Induction Locations (WTT Timetable WEF 20/Nov/2024)
+export const WEEKDAY_TRAIN_INDUCTIONS = {
+  '201': 'SPGD DN',
+  '202': 'NGSA DN',
+  '203': 'BIET DN',
+  '204': 'BIET UP',
+  '205': 'NGSA UP',
+  '206': 'JLHL DN-PF',
+  '207': 'NLC UP',
+  '208': 'PUTH UP',
+  '209': 'APTS UP',
+  '210': 'APTS DN',
+  '211': 'PUTH DN',
+  '212': 'PYID RD3',
+  '213': 'DEPOT-RD3',
+  '214': 'DEPOT-RD3',
+  '215': 'DEPOT-RD3',
+  '216': 'DEPOT-RD3',
+  '217': 'BIET DN BE',
+  '218': 'DEPOT-RD3',
+  '219': 'DEPOT-RD3',
+  '220': 'DEPOT-RD3',
+  '221': 'DEPOT-RD3',
+  '222': 'DEPOT-RD3',
+  '223': 'DEPOT-RD3'
+};
+
+// Canonical Monday Train Induction Locations (WTT Timetable WEF 06/Jan/2025 APTS-BIET)
+export const MONDAY_TRAIN_INDUCTIONS = {
+  '201': 'SPGD DN',
+  '202': 'NGSA DN',
+  '203': 'BIET DN PF',
+  '204': 'BIET UP PF',
+  '205': 'NGSA UP',
+  '206': '-PYID UP-B',
+  '207': 'NLC UP',
+  '208': 'PUTHUP',
+  '209': 'APTS UP',
+  '210': 'APTS DN',
+  '211': 'PUTH DN',
+  '212': 'PYID RD3',
+  '213': 'Dpo-Rd3',
+  '214': 'Dpo-Rd3',
+  '215': 'Dpo-Rd3',
+  '216': 'Dpo-Rd3',
+  '217': 'BIET BN BE',
+  '218': 'Dpo-Rd3',
+  '219': 'Dpo-Rd3',
+  '220': 'Dpo-Rd3',
+  '221': 'NGSA PKT',
+  '222': 'Dpo-Rd3',
+  '223': 'Dpo-Rd3'
+};
+
+// Canonical Saturday & GH Train Induction Locations (WTT Timetable WEF 15/Mar/2025 APTS-BIET)
+export const SATURDAY_TRAIN_INDUCTIONS = {
+  '201': 'SPGD DN',
+  '202': 'NGSA DN',
+  '203': 'BIET DN',
+  '204': 'BIET UP',
+  '205': 'JIDL UP',
+  '206': 'DEPOT-RD3',
+  '207': 'NLC UP',
+  '208': 'PUTH UP',
+  '209': 'APTS UP',
+  '210': 'APTS DN',
+  '211': 'PUTH DN',
+  '212': 'BT DN BE',
+  '213': 'PYID RD3',
+  '214': 'DEPOT-RD3',
+  '215': 'DEPOT-RD3',
+  '216': 'DEPOT-RD3',
+  '217': 'DEPOT-RD3',
+  '218': 'DEPOT-RD3',
+  '219': 'DEPOT-RD3',
+  '220': 'DEPOT-RD3',
+  '221': 'DEPOT-RD3'
+};
+
+// Canonical Sunday Train Induction Locations (WTT Timetable WEF 08/Dec/2024 BIET-APTS)
+export const SUNDAY_TRAIN_INDUCTIONS = {
+  '201': 'NGSA DN',
+  '202': 'APTS UP',
+  '203': 'PUTH UP',
+  '204': 'APTS UP',
+  '205': 'APTS UP',
+  '206': 'PUTH DN',
+  '207': 'PYID RD3',
+  '208': 'BIET DN',
+  '209': 'BIET UP',
+  '210': 'NGSA UP',
+  '211': 'DEPOT-RD3',
+  '212': 'DEPOT-RD3',
+  '213': 'DEPOT-RD3',
+  '214': 'DEPOT-RD3',
+  '215': 'DEPOT-RD3',
+  '216': 'DEPOT-RD3',
+  '217': 'DEPOT-RD3',
+  '218': 'DEPOT-RD3',
+  '219': 'DEPOT-RD3'
+};
+
+/**
+ * Returns canonical train induction locations for any given schedule day type.
+ */
+export function getTrainInductionsForDay(scheduleType = 'WEEKDAY') {
+  const norm = normalizeScheduleDay(scheduleType);
+  if (norm === 'MONDAY') return MONDAY_TRAIN_INDUCTIONS;
+  if (norm === 'SUNDAY') return SUNDAY_TRAIN_INDUCTIONS;
+  if (norm === 'SATURDAY' || norm === 'GH') return SATURDAY_TRAIN_INDUCTIONS;
+  return WEEKDAY_TRAIN_INDUCTIONS;
+}
+
 export const WEEKDAY_RELIEF_ID_CHART_2024 = {
   "201": [
     {
       "from": "04:25",
       "to": "06:33",
-      "duty": "73"
+      "duty": "73",
+      "toc": "SPGD DN"
     },
     {
       "from": "06:33",
@@ -78,7 +192,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "04:00",
       "to": "06:48",
-      "duty": "71"
+      "duty": "71",
+      "toc": "NGSA DN"
     },
     {
       "from": "06:48",
@@ -135,7 +250,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "04:15",
       "to": "06:43",
-      "duty": "75"
+      "duty": "75",
+      "toc": "BIET DN"
     },
     {
       "from": "06:41",
@@ -182,7 +298,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "04:45",
       "to": "06:58",
-      "duty": "72"
+      "duty": "72",
+      "toc": "BIET UP"
     },
     {
       "from": "06:58",
@@ -234,7 +351,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "04:45",
       "to": "07:13",
-      "duty": "74"
+      "duty": "74",
+      "toc": "NGSA UP"
     },
     {
       "from": "07:11",
@@ -286,7 +404,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "04:15",
       "to": "06:15",
-      "duty": "76"
+      "duty": "76",
+      "toc": "JLHL DN-PF"
     },
     {
       "from": "06:13",
@@ -333,7 +452,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "04:20",
       "to": "06:30",
-      "duty": "65"
+      "duty": "65",
+      "toc": "NLC UP"
     },
     {
       "from": "06:28",
@@ -390,7 +510,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "04:15",
       "to": "06:27",
-      "duty": "68"
+      "duty": "68",
+      "toc": "PUTH UP"
     },
     {
       "from": "06:25",
@@ -442,7 +563,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "04:30",
       "to": "06:37",
-      "duty": "67"
+      "duty": "67",
+      "toc": "APTS UP"
     },
     {
       "from": "06:35",
@@ -484,7 +606,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "04:47",
       "to": "06:47",
-      "duty": "64"
+      "duty": "64",
+      "toc": "APTS DN"
     },
     {
       "from": "06:45",
@@ -541,7 +664,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "04:40",
       "to": "06:57",
-      "duty": "66"
+      "duty": "66",
+      "toc": "PUTH DN"
     },
     {
       "from": "06:55",
@@ -573,7 +697,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "06:10",
       "to": "08:03",
-      "duty": "05"
+      "duty": "05",
+      "toc": "PYID RD3"
     },
     {
       "from": "08:03",
@@ -620,7 +745,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "06:15",
       "to": "08:13",
-      "duty": "04"
+      "duty": "04",
+      "toc": "DEPOT-RD3"
     },
     {
       "from": "08:13",
@@ -672,7 +798,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "06:25",
       "to": "08:23",
-      "duty": "09"
+      "duty": "09",
+      "toc": "DEPOT-RD3"
     },
     {
       "from": "08:23",
@@ -709,7 +836,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "06:35",
       "to": "08:33",
-      "duty": "13"
+      "duty": "13",
+      "toc": "DEPOT-RD3"
     },
     {
       "from": "08:33",
@@ -761,7 +889,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "06:20",
       "to": "08:43",
-      "duty": "06"
+      "duty": "06",
+      "toc": "DEPOT-RD3"
     },
     {
       "from": "08:43",
@@ -783,7 +912,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "06:30",
       "to": "07:27",
-      "duty": "69"
+      "duty": "69",
+      "toc": "BIET DN BE"
     },
     {
       "from": "07:25",
@@ -840,7 +970,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "06:30",
       "to": "08:53",
-      "duty": "10"
+      "duty": "10",
+      "toc": "DEPOT-RD3"
     },
     {
       "from": "08:53",
@@ -867,7 +998,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "06:40",
       "to": "09:03",
-      "duty": "15"
+      "duty": "15",
+      "toc": "DEPOT-RD3"
     },
     {
       "from": "09:03",
@@ -909,7 +1041,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "06:50",
       "to": "09:13",
-      "duty": "18"
+      "duty": "18",
+      "toc": "DEPOT-RD3"
     },
     {
       "from": "09:13",
@@ -956,7 +1089,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "07:00",
       "to": "07:57",
-      "duty": "21"
+      "duty": "21",
+      "toc": "DEPOT-RD3"
     },
     {
       "from": "07:55",
@@ -1008,7 +1142,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "07:00",
       "to": "09:23",
-      "duty": "22"
+      "duty": "22",
+      "toc": "DEPOT-RD3"
     },
     {
       "from": "09:23",
@@ -1030,7 +1165,8 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
     {
       "from": "07:10",
       "to": "09:33",
-      "duty": "23"
+      "duty": "23",
+      "toc": "DEPOT-RD3"
     },
     {
       "from": "09:33",
@@ -1136,7 +1272,7 @@ export const WEEKDAY_RELIEF_ID_CHART_2026_META = WEEKDAY_RELIEF_ID_CHART_2024_ME
 // ============================================================================
 export const MONDAY_RELIEF_ID_CHART = {
   '201': [
-    { from: '06:35', to: '08:18', duty: '14' },
+    { from: '06:35', to: '08:18', duty: '14', toc: 'SPGD DN' },
     { from: '08:18', to: '10:28', duty: '10' },
     { from: '10:28', to: '12:41', duty: '16' },
     { from: '12:41', to: '14:57', duty: '26' },
@@ -1145,7 +1281,7 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '19:02', to: '21:35', duty: '40' }
   ],
   '202': [
-    { from: '06:18', to: '06:57', duty: '06' },
+    { from: '06:18', to: '06:57', duty: '06', toc: 'NGSA DN' },
     { from: '06:57', to: '09:07', duty: '22' },
     { from: '09:07', to: '11:40', duty: '19' },
     { from: '16:50', to: '19:27', duty: '63' },
@@ -1153,7 +1289,7 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '21:37', to: '00:20', duty: '72' }
   ],
   '203': [
-    { from: '06:31', to: '08:48', duty: '13' },
+    { from: '06:31', to: '08:48', duty: '13', toc: 'BIET DN PF' },
     { from: '08:48', to: '10:58', duty: '09' },
     { from: '10:58', to: '13:13', duty: '29' },
     { from: '13:13', to: '13:47', duty: '19' },
@@ -1164,7 +1300,7 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '21:48', to: '00:10', duty: '66' }
   ],
   '204': [
-    { from: '06:28', to: '08:58', duty: '11' },
+    { from: '06:28', to: '08:58', duty: '11', toc: 'BIET UP PF' },
     { from: '08:58', to: '11:08', duty: '14' },
     { from: '11:08', to: '13:21', duty: '05' },
     { from: '13:53', to: '15:37', duty: '29' },
@@ -1175,7 +1311,7 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '21:56', to: '23:30', duty: '77' }
   ],
   '205': [
-    { from: '06:41', to: '07:37', duty: '17' },
+    { from: '06:41', to: '07:37', duty: '17', toc: 'NGSA UP' },
     { from: '07:35', to: '09:18', duty: '26' },
     { from: '09:18', to: '11:28', duty: '13' },
     { from: '11:28', to: '12:15', duty: '08' },
@@ -1185,7 +1321,7 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '21:00', to: '21:50', duty: '59' }
   ],
   '206': [
-    { from: '06:45', to: '08:28', duty: '19' },
+    { from: '06:45', to: '08:28', duty: '19', toc: '-PYID UP-B' },
     { from: '08:28', to: '10:38', duty: '03' },
     { from: '10:38', to: '12:49', duty: '32' },
     { from: '12:49', to: '13:23', duty: '33' },
@@ -1197,7 +1333,7 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '21:42', to: '00:15', duty: '73' }
   ],
   '207': [
-    { from: '06:38', to: '07:47', duty: '16' },
+    { from: '06:38', to: '07:47', duty: '16', toc: 'NLC UP' },
     { from: '07:45', to: '09:28', duty: '27' },
     { from: '09:28', to: '11:41', duty: '11' },
     { from: '11:41', to: '13:53', duty: '07' },
@@ -1208,7 +1344,7 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '21:32', to: '00:15', duty: '64' }
   ],
   '208': [
-    { from: '06:53', to: '08:07', duty: '21' },
+    { from: '06:53', to: '08:07', duty: '21', toc: 'PUTHUP' },
     { from: '08:07', to: '09:48', duty: '16' },
     { from: '09:48', to: '11:58', duty: '20' },
     { from: '11:58', to: '14:09', duty: '15' },
@@ -1219,7 +1355,7 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '21:32', to: '00:10', duty: '70' }
   ],
   '209': [
-    { from: '06:13', to: '07:48', duty: '08' },
+    { from: '06:13', to: '07:48', duty: '08', toc: 'APTS UP' },
     { from: '07:48', to: '09:58', duty: '28' },
     { from: '09:58', to: '12:12', duty: '24' },
     { from: '12:41', to: '14:25', duty: '22' },
@@ -1228,7 +1364,7 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '18:32', to: '21:05', duty: '58' }
   ],
   '210': [
-    { from: '06:28', to: '07:58', duty: '08' },
+    { from: '06:28', to: '07:58', duty: '08', toc: 'APTS DN' },
     { from: '07:58', to: '10:08', duty: '29' },
     { from: '10:08', to: '12:18', duty: '25' },
     { from: '12:18', to: '12:51', duty: '13' },
@@ -1240,7 +1376,7 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '21:34', to: '23:55', duty: '71' }
   ],
   '211': [
-    { from: '06:25', to: '08:08', duty: '09' },
+    { from: '06:25', to: '08:08', duty: '09', toc: 'PUTH DN' },
     { from: '08:08', to: '10:18', duty: '31' },
     { from: '10:18', to: '12:33', duty: '30' },
     { from: '12:33', to: '13:07', duty: '24' },
@@ -1251,7 +1387,7 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '21:31', to: '22:00', duty: '62' }
   ],
   '212': [
-    { from: '06:10', to: '08:03', duty: '03' },
+    { from: '06:10', to: '08:03', duty: '03', toc: 'PYID RD3' },
     { from: '08:03', to: '09:43', duty: '30' },
     { from: '09:43', to: '11:23', duty: '06' },
     { from: '11:23', to: '13:37', duty: '05' },
@@ -1262,7 +1398,7 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '21:48', to: '00:15', duty: '67' }
   ],
   '213': [
-    { from: '06:15', to: '08:13', duty: '04' },
+    { from: '06:15', to: '08:13', duty: '04', toc: 'Dpo-Rd3' },
     { from: '08:13', to: '09:53', duty: '32' },
     { from: '09:53', to: '11:34', duty: '26' },
     { from: '11:34', to: '13:45', duty: '10' },
@@ -1273,7 +1409,7 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '21:46', to: '23:55', duty: '65' }
   ],
   '214': [
-    { from: '06:25', to: '08:23', duty: '10' },
+    { from: '06:25', to: '08:23', duty: '10', toc: 'Dpo-Rd3' },
     { from: '08:23', to: '10:03', duty: '23' },
     { from: '10:03', to: '12:04', duty: '27' },
     { from: '12:04', to: '14:17', duty: '14' },
@@ -1282,7 +1418,7 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '18:22', to: '21:00', duty: '36' }
   ],
   '215': [
-    { from: '06:35', to: '08:33', duty: '15' },
+    { from: '06:35', to: '08:33', duty: '15', toc: 'Dpo-Rd3' },
     { from: '08:33', to: '10:13', duty: '05' },
     { from: '10:13', to: '12:25', duty: '17' },
     { from: '12:25', to: '12:59', duty: '11' },
@@ -1294,13 +1430,13 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '21:44', to: '00:15', duty: '74' }
   ],
   '216': [
-    { from: '06:20', to: '08:43', duty: '07' },
+    { from: '06:20', to: '08:43', duty: '07', toc: 'Dpo-Rd3' },
     { from: '08:43', to: '11:25', duty: '21' },
     { from: '16:20', to: '18:42', duty: '61' },
     { from: '18:42', to: '21:15', duty: '57' }
   ],
   '217': [
-    { from: '07:25', to: '09:08', duty: '06' },
+    { from: '07:25', to: '09:08', duty: '06', toc: 'BIET BN BE' },
     { from: '09:08', to: '11:18', duty: '15' },
     { from: '11:18', to: '13:29', duty: '03' },
     { from: '13:29', to: '14:03', duty: '12' },
@@ -1312,14 +1448,14 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '21:54', to: '00:05', duty: '75' }
   ],
   '218': [
-    { from: '06:30', to: '08:53', duty: '12' },
+    { from: '06:30', to: '08:53', duty: '12', toc: 'Dpo-Rd3' },
     { from: '08:53', to: '11:35', duty: '04' },
     { from: '16:30', to: '18:52', duty: '62' },
     { from: '18:52', to: '20:32', duty: '56' },
     { from: '20:32', to: '21:25', duty: '53' }
   ],
   '219': [
-    { from: '06:40', to: '09:03', duty: '18' },
+    { from: '06:40', to: '09:03', duty: '18', toc: 'Dpo-Rd3' },
     { from: '09:03', to: '10:43', duty: '10' },
     { from: '10:43', to: '12:57', duty: '28' },
     { from: '12:57', to: '13:49', duty: '25' },
@@ -1328,7 +1464,7 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '17:28', to: '19:37', duty: '48' }
   ],
   '220': [
-    { from: '06:50', to: '09:13', duty: '20' },
+    { from: '06:50', to: '09:13', duty: '20', toc: 'Dpo-Rd3' },
     { from: '09:13', to: '10:53', duty: '07' },
     { from: '10:53', to: '13:05', duty: '23' },
     { from: '13:05', to: '13:39', duty: '04' },
@@ -1339,7 +1475,7 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '21:42', to: '23:50', duty: '68' }
   ],
   '221': [
-    { from: '07:00', to: '07:57', duty: '23' },
+    { from: '07:00', to: '07:57', duty: '23', toc: 'NGSA PKT' },
     { from: '07:55', to: '09:38', duty: '17' },
     { from: '09:38', to: '11:48', duty: '22' },
     { from: '11:48', to: '14:01', duty: '09' },
@@ -1350,13 +1486,13 @@ export const MONDAY_RELIEF_ID_CHART = {
     { from: '21:22', to: '23:10', duty: '69' }
   ],
   '222': [
-    { from: '07:00', to: '09:23', duty: '24' },
+    { from: '07:00', to: '09:23', duty: '24', toc: 'Dpo-Rd3' },
     { from: '09:23', to: '11:55', duty: '12' },
     { from: '15:50', to: '18:12', duty: '57' },
     { from: '18:12', to: '20:40', duty: '34' }
   ],
   '223': [
-    { from: '07:10', to: '09:33', duty: '25' },
+    { from: '07:10', to: '09:33', duty: '25', toc: 'Dpo-Rd3' },
     { from: '09:33', to: '12:00', duty: '18' },
     { from: '15:45', to: '18:02', duty: '58' },
     { from: '18:02', to: '19:42', duty: '53' },
@@ -1638,7 +1774,7 @@ export const SATURDAY_RELIEF_ID_CHART_META = {
 // ============================================================================
 export const SUNDAY_RELIEF_ID_CHART = {
   '201': [
-    { from: '06:58', to: '08:33', duty: '04' },
+    { from: '06:58', to: '08:33', duty: '04', toc: 'NGSA DN' },
     { from: '08:33', to: '10:56', duty: '05' },
     { from: '10:56', to: '13:20', duty: '16' },
     { from: '13:20', to: '13:55', duty: '09' },
@@ -1649,7 +1785,7 @@ export const SUNDAY_RELIEF_ID_CHART = {
     { from: '21:43', to: '23:20', duty: '60' }
   ],
   '202': [
-    { from: '07:28', to: '09:46', duty: '09' },
+    { from: '07:28', to: '09:46', duty: '09', toc: 'APTS UP' },
     { from: '09:46', to: '12:06', duty: '07' },
     { from: '12:06', to: '14:24', duty: '12' },
     { from: '14:57', to: '16:48', duty: '21' },
@@ -1658,7 +1794,7 @@ export const SUNDAY_RELIEF_ID_CHART = {
     { from: '21:36', to: '00:10', duty: '58' }
   ],
   '203': [
-    { from: '07:38', to: '09:56', duty: '11' },
+    { from: '07:38', to: '09:56', duty: '11', toc: 'PUTH UP' },
     { from: '09:56', to: '12:16', duty: '08' },
     { from: '12:16', to: '14:40', duty: '06' },
     { from: '14:40', to: '17:04', duty: '34' },
@@ -1667,7 +1803,7 @@ export const SUNDAY_RELIEF_ID_CHART = {
     { from: '21:32', to: '23:00', duty: '55' }
   ],
   '204': [
-    { from: '07:48', to: '10:06', duty: '14' },
+    { from: '07:48', to: '10:06', duty: '14', toc: 'APTS UP' },
     { from: '10:06', to: '12:26', duty: '10' },
     { from: '12:26', to: '14:48', duty: '17' },
     { from: '14:48', to: '17:12', duty: '35' },
@@ -1676,7 +1812,7 @@ export const SUNDAY_RELIEF_ID_CHART = {
     { from: '21:22', to: '23:45', duty: '48' }
   ],
   '205': [
-    { from: '07:43', to: '08:39', duty: '13' },
+    { from: '07:43', to: '08:39', duty: '13', toc: 'APTS UP' },
     { from: '08:37', to: '10:26', duty: '18' },
     { from: '10:26', to: '12:46', duty: '09' },
     { from: '12:46', to: '14:44', duty: '10' },
@@ -1687,7 +1823,7 @@ export const SUNDAY_RELIEF_ID_CHART = {
     { from: '21:38', to: '23:25', duty: '59' }
   ],
   '206': [
-    { from: '07:40', to: '08:49', duty: '12' },
+    { from: '07:40', to: '08:49', duty: '12', toc: 'PUTH DN' },
     { from: '08:47', to: '10:36', duty: '19' },
     { from: '10:36', to: '12:56', duty: '11' },
     { from: '12:56', to: '15:00', duty: '15' },
@@ -1698,7 +1834,7 @@ export const SUNDAY_RELIEF_ID_CHART = {
     { from: '21:44', to: '00:00', duty: '50' }
   ],
   '207': [
-    { from: '06:30', to: '08:46', duty: '03' },
+    { from: '06:30', to: '08:46', duty: '03', toc: 'PYID RD3' },
     { from: '08:46', to: '11:06', duty: '20' },
     { from: '11:06', to: '13:28', duty: '18' },
     { from: '13:28', to: '14:03', duty: '11' },
@@ -1708,7 +1844,7 @@ export const SUNDAY_RELIEF_ID_CHART = {
     { from: '20:40', to: '21:50', duty: '35' }
   ],
   '208': [
-    { from: '07:13', to: '08:56', duty: '06' },
+    { from: '07:13', to: '08:56', duty: '06', toc: 'BIET DN' },
     { from: '08:56', to: '11:16', duty: '04' },
     { from: '11:16', to: '13:36', duty: '13' },
     { from: '13:36', to: '14:11', duty: '14' },
@@ -1719,7 +1855,7 @@ export const SUNDAY_RELIEF_ID_CHART = {
     { from: '21:33', to: '00:10', duty: '56' }
   ],
   '209': [
-    { from: '07:20', to: '09:06', duty: '07' },
+    { from: '07:20', to: '09:06', duty: '07', toc: 'BIET UP' },
     { from: '09:06', to: '11:26', duty: '03' },
     { from: '11:26', to: '13:44', duty: '19' },
     { from: '13:44', to: '16:08', duty: '26' },
@@ -1729,7 +1865,7 @@ export const SUNDAY_RELIEF_ID_CHART = {
     { from: '21:43', to: '00:10', duty: '61' }
   ],
   '210': [
-    { from: '07:27', to: '09:16', duty: '08' },
+    { from: '07:27', to: '09:16', duty: '08', toc: 'NGSA UP' },
     { from: '09:16', to: '11:36', duty: '12' },
     { from: '11:36', to: '14:00', duty: '20' },
     { from: '14:00', to: '16:04', duty: '18' },
@@ -1741,7 +1877,7 @@ export const SUNDAY_RELIEF_ID_CHART = {
     { from: '21:45', to: '00:10', duty: '62' }
   ],
   '211': [
-    { from: '07:37', to: '09:26', duty: '10' },
+    { from: '07:37', to: '09:26', duty: '10', toc: 'DEPOT-RD3' },
     { from: '09:26', to: '11:46', duty: '06' },
     { from: '11:46', to: '14:08', duty: '04' },
     { from: '14:08', to: '16:32', duty: '24' },
@@ -1749,7 +1885,7 @@ export const SUNDAY_RELIEF_ID_CHART = {
     { from: '18:56', to: '21:55', duty: '39' }
   ],
   '212': [
-    { from: '07:47', to: '09:36', duty: '15' },
+    { from: '07:47', to: '09:36', duty: '15', toc: 'DEPOT-RD3' },
     { from: '09:36', to: '11:56', duty: '17' },
     { from: '11:56', to: '14:16', duty: '21' },
     { from: '14:51', to: '16:20', duty: '20' },
@@ -1760,7 +1896,7 @@ export const SUNDAY_RELIEF_ID_CHART = {
     { from: '21:28', to: '00:10', duty: '54' }
   ],
   '213': [
-    { from: '07:00', to: '07:50', duty: '05' },
+    { from: '07:00', to: '07:50', duty: '05', toc: 'DEPOT-RD3' },
     { from: '07:50', to: '10:16', duty: '16' },
     { from: '10:16', to: '12:36', duty: '15' },
     { from: '12:36', to: '14:56', duty: '07' },
@@ -1770,7 +1906,7 @@ export const SUNDAY_RELIEF_ID_CHART = {
     { from: '21:47', to: '00:00', duty: '52' }
   ],
   '214': [
-    { from: '08:00', to: '08:59', duty: '17' },
+    { from: '08:00', to: '08:59', duty: '17', toc: 'DEPOT-RD3' },
     { from: '08:57', to: '10:46', duty: '13' },
     { from: '10:46', to: '13:04', duty: '14' },
     { from: '13:04', to: '15:28', duty: '23' },
@@ -1780,7 +1916,7 @@ export const SUNDAY_RELIEF_ID_CHART = {
     { from: '21:23', to: '23:40', duty: '53' }
   ],
   '215': [
-    { from: '10:00', to: '11:23', duty: '21' },
+    { from: '10:00', to: '11:23', duty: '21', toc: 'DEPOT-RD3' },
     { from: '11:21', to: '13:47', duty: '05' },
     { from: '13:45', to: '15:36', duty: '25' },
     { from: '15:36', to: '18:00', duty: '42' },
@@ -1789,7 +1925,7 @@ export const SUNDAY_RELIEF_ID_CHART = {
     { from: '21:33', to: '00:10', duty: '49' }
   ],
   '216': [
-    { from: '10:30', to: '12:03', duty: '22' },
+    { from: '10:30', to: '12:03', duty: '22', toc: 'DEPOT-RD3' },
     { from: '12:01', to: '13:52', duty: '03' },
     { from: '13:52', to: '14:27', duty: '16' },
     { from: '14:25', to: '16:16', duty: '19' },
@@ -1799,7 +1935,7 @@ export const SUNDAY_RELIEF_ID_CHART = {
     { from: '21:35', to: '00:00', duty: '57' }
   ],
   '217': [
-    { from: '11:15', to: '12:43', duty: '23' },
+    { from: '11:15', to: '12:43', duty: '23', toc: 'DEPOT-RD3' },
     { from: '12:41', to: '14:32', duty: '22' },
     { from: '14:32', to: '16:56', duty: '33' },
     { from: '16:56', to: '19:20', duty: '32' },
@@ -1807,7 +1943,7 @@ export const SUNDAY_RELIEF_ID_CHART = {
     { from: '21:44', to: '23:45', duty: '51' }
   ],
   '218': [
-    { from: '12:15', to: '13:23', duty: '24' },
+    { from: '12:15', to: '13:23', duty: '24', toc: 'DEPOT-RD3' },
     { from: '13:23', to: '14:52', duty: '08' },
     { from: '14:52', to: '15:12', duty: '37' },
     { from: '15:12', to: '17:36', duty: '40' },
@@ -1815,7 +1951,7 @@ export const SUNDAY_RELIEF_ID_CHART = {
     { from: '20:00', to: '21:10', duty: '25' }
   ],
   '219': [
-    { from: '06:00', to: '07:15', duty: '53' }
+    { from: '06:00', to: '07:15', duty: '53', toc: 'DEPOT-RD3' }
   ]
 };
 
@@ -3051,9 +3187,14 @@ export function buildDutyRosterFromLinkRoster(links = [], dispatchOperatorMap = 
  * Inverts duty legs into train-centric chronological shift leg sequences.
  * When Duty Roster updates, this chart updates 100% automatically without stale fallback pollution.
  */
-export function buildMasterIdChartFromDutyRoster(dutyRoster = {}, fallbackBaseChart = null) {
+export function buildMasterIdChartFromDutyRoster(dutyRoster = {}, fallbackBaseChart = null, scheduleType = 'WEEKDAY') {
   const trainMap = {};
   const hasDynamicDuties = dutyRoster && typeof dutyRoster === 'object' && Object.keys(dutyRoster).length > 0;
+  let resolvedSched = scheduleType;
+  if (fallbackBaseChart === MONDAY_RELIEF_ID_CHART) resolvedSched = 'MONDAY';
+  else if (fallbackBaseChart === SUNDAY_RELIEF_ID_CHART) resolvedSched = 'SUNDAY';
+  else if (fallbackBaseChart === SATURDAY_RELIEF_ID_CHART) resolvedSched = 'SATURDAY';
+  const dayInductions = getTrainInductionsForDay(resolvedSched);
 
   if (fallbackBaseChart && typeof fallbackBaseChart === 'object' && Object.keys(fallbackBaseChart).length > 0) {
     // 1. Authoritative Base ID Chart (preserves timetable legs, TOC, From, To, HOC)
@@ -3075,6 +3216,10 @@ export function buildMasterIdChartFromDutyRoster(dutyRoster = {}, fallbackBaseCh
         const originalEmpName = op?.originalEmpName || '';
         const originalEmpId = op?.originalEmpId || '';
 
+        const isFirstLeg = (baseLegs || []).indexOf(b) === 0;
+        const canonicalInduction = (isFirstLeg && dayInductions[tid]) ? dayInductions[tid] : '';
+        const resolvedToc = b.toc || canonicalInduction || b.fromLoc || '';
+
         return {
           duty: normD,
           dutyId: normD,
@@ -3082,9 +3227,9 @@ export function buildMasterIdChartFromDutyRoster(dutyRoster = {}, fallbackBaseCh
           to: b.to || '--',
           startStr: b.from,
           endStr: b.to || '--',
-          toc: b.toc || b.fromLoc || '',
+          toc: resolvedToc,
           hoc: b.hoc || b.toLoc || '',
-          fromLoc: b.toc || b.fromLoc || 'PYID',
+          fromLoc: resolvedToc || 'PYID',
           toLoc: b.hoc || b.toLoc || 'PYID',
           startSec,
           endSec,
@@ -3187,6 +3332,12 @@ export function buildMasterIdChartFromDutyRoster(dutyRoster = {}, fallbackBaseCh
       }
     });
     trainMap[tid] = unique.sort((a, b) => a.startSec - b.startSec);
+    if (trainMap[tid].length > 0 && dayInductions[tid]) {
+      if (!trainMap[tid][0].toc || trainMap[tid][0].toc === '-' || trainMap[tid][0].toc === 'PYID' || trainMap[tid][0].toc.includes('Dpo-Rd3')) {
+        trainMap[tid][0].toc = dayInductions[tid];
+        trainMap[tid][0].fromLoc = dayInductions[tid];
+      }
+    }
   });
 
   return trainMap;

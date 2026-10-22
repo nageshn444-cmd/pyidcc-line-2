@@ -970,6 +970,12 @@ export default function ChangeoverDashboard({ onRefresh }) {
     if (!Object.keys(mergedTable).length) return [];
 
     return Object.entries(baseTable)
+      .filter(([dutyNo, baseRow]) => {
+        if (!baseRow || typeof baseRow !== 'object') return false;
+        const sOn = baseRow.signOnTime || baseRow.nightSignOnTime;
+        const nDep = baseRow.nightDepTime;
+        return isNightSignOnTime(sOn) || isNightSignOnTime(nDep);
+      })
       .sort(([a], [b]) => Number(a) - Number(b))
       .map(([dutyNo, baseRow]) => {
         const operator = resolveNightShiftOperator(dutyNo, currentDay, currentDate);
@@ -1758,65 +1764,21 @@ export default function ChangeoverDashboard({ onRefresh }) {
                           </span>
                         </td>
 
-                        {/* Morning Takeover (Leg 3) Details */}
-                        <td className="px-2 py-2 text-slate-400 text-[10px]">
-                          <div className="flex flex-col items-center gap-0.5">
-                            <span
+                        {/* Morning Takeover (Leg 3) Stabling Location with Edit Option */}
+                        <td className="px-2 py-2 text-[10px]">
+                          <div className="flex items-center justify-center">
+                            <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleOpenStablingModal(r);
                               }}
-                              className="font-bold text-slate-200 hover:text-cyan-300 hover:underline cursor-pointer transition select-text"
-                              title="Click to select takeover location (all stations Up / Dn line)"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-100 hover:text-cyan-300 border border-slate-700 hover:border-cyan-500/50 font-bold transition group cursor-pointer text-[10.5px] shadow-xs"
+                              title="Click to edit stabling / takeover location"
                             >
-                              {r.takeoverLocation || '--'}
-                            </span>
-                            {r.isManuallyModified && (
-                              <span 
-                                className="text-[7.5px] text-amber-300 bg-amber-950/90 border border-amber-500/40 rounded px-1 font-bold inline-flex items-center gap-0.5" 
-                                title={`In-session modification (Canonical default: ${r.originalDefaultLoc}). Will restore on page refresh.`}
-                              >
-                                ✎ In-Session (Def: {r.originalDefaultLoc})
-                              </span>
-                            )}
-                            {r.isAlternativeStabling && (
-                              <span className="text-[7.5px] text-amber-300 bg-amber-950/90 border border-amber-500/40 rounded px-1 font-bold">
-                                Alt Stable (+{r.transitMinutes || 20}m)
-                              </span>
-                            )}
-                            {(r.mornSignOnTime || r.calculatedSignOnTime) && (
-                              <span className="text-[7.5px] text-cyan-300 bg-cyan-950/80 border border-cyan-500/30 rounded px-1 font-mono" title="Morning 40-Min PDC Sign-On Time">
-                                {r.isPdcActive ? `PDC S/ON: ${String(r.mornSignOnTime || r.calculatedSignOnTime).slice(0, 5)}` : `S/ON: ${String(r.mornSignOnTime || r.mornDepTime).slice(0, 5)}`}
-                              </span>
-                            )}
-                            <div className="flex items-center gap-1 mt-0.5">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleDutyPdc(r.dutyNo);
-                                }}
-                                className={`text-[8px] px-1 py-0.5 rounded font-bold border transition cursor-pointer ${
-                                  r.isPdcActive
-                                    ? 'bg-cyan-950/90 text-cyan-300 border-cyan-500/50 hover:bg-cyan-900'
-                                    : 'bg-rose-950/80 text-rose-300 border-rose-500/50 hover:bg-rose-900'
-                                }`}
-                                title={r.isPdcActive ? `Duty ${r.dutyNo}: 40-Min PDC Active (+40m). Click to remove 40m PDC` : `Duty ${r.dutyNo}: 40-Min PDC Removed (0m). Click to add 40m PDC`}
-                              >
-                                {r.isPdcActive ? '+40m PDC' : '-40m (0m)'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenStablingModal(r);
-                                }}
-                                className="text-[8px] text-cyan-400 hover:text-cyan-200 underline cursor-pointer"
-                                title="Click to override night stabling location & 40-min PDC"
-                              >
-                                Stabling ✎
-                              </button>
-                            </div>
+                              <span className="font-mono font-bold tracking-tight">{r.takeoverLocation || r.actualStablingLocation || '--'}</span>
+                              <span className="text-cyan-400 group-hover:text-cyan-200 text-xs font-bold" title="Edit Stabling Location">✎</span>
+                            </button>
                           </div>
                         </td>
                         <td className="px-2 py-2 text-amber-300 font-bold">{r.mornTrainNo || '--'}</td>

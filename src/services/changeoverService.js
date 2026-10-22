@@ -75,6 +75,18 @@ export const isNightSignOnTime = (tStr) => {
   return secs >= 72001; // strictly above 20:00:01
 };
 
+// Validates whether a duty or row qualifies as a legitimate night shift duty.
+// Strictly requires sign-on time to be after 20:00:00 (> 72000s) OR
+// leg 1 train start (departure/takeover) to be after 20:00:00 (> 72000s).
+// Duties with times <= 20:00:00 are daytime/afternoon duties and cannot be accepted.
+export const isValidNightDuty = (dutyOrRow) => {
+  if (!dutyOrRow || typeof dutyOrRow !== 'object') return false;
+  const sOn = dutyOrRow.signOnTime || dutyOrRow.nightSignOnTime || dutyOrRow.sOnTime;
+  const dep = dutyOrRow.nightDepTime || dutyOrRow.leg1DepTime || dutyOrRow.leg1TimeFrom || dutyOrRow.depTime ||
+              (dutyOrRow.legs && dutyOrRow.legs[0] && (dutyOrRow.legs[0].depTime || dutyOrRow.legs[0].timeFrom));
+  return isNightSignOnTime(sOn) || isNightSignOnTime(dep);
+};
+
 const getLegDuration = (dep, arr) => {
   const d = toSec(dep),
     a = toSec(arr);
@@ -2698,13 +2710,43 @@ export function compileDynamicChangeoverLinks({
 
   if (Array.isArray(linkRosterRows) && linkRosterRows.length > 0) {
     const nightRows = linkRosterRows.filter(r => {
-      const dNo = parseInt(String(r.dutyNo || r.dutyId || '').replace(/\D/g, ''), 10);
-      return (dNo >= 50) || r.isNight || r.shift === 'N' || isNightSignOnTime(r.signOnTime);
+      const dutyId = String(r.dutyNo || r.dutyId || '').replace(/\D/g, '');
+      const baseRow = baseTable[dutyId] || baseTable[dutyId.padStart(2, '0')] || baseTable[String(Number(dutyId))] || {};
+
+      const sOn = r.nightSignOnTime || r.signOnTime || r.sOnTime || baseRow.nightSignOnTime || baseRow.signOnTime;
+      const leg1Start = r.nightDepTime || r.leg1DepTime || r.leg1TimeFrom || r.depTime ||
+                        (r.legs && r.legs[0] && (r.legs[0].depTime || r.legs[0].timeFrom)) ||
+                        baseRow.nightDepTime;
+
+      // STRICT RULE: Must be strictly after 20:00 hrs (sign-on > 20:00:00 or leg 1 start > 20:00:00).
+      // Duties before or equal to 20:00 are daytime/afternoon duties and are NOT accepted or considered.
+      const hasValidNightSignOn = isNightSignOnTime(sOn);
+      const hasValidNightLeg1 = isNightSignOnTime(leg1Start);
+
+      if (!hasValidNightSignOn && !hasValidNightLeg1) {
+        return false;
+      }
+      return true;
     });
 
     nightRows.forEach(row => {
       const dutyId = String(row.dutyNo || row.dutyId || '').padStart(2, '0');
       const baseRow = baseTable[dutyId] || baseTable[String(Number(dutyId))] || {};
+
+      const leg1Dep = row.nightDepTime || row.leg1DepTime || row.leg1TimeFrom || row.depTime ||
+                      (row.legs && row.legs[0] && (row.legs[0].depTime || row.legs[0].timeFrom)) ||
+                      baseRow.nightDepTime;
+
+      const leg1NightSignOn = (isNightSignOnTime(row.nightSignOnTime) ? row.nightSignOnTime : null) ||
+                              (isNightSignOnTime(row.signOnTime) ? row.signOnTime : null) ||
+                              (isNightSignOnTime(baseRow.signOnTime) ? baseRow.signOnTime : null) ||
+                              (isNightSignOnTime(baseRow.nightSignOnTime) ? baseRow.nightSignOnTime : null) ||
+                              (isNightSignOnTime(leg1Dep) ? toTimeStr(Math.max(72002, toSec(leg1Dep) - 1020)) : null);
+
+      // Do NOT accept sign-on at or before 20:00:00
+      if (!isNightSignOnTime(leg1NightSignOn)) {
+        return;
+      }
 
       const mornTrain = row.mornTrainNo || baseRow.mornTrainNo || (row.leg3TrainNo && row.leg3TrainNo !== '--' ? row.leg3TrainNo : row.leg2TrainNo) || row.trainId || '--';
       const assignedStab = row.takeoverLocation || baseRow.takeoverLocation || row.stablingLocation || (row.leg3DepLoc && row.leg3DepLoc !== '--' ? row.leg3DepLoc : row.leg2DepLoc) || 'DEPOT';
@@ -2731,12 +2773,6 @@ export function compileDynamicChangeoverLinks({
         targetScheduleType: normTo,
         wttRegistry
       });
-
-      const leg1NightSignOn = (isNightSignOnTime(row.nightSignOnTime) ? row.nightSignOnTime : null) ||
-                              (isNightSignOnTime(row.signOnTime) ? row.signOnTime : null) ||
-                              (isNightSignOnTime(baseRow.signOnTime) ? baseRow.signOnTime : null) ||
-                              (isNightSignOnTime(baseRow.nightSignOnTime) ? baseRow.nightSignOnTime : null) ||
-                              (row.nightDepTime && isNightSignOnTime(row.nightDepTime) ? toTimeStr(Math.max(72002, toSec(row.nightDepTime) - 1020)) : "21:30:00");
 
       compiledTable[dutyId] = {
         dutyNo: dutyId,
@@ -2777,6 +2813,22 @@ export function compileDynamicChangeoverLinks({
     });
   } else {
     Object.entries(baseTable).forEach(([dutyId, baseRow]) => {
+      const sOn = baseRow.signOnTime || baseRow.nightSignOnTime;
+      const leg1Dep = baseRow.nightDepTime;
+
+      // Strict rule: Sign-on must be after 20:00 (leg 1 train start after 20:00)
+      if (!isNightSignOnTime(sOn) && !isNightSignOnTime(leg1Dep)) {
+        return; // Do not consider or accept duties <= 20:00
+      }
+
+      const leg1NightSignOn = (isNightSignOnTime(baseRow.nightSignOnTime) ? baseRow.nightSignOnTime : null) ||
+                              (isNightSignOnTime(baseRow.signOnTime) ? baseRow.signOnTime : null) ||
+                              (isNightSignOnTime(leg1Dep) ? toTimeStr(Math.max(72002, toSec(leg1Dep) - 1020)) : null);
+
+      if (!isNightSignOnTime(leg1NightSignOn)) {
+        return; // Do not consider or accept
+      }
+
       const mornTrain = baseRow.mornTrainNo || '--';
       const assignedStab = baseRow.takeoverLocation || 'DEPOT';
       const actualStab = stablingOverrides[dutyId] || stablingOverrides[mornTrain] || assignedStab;
@@ -2799,10 +2851,6 @@ export function compileDynamicChangeoverLinks({
         targetScheduleType: normTo,
         wttRegistry
       });
-
-      const leg1NightSignOn = (isNightSignOnTime(baseRow.nightSignOnTime) ? baseRow.nightSignOnTime : null) ||
-                              (isNightSignOnTime(baseRow.signOnTime) ? baseRow.signOnTime : null) ||
-                              (baseRow.nightDepTime && isNightSignOnTime(baseRow.nightDepTime) ? toTimeStr(Math.max(72002, toSec(baseRow.nightDepTime) - 1020)) : "21:30:00");
 
       compiledTable[dutyId] = {
         ...baseRow,
