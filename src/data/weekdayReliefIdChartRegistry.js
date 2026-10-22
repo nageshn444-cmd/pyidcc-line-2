@@ -134,6 +134,120 @@ export function getTrainInductionsForDay(scheduleType = 'WEEKDAY') {
   return WEEKDAY_TRAIN_INDUCTIONS;
 }
 
+// Canonical Weekday Train Stabling Locations (WTT Timetable WEF 20/Nov/2024 APTS-BIET)
+export const WEEKDAY_TRAIN_STABLINGS = {
+  '201': 'PUTH DN PF',
+  '202': 'B DHO',
+  '203': 'PYID Depot SBL',
+  '204': 'APTS DN PF',
+  '205': 'B DHO',
+  '206': 'PYID Depot SBL',
+  '207': 'NGSA DN PF',
+  '208': 'PYID Depot SBL',
+  '209': 'PYID Depot SBL',
+  '210': 'SPGD DN PF',
+  '211': 'BIET UP PF',
+  '212': 'APTS UP PF',
+  '213': 'NLC UP PF',
+  '214': 'PYID Depot SBL',
+  '215': 'JIDL UP PF',
+  '216': 'PYID Depot SBL',
+  '217': 'BIET DN PF',
+  '218': 'PYID Depot SBL',
+  '219': 'PYID Depot SBL',
+  '220': 'PUTH UP PF',
+  '221': 'BIET DN BE',
+  '222': 'PYID Depot SBL',
+  '223': 'NPKT / DEPOT'
+};
+
+// Canonical Monday Train Stabling Locations (WTT Timetable WEF 06/Jan/2025 APTS-BIET)
+export const MONDAY_TRAIN_STABLINGS = {
+  '201': 'PYID Depot SBL',
+  '202': 'BIET UP PF',
+  '203': 'PUTH DN PF',
+  '204': 'B DHO',
+  '205': 'PYID Depot SBL',
+  '206': 'SPGD DN PF',
+  '207': 'APTS DN PF',
+  '208': 'B DHO',
+  '209': 'PYID Depot SBL',
+  '210': 'NGSA DN PF',
+  '211': 'PYID Depot SBL',
+  '212': 'APTS UP PF',
+  '213': 'NLC UP PF',
+  '214': 'PYID Depot SBL',
+  '215': 'JIDL UP PF',
+  '216': 'PYID Depot SBL',
+  '217': 'BIET DN PF',
+  '218': 'PYID Depot SBL',
+  '219': 'PYID Depot SBL',
+  '220': 'PUTH UP PF',
+  '221': 'BIET DN BE',
+  '222': 'PYID Depot SBL',
+  '223': 'NPKT / DEPOT'
+};
+
+// Canonical Saturday & GH Train Stabling Locations (WTT Timetable WEF 15/Mar/2025 APTS-BIET)
+export const SATURDAY_TRAIN_STABLINGS = {
+  '201': 'B DHO',
+  '202': 'SPGD DN PF',
+  '203': 'APTS UP PF',
+  '204': 'PYID Depot SBL',
+  '205': 'PYID Depot SBL',
+  '206': 'JIDL UP PF',
+  '207': 'BIET DN PF',
+  '208': 'APTS DN PF',
+  '209': 'NLC UP PF',
+  '210': 'B DHO',
+  '211': 'NPKT / DEPOT',
+  '212': 'PYID Depot SBL',
+  '213': 'PYID Depot SBL',
+  '214': 'PYID RD3',
+  '215': 'PYID Depot SBL',
+  '216': 'NGSA DN PF',
+  '217': 'BIET UP PF',
+  '218': 'PUTH UP PF',
+  '219': 'PYID Depot SBL',
+  '220': 'PUTH DN PF',
+  '221': 'BIET DN BE'
+};
+
+// Canonical Sunday Train Stabling Locations (WTT Timetable WEF 08/Dec/2024 BIET-APTS)
+export const SUNDAY_TRAIN_STABLINGS = {
+  '201': 'BIET DN BE',
+  '202': 'BIET UP PF',
+  '203': 'B DHO',
+  '204': 'PUTH UP PF',
+  '205': 'B DHO',
+  '206': 'APTS UP PF',
+  '207': 'PYID Depot SBL',
+  '208': 'B DHO',
+  '209': 'SPGD DN PF',
+  '210': 'JIDL UP PF',
+  '211': 'PYID Depot SBL',
+  '212': 'BIET DN PF',
+  '213': 'PUTH DN PF',
+  '214': 'B DHO',
+  '215': 'APTS DN PF',
+  '216': 'NGSA DN PF',
+  '217': 'NLC UP PF',
+  '218': 'PYID Depot SBL',
+  '219': 'PYID Depot SBL'
+};
+
+/**
+ * Returns canonical train stabling locations for any given schedule day type.
+ */
+export function getTrainStablingForDay(scheduleType = 'WEEKDAY') {
+  const norm = normalizeScheduleDay(scheduleType);
+  if (norm === 'MONDAY') return MONDAY_TRAIN_STABLINGS;
+  if (norm === 'SUNDAY') return SUNDAY_TRAIN_STABLINGS;
+  if (norm === 'SATURDAY' || norm === 'GH') return SATURDAY_TRAIN_STABLINGS;
+  return WEEKDAY_TRAIN_STABLINGS;
+}
+
+
 export const WEEKDAY_RELIEF_ID_CHART_2024 = {
   "201": [
     {

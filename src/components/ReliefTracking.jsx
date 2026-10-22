@@ -20,7 +20,8 @@ import {
   Users, Search, Train, ArrowRight, User, Clock, Filter, 
   Table, LayoutGrid, Calendar, ShieldCheck, Sparkles, Layers,
   CheckCircle2, Radio, AlertCircle, AlertTriangle, Shield, RefreshCw, 
-  ChevronRight, Activity, CalendarDays, Edit3, X, Save
+  ChevronRight, Activity, CalendarDays, Edit3, X, Save,
+  Download, FileSpreadsheet
 } from 'lucide-react';
 import { 
   WEEKDAY_RELIEF_ID_CHART, 
@@ -38,6 +39,7 @@ import {
   linkMatchesScheduleDay
 } from '../data/weekdayReliefIdChartRegistry';
 import { enrichMasterIdChartWithWttLocations } from '../services/wttLocationResolverEngine.js';
+import { exportMasterIdChartToExcel } from '../services/masterIdChartExportService.js';
 import { getMasterLinksForDay } from '../data/canonicalDayLinksRegistry';
 import { getOperatorForDuty } from '../data/weekdayMasterDutyRoster';
 import { db } from '../firebase';
@@ -102,6 +104,29 @@ export default function ReliefTracking({
 
   // Continuity & Stabling Audit Drawer toggle
   const [showContinuityAudit, setShowContinuityAudit] = useState(false);
+
+  // Master ID Chart Excel Export state
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportSuccessMsg, setExportSuccessMsg] = useState(null);
+
+  const handleDownloadMasterIdChart = (scope = 'ALL_DAYS') => {
+    try {
+      setIsExporting(true);
+      const filename = exportMasterIdChartToExcel({
+        scope,
+        activeDay: selectedDay,
+        customWttRows: null,
+        dispatchDutyOperatorMap
+      });
+      setExportSuccessMsg(`Successfully generated and downloaded ${filename}`);
+      setTimeout(() => setExportSuccessMsg(null), 5000);
+    } catch (err) {
+      console.error('Failed to export Master ID Chart:', err);
+      alert('Error generating Excel file: ' + err.message);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Dynamically resolve ID chart, metadata, and duty legs for the selected day type
   const activeDayData = useMemo(() => {
@@ -545,9 +570,10 @@ export default function ReliefTracking({
         totalLegs: legs.length,
         startTime: firstLeg.from,
         startDuty: firstLeg.duty || firstLeg.dutyId,
+        firstLegLoc: firstLeg.toc || firstLeg.fromLoc || 'Depot Induction',
         stablingTime: lastLeg.to,
         stablingDuty: lastLeg.duty || lastLeg.dutyId,
-        stablingLocation: 'Peenya Depot SBL / Platform Handover',
+        stablingLocation: lastLeg.hoc || lastLeg.toLoc || 'Peenya Depot SBL',
         breaks,
         status: breaks.length === 0 ? 'CONTINUOUS' : 'SPLIT_SHIFT',
         statusLabel: breaks.length === 0 ? '100% Continuous Mainline Run' : `Split-Shift (${breaks.length} Stabling Break${breaks.length > 1 ? 's' : ''})`
@@ -726,8 +752,49 @@ export default function ReliefTracking({
               <span>Duty Roster</span>
             </button>
           </div>
+
+          {/* Master ID Chart Download Buttons */}
+          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+            <button
+              type="button"
+              onClick={() => handleDownloadMasterIdChart('ALL_DAYS')}
+              disabled={isExporting}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-bold font-mono flex items-center gap-1.5 transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm disabled:opacity-50"
+              title="Download full Master ID Chart Excel workbook for ALL train IDs and ALL day types (Weekday, Monday, Saturday, GH, Sunday)"
+            >
+              <Download size={13} className={isExporting ? 'animate-bounce' : ''} />
+              <span>Download All Days (Excel)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDownloadMasterIdChart('ACTIVE_DAY')}
+              disabled={isExporting}
+              className="px-2 py-1.5 rounded-lg text-xs font-bold font-mono flex items-center gap-1 transition-all bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-slate-750 disabled:opacity-50"
+              title={`Download ${selectedDay} Master ID Chart Excel`}
+            >
+              <FileSpreadsheet size={13} />
+              <span>{selectedDay}</span>
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Export Success Notification Banner */}
+      {exportSuccessMsg && (
+        <div className="mb-4 p-3 rounded-xl bg-emerald-950/90 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center justify-between shadow-lg shadow-emerald-950/40 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+            <span className="font-bold">{exportSuccessMsg}</span>
+          </div>
+          <button 
+            type="button"
+            onClick={() => setExportSuccessMsg(null)}
+            className="text-emerald-400 hover:text-white p-1 rounded"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Schedule Day Selector Bar */}
       <div className="bg-slate-950/90 border border-slate-800 rounded-xl p-2.5 mb-4 flex flex-wrap items-center justify-between gap-3 relative z-10 text-xs">
@@ -842,10 +909,20 @@ export default function ReliefTracking({
                 </div>
 
                 {audit.status !== 'STABLED_FULL_DAY' ? (
-                  <div className="space-y-1 text-[10px]">
-                    <div className="flex justify-between text-slate-400">
-                      <span>Induction: <strong className="text-slate-200">{audit.startTime}</strong> (Duty {audit.startDuty})</span>
-                      <span>Stables: <strong className="text-cyan-300">{audit.stablingTime}</strong> (Duty {audit.stablingDuty})</span>
+                  <div className="space-y-1.5 text-[10px]">
+                    <div className="space-y-1 bg-slate-950/60 p-1.5 rounded border border-slate-850">
+                      <div className="flex justify-between items-center text-slate-400">
+                        <span>Induction: <strong className="text-slate-200">{audit.startTime}</strong> (Duty {audit.startDuty})</span>
+                        <span className="text-[9px] text-emerald-400 font-mono font-bold truncate max-w-36" title={audit.firstLegLoc}>
+                          📍 {audit.firstLegLoc}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-slate-400">
+                        <span>Stables: <strong className="text-cyan-300">{audit.stablingTime}</strong> (Duty {audit.stablingDuty})</span>
+                        <span className="text-[9px] text-cyan-300 font-mono font-bold truncate max-w-36" title={audit.stablingLocation}>
+                          🏁 {audit.stablingLocation}
+                        </span>
+                      </div>
                     </div>
 
                     {audit.breaks.length > 0 ? (
@@ -1180,8 +1257,8 @@ export default function ReliefTracking({
       {viewMode === 'ID_CHART' && (
         <div className="space-y-3">
           {/* Header Banner */}
-          <div className="bg-slate-950 border border-cyan-900/60 rounded-xl p-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
-            <div className="flex items-center gap-2">
+          <div className="bg-slate-950 border border-cyan-900/60 rounded-xl p-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-black text-xs">
                 OFFICIAL WTT LINK
               </span>
@@ -1189,16 +1266,43 @@ export default function ReliefTracking({
                 {activeMeta.title}
               </span>
             </div>
-            <div className="flex items-center gap-3 text-[10px] text-slate-400">
-              <span className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/20 border border-emerald-400 inline-block"></span>
-                <span>Active Leg Now</span>
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-sm bg-cyan-950 border border-cyan-500 inline-block"></span>
-                <span>Matched Search</span>
-              </span>
-              <span className="text-slate-500">Total Columns: {filteredIdChartColumns.length}</span>
+            
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="hidden sm:flex items-center gap-3 text-[10px] text-slate-400 mr-2">
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/20 border border-emerald-400 inline-block"></span>
+                  <span>Active Leg Now</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-cyan-950 border border-cyan-500 inline-block"></span>
+                  <span>Matched Search</span>
+                </span>
+                <span className="text-slate-500 font-mono">Columns: {filteredIdChartColumns.length}</span>
+              </div>
+
+              {/* Master ID Chart Download Buttons */}
+              <div className="flex items-center gap-1 bg-slate-900/90 p-0.5 rounded-lg border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => handleDownloadMasterIdChart('ALL_DAYS')}
+                  disabled={isExporting}
+                  className="px-2.5 py-1 rounded text-[11px] font-bold font-mono flex items-center gap-1.5 transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm disabled:opacity-50"
+                  title="Download full Master ID Chart Excel workbook for ALL train IDs and ALL day types (Weekday, Monday, Saturday, GH, Sunday)"
+                >
+                  <Download size={12} className={isExporting ? 'animate-bounce' : ''} />
+                  <span>Download All Days</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadMasterIdChart('ACTIVE_DAY')}
+                  disabled={isExporting}
+                  className="px-2 py-1 rounded text-[11px] font-bold font-mono flex items-center gap-1 transition-all bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 disabled:opacity-50"
+                  title={`Download ${selectedDay} Master ID Chart Excel`}
+                >
+                  <FileSpreadsheet size={12} />
+                  <span>{selectedDay}</span>
+                </button>
+              </div>
             </div>
           </div>
 

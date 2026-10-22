@@ -15,7 +15,11 @@
  */
 
 import { WTT_MASTER_REGISTRY } from '../data/wttMasterRegistry.js';
-import { normalizeScheduleDay, getTrainInductionsForDay } from '../data/weekdayReliefIdChartRegistry.js';
+import { 
+  normalizeScheduleDay, 
+  getTrainInductionsForDay, 
+  getTrainStablingForDay 
+} from '../data/weekdayReliefIdChartRegistry.js';
 
 // Canonical BMRCL Line 2 Station metadata
 export const LINE2_STATION_NAMES = {
@@ -176,7 +180,16 @@ export function resolveWttLocation(
     return cleanHint;
   }
 
-  // Early morning or late night depot induction fallback
+  // Midnight / Late night termination fallback (00:00 to 03:30)
+  if (targetSec <= 3.5 * 3600) {
+    const dayStablings = getTrainStablingForDay(normSchedule);
+    if (cleanTid && dayStablings?.[cleanTid]) {
+      return dayStablings[cleanTid];
+    }
+    return 'PYID Depot SBL';
+  }
+
+  // Early morning depot induction fallback (03:30 to 07:00)
   if (targetSec <= 7 * 3600) {
     const dayInductions = getTrainInductionsForDay(normSchedule);
     if (cleanTid && dayInductions?.[cleanTid]) {
@@ -204,6 +217,7 @@ export function enrichMasterIdChartWithWttLocations(
   const enriched = {};
   const normSchedule = normalizeScheduleDay(scheduleType);
   const dayInductions = getTrainInductionsForDay(normSchedule);
+  const dayStablings = getTrainStablingForDay(normSchedule);
 
   Object.entries(rawChart || {}).forEach(([tid, legs]) => {
     if (tid === 'Couns') {
@@ -217,6 +231,8 @@ export function enrichMasterIdChartWithWttLocations(
     }
 
     const enrichedLegs = [];
+    const totalLegs = (legs || []).length;
+
     (legs || []).forEach((leg, idx) => {
       const fromTime = leg.from;
       const toTime = leg.to;
@@ -225,6 +241,12 @@ export function enrichMasterIdChartWithWttLocations(
       let hintToc = leg.toc || '';
       if (idx === 0 && dayInductions?.[tid]) {
         hintToc = dayInductions[tid];
+      }
+
+      // Last leg is the night stabling
+      let hintHoc = leg.hoc || '';
+      if (idx === totalLegs - 1 && dayStablings?.[tid]) {
+        hintHoc = dayStablings[tid];
       }
 
       // Correlate Take Over Location (TOC)
@@ -241,9 +263,14 @@ export function enrichMasterIdChartWithWttLocations(
         scheduleType,
         tid,
         toTime,
-        leg.hoc || '',
+        hintHoc,
         customWttRows
       );
+
+      // For the final stabling leg, ensure canonical stabling location is locked in
+      if (idx === totalLegs - 1 && dayStablings?.[tid]) {
+        resolvedHoc = dayStablings[tid];
+      }
 
       // Ensure sequential continuity: Next leg's TOC matches current leg's HOC if same train
       if ((!leg.toc || leg.toc === '-') && idx > 0 && enrichedLegs[idx - 1]?.hoc) {
