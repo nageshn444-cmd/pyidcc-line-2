@@ -312,7 +312,12 @@ export class RosterService {
       const s = String(idStr).trim();
       if (!isPureNumericDuty(s)) return s;
       const crMatch = s.match(/^CR(?:RC)?[-\s]?(\d{1,3})$/i);
-      const num = crMatch ? parseInt(crMatch[1], 10) : parseInt(s, 10);
+      if (crMatch) {
+        const num = parseInt(crMatch[1], 10);
+        const padded = num < 10 ? '0' + num : String(num);
+        return `gcc_duty_${padded}`;
+      }
+      const num = parseInt(s, 10);
       const padded = !isNaN(num) && num < 10 ? '0' + num : String(num);
       return isNaN(num) ? s : `gcc_duty_${padded}`;
     };
@@ -322,9 +327,9 @@ export class RosterService {
     const duty1 = normalizeDutyId(ex.operator1Duty);
     const duty2 = normalizeDutyId(ex.operator2Duty);
     const duty3 = isTriple ? normalizeDutyId(ex.operator3Duty) : '';
-    const unnormDuty1 = isPureNumericDuty(ex.operator1Duty) ? String(parseInt(ex.operator1Duty, 10)) : String(ex.operator1Duty || '');
-    const unnormDuty2 = isPureNumericDuty(ex.operator2Duty) ? String(parseInt(ex.operator2Duty, 10)) : String(ex.operator2Duty || '');
-    const unnormDuty3 = isTriple && isPureNumericDuty(ex.operator3Duty) ? String(parseInt(ex.operator3Duty, 10)) : String(ex.operator3Duty || '');
+    const unnormDuty1 = isPureNumericDuty(ex.operator1Duty) ? (String(ex.operator1Duty).toUpperCase().startsWith('CR') ? String(ex.operator1Duty) : String(parseInt(ex.operator1Duty, 10))) : String(ex.operator1Duty || '');
+    const unnormDuty2 = isPureNumericDuty(ex.operator2Duty) ? (String(ex.operator2Duty).toUpperCase().startsWith('CR') ? String(ex.operator2Duty) : String(parseInt(ex.operator2Duty, 10))) : String(ex.operator2Duty || '');
+    const unnormDuty3 = isTriple && isPureNumericDuty(ex.operator3Duty) ? (String(ex.operator3Duty).toUpperCase().startsWith('CR') ? String(ex.operator3Duty) : String(parseInt(ex.operator3Duty, 10))) : String(ex.operator3Duty || '');
 
     // 1. Fetch matching deployments
     const q1 = query(collection(db, 'crew_daily_deployment'), where('dutyId', '==', duty1));

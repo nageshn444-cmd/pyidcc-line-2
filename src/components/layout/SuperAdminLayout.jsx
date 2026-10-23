@@ -58,9 +58,16 @@ const TabLoader = () => (
   </div>
 );
 
-// Normalize duty ID: "1" → "01", "9" → "09" (pure single digits only)
+// Normalize duty ID: "1" → "01", "9" → "09", "CR42" → "42", "CR01" → "01" (consider only 01-100)
 const normalizeDutyId = (id) => {
-  const s = String(id || '').trim();
+  if (id === null || id === undefined) return '';
+  const s = String(id).replace(/^(duty|d)\s*[#]*/i, '').replace(/^#/, '').trim();
+  if (!s) return '';
+  const crMatch = s.match(/^CR(?:RC)?[-\s]?(\d{1,3})$/i);
+  if (crMatch) {
+    const num = parseInt(crMatch[1], 10);
+    return num < 10 ? '0' + num : String(num);
+  }
   if (/^[1-9]$/.test(s)) return '0' + s;
   return s;
 };
@@ -562,7 +569,7 @@ export default function SuperAdminLayout({
       const candId = d.empId || d.empNo || d.operatorId || d.id || '--';
 
       if (candName) {
-        map.set(normId, {
+        const dutyPayload = {
           dutyId: normId,
           empName: candName,
           empId: candId,
@@ -577,7 +584,20 @@ export default function SuperAdminLayout({
           status: d.status || 'ACTIVE',
           rawLegs: d.rawLegs || null,
           rawRecord: d
-        });
+        };
+        map.set(normId, dutyPayload);
+
+        // Bi-directional cross-indexing for CR duties (e.g. '42' <-> 'CR42')
+        if (normId.startsWith('CR')) {
+          const plainNum = normId.replace(/^CR0?/, '');
+          const paddedPlain = plainNum.padStart(2, '0');
+          map.set(plainNum, dutyPayload);
+          map.set(paddedPlain, dutyPayload);
+        } else if (/^\d+$/.test(normId)) {
+          const num = parseInt(normId, 10);
+          const crKey = 'CR' + (num < 10 ? '0' + num : String(num));
+          map.set(crKey, dutyPayload);
+        }
       }
     };
 
@@ -635,24 +655,62 @@ export default function SuperAdminLayout({
     // If active duties exist in autoReaderDutyMap:
     // When showOnlyActiveDuties is true, strictly show ONLY active duties with train operators assigned!
     if (showOnlyActiveDuties && autoReaderDutyMap.size > 0) {
-      const matchedFromLinks = filteredLinks.filter(l => autoReaderDutyMap.has(normalizeDutyId(l.dutyId)));
-      const matchedDutyIds = new Set(matchedFromLinks.map(l => normalizeDutyId(l.dutyId)));
+      const hasInAutoReader = (dutyId) => {
+        const norm = normalizeDutyId(dutyId);
+        if (autoReaderDutyMap.has(norm)) return true;
+        const plain = norm.replace(/^CR0?/, '');
+        if (autoReaderDutyMap.has(plain) || autoReaderDutyMap.has(plain.padStart(2, '0'))) return true;
+        const crKey = 'CR' + (parseInt(plain, 10) < 10 ? '0' + parseInt(plain, 10) : parseInt(plain, 10));
+        if (autoReaderDutyMap.has(crKey)) return true;
+        return false;
+      };
+
+      const matchedFromLinks = filteredLinks.filter(l => hasInAutoReader(l.dutyId));
+      const matchedDutyKeys = new Set();
+      matchedFromLinks.forEach(l => {
+        const norm = normalizeDutyId(l.dutyId);
+        matchedDutyKeys.add(norm);
+        const plain = norm.replace(/^CR0?/, '');
+        matchedDutyKeys.add(plain);
+        matchedDutyKeys.add(plain.padStart(2, '0'));
+        const crKey = 'CR' + (parseInt(plain, 10) < 10 ? '0' + parseInt(plain, 10) : parseInt(plain, 10));
+        matchedDutyKeys.add(crKey);
+      });
+
+      const masterLinks = getMasterLinksForDay(activeDay) || [];
 
       const extraFromAutoReader = [];
       autoReaderDutyMap.forEach((arDuty, normId) => {
-        if (!matchedDutyIds.has(normId)) {
-          extraFromAutoReader.push({
-            id: `link_${String(activeDay || 'weekday').toLowerCase()}_duty_${normId}`,
-            dutyId: normId,
-            trainId: arDuty.trainId || '--',
-            signOnTime: arDuty.signOnTime || '--',
-            signOffTime: arDuty.signOffTime || '--',
-            signOnLocation: arDuty.signOnLocation || 'PYID',
-            signOffLocation: arDuty.signOffLocation || 'PYID',
-            leg1TimeFrom: arDuty.signOnTime || '--',
-            leg1HandoverLoc: arDuty.signOnLocation || 'PYID',
-            isUploaded: true
+        const plain = normId.replace(/^CR0?/, '');
+        const crKey = 'CR' + (parseInt(plain, 10) < 10 ? '0' + parseInt(plain, 10) : parseInt(plain, 10));
+        if (!matchedDutyKeys.has(normId) && !matchedDutyKeys.has(plain) && !matchedDutyKeys.has(plain.padStart(2, '0')) && !matchedDutyKeys.has(crKey)) {
+          const canon = masterLinks.find(m => {
+            const mNorm = normalizeDutyId(m.dutyId || m.dutyNo);
+            const mPlain = mNorm.replace(/^CR0?/, '');
+            return mNorm === normId || mPlain === plain || mPlain === plain.padStart(2, '0') || mNorm === crKey;
           });
+
+          if (canon) {
+            extraFromAutoReader.push({
+              ...canon,
+              id: `link_${String(activeDay || 'weekday').toLowerCase()}_duty_${canon.dutyId || normId}`,
+              dutyId: canon.dutyId || normId,
+              isUploaded: true
+            });
+          } else {
+            extraFromAutoReader.push({
+              id: `link_${String(activeDay || 'weekday').toLowerCase()}_duty_${normId}`,
+              dutyId: normId,
+              trainId: arDuty.trainId || '--',
+              signOnTime: arDuty.signOnTime || '--',
+              signOffTime: arDuty.signOffTime || '--',
+              signOnLocation: arDuty.signOnLocation || 'PYID',
+              signOffLocation: arDuty.signOffLocation || 'PYID',
+              leg1TimeFrom: arDuty.signOnTime || '--',
+              leg1HandoverLoc: arDuty.signOnLocation || 'PYID',
+              isUploaded: true
+            });
+          }
         }
       });
 
@@ -2037,10 +2095,16 @@ export default function SuperAdminLayout({
                     <tbody className="divide-y divide-slate-800/50 text-slate-350 text-center">
                       {finalRosterLinks.map((dutyRaw, idx) => {
                         const normDutyId = normalizeDutyId(dutyRaw.dutyId);
-                        const autoReaderMatch = autoReaderDutyMap.get(normDutyId);
-                        const matchedDeploy = autoReaderMatch || deployments.find(d =>
-                          normalizeDutyId(d.dutyId) === normDutyId
-                        );
+                        const plainNum = normDutyId.replace(/^CR0?/, '');
+                        const crKey = 'CR' + (parseInt(plainNum, 10) < 10 ? '0' + parseInt(plainNum, 10) : parseInt(plainNum, 10));
+                        const autoReaderMatch = autoReaderDutyMap.get(normDutyId) || 
+                                                autoReaderDutyMap.get(crKey) || 
+                                                autoReaderDutyMap.get(plainNum) || 
+                                                autoReaderDutyMap.get(plainNum.padStart(2, '0'));
+                        const matchedDeploy = autoReaderMatch || deployments.find(d => {
+                          const dNorm = normalizeDutyId(d.dutyId);
+                          return dNorm === normDutyId || dNorm === crKey || dNorm === plainNum || dNorm === plainNum.padStart(2, '0');
+                        });
                         const operatorName = (matchedDeploy?.empName && matchedDeploy.empName !== '--' && matchedDeploy.empName !== '-' && !matchedDeploy.empName.startsWith('Duty ') && !matchedDeploy.empName.startsWith('Train Operator'))
                           ? matchedDeploy.empName
                           : '--';
@@ -2048,20 +2112,25 @@ export default function SuperAdminLayout({
                           ? matchedDeploy.empId
                           : '--';
 
-                        // Filter out duty aliases like B53, B54, B59, B60, D12, etc.
+                        // Filter out duty aliases like B53, B54, B59, B60, D12, Pro1, 0433., etc.
                         const isDutyAlias = (val, dId) => {
                           if (!val || val === '--' || val === '-' || val === 'UNASSIGNED') return true;
                           const s = String(val).trim();
                           if (/^B\d+$/i.test(s)) return true;
                           if (/^D\d+$/i.test(s)) return true;
-                          if (/^CR\d+$/i.test(s)) return true;
-                          if (dId && (s === String(dId) || s === `0${dId}` || s === `B${dId}` || s === `B0${dId}`)) return true;
+                          if (/^Pro\d*$/i.test(s)) return true;
+                          if (/^0?\d{2,4}[a-z\.]?$/i.test(s) && !/^2(0[1-9]|1[0-9]|2[0-3])$/.test(s)) return true;
+                          if (dId && (s === String(dId) || s === `0${dId}` || s === `B${dId}` || s === `B0${dId}` || s === `CR${dId}`)) return true;
                           return false;
                         };
 
                         // Look up canonical master link for fallback if needed
                         const masterDayLinks = getMasterLinksForDay(activeDay) || [];
-                        const canonMatch = masterDayLinks.find(m => normalizeDutyId(m.dutyId) === normDutyId || normalizeDutyId(m.dutyNo) === normDutyId);
+                        const canonMatch = masterDayLinks.find(m => {
+                          const mNorm = normalizeDutyId(m.dutyId || m.dutyNo);
+                          const mPlain = mNorm.replace(/^CR0?/, '');
+                          return mNorm === normDutyId || mPlain === plainNum || mPlain === plainNum.padStart(2, '0') || mNorm === crKey;
+                        });
 
                         // Resolve Authentic Train ID for Leg 1
                         let resolvedTrainId = '--';
@@ -2096,13 +2165,15 @@ export default function SuperAdminLayout({
                           }
                         }
 
+                        const isCrrc = Boolean(dutyRaw.isCrrc || canonMatch?.isCrrc || /^CR/i.test(String(dutyRaw.dutyNo || dutyRaw.dutyId || '')));
                         const rowDocId = dutyRaw.id || `link_${String(activeDay || 'weekday').toLowerCase()}_duty_${normDutyId || idx}`;
                         const preDuty = {
                           ...dutyRaw,
                           id: rowDocId,
-                          dutyId: normDutyId || String(idx + 1),
+                          dutyId: canonMatch?.dutyId || normDutyId || String(idx + 1),
+                          isCrrc,
                           trainId: resolvedTrainId,
-                          leg1TrainNo: resolvedTrainId !== '--' ? resolvedTrainId : (dutyRaw.leg1TrainNo || '--'),
+                          leg1TrainNo: resolvedTrainId !== '--' ? resolvedTrainId : (dutyRaw.leg1TrainNo || canonMatch?.leg1TrainNo || '--'),
                         };
 
                         const computedLegs = computeDutyLegKms(preDuty, activeDay);
@@ -2117,29 +2188,56 @@ export default function SuperAdminLayout({
 
                         const duty = {
                           ...preDuty,
+                          dutyId: canonMatch?.dutyId || preDuty.dutyId,
                           signOnTime: (autoReaderMatch?.signOnTime && autoReaderMatch.signOnTime !== '--')
                             ? autoReaderMatch.signOnTime
-                            : dutyRaw.signOnTime,
+                            : (dutyRaw.signOnTime && dutyRaw.signOnTime !== '--' ? dutyRaw.signOnTime : canonMatch?.signOnTime || '--'),
                           signOffTime: (autoReaderMatch?.signOffTime && autoReaderMatch.signOffTime !== '--')
                             ? autoReaderMatch.signOffTime
-                            : dutyRaw.signOffTime,
+                            : (dutyRaw.signOffTime && dutyRaw.signOffTime !== '--' ? dutyRaw.signOffTime : canonMatch?.signOffTime || '--'),
                           signOnLocation: (autoReaderMatch?.signOnLocation && autoReaderMatch.signOnLocation !== '--')
                             ? autoReaderMatch.signOnLocation
-                            : (dutyRaw.signOnLocation || 'PYID'),
+                            : (dutyRaw.signOnLocation && dutyRaw.signOnLocation !== '--' ? dutyRaw.signOnLocation : canonMatch?.signOnLocation || 'PYID'),
                           signOffLocation: (autoReaderMatch?.signOffLocation && autoReaderMatch.signOffLocation !== '--')
                             ? autoReaderMatch.signOffLocation
-                            : (dutyRaw.signOffLocation || 'PYID'),
-                          leg2TrainNo: (dutyRaw.leg2TrainNo && dutyRaw.leg2TrainNo !== '--') ? dutyRaw.leg2TrainNo : (dutyRaw.followTrain || dutyRaw.followTrainNo || '--'),
-                          leg2DepLoc: (dutyRaw.leg2DepLoc && dutyRaw.leg2DepLoc !== '--') ? dutyRaw.leg2DepLoc : (dutyRaw.followTakeoverLoc || '--'),
-                          leg2DepTime: (dutyRaw.leg2DepTime && dutyRaw.leg2DepTime !== '--') ? dutyRaw.leg2DepTime : (dutyRaw.followTimeFrom || '--'),
-                          leg2ArrTime: (dutyRaw.leg2ArrTime && dutyRaw.leg2ArrTime !== '--') ? dutyRaw.leg2ArrTime : (dutyRaw.followTimeTo || dutyRaw.followArrTime || '--'),
-                          leg2TimeTo: (dutyRaw.leg2TimeTo && dutyRaw.leg2TimeTo !== '--') ? dutyRaw.leg2TimeTo : (dutyRaw.followTripTime || '--'),
-                          leg2ArrLoc: (dutyRaw.leg2ArrLoc && dutyRaw.leg2ArrLoc !== '--') ? dutyRaw.leg2ArrLoc : (dutyRaw.followHandoverLoc || '--'),
-                          leg1Km: formatCellVal(dutyRaw.leg1Km || dutyRaw.nightKms, computedLegs.leg1Km),
-                          leg2Km: formatCellVal(dutyRaw.leg2Km || dutyRaw.mornKms, computedLegs.leg2Km),
-                          leg3Km: formatCellVal(dutyRaw.leg3Km, computedLegs.leg3Km),
-                          leg4Km: formatCellVal(dutyRaw.leg4Km, computedLegs.leg4Km),
-                          totalKm: formatCellVal(dutyRaw.totalKm || dutyRaw.kms, computedLegs.totalKm),
+                            : (dutyRaw.signOffLocation && dutyRaw.signOffLocation !== '--' ? dutyRaw.signOffLocation : canonMatch?.signOffLocation || 'PYID'),
+
+                          leg1TrainNo: (dutyRaw.leg1TrainNo && dutyRaw.leg1TrainNo !== '--' && !isDutyAlias(dutyRaw.leg1TrainNo, normDutyId))
+                            ? dutyRaw.leg1TrainNo
+                            : (resolvedTrainId !== '--' ? resolvedTrainId : (canonMatch?.leg1TrainNo || '--')),
+                          leg1TimeFrom: (dutyRaw.leg1TimeFrom && dutyRaw.leg1TimeFrom !== '--') ? dutyRaw.leg1TimeFrom : (canonMatch?.leg1TimeFrom || '--'),
+                          leg1TimeTo: (dutyRaw.leg1TimeTo && dutyRaw.leg1TimeTo !== '--') ? dutyRaw.leg1TimeTo : (canonMatch?.leg1TimeTo || '--'),
+                          leg1ArrLoc: (dutyRaw.leg1ArrLoc && dutyRaw.leg1ArrLoc !== '--') ? dutyRaw.leg1ArrLoc : (canonMatch?.leg1ArrLoc || '--'),
+                          leg1HandoverLoc: (dutyRaw.leg1HandoverLoc && dutyRaw.leg1HandoverLoc !== '--') ? dutyRaw.leg1HandoverLoc : (canonMatch?.leg1HandoverLoc || '--'),
+
+                          leg2TrainNo: (dutyRaw.leg2TrainNo && dutyRaw.leg2TrainNo !== '--' && !isDutyAlias(dutyRaw.leg2TrainNo, normDutyId))
+                            ? dutyRaw.leg2TrainNo
+                            : (dutyRaw.followTrain && !isDutyAlias(dutyRaw.followTrain, normDutyId) ? dutyRaw.followTrain : (canonMatch?.leg2TrainNo || '--')),
+                          leg2DepLoc: (dutyRaw.leg2DepLoc && dutyRaw.leg2DepLoc !== '--') ? dutyRaw.leg2DepLoc : (dutyRaw.followTakeoverLoc || canonMatch?.leg2DepLoc || '--'),
+                          leg2DepTime: (dutyRaw.leg2DepTime && dutyRaw.leg2DepTime !== '--') ? dutyRaw.leg2DepTime : (dutyRaw.followTimeFrom || canonMatch?.leg2DepTime || '--'),
+                          leg2ArrTime: (dutyRaw.leg2ArrTime && dutyRaw.leg2ArrTime !== '--') ? dutyRaw.leg2ArrTime : (dutyRaw.followTimeTo || dutyRaw.followArrTime || canonMatch?.leg2ArrTime || '--'),
+                          leg2TimeTo: (dutyRaw.leg2TimeTo && dutyRaw.leg2TimeTo !== '--') ? dutyRaw.leg2TimeTo : (dutyRaw.followTripTime || canonMatch?.leg2TimeTo || '--'),
+                          leg2ArrLoc: (dutyRaw.leg2ArrLoc && dutyRaw.leg2ArrLoc !== '--') ? dutyRaw.leg2ArrLoc : (dutyRaw.followHandoverLoc || canonMatch?.leg2ArrLoc || '--'),
+
+                          leg3TrainNo: (dutyRaw.leg3TrainNo && dutyRaw.leg3TrainNo !== '--' && !isDutyAlias(dutyRaw.leg3TrainNo, normDutyId)) ? dutyRaw.leg3TrainNo : (canonMatch?.leg3TrainNo || '--'),
+                          leg3DepLoc: (dutyRaw.leg3DepLoc && dutyRaw.leg3DepLoc !== '--') ? dutyRaw.leg3DepLoc : (canonMatch?.leg3DepLoc || '--'),
+                          leg3DepTime: (dutyRaw.leg3DepTime && dutyRaw.leg3DepTime !== '--') ? dutyRaw.leg3DepTime : (canonMatch?.leg3DepTime || '--'),
+                          leg3ArrTime: (dutyRaw.leg3ArrTime && dutyRaw.leg3ArrTime !== '--') ? dutyRaw.leg3ArrTime : (canonMatch?.leg3ArrTime || '--'),
+                          leg3TimeTo: (dutyRaw.leg3TimeTo && dutyRaw.leg3TimeTo !== '--') ? dutyRaw.leg3TimeTo : (canonMatch?.leg3TimeTo || '--'),
+                          leg3ArrLoc: (dutyRaw.leg3ArrLoc && dutyRaw.leg3ArrLoc !== '--') ? dutyRaw.leg3ArrLoc : (canonMatch?.leg3ArrLoc || '--'),
+
+                          leg4TrainNo: (dutyRaw.leg4TrainNo && dutyRaw.leg4TrainNo !== '--' && !isDutyAlias(dutyRaw.leg4TrainNo, normDutyId)) ? dutyRaw.leg4TrainNo : (canonMatch?.leg4TrainNo || '--'),
+                          leg4DepLoc: (dutyRaw.leg4DepLoc && dutyRaw.leg4DepLoc !== '--') ? dutyRaw.leg4DepLoc : (canonMatch?.leg4DepLoc || '--'),
+                          leg4FinalDepTime: (dutyRaw.leg4FinalDepTime && dutyRaw.leg4FinalDepTime !== '--') ? dutyRaw.leg4FinalDepTime : (canonMatch?.leg4FinalDepTime || '--'),
+                          leg4FinalArrTime: (dutyRaw.leg4FinalArrTime && dutyRaw.leg4FinalArrTime !== '--') ? dutyRaw.leg4FinalArrTime : (canonMatch?.leg4FinalArrTime || '--'),
+                          leg4TimeTo: (dutyRaw.leg4TimeTo && dutyRaw.leg4TimeTo !== '--') ? dutyRaw.leg4TimeTo : (canonMatch?.leg4TimeTo || '--'),
+                          leg4FinalArrLoc: (dutyRaw.leg4FinalArrLoc && dutyRaw.leg4FinalArrLoc !== '--') ? dutyRaw.leg4FinalArrLoc : (canonMatch?.leg4FinalArrLoc || '--'),
+
+                          leg1Km: formatCellVal(dutyRaw.leg1Km || dutyRaw.nightKms || canonMatch?.leg1Km, computedLegs.leg1Km),
+                          leg2Km: formatCellVal(dutyRaw.leg2Km || dutyRaw.mornKms || canonMatch?.leg2Km, computedLegs.leg2Km),
+                          leg3Km: formatCellVal(dutyRaw.leg3Km || canonMatch?.leg3Km, computedLegs.leg3Km),
+                          leg4Km: formatCellVal(dutyRaw.leg4Km || canonMatch?.leg4Km, computedLegs.leg4Km),
+                          totalKm: formatCellVal(dutyRaw.totalKm || dutyRaw.kms || canonMatch?.totalKm, computedLegs.totalKm),
                         };
                         const rowBgClass = idx % 2 === 0 ? "bg-slate-900" : "bg-slate-950/40";
                         const stickyDutyBgClass = idx % 2 === 0 ? "bg-slate-900" : "bg-slate-950";
@@ -2329,7 +2427,14 @@ export default function SuperAdminLayout({
                                 </div>
                               </td>
                             )}
-                            <td className={`py-2 px-2 text-center border-r border-slate-800 font-bold text-blue-400 sticky ${isTrainOperator ? 'left-0' : 'left-[60px]'} z-20 shadow-sm w-[80px] min-w-[80px] max-w-[80px] ${stickyDutyBgClass}`}>{duty.dutyId}</td>
+                            <td className={`py-2 px-2 text-center border-r border-slate-800 font-bold text-blue-400 sticky ${isTrainOperator ? 'left-0' : 'left-[60px]'} z-20 shadow-sm w-[80px] min-w-[80px] max-w-[80px] ${stickyDutyBgClass}`}>
+                              <div>{duty.dutyId}</div>
+                              {duty.isCrrc && (
+                                <span className="inline-block text-[8px] font-sans font-bold text-purple-300 bg-purple-950/60 border border-purple-500/40 px-1 rounded mt-0.5 tracking-wider">
+                                  CRRC
+                                </span>
+                              )}
+                            </td>
                             <td className={`py-2 px-2 text-center border-r border-slate-800 sticky ${isTrainOperator ? 'left-[80px]' : 'left-[140px]'} z-20 shadow-sm w-[150px] min-w-[150px] max-w-[150px] ${stickyDutyBgClass} relative group ${matchedDeploy?.isExchanged ? 'bg-yellow-500/10 border-l border-r border-yellow-500/20' : ''}`}>
                               <div className="font-bold text-emerald-400 text-[11px] truncate max-w-[140px]">{operatorName}</div>
                               {operatorId && operatorId !== '--' && (

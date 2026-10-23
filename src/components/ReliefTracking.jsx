@@ -36,7 +36,9 @@ import {
   buildMasterIdChartFromDutyRoster,
   buildHandoverCardsFromMasterIdChart,
   getCleanLinksForDay,
-  linkMatchesScheduleDay
+  linkMatchesScheduleDay,
+  isScheduleDayErased,
+  isWttScheduleErased
 } from '../data/weekdayReliefIdChartRegistry';
 import { enrichMasterIdChartWithWttLocations } from '../services/wttLocationResolverEngine.js';
 import { exportMasterIdChartToExcel } from '../services/masterIdChartExportService.js';
@@ -261,11 +263,9 @@ export default function ReliefTracking({
   useEffect(() => {
     // A. Real-time Firestore listener on 'crew_final_links'
     const unsub = onSnapshot(collection(db, 'crew_final_links'), (snap) => {
-      if (!snap.empty) {
-        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        setLiveFirestoreLinks(docs);
-        setLinkUpdateTrigger(prev => prev + 1);
-      }
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setLiveFirestoreLinks(docs);
+      setLinkUpdateTrigger(prev => prev + 1);
     }, (err) => {
       console.warn('ReliefTracking crew_final_links subscription:', err);
     });
@@ -273,16 +273,17 @@ export default function ReliefTracking({
     // B. Window event listener for link roster updates (uploads, cell edits, resets)
     const handleLinkUpdate = (e) => {
       setLinkUpdateTrigger(prev => prev + 1);
-      if (e?.detail?.duties && Array.isArray(e.detail.duties)) {
+      const sType = normalizeScheduleDay(e?.detail?.scheduleType || selectedDay || 'WEEKDAY');
+      if (e?.detail?.erased || e?.detail?.cleared) {
+        setLiveFirestoreLinks(prev => prev.filter(p => normalizeScheduleDay(p.scheduleType) !== sType));
+      } else if (e?.detail?.duties && Array.isArray(e.detail.duties)) {
         setLiveFirestoreLinks(prev => {
-          const sType = normalizeScheduleDay(e.detail.scheduleType || selectedDay || 'WEEKDAY');
           const remaining = prev.filter(p => normalizeScheduleDay(p.scheduleType) !== sType);
           return [...remaining, ...e.detail.duties];
         });
       } else if (e?.detail?.rowId && e?.detail?.fieldName) {
         setLiveFirestoreLinks(prev => {
-          const sType = normalizeScheduleDay(e.detail.scheduleType || selectedDay || 'WEEKDAY');
-          const baseList = prev.length > 0 ? prev : getMasterLinksForDay(sType);
+          const baseList = prev.length > 0 ? prev : (isScheduleDayErased(sType) ? [] : getMasterLinksForDay(sType));
           const found = baseList.some(l => l.id === e.detail.rowId || l.dutyId === e.detail.rowId || normalizeDutyId(l.dutyId) === normalizeDutyId(e.detail.rowId));
           if (!found) {
             return [...baseList, { id: e.detail.rowId, dutyId: e.detail.rowId, [e.detail.fieldName]: e.detail.value, scheduleType: sType }];
@@ -316,6 +317,11 @@ export default function ReliefTracking({
   // ── 1. AUTHORITATIVE LINK ROSTER (RESPECTIVE DAY) ──
   // Priority: liveFirestoreLinks from crew_final_links / live edits ➔ linkRoster prop ➔ allLinks prop ➔ canonical master
   const activeLinkRoster = useMemo(() => {
+    // 0. If schedule day is explicitly cleared or erased, return empty array immediately
+    if (isScheduleDayErased(selectedDay)) {
+      return [];
+    }
+
     // 1. Check liveFirestoreLinks from real-time crew_final_links (highest priority: latest uploaded or edited)
     const fromFirestore = getCleanLinksForDay(liveFirestoreLinks, selectedDay);
     if (fromFirestore.length > 0) return fromFirestore;
@@ -328,7 +334,17 @@ export default function ReliefTracking({
     const fromAll = getCleanLinksForDay(allLinks, selectedDay);
     if (fromAll.length > 0) return fromAll;
 
-    // 4. Fallback to canonical master registry
+    // If liveFirestoreLinks has records for other days, but none for selectedDay, selectedDay is empty
+    if (liveFirestoreLinks.length > 0) {
+      return [];
+    }
+
+    // If linkRoster or allLinks prop was provided as array, do not fall back to canonical mock
+    if ((Array.isArray(linkRoster) && linkRoster.length > 0) || (Array.isArray(allLinks) && allLinks.length > 0)) {
+      return [];
+    }
+
+    // 4. Fallback to canonical master registry only if completely pristine
     return getMasterLinksForDay(selectedDay);
   }, [linkRoster, allLinks, liveFirestoreLinks, selectedDay, linkUpdateTrigger]);
 
@@ -356,13 +372,13 @@ export default function ReliefTracking({
       legs.meta = dr.meta;
       res[key] = legs;
     });
-    return Object.keys(res).length > 0 ? res : activeDutyLegs;
-  }, [dynamicDutyRoster, activeDutyLegs]);
+    return res;
+  }, [dynamicDutyRoster]);
 
   // ── 3. MASTER ID CHART (FOLLOWS DUTY ROSTER & CORRELATED WTT) ──
   // Inverts duty legs into train-centric shift sequences with exact Station Code + Line + Platform from WTT
   const dynamicMasterIdChart = useMemo(() => {
-    const baseChart = buildMasterIdChartFromDutyRoster(dynamicDutyRoster, activeChart);
+    const baseChart = buildMasterIdChartFromDutyRoster(dynamicDutyRoster, activeChart, selectedDay);
     return enrichMasterIdChartWithWttLocations(baseChart, selectedDay);
   }, [dynamicDutyRoster, activeChart, selectedDay, linkUpdateTrigger]);
 
@@ -376,8 +392,11 @@ export default function ReliefTracking({
         return a.localeCompare(b, undefined, { numeric: true });
       });
     }
+    if (isScheduleDayErased(selectedDay) || activeLinkRoster.length === 0) {
+      return [];
+    }
     return activeMeta.trains || Object.keys(activeChart);
-  }, [dynamicMasterIdChart, activeMeta, activeChart]);
+  }, [dynamicMasterIdChart, activeMeta, activeChart, selectedDay, activeLinkRoster]);
 
   const trainColumns = useMemo(() => {
     if (fleetScope === 'ALL_FLEET') {
@@ -672,7 +691,7 @@ export default function ReliefTracking({
               </span>
               <span className="px-2 py-0.5 rounded-full bg-blue-950 text-blue-300 border border-blue-700/60 text-[9px] font-black uppercase font-mono flex items-center gap-1">
                 <Sparkles size={10} className="text-blue-400" />
-                MASTER ID CHART ({Object.keys(dynamicDutyRoster).length || activeMeta.dutyCount || 79} DUTIES • {trainColumns.length} TRAINS)
+                MASTER ID CHART ({Object.keys(dynamicDutyLegs).length} DUTIES • {trainColumns.length} TRAINS)
               </span>
               <span className="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700/60 text-[9px] font-black uppercase font-mono flex items-center gap-1">
                 <ShieldCheck size={11} className="text-emerald-400" />
@@ -806,25 +825,43 @@ export default function ReliefTracking({
           </span>
           <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
             {[
-              { id: 'WEEKDAY', label: 'WEEKDAY', duties: '79' },
-              { id: 'MONDAY', label: 'MONDAY', duties: '80' },
-              { id: 'SATURDAY', label: 'SATURDAY', duties: '74' },
-              { id: 'GH', label: 'GH (HOLIDAY)', duties: '74' },
-              { id: 'SUNDAY', label: 'SUNDAY', duties: '65' }
-            ].map(day => (
-              <button
-                key={day.id}
-                type="button"
-                onClick={() => handleSelectScheduleDay(day.id)}
-                className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all ${
-                  selectedDay === day.id
-                    ? 'bg-cyan-500 text-slate-950 font-black shadow-sm'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                {day.label} <span className="text-[9px] opacity-75">({day.duties})</span>
-              </button>
-            ))}
+              { id: 'WEEKDAY', label: 'WEEKDAY', defaultCount: 79 },
+              { id: 'MONDAY', label: 'MONDAY', defaultCount: 80 },
+              { id: 'SATURDAY', label: 'SATURDAY', defaultCount: 74 },
+              { id: 'GH', label: 'GH (HOLIDAY)', defaultCount: 74 },
+              { id: 'SUNDAY', label: 'SUNDAY', defaultCount: 65 }
+            ].map(day => {
+              let dutyCount = 0;
+              if (isScheduleDayErased(day.id)) {
+                dutyCount = 0;
+              } else if (selectedDay === day.id) {
+                dutyCount = Object.keys(dynamicDutyLegs).length;
+              } else {
+                const fsLinks = getCleanLinksForDay(liveFirestoreLinks, day.id);
+                if (fsLinks.length > 0) {
+                  dutyCount = fsLinks.length;
+                } else if (liveFirestoreLinks.length > 0) {
+                  dutyCount = 0;
+                } else {
+                  dutyCount = day.defaultCount;
+                }
+              }
+
+              return (
+                <button
+                  key={day.id}
+                  type="button"
+                  onClick={() => handleSelectScheduleDay(day.id)}
+                  className={`px-2.5 py-1 rounded text-[11px] font-bold font-mono transition-all ${
+                    selectedDay === day.id
+                      ? 'bg-cyan-500 text-slate-950 font-black shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {day.label} <span className="text-[9px] opacity-75">({dutyCount})</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -881,7 +918,12 @@ export default function ReliefTracking({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 max-h-90 overflow-y-auto pr-1 custom-scrollbar">
+          {continuityAudit.length === 0 ? (
+            <div className="p-6 text-center text-slate-500 text-xs italic">
+              No trains scheduled for {selectedDay}. Upload a new {selectedDay} Link Roster to run the continuity audit.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 max-h-90 overflow-y-auto pr-1 custom-scrollbar">
             {continuityAudit.map(audit => (
               <div 
                 key={`audit-${audit.trainId}`}
@@ -953,7 +995,8 @@ export default function ReliefTracking({
                 )}
               </div>
             ))}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1245,8 +1288,14 @@ export default function ReliefTracking({
             );
           })}
           {finalTrackingKeys.length === 0 && (
-            <div className="col-span-full py-16 text-center text-slate-500 border border-dashed border-slate-800 rounded-xl italic font-bold">
-              No active or relief operators match query parameters.
+            <div className="col-span-full py-16 text-center text-slate-500 border border-dashed border-slate-800 rounded-xl flex flex-col items-center justify-center p-6 space-y-2">
+              <LayoutGrid className="h-8 w-8 text-slate-600 mb-1" />
+              <p className="text-sm font-bold text-slate-300">No Handover Cards for {selectedDay}</p>
+              <p className="text-xs text-slate-500 max-w-md">
+                {isScheduleDayErased(selectedDay) || activeLinkRoster.length === 0
+                  ? `The ${selectedDay} link roster is cleared (0 duties). Upload a new ${selectedDay} Link Roster in the Link Roster tab to automatically populate Handover Cards.`
+                  : 'No active or relief operators match query parameters.'}
+              </p>
             </div>
           )}
         </div>
@@ -1308,163 +1357,175 @@ export default function ReliefTracking({
           </div>
 
           {/* Master Grid Table (Horizontally Scrollable) */}
-          <div className="border border-slate-800 rounded-xl overflow-x-auto max-h-160 custom-scrollbar bg-slate-950">
-            <table className="w-full text-left text-xs font-mono border-collapse">
-              <thead className="sticky top-0 z-20 bg-slate-900 border-b border-slate-800">
-                <tr>
-                  {filteredIdChartColumns.map(trainId => (
-                    <th key={`hdr-${trainId}`} colSpan={5} className="p-2 text-center border-r border-slate-800 bg-slate-900">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <Train size={12} className="text-cyan-400" />
-                        <span className="font-black text-white text-xs tracking-wider">{trainId}</span>
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-                <tr className="bg-slate-950/80 text-[10px] text-slate-400 uppercase tracking-wider border-b border-slate-800 font-bold">
-                  {filteredIdChartColumns.map(trainId => (
-                    <React.Fragment key={`sub-${trainId}`}>
-                      <th className="py-1 px-1 text-center text-amber-400 w-12 border-r border-slate-800/40">Duty</th>
-                      <th className="py-1 px-1.5 text-center text-emerald-400/90 w-24 border-r border-slate-800/40">TOC</th>
-                      <th className="py-1 px-1 text-center text-slate-400 w-12 border-r border-slate-800/40">From</th>
-                      <th className="py-1 px-1 text-center text-slate-400 w-12 border-r border-slate-800/40">To</th>
-                      <th className="py-1 px-1.5 text-center text-cyan-300 w-20 border-r border-slate-800">HOC</th>
-                    </React.Fragment>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {Array.from({ length: maxRowsInChart }).map((_, rowIndex) => {
-                  return (
-                    <tr key={`row-${rowIndex}`} className="border-b border-slate-900/80 hover:bg-slate-900/40 transition-colors">
-                      {filteredIdChartColumns.map(trainId => {
-                        const legs = dynamicMasterIdChart[trainId] || dynamicMasterIdChart[normalizeTrackTrainId(trainId)] || [];
-                        const leg = legs[rowIndex];
+          {filteredIdChartColumns.length === 0 ? (
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-10 text-center flex flex-col items-center justify-center space-y-2">
+              <Table className="h-8 w-8 text-slate-600 mb-1" />
+              <p className="text-sm font-bold text-slate-300">No Shift Legs for {selectedDay} Master ID Chart</p>
+              <p className="text-xs text-slate-500 max-w-md">
+                {isScheduleDayErased(selectedDay) || activeLinkRoster.length === 0
+                  ? `The ${selectedDay} link roster is cleared (0 duties). Upload a new ${selectedDay} Link Roster to automatically populate train shift columns.`
+                  : 'No train columns match the current filter selection.'}
+              </p>
+            </div>
+          ) : (
+            <div className="border border-slate-800 rounded-xl overflow-x-auto max-h-160 custom-scrollbar bg-slate-950">
+              <table className="w-full text-left text-xs font-mono border-collapse">
+                <thead className="sticky top-0 z-20 bg-slate-900 border-b border-slate-800">
+                  <tr>
+                    {filteredIdChartColumns.map(trainId => (
+                      <th key={`hdr-${trainId}`} colSpan={5} className="p-2 text-center border-r border-slate-800 bg-slate-900">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <Train size={12} className="text-cyan-400" />
+                          <span className="font-black text-white text-xs tracking-wider">{trainId}</span>
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                  <tr className="bg-slate-950/80 text-[10px] text-slate-400 uppercase tracking-wider border-b border-slate-800 font-bold">
+                    {filteredIdChartColumns.map(trainId => (
+                      <React.Fragment key={`sub-${trainId}`}>
+                        <th className="py-1 px-1 text-center text-amber-400 w-12 border-r border-slate-800/40">Duty</th>
+                        <th className="py-1 px-1.5 text-center text-emerald-400/90 w-24 border-r border-slate-800/40">TOC</th>
+                        <th className="py-1 px-1 text-center text-slate-400 w-12 border-r border-slate-800/40">From</th>
+                        <th className="py-1 px-1 text-center text-slate-400 w-12 border-r border-slate-800/40">To</th>
+                        <th className="py-1 px-1.5 text-center text-cyan-300 w-20 border-r border-slate-800">HOC</th>
+                      </React.Fragment>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from({ length: maxRowsInChart }).map((_, rowIndex) => {
+                    return (
+                      <tr key={`row-${rowIndex}`} className="border-b border-slate-900/80 hover:bg-slate-900/40 transition-colors">
+                        {filteredIdChartColumns.map(trainId => {
+                          const legs = dynamicMasterIdChart[trainId] || dynamicMasterIdChart[normalizeTrackTrainId(trainId)] || [];
+                          const leg = legs[rowIndex];
 
-                        if (!leg) {
+                          if (!leg) {
+                            return (
+                              <React.Fragment key={`cell-${trainId}-${rowIndex}`}>
+                                <td className="py-1.5 px-1 text-center text-slate-700 border-r border-slate-800/30">-</td>
+                                <td className="py-1.5 px-1 text-center text-slate-700 border-r border-slate-800/30">-</td>
+                                <td className="py-1.5 px-1 text-center text-slate-700 border-r border-slate-800/30">-</td>
+                                <td className="py-1.5 px-1 text-center text-slate-700 border-r border-slate-800/30">-</td>
+                                <td className="py-1.5 px-1 text-center text-slate-700 border-r border-slate-800">-</td>
+                              </React.Fragment>
+                            );
+                          }
+
+                          const startSec = timeStringToSeconds(leg.from);
+                          let endSec = timeStringToSeconds(leg.to);
+                          if (endSec < startSec) endSec += 24 * 3600;
+
+                          const isActiveNow = currentTimeSecs >= startSec && currentTimeSecs <= endSec;
+                          const normDuty = String(leg.duty || leg.dutyId).padStart(2, '0');
+                          const isDutyMatched = dutySearch && normDuty.includes(dutySearch.trim().replace(/^d/i, ''));
+
+                          const dispatchOp = dispatchDutyOperatorMap[normDuty];
+                          const tracking = effectiveLiveTrackingMap[trainId] || effectiveLiveTrackingMap[normalizeTrackTrainId(trainId)];
+                          const matchedOp = (tracking?.current?.dutyId === normDuty) ? tracking.current
+                                          : (tracking?.nextReliver?.dutyId === normDuty) ? tracking.nextReliver
+                                          : (tracking?.previous?.dutyId === normDuty) ? tracking.previous
+                                          : null;
+                          const defaultRosterOp = getOperatorForDuty(normDuty);
+
+                          const dynamicRosterItem = dynamicDutyRoster[normDuty];
+                          const legEmpName = leg.empName || dynamicRosterItem?.assignedOperator?.empName;
+                          const legEmpId = leg.empId || dynamicRosterItem?.assignedOperator?.empId;
+
+                          const opDisplayName = dispatchOp?.empName
+                            || (matchedOp?.empName && matchedOp.empName !== '--' && !matchedOp.empName.startsWith('Train Operator') && !matchedOp.empName.startsWith('Duty ') ? matchedOp.empName : null)
+                            || (legEmpName && legEmpName !== '--' && !legEmpName.startsWith('Duty ') ? legEmpName : null)
+                            || defaultRosterOp?.empName
+                            || '';
+                          const opDisplayId = dispatchOp?.empId
+                            || (matchedOp?.empId && matchedOp.empId !== '--' ? matchedOp.empId : null)
+                            || (legEmpId && legEmpId !== '--' ? legEmpId : null)
+                            || defaultRosterOp?.empId
+                            || '';
+
                           return (
                             <React.Fragment key={`cell-${trainId}-${rowIndex}`}>
-                              <td className="py-1.5 px-1 text-center text-slate-700 border-r border-slate-800/30">-</td>
-                              <td className="py-1.5 px-1 text-center text-slate-700 border-r border-slate-800/30">-</td>
-                              <td className="py-1.5 px-1 text-center text-slate-700 border-r border-slate-800/30">-</td>
-                              <td className="py-1.5 px-1 text-center text-slate-700 border-r border-slate-800/30">-</td>
-                              <td className="py-1.5 px-1 text-center text-slate-700 border-r border-slate-800">-</td>
+                              {/* 1. DUTY */}
+                              <td 
+                                onDoubleClick={() => handleOpenDutyEdit(leg.duty || leg.dutyId)}
+                                className={`py-1.5 px-1 text-center border-r border-slate-800/40 cursor-pointer transition-colors hover:bg-cyan-900/40 ${
+                                  isActiveNow 
+                                    ? 'bg-emerald-950/80 text-emerald-300 font-black' 
+                                    : isDutyMatched
+                                    ? 'bg-cyan-950 text-cyan-300 font-black'
+                                    : 'text-amber-400 font-black'
+                                }`} 
+                                title={opDisplayName ? `Operator: ${opDisplayName} (${opDisplayId}) • Double-click to edit Duty ${leg.duty || leg.dutyId}` : `Duty ${leg.duty || leg.dutyId} • Double-click to edit`}
+                              >
+                                <div className="flex flex-col items-center">
+                                  <span className="text-[11px] leading-tight font-black">
+                                    {leg.duty || leg.dutyId}
+                                  </span>
+                                  {isActiveNow && (
+                                    <span className="text-[7px] uppercase tracking-tighter text-emerald-400 font-black flex items-center gap-0.5">
+                                      <span className="h-1 w-1 rounded-full bg-emerald-400 animate-ping"></span> LIVE
+                                    </span>
+                                  )}
+                                  {opDisplayName && (
+                                    <span className="text-[7.5px] text-slate-300 truncate max-w-12" title={`${opDisplayName} (${opDisplayId})`}>
+                                      {opDisplayName.split(' ')[0]}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* 2. TOC (Takeover Location) */}
+                              <td 
+                                className={`py-1.5 px-1.5 text-center text-[9px] font-bold border-r border-slate-800/40 whitespace-nowrap ${
+                                  leg.toc ? 'text-emerald-400/90 font-bold' : 'text-slate-650'
+                                } ${isActiveNow ? 'bg-emerald-950/60' : ''}`}
+                                title={leg.toc ? `Takeover Location: ${leg.toc}` : 'Standard TOC / Not Specified'}
+                              >
+                                {leg.toc || '-'}
+                              </td>
+
+                              {/* 3. FROM */}
+                              <td 
+                                onDoubleClick={() => handleOpenDutyEdit(leg.duty || leg.dutyId)}
+                                className={`py-1.5 px-1 text-center text-[10px] font-mono font-bold border-r border-slate-800/40 cursor-pointer transition-colors hover:bg-slate-800/80 whitespace-nowrap ${
+                                  isActiveNow ? 'bg-emerald-950/60 text-emerald-300 font-black' : 'text-slate-300'
+                                }`}
+                                title="Double-click to quick-edit duty in roster"
+                              >
+                                {leg.from || '-'}
+                              </td>
+
+                              {/* 4. TO */}
+                              <td 
+                                onDoubleClick={() => handleOpenDutyEdit(leg.duty || leg.dutyId)}
+                                className={`py-1.5 px-1 text-center text-[10px] font-mono font-bold border-r border-slate-800/40 cursor-pointer transition-colors hover:bg-slate-800/80 whitespace-nowrap ${
+                                  isActiveNow ? 'bg-emerald-950/60 text-emerald-300 font-black' : 'text-slate-300'
+                                }`}
+                                title="Double-click to quick-edit duty in roster"
+                              >
+                                {leg.to || '-'}
+                              </td>
+
+                              {/* 5. HOC (Handover Location) */}
+                              <td 
+                                className={`py-1.5 px-1.5 text-center text-[9px] font-bold border-r border-slate-800 whitespace-nowrap ${
+                                  leg.hoc ? 'text-cyan-300/90 font-bold' : 'text-slate-650'
+                                } ${isActiveNow ? 'bg-emerald-950/60' : ''}`}
+                                title={leg.hoc ? `Handover Location: ${leg.hoc}` : 'Standard HOC / Not Specified'}
+                              >
+                                {leg.hoc || '-'}
+                              </td>
                             </React.Fragment>
                           );
-                        }
-
-                        const startSec = timeStringToSeconds(leg.from);
-                        let endSec = timeStringToSeconds(leg.to);
-                        if (endSec < startSec) endSec += 24 * 3600;
-
-                        const isActiveNow = currentTimeSecs >= startSec && currentTimeSecs <= endSec;
-                        const normDuty = String(leg.duty || leg.dutyId).padStart(2, '0');
-                        const isDutyMatched = dutySearch && normDuty.includes(dutySearch.trim().replace(/^d/i, ''));
-
-                        const dispatchOp = dispatchDutyOperatorMap[normDuty];
-                        const tracking = effectiveLiveTrackingMap[trainId] || effectiveLiveTrackingMap[normalizeTrackTrainId(trainId)];
-                        const matchedOp = (tracking?.current?.dutyId === normDuty) ? tracking.current
-                                        : (tracking?.nextReliver?.dutyId === normDuty) ? tracking.nextReliver
-                                        : (tracking?.previous?.dutyId === normDuty) ? tracking.previous
-                                        : null;
-                        const defaultRosterOp = getOperatorForDuty(normDuty);
-
-                        const dynamicRosterItem = dynamicDutyRoster[normDuty];
-                        const legEmpName = leg.empName || dynamicRosterItem?.assignedOperator?.empName;
-                        const legEmpId = leg.empId || dynamicRosterItem?.assignedOperator?.empId;
-
-                        const opDisplayName = dispatchOp?.empName
-                          || (matchedOp?.empName && matchedOp.empName !== '--' && !matchedOp.empName.startsWith('Train Operator') && !matchedOp.empName.startsWith('Duty ') ? matchedOp.empName : null)
-                          || (legEmpName && legEmpName !== '--' && !legEmpName.startsWith('Duty ') ? legEmpName : null)
-                          || defaultRosterOp?.empName
-                          || '';
-                        const opDisplayId = dispatchOp?.empId
-                          || (matchedOp?.empId && matchedOp.empId !== '--' ? matchedOp.empId : null)
-                          || (legEmpId && legEmpId !== '--' ? legEmpId : null)
-                          || defaultRosterOp?.empId
-                          || '';
-
-                        return (
-                          <React.Fragment key={`cell-${trainId}-${rowIndex}`}>
-                            {/* 1. DUTY */}
-                            <td 
-                              onDoubleClick={() => handleOpenDutyEdit(leg.duty || leg.dutyId)}
-                              className={`py-1.5 px-1 text-center border-r border-slate-800/40 cursor-pointer transition-colors hover:bg-cyan-900/40 ${
-                                isActiveNow 
-                                  ? 'bg-emerald-950/80 text-emerald-300 font-black' 
-                                  : isDutyMatched
-                                  ? 'bg-cyan-950 text-cyan-300 font-black'
-                                  : 'text-amber-400 font-black'
-                              }`} 
-                              title={opDisplayName ? `Operator: ${opDisplayName} (${opDisplayId}) • Double-click to edit Duty ${leg.duty || leg.dutyId}` : `Duty ${leg.duty || leg.dutyId} • Double-click to edit`}
-                            >
-                              <div className="flex flex-col items-center">
-                                <span className="text-[11px] leading-tight font-black">
-                                  {leg.duty || leg.dutyId}
-                                </span>
-                                {isActiveNow && (
-                                  <span className="text-[7px] uppercase tracking-tighter text-emerald-400 font-black flex items-center gap-0.5">
-                                    <span className="h-1 w-1 rounded-full bg-emerald-400 animate-ping"></span> LIVE
-                                  </span>
-                                )}
-                                {opDisplayName && (
-                                  <span className="text-[7.5px] text-slate-300 truncate max-w-12" title={`${opDisplayName} (${opDisplayId})`}>
-                                    {opDisplayName.split(' ')[0]}
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-
-                            {/* 2. TOC (Takeover Location) */}
-                            <td 
-                              className={`py-1.5 px-1.5 text-center text-[9px] font-bold border-r border-slate-800/40 whitespace-nowrap ${
-                                leg.toc ? 'text-emerald-400/90 font-bold' : 'text-slate-650'
-                              } ${isActiveNow ? 'bg-emerald-950/60' : ''}`}
-                              title={leg.toc ? `Takeover Location: ${leg.toc}` : 'Standard TOC / Not Specified'}
-                            >
-                              {leg.toc || '-'}
-                            </td>
-
-                            {/* 3. FROM */}
-                            <td 
-                              onDoubleClick={() => handleOpenDutyEdit(leg.duty || leg.dutyId)}
-                              className={`py-1.5 px-1 text-center text-[10px] font-mono font-bold border-r border-slate-800/40 cursor-pointer transition-colors hover:bg-slate-800/80 whitespace-nowrap ${
-                                isActiveNow ? 'bg-emerald-950/60 text-emerald-300 font-black' : 'text-slate-300'
-                              }`}
-                              title="Double-click to quick-edit duty in roster"
-                            >
-                              {leg.from || '-'}
-                            </td>
-
-                            {/* 4. TO */}
-                            <td 
-                              onDoubleClick={() => handleOpenDutyEdit(leg.duty || leg.dutyId)}
-                              className={`py-1.5 px-1 text-center text-[10px] font-mono font-bold border-r border-slate-800/40 cursor-pointer transition-colors hover:bg-slate-800/80 whitespace-nowrap ${
-                                isActiveNow ? 'bg-emerald-950/60 text-emerald-300 font-black' : 'text-slate-300'
-                              }`}
-                              title="Double-click to quick-edit duty in roster"
-                            >
-                              {leg.to || '-'}
-                            </td>
-
-                            {/* 5. HOC (Handover Location) */}
-                            <td 
-                              className={`py-1.5 px-1.5 text-center text-[9px] font-bold border-r border-slate-800 whitespace-nowrap ${
-                                leg.hoc ? 'text-cyan-300/90 font-bold' : 'text-slate-650'
-                              } ${isActiveNow ? 'bg-emerald-950/60' : ''}`}
-                              title={leg.hoc ? `Handover Location: ${leg.hoc}` : 'Standard HOC / Not Specified'}
-                            >
-                              {leg.hoc || '-'}
-                            </td>
-                          </React.Fragment>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -1487,166 +1548,176 @@ export default function ReliefTracking({
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-h-160 overflow-y-auto pr-1 custom-scrollbar">
-            {Object.keys(dynamicDutyLegs).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map(dutyNo => {
-              const legs = dynamicDutyLegs[dutyNo] || [];
-              const normD = dutyNo.padStart(2, '0');
-              const cleanDutyQuery = dutySearch.trim().toLowerCase().replace(/^d/i, '');
-              const matchesDuty = !cleanDutyQuery || 
-                dutyNo.toLowerCase().includes(cleanDutyQuery) || 
-                normD.includes(cleanDutyQuery) ||
-                String(parseInt(dutyNo, 10)).includes(cleanDutyQuery);
+          {Object.keys(dynamicDutyLegs).length === 0 ? (
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-10 text-center flex flex-col items-center justify-center space-y-2">
+              <Layers className="h-8 w-8 text-slate-600 mb-1" />
+              <p className="text-sm font-bold text-slate-300">No Duties Scheduled for {selectedDay}</p>
+              <p className="text-xs text-slate-500 max-w-md">
+                The {selectedDay} link roster is cleared (0 duties). Upload a new {selectedDay} Link Roster in the Link Roster tab to automatically synchronize this Duty Roster.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-h-160 overflow-y-auto pr-1 custom-scrollbar">
+              {Object.keys(dynamicDutyLegs).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map(dutyNo => {
+                const legs = dynamicDutyLegs[dutyNo] || [];
+                const normD = dutyNo.padStart(2, '0');
+                const cleanDutyQuery = dutySearch.trim().toLowerCase().replace(/^d/i, '');
+                const matchesDuty = !cleanDutyQuery || 
+                  dutyNo.toLowerCase().includes(cleanDutyQuery) || 
+                  normD.includes(cleanDutyQuery) ||
+                  String(parseInt(dutyNo, 10)).includes(cleanDutyQuery);
 
-              if (!matchesDuty) return null;
+                if (!matchesDuty) return null;
 
-              const activeLeg = legs.find(l => currentTimeSecs >= l.startSec && currentTimeSecs <= l.endSec);
-              const meta = legs.meta;
+                const activeLeg = legs.find(l => currentTimeSecs >= l.startSec && currentTimeSecs <= l.endSec);
+                const meta = legs.meta;
 
-              const dispatchOp = dispatchDutyOperatorMap[normD];
-              const defaultRosterOp = getOperatorForDuty(normD);
-              const liveOpMatch = Object.values(effectiveLiveTrackingMap).find(t => 
-                t.current?.dutyId === normD || t.nextReliver?.dutyId === normD || t.previous?.dutyId === normD
-              );
-              const liveOp = liveOpMatch?.current?.dutyId === normD ? liveOpMatch.current 
-                          : liveOpMatch?.nextReliver?.dutyId === normD ? liveOpMatch.nextReliver 
-                          : null;
-              const hasLiveOp = Boolean(dispatchOp?.empName || liveOp?.empName);
+                const dispatchOp = dispatchDutyOperatorMap[normD];
+                const defaultRosterOp = getOperatorForDuty(normD);
+                const liveOpMatch = Object.values(effectiveLiveTrackingMap).find(t => 
+                  t.current?.dutyId === normD || t.nextReliver?.dutyId === normD || t.previous?.dutyId === normD
+                );
+                const liveOp = liveOpMatch?.current?.dutyId === normD ? liveOpMatch.current 
+                            : liveOpMatch?.nextReliver?.dutyId === normD ? liveOpMatch.nextReliver 
+                            : null;
+                const hasLiveOp = Boolean(dispatchOp?.empName || liveOp?.empName);
 
-              const displayEmpName = dispatchOp?.empName
-                || (liveOp?.empName && liveOp.empName !== '--' && !liveOp.empName.startsWith('Duty ') ? liveOp.empName : null)
-                || defaultRosterOp?.empName
-                || null;
-              const displayEmpId = dispatchOp?.empId
-                || (liveOp?.empId && liveOp.empId !== '--' ? liveOp.empId : null)
-                || defaultRosterOp?.empId
-                || null;
+                const displayEmpName = dispatchOp?.empName
+                  || (liveOp?.empName && liveOp.empName !== '--' && !liveOp.empName.startsWith('Duty ') ? liveOp.empName : null)
+                  || defaultRosterOp?.empName
+                  || null;
+                const displayEmpId = dispatchOp?.empId
+                  || (liveOp?.empId && liveOp.empId !== '--' ? liveOp.empId : null)
+                  || defaultRosterOp?.empId
+                  || null;
 
-              return (
-                <div 
-                  key={`duty-card-${dutyNo}`}
-                  className={`p-3 rounded-xl border transition-all flex flex-col justify-between ${
-                    activeLeg 
-                      ? 'bg-emerald-950/20 border-emerald-500/50 shadow-md ring-1 ring-emerald-500/30' 
-                      : 'bg-slate-950 border-slate-800 hover:border-slate-700'
-                  }`}
-                >
-                  <div>
-                    {/* Header: Duty Number & Shift Badge */}
-                    <div className="flex items-center justify-between border-b border-slate-850 pb-2 mb-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xs font-black text-cyan-400">
-                          DUTY {dutyNo}
-                        </span>
-                        {meta?.dutyType && (
-                          <span className={`text-[8.5px] font-black px-1.5 py-0.5 rounded border uppercase ${
-                            meta.dutyType === 'N' || meta.dutyType === 'NPRO'
-                              ? 'bg-purple-950/80 text-purple-300 border-purple-800'
-                              : meta.dutyType === 'B'
-                              ? 'bg-amber-950/80 text-amber-300 border-amber-800'
-                              : 'bg-cyan-950/80 text-cyan-300 border-cyan-800'
-                          }`}>
-                            {meta.dutyType} SHIFT
+                return (
+                  <div 
+                    key={`duty-card-${dutyNo}`}
+                    className={`p-3 rounded-xl border transition-all flex flex-col justify-between ${
+                      activeLeg 
+                        ? 'bg-emerald-950/20 border-emerald-500/50 shadow-md ring-1 ring-emerald-500/30' 
+                        : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <div>
+                      {/* Header: Duty Number & Shift Badge */}
+                      <div className="flex items-center justify-between border-b border-slate-850 pb-2 mb-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-black text-cyan-400">
+                            DUTY {dutyNo}
                           </span>
-                        )}
-                        {meta?.remarks && meta.remarks !== '--' && !meta.remarks.startsWith('DUTY') && (
-                          <span className="text-[8px] font-mono text-slate-400 truncate max-w-16.25" title={meta.remarks}>
-                            {meta.remarks}
-                          </span>
-                        )}
+                          {meta?.dutyType && (
+                            <span className={`text-[8.5px] font-black px-1.5 py-0.5 rounded border uppercase ${
+                              meta.dutyType === 'N' || meta.dutyType === 'NPRO'
+                                ? 'bg-purple-950/80 text-purple-300 border-purple-800'
+                                : meta.dutyType === 'B'
+                                ? 'bg-amber-950/80 text-amber-300 border-amber-800'
+                                : 'bg-cyan-950/80 text-cyan-300 border-cyan-800'
+                            }`}>
+                              {meta.dutyType} SHIFT
+                            </span>
+                          )}
+                          {meta?.remarks && meta.remarks !== '--' && !meta.remarks.startsWith('DUTY') && (
+                            <span className="text-[8px] font-mono text-slate-400 truncate max-w-16.25" title={meta.remarks}>
+                              {meta.remarks}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {legs.length === 0 ? (
+                            <span className="text-[9.5px] px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-800 font-bold">
+                              NO TRIP (STANDBY/PRO)
+                            </span>
+                          ) : (
+                            <span className="text-[9.5px] px-2 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-800 font-bold">
+                              {legs.length} Leg{legs.length > 1 ? 's' : ''}
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDutyEdit(dutyNo)}
+                            className="px-1.5 py-0.5 rounded bg-cyan-950/80 hover:bg-cyan-800 text-cyan-300 border border-cyan-700/60 text-[9px] font-bold flex items-center gap-1 transition-all"
+                            title="Quick Edit this Duty and synchronize sub-systems"
+                          >
+                            <Edit3 size={10} /> Edit
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        {legs.length === 0 ? (
-                          <span className="text-[9.5px] px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-800 font-bold">
-                            NO TRIP (STANDBY/PRO)
+
+                      {/* Sign On / Off Times */}
+                      {meta?.signOnTime && (
+                        <div className="text-[8.5px] text-slate-400 font-mono mb-2 flex items-center justify-between bg-slate-900/40 px-2 py-1 rounded border border-slate-850/60">
+                          <span>ON: <strong className="text-slate-200">{meta.signOnTime}</strong> ({meta.signOnLocation || 'PYID'})</span>
+                          <span className="text-slate-600">➔</span>
+                          <span>OFF: <strong className="text-slate-200">{meta.signOffTime}</strong> ({meta.signOffLocation || 'PYID'})</span>
+                        </div>
+                      )}
+
+                      {/* Ordered Train Legs or Standby/Pro Notice */}
+                      {legs.length === 0 ? (
+                        <div className="p-3 rounded-lg bg-amber-950/20 border border-amber-600/30 text-amber-300/90 flex flex-col items-center justify-center text-center space-y-1.5 my-1">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-300">
+                            <AlertTriangle size={13} className="text-amber-400" />
+                            <span>NO TRAIN TRIP ASSIGNED</span>
+                          </div>
+                          <span className="text-[9px] font-mono text-amber-400/80 font-bold px-2 py-0.5 rounded bg-amber-950/60 border border-amber-800/40">
+                            {meta?.dutyProfile || meta?.remarks || 'STANDBY / PROCTOR DUTY'}
                           </span>
-                        ) : (
-                          <span className="text-[9.5px] px-2 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-800 font-bold">
-                            {legs.length} Leg{legs.length > 1 ? 's' : ''}
-                          </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleOpenDutyEdit(dutyNo)}
-                          className="px-1.5 py-0.5 rounded bg-cyan-950/80 hover:bg-cyan-800 text-cyan-300 border border-cyan-700/60 text-[9px] font-bold flex items-center gap-1 transition-all"
-                          title="Quick Edit this Duty and synchronize sub-systems"
-                        >
-                          <Edit3 size={10} /> Edit
-                        </button>
-                      </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {legs.map((leg, idx) => {
+                            const isLegActive = currentTimeSecs >= leg.startSec && currentTimeSecs <= leg.endSec;
+                            return (
+                              <div 
+                                key={`leg-${dutyNo}-${idx}`}
+                                className={`p-1.5 rounded-lg flex items-center justify-between text-[10px] ${
+                                  isLegActive 
+                                    ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40' 
+                                    : 'bg-slate-900/60 text-slate-300'
+                                }`}
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <Train size={11} className={isLegActive ? 'text-emerald-400' : 'text-slate-500'} />
+                                  <strong className="text-white">T-{leg.trainId}</strong>
+                                </div>
+                                <span className="font-mono text-[9px] text-slate-400">
+                                  {leg.from} ➔ {leg.to}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Sign On / Off Times */}
-                    {meta?.signOnTime && (
-                      <div className="text-[8.5px] text-slate-400 font-mono mb-2 flex items-center justify-between bg-slate-900/40 px-2 py-1 rounded border border-slate-850/60">
-                        <span>ON: <strong className="text-slate-200">{meta.signOnTime}</strong> ({meta.signOnLocation || 'PYID'})</span>
-                        <span className="text-slate-600">➔</span>
-                        <span>OFF: <strong className="text-slate-200">{meta.signOffTime}</strong> ({meta.signOffLocation || 'PYID'})</span>
-                      </div>
-                    )}
-
-                    {/* Ordered Train Legs or Standby/Pro Notice */}
-                    {legs.length === 0 ? (
-                      <div className="p-3 rounded-lg bg-amber-950/20 border border-amber-600/30 text-amber-300/90 flex flex-col items-center justify-center text-center space-y-1.5 my-1">
-                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-300">
-                          <AlertTriangle size={13} className="text-amber-400" />
-                          <span>NO TRAIN TRIP ASSIGNED</span>
+                    {/* Footer: KM, Driving Hours & Assigned Operator */}
+                    <div className="mt-2.5 pt-2 border-t border-slate-850 space-y-1">
+                      {meta && (meta.totalKm > 0 || (meta.drivingHrs && meta.drivingHrs !== '00:00')) && (
+                        <div className="flex items-center justify-between text-[8.5px] font-mono text-slate-400">
+                          <span>KM: <strong className="text-emerald-400">{meta.totalKm} km</strong></span>
+                          <span>DRIVE: <strong className="text-cyan-300">{meta.drivingHrs}</strong></span>
                         </div>
-                        <span className="text-[9px] font-mono text-amber-400/80 font-bold px-2 py-0.5 rounded bg-amber-950/60 border border-amber-800/40">
-                          {meta?.dutyProfile || meta?.remarks || 'STANDBY / PROCTOR DUTY'}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="space-y-1.5">
-                        {legs.map((leg, idx) => {
-                          const isLegActive = currentTimeSecs >= leg.startSec && currentTimeSecs <= leg.endSec;
-                          return (
-                            <div 
-                              key={`leg-${dutyNo}-${idx}`}
-                              className={`p-1.5 rounded-lg flex items-center justify-between text-[10px] ${
-                                isLegActive 
-                                  ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40' 
-                                  : 'bg-slate-900/60 text-slate-300'
-                              }`}
-                            >
-                              <div className="flex items-center gap-1.5">
-                                <Train size={11} className={isLegActive ? 'text-emerald-400' : 'text-slate-500'} />
-                                <strong className="text-white">T-{leg.trainId}</strong>
-                              </div>
-                              <span className="font-mono text-[9px] text-slate-400">
-                                {leg.from} ➔ {leg.to}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                      )}
+                      {(displayEmpName || hasLiveOp) && (
+                        <div className={`text-[8.5px] font-mono px-2 py-0.5 rounded border flex items-center justify-between ${
+                          hasLiveOp
+                            ? 'bg-emerald-950/60 border-emerald-800/60 text-emerald-300'
+                            : 'bg-slate-900 border-slate-800 text-slate-300'
+                        }`}>
+                          <span className="truncate">TO: <strong>{displayEmpName}</strong> {displayEmpId && displayEmpId !== '--' ? `(${displayEmpId})` : ''}</span>
+                          <span className={`text-[7.5px] font-black uppercase ${hasLiveOp ? 'text-emerald-400' : 'text-cyan-400'}`}>
+                            {hasLiveOp ? 'LIVE' : 'ROSTER'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-
-                  {/* Footer: KM, Driving Hours & Assigned Operator */}
-                  <div className="mt-2.5 pt-2 border-t border-slate-850 space-y-1">
-                    {meta && (meta.totalKm > 0 || (meta.drivingHrs && meta.drivingHrs !== '00:00')) && (
-                      <div className="flex items-center justify-between text-[8.5px] font-mono text-slate-400">
-                        <span>KM: <strong className="text-emerald-400">{meta.totalKm} km</strong></span>
-                        <span>DRIVE: <strong className="text-cyan-300">{meta.drivingHrs}</strong></span>
-                      </div>
-                    )}
-                    {(displayEmpName || hasLiveOp) && (
-                      <div className={`text-[8.5px] font-mono px-2 py-0.5 rounded border flex items-center justify-between ${
-                        hasLiveOp
-                          ? 'bg-emerald-950/60 border-emerald-800/60 text-emerald-300'
-                          : 'bg-slate-900 border-slate-800 text-slate-300'
-                      }`}>
-                        <span className="truncate">TO: <strong>{displayEmpName}</strong> {displayEmpId && displayEmpId !== '--' ? `(${displayEmpId})` : ''}</span>
-                        <span className={`text-[7.5px] font-black uppercase ${hasLiveOp ? 'text-emerald-400' : 'text-cyan-400'}`}>
-                          {hasLiveOp ? 'LIVE' : 'ROSTER'}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

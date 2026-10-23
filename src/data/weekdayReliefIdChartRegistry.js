@@ -254,52 +254,67 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "04:25",
       "to": "06:33",
       "duty": "73",
-      "toc": "SPGD DN"
+      "toc": "SPGD DN",
+      "hoc": "PYID Up"
     },
     {
       "from": "06:33",
       "to": "08:48",
-      "duty": "11"
+      "duty": "11",
+      "hoc": "--"
     },
     {
       "from": "08:48",
       "to": "10:58",
-      "duty": "08"
+      "duty": "08",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "10:58",
       "to": "13:13",
-      "duty": "29"
+      "duty": "29",
+      "toc": "--",
+      "hoc": "PYID Dn"
     },
     {
       "from": "13:13",
       "to": "13:47",
-      "duty": "16"
+      "duty": "16",
+      "toc": "P DHO"
     },
     {
       "from": "13:45",
       "to": "15:29",
-      "duty": "28"
+      "duty": "28",
+      "toc": "PYID Dn"
     },
     {
       "from": "15:29",
       "to": "17:46",
-      "duty": "55"
+      "duty": "57",
+      "hoc": "--"
     },
     {
       "from": "17:46",
       "to": "19:57",
-      "duty": "50"
+      "duty": "54",
+      "toc": "PYID Up",
+      "hoc": "KGWA"
     },
     {
       "from": "19:57",
       "to": "21:50",
-      "duty": "60"
+      "duty": "55",
+      "toc": "--",
+      "hoc": "KGWA Up"
     },
     {
       "from": "21:48",
       "to": "00:10",
-      "duty": "66"
+      "duty": "66",
+      "toc": "KGWA Up",
+      "hoc": "PUTH DN PF"
     }
   ],
   "202": [
@@ -307,57 +322,73 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "04:00",
       "to": "06:48",
       "duty": "71",
-      "toc": "NGSA DN"
+      "toc": "NGSA DN",
+      "hoc": "PYID Up"
     },
     {
       "from": "06:48",
       "to": "08:58",
-      "duty": "17"
+      "duty": "17",
+      "hoc": "--"
     },
     {
       "from": "08:58",
       "to": "11:08",
-      "duty": "12"
+      "duty": "12",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "11:08",
       "to": "13:21",
-      "duty": "05"
+      "duty": "05",
+      "toc": "--"
     },
     {
       "from": "13:21",
       "to": "13:55",
-      "duty": "11"
+      "duty": "11",
+      "toc": "--"
     },
     {
       "from": "13:53",
       "to": "15:37",
-      "duty": "29"
+      "duty": "29",
+      "toc": "PYID Dn"
     },
     {
       "from": "15:37",
       "to": "16:12",
-      "duty": "56"
+      "duty": "58",
+      "hoc": "--"
     },
     {
       "from": "16:10",
       "to": "17:57",
-      "duty": "59"
+      "duty": "61",
+      "toc": "PYID Dn",
+      "hoc": "--"
     },
     {
       "from": "17:57",
       "to": "20:07",
-      "duty": "52"
+      "duty": "52",
+      "toc": "--",
+      "hoc": "KGWA"
     },
     {
       "from": "20:07",
       "to": "21:58",
-      "duty": "63"
+      "duty": "45",
+      "toc": "--",
+      "hoc": "KGWA Up"
     },
     {
       "from": "21:56",
       "to": "23:30",
-      "duty": "77"
+      "duty": "77",
+      "toc": "KGWA Up",
+      "hoc": "B DHO"
     }
   ],
   "203": [
@@ -365,47 +396,63 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "04:15",
       "to": "06:43",
       "duty": "75",
-      "toc": "BIET DN"
+      "toc": "BIET DN",
+      "hoc": "KGWA Up"
     },
     {
       "from": "06:41",
       "to": "07:37",
-      "duty": "14"
+      "duty": "14",
+      "toc": "KGWA Up",
+      "hoc": "PYID Dn"
     },
     {
       "from": "07:37",
       "to": "09:18",
-      "duty": "26"
+      "duty": "26",
+      "toc": "PYID Dn",
+      "hoc": "--"
     },
     {
       "from": "09:18",
       "to": "11:28",
-      "duty": "11"
+      "duty": "11",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "11:28",
-      "to": "12:15",
-      "duty": "07"
+      "to": "11:45",
+      "duty": "07",
+      "toc": "--",
+      "hoc": "N PKT"
     },
     {
-      "from": "16:10",
-      "to": "17:06",
-      "duty": "60"
+      "from": "15:15",
+      "to": "17:00",
+      "duty": "55",
+      "toc": "NG PKT",
+      "hoc": "PYID Trn Bk"
     },
     {
-      "from": "17:06",
+      "from": "17:00",
       "to": "18:47",
-      "duty": "41"
+      "duty": "40",
+      "toc": "PYID Trn Bk",
+      "hoc": "--"
     },
     {
       "from": "18:47",
       "to": "21:00",
-      "duty": "37"
+      "duty": "37",
+      "toc": "--"
     },
     {
       "from": "21:00",
       "to": "21:50",
-      "duty": "59"
+      "duty": "61",
+      "toc": "--",
+      "hoc": "PYID Depot SBL"
     }
   ],
   "204": [
@@ -413,52 +460,70 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "04:45",
       "to": "06:58",
       "duty": "72",
-      "toc": "BIET UP"
+      "toc": "BIET UP",
+      "hoc": "KGWA Up"
     },
     {
       "from": "06:58",
       "to": "07:47",
-      "duty": "19"
+      "duty": "19",
+      "toc": "KGWA Up",
+      "hoc": "PYID Dn"
     },
     {
       "from": "07:47",
       "to": "09:28",
-      "duty": "27"
+      "duty": "27",
+      "toc": "PYID Dn",
+      "hoc": "--"
     },
     {
       "from": "09:28",
       "to": "11:41",
-      "duty": "17"
+      "duty": "17",
+      "toc": "--",
+      "hoc": "PYID Dn"
     },
     {
       "from": "11:41",
       "to": "13:53",
-      "duty": "06"
+      "duty": "06",
+      "toc": "--"
     },
     {
       "from": "13:53",
       "to": "16:08",
-      "duty": "33"
+      "duty": "33",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "16:08",
       "to": "18:17",
-      "duty": "37"
+      "duty": "37",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "18:17",
       "to": "20:27",
-      "duty": "55"
+      "duty": "57",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "20:27",
       "to": "21:34",
-      "duty": "48"
+      "duty": "49",
+      "toc": "--",
+      "hoc": "PUTH Dn"
     },
     {
       "from": "21:32",
       "to": "00:15",
-      "duty": "64"
+      "duty": "64",
+      "toc": "PUTH Dn",
+      "hoc": "APTS DN PF"
     }
   ],
   "205": [
@@ -466,52 +531,68 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "04:45",
       "to": "07:13",
       "duty": "74",
-      "toc": "NGSA UP"
+      "toc": "NGSA UP",
+      "hoc": "KGWA Up"
     },
     {
       "from": "07:11",
       "to": "08:07",
-      "duty": "24"
+      "duty": "24",
+      "toc": "KGWA Up",
+      "hoc": "--"
     },
     {
       "from": "08:07",
       "to": "09:48",
-      "duty": "19"
+      "duty": "19",
+      "toc": "PYID Dn",
+      "hoc": "--"
     },
     {
       "from": "09:48",
       "to": "11:58",
-      "duty": "18"
+      "duty": "18",
+      "toc": "PYID Up",
+      "hoc": "PYID Dn"
     },
     {
       "from": "11:58",
       "to": "14:09",
-      "duty": "13"
+      "duty": "13",
+      "toc": "--"
     },
     {
       "from": "14:09",
       "to": "16:25",
-      "duty": "41"
+      "duty": "40",
+      "hoc": "PYID Trn Bk"
     },
     {
       "from": "16:25",
       "to": "18:37",
-      "duty": "39"
+      "duty": "39",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "18:37",
       "to": "20:47",
-      "duty": "35"
+      "duty": "35",
+      "toc": "--"
     },
     {
       "from": "20:47",
       "to": "21:34",
-      "duty": "50"
+      "duty": "54",
+      "toc": "--",
+      "hoc": "KGWA Dn"
     },
     {
       "from": "21:30",
       "to": "00:10",
-      "duty": "70"
+      "duty": "70",
+      "toc": "KGWA Dn",
+      "hoc": "B DHO"
     }
   ],
   "206": [
@@ -519,47 +600,60 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "04:15",
       "to": "06:15",
       "duty": "76",
-      "toc": "JLHL DN-PF"
+      "toc": "JLHL DN-PF",
+      "hoc": "KGWA Dn"
     },
     {
       "from": "06:13",
       "to": "07:48",
-      "duty": "03"
+      "duty": "03",
+      "toc": "KGWA Dn",
+      "hoc": "--"
     },
     {
       "from": "07:48",
       "to": "09:58",
-      "duty": "28"
+      "duty": "28",
+      "hoc": "--"
     },
     {
       "from": "09:58",
       "to": "12:12",
-      "duty": "22"
+      "duty": "22",
+      "toc": "PYID Up"
     },
     {
       "from": "12:12",
       "to": "12:43",
-      "duty": "25"
+      "duty": "25",
+      "toc": "--",
+      "hoc": "PYID Dn"
     },
     {
       "from": "12:41",
       "to": "14:25",
-      "duty": "17"
+      "duty": "17",
+      "toc": "PYID Dn"
     },
     {
       "from": "14:25",
       "to": "16:41",
-      "duty": "46"
+      "duty": "46",
+      "hoc": "--"
     },
     {
       "from": "16:41",
       "to": "18:32",
-      "duty": "40"
+      "duty": "43",
+      "toc": "--",
+      "hoc": "Depot"
     },
     {
       "from": "18:32",
       "to": "21:05",
-      "duty": "58"
+      "duty": "60",
+      "toc": "PYID Up",
+      "hoc": "PYID Depot SBL"
     }
   ],
   "207": [
@@ -567,57 +661,73 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "04:20",
       "to": "06:30",
       "duty": "65",
-      "toc": "NLC UP"
+      "toc": "NLC UP",
+      "hoc": "KGWA Dn"
     },
     {
       "from": "06:28",
       "to": "07:58",
-      "duty": "07"
+      "duty": "07",
+      "toc": "KGWA Dn",
+      "hoc": "--"
     },
     {
       "from": "07:58",
       "to": "10:08",
-      "duty": "29"
+      "duty": "29",
+      "hoc": "--"
     },
     {
       "from": "10:08",
       "to": "12:18",
-      "duty": "23"
+      "duty": "23",
+      "toc": "PYID Up",
+      "hoc": "KGWA"
     },
     {
       "from": "12:18",
       "to": "12:51",
-      "duty": "11"
+      "duty": "11",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "12:49",
       "to": "14:33",
-      "duty": "18"
+      "duty": "18",
+      "toc": "PYID Dn"
     },
     {
       "from": "14:33",
       "to": "16:48",
-      "duty": "48"
+      "duty": "48",
+      "hoc": "--"
     },
     {
       "from": "16:48",
       "to": "18:57",
-      "duty": "44"
+      "duty": "47",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "18:57",
       "to": "21:07",
-      "duty": "38"
+      "duty": "38",
+      "toc": "--"
     },
     {
       "from": "21:07",
       "to": "21:36",
-      "duty": "54"
+      "duty": "56",
+      "toc": "--"
     },
     {
       "from": "21:34",
       "to": "23:55",
-      "duty": "71"
+      "duty": "71",
+      "toc": "PYID Dn",
+      "hoc": "NGSA DN PF"
     }
   ],
   "208": [
@@ -625,52 +735,66 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "04:15",
       "to": "06:27",
       "duty": "68",
-      "toc": "PUTH UP"
+      "toc": "PUTH UP",
+      "hoc": "PYID Dn"
     },
     {
       "from": "06:25",
       "to": "08:08",
-      "duty": "08"
+      "duty": "08",
+      "toc": "PYID Dn",
+      "hoc": "--"
     },
     {
       "from": "08:08",
       "to": "10:18",
-      "duty": "31"
+      "duty": "31",
+      "hoc": "--"
     },
     {
       "from": "10:18",
       "to": "12:33",
-      "duty": "30"
+      "duty": "30",
+      "toc": "--",
+      "hoc": "PYID Dn"
     },
     {
       "from": "12:33",
       "to": "13:07",
-      "duty": "22"
+      "duty": "22",
+      "toc": "--"
     },
     {
       "from": "13:05",
       "to": "14:49",
-      "duty": "24"
+      "duty": "24",
+      "toc": "PYID Dn"
     },
     {
       "from": "14:49",
       "to": "17:04",
-      "duty": "50"
+      "duty": "50",
+      "hoc": "--"
     },
     {
       "from": "17:04",
       "to": "19:17",
-      "duty": "47"
+      "duty": "44",
+      "toc": "--",
+      "hoc": "KGWA"
     },
     {
       "from": "19:17",
       "to": "21:31",
-      "duty": "41"
+      "duty": "40",
+      "toc": "--"
     },
     {
       "from": "21:31",
       "to": "22:00",
-      "duty": "62"
+      "duty": "63",
+      "toc": "--",
+      "hoc": "PYID Depot SBL"
     }
   ],
   "209": [
@@ -678,100 +802,130 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "04:30",
       "to": "06:37",
       "duty": "67",
-      "toc": "APTS UP"
+      "toc": "APTS UP",
+      "hoc": "PYID Dn"
     },
     {
       "from": "06:35",
       "to": "08:18",
-      "duty": "12"
+      "duty": "12",
+      "toc": "PYID Dn",
+      "hoc": "--"
     },
     {
       "from": "08:18",
       "to": "10:28",
-      "duty": "03"
+      "duty": "03",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "10:28",
       "to": "12:41",
-      "duty": "19"
+      "duty": "19",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "12:41",
       "to": "14:57",
-      "duty": "26"
+      "duty": "26",
+      "toc": "--"
     },
     {
       "from": "14:57",
       "to": "17:13",
-      "duty": "51"
+      "duty": "51",
+      "hoc": "--"
     },
     {
       "from": "17:13",
       "to": "19:02",
-      "duty": "45"
+      "duty": "46",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "19:02",
       "to": "21:35",
-      "duty": "40"
+      "duty": "43",
+      "toc": "--",
+      "hoc": "PYID Depot SBL"
     }
   ],
   "210": [
     {
-      "from": "04:47",
+      "from": "04:35",
       "to": "06:47",
       "duty": "64",
-      "toc": "APTS DN"
+      "toc": "APTS DN",
+      "hoc": "PYID Dn"
     },
     {
       "from": "06:45",
       "to": "08:28",
-      "duty": "16"
+      "duty": "16",
+      "toc": "PYID Dn",
+      "hoc": "PYID Dn"
     },
     {
       "from": "08:28",
       "to": "10:38",
-      "duty": "07"
+      "duty": "07",
+      "toc": "--"
     },
     {
       "from": "10:38",
       "to": "12:49",
-      "duty": "32"
+      "duty": "32",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "12:49",
       "to": "13:23",
-      "duty": "33"
+      "duty": "33",
+      "hoc": "--"
     },
     {
       "from": "13:21",
       "to": "15:05",
-      "duty": "25"
+      "duty": "25",
+      "toc": "PYID Dn"
     },
     {
       "from": "15:05",
       "to": "17:20",
-      "duty": "52"
+      "duty": "52",
+      "hoc": "--"
     },
     {
       "from": "17:20",
       "to": "19:12",
-      "duty": "46"
+      "duty": "48",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "19:12",
       "to": "20:52",
-      "duty": "61"
+      "duty": "62",
+      "toc": "PYID Up",
+      "hoc": "--"
     },
     {
       "from": "20:52",
       "to": "21:44",
-      "duty": "52"
+      "duty": "52",
+      "toc": "--",
+      "hoc": "KGWA Dn"
     },
     {
       "from": "21:42",
       "to": "00:15",
-      "duty": "73"
+      "duty": "73",
+      "toc": "KGWA Dn",
+      "hoc": "SPGD DN PF"
     }
   ],
   "211": [
@@ -779,32 +933,49 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "04:40",
       "to": "06:57",
       "duty": "66",
-      "toc": "PUTH DN"
+      "toc": "PUTH DN",
+      "hoc": "PYID Dn"
     },
     {
       "from": "06:55",
       "to": "09:07",
-      "duty": "20"
+      "duty": "20",
+      "toc": "PYID Dn",
+      "hoc": "--"
     },
     {
       "from": "09:07",
       "to": "11:40",
-      "duty": "16"
+      "duty": "16",
+      "toc": "PYID Dn",
+      "hoc": "P DHO"
     },
     {
-      "from": "16:50",
+      "from": "15:10",
+      "to": "17:17",
+      "duty": "54",
+      "toc": "Dpo - Rd3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "17:17",
       "to": "19:27",
-      "duty": "63"
+      "duty": "45",
+      "toc": "--",
+      "hoc": "KGWA"
     },
     {
       "from": "19:27",
       "to": "21:37",
-      "duty": "44"
+      "duty": "47",
+      "toc": "--"
     },
     {
       "from": "21:37",
       "to": "00:20",
-      "duty": "72"
+      "duty": "72",
+      "toc": "PYID Up",
+      "hoc": "BIET UP PF"
     }
   ],
   "212": [
@@ -812,47 +983,61 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "06:10",
       "to": "08:03",
       "duty": "05",
-      "toc": "PYID RD3"
+      "toc": "PYID RD3",
+      "hoc": "--"
     },
     {
       "from": "08:03",
       "to": "09:43",
-      "duty": "30"
+      "duty": "30",
+      "hoc": "--"
     },
     {
       "from": "09:43",
       "to": "11:23",
-      "duty": "25"
+      "duty": "25",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "11:23",
       "to": "13:37",
-      "duty": "03"
+      "duty": "03",
+      "toc": "--"
     },
     {
       "from": "13:37",
       "to": "15:53",
-      "duty": "32"
+      "duty": "32",
+      "toc": "--"
     },
     {
       "from": "15:53",
       "to": "18:07",
-      "duty": "35"
+      "duty": "35",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "18:07",
       "to": "20:17",
-      "duty": "54"
+      "duty": "56",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "20:17",
       "to": "21:50",
-      "duty": "51"
+      "duty": "51",
+      "toc": "--",
+      "hoc": "PUTH Up"
     },
     {
       "from": "21:48",
       "to": "00:15",
-      "duty": "67"
+      "duty": "67",
+      "toc": "PUTH Up",
+      "hoc": "APTS UP PF"
     }
   ],
   "213": [
@@ -860,52 +1045,67 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "06:15",
       "to": "08:13",
       "duty": "04",
-      "toc": "DEPOT-RD3"
+      "toc": "DEPOT-RD3",
+      "hoc": "--"
     },
     {
       "from": "08:13",
       "to": "09:53",
-      "duty": "32"
+      "duty": "32",
+      "hoc": "--"
     },
     {
       "from": "09:53",
       "to": "11:34",
-      "duty": "26"
+      "duty": "26",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "11:34",
       "to": "13:45",
-      "duty": "09"
+      "duty": "09",
+      "toc": "--"
     },
     {
       "from": "13:45",
       "to": "14:19",
-      "duty": "14"
+      "duty": "14",
+      "toc": "--"
     },
     {
       "from": "14:17",
       "to": "16:01",
-      "duty": "44"
+      "duty": "43",
+      "toc": "PYID Dn",
+      "hoc": "--"
     },
     {
       "from": "16:01",
       "to": "17:52",
-      "duty": "36"
+      "duty": "36",
+      "toc": "--",
+      "hoc": "Depot"
     },
     {
       "from": "17:52",
       "to": "19:32",
-      "duty": "51"
+      "duty": "51",
+      "toc": "--",
+      "hoc": "PUTH"
     },
     {
       "from": "19:32",
       "to": "21:46",
-      "duty": "45"
+      "duty": "46",
+      "toc": "--"
     },
     {
       "from": "21:46",
       "to": "23:55",
-      "duty": "65"
+      "duty": "65",
+      "toc": "PYID Up",
+      "hoc": "NLC UP PF"
     }
   ],
   "214": [
@@ -913,37 +1113,48 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "06:25",
       "to": "08:23",
       "duty": "09",
-      "toc": "DEPOT-RD3"
+      "toc": "DEPOT-RD3",
+      "hoc": "--"
     },
     {
       "from": "08:23",
       "to": "10:03",
-      "duty": "21"
+      "duty": "21",
+      "toc": "--"
     },
     {
       "from": "10:03",
       "to": "12:04",
-      "duty": "27"
+      "duty": "27",
+      "toc": "--",
+      "hoc": "PYID Dn"
     },
     {
       "from": "12:04",
       "to": "14:17",
-      "duty": "12"
+      "duty": "12",
+      "toc": "--"
     },
     {
       "from": "14:17",
       "to": "16:33",
-      "duty": "45"
+      "duty": "44",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "16:33",
       "to": "18:22",
-      "duty": "56"
+      "duty": "58",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "18:22",
       "to": "21:00",
-      "duty": "36"
+      "duty": "36",
+      "toc": "--",
+      "hoc": "PYID Depot SBL"
     }
   ],
   "215": [
@@ -951,52 +1162,66 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "06:35",
       "to": "08:33",
       "duty": "13",
-      "toc": "DEPOT-RD3"
+      "toc": "DEPOT-RD3",
+      "hoc": "--"
     },
     {
       "from": "08:33",
       "to": "10:13",
-      "duty": "05"
+      "duty": "05",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "10:13",
       "to": "12:25",
-      "duty": "14"
+      "duty": "14",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "12:25",
       "to": "12:59",
-      "duty": "20"
+      "duty": "20",
+      "toc": "--"
     },
     {
       "from": "12:57",
       "to": "14:41",
-      "duty": "27"
+      "duty": "27",
+      "toc": "PYID Dn"
     },
     {
       "from": "14:41",
       "to": "16:57",
-      "duty": "49"
+      "duty": "49",
+      "hoc": "--"
     },
     {
       "from": "16:57",
       "to": "19:07",
-      "duty": "33"
+      "duty": "33",
+      "toc": "--",
+      "hoc": "Depot"
     },
     {
       "from": "19:07",
       "to": "21:17",
-      "duty": "39"
+      "duty": "39",
+      "toc": "--"
     },
     {
       "from": "21:17",
       "to": "21:46",
-      "duty": "55"
+      "duty": "57",
+      "toc": "--"
     },
     {
       "from": "21:44",
       "to": "00:15",
-      "duty": "74"
+      "duty": "74",
+      "toc": "PYID Dn",
+      "hoc": "JIDL UP PF"
     }
   ],
   "216": [
@@ -1004,22 +1229,29 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "06:20",
       "to": "08:43",
       "duty": "06",
-      "toc": "DEPOT-RD3"
+      "toc": "DEPOT-RD3",
+      "hoc": "PYID Up"
     },
     {
       "from": "08:43",
       "to": "11:25",
-      "duty": "24"
+      "duty": "24",
+      "toc": "--",
+      "hoc": "P DHO"
     },
     {
       "from": "16:20",
       "to": "18:42",
-      "duty": "61"
+      "duty": "62",
+      "toc": "Dpo - Rd3",
+      "hoc": "PYID Up"
     },
     {
       "from": "18:42",
       "to": "21:15",
-      "duty": "57"
+      "duty": "59",
+      "toc": "PYID Up",
+      "hoc": "PYID Depot SBL"
     }
   ],
   "217": [
@@ -1027,57 +1259,75 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "06:30",
       "to": "07:27",
       "duty": "69",
-      "toc": "BIET DN BE"
+      "toc": "BIET DN BE",
+      "hoc": "PYID Dn"
     },
     {
       "from": "07:25",
       "to": "09:08",
-      "duty": "25"
+      "duty": "25",
+      "toc": "PYID Dn",
+      "hoc": "--"
     },
     {
       "from": "09:08",
       "to": "11:18",
-      "duty": "13"
+      "duty": "13",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "11:18",
       "to": "13:29",
-      "duty": "31"
+      "duty": "31",
+      "toc": "--",
+      "hoc": "PYID Dn"
     },
     {
       "from": "13:29",
       "to": "14:03",
-      "duty": "10"
+      "duty": "10",
+      "toc": "P DHO"
     },
     {
       "from": "14:01",
       "to": "15:45",
-      "duty": "31"
+      "duty": "31",
+      "toc": "PYID Dn"
     },
     {
       "from": "15:45",
       "to": "17:41",
-      "duty": "34"
+      "duty": "34",
+      "toc": "--",
+      "hoc": "Depot"
     },
     {
       "from": "17:41",
       "to": "19:22",
-      "duty": "60"
+      "duty": "55",
+      "toc": "PYID Trn Bk",
+      "hoc": "KGWA"
     },
     {
       "from": "19:22",
       "to": "21:25",
-      "duty": "62"
+      "duty": "63",
+      "toc": "PYID Up",
+      "hoc": "Depot"
     },
     {
       "from": "21:25",
       "to": "21:56",
-      "duty": "61"
+      "duty": "62",
+      "toc": "--"
     },
     {
       "from": "21:54",
       "to": "00:05",
-      "duty": "75"
+      "duty": "75",
+      "toc": "PYID Dn",
+      "hoc": "BIET DN PF"
     }
   ],
   "218": [
@@ -1085,27 +1335,35 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "06:30",
       "to": "08:53",
       "duty": "10",
-      "toc": "DEPOT-RD3"
+      "toc": "DEPOT-RD3",
+      "hoc": "PYID Up"
     },
     {
       "from": "08:53",
       "to": "11:35",
-      "duty": "04"
+      "duty": "04",
+      "toc": "--",
+      "hoc": "P DHO"
     },
     {
       "from": "16:30",
       "to": "18:52",
-      "duty": "62"
+      "duty": "63",
+      "toc": "Dpo - Rd3",
+      "hoc": "PYID Up"
     },
     {
       "from": "18:52",
       "to": "20:32",
-      "duty": "56"
+      "duty": "58",
+      "toc": "--"
     },
     {
       "from": "20:32",
       "to": "21:25",
-      "duty": "53"
+      "duty": "53",
+      "toc": "--",
+      "hoc": "PYID Depot SBL"
     }
   ],
   "219": [
@@ -1113,42 +1371,56 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "06:40",
       "to": "09:03",
       "duty": "15",
-      "toc": "DEPOT-RD3"
+      "toc": "DEPOT-RD3",
+      "hoc": "PYID Up"
     },
     {
       "from": "09:03",
       "to": "10:43",
-      "duty": "09"
+      "duty": "09",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "10:43",
       "to": "12:57",
-      "duty": "28"
+      "duty": "28",
+      "toc": "--",
+      "hoc": "PYID Dn"
     },
     {
       "from": "12:57",
       "to": "13:49",
-      "duty": "23"
+      "duty": "23",
+      "toc": "--",
+      "hoc": "KGWA Dn"
     },
     {
       "from": "13:47",
       "to": "15:13",
-      "duty": "34"
+      "duty": "34",
+      "toc": "KGWA Dn",
+      "hoc": "--"
     },
     {
       "from": "15:13",
       "to": "17:28",
-      "duty": "53"
+      "duty": "53",
+      "hoc": "--"
     },
     {
       "from": "17:28",
       "to": "19:37",
-      "duty": "48"
+      "duty": "49",
+      "toc": "--",
+      "hoc": "PUTH"
     },
     {
       "from": "19:37",
       "to": "20:30",
-      "duty": "33"
+      "duty": "33",
+      "toc": "--",
+      "hoc": "PYID Depot SBL"
     }
   ],
   "220": [
@@ -1156,47 +1428,60 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "06:50",
       "to": "09:13",
       "duty": "18",
-      "toc": "DEPOT-RD3"
+      "toc": "DEPOT-RD3",
+      "hoc": "PYID Up"
     },
     {
       "from": "09:13",
       "to": "10:53",
-      "duty": "06"
+      "duty": "06",
+      "toc": "PYID Up",
+      "hoc": "--"
     },
     {
       "from": "10:53",
       "to": "13:05",
-      "duty": "21"
+      "duty": "21",
+      "toc": "--"
     },
     {
       "from": "13:05",
       "to": "13:39",
-      "duty": "04"
+      "duty": "04",
+      "toc": "P DHO"
     },
     {
       "from": "13:37",
       "to": "15:21",
-      "duty": "30"
+      "duty": "30",
+      "toc": "PYID Dn"
     },
     {
       "from": "15:21",
       "to": "17:36",
-      "duty": "54"
+      "duty": "56",
+      "hoc": "--"
     },
     {
       "from": "17:36",
       "to": "19:47",
-      "duty": "49"
+      "duty": "50",
+      "toc": "--",
+      "hoc": "KGWA"
     },
     {
       "from": "19:47",
       "to": "21:42",
-      "duty": "47"
+      "duty": "44",
+      "toc": "--",
+      "hoc": "KGWA Up"
     },
     {
       "from": "21:42",
       "to": "23:50",
-      "duty": "68"
+      "duty": "68",
+      "toc": "KGWA Up",
+      "hoc": "PUTH UP PF"
     }
   ],
   "221": [
@@ -1204,52 +1489,67 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "07:00",
       "to": "07:57",
       "duty": "21",
-      "toc": "DEPOT-RD3"
+      "toc": "DEPOT-RD3",
+      "hoc": "--"
     },
     {
       "from": "07:55",
       "to": "09:38",
-      "duty": "14"
+      "duty": "14",
+      "toc": "PYID Dn",
+      "hoc": "--"
     },
     {
       "from": "09:38",
       "to": "11:48",
-      "duty": "20"
+      "duty": "20",
+      "toc": "--"
     },
     {
       "from": "11:48",
       "to": "14:01",
-      "duty": "08"
+      "duty": "08",
+      "toc": "--"
     },
     {
       "from": "14:01",
       "to": "14:35",
-      "duty": "19"
+      "duty": "19",
+      "toc": "--"
     },
     {
       "from": "14:33",
       "to": "16:17",
-      "duty": "47"
+      "duty": "47",
+      "toc": "PYID Dn",
+      "hoc": "--"
     },
     {
       "from": "16:17",
       "to": "18:27",
-      "duty": "38"
+      "duty": "38",
+      "toc": "--",
+      "hoc": "--"
     },
     {
       "from": "18:27",
       "to": "20:37",
-      "duty": "59"
+      "duty": "61",
+      "toc": "--"
     },
     {
       "from": "20:37",
       "to": "21:24",
-      "duty": "49"
+      "duty": "50",
+      "toc": "--",
+      "hoc": "KGWA Dn"
     },
     {
       "from": "21:22",
       "to": "23:10",
-      "duty": "69"
+      "duty": "69",
+      "toc": "KGWA Dn",
+      "hoc": "BIET DN BE"
     }
   ],
   "222": [
@@ -1257,22 +1557,29 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "07:00",
       "to": "09:23",
       "duty": "22",
-      "toc": "DEPOT-RD3"
+      "toc": "DEPOT-RD3",
+      "hoc": "PYID Up"
     },
     {
       "from": "09:23",
       "to": "11:55",
-      "duty": "10"
+      "duty": "10",
+      "toc": "PYID Up",
+      "hoc": "P DHO"
     },
     {
       "from": "15:50",
       "to": "18:12",
-      "duty": "57"
+      "duty": "59",
+      "toc": "Dpo - Rd3",
+      "hoc": "PYID Up"
     },
     {
       "from": "18:12",
       "to": "20:40",
-      "duty": "34"
+      "duty": "34",
+      "toc": "--",
+      "hoc": "PYID Depot SBL"
     }
   ],
   "223": [
@@ -1280,84 +1587,86 @@ export const WEEKDAY_RELIEF_ID_CHART_2024 = {
       "from": "07:10",
       "to": "09:33",
       "duty": "23",
-      "toc": "DEPOT-RD3"
+      "toc": "DEPOT-RD3",
+      "hoc": "PYID Up"
     },
     {
       "from": "09:33",
       "to": "12:00",
-      "duty": "15"
+      "duty": "15",
+      "toc": "PYID Up",
+      "hoc": "P DHO"
     },
     {
       "from": "15:45",
       "to": "18:02",
-      "duty": "58"
+      "duty": "60",
+      "toc": "Dpo - Rd3",
+      "hoc": "PYID Up"
     },
     {
       "from": "18:02",
       "to": "19:42",
-      "duty": "53"
+      "duty": "53",
+      "toc": "--",
+      "hoc": "Depot"
     },
     {
       "from": "19:42",
       "to": "21:54",
-      "duty": "46"
+      "duty": "48",
+      "toc": "--"
     },
     {
       "from": "21:54",
       "to": "22:40",
-      "duty": "76"
+      "duty": "76",
+      "toc": "PYID Up",
+      "hoc": "NPKT / DEPOT"
     }
   ],
   "Couns": [
     {
       "from": "13:00",
       "to": "14:20",
-      "duty": "15"
+      "duty": "15",
+      "toc": "P DHO"
     },
     {
       "from": "13:35",
       "to": "15:23",
-      "duty": "35"
+      "duty": "35",
+      "hoc": "--"
     },
     {
       "from": "13:35",
       "to": "15:31",
-      "duty": "36"
+      "duty": "36",
+      "hoc": "--"
     },
     {
       "from": "13:35",
       "to": "15:38",
-      "duty": "37"
+      "duty": "37",
+      "hoc": "--"
     },
     {
       "from": "13:35",
       "to": "15:47",
-      "duty": "38"
+      "duty": "38",
+      "hoc": "--"
     },
     {
       "from": "13:35",
       "to": "15:55",
-      "duty": "39"
+      "duty": "39",
+      "hoc": "--"
     },
     {
-      "from": "13:50",
-      "to": "16:11",
-      "duty": "40"
-    },
-    {
-      "from": "13:20",
-      "to": "PYID",
-      "duty": "20"
-    },
-    {
-      "from": "13:30",
-      "to": "PYID",
-      "duty": "21"
-    },
-    {
-      "from": "13:30",
-      "to": "PYID",
-      "duty": "22"
+      "from": "14:05",
+      "to": "16:47",
+      "duty": "45",
+      "hoc": "--"
     }
   ]
 };
@@ -1385,241 +1694,1469 @@ export const WEEKDAY_RELIEF_ID_CHART_2026_META = WEEKDAY_RELIEF_ID_CHART_2024_ME
 // 2. MONDAY 04:00hrs SERVICE RELIEF ID CHART (WEF 06/Jan/2025 APTS - BIET)
 // ============================================================================
 export const MONDAY_RELIEF_ID_CHART = {
-  '201': [
-    { from: '06:35', to: '08:18', duty: '14', toc: 'SPGD DN' },
-    { from: '08:18', to: '10:28', duty: '10' },
-    { from: '10:28', to: '12:41', duty: '16' },
-    { from: '12:41', to: '14:57', duty: '26' },
-    { from: '14:57', to: '17:13', duty: '51' },
-    { from: '17:13', to: '19:02', duty: '45' },
-    { from: '19:02', to: '21:35', duty: '40' }
+  "201": [
+    {
+      "from": "03:40",
+      "to": "06:37",
+      "duty": "72",
+      "toc": "SPGD DN",
+      "hoc": "PYID DN"
+    },
+    {
+      "from": "06:35",
+      "to": "08:18",
+      "duty": "15",
+      "toc": "PYID DN",
+      "hoc": "--"
+    },
+    {
+      "from": "08:18",
+      "to": "10:28",
+      "duty": "22",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "10:28",
+      "to": "12:41",
+      "duty": "04",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "12:41",
+      "to": "14:57",
+      "duty": "25",
+      "toc": "--"
+    },
+    {
+      "from": "14:57",
+      "to": "17:13",
+      "duty": "53",
+      "hoc": "--"
+    },
+    {
+      "from": "17:13",
+      "to": "19:02",
+      "duty": "49",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "19:02",
+      "to": "21:35",
+      "duty": "39",
+      "toc": "--",
+      "hoc": "PYID Depot SBL"
+    }
   ],
-  '202': [
-    { from: '06:18', to: '06:57', duty: '06', toc: 'NGSA DN' },
-    { from: '06:57', to: '09:07', duty: '22' },
-    { from: '09:07', to: '11:40', duty: '19' },
-    { from: '16:50', to: '19:27', duty: '63' },
-    { from: '19:27', to: '21:37', duty: '44' },
-    { from: '21:37', to: '00:20', duty: '72' }
+  "202": [
+    {
+      "from": "03:30",
+      "to": "06:18",
+      "duty": "70",
+      "toc": "NGSA DN",
+      "hoc": "PYID UP"
+    },
+    {
+      "from": "06:18",
+      "to": "08:38",
+      "duty": "07",
+      "toc": "PYID UP",
+      "hoc": "--"
+    },
+    {
+      "from": "08:38",
+      "to": "10:48",
+      "duty": "06",
+      "toc": "--"
+    },
+    {
+      "from": "10:48",
+      "to": "11:40",
+      "duty": "18",
+      "toc": "--",
+      "hoc": "P DHO"
+    },
+    {
+      "from": "15:10",
+      "to": "17:17",
+      "duty": "55",
+      "toc": "Dpo - Rd3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "17:17",
+      "to": "19:27",
+      "duty": "50",
+      "toc": "--",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "19:27",
+      "to": "21:37",
+      "duty": "44",
+      "toc": "--"
+    },
+    {
+      "from": "21:37",
+      "to": "00:20",
+      "duty": "71",
+      "toc": "PYID Up",
+      "hoc": "BIET UP PF"
+    }
   ],
-  '203': [
-    { from: '06:31', to: '08:48', duty: '13', toc: 'BIET DN PF' },
-    { from: '08:48', to: '10:58', duty: '09' },
-    { from: '10:58', to: '13:13', duty: '29' },
-    { from: '13:13', to: '13:47', duty: '19' },
-    { from: '13:45', to: '15:29', duty: '28' },
-    { from: '15:29', to: '17:46', duty: '55' },
-    { from: '17:46', to: '19:57', duty: '50' },
-    { from: '19:57', to: '21:50', duty: '60' },
-    { from: '21:48', to: '00:10', duty: '66' }
+  "203": [
+    {
+      "from": "03:45",
+      "to": "06:33",
+      "duty": "74",
+      "toc": "BIET DN PF",
+      "hoc": "PYID UP"
+    },
+    {
+      "from": "06:31",
+      "to": "08:48",
+      "duty": "13",
+      "toc": "PYID UP",
+      "hoc": "--"
+    },
+    {
+      "from": "08:48",
+      "to": "10:58",
+      "duty": "15",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "10:58",
+      "to": "13:13",
+      "duty": "31",
+      "toc": "--",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "13:13",
+      "to": "13:47",
+      "duty": "05",
+      "toc": "P DHO"
+    },
+    {
+      "from": "13:45",
+      "to": "15:29",
+      "duty": "31",
+      "toc": "PYID Dn"
+    },
+    {
+      "from": "15:29",
+      "to": "17:46",
+      "duty": "37",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "17:46",
+      "to": "19:57",
+      "duty": "53",
+      "toc": "--",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "19:57",
+      "to": "21:50",
+      "duty": "52",
+      "toc": "--",
+      "hoc": "KGWA Up"
+    },
+    {
+      "from": "21:48",
+      "to": "00:10",
+      "duty": "65",
+      "toc": "KGWA Up",
+      "hoc": "PUTH DN PF"
+    }
   ],
-  '204': [
-    { from: '06:28', to: '08:58', duty: '11', toc: 'BIET UP PF' },
-    { from: '08:58', to: '11:08', duty: '14' },
-    { from: '11:08', to: '13:21', duty: '05' },
-    { from: '13:53', to: '15:37', duty: '29' },
-    { from: '15:37', to: '16:12', duty: '56' },
-    { from: '16:10', to: '17:57', duty: '59' },
-    { from: '17:57', to: '20:07', duty: '52' },
-    { from: '20:07', to: '21:58', duty: '63' },
-    { from: '21:56', to: '23:30', duty: '77' }
+  "204": [
+    {
+      "from": "04:10",
+      "to": "06:28",
+      "duty": "71",
+      "toc": "BIET UP PF",
+      "hoc": "KGWA UP"
+    },
+    {
+      "from": "06:28",
+      "to": "08:58",
+      "duty": "11",
+      "toc": "KGWA UP",
+      "hoc": "--"
+    },
+    {
+      "from": "08:58",
+      "to": "11:08",
+      "duty": "19",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "11:08",
+      "to": "13:21",
+      "duty": "22",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "13:21",
+      "to": "13:55",
+      "duty": "09",
+      "toc": "P DHO",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "13:53",
+      "to": "15:37",
+      "duty": "38",
+      "toc": "PYID Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "15:37",
+      "to": "17:57",
+      "duty": "33",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "17:57",
+      "to": "20:07",
+      "duty": "54",
+      "toc": "--"
+    },
+    {
+      "from": "20:07",
+      "to": "21:58",
+      "duty": "50",
+      "toc": "--",
+      "hoc": "KGWA Up"
+    },
+    {
+      "from": "21:56",
+      "to": "23:30",
+      "duty": "76",
+      "toc": "KGWA Up",
+      "hoc": "B DHO"
+    }
   ],
-  '205': [
-    { from: '06:41', to: '07:37', duty: '17', toc: 'NGSA UP' },
-    { from: '07:35', to: '09:18', duty: '26' },
-    { from: '09:18', to: '11:28', duty: '13' },
-    { from: '11:28', to: '12:15', duty: '08' },
-    { from: '16:10', to: '17:06', duty: '60' },
-    { from: '17:04', to: '18:47', duty: '41' },
-    { from: '18:47', to: '21:00', duty: '37' },
-    { from: '21:00', to: '21:50', duty: '59' }
+  "205": [
+    {
+      "from": "04:00",
+      "to": "06:41",
+      "duty": "73",
+      "toc": "NGSA UP",
+      "hoc": "KGWA Up"
+    },
+    {
+      "from": "06:41",
+      "to": "07:37",
+      "duty": "18",
+      "toc": "KGWA Up",
+      "hoc": "--"
+    },
+    {
+      "from": "07:35",
+      "to": "09:18",
+      "duty": "16",
+      "toc": "PYID Dn",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "09:18",
+      "to": "11:28",
+      "duty": "13",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "11:28",
+      "to": "11:45",
+      "duty": "06",
+      "toc": "--",
+      "hoc": "N PKT"
+    },
+    {
+      "from": "15:15",
+      "to": "17:00",
+      "duty": "56",
+      "toc": "NG PKT",
+      "hoc": "PYID Trn Bk"
+    },
+    {
+      "from": "17:00",
+      "to": "18:47",
+      "duty": "51",
+      "toc": "PYID Trn Bk"
+    },
+    {
+      "from": "18:47",
+      "to": "21:00",
+      "duty": "38",
+      "toc": "--"
+    },
+    {
+      "from": "21:00",
+      "to": "21:35",
+      "duty": "57",
+      "toc": "--",
+      "hoc": "PYID Depot SBL"
+    }
   ],
-  '206': [
-    { from: '06:45', to: '08:28', duty: '19', toc: '-PYID UP-B' },
-    { from: '08:28', to: '10:38', duty: '03' },
-    { from: '10:38', to: '12:49', duty: '32' },
-    { from: '12:49', to: '13:23', duty: '33' },
-    { from: '13:23', to: '15:05', duty: '35' },
-    { from: '15:05', to: '17:20', duty: '52' },
-    { from: '17:20', to: '19:12', duty: '46' },
-    { from: '19:12', to: '20:53', duty: '61' },
-    { from: '20:53', to: '21:44', duty: '52' },
-    { from: '21:42', to: '00:15', duty: '73' }
+  "206": [
+    {
+      "from": "05:10",
+      "to": "06:47",
+      "duty": "75",
+      "toc": "-PYID UP-B",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "06:45",
+      "to": "08:28",
+      "duty": "19",
+      "toc": "PYID Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "08:28",
+      "to": "10:38",
+      "duty": "03",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "10:38",
+      "to": "12:49",
+      "duty": "27",
+      "toc": "--",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "12:49",
+      "to": "13:23",
+      "duty": "06",
+      "toc": "N PKT",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "13:23",
+      "to": "15:05",
+      "duty": "33",
+      "toc": "PYID Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "15:05",
+      "to": "17:20",
+      "duty": "54",
+      "hoc": "--"
+    },
+    {
+      "from": "17:20",
+      "to": "19:12",
+      "duty": "48",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "19:12",
+      "to": "20:52",
+      "duty": "61",
+      "toc": "PYID Up"
+    },
+    {
+      "from": "20:52",
+      "to": "21:44",
+      "duty": "54",
+      "toc": "--",
+      "hoc": "KGWA Dn"
+    },
+    {
+      "from": "21:42",
+      "to": "00:15",
+      "duty": "72",
+      "toc": "KGWA Dn",
+      "hoc": "SPGD DN PF"
+    }
   ],
-  '207': [
-    { from: '06:38', to: '07:47', duty: '16', toc: 'NLC UP' },
-    { from: '07:45', to: '09:28', duty: '27' },
-    { from: '09:28', to: '11:41', duty: '11' },
-    { from: '11:41', to: '13:53', duty: '07' },
-    { from: '13:53', to: '16:08', duty: '33' },
-    { from: '16:08', to: '18:17', duty: '37' },
-    { from: '18:17', to: '20:27', duty: '55' },
-    { from: '20:27', to: '21:34', duty: '48' },
-    { from: '21:32', to: '00:15', duty: '64' }
+  "207": [
+    {
+      "from": "03:35",
+      "to": "06:40",
+      "duty": "64",
+      "toc": "NLC UP",
+      "hoc": "PUTH UP"
+    },
+    {
+      "from": "06:38",
+      "to": "07:18",
+      "duty": "16",
+      "toc": "PUTH Up",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "07:18",
+      "to": "09:28",
+      "duty": "24",
+      "hoc": "--"
+    },
+    {
+      "from": "09:28",
+      "to": "11:41",
+      "duty": "11",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "11:41",
+      "to": "13:53",
+      "duty": "15",
+      "toc": "--"
+    },
+    {
+      "from": "13:53",
+      "to": "16:08",
+      "duty": "39",
+      "hoc": "--"
+    },
+    {
+      "from": "16:08",
+      "to": "18:17",
+      "duty": "38",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "18:17",
+      "to": "20:27",
+      "duty": "37",
+      "toc": "--"
+    },
+    {
+      "from": "20:27",
+      "to": "21:34",
+      "duty": "42",
+      "toc": "--",
+      "hoc": "PUTH Dn"
+    },
+    {
+      "from": "21:32",
+      "to": "00:15",
+      "duty": "63",
+      "toc": "PUTH Dn",
+      "hoc": "APTS DN PF"
+    }
   ],
-  '208': [
-    { from: '06:53', to: '08:07', duty: '21', toc: 'PUTHUP' },
-    { from: '08:07', to: '09:48', duty: '16' },
-    { from: '09:48', to: '11:58', duty: '20' },
-    { from: '11:58', to: '14:09', duty: '15' },
-    { from: '14:09', to: '16:25', duty: '41' },
-    { from: '16:25', to: '18:37', duty: '39' },
-    { from: '18:37', to: '20:47', duty: '35' },
-    { from: '20:47', to: '21:34', duty: '50' },
-    { from: '21:32', to: '00:10', duty: '70' }
+  "208": [
+    {
+      "from": "03:40",
+      "to": "05:42",
+      "duty": "67",
+      "toc": "PUTHUP",
+      "hoc": "PYID DN"
+    },
+    {
+      "from": "05:40",
+      "to": "06:55",
+      "duty": "69",
+      "toc": "PYID DN",
+      "hoc": "PUTH UP"
+    },
+    {
+      "from": "06:53",
+      "to": "08:07",
+      "duty": "21",
+      "toc": "PUTH Up",
+      "hoc": "--"
+    },
+    {
+      "from": "08:07",
+      "to": "09:48",
+      "duty": "30",
+      "toc": "PYID Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "09:48",
+      "to": "11:58",
+      "duty": "16",
+      "toc": "--",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "11:58",
+      "to": "13:49",
+      "duty": "07",
+      "toc": "--",
+      "hoc": "KGWA Up"
+    },
+    {
+      "from": "13:49",
+      "to": "14:09",
+      "duty": "36",
+      "toc": "KGWA Up",
+      "hoc": "--"
+    },
+    {
+      "from": "14:09",
+      "to": "16:25",
+      "duty": "45",
+      "hoc": "--"
+    },
+    {
+      "from": "16:25",
+      "to": "18:37",
+      "duty": "58",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "18:37",
+      "to": "20:47",
+      "duty": "46",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "20:47",
+      "to": "21:34",
+      "duty": "53",
+      "toc": "--",
+      "hoc": "KGWA Dn"
+    },
+    {
+      "from": "21:32",
+      "to": "00:10",
+      "duty": "69",
+      "toc": "KGWA Dn",
+      "hoc": "B DHO"
+    }
   ],
-  '209': [
-    { from: '06:13', to: '07:48', duty: '08', toc: 'APTS UP' },
-    { from: '07:48', to: '09:58', duty: '28' },
-    { from: '09:58', to: '12:12', duty: '24' },
-    { from: '12:41', to: '14:25', duty: '22' },
-    { from: '14:25', to: '16:41', duty: '46' },
-    { from: '16:41', to: '18:32', duty: '40' },
-    { from: '18:32', to: '21:05', duty: '58' }
+  "209": [
+    {
+      "from": "03:45",
+      "to": "06:15",
+      "duty": "66",
+      "toc": "APTS UP",
+      "hoc": "KGWA DN"
+    },
+    {
+      "from": "06:13",
+      "to": "07:48",
+      "duty": "04",
+      "toc": "KGWA Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "07:48",
+      "to": "09:58",
+      "duty": "27",
+      "hoc": "--"
+    },
+    {
+      "from": "09:58",
+      "to": "12:12",
+      "duty": "24",
+      "toc": "--",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "12:12",
+      "to": "12:43",
+      "duty": "13",
+      "toc": "--",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "12:41",
+      "to": "14:05",
+      "duty": "16",
+      "toc": "PYID Dn",
+      "hoc": "KGWA Up"
+    },
+    {
+      "from": "14:03",
+      "to": "14:25",
+      "duty": "42",
+      "toc": "KGWA Up",
+      "hoc": "--"
+    },
+    {
+      "from": "14:25",
+      "to": "16:41",
+      "duty": "49",
+      "hoc": "--"
+    },
+    {
+      "from": "16:41",
+      "to": "18:32",
+      "duty": "39",
+      "toc": "--",
+      "hoc": "Depot"
+    },
+    {
+      "from": "18:32",
+      "to": "21:05",
+      "duty": "59",
+      "toc": "PYID Up",
+      "hoc": "PYID Depot SBL"
+    }
   ],
-  '210': [
-    { from: '06:28', to: '07:58', duty: '08', toc: 'APTS DN' },
-    { from: '07:58', to: '10:08', duty: '29' },
-    { from: '10:08', to: '12:18', duty: '25' },
-    { from: '12:18', to: '12:51', duty: '13' },
-    { from: '12:49', to: '14:33', duty: '20' },
-    { from: '14:33', to: '16:48', duty: '48' },
-    { from: '16:48', to: '18:57', duty: '44' },
-    { from: '18:57', to: '21:07', duty: '38' },
-    { from: '21:07', to: '21:36', duty: '54' },
-    { from: '21:34', to: '23:55', duty: '71' }
+  "210": [
+    {
+      "from": "04:05",
+      "to": "06:30",
+      "duty": "63",
+      "toc": "APTS DN",
+      "hoc": "KGWA Dn"
+    },
+    {
+      "from": "06:28",
+      "to": "07:58",
+      "duty": "10",
+      "toc": "KGWA Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "07:58",
+      "to": "10:08",
+      "duty": "18",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "10:08",
+      "to": "12:18",
+      "duty": "28",
+      "toc": "--",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "12:18",
+      "to": "12:51",
+      "duty": "23",
+      "toc": "--",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "12:49",
+      "to": "14:33",
+      "duty": "24",
+      "toc": "PYID Dn"
+    },
+    {
+      "from": "14:33",
+      "to": "16:48",
+      "duty": "50",
+      "hoc": "--"
+    },
+    {
+      "from": "16:48",
+      "to": "18:57",
+      "duty": "44",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "18:57",
+      "to": "21:07",
+      "duty": "43",
+      "toc": "--"
+    },
+    {
+      "from": "21:07",
+      "to": "21:36",
+      "duty": "37",
+      "toc": "--",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "21:34",
+      "to": "23:55",
+      "duty": "70",
+      "toc": "PYID Dn",
+      "hoc": "NGSA DN PF"
+    }
   ],
-  '211': [
-    { from: '06:25', to: '08:08', duty: '09', toc: 'PUTH DN' },
-    { from: '08:08', to: '10:18', duty: '31' },
-    { from: '10:18', to: '12:33', duty: '30' },
-    { from: '12:33', to: '13:07', duty: '24' },
-    { from: '13:05', to: '14:49', duty: '27' },
-    { from: '14:49', to: '17:04', duty: '50' },
-    { from: '17:04', to: '19:17', duty: '47' },
-    { from: '19:17', to: '21:31', duty: '41' },
-    { from: '21:31', to: '22:00', duty: '62' }
+  "211": [
+    {
+      "from": "04:15",
+      "to": "06:27",
+      "duty": "65",
+      "toc": "PUTH DN",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "06:25",
+      "to": "08:08",
+      "duty": "06",
+      "toc": "PYID Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "08:08",
+      "to": "10:18",
+      "duty": "31",
+      "hoc": "--"
+    },
+    {
+      "from": "10:18",
+      "to": "12:33",
+      "duty": "30",
+      "toc": "--",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "12:33",
+      "to": "13:07",
+      "duty": "26",
+      "toc": "--",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "13:05",
+      "to": "14:49",
+      "duty": "29",
+      "toc": "PYID Dn"
+    },
+    {
+      "from": "14:49",
+      "to": "17:04",
+      "duty": "52",
+      "hoc": "--"
+    },
+    {
+      "from": "17:04",
+      "to": "19:17",
+      "duty": "47",
+      "toc": "--",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "19:17",
+      "to": "22:00",
+      "duty": "51",
+      "toc": "--",
+      "hoc": "PYID Depot SBL"
+    }
   ],
-  '212': [
-    { from: '06:10', to: '08:03', duty: '03', toc: 'PYID RD3' },
-    { from: '08:03', to: '09:43', duty: '30' },
-    { from: '09:43', to: '11:23', duty: '06' },
-    { from: '11:23', to: '13:37', duty: '05' },
-    { from: '13:37', to: '15:53', duty: '32' },
-    { from: '15:53', to: '18:07', duty: '35' },
-    { from: '18:07', to: '20:17', duty: '54' },
-    { from: '20:17', to: '21:50', duty: '51' },
-    { from: '21:48', to: '00:15', duty: '67' }
+  "212": [
+    {
+      "from": "06:10",
+      "to": "08:03",
+      "duty": "03",
+      "toc": "PYID RD3",
+      "hoc": "--"
+    },
+    {
+      "from": "08:03",
+      "to": "09:43",
+      "duty": "29",
+      "hoc": "--"
+    },
+    {
+      "from": "09:43",
+      "to": "11:23",
+      "duty": "20",
+      "toc": "PYID Up",
+      "hoc": "--"
+    },
+    {
+      "from": "11:23",
+      "to": "13:37",
+      "duty": "14",
+      "toc": "--"
+    },
+    {
+      "from": "13:37",
+      "to": "15:33",
+      "duty": "30",
+      "toc": "--",
+      "hoc": "KGWA Up"
+    },
+    {
+      "from": "15:33",
+      "to": "15:53",
+      "duty": "58",
+      "toc": "KGWA Up",
+      "hoc": "--"
+    },
+    {
+      "from": "15:53",
+      "to": "18:07",
+      "duty": "46",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "18:07",
+      "to": "20:17",
+      "duty": "57",
+      "toc": "--"
+    },
+    {
+      "from": "20:17",
+      "to": "21:50",
+      "duty": "55",
+      "toc": "--",
+      "hoc": "PUTH Up"
+    },
+    {
+      "from": "21:48",
+      "to": "00:15",
+      "duty": "66",
+      "toc": "PUTH Up",
+      "hoc": "APTS UP PF"
+    }
   ],
-  '213': [
-    { from: '06:15', to: '08:13', duty: '04', toc: 'Dpo-Rd3' },
-    { from: '08:13', to: '09:53', duty: '32' },
-    { from: '09:53', to: '11:34', duty: '26' },
-    { from: '11:34', to: '13:45', duty: '10' },
-    { from: '14:17', to: '16:01', duty: '44' },
-    { from: '16:01', to: '17:52', duty: '36' },
-    { from: '17:52', to: '19:32', duty: '51' },
-    { from: '19:32', to: '21:46', duty: '45' },
-    { from: '21:46', to: '23:55', duty: '65' }
+  "213": [
+    {
+      "from": "06:15",
+      "to": "08:13",
+      "duty": "05",
+      "toc": "Dpo-Rd3",
+      "hoc": "--"
+    },
+    {
+      "from": "08:13",
+      "to": "09:53",
+      "duty": "04",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "09:53",
+      "to": "11:34",
+      "duty": "23",
+      "toc": "PYID Up",
+      "hoc": "--"
+    },
+    {
+      "from": "11:34",
+      "to": "13:45",
+      "duty": "08",
+      "toc": "--"
+    },
+    {
+      "from": "13:45",
+      "to": "16:01",
+      "duty": "35",
+      "hoc": "--"
+    },
+    {
+      "from": "16:01",
+      "to": "17:52",
+      "duty": "34",
+      "toc": "--",
+      "hoc": "Depot"
+    },
+    {
+      "from": "17:52",
+      "to": "19:32",
+      "duty": "55",
+      "toc": "PYID Up",
+      "hoc": "PUTH"
+    },
+    {
+      "from": "19:32",
+      "to": "21:46",
+      "duty": "49",
+      "toc": "--"
+    },
+    {
+      "from": "21:46",
+      "to": "23:55",
+      "duty": "64",
+      "toc": "PYID Up",
+      "hoc": "NLC UP PF"
+    }
   ],
-  '214': [
-    { from: '06:25', to: '08:23', duty: '10', toc: 'Dpo-Rd3' },
-    { from: '08:23', to: '10:03', duty: '23' },
-    { from: '10:03', to: '12:04', duty: '27' },
-    { from: '12:04', to: '14:17', duty: '14' },
-    { from: '14:17', to: '16:33', duty: '45' },
-    { from: '16:33', to: '18:22', duty: '56' },
-    { from: '18:22', to: '21:00', duty: '36' }
+  "214": [
+    {
+      "from": "06:25",
+      "to": "08:23",
+      "duty": "09",
+      "toc": "Dpo-Rd3"
+    },
+    {
+      "from": "08:23",
+      "to": "10:03",
+      "duty": "10",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "10:03",
+      "to": "12:04",
+      "duty": "25",
+      "toc": "PYID Up",
+      "hoc": "--"
+    },
+    {
+      "from": "12:04",
+      "to": "14:17",
+      "duty": "20",
+      "toc": "--"
+    },
+    {
+      "from": "14:17",
+      "to": "16:33",
+      "duty": "47",
+      "hoc": "--"
+    },
+    {
+      "from": "16:33",
+      "to": "18:22",
+      "duty": "35",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "18:22",
+      "to": "21:00",
+      "duty": "34",
+      "toc": "--",
+      "hoc": "PYID Depot SBL"
+    }
   ],
-  '215': [
-    { from: '06:35', to: '08:33', duty: '15', toc: 'Dpo-Rd3' },
-    { from: '08:33', to: '10:13', duty: '05' },
-    { from: '10:13', to: '12:25', duty: '17' },
-    { from: '12:25', to: '12:59', duty: '11' },
-    { from: '12:57', to: '14:41', duty: '21' },
-    { from: '14:41', to: '16:57', duty: '49' },
-    { from: '16:57', to: '19:07', duty: '33' },
-    { from: '19:07', to: '21:17', duty: '39' },
-    { from: '21:17', to: '21:46', duty: '55' },
-    { from: '21:44', to: '00:15', duty: '74' }
+  "215": [
+    {
+      "from": "06:35",
+      "to": "08:33",
+      "duty": "14",
+      "toc": "Dpo-Rd3",
+      "hoc": "--"
+    },
+    {
+      "from": "08:33",
+      "to": "10:13",
+      "duty": "21",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "10:13",
+      "to": "12:25",
+      "duty": "29",
+      "toc": "--",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "12:25",
+      "to": "12:59",
+      "duty": "11",
+      "toc": "--"
+    },
+    {
+      "from": "12:57",
+      "to": "14:41",
+      "duty": "28",
+      "toc": "PYID Dn"
+    },
+    {
+      "from": "14:41",
+      "to": "16:57",
+      "duty": "42",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "16:57",
+      "to": "19:07",
+      "duty": "45",
+      "toc": "--",
+      "hoc": "Depot"
+    },
+    {
+      "from": "19:07",
+      "to": "21:17",
+      "duty": "58",
+      "toc": "--"
+    },
+    {
+      "from": "21:17",
+      "to": "21:46",
+      "duty": "46",
+      "toc": "--"
+    },
+    {
+      "from": "21:44",
+      "to": "00:15",
+      "duty": "73",
+      "toc": "PYID Dn",
+      "hoc": "JIDL UP PF"
+    }
   ],
-  '216': [
-    { from: '06:20', to: '08:43', duty: '07', toc: 'Dpo-Rd3' },
-    { from: '08:43', to: '11:25', duty: '21' },
-    { from: '16:20', to: '18:42', duty: '61' },
-    { from: '18:42', to: '21:15', duty: '57' }
+  "216": [
+    {
+      "from": "06:10",
+      "to": "08:43",
+      "duty": "08",
+      "toc": "Dpo-Rd3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "08:43",
+      "to": "11:25",
+      "duty": "05",
+      "toc": "--",
+      "hoc": "P DHO"
+    },
+    {
+      "from": "16:20",
+      "to": "18:42",
+      "duty": "61",
+      "toc": "Dpo - Rd3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "18:42",
+      "to": "21:15",
+      "duty": "60",
+      "toc": "PYID Up",
+      "hoc": "PYID Depot SBL"
+    }
   ],
-  '217': [
-    { from: '07:25', to: '09:08', duty: '06', toc: 'BIET BN BE' },
-    { from: '09:08', to: '11:18', duty: '15' },
-    { from: '11:18', to: '13:29', duty: '03' },
-    { from: '13:29', to: '14:03', duty: '12' },
-    { from: '14:01', to: '15:45', duty: '31' },
-    { from: '15:45', to: '17:41', duty: '34' },
-    { from: '17:41', to: '19:22', duty: '60' },
-    { from: '19:22', to: '21:25', duty: '62' },
-    { from: '21:25', to: '21:56', duty: '61' },
-    { from: '21:54', to: '00:05', duty: '75' }
+  "217": [
+    {
+      "from": "06:30",
+      "to": "07:27",
+      "duty": "68",
+      "toc": "BIET BN BE",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "07:25",
+      "to": "09:08",
+      "duty": "26",
+      "toc": "PYID Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "09:08",
+      "to": "11:18",
+      "duty": "07",
+      "toc": "--",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "11:18",
+      "to": "13:29",
+      "duty": "03",
+      "toc": "--"
+    },
+    {
+      "from": "13:29",
+      "to": "14:03",
+      "duty": "17",
+      "toc": "P DHO",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "14:01",
+      "to": "15:45",
+      "duty": "43",
+      "toc": "PYID Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "15:45",
+      "to": "17:41",
+      "duty": "32",
+      "toc": "--",
+      "hoc": "Depot"
+    },
+    {
+      "from": "17:41",
+      "to": "19:22",
+      "duty": "52",
+      "toc": "--",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "19:22",
+      "to": "21:25",
+      "duty": "62",
+      "toc": "PYID Up"
+    },
+    {
+      "from": "21:25",
+      "to": "21:54",
+      "duty": "61",
+      "toc": "--",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "21:54",
+      "to": "00:05",
+      "duty": "74",
+      "toc": "PYID Dn",
+      "hoc": "BIET DN PF"
+    }
   ],
-  '218': [
-    { from: '06:30', to: '08:53', duty: '12', toc: 'Dpo-Rd3' },
-    { from: '08:53', to: '11:35', duty: '04' },
-    { from: '16:30', to: '18:52', duty: '62' },
-    { from: '18:52', to: '20:32', duty: '56' },
-    { from: '20:32', to: '21:25', duty: '53' }
+  "218": [
+    {
+      "from": "06:30",
+      "to": "08:53",
+      "duty": "12",
+      "toc": "Dpo-Rd3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "08:53",
+      "to": "11:35",
+      "duty": "09",
+      "toc": "--",
+      "hoc": "P DHO"
+    },
+    {
+      "from": "16:30",
+      "to": "18:52",
+      "duty": "62",
+      "toc": "Dpo - Rd3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "18:52",
+      "to": "20:32",
+      "duty": "35",
+      "toc": "--"
+    },
+    {
+      "from": "20:32",
+      "to": "21:25",
+      "duty": "36",
+      "toc": "--",
+      "hoc": "PYID Depot SBL"
+    }
   ],
-  '219': [
-    { from: '06:40', to: '09:03', duty: '18', toc: 'Dpo-Rd3' },
-    { from: '09:03', to: '10:43', duty: '10' },
-    { from: '10:43', to: '12:57', duty: '28' },
-    { from: '12:57', to: '13:49', duty: '25' },
-    { from: '13:47', to: '15:13', duty: '34' },
-    { from: '15:13', to: '17:28', duty: '53' },
-    { from: '17:28', to: '19:37', duty: '48' }
+  "219": [
+    {
+      "from": "06:40",
+      "to": "09:03",
+      "duty": "17",
+      "toc": "Dpo-Rd3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "09:03",
+      "to": "10:43",
+      "duty": "14",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "10:43",
+      "to": "12:57",
+      "duty": "10",
+      "toc": "--"
+    },
+    {
+      "from": "12:57",
+      "to": "15:13",
+      "duty": "32",
+      "hoc": "--"
+    },
+    {
+      "from": "15:13",
+      "to": "17:28",
+      "duty": "36",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "17:28",
+      "to": "19:37",
+      "duty": "42",
+      "toc": "--",
+      "hoc": "PUTH"
+    },
+    {
+      "from": "19:37",
+      "to": "20:30",
+      "duty": "45",
+      "toc": "--",
+      "hoc": "PYID Depot SBL"
+    }
   ],
-  '220': [
-    { from: '06:50', to: '09:13', duty: '20', toc: 'Dpo-Rd3' },
-    { from: '09:13', to: '10:53', duty: '07' },
-    { from: '10:53', to: '13:05', duty: '23' },
-    { from: '13:05', to: '13:39', duty: '04' },
-    { from: '13:37', to: '15:21', duty: '30' },
-    { from: '15:21', to: '17:36', duty: '54' },
-    { from: '17:36', to: '19:47', duty: '49' },
-    { from: '19:47', to: '21:42', duty: '47' },
-    { from: '21:42', to: '23:50', duty: '68' }
+  "220": [
+    {
+      "from": "06:50",
+      "to": "09:13",
+      "duty": "20",
+      "toc": "Dpo-Rd3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "09:13",
+      "to": "10:53",
+      "duty": "08",
+      "toc": "PYID Up",
+      "hoc": "--"
+    },
+    {
+      "from": "10:53",
+      "to": "13:05",
+      "duty": "21",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "13:05",
+      "to": "13:39",
+      "duty": "04",
+      "toc": "--"
+    },
+    {
+      "from": "13:37",
+      "to": "15:21",
+      "duty": "27",
+      "toc": "PYID Dn"
+    },
+    {
+      "from": "15:21",
+      "to": "17:36",
+      "duty": "57",
+      "hoc": "--"
+    },
+    {
+      "from": "17:36",
+      "to": "19:47",
+      "duty": "56",
+      "toc": "PYID Trn Bk",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "19:47",
+      "to": "21:42",
+      "duty": "47",
+      "toc": "--",
+      "hoc": "KGWA Up"
+    },
+    {
+      "from": "21:42",
+      "to": "23:50",
+      "duty": "67",
+      "toc": "KGWA Up",
+      "hoc": "PUTH UP PF"
+    }
   ],
-  '221': [
-    { from: '07:00', to: '07:57', duty: '23', toc: 'NGSA PKT' },
-    { from: '07:55', to: '09:38', duty: '17' },
-    { from: '09:38', to: '11:48', duty: '22' },
-    { from: '11:48', to: '14:01', duty: '09' },
-    { from: '14:33', to: '16:17', duty: '47' },
-    { from: '16:17', to: '18:27', duty: '38' },
-    { from: '18:27', to: '20:37', duty: '59' },
-    { from: '20:37', to: '21:24', duty: '49' },
-    { from: '21:22', to: '23:10', duty: '69' }
+  "221": [
+    {
+      "from": "07:00",
+      "to": "07:57",
+      "duty": "22",
+      "toc": "NGSA PKT",
+      "hoc": "--"
+    },
+    {
+      "from": "07:55",
+      "to": "09:38",
+      "duty": "28",
+      "toc": "PYID Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "09:38",
+      "to": "11:48",
+      "duty": "26",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "11:48",
+      "to": "14:01",
+      "duty": "19",
+      "toc": "--"
+    },
+    {
+      "from": "14:01",
+      "to": "16:17",
+      "duty": "44",
+      "hoc": "--"
+    },
+    {
+      "from": "16:17",
+      "to": "18:27",
+      "duty": "43",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "18:27",
+      "to": "20:37",
+      "duty": "33",
+      "toc": "--"
+    },
+    {
+      "from": "20:37",
+      "to": "21:24",
+      "duty": "56",
+      "toc": "--",
+      "hoc": "KGWA Dn"
+    },
+    {
+      "from": "21:22",
+      "to": "23:10",
+      "duty": "68",
+      "toc": "KGWA Dn",
+      "hoc": "BIET DN BE"
+    }
   ],
-  '222': [
-    { from: '07:00', to: '09:23', duty: '24', toc: 'Dpo-Rd3' },
-    { from: '09:23', to: '11:55', duty: '12' },
-    { from: '15:50', to: '18:12', duty: '57' },
-    { from: '18:12', to: '20:40', duty: '34' }
+  "222": [
+    {
+      "from": "06:50",
+      "to": "09:23",
+      "duty": "23",
+      "toc": "Dpo-Rd3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "09:23",
+      "to": "11:55",
+      "duty": "12",
+      "toc": "PYID Up",
+      "hoc": "P DHO"
+    },
+    {
+      "from": "15:50",
+      "to": "18:12",
+      "duty": "60",
+      "toc": "Dpo - Rd3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "18:12",
+      "to": "20:35",
+      "duty": "32",
+      "toc": "--",
+      "hoc": "PYID Depot SBL"
+    }
   ],
-  '223': [
-    { from: '07:10', to: '09:33', duty: '25', toc: 'Dpo-Rd3' },
-    { from: '09:33', to: '12:00', duty: '18' },
-    { from: '15:45', to: '18:02', duty: '58' },
-    { from: '18:02', to: '19:42', duty: '53' },
-    { from: '19:42', to: '21:54', duty: '46' },
-    { from: '21:54', to: '22:40', duty: '76' }
+  "223": [
+    {
+      "from": "07:10",
+      "to": "09:33",
+      "duty": "25",
+      "toc": "Dpo-Rd3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "09:33",
+      "to": "12:00",
+      "duty": "17",
+      "toc": "PYID Up",
+      "hoc": "P DHO"
+    },
+    {
+      "from": "15:45",
+      "to": "18:02",
+      "duty": "59",
+      "toc": "Dpo - Rd3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "18:02",
+      "to": "19:42",
+      "duty": "36",
+      "toc": "--",
+      "hoc": "Depot"
+    },
+    {
+      "from": "19:42",
+      "to": "21:54",
+      "duty": "48",
+      "toc": "--"
+    },
+    {
+      "from": "21:54",
+      "to": "22:40",
+      "duty": "75",
+      "toc": "PYID Up",
+      "hoc": "NPKT / DEPOT"
+    }
   ],
-  'Couns': [
-    { from: '13:00', to: '14:20', duty: '18' },
-    { from: '13:35', to: '15:31', duty: '36' },
-    { from: '13:35', to: '15:38', duty: '37' },
-    { from: '13:35', to: '15:47', duty: '38' },
-    { from: '13:35', to: '15:55', duty: '39' },
-    { from: '13:50', to: '16:11', duty: '40' }
+  "Couns": [
+    {
+      "from": "12:40",
+      "to": "14:20",
+      "duty": "18",
+      "toc": "P DHO"
+    },
+    {
+      "from": "12:55",
+      "to": "14:10",
+      "duty": "12",
+      "toc": "P DHO"
+    },
+    {
+      "from": "13:03",
+      "to": "14:10",
+      "duty": "13",
+      "toc": "PYID Dn"
+    },
+    {
+      "from": "13:10",
+      "to": "15:36",
+      "duty": "34",
+      "hoc": "--"
+    },
+    {
+      "from": "13:11",
+      "to": "14:40",
+      "duty": "23",
+      "toc": "PYID Dn"
+    },
+    {
+      "from": "13:25",
+      "to": "14:30",
+      "duty": "21",
+      "toc": "--"
+    },
+    {
+      "from": "13:27",
+      "to": "15:05",
+      "duty": "26",
+      "toc": "PYID Dn"
+    },
+    {
+      "from": "13:35",
+      "to": "15:04",
+      "duty": "37",
+      "hoc": "--"
+    },
+    {
+      "from": "13:41",
+      "to": "14:40",
+      "duty": "22",
+      "toc": "--"
+    },
+    {
+      "from": "13:55",
+      "to": "15:28",
+      "duty": "46",
+      "hoc": "--"
+    },
+    {
+      "from": "14:05",
+      "to": "16:55",
+      "duty": "48",
+      "hoc": "--"
+    },
+    {
+      "from": "14:20",
+      "to": "16:35",
+      "duty": "51",
+      "hoc": "PYID Trn Bk"
+    }
   ]
 };
 
@@ -1635,243 +3172,1170 @@ export const MONDAY_RELIEF_ID_CHART_META = {
 // 3. SATURDAY & GH RELIEF ID CHART (WEF 17/Oct/2026 APTS - BIET)
 // ============================================================================
 export const SATURDAY_RELIEF_ID_CHART = {
-  '201': [
-    { duty: '71', toc: 'SPGD DN PF', from: '04:25', to: '06:33', hoc: '' },
-    { duty: '10', toc: 'PYID', from: '06:33', to: '08:54', hoc: '' },
-    { duty: '05', toc: '', from: '08:54', to: '11:06', hoc: '' },
-    { duty: '07', toc: '', from: '11:06', to: '13:21', hoc: '' },
-    { duty: '18', toc: '', from: '13:21', to: '13:55', hoc: 'PYID DN' },
-    { duty: '24', toc: 'PYID DN', from: '13:53', to: '15:37', hoc: '' },
-    { duty: '32', toc: '', from: '15:37', to: '17:56', hoc: '' },
-    { duty: '44', toc: '', from: '17:56', to: '20:08', hoc: '' },
-    { duty: '40', toc: '', from: '20:08', to: '21:40', hoc: 'PUTH UP' },
-    { duty: '70', toc: 'PUTH UP', from: '21:40', to: '23:30', hoc: 'B DHO' }
+  "201": [
+    {
+      "from": "04:25",
+      "to": "06:33",
+      "duty": "71",
+      "toc": "SPGD DN"
+    },
+    {
+      "from": "06:33",
+      "to": "08:54",
+      "duty": "10",
+      "hoc": "--"
+    },
+    {
+      "from": "08:54",
+      "to": "11:06",
+      "duty": "05",
+      "toc": "PYID Up"
+    },
+    {
+      "from": "11:06",
+      "to": "13:21",
+      "duty": "07",
+      "toc": "--"
+    },
+    {
+      "from": "13:21",
+      "to": "13:55",
+      "duty": "18",
+      "hoc": "PYID DN"
+    },
+    {
+      "from": "13:53",
+      "to": "15:37",
+      "duty": "24",
+      "toc": "PYID DN"
+    },
+    {
+      "from": "15:37",
+      "to": "17:56",
+      "duty": "31",
+      "toc": "--",
+      "hoc": "Depot"
+    },
+    {
+      "from": "17:56",
+      "to": "20:08",
+      "duty": "43",
+      "toc": "--",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "20:08",
+      "to": "21:40",
+      "duty": "39",
+      "toc": "--",
+      "hoc": "PUTH UP"
+    },
+    {
+      "from": "21:40",
+      "to": "23:30",
+      "duty": "70",
+      "toc": "PUTH UP",
+      "hoc": "B DHO"
+    }
   ],
-  '202': [
-    { duty: '68', toc: 'NGSA DN PF', from: '04:00', to: '06:48', hoc: '' },
-    { duty: '15', toc: 'PYID', from: '06:48', to: '09:05', hoc: '' },
-    { duty: '09', toc: '', from: '09:05', to: '11:17', hoc: '' },
-    { duty: '12', toc: '', from: '11:17', to: '13:29', hoc: '' },
-    { duty: '23', toc: '', from: '13:29', to: '15:45', hoc: '' },
-    { duty: '46', toc: 'PYID', from: '15:45', to: '17:41', hoc: '' },
-    { duty: '42', toc: '', from: '17:41', to: '19:18', hoc: '' },
-    { duty: '53', toc: '', from: '19:18', to: '20:57', hoc: '' },
-    { duty: '51', toc: '', from: '20:57', to: '21:44', hoc: 'KGWA DN' },
-    { duty: '71', toc: 'KGWA DN', from: '21:42', to: '00:00', hoc: 'SPGD DnPF' }
+  "202": [
+    {
+      "from": "04:00",
+      "to": "06:48",
+      "duty": "68",
+      "toc": "NGSA DN"
+    },
+    {
+      "from": "06:48",
+      "to": "09:05",
+      "duty": "15",
+      "hoc": "--"
+    },
+    {
+      "from": "09:05",
+      "to": "11:17",
+      "duty": "09",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "11:17",
+      "to": "13:29",
+      "duty": "12",
+      "toc": "--"
+    },
+    {
+      "from": "13:29",
+      "to": "15:45",
+      "duty": "23",
+      "toc": "--"
+    },
+    {
+      "from": "15:45",
+      "to": "17:41",
+      "duty": "46",
+      "hoc": "--"
+    },
+    {
+      "from": "17:41",
+      "to": "19:18",
+      "duty": "41",
+      "toc": "--",
+      "hoc": "Depot"
+    },
+    {
+      "from": "19:18",
+      "to": "20:57",
+      "duty": "53",
+      "toc": "--"
+    },
+    {
+      "from": "20:57",
+      "to": "21:44",
+      "duty": "51",
+      "toc": "--",
+      "hoc": "KGWA DN"
+    },
+    {
+      "from": "21:42",
+      "to": "00:00",
+      "duty": "71",
+      "toc": "KGWA DN",
+      "hoc": "SPGD DN PF"
+    }
   ],
-  '203': [
-    { duty: '73', toc: 'BIET DN PF', from: '04:30', to: '07:03', hoc: '' },
-    { duty: '17', toc: 'PYID', from: '07:03', to: '09:16', hoc: '' },
-    { duty: '13', toc: '', from: '09:16', to: '11:28', hoc: '' },
-    { duty: '05', toc: '', from: '11:28', to: '12:10', hoc: 'P DHO' },
-    { duty: '52', toc: 'Dpo - Rd3', from: '16:20', to: '18:34', hoc: '' },
-    { duty: '48', toc: '', from: '18:34', to: '20:13', hoc: '' },
-    { duty: '38', toc: '', from: '20:13', to: '21:50', hoc: 'PUTH UP' },
-    { duty: '64', toc: 'PUTH UP', from: '21:50', to: '00:15', hoc: 'APTS UP' }
+  "203": [
+    {
+      "from": "04:30",
+      "to": "07:03",
+      "duty": "73",
+      "toc": "BIET DN"
+    },
+    {
+      "from": "07:03",
+      "to": "09:16",
+      "duty": "17",
+      "hoc": "--"
+    },
+    {
+      "from": "09:16",
+      "to": "11:28",
+      "duty": "13",
+      "toc": "PYID Up",
+      "hoc": "--"
+    },
+    {
+      "from": "11:28",
+      "to": "12:10",
+      "duty": "05",
+      "toc": "--",
+      "hoc": "P DHO"
+    },
+    {
+      "from": "16:20",
+      "to": "18:34",
+      "duty": "52",
+      "toc": "Dpo - Rd3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "18:34",
+      "to": "20:13",
+      "duty": "48",
+      "toc": "--"
+    },
+    {
+      "from": "20:13",
+      "to": "21:50",
+      "duty": "44",
+      "toc": "--",
+      "hoc": "PUTH UP"
+    },
+    {
+      "from": "21:50",
+      "to": "00:15",
+      "duty": "64",
+      "toc": "PUTH UP",
+      "hoc": "APTS UP PF"
+    }
   ],
-  '204': [
-    { duty: '69', toc: 'BIET UP PF', from: '04:40', to: '07:18', hoc: '' },
-    { duty: '19', toc: 'PYID', from: '07:18', to: '09:38', hoc: '' },
-    { duty: '14', toc: '', from: '09:38', to: '11:50', hoc: '' },
-    { duty: '10', toc: '', from: '11:50', to: '14:09', hoc: '' },
-    { duty: '35', toc: 'PYID', from: '14:09', to: '16:25', hoc: '' },
-    { duty: '47', toc: '', from: '16:25', to: '18:40', hoc: '' },
-    { duty: '49', toc: '', from: '18:40', to: '20:52', hoc: '' },
-    { duty: '50', toc: '', from: '20:52', to: '21:30', hoc: 'P DHO' }
+  "204": [
+    {
+      "from": "04:40",
+      "to": "07:18",
+      "duty": "69",
+      "toc": "BIET UP"
+    },
+    {
+      "from": "07:18",
+      "to": "09:38",
+      "duty": "19",
+      "hoc": "--"
+    },
+    {
+      "from": "09:38",
+      "to": "11:50",
+      "duty": "14",
+      "toc": "PYID Up",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "11:50",
+      "to": "14:09",
+      "duty": "10",
+      "toc": "--"
+    },
+    {
+      "from": "14:09",
+      "to": "16:25",
+      "duty": "34",
+      "hoc": "--"
+    },
+    {
+      "from": "16:25",
+      "to": "18:40",
+      "duty": "47",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "18:40",
+      "to": "20:52",
+      "duty": "49",
+      "toc": "PYID Up"
+    },
+    {
+      "from": "20:52",
+      "to": "21:30",
+      "duty": "50",
+      "toc": "--",
+      "hoc": "PYID Depot SBL"
+    }
   ],
-  '205': [
-    { duty: '72', toc: 'JIDL UP', from: '04:45', to: '06:55', hoc: 'PUTH UP' },
-    { duty: '16', toc: 'PUTH UP', from: '06:55', to: '08:06', hoc: 'PYID DN' },
-    { duty: '23', toc: 'PYID DN', from: '08:04', to: '09:49', hoc: '' },
-    { duty: '21', toc: '', from: '09:49', to: '12:01', hoc: '' },
-    { duty: '15', toc: '', from: '12:01', to: '14:25', hoc: '' },
-    { duty: '37', toc: 'PYID', from: '14:25', to: '16:41', hoc: '' },
-    { duty: '31', toc: '', from: '16:41', to: '18:23', hoc: '' },
-    { duty: '32', toc: '', from: '18:23', to: '20:40', hoc: 'P DHO' }
+  "205": [
+    {
+      "from": "04:45",
+      "to": "06:55",
+      "duty": "72",
+      "toc": "JIDL UP",
+      "hoc": "PUTH UP"
+    },
+    {
+      "from": "06:55",
+      "to": "08:06",
+      "duty": "16",
+      "toc": "PUTH UP",
+      "hoc": "PYID DN"
+    },
+    {
+      "from": "08:04",
+      "to": "09:49",
+      "duty": "23",
+      "toc": "PYID DN",
+      "hoc": "--"
+    },
+    {
+      "from": "09:49",
+      "to": "12:01",
+      "duty": "21",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "12:01",
+      "to": "14:25",
+      "duty": "15",
+      "toc": "--"
+    },
+    {
+      "from": "14:25",
+      "to": "16:41",
+      "duty": "37",
+      "hoc": "--"
+    },
+    {
+      "from": "16:41",
+      "to": "18:23",
+      "duty": "30",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "18:23",
+      "to": "20:40",
+      "duty": "31",
+      "toc": "--",
+      "hoc": "PYID Depot SBL"
+    }
   ],
-  '206': [
-    { duty: '70', toc: 'DEPOT', from: '04:30', to: '06:15', hoc: 'KGWA DN' },
-    { duty: '03', toc: 'KGWA DN', from: '06:13', to: '07:48', hoc: '' },
-    { duty: '22', toc: 'PYID', from: '07:48', to: '10:00', hoc: '' },
-    { duty: '18', toc: '', from: '10:00', to: '12:11', hoc: '' },
-    { duty: '13', toc: '', from: '12:11', to: '14:33', hoc: '' },
-    { duty: '40', toc: 'PYID', from: '14:33', to: '16:49', hoc: '' },
-    { duty: '34', toc: '', from: '16:49', to: '19:02', hoc: '' },
-    { duty: '52', toc: '', from: '19:02', to: '21:14', hoc: '' },
-    { duty: '49', toc: '', from: '21:14', to: '21:46', hoc: 'PYID DN' },
-    { duty: '72', toc: 'PYID DN', from: '21:44', to: '00:20', hoc: 'JIDL UpPf' }
+  "206": [
+    {
+      "from": "04:30",
+      "to": "06:15",
+      "duty": "70",
+      "toc": "DEPOT-RD3",
+      "hoc": "KGWA DN"
+    },
+    {
+      "from": "06:13",
+      "to": "07:48",
+      "duty": "03",
+      "toc": "KGWA DN",
+      "hoc": "--"
+    },
+    {
+      "from": "07:48",
+      "to": "10:00",
+      "duty": "22"
+    },
+    {
+      "from": "10:00",
+      "to": "12:11",
+      "duty": "18",
+      "toc": "PYID Up"
+    },
+    {
+      "from": "12:11",
+      "to": "14:33",
+      "duty": "13",
+      "toc": "--"
+    },
+    {
+      "from": "14:33",
+      "to": "16:49",
+      "duty": "39",
+      "hoc": "--"
+    },
+    {
+      "from": "16:49",
+      "to": "19:02",
+      "duty": "33",
+      "toc": "--"
+    },
+    {
+      "from": "19:02",
+      "to": "21:14",
+      "duty": "52",
+      "toc": "PYID Up"
+    },
+    {
+      "from": "21:14",
+      "to": "21:46",
+      "duty": "49",
+      "toc": "--",
+      "hoc": "PYID DN"
+    },
+    {
+      "from": "21:44",
+      "to": "00:20",
+      "duty": "72",
+      "toc": "PYID DN",
+      "hoc": "JIDL UP PF"
+    }
   ],
-  '207': [
-    { duty: '62', toc: 'NLC UP PF', from: '04:20', to: '06:30', hoc: 'KGWA DN' },
-    { duty: '08', toc: 'KGWA DN', from: '06:28', to: '07:59', hoc: '' },
-    { duty: '25', toc: 'PYID', from: '07:59', to: '10:11', hoc: '' },
-    { duty: '20', toc: '', from: '10:11', to: '12:21', hoc: '' },
-    { duty: '17', toc: '', from: '12:21', to: '14:41', hoc: '' },
-    { duty: '41', toc: 'PYID', from: '14:41', to: '16:57', hoc: '' },
-    { duty: '35', toc: '', from: '16:57', to: '19:13', hoc: '' },
-    { duty: '36', toc: '', from: '19:13', to: '21:25', hoc: '' },
-    { duty: '53', toc: '', from: '21:25', to: '21:56', hoc: 'PYID DN' },
-    { duty: '73', toc: 'PYID DN', from: '21:54', to: '00:15', hoc: 'BIET DnPf' }
+  "207": [
+    {
+      "from": "04:20",
+      "to": "06:30",
+      "duty": "62",
+      "toc": "NLC UP",
+      "hoc": "KGWA DN"
+    },
+    {
+      "from": "06:28",
+      "to": "07:59",
+      "duty": "08",
+      "toc": "KGWA DN",
+      "hoc": "--"
+    },
+    {
+      "from": "07:59",
+      "to": "10:11",
+      "duty": "25",
+      "hoc": "--"
+    },
+    {
+      "from": "10:11",
+      "to": "12:21",
+      "duty": "20",
+      "toc": "PYID Up",
+      "hoc": "PYID DN"
+    },
+    {
+      "from": "12:21",
+      "to": "14:41",
+      "duty": "17",
+      "toc": "--"
+    },
+    {
+      "from": "14:41",
+      "to": "16:57",
+      "duty": "40",
+      "hoc": "--"
+    },
+    {
+      "from": "16:57",
+      "to": "19:13",
+      "duty": "34",
+      "toc": "--",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "19:13",
+      "to": "21:25",
+      "duty": "35",
+      "toc": "--"
+    },
+    {
+      "from": "21:25",
+      "to": "21:56",
+      "duty": "53",
+      "toc": "--",
+      "hoc": "PYID DN"
+    },
+    {
+      "from": "21:54",
+      "to": "00:15",
+      "duty": "73",
+      "toc": "PYID DN",
+      "hoc": "BIET DN PF"
+    }
   ],
-  '208': [
-    { duty: '61', toc: 'PUTH UP', from: '04:15', to: '06:27', hoc: 'PYID DN' },
-    { duty: '07', toc: 'PYID DN', from: '06:25', to: '08:10', hoc: '' },
-    { duty: '03', toc: '', from: '08:10', to: '10:22', hoc: '' },
-    { duty: '24', toc: '', from: '10:22', to: '12:31', hoc: '' },
-    { duty: '11', toc: '', from: '12:31', to: '13:07', hoc: 'PYID DN' },
-    { duty: '20', toc: 'PYID DN', from: '13:05', to: '14:49', hoc: '' },
-    { duty: '39', toc: 'PYID', from: '14:49', to: '17:04', hoc: '' },
-    { duty: '36', toc: '', from: '17:04', to: '18:45', hoc: '' },
-    { duty: '50', toc: '', from: '18:45', to: '20:24', hoc: '' },
-    { duty: '45', toc: '', from: '20:24', to: '21:34', hoc: 'PUTH DN' },
-    { duty: '60', toc: 'PUTH DN', from: '21:32', to: '00:15', hoc: 'APTS DN' }
+  "208": [
+    {
+      "from": "04:15",
+      "to": "06:27",
+      "duty": "61",
+      "toc": "PUTH UP",
+      "hoc": "PYID DN"
+    },
+    {
+      "from": "06:25",
+      "to": "08:10",
+      "duty": "07",
+      "toc": "PYID DN",
+      "hoc": "--"
+    },
+    {
+      "from": "08:10",
+      "to": "10:22",
+      "duty": "03",
+      "toc": "--",
+      "hoc": "Depot"
+    },
+    {
+      "from": "10:22",
+      "to": "12:31",
+      "duty": "24",
+      "toc": "--"
+    },
+    {
+      "from": "12:31",
+      "to": "13:07",
+      "duty": "11",
+      "toc": "--",
+      "hoc": "PYID DN"
+    },
+    {
+      "from": "13:05",
+      "to": "14:49",
+      "duty": "20",
+      "toc": "PYID DN"
+    },
+    {
+      "from": "14:49",
+      "to": "17:04",
+      "duty": "38",
+      "hoc": "--"
+    },
+    {
+      "from": "17:04",
+      "to": "18:45",
+      "duty": "35",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "18:45",
+      "to": "20:24",
+      "duty": "50",
+      "toc": "--",
+      "hoc": "Depot"
+    },
+    {
+      "from": "20:24",
+      "to": "21:34",
+      "duty": "45",
+      "toc": "--",
+      "hoc": "PUTH DN"
+    },
+    {
+      "from": "21:32",
+      "to": "00:15",
+      "duty": "60",
+      "toc": "PUTH DN",
+      "hoc": "APTS DN PF"
+    }
   ],
-  '209': [
-    { duty: '64', toc: 'APTS UP', from: '04:30', to: '06:38', hoc: 'PYID DN' },
-    { duty: '12', toc: 'PYID DN', from: '06:36', to: '08:21', hoc: '' },
-    { duty: '27', toc: 'PYID', from: '08:21', to: '10:33', hoc: '' },
-    { duty: '26', toc: '', from: '10:33', to: '12:49', hoc: '' },
-    { duty: '14', toc: '', from: '12:49', to: '13:41', hoc: 'KGWA DN' },
-    { duty: '32', toc: 'KGWA DN', from: '13:39', to: '15:05', hoc: '' },
-    { duty: '43', toc: 'PYID', from: '15:05', to: '17:20', hoc: '' },
-    { duty: '40', toc: '', from: '17:20', to: '19:35', hoc: '' },
-    { duty: '41', toc: '', from: '19:35', to: '21:45', hoc: '' },
-    { duty: '62', toc: 'PYID', from: '21:45', to: '23:45', hoc: 'NLC UP' }
+  "209": [
+    {
+      "from": "04:30",
+      "to": "06:38",
+      "duty": "64",
+      "toc": "APTS UP",
+      "hoc": "PYID DN"
+    },
+    {
+      "from": "06:36",
+      "to": "08:21",
+      "duty": "12",
+      "toc": "PYID DN",
+      "hoc": "--"
+    },
+    {
+      "from": "08:21",
+      "to": "10:33",
+      "duty": "27",
+      "hoc": "--"
+    },
+    {
+      "from": "10:33",
+      "to": "12:49",
+      "duty": "26",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "12:49",
+      "to": "13:41",
+      "duty": "14",
+      "toc": "--",
+      "hoc": "KGWA DN"
+    },
+    {
+      "from": "13:39",
+      "to": "15:05",
+      "duty": "31",
+      "toc": "KGWA DN",
+      "hoc": "--"
+    },
+    {
+      "from": "15:05",
+      "to": "17:20",
+      "duty": "42",
+      "hoc": "--"
+    },
+    {
+      "from": "17:20",
+      "to": "19:35",
+      "duty": "39",
+      "toc": "--",
+      "hoc": "PUTH"
+    },
+    {
+      "from": "19:35",
+      "to": "21:45",
+      "duty": "40",
+      "toc": "--"
+    },
+    {
+      "from": "21:45",
+      "to": "23:45",
+      "duty": "62",
+      "hoc": "NLC UP PF"
+    }
   ],
-  '210': [
-    { duty: '60', toc: 'APTS DN', from: '04:40', to: '06:49', hoc: 'PYID DN' },
-    { duty: '09', toc: 'PYID DN', from: '06:47', to: '08:32', hoc: '' },
-    { duty: '08', toc: '', from: '08:32', to: '10:44', hoc: '' },
-    { duty: '04', toc: '', from: '10:44', to: '12:57', hoc: '' },
-    { duty: '21', toc: '', from: '12:57', to: '15:13', hoc: '' },
-    { duty: '44', toc: 'PYID', from: '15:13', to: '17:28', hoc: '' },
-    { duty: '41', toc: '', from: '17:28', to: '19:07', hoc: '' },
-    { duty: '47', toc: '', from: '19:07', to: '20:46', hoc: '' },
-    { duty: '46', toc: '', from: '20:46', to: '21:34', hoc: 'KGWA DN' },
-    { duty: '66', toc: 'KGWA DN', from: '21:32', to: '00:00', hoc: 'B DHO' }
+  "210": [
+    {
+      "from": "04:40",
+      "to": "06:49",
+      "duty": "60",
+      "toc": "APTS DN",
+      "hoc": "PYID DN"
+    },
+    {
+      "from": "06:47",
+      "to": "08:32",
+      "duty": "09",
+      "toc": "PYID DN",
+      "hoc": "--"
+    },
+    {
+      "from": "08:32",
+      "to": "10:44",
+      "duty": "08",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "10:44",
+      "to": "12:57",
+      "duty": "04",
+      "toc": "--"
+    },
+    {
+      "from": "12:57",
+      "to": "15:13",
+      "duty": "21",
+      "toc": "--"
+    },
+    {
+      "from": "15:13",
+      "to": "17:28",
+      "duty": "43",
+      "hoc": "--"
+    },
+    {
+      "from": "17:28",
+      "to": "19:07",
+      "duty": "40",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "19:07",
+      "to": "20:46",
+      "duty": "47",
+      "toc": "--"
+    },
+    {
+      "from": "20:46",
+      "to": "21:34",
+      "duty": "46",
+      "toc": "--",
+      "hoc": "KGWA DN"
+    },
+    {
+      "from": "21:32",
+      "to": "00:00",
+      "duty": "66",
+      "toc": "KGWA DN",
+      "hoc": "B DHO"
+    }
   ],
-  '211': [
-    { duty: '63', toc: 'PUTH DN', from: '05:00', to: '06:18', hoc: '' },
-    { duty: '06', toc: 'PYID', from: '06:18', to: '08:43', hoc: '' },
-    { duty: '16', toc: '', from: '08:43', to: '10:55', hoc: '' },
-    { duty: '03', toc: '', from: '10:55', to: '11:40', hoc: 'P DHO' },
-    { duty: '51', toc: 'Dpo - Rd3', from: '15:50', to: '18:01', hoc: '' },
-    { duty: '38', toc: '', from: '18:01', to: '19:40', hoc: '' },
-    { duty: '35', toc: '', from: '19:40', to: '21:34', hoc: 'KGWA UP' },
-    { duty: '67', toc: 'KGWA UP', from: '21:34', to: '22:30', hoc: 'N PKT/Depot' }
+  "211": [
+    {
+      "from": "05:00",
+      "to": "06:18",
+      "duty": "63",
+      "toc": "PUTH DN"
+    },
+    {
+      "from": "06:18",
+      "to": "08:43",
+      "duty": "06",
+      "hoc": "--"
+    },
+    {
+      "from": "08:43",
+      "to": "10:55",
+      "duty": "16",
+      "toc": "PYID DN",
+      "hoc": "--"
+    },
+    {
+      "from": "10:55",
+      "to": "11:40",
+      "duty": "03",
+      "toc": "--",
+      "hoc": "P DHO"
+    },
+    {
+      "from": "15:50",
+      "to": "18:01",
+      "duty": "51",
+      "toc": "Dpo - Rd3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "18:01",
+      "to": "19:40",
+      "duty": "44",
+      "toc": "--",
+      "hoc": "PUTH"
+    },
+    {
+      "from": "19:40",
+      "to": "21:34",
+      "duty": "34",
+      "toc": "--",
+      "hoc": "KGWA UP"
+    },
+    {
+      "from": "21:34",
+      "to": "22:30",
+      "duty": "67",
+      "toc": "KGWA UP",
+      "hoc": "NPKT / DEPOT"
+    }
   ],
-  '212': [
-    { duty: '65', toc: 'BT DN BE', from: '06:30', to: '07:44', hoc: 'PYID DN' },
-    { duty: '21', toc: 'PYID DN', from: '07:42', to: '09:27', hoc: '' },
-    { duty: '11', toc: '', from: '09:27', to: '11:39', hoc: '' },
-    { duty: '06', toc: '', from: '11:39', to: '13:53', hoc: '' },
-    { duty: '25', toc: '', from: '13:53', to: '15:48', hoc: 'KGWA UP' },
-    { duty: '47', toc: 'KGWA UP', from: '15:46', to: '16:08', hoc: '' },
-    { duty: '50', toc: 'PYID', from: '16:08', to: '18:18', hoc: '' },
-    { duty: '30', toc: '', from: '18:18', to: '20:30', hoc: '' },
-    { duty: '43', toc: '', from: '20:30', to: '21:10', hoc: 'P DHO' }
+  "212": [
+    {
+      "from": "06:30",
+      "to": "07:44",
+      "duty": "65",
+      "toc": "BT DN BE",
+      "hoc": "PYID DN"
+    },
+    {
+      "from": "07:42",
+      "to": "09:27",
+      "duty": "21",
+      "toc": "PYID DN",
+      "hoc": "--"
+    },
+    {
+      "from": "09:27",
+      "to": "11:39",
+      "duty": "11",
+      "toc": "PYID Up"
+    },
+    {
+      "from": "11:39",
+      "to": "13:53",
+      "duty": "06",
+      "toc": "--"
+    },
+    {
+      "from": "13:53",
+      "to": "15:48",
+      "duty": "25",
+      "toc": "--",
+      "hoc": "KGWA UP"
+    },
+    {
+      "from": "15:46",
+      "to": "16:08",
+      "duty": "47",
+      "toc": "KGWA UP",
+      "hoc": "--"
+    },
+    {
+      "from": "16:08",
+      "to": "18:18",
+      "duty": "50",
+      "hoc": "--"
+    },
+    {
+      "from": "18:18",
+      "to": "20:30",
+      "duty": "36",
+      "toc": "--"
+    },
+    {
+      "from": "20:30",
+      "to": "21:10",
+      "duty": "42",
+      "toc": "--",
+      "hoc": "PYID Depot SBL"
+    }
   ],
-  '213': [
-    { duty: '04', toc: 'PYID RD3', from: '06:15', to: '08:04', hoc: '' },
-    { duty: '24', toc: 'PYID', from: '08:04', to: '09:43', hoc: '' },
-    { duty: '15', toc: '', from: '09:43', to: '11:22', hoc: '' },
-    { duty: '08', toc: '', from: '11:22', to: '13:37', hoc: '' },
-    { duty: '26', toc: '', from: '13:37', to: '15:53', hoc: '' },
-    { duty: '48', toc: 'PYID', from: '15:53', to: '18:07', hoc: '' },
-    { duty: '46', toc: '', from: '18:07', to: '20:19', hoc: '' },
-    { duty: '42', toc: '', from: '20:19', to: '21:00', hoc: 'P DHO' }
+  "213": [
+    {
+      "from": "06:15",
+      "to": "08:04",
+      "duty": "04",
+      "toc": "PYID RD3",
+      "hoc": "--"
+    },
+    {
+      "from": "08:04",
+      "to": "09:43",
+      "duty": "24",
+      "hoc": "--"
+    },
+    {
+      "from": "09:43",
+      "to": "11:22",
+      "duty": "15",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "11:22",
+      "to": "13:37",
+      "duty": "08",
+      "toc": "--"
+    },
+    {
+      "from": "13:37",
+      "to": "15:53",
+      "duty": "26",
+      "toc": "--"
+    },
+    {
+      "from": "15:53",
+      "to": "18:07",
+      "duty": "48",
+      "hoc": "--"
+    },
+    {
+      "from": "18:07",
+      "to": "20:19",
+      "duty": "46",
+      "toc": "--",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "20:19",
+      "to": "21:00",
+      "duty": "41",
+      "toc": "--",
+      "hoc": "PYID Depot SBL"
+    }
   ],
-  '214': [
-    { duty: '66', toc: 'PDC Only Dpo-Rd3/NU PDC', from: '05:30', to: '06:30', hoc: '' },
-    { duty: '05', toc: '', from: '06:15', to: '08:15', hoc: '' },
-    { duty: '26', toc: 'PYID', from: '08:15', to: '09:54', hoc: '' },
-    { duty: '17', toc: '', from: '09:54', to: '11:33', hoc: '' },
-    { duty: '16', toc: '', from: '11:33', to: '13:45', hoc: '' },
-    { duty: '27', toc: '', from: '13:45', to: '16:01', hoc: '' },
-    { duty: '30', toc: '', from: '16:01', to: '17:51', hoc: '' },
-    { duty: '39', toc: '', from: '17:51', to: '19:29', hoc: '' },
-    { duty: '34', toc: '', from: '19:29', to: '21:45', hoc: 'RD3' }
+  "214": [
+    {
+      "from": "06:15",
+      "to": "08:15",
+      "duty": "05",
+      "toc": "DEPOT-RD3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "08:15",
+      "to": "09:54",
+      "duty": "26",
+      "hoc": "--"
+    },
+    {
+      "from": "09:54",
+      "to": "11:33",
+      "duty": "17",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "11:33",
+      "to": "13:45",
+      "duty": "16",
+      "toc": "--"
+    },
+    {
+      "from": "13:45",
+      "to": "16:01",
+      "duty": "27"
+    },
+    {
+      "from": "16:01",
+      "to": "17:51",
+      "duty": "36",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "17:51",
+      "to": "19:29",
+      "duty": "38",
+      "toc": "--",
+      "hoc": "PUTH"
+    },
+    {
+      "from": "19:29",
+      "to": "21:45",
+      "duty": "33",
+      "toc": "--",
+      "hoc": "PYID RD3"
+    }
   ],
-  '215': [
-    { duty: '54', toc: 'Dpo-Rd3', from: '06:05', to: '08:26', hoc: '' },
-    { duty: '56', toc: 'PYID', from: '08:26', to: '10:05', hoc: '' },
-    { duty: '55', toc: '', from: '10:05', to: '11:44', hoc: '' },
-    { duty: '54', toc: '', from: '11:44', to: '13:41', hoc: 'KGWA Up' },
-    { duty: '57', toc: 'KGWA Up', from: '13:40', to: '14:01', hoc: '' },
-    { duty: '56', toc: '', from: '14:01', to: '15:57', hoc: 'KGWA Up' },
-    { duty: '59', toc: 'KGWA Up', from: '15:55', to: '16:17', hoc: '' },
-    { duty: '58', toc: '', from: '16:17', to: '18:29', hoc: '' },
-    { duty: '57', toc: '', from: '18:29', to: '20:41', hoc: '' },
-    { duty: '59', toc: '', from: '20:41', to: '21:25', hoc: 'P DHO' }
+  "216": [
+    {
+      "from": "06:45",
+      "to": "08:37",
+      "duty": "13",
+      "toc": "DEPOT-RD3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "08:37",
+      "to": "10:16",
+      "duty": "04",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "10:16",
+      "to": "11:55",
+      "duty": "19",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "11:55",
+      "to": "14:17",
+      "duty": "09",
+      "toc": "--"
+    },
+    {
+      "from": "14:17",
+      "to": "16:33",
+      "duty": "35",
+      "hoc": "--"
+    },
+    {
+      "from": "16:33",
+      "to": "18:51",
+      "duty": "53",
+      "hoc": "--"
+    },
+    {
+      "from": "18:51",
+      "to": "21:03",
+      "duty": "30",
+      "toc": "--"
+    },
+    {
+      "from": "21:03",
+      "to": "21:36",
+      "duty": "48",
+      "toc": "--",
+      "hoc": "PYID DN"
+    },
+    {
+      "from": "21:34",
+      "to": "23:55",
+      "duty": "68",
+      "toc": "PYID DN",
+      "hoc": "NGSA DN PF"
+    }
   ],
-  '216': [
-    { duty: '66', toc: 'PDC Only Dpo-Rd3/NU PDC', from: '05:30', to: '06:30', hoc: '' },
-    { duty: '13', toc: '', from: '06:45', to: '08:37', hoc: '' },
-    { duty: '04', toc: '', from: '08:37', to: '10:16', hoc: '' },
-    { duty: '19', toc: '', from: '10:16', to: '11:55', hoc: '' },
-    { duty: '09', toc: '', from: '11:55', to: '14:17', hoc: '' },
-    { duty: '36', toc: 'PYID', from: '14:17', to: '16:33', hoc: '' },
-    { duty: '53', toc: 'PYID', from: '16:33', to: '18:51', hoc: '' },
-    { duty: '31', toc: '', from: '18:51', to: '21:03', hoc: '' },
-    { duty: '48', toc: '', from: '21:03', to: '21:36', hoc: 'PYID DN' },
-    { duty: '68', toc: 'PYID DN', from: '21:34', to: '23:55', hoc: 'NG DN PF' }
+  "217": [
+    {
+      "from": "06:35",
+      "to": "08:48",
+      "duty": "11",
+      "toc": "DEPOT-RD3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "08:48",
+      "to": "10:27",
+      "duty": "07",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "10:27",
+      "to": "12:41",
+      "duty": "23",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "12:41",
+      "to": "14:57",
+      "duty": "19",
+      "toc": "--"
+    },
+    {
+      "from": "14:57",
+      "to": "17:13",
+      "duty": "41",
+      "hoc": "--"
+    },
+    {
+      "from": "17:13",
+      "to": "19:24",
+      "duty": "37",
+      "toc": "--",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "19:24",
+      "to": "21:35",
+      "duty": "32",
+      "toc": "--"
+    },
+    {
+      "from": "21:35",
+      "to": "00:15",
+      "duty": "69",
+      "hoc": "BIET UP PF"
+    }
   ],
-  '217': [
-    { duty: '11', toc: 'Dpo - Rd3', from: '06:35', to: '08:48', hoc: '' },
-    { duty: '07', toc: '', from: '08:48', to: '10:27', hoc: '' },
-    { duty: '23', toc: '', from: '10:27', to: '12:41', hoc: '' },
-    { duty: '19', toc: '', from: '12:41', to: '14:57', hoc: '' },
-    { duty: '42', toc: 'PYID', from: '14:57', to: '17:13', hoc: '' },
-    { duty: '37', toc: '', from: '17:13', to: '19:24', hoc: '' },
-    { duty: '33', toc: '', from: '19:24', to: '21:35', hoc: '' },
-    { duty: '69', toc: 'PYID', from: '21:35', to: '00:15', hoc: 'BIET UP PF' }
+  "218": [
+    {
+      "from": "06:45",
+      "to": "08:59",
+      "duty": "14",
+      "toc": "DEPOT-RD3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "08:59",
+      "to": "10:38",
+      "duty": "12",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "10:38",
+      "to": "11:20",
+      "duty": "22",
+      "toc": "--",
+      "hoc": "P DHO"
+    },
+    {
+      "from": "16:00",
+      "to": "18:12",
+      "duty": "49",
+      "toc": "Dpo - Rd3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "18:12",
+      "to": "19:51",
+      "duty": "45",
+      "toc": "--",
+      "hoc": "PUTH"
+    },
+    {
+      "from": "19:51",
+      "to": "21:42",
+      "duty": "37",
+      "toc": "--",
+      "hoc": "KGWA UP"
+    },
+    {
+      "from": "21:42",
+      "to": "23:50",
+      "duty": "61",
+      "toc": "KGWA UP",
+      "hoc": "PUTH UP PF"
+    }
   ],
-  '218': [
-    { duty: '14', toc: 'Dpo - Rd3', from: '06:45', to: '08:59', hoc: '' },
-    { duty: '12', toc: '', from: '08:59', to: '10:38', hoc: '' },
-    { duty: '22', toc: '', from: '10:38', to: '11:20', hoc: 'P DHO' },
-    { duty: '49', toc: 'Dpo - Rd3', from: '16:00', to: '18:12', hoc: '' },
-    { duty: '45', toc: '', from: '18:12', to: '19:51', hoc: '' },
-    { duty: '37', toc: '', from: '19:51', to: '21:42', hoc: 'KGWA UP' },
-    { duty: '61', toc: 'KGWA UP', from: '21:42', to: '23:50', hoc: 'PUTH UP' }
+  "220": [
+    {
+      "from": "07:10",
+      "to": "09:21",
+      "duty": "18",
+      "toc": "DEPOT-RD3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "09:21",
+      "to": "11:00",
+      "duty": "06",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "11:00",
+      "to": "13:13",
+      "duty": "25",
+      "toc": "--",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "13:13",
+      "to": "15:29",
+      "duty": "36",
+      "hoc": "--"
+    },
+    {
+      "from": "15:29",
+      "to": "17:46",
+      "duty": "45",
+      "hoc": "--"
+    },
+    {
+      "from": "17:46",
+      "to": "19:57",
+      "duty": "42",
+      "toc": "--",
+      "hoc": "Depot"
+    },
+    {
+      "from": "19:57",
+      "to": "21:32",
+      "duty": "38",
+      "toc": "--",
+      "hoc": "PUTH UP"
+    },
+    {
+      "from": "21:30",
+      "to": "00:10",
+      "duty": "63",
+      "toc": "PUTH UP",
+      "hoc": "PUTH DN PF"
+    }
   ],
-  '219': [
-    { duty: '55', toc: 'Dpo-Rd3', from: '07:00', to: '09:10', hoc: '' },
-    { duty: '54', toc: '', from: '09:10', to: '10:49', hoc: '' },
-    { duty: '56', toc: '', from: '10:49', to: '13:05', hoc: '' },
-    { duty: '55', toc: '', from: '13:05', to: '14:17', hoc: 'PUTH Dn' },
-    { duty: '58', toc: 'PUTH Dn', from: '14:15', to: '15:21', hoc: '' },
-    { duty: '57', toc: '', from: '15:21', to: '17:36', hoc: '' },
-    { duty: '59', toc: '', from: '17:36', to: '19:46', hoc: '' },
-    { duty: '58', toc: '', from: '19:46', to: '20:30', hoc: 'P DHO' }
+  "221": [
+    {
+      "from": "07:20",
+      "to": "09:32",
+      "duty": "20",
+      "toc": "DEPOT-RD3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "09:32",
+      "to": "11:11",
+      "duty": "10",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "11:11",
+      "to": "11:55",
+      "duty": "27",
+      "toc": "--",
+      "hoc": "P DHO"
+    },
+    {
+      "from": "16:45",
+      "to": "18:56",
+      "duty": "32",
+      "toc": "Depot",
+      "hoc": "--"
+    },
+    {
+      "from": "18:56",
+      "to": "20:35",
+      "duty": "51",
+      "toc": "PYID Up",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "20:35",
+      "to": "21:24",
+      "duty": "43",
+      "toc": "--",
+      "hoc": "KGWA DN"
+    },
+    {
+      "from": "21:22",
+      "to": "23:15",
+      "duty": "65",
+      "toc": "KGWA DN",
+      "hoc": "BIET DN BE"
+    }
   ],
-  '220': [
-    { duty: '18', toc: 'Dpo - Rd3', from: '07:10', to: '09:21', hoc: '' },
-    { duty: '06', toc: '', from: '09:21', to: '11:00', hoc: '' },
-    { duty: '25', toc: '', from: '11:00', to: '13:13', hoc: '' },
-    { duty: '30', toc: 'PYID', from: '13:13', to: '15:29', hoc: '' },
-    { duty: '45', toc: 'PYID', from: '15:29', to: '17:46', hoc: '' },
-    { duty: '43', toc: '', from: '17:46', to: '19:57', hoc: '' },
-    { duty: '39', toc: '', from: '19:57', to: '21:32', hoc: 'PUTH UP' },
-    { duty: '63', toc: 'PUTH UP', from: '21:30', to: '00:10', hoc: 'PUTH DN' }
-  ],
-  '221': [
-    { duty: '20', toc: 'Dpo - Rd3', from: '07:20', to: '09:32', hoc: '' },
-    { duty: '10', toc: '', from: '09:32', to: '11:11', hoc: '' },
-    { duty: '27', toc: '', from: '11:11', to: '11:55', hoc: 'P DHO' },
-    { duty: '33', toc: 'Depot', from: '16:45', to: '18:56', hoc: '' },
-    { duty: '51', toc: '', from: '18:56', to: '20:35', hoc: '' },
-    { duty: '44', toc: '', from: '20:35', to: '21:24', hoc: 'KGWA DN' },
-    { duty: '65', toc: 'KGWA DN', from: '21:22', to: '23:15', hoc: 'BT DN B/E' }
-  ],
-  'Couns': [
-    { duty: '18', toc: '', from: '12:30', to: '--', hoc: '' },
-    { duty: '27', toc: '', from: '13:00', to: '--', hoc: '' },
-    { duty: '24', toc: '', from: '13:00', to: '--', hoc: '' },
-    { duty: '31', toc: '', from: '13:20', to: '16:15', hoc: '' },
-    { duty: '33', toc: '', from: '13:45', to: '16:15', hoc: '' },
-    { duty: '34', toc: '', from: '13:50', to: '16:15', hoc: '' },
-    { duty: '38', toc: '', from: '14:15', to: '17:30', hoc: '' }
+  "Couns": [
+    {
+      "from": "13:20",
+      "to": "16:15",
+      "duty": "30",
+      "hoc": "--"
+    },
+    {
+      "from": "13:45",
+      "to": "16:15",
+      "duty": "32",
+      "hoc": "Depot"
+    },
+    {
+      "from": "13:50",
+      "to": "16:15",
+      "duty": "33",
+      "hoc": "--"
+    },
+    {
+      "from": "14:15",
+      "to": "17:30",
+      "duty": "44",
+      "hoc": "--"
+    }
   ]
 };
 
@@ -1887,185 +4351,905 @@ export const SATURDAY_RELIEF_ID_CHART_META = {
 // 4. SUNDAY RELIEF ID CHART (WEF 08/Dec/2024 BIET - APTS)
 // ============================================================================
 export const SUNDAY_RELIEF_ID_CHART = {
-  '201': [
-    { from: '06:58', to: '08:33', duty: '04', toc: 'NGSA DN' },
-    { from: '08:33', to: '10:56', duty: '05' },
-    { from: '10:56', to: '13:20', duty: '16' },
-    { from: '13:20', to: '13:55', duty: '09' },
-    { from: '13:53', to: '15:44', duty: '27' },
-    { from: '15:44', to: '18:08', duty: '37' },
-    { from: '18:08', to: '20:32', duty: '47' },
-    { from: '20:32', to: '21:45', duty: '34' },
-    { from: '21:43', to: '23:20', duty: '60' }
+  "201": [
+    {
+      "from": "05:45",
+      "to": "07:00",
+      "duty": "58",
+      "toc": "NGSA DN",
+      "hoc": "KGWA Up"
+    },
+    {
+      "from": "06:58",
+      "to": "08:33",
+      "duty": "03",
+      "toc": "KGWA Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "08:33",
+      "to": "10:56",
+      "duty": "04",
+      "toc": "PYID Up",
+      "hoc": "--"
+    },
+    {
+      "from": "10:56",
+      "to": "13:20",
+      "duty": "15",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "13:20",
+      "to": "13:55",
+      "duty": "22",
+      "toc": "PYID Up",
+      "hoc": "--"
+    },
+    {
+      "from": "13:53",
+      "to": "15:44",
+      "duty": "27",
+      "toc": "PYID Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "18:08",
+      "to": "20:32",
+      "duty": "34",
+      "toc": "--",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "20:32",
+      "to": "21:45",
+      "duty": "31",
+      "toc": "--",
+      "hoc": "PUTH Dn"
+    },
+    {
+      "from": "21:43",
+      "to": "23:20",
+      "duty": "61",
+      "toc": "PUTH Dn",
+      "hoc": "BIET DN BE"
+    }
   ],
-  '202': [
-    { from: '07:28', to: '09:46', duty: '09', toc: 'APTS UP' },
-    { from: '09:46', to: '12:06', duty: '07' },
-    { from: '12:06', to: '14:24', duty: '12' },
-    { from: '14:57', to: '16:48', duty: '21' },
-    { from: '16:48', to: '19:12', duty: '44' },
-    { from: '19:12', to: '21:36', duty: '27' },
-    { from: '21:36', to: '00:10', duty: '58' }
+  "202": [
+    {
+      "from": "05:45",
+      "to": "07:28",
+      "duty": "51",
+      "toc": "APTS UP",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "07:28",
+      "to": "09:46",
+      "duty": "08",
+      "hoc": "--"
+    },
+    {
+      "from": "09:46",
+      "to": "12:06",
+      "duty": "06",
+      "toc": "--",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "12:06",
+      "to": "14:24",
+      "duty": "11",
+      "toc": "--"
+    },
+    {
+      "from": "14:24",
+      "to": "16:28",
+      "duty": "18",
+      "toc": "PYID Dn",
+      "hoc": "KGWA Up"
+    },
+    {
+      "from": "16:26",
+      "to": "16:48",
+      "duty": "41",
+      "toc": "KGWA Up",
+      "hoc": "--"
+    },
+    {
+      "from": "19:12",
+      "to": "21:36",
+      "duty": "40",
+      "toc": "--"
+    },
+    {
+      "from": "21:36",
+      "to": "00:10",
+      "duty": "59",
+      "hoc": "BIET UP PF"
+    }
   ],
-  '203': [
-    { from: '07:38', to: '09:56', duty: '11', toc: 'PUTH UP' },
-    { from: '09:56', to: '12:16', duty: '08' },
-    { from: '12:16', to: '14:40', duty: '06' },
-    { from: '14:40', to: '17:04', duty: '34' },
-    { from: '17:04', to: '19:28', duty: '25' },
-    { from: '19:28', to: '21:32', duty: '29' },
-    { from: '21:32', to: '23:00', duty: '55' }
+  "203": [
+    {
+      "from": "06:30",
+      "to": "07:38",
+      "duty": "49",
+      "toc": "PUTH UP",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "07:38",
+      "to": "09:56",
+      "duty": "10",
+      "hoc": "--"
+    },
+    {
+      "from": "09:56",
+      "to": "12:16",
+      "duty": "07",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "12:16",
+      "to": "14:40",
+      "duty": "05",
+      "toc": "--"
+    },
+    {
+      "from": "17:04",
+      "to": "19:28",
+      "duty": "28",
+      "toc": "--",
+      "hoc": "PUTH"
+    },
+    {
+      "from": "19:28",
+      "to": "21:32",
+      "duty": "38",
+      "toc": "--",
+      "hoc": "KGWA Up"
+    },
+    {
+      "from": "21:32",
+      "to": "23:00",
+      "duty": "56",
+      "toc": "KGWA Up",
+      "hoc": "B DHO"
+    }
   ],
-  '204': [
-    { from: '07:48', to: '10:06', duty: '14', toc: 'APTS UP' },
-    { from: '10:06', to: '12:26', duty: '10' },
-    { from: '12:26', to: '14:48', duty: '17' },
-    { from: '14:48', to: '17:12', duty: '35' },
-    { from: '17:12', to: '19:36', duty: '45' },
-    { from: '19:36', to: '21:22', duty: '26' },
-    { from: '21:22', to: '23:45', duty: '48' }
+  "204": [
+    {
+      "from": "06:15",
+      "to": "07:48",
+      "duty": "50",
+      "toc": "APTS UP",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "07:48",
+      "to": "10:06",
+      "duty": "14",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "10:06",
+      "to": "12:26",
+      "duty": "09",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "12:26",
+      "to": "14:48",
+      "duty": "16",
+      "toc": "--"
+    },
+    {
+      "from": "14:48",
+      "to": "15:23",
+      "duty": "11",
+      "toc": "--",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "15:21",
+      "to": "17:12",
+      "duty": "21",
+      "toc": "PYID Dn"
+    },
+    {
+      "from": "21:22",
+      "to": "23:50",
+      "duty": "49",
+      "toc": "PUTH Up",
+      "hoc": "PUTH UP PF"
+    }
   ],
-  '205': [
-    { from: '07:43', to: '08:39', duty: '13', toc: 'APTS UP' },
-    { from: '08:37', to: '10:26', duty: '18' },
-    { from: '10:26', to: '12:46', duty: '09' },
-    { from: '12:46', to: '14:44', duty: '10' },
-    { from: '14:44', to: '15:04', duty: '36' },
-    { from: '15:04', to: '17:28', duty: '22' },
-    { from: '17:28', to: '19:52', duty: '46' },
-    { from: '19:52', to: '21:38', duty: '32' },
-    { from: '21:38', to: '23:25', duty: '59' }
+  "205": [
+    {
+      "from": "06:30",
+      "to": "07:43",
+      "duty": "52",
+      "toc": "APTS UP",
+      "hoc": "KGWA Up"
+    },
+    {
+      "from": "07:43",
+      "to": "08:39",
+      "duty": "12",
+      "toc": "KGWA Up",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "08:37",
+      "to": "10:26",
+      "duty": "17",
+      "toc": "PYID Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "10:26",
+      "to": "12:46",
+      "duty": "08",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "12:46",
+      "to": "15:04",
+      "duty": "07",
+      "toc": "--"
+    },
+    {
+      "from": "15:04",
+      "to": "17:28",
+      "duty": "32",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "17:28",
+      "to": "19:52",
+      "duty": "41",
+      "toc": "--",
+      "hoc": "PUTH"
+    },
+    {
+      "from": "19:52",
+      "to": "21:38",
+      "duty": "28",
+      "toc": "--",
+      "hoc": "PUTH Up"
+    },
+    {
+      "from": "21:38",
+      "to": "23:25",
+      "duty": "60",
+      "toc": "PUTH Up",
+      "hoc": "B DHO"
+    }
   ],
-  '206': [
-    { from: '07:40', to: '08:49', duty: '12', toc: 'PUTH DN' },
-    { from: '08:47', to: '10:36', duty: '19' },
-    { from: '10:36', to: '12:56', duty: '11' },
-    { from: '12:56', to: '15:00', duty: '15' },
-    { from: '15:00', to: '15:20', duty: '39' },
-    { from: '15:20', to: '17:44', duty: '41' },
-    { from: '17:44', to: '20:08', duty: '34' },
-    { from: '20:08', to: '21:46', duty: '45' },
-    { from: '21:44', to: '00:00', duty: '50' }
+  "206": [
+    {
+      "from": "06:30",
+      "to": "07:40",
+      "duty": "53",
+      "toc": "PUTH DN",
+      "hoc": "PUTH Up"
+    },
+    {
+      "from": "07:40",
+      "to": "08:49",
+      "duty": "11",
+      "toc": "PUTH Up",
+      "hoc": "--"
+    },
+    {
+      "from": "08:47",
+      "to": "10:36",
+      "duty": "18",
+      "toc": "PYID Dn",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "10:36",
+      "to": "12:56",
+      "duty": "10",
+      "toc": "--",
+      "hoc": "PUTH"
+    },
+    {
+      "from": "12:56",
+      "to": "15:20",
+      "duty": "09",
+      "toc": "--"
+    },
+    {
+      "from": "15:20",
+      "to": "17:44",
+      "duty": "34",
+      "hoc": "--"
+    },
+    {
+      "from": "17:44",
+      "to": "20:08",
+      "duty": "31",
+      "toc": "--",
+      "hoc": "PUTH"
+    },
+    {
+      "from": "20:08",
+      "to": "21:46",
+      "duty": "33",
+      "toc": "--",
+      "hoc": "PUTH Up"
+    },
+    {
+      "from": "21:44",
+      "to": "00:10",
+      "duty": "51",
+      "toc": "PUTH Up",
+      "hoc": "APTS UP PF"
+    }
   ],
-  '207': [
-    { from: '06:30', to: '08:46', duty: '03', toc: 'PYID RD3' },
-    { from: '08:46', to: '11:06', duty: '20' },
-    { from: '11:06', to: '13:28', duty: '18' },
-    { from: '13:28', to: '14:03', duty: '11' },
-    { from: '14:01', to: '15:52', duty: '28' },
-    { from: '15:52', to: '18:16', duty: '39' },
-    { from: '18:16', to: '20:40', duty: '40' },
-    { from: '20:40', to: '21:50', duty: '35' }
+  "208": [
+    {
+      "from": "06:30",
+      "to": "07:15",
+      "duty": "55",
+      "toc": "BIET DN",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "07:13",
+      "to": "08:56",
+      "duty": "05",
+      "toc": "PYID Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "08:56",
+      "to": "11:16",
+      "duty": "03",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "11:16",
+      "to": "13:36",
+      "duty": "17",
+      "toc": "--",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "13:36",
+      "to": "14:11",
+      "duty": "08",
+      "toc": "--"
+    },
+    {
+      "from": "14:09",
+      "to": "16:00",
+      "duty": "29",
+      "toc": "PYID Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "16:00",
+      "to": "18:24",
+      "duty": "37",
+      "hoc": "--"
+    },
+    {
+      "from": "18:24",
+      "to": "20:48",
+      "duty": "35",
+      "toc": "--"
+    },
+    {
+      "from": "20:48",
+      "to": "21:35",
+      "duty": "32",
+      "toc": "--",
+      "hoc": "KGWA Dn"
+    },
+    {
+      "from": "21:33",
+      "to": "00:10",
+      "duty": "57",
+      "toc": "KGWA Dn",
+      "hoc": "B DHO"
+    }
   ],
-  '208': [
-    { from: '07:13', to: '08:56', duty: '06', toc: 'BIET DN' },
-    { from: '08:56', to: '11:16', duty: '04' },
-    { from: '11:16', to: '13:36', duty: '13' },
-    { from: '13:36', to: '14:11', duty: '14' },
-    { from: '14:09', to: '16:00', duty: '29' },
-    { from: '16:00', to: '18:24', duty: '43' },
-    { from: '18:24', to: '20:48', duty: '41' },
-    { from: '20:48', to: '21:35', duty: '38' },
-    { from: '21:33', to: '00:10', duty: '56' }
+  "209": [
+    {
+      "from": "06:40",
+      "to": "07:22",
+      "duty": "59",
+      "toc": "BIET UP",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "07:20",
+      "to": "09:06",
+      "duty": "06",
+      "toc": "PYID Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "09:06",
+      "to": "11:26",
+      "duty": "19",
+      "toc": "--",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "11:26",
+      "to": "13:44",
+      "duty": "12",
+      "toc": "--",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "13:44",
+      "to": "14:57",
+      "duty": "10",
+      "toc": "--",
+      "hoc": "PUTH Dn"
+    },
+    {
+      "from": "14:57",
+      "to": "16:08",
+      "duty": "31",
+      "toc": "PUTH Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "16:08",
+      "to": "18:32",
+      "duty": "39",
+      "toc": "--",
+      "hoc": "NGSA"
+    },
+    {
+      "from": "18:32",
+      "to": "20:56",
+      "duty": "36",
+      "toc": "--"
+    },
+    {
+      "from": "20:56",
+      "to": "21:45",
+      "duty": "34",
+      "toc": "--",
+      "hoc": "KGWA Dn"
+    },
+    {
+      "from": "21:43",
+      "to": "00:10",
+      "duty": "62",
+      "toc": "KGWA Dn",
+      "hoc": "SPGD DN PF"
+    }
   ],
-  '209': [
-    { from: '07:20', to: '09:06', duty: '07', toc: 'BIET UP' },
-    { from: '09:06', to: '11:26', duty: '03' },
-    { from: '11:26', to: '13:44', duty: '19' },
-    { from: '13:44', to: '16:08', duty: '26' },
-    { from: '16:08', to: '18:32', duty: '23' },
-    { from: '18:32', to: '20:56', duty: '36' },
-    { from: '20:56', to: '21:45', duty: '47' },
-    { from: '21:43', to: '00:10', duty: '61' }
+  "210": [
+    {
+      "from": "06:30",
+      "to": "07:29",
+      "duty": "63",
+      "toc": "NGSA UP",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "07:27",
+      "to": "09:16",
+      "duty": "07",
+      "toc": "PYID Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "09:16",
+      "to": "11:36",
+      "duty": "11",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "11:36",
+      "to": "14:00",
+      "duty": "04",
+      "toc": "--"
+    },
+    {
+      "from": "14:00",
+      "to": "16:04",
+      "duty": "17",
+      "toc": "--",
+      "hoc": "KGWA Up"
+    },
+    {
+      "from": "16:04",
+      "to": "16:24",
+      "duty": "38",
+      "toc": "KGWA Up",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "16:24",
+      "to": "18:48",
+      "duty": "40",
+      "hoc": "--"
+    },
+    {
+      "from": "18:48",
+      "to": "21:12",
+      "duty": "37",
+      "toc": "--"
+    },
+    {
+      "from": "21:12",
+      "to": "21:47",
+      "duty": "36",
+      "toc": "--",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "21:45",
+      "to": "00:10",
+      "duty": "63",
+      "toc": "PYID Dn",
+      "hoc": "JIDL UP PF"
+    }
   ],
-  '210': [
-    { from: '07:27', to: '09:16', duty: '08', toc: 'NGSA UP' },
-    { from: '09:16', to: '11:36', duty: '12' },
-    { from: '11:36', to: '14:00', duty: '20' },
-    { from: '14:00', to: '16:04', duty: '18' },
-    { from: '16:04', to: '16:24', duty: '44' },
-    { from: '16:24', to: '16:59', duty: '46' },
-    { from: '16:57', to: '18:48', duty: '28' },
-    { from: '18:48', to: '21:12', duty: '37' },
-    { from: '21:12', to: '21:47', duty: '41' },
-    { from: '21:45', to: '00:10', duty: '62' }
+  "211": [
+    {
+      "from": "06:10",
+      "to": "07:39",
+      "duty": "56",
+      "toc": "DEPOT-RD3",
+      "hoc": "PYID DN"
+    },
+    {
+      "from": "07:37",
+      "to": "09:26",
+      "duty": "09",
+      "toc": "PYID Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "09:26",
+      "to": "11:46",
+      "duty": "05",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "11:46",
+      "to": "14:08",
+      "duty": "03",
+      "toc": "--"
+    },
+    {
+      "from": "14:08",
+      "to": "16:32",
+      "duty": "28",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "16:32",
+      "to": "18:56",
+      "duty": "29",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "18:56",
+      "to": "21:55",
+      "duty": "39",
+      "toc": "--",
+      "hoc": "PYID Depot SBL"
+    }
   ],
-  '211': [
-    { from: '07:37', to: '09:26', duty: '10', toc: 'DEPOT-RD3' },
-    { from: '09:26', to: '11:46', duty: '06' },
-    { from: '11:46', to: '14:08', duty: '04' },
-    { from: '14:08', to: '16:32', duty: '24' },
-    { from: '16:32', to: '18:56', duty: '29' },
-    { from: '18:56', to: '21:55', duty: '39' }
+  "212": [
+    {
+      "from": "06:15",
+      "to": "07:49",
+      "duty": "60",
+      "toc": "DEPOT-RD3",
+      "hoc": "PYID DN"
+    },
+    {
+      "from": "07:47",
+      "to": "09:36",
+      "duty": "13",
+      "toc": "PYID Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "09:36",
+      "to": "11:56",
+      "duty": "16",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "11:56",
+      "to": "14:16",
+      "duty": "20",
+      "toc": "PYID Up",
+      "hoc": "--"
+    },
+    {
+      "from": "14:16",
+      "to": "15:09",
+      "duty": "12",
+      "toc": "--",
+      "hoc": "KGWA Dn"
+    },
+    {
+      "from": "16:40",
+      "to": "19:04",
+      "duty": "38",
+      "toc": "PYID Up",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "19:04",
+      "to": "21:28",
+      "duty": "27",
+      "toc": "--"
+    },
+    {
+      "from": "21:28",
+      "to": "00:10",
+      "duty": "55",
+      "hoc": "BIET DN PF"
+    }
   ],
-  '212': [
-    { from: '07:47', to: '09:36', duty: '15', toc: 'DEPOT-RD3' },
-    { from: '09:36', to: '11:56', duty: '17' },
-    { from: '11:56', to: '14:16', duty: '21' },
-    { from: '14:51', to: '16:20', duty: '20' },
-    { from: '16:20', to: '16:40', duty: '45' },
-    { from: '16:40', to: '17:15', duty: '47' },
-    { from: '17:13', to: '19:04', duty: '26' },
-    { from: '19:04', to: '21:28', duty: '43' },
-    { from: '21:28', to: '00:10', duty: '54' }
+  "213": [
+    {
+      "from": "07:00",
+      "to": "07:50",
+      "duty": "04",
+      "toc": "DEPOT-RD3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "07:50",
+      "to": "10:16",
+      "duty": "15",
+      "toc": "PYID Up",
+      "hoc": "--"
+    },
+    {
+      "from": "10:16",
+      "to": "12:36",
+      "duty": "13",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "12:36",
+      "to": "14:56",
+      "duty": "21",
+      "toc": "PYID Up",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "14:56",
+      "to": "17:20",
+      "duty": "20",
+      "toc": "--"
+    },
+    {
+      "from": "17:20",
+      "to": "19:44",
+      "duty": "33",
+      "toc": "--",
+      "hoc": "PUTH"
+    },
+    {
+      "from": "21:47",
+      "to": "00:10",
+      "duty": "53",
+      "toc": "KGWA Up",
+      "hoc": "PUTH DN PF"
+    }
   ],
-  '213': [
-    { from: '07:00', to: '07:50', duty: '05', toc: 'DEPOT-RD3' },
-    { from: '07:50', to: '10:16', duty: '16' },
-    { from: '10:16', to: '12:36', duty: '15' },
-    { from: '12:36', to: '14:56', duty: '07' },
-    { from: '14:56', to: '17:20', duty: '38' },
-    { from: '17:20', to: '19:44', duty: '24' },
-    { from: '19:44', to: '21:49', duty: '44' },
-    { from: '21:47', to: '00:00', duty: '52' }
+  "214": [
+    {
+      "from": "08:00",
+      "to": "08:59",
+      "duty": "16",
+      "toc": "DEPOT-RD3",
+      "hoc": "--"
+    },
+    {
+      "from": "08:57",
+      "to": "10:46",
+      "duty": "12",
+      "toc": "PYID Dn",
+      "hoc": "--"
+    },
+    {
+      "from": "10:46",
+      "to": "13:04",
+      "duty": "14",
+      "toc": "--",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "13:04",
+      "to": "15:28",
+      "duty": "13",
+      "toc": "--"
+    },
+    {
+      "from": "15:28",
+      "to": "17:52",
+      "duty": "35",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "20:16",
+      "to": "21:25",
+      "duty": "41",
+      "toc": "--",
+      "hoc": "PUTH Dn"
+    },
+    {
+      "from": "21:23",
+      "to": "23:40",
+      "duty": "54",
+      "toc": "PUTH Dn",
+      "hoc": "B DHO"
+    }
   ],
-  '214': [
-    { from: '08:00', to: '08:59', duty: '17', toc: 'DEPOT-RD3' },
-    { from: '08:57', to: '10:46', duty: '13' },
-    { from: '10:46', to: '13:04', duty: '14' },
-    { from: '13:04', to: '15:28', duty: '23' },
-    { from: '15:28', to: '17:52', duty: '36' },
-    { from: '17:52', to: '20:16', duty: '35' },
-    { from: '20:16', to: '21:25', duty: '46' },
-    { from: '21:23', to: '23:40', duty: '53' }
+  "215": [
+    {
+      "from": "10:00",
+      "to": "11:23",
+      "duty": "20",
+      "toc": "DEPOT-RD3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "11:21",
+      "to": "13:47",
+      "duty": "18",
+      "toc": "PYID Dn",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "13:45",
+      "to": "15:16",
+      "duty": "14",
+      "toc": "PYID Dn",
+      "hoc": "KGWA Up"
+    },
+    {
+      "from": "15:14",
+      "to": "15:36",
+      "duty": "33",
+      "toc": "KGWA Up",
+      "hoc": "--"
+    },
+    {
+      "from": "15:36",
+      "to": "18:00",
+      "duty": "36",
+      "hoc": "--"
+    },
+    {
+      "from": "18:00",
+      "to": "20:24",
+      "duty": "32",
+      "toc": "--",
+      "hoc": "KGWA"
+    },
+    {
+      "from": "21:33",
+      "to": "00:10",
+      "duty": "50",
+      "toc": "PUTH Dn",
+      "hoc": "APTS DN PF"
+    }
   ],
-  '215': [
-    { from: '10:00', to: '11:23', duty: '21', toc: 'DEPOT-RD3' },
-    { from: '11:21', to: '13:47', duty: '05' },
-    { from: '13:45', to: '15:36', duty: '25' },
-    { from: '15:36', to: '18:00', duty: '42' },
-    { from: '18:00', to: '20:24', duty: '38' },
-    { from: '20:24', to: '21:35', duty: '33' },
-    { from: '21:33', to: '00:10', duty: '49' }
+  "216": [
+    {
+      "from": "10:30",
+      "to": "12:03",
+      "duty": "21",
+      "toc": "DEPOT-RD3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "12:01",
+      "to": "13:52",
+      "duty": "19",
+      "toc": "PYID Dn",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "13:52",
+      "to": "14:27",
+      "duty": "15",
+      "toc": "--"
+    },
+    {
+      "from": "14:25",
+      "to": "16:16",
+      "duty": "19",
+      "toc": "PYID Dn"
+    },
+    {
+      "from": "16:16",
+      "to": "18:40",
+      "duty": "27",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "21:04",
+      "to": "21:37",
+      "duty": "35",
+      "toc": "--",
+      "hoc": "PYID Dn"
+    },
+    {
+      "from": "21:35",
+      "to": "00:00",
+      "duty": "58",
+      "toc": "PYID Dn",
+      "hoc": "NGSA DN PF"
+    }
   ],
-  '216': [
-    { from: '10:30', to: '12:03', duty: '22', toc: 'DEPOT-RD3' },
-    { from: '12:01', to: '13:52', duty: '03' },
-    { from: '13:52', to: '14:27', duty: '16' },
-    { from: '14:25', to: '16:16', duty: '19' },
-    { from: '16:16', to: '18:40', duty: '27' },
-    { from: '18:40', to: '21:04', duty: '42' },
-    { from: '21:04', to: '21:37', duty: '40' },
-    { from: '21:35', to: '00:00', duty: '57' }
+  "217": [
+    {
+      "from": "11:15",
+      "to": "12:43",
+      "duty": "22",
+      "toc": "DEPOT-RD3",
+      "hoc": "PYID Up"
+    },
+    {
+      "from": "12:41",
+      "to": "14:32",
+      "duty": "06",
+      "toc": "PYID Dn"
+    },
+    {
+      "from": "14:32",
+      "to": "16:56",
+      "duty": "22",
+      "toc": "--",
+      "hoc": "--"
+    },
+    {
+      "from": "19:20",
+      "to": "21:44",
+      "duty": "29",
+      "toc": "--"
+    },
+    {
+      "from": "21:44",
+      "to": "23:45",
+      "duty": "52",
+      "hoc": "NLC UP PF"
+    }
   ],
-  '217': [
-    { from: '11:15', to: '12:43', duty: '23', toc: 'DEPOT-RD3' },
-    { from: '12:41', to: '14:32', duty: '22' },
-    { from: '14:32', to: '16:56', duty: '33' },
-    { from: '16:56', to: '19:20', duty: '32' },
-    { from: '19:20', to: '21:44', duty: '28' },
-    { from: '21:44', to: '23:45', duty: '51' }
-  ],
-  '218': [
-    { from: '12:15', to: '13:23', duty: '24', toc: 'DEPOT-RD3' },
-    { from: '13:23', to: '14:52', duty: '08' },
-    { from: '14:52', to: '15:12', duty: '37' },
-    { from: '15:12', to: '17:36', duty: '40' },
-    { from: '17:36', to: '20:00', duty: '33' },
-    { from: '20:00', to: '21:10', duty: '25' }
-  ],
-  '219': [
-    { from: '06:00', to: '07:15', duty: '53', toc: 'DEPOT-RD3' }
+  "219": [
+    {
+      "from": "06:00",
+      "to": "07:15",
+      "duty": "54",
+      "toc": "DEPOT-RD3",
+      "hoc": "PYID Depot SBL"
+    }
   ]
 };
 
@@ -2138,15 +5322,27 @@ export function isNonTrainDutyLabel(val) {
  */
 export function isStandbyOrProDuty(dutyItem) {
   if (!dutyItem) return false;
+  // If dutyItem has driving legs, it is a driving duty, not standby
+  if (Array.isArray(dutyItem.legs) && dutyItem.legs.length > 0) {
+    if (dutyItem.legs.some(l => normalizeTrackTrainId(l.trainId || l.trainNo))) {
+      return false;
+    }
+  }
+  if (Array.isArray(dutyItem.trips) && dutyItem.trips.length > 0) {
+    if (dutyItem.trips.some(t => normalizeTrackTrainId(t.trainId || t.trainNo))) {
+      return false;
+    }
+  }
   const fields = [
     dutyItem.dutyProfile,
     dutyItem.remarks,
     dutyItem.dutyType,
-    dutyItem.trainId,
     dutyItem.dutyDesc,
     dutyItem.shiftType
   ];
-  return fields.some(f => isNonTrainDutyLabel(f));
+  if (fields.some(f => isNonTrainDutyLabel(f))) return true;
+  if (dutyItem.trainId && isNonTrainDutyLabel(dutyItem.trainId)) return true;
+  return false;
 }
 
 /**
@@ -2160,7 +5356,7 @@ export function normalizeTrackTrainId(rawId) {
   if (str.toLowerCase().startsWith('couns')) return 'Couns';
   if (isNonTrainDutyLabel(str)) return '';
 
-  const trainPattern = /^(?:T-?|Train\s*|TR-?)?0?(\d+)[A-Za-z]?$/i;
+  const trainPattern = /^(?:RV|CRRC|CR|T-?|Train\s*|TR-?)?\s*0?(\d+)[A-Za-z]?$/i;
   const match = str.match(trainPattern);
   if (match) {
     const num = parseInt(match[1], 10);
@@ -2230,7 +5426,7 @@ export function buildDutyLegsFromMasterLinks(masterLinks = [], baseChart = null)
   (masterLinks || []).forEach(item => {
     const rawDuty = String(item.dutyId || item.dutyNo || '').trim();
     if (!rawDuty) return;
-    const normDuty = rawDuty.padStart(2, '0');
+    const normDuty = normalizeDutyId(rawDuty);
 
     const isStandbyOrPro = isStandbyOrProDuty(item);
 
@@ -2472,7 +5668,7 @@ export function normalizeDutyId(raw) {
     return num < 10 ? '0' + num : String(num);
   }
   const num = parseInt(clean, 10);
-  if (!isNaN(num) && num >= 0 && num <= 999) {
+  if (!isNaN(num) && /^\d+$/.test(clean) && num >= 0 && num <= 999) {
     return num < 10 ? '0' + num : String(num);
   }
   return clean;
@@ -3301,99 +6497,36 @@ export function buildDutyRosterFromLinkRoster(links = [], dispatchOperatorMap = 
  * Inverts duty legs into train-centric chronological shift leg sequences.
  * When Duty Roster updates, this chart updates 100% automatically without stale fallback pollution.
  */
+export function isScheduleDayErased(scheduleType = 'WEEKDAY') {
+  if (typeof window === 'undefined' || !window.localStorage) return false;
+  const dayTag = normalizeScheduleDay(scheduleType).toLowerCase();
+  return Boolean(window.localStorage.getItem('pyidcc_schedule_erased_' + dayTag));
+}
+
+export function isWttScheduleErased(scheduleType = 'WEEKDAY') {
+  if (typeof window === 'undefined' || !window.localStorage) return false;
+  const dayTag = normalizeScheduleDay(scheduleType).toLowerCase();
+  return Boolean(window.localStorage.getItem('pyidcc_wtt_erased_' + dayTag));
+}
+
 export function buildMasterIdChartFromDutyRoster(dutyRoster = {}, fallbackBaseChart = null, scheduleType = 'WEEKDAY') {
   const trainMap = {};
   const hasDynamicDuties = dutyRoster && typeof dutyRoster === 'object' && Object.keys(dutyRoster).length > 0;
-  let resolvedSched = scheduleType;
+  let resolvedSched = normalizeScheduleDay(scheduleType);
   if (fallbackBaseChart === MONDAY_RELIEF_ID_CHART) resolvedSched = 'MONDAY';
   else if (fallbackBaseChart === SUNDAY_RELIEF_ID_CHART) resolvedSched = 'SUNDAY';
   else if (fallbackBaseChart === SATURDAY_RELIEF_ID_CHART) resolvedSched = 'SATURDAY';
   const dayInductions = getTrainInductionsForDay(resolvedSched);
+  const dayStablings = getTrainStablingForDay(resolvedSched);
 
-  if (fallbackBaseChart && typeof fallbackBaseChart === 'object' && Object.keys(fallbackBaseChart).length > 0) {
-    // 1. Authoritative Base ID Chart (preserves timetable legs, TOC, From, To, HOC)
-    Object.entries(fallbackBaseChart).forEach(([tid, baseLegs]) => {
-      trainMap[tid] = (baseLegs || []).map(b => {
-        const normD = normalizeDutyId(b.duty || b.dutyId);
-        const startSec = timeStringToSeconds(b.from);
-        let endSec = timeStringToSeconds(b.to || b.from);
-        if (endSec < startSec) endSec += 24 * 3600;
+  const standardFleet = resolvedSched === 'SUNDAY'
+    ? ['201','202','203','204','205','206','207','208','209','210','211','212','213','214','215','216','217','218','219']
+    : ['201','202','203','204','205','206','207','208','209','210','211','212','213','214','215','216','217','218','219','220','221','222','223','Couns'];
 
-        // Check assigned operator from dynamic duty roster first, fallback to default roster
-        const rosterDuty = hasDynamicDuties ? dutyRoster[normD] : null;
-        const op = rosterDuty?.assignedOperator;
-        const defOp = getOperatorForDuty(normD);
-
-        const empName = (op?.empName && !op.empName.startsWith('Duty ')) ? op.empName : (defOp?.empName || `Duty ${normD}`);
-        const empId = (op?.empId && op.empId !== '--') ? op.empId : (defOp?.empId || '--');
-        const isExchanged = Boolean(op?.isExchanged);
-        const originalEmpName = op?.originalEmpName || '';
-        const originalEmpId = op?.originalEmpId || '';
-
-        const isFirstLeg = (baseLegs || []).indexOf(b) === 0;
-        const canonicalInduction = (isFirstLeg && dayInductions[tid]) ? dayInductions[tid] : '';
-        const resolvedToc = b.toc || canonicalInduction || b.fromLoc || '';
-
-        return {
-          duty: normD,
-          dutyId: normD,
-          from: b.from,
-          to: b.to || '--',
-          startStr: b.from,
-          endStr: b.to || '--',
-          toc: resolvedToc,
-          hoc: b.hoc || b.toLoc || '',
-          fromLoc: resolvedToc || 'PYID',
-          toLoc: b.hoc || b.toLoc || 'PYID',
-          startSec,
-          endSec,
-          empName,
-          empId,
-          isExchanged,
-          originalEmpName,
-          originalEmpId
-        };
-      });
-    });
-
-    // If dutyRoster has any custom trains not in fallbackBaseChart, add them
-    if (hasDynamicDuties) {
-      Object.values(dutyRoster).forEach(dutyRecord => {
-        const dId = dutyRecord.dutyId;
-        const op = dutyRecord.assignedOperator;
-        (dutyRecord.legs || []).forEach(leg => {
-          const rawTid = String(leg.trainId || '').trim();
-          if (!rawTid || rawTid === '--' || rawTid === '-' || isNonTrainDutyLabel(rawTid)) return;
-          const cleanTid = normalizeTrackTrainId(rawTid);
-          if (!cleanTid || fallbackBaseChart[cleanTid]) return;
-
-          if (!trainMap[cleanTid]) trainMap[cleanTid] = [];
-          trainMap[cleanTid].push({
-            duty: dId,
-            dutyId: dId,
-            from: leg.from,
-            to: leg.to || '--',
-            startStr: leg.from,
-            endStr: leg.to || '--',
-            toc: leg.toc || leg.fromLoc || '',
-            hoc: leg.hoc || leg.toLoc || '',
-            fromLoc: leg.fromLoc || leg.toc || 'PYID',
-            toLoc: leg.toLoc || leg.hoc || 'PYID',
-            startSec: leg.startSec,
-            endSec: leg.endSec,
-            empName: op?.empName || `Duty ${dId}`,
-            empId: op?.empId || '--',
-            isExchanged: Boolean(op?.isExchanged),
-            originalEmpName: op?.originalEmpName || '',
-            originalEmpId: op?.originalEmpId || ''
-          });
-        });
-      });
-    }
-  } else if (hasDynamicDuties) {
-    // Collect legs from Duty Roster strictly
+  if (hasDynamicDuties) {
+    // 1. Authoritative: Invert duty legs directly from Duty Roster
     Object.values(dutyRoster).forEach(dutyRecord => {
-      const dId = dutyRecord.dutyId;
+      const dId = normalizeDutyId(dutyRecord.dutyId);
       const op = dutyRecord.assignedOperator;
 
       (dutyRecord.legs || []).forEach(leg => {
@@ -3404,19 +6537,40 @@ export function buildMasterIdChartFromDutyRoster(dutyRoster = {}, fallbackBaseCh
 
         if (!trainMap[cleanTid]) trainMap[cleanTid] = [];
 
+        // Enrich station TOC/HOC from fallbackBaseChart if available and leg TOC is generic
+        let resolvedToc = leg.toc || leg.fromLoc || '';
+        let resolvedHoc = leg.hoc || leg.toLoc || '';
+
+        if (fallbackBaseChart && fallbackBaseChart[cleanTid]) {
+          const baseLegs = fallbackBaseChart[cleanTid];
+          const matchedBase = baseLegs.find(b => {
+            const bNormDuty = normalizeDutyId(b.duty || b.dutyId);
+            return bNormDuty === dId && (b.from === leg.from || Math.abs(timeStringToSeconds(b.from) - leg.startSec) < 600);
+          }) || baseLegs.find(b => Math.abs(timeStringToSeconds(b.from) - leg.startSec) < 300);
+
+          if (matchedBase) {
+            if (!resolvedToc || resolvedToc === 'PYID' || resolvedToc === '-') {
+              resolvedToc = matchedBase.toc || matchedBase.fromLoc || resolvedToc;
+            }
+            if (!resolvedHoc || resolvedHoc === 'PYID' || resolvedHoc === '-') {
+              resolvedHoc = matchedBase.hoc || matchedBase.toLoc || resolvedHoc;
+            }
+          }
+        }
+
         trainMap[cleanTid].push({
           duty: dId,
           dutyId: dId,
           from: leg.from,
-          to: leg.to,
+          to: leg.to || '--',
           startStr: leg.from,
-          endStr: leg.to,
-          toc: leg.toc || leg.fromLoc || '',
-          hoc: leg.hoc || leg.toLoc || '',
-          fromLoc: leg.fromLoc || leg.toc || 'PYID',
-          toLoc: leg.toLoc || leg.hoc || 'PYID',
-          startSec: leg.startSec,
-          endSec: leg.endSec,
+          endStr: leg.to || '--',
+          toc: resolvedToc,
+          hoc: resolvedHoc,
+          fromLoc: leg.fromLoc || resolvedToc || 'PYID',
+          toLoc: leg.toLoc || resolvedHoc || 'PYID',
+          startSec: leg.startSec !== undefined ? leg.startSec : timeStringToSeconds(leg.from),
+          endSec: leg.endSec !== undefined ? leg.endSec : timeStringToSeconds(leg.to),
           empName: op?.empName || `Duty ${dId}`,
           empId: op?.empId || '--',
           isExchanged: Boolean(op?.isExchanged),
@@ -3426,12 +6580,48 @@ export function buildMasterIdChartFromDutyRoster(dutyRoster = {}, fallbackBaseCh
       });
     });
 
-    // Initialize all standard fleet trains (201-225 + Couns) so they appear as columns in Master ID Chart
-    for (let i = 201; i <= 225; i++) {
-      const tid = String(i);
-      if (!trainMap[tid]) trainMap[tid] = [];
-    }
-    if (!trainMap['Couns']) trainMap['Couns'] = [];
+    // Ensure all standard fleet trains exist as columns
+
+    standardFleet.forEach(tid => {
+      if (!trainMap[tid]) {
+        trainMap[tid] = [];
+      }
+    });
+  } else if (!isScheduleDayErased(resolvedSched) && fallbackBaseChart && typeof fallbackBaseChart === 'object' && Object.keys(fallbackBaseChart).length > 0 && dutyRoster === null) {
+    // Fallback: Populate strictly from fallbackBaseChart if no dynamic duties provided
+    Object.entries(fallbackBaseChart).forEach(([tid, baseLegs]) => {
+      trainMap[tid] = (baseLegs || []).map(b => {
+        const normD = normalizeDutyId(b.duty || b.dutyId);
+        const startSec = timeStringToSeconds(b.from);
+        let endSec = timeStringToSeconds(b.to || b.from);
+        if (endSec < startSec) endSec += 24 * 3600;
+        const defOp = getOperatorForDuty(normD);
+
+        return {
+          duty: normD,
+          dutyId: normD,
+          from: b.from,
+          to: b.to || '--',
+          startStr: b.from,
+          endStr: b.to || '--',
+          toc: b.toc || '',
+          hoc: b.hoc || b.toLoc || '',
+          fromLoc: b.toc || b.fromLoc || 'PYID',
+          toLoc: b.hoc || b.toLoc || 'PYID',
+          startSec,
+          endSec,
+          empName: defOp?.empName || `Duty ${normD}`,
+          empId: defOp?.empId || '--',
+          isExchanged: false,
+          originalEmpName: '',
+          originalEmpId: ''
+        };
+      });
+    });
+  } else {
+    standardFleet.forEach(tid => {
+      trainMap[tid] = [];
+    });
   }
 
   // Deduplicate and sort each train's leg timeline chronologically
@@ -3446,10 +6636,15 @@ export function buildMasterIdChartFromDutyRoster(dutyRoster = {}, fallbackBaseCh
       }
     });
     trainMap[tid] = unique.sort((a, b) => a.startSec - b.startSec);
-    if (trainMap[tid].length > 0 && dayInductions[tid]) {
-      if (!trainMap[tid][0].toc || trainMap[tid][0].toc === '-' || trainMap[tid][0].toc === 'PYID' || trainMap[tid][0].toc.includes('Dpo-Rd3')) {
+    if (trainMap[tid].length > 0) {
+      if (dayInductions[tid] && (!trainMap[tid][0].toc || trainMap[tid][0].toc === '-' || trainMap[tid][0].toc === 'PYID' || trainMap[tid][0].toc.includes('Dpo-Rd3'))) {
         trainMap[tid][0].toc = dayInductions[tid];
         trainMap[tid][0].fromLoc = dayInductions[tid];
+      }
+      const lastIdx = trainMap[tid].length - 1;
+      if (dayStablings[tid] && (!trainMap[tid][lastIdx].hoc || trainMap[tid][lastIdx].hoc === '-' || trainMap[tid][lastIdx].hoc === 'PYID')) {
+        trainMap[tid][lastIdx].hoc = dayStablings[tid];
+        trainMap[tid][lastIdx].toLoc = dayStablings[tid];
       }
     }
   });
@@ -3459,10 +6654,6 @@ export function buildMasterIdChartFromDutyRoster(dutyRoster = {}, fallbackBaseCh
 
 /**
  * 3. Derives Handover Cards from Master ID Chart at the evaluation timestamp.
- * Strictly follows the Master ID Chart to determine:
- * - Current Train Operator (At Controls)
- * - Previous Train Operator (Relieved)
- * - Next Reliever Train Operator (Upcoming Platform Handover)
  */
 export function buildHandoverCardsFromMasterIdChart(
   masterIdChart = {}, 

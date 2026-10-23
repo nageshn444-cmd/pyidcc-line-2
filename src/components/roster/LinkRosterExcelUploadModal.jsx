@@ -111,6 +111,15 @@ export default function LinkRosterExcelUploadModal({
   const handleConfirmSave = async () => {
     if (!parseResult || !parseResult.duties || parseResult.duties.length === 0) return;
 
+    // 1. Zero-latency instant UI update across all modules
+    if (typeof onLinkRosterImported === 'function') {
+      onLinkRosterImported({
+        scheduleType: selectedDay,
+        duties: parseResult.duties,
+        eraseOld: eraseOldData
+      });
+    }
+
     setIsSaving(true);
     setSaveError('');
     setSaveDuration('');
@@ -118,7 +127,7 @@ export default function LinkRosterExcelUploadModal({
     const startTime = performance.now();
 
     try {
-      // saveLinkRosterToFirestore performs single-pass atomic overwrite + real orphaned doc cleanup
+      // saveLinkRosterToFirestore performs ultra-fast chunked writes with timeout protection
       const res = await saveLinkRosterToFirestore(parseResult.duties, selectedDay, (progress) => {
         setSaveProgress(progress);
       }, { eraseOld: eraseOldData });
@@ -127,19 +136,9 @@ export default function LinkRosterExcelUploadModal({
       setSaveDuration(`${elapsed}s`);
       setSaveSuccess(true);
 
-      if (typeof onLinkRosterImported === 'function') {
-        onLinkRosterImported({
-          scheduleType: selectedDay,
-          duties: parseResult.duties,
-          eraseOld: eraseOldData,
-          savedCount: res.savedDutiesCount,
-          duration: elapsed
-        });
-      }
-
       setTimeout(() => {
         onClose();
-      }, 1300);
+      }, 600);
     } catch (err) {
       console.error('Firestore Link Roster Save error:', err);
       setSaveError(err.message || 'Failed to commit Link Roster to database.');

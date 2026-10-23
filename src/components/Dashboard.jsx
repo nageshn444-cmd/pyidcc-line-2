@@ -673,26 +673,62 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       const isExplicitlyErased = typeof window !== 'undefined' && window.localStorage &&
         Boolean(window.localStorage.getItem(`pyidcc_schedule_erased_${targetSchedule.toLowerCase()}`));
 
-      // Fallback ONLY when database has zero links AND schedule has not been explicitly erased
-      if (rawDayLinks.length === 0 && !isExplicitlyErased) {
-        if (targetSchedule === 'SATURDAY') {
-          rawDayLinks = SATURDAY_MASTER_LINKS;
-        } else if (targetSchedule === 'SUNDAY') {
-          rawDayLinks = SUNDAY_MASTER_LINKS;
-        } else if (targetSchedule === 'MONDAY') {
-          rawDayLinks = MONDAY_MASTER_LINKS;
+      let masterDayLinks = [];
+      if (targetSchedule === 'SATURDAY') {
+        masterDayLinks = SATURDAY_MASTER_LINKS;
+      } else if (targetSchedule === 'SUNDAY') {
+        masterDayLinks = SUNDAY_MASTER_LINKS;
+      } else if (targetSchedule === 'MONDAY') {
+        masterDayLinks = MONDAY_MASTER_LINKS;
+      } else {
+        masterDayLinks = WEEKDAY_MASTER_LINKS;
+      }
+
+      // Fallback or fill missing canonical links (such as CR42-CR48 for SUNDAY)
+      if (!isExplicitlyErased) {
+        if (rawDayLinks.length === 0) {
+          rawDayLinks = masterDayLinks;
         } else {
-          rawDayLinks = WEEKDAY_MASTER_LINKS;
+          // If the DB links are missing any duties present in masterDayLinks (e.g. CR42-CR48), fill in the missing canonical duties!
+          const existingNormMap = new Set();
+          rawDayLinks.forEach(l => {
+            const norm = normalizeDutyId(l.dutyId);
+            existingNormMap.add(norm);
+            const plain = norm.replace(/^CR0?/, '');
+            existingNormMap.add(plain);
+            existingNormMap.add(plain.padStart(2, '0'));
+            const cr = 'CR' + (parseInt(plain, 10) < 10 ? '0' + parseInt(plain, 10) : parseInt(plain, 10));
+            existingNormMap.add(cr);
+          });
+          masterDayLinks.forEach(masterLink => {
+            const mNorm = normalizeDutyId(masterLink.dutyId);
+            const mPlain = mNorm.replace(/^CR0?/, '');
+            const mCr = 'CR' + (parseInt(mPlain, 10) < 10 ? '0' + parseInt(mPlain, 10) : parseInt(mPlain, 10));
+            if (!existingNormMap.has(mNorm) && !existingNormMap.has(mPlain) && !existingNormMap.has(mCr)) {
+              rawDayLinks.push({ ...masterLink, isUploaded: false });
+            }
+          });
         }
       }
 
       const dedupedLinks = deduplicateByDutyId(rawDayLinks);
       const currentDayLinks = dedupedLinks.map(l => {
         const normId = normalizeDutyId(l.dutyId);
+        const plain = normId.replace(/^CR0?/, '');
+        const crKey = 'CR' + (parseInt(plain, 10) < 10 ? '0' + parseInt(plain, 10) : parseInt(plain, 10));
+        const masterMatch = masterDayLinks.find(m => {
+          const mNorm = normalizeDutyId(m.dutyId);
+          return mNorm === normId || mNorm === crKey || mNorm.replace(/^CR0?/, '') === plain;
+        });
+
+        // If l is missing legs but masterMatch has them, hydrate them!
+        const hasLegs = (l.leg1TrainNo && l.leg1TrainNo !== '--') || (l.leg2TrainNo && l.leg2TrainNo !== '--') || (l.trainId && l.trainId !== '--');
+        const enriched = (!hasLegs && masterMatch) ? { ...masterMatch, ...l, trainId: masterMatch.trainId, leg1TrainNo: masterMatch.leg1TrainNo } : l;
+
         return {
-          ...l,
-          id: l.id || `link_${targetSchedule.toLowerCase()}_duty_${normId}`,
-          dutyId: normId
+          ...enriched,
+          id: enriched.id || `link_${targetSchedule.toLowerCase()}_duty_${normId}`,
+          dutyId: masterMatch?.dutyId || normId
         };
       }).sort((a, b) =>
         String(a.dutyId).localeCompare(String(b.dutyId), undefined, { numeric: true })
@@ -756,12 +792,20 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       // Build deployments
       const activeDeployments = currentDayLinks.map(link => {
         const normLinkId = normalizeDutyId(link.dutyId);
+        const plainNum = normLinkId.replace(/^CR0?/, '');
+        const crKey = 'CR' + (parseInt(plainNum, 10) < 10 ? '0' + parseInt(plainNum, 10) : parseInt(plainNum, 10));
+
+        const isMatch = (dutyVal) => {
+          const dNorm = normalizeDutyId(dutyVal);
+          return dNorm === normLinkId || dNorm === crKey || dNorm === plainNum || dNorm === plainNum.padStart(2, '0');
+        };
+
         const matchingGcc = effectiveDeployData.find(d =>
-          normalizeDutyId(d.dutyId) === normLinkId &&
+          isMatch(d.dutyId) &&
           normalizeScheduleType(d.scheduleType, d.id) === targetSchedule
         );
         const matchedAtt = attData.find(a =>
-          normalizeDutyId(a.dutyId) === normLinkId &&
+          isMatch(a.dutyId) &&
           normalizeScheduleType(a.scheduleType, a.id) === targetSchedule
         );
         const isOfficialSpecial = Boolean(matchingGcc?.isExchanged || matchingGcc?.status === 'SWAPPED_BY_CC' || matchingGcc?.status === 'RELIEF_DISPATCHED');
@@ -836,11 +880,23 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       const dedupedDeployData = deduplicateByDutyId(
         effectiveDeployData.filter(d => normalizeScheduleType(d.scheduleType, d.id) === targetSchedule)
       );
-      const linkedDutyIds = new Set(currentDayLinks.map(l => normalizeDutyId(l.dutyId)));
+      const linkedDutyIds = new Set();
+      currentDayLinks.forEach(l => {
+        const norm = normalizeDutyId(l.dutyId);
+        linkedDutyIds.add(norm);
+        const plain = norm.replace(/^CR0?/, '');
+        linkedDutyIds.add(plain);
+        linkedDutyIds.add(plain.padStart(2, '0'));
+        const cr = 'CR' + (parseInt(plain, 10) < 10 ? '0' + parseInt(plain, 10) : parseInt(plain, 10));
+        linkedDutyIds.add(cr);
+      });
       const aiOnlyDeployments = dedupedDeployData
         .filter(d => {
           const dDuty = normalizeDutyId(d.dutyId || '');
-          return isValidDutyId(d.dutyId) && dDuty && dDuty !== 'UNASSIGNED' && !linkedDutyIds.has(dDuty);
+          const dPlain = dDuty.replace(/^CR0?/, '');
+          const dCr = 'CR' + (parseInt(dPlain, 10) < 10 ? '0' + parseInt(dPlain, 10) : parseInt(dPlain, 10));
+          return isValidDutyId(d.dutyId) && dDuty && dDuty !== 'UNASSIGNED' &&
+            !linkedDutyIds.has(dDuty) && !linkedDutyIds.has(dPlain) && !linkedDutyIds.has(dPlain.padStart(2, '0')) && !linkedDutyIds.has(dCr);
         })
         .map(d => {
           const normId = normalizeDutyId(d.dutyId);
@@ -1018,19 +1074,15 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
     });
 
     const unsubWtt = onSnapshot(collection(db, "wtt_final_matrix"), (snap) => {
-      if (!snap.empty) {
-        wttData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        liveWttDataRef.current = wttData;
-        runProcessing();
-      }
+      wttData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      liveWttDataRef.current = wttData;
+      runProcessing();
     });
 
     const unsubLinks = onSnapshot(collection(db, "crew_final_links"), (snap) => {
-      if (!snap.empty) {
-        linksData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        liveLinksDataRef.current = linksData;
-        runProcessing();
-      }
+      linksData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      liveLinksDataRef.current = linksData;
+      runProcessing();
     });
 
     const unsubEmployees = onSnapshot(collection(db, "crewRegistry"), (snap) => {

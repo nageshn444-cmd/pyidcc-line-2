@@ -34,7 +34,9 @@ import {
   buildDutyRosterFromLinkRoster,
   buildMasterIdChartFromDutyRoster,
   buildHandoverCardsFromMasterIdChart,
-  getCleanLinksForDay
+  getCleanLinksForDay,
+  isScheduleDayErased,
+  isWttScheduleErased
 } from '../data/weekdayReliefIdChartRegistry';
 import { enrichMasterIdChartWithWttLocations } from '../services/wttLocationResolverEngine.js';
 import { getMasterLinksForDay } from '../data/canonicalDayLinksRegistry';
@@ -1549,14 +1551,26 @@ export default function LiveTrainPositionTracker({
 
   // ── Authoritative Dispatch Gateway Core Sync & Reactive Listeners ──
   const [dispatchUpdateTrigger, setDispatchUpdateTrigger] = useState(0);
+  const [linkUpdateTrigger, setLinkUpdateTrigger] = useState(0);
+
   useEffect(() => {
     const handleUpdate = () => setDispatchUpdateTrigger(prev => prev + 1);
+    const handleLinkWttUpdate = () => setLinkUpdateTrigger(prev => prev + 1);
+
     if (typeof window !== 'undefined') {
       window.addEventListener('pyidcc_dispatch_deployments_updated', handleUpdate);
       window.addEventListener('storage', handleUpdate);
+      window.addEventListener('pyidcc:link_roster_updated', handleLinkWttUpdate);
+      window.addEventListener('pyidcc_link_roster_updated', handleLinkWttUpdate);
+      window.addEventListener('pyidcc:wtt_updated', handleLinkWttUpdate);
+      window.addEventListener('pyidcc_wtt_updated', handleLinkWttUpdate);
       return () => {
         window.removeEventListener('pyidcc_dispatch_deployments_updated', handleUpdate);
         window.removeEventListener('storage', handleUpdate);
+        window.removeEventListener('pyidcc:link_roster_updated', handleLinkWttUpdate);
+        window.removeEventListener('pyidcc_link_roster_updated', handleLinkWttUpdate);
+        window.removeEventListener('pyidcc:wtt_updated', handleLinkWttUpdate);
+        window.removeEventListener('pyidcc_wtt_updated', handleLinkWttUpdate);
       };
     }
   }, []);
@@ -1655,11 +1669,18 @@ export default function LiveTrainPositionTracker({
   // ── 1. ACTIVE DAY LINK ROSTER ──
   // Follows linkRoster prop or canonical Master Link Roster for activeSchedule
   const activeDayLinks = useMemo(() => {
+    void linkUpdateTrigger;
     const normDay = normalizeScheduleDay(activeSchedule || 'WEEKDAY');
+    if (isScheduleDayErased(normDay)) {
+      return [];
+    }
     const cleanFromProp = getCleanLinksForDay(linkRoster, normDay);
     if (cleanFromProp.length > 0) return cleanFromProp;
+    if (Array.isArray(linkRoster) && linkRoster.length > 0) {
+      return [];
+    }
     return getMasterLinksForDay(normDay);
-  }, [linkRoster, activeSchedule]);
+  }, [linkRoster, activeSchedule, linkUpdateTrigger]);
 
   // ── 2. DYNAMIC DUTY ROSTER (FOLLOWS TRAIN ID OF EACH DUTY OF LINK ROSTER) ──
   // Derives all duties, trip sequences, and operator assignments from activeDayLinks
@@ -1673,7 +1694,7 @@ export default function LiveTrainPositionTracker({
   const dynamicMasterIdChart = useMemo(() => {
     const normDay = normalizeScheduleDay(activeSchedule || 'WEEKDAY');
     const dayChartObj = getReliefIdChartForDay(normDay);
-    const base = buildMasterIdChartFromDutyRoster(dynamicDutyRoster, dayChartObj?.chart || WEEKDAY_RELIEF_ID_CHART_2024);
+    const base = buildMasterIdChartFromDutyRoster(dynamicDutyRoster, dayChartObj?.chart || WEEKDAY_RELIEF_ID_CHART_2024, normDay);
     return enrichMasterIdChartWithWttLocations(base, normDay);
   }, [dynamicDutyRoster, activeSchedule]);
 
@@ -1698,6 +1719,11 @@ export default function LiveTrainPositionTracker({
   // ── Synchronized Rows according to RE-ALIGNED CHRONOLOGICAL MATRIX SHEET as per day type ──
   // STRICT RULE: WTT timetable is the master source of truth for train scheduled times and track movement
   const matrixRows = useMemo(() => {
+    void linkUpdateTrigger;
+    if (isWttScheduleErased(activeSchedule)) {
+      return [];
+    }
+
     // 1. Filter canonical master rows from WTT_MASTER_REGISTRY matching activeSchedule
     const canonicalDayRows = WTT_MASTER_REGISTRY.filter(t => 
       isScheduleMatch(t.scheduleType || getItemSchedule(t), activeSchedule)
