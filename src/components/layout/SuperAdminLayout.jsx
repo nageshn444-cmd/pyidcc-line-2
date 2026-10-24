@@ -49,6 +49,8 @@ import { BMRCL_CREW_REGISTRY } from '../../data/bmrclCrewRegistry';
 import { computeDutyLegKms } from '../../utils/kmCalculator'; // WTT km calculation engine
 import { getMasterLinksForDay } from '../../data/canonicalDayLinksRegistry';
 import { WTT_MASTER_REGISTRY } from '../../data/wttMasterRegistry';
+import { inferAllLegLocations } from '../../services/wttLocationResolverEngine';
+
 
 // ── Tab-level Suspense fallback ──
 const TabLoader = () => (
@@ -719,8 +721,9 @@ export default function SuperAdminLayout({
       );
     }
 
-    return sourceList;
+    return sourceList.map(l => inferAllLegLocations(l, activeDay));
   }, [filteredLinks, autoReaderDutyMap, showOnlyActiveDuties, activeDay]);
+
 
   const finalRosterLinks = useMemo(() => {
     if (!rosterDutySearch) return allDayRosterLinks;
@@ -2167,6 +2170,14 @@ export default function SuperAdminLayout({
 
                         const isCrrc = Boolean(dutyRaw.isCrrc || canonMatch?.isCrrc || /^CR/i.test(String(dutyRaw.dutyNo || dutyRaw.dutyId || '')));
                         const rowDocId = dutyRaw.id || `link_${String(activeDay || 'weekday').toLowerCase()}_duty_${normDutyId || idx}`;
+                        const rawDutyIdentifier = String(
+                          canonMatch?.dutyId || normDutyId || dutyRaw.dutyNo || dutyRaw.dutyId || dutyRaw.dutyType || dutyRaw.remarks || ''
+                        ).trim().toLowerCase();
+                        const isCC3 = rawDutyIdentifier === 'cc3' ||
+                                      rawDutyIdentifier === 'cc 3' ||
+                                      rawDutyIdentifier === 'cc-3' ||
+                                      /\bcc\s*3\b/i.test(rawDutyIdentifier);
+
                         const preDuty = {
                           ...dutyRaw,
                           id: rowDocId,
@@ -2174,21 +2185,6 @@ export default function SuperAdminLayout({
                           isCrrc,
                           trainId: resolvedTrainId,
                           leg1TrainNo: resolvedTrainId !== '--' ? resolvedTrainId : (dutyRaw.leg1TrainNo || canonMatch?.leg1TrainNo || '--'),
-                        };
-
-                        const computedLegs = computeDutyLegKms(preDuty, activeDay);
-                        const formatCellVal = (rawVal, compVal) => {
-                          if (typeof compVal === 'number' && compVal > 0) return `${compVal} km`;
-                          if (typeof rawVal === 'number' && rawVal > 0) return `${rawVal} km`;
-                          if (typeof rawVal === 'string' && rawVal.trim() !== '' && rawVal.trim() !== '--' && rawVal.trim() !== '0' && rawVal.trim() !== '0 km') {
-                            return rawVal.includes('km') ? rawVal : `${rawVal} km`;
-                          }
-                          return compVal > 0 ? `${compVal} km` : '--';
-                        };
-
-                        const duty = {
-                          ...preDuty,
-                          dutyId: canonMatch?.dutyId || preDuty.dutyId,
                           signOnTime: (autoReaderMatch?.signOnTime && autoReaderMatch.signOnTime !== '--')
                             ? autoReaderMatch.signOnTime
                             : (dutyRaw.signOnTime && dutyRaw.signOnTime !== '--' ? dutyRaw.signOnTime : canonMatch?.signOnTime || '--'),
@@ -2202,9 +2198,6 @@ export default function SuperAdminLayout({
                             ? autoReaderMatch.signOffLocation
                             : (dutyRaw.signOffLocation && dutyRaw.signOffLocation !== '--' ? dutyRaw.signOffLocation : canonMatch?.signOffLocation || 'PYID'),
 
-                          leg1TrainNo: (dutyRaw.leg1TrainNo && dutyRaw.leg1TrainNo !== '--' && !isDutyAlias(dutyRaw.leg1TrainNo, normDutyId))
-                            ? dutyRaw.leg1TrainNo
-                            : (resolvedTrainId !== '--' ? resolvedTrainId : (canonMatch?.leg1TrainNo || '--')),
                           leg1TimeFrom: (dutyRaw.leg1TimeFrom && dutyRaw.leg1TimeFrom !== '--') ? dutyRaw.leg1TimeFrom : (canonMatch?.leg1TimeFrom || '--'),
                           leg1TimeTo: (dutyRaw.leg1TimeTo && dutyRaw.leg1TimeTo !== '--') ? dutyRaw.leg1TimeTo : (canonMatch?.leg1TimeTo || '--'),
                           leg1ArrLoc: (dutyRaw.leg1ArrLoc && dutyRaw.leg1ArrLoc !== '--') ? dutyRaw.leg1ArrLoc : (canonMatch?.leg1ArrLoc || '--'),
@@ -2227,18 +2220,42 @@ export default function SuperAdminLayout({
                           leg3ArrLoc: (dutyRaw.leg3ArrLoc && dutyRaw.leg3ArrLoc !== '--') ? dutyRaw.leg3ArrLoc : (canonMatch?.leg3ArrLoc || '--'),
 
                           leg4TrainNo: (dutyRaw.leg4TrainNo && dutyRaw.leg4TrainNo !== '--' && !isDutyAlias(dutyRaw.leg4TrainNo, normDutyId)) ? dutyRaw.leg4TrainNo : (canonMatch?.leg4TrainNo || '--'),
-                          leg4DepLoc: (dutyRaw.leg4DepLoc && dutyRaw.leg4DepLoc !== '--') ? dutyRaw.leg4DepLoc : (canonMatch?.leg4DepLoc || '--'),
-                          leg4FinalDepTime: (dutyRaw.leg4FinalDepTime && dutyRaw.leg4FinalDepTime !== '--') ? dutyRaw.leg4FinalDepTime : (canonMatch?.leg4FinalDepTime || '--'),
-                          leg4FinalArrTime: (dutyRaw.leg4FinalArrTime && dutyRaw.leg4FinalArrTime !== '--') ? dutyRaw.leg4FinalArrTime : (canonMatch?.leg4FinalArrTime || '--'),
+                          leg4FinalDepLoc: (dutyRaw.leg4FinalDepLoc && dutyRaw.leg4FinalDepLoc !== '--') ? dutyRaw.leg4FinalDepLoc : (dutyRaw.leg4DepLoc && dutyRaw.leg4DepLoc !== '--' ? dutyRaw.leg4DepLoc : (canonMatch?.leg4FinalDepLoc || canonMatch?.leg4DepLoc || '--')),
+                          leg4FinalDepTime: (dutyRaw.leg4FinalDepTime && dutyRaw.leg4FinalDepTime !== '--') ? dutyRaw.leg4FinalDepTime : (dutyRaw.leg4DepTime && dutyRaw.leg4DepTime !== '--' ? dutyRaw.leg4DepTime : (canonMatch?.leg4FinalDepTime || canonMatch?.leg4DepTime || '--')),
+                          leg4FinalArrTime: (dutyRaw.leg4FinalArrTime && dutyRaw.leg4FinalArrTime !== '--') ? dutyRaw.leg4FinalArrTime : (dutyRaw.leg4ArrTime && dutyRaw.leg4ArrTime !== '--' ? dutyRaw.leg4ArrTime : (canonMatch?.leg4FinalArrTime || canonMatch?.leg4ArrTime || '--')),
                           leg4TimeTo: (dutyRaw.leg4TimeTo && dutyRaw.leg4TimeTo !== '--') ? dutyRaw.leg4TimeTo : (canonMatch?.leg4TimeTo || '--'),
-                          leg4FinalArrLoc: (dutyRaw.leg4FinalArrLoc && dutyRaw.leg4FinalArrLoc !== '--') ? dutyRaw.leg4FinalArrLoc : (canonMatch?.leg4FinalArrLoc || '--'),
+                          leg4FinalArrLoc: (dutyRaw.leg4FinalArrLoc && dutyRaw.leg4FinalArrLoc !== '--') ? dutyRaw.leg4FinalArrLoc : (dutyRaw.leg4ArrLoc && dutyRaw.leg4ArrLoc !== '--' ? dutyRaw.leg4ArrLoc : (canonMatch?.leg4FinalArrLoc || canonMatch?.leg4ArrLoc || '--')),
+                        };
 
+                        // Infer exact actual train boarding (TOC) & deboarding (HOC) locations for all legs
+                        const dutyWithLocs = inferAllLegLocations(preDuty, activeDay);
+
+                        // Calculate accurate leg KMs strictly based on actual train boarding/deboarding locations
+                        const computedLegs = isCC3
+                          ? { leg1Km: 0, leg2Km: 0, leg3Km: 0, leg4Km: 0, totalKm: 0, isNonDriving: true }
+                          : computeDutyLegKms(dutyWithLocs, activeDay);
+
+                        const formatCellVal = (rawVal, compVal) => {
+                          if (isCC3) return '--';
+                          if (typeof compVal === 'number' && compVal > 0) return `${compVal} km`;
+                          if (typeof rawVal === 'number' && rawVal > 0) return `${rawVal} km`;
+                          if (typeof rawVal === 'string' && rawVal.trim() !== '' && rawVal.trim() !== '--' && rawVal.trim() !== '0' && rawVal.trim() !== '0 km') {
+                            return rawVal.includes('km') ? rawVal : `${rawVal} km`;
+                          }
+                          return compVal > 0 ? `${compVal} km` : '--';
+                        };
+
+                        const duty = {
+                          ...dutyWithLocs,
+                          isCC3,
                           leg1Km: formatCellVal(dutyRaw.leg1Km || dutyRaw.nightKms || canonMatch?.leg1Km, computedLegs.leg1Km),
                           leg2Km: formatCellVal(dutyRaw.leg2Km || dutyRaw.mornKms || canonMatch?.leg2Km, computedLegs.leg2Km),
                           leg3Km: formatCellVal(dutyRaw.leg3Km || canonMatch?.leg3Km, computedLegs.leg3Km),
                           leg4Km: formatCellVal(dutyRaw.leg4Km || canonMatch?.leg4Km, computedLegs.leg4Km),
                           totalKm: formatCellVal(dutyRaw.totalKm || dutyRaw.kms || canonMatch?.totalKm, computedLegs.totalKm),
+                          kms: isCC3 ? 0 : (computedLegs.totalKm || 0),
                         };
+
                         const rowBgClass = idx % 2 === 0 ? "bg-slate-900" : "bg-slate-950/40";
                         const stickyDutyBgClass = idx % 2 === 0 ? "bg-slate-900" : "bg-slate-950";
 

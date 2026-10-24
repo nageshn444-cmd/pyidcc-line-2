@@ -11,6 +11,7 @@
 import { MASTER_STATIONS, PREDEFINED_TRIPS } from "../data/kmcalc/masterStations.js";
 import { WTT_MASTER_REGISTRY } from "../data/wttMasterRegistry.js";
 import { CHANGEOVER_TABLE, isPdcTrip } from "../services/changeoverService.js";
+import { PRELOADED_DUTIES } from "../data/kmcalc/preloadedDuties.js";
 
 /**
  * Normalizes any station code, name, sub-location or alias to canonical MASTER_STATIONS code.
@@ -117,12 +118,176 @@ export function normalizeStationCode(rawCode) {
 }
 
 /**
+ * Calculates non-revenue stabling positioning distance from the last trip arrival
+ * station to the train's stabling siding/buffer end/depot track.
+ * Train Operator drives the train from the revenue platform to stabling location without passenger service.
+ *
+ * @param {string} arrivalStation - Revenue completion station (e.g. 'APTS', 'PUTH', 'BIET', 'NGSA', 'PYID', 'SPGD', 'JIDL')
+ * @param {string} stablingLocation - Stabling destination (e.g. 'APTS_BE', 'PUTH_BE', 'BIET_BE', 'NGSA_PT', 'P DHO', 'B DHO', 'DEPOT')
+ * @returns {number} Distance in kilometers
+ */
+export function getStablingMovementKm(arrivalStation, stablingLocation) {
+  if (!arrivalStation || !stablingLocation) return 0;
+  const arr = String(arrivalStation).trim().toUpperCase();
+  const stab = String(stablingLocation).trim().toUpperCase();
+
+  if (arr === stab || stab === '--' || arr === '--' || stab === '-' || arr === '-') return 0;
+
+  // Peenya Depot Handover (P DHO / PYID Depot SBL / Depot Rd-3)
+  if (stab.includes('P DHO') || stab.includes('PDHO') || (stab.includes('DEPOT') && arr.includes('PYID'))) {
+    return 2.00;
+  }
+  // BIET Depot Handover (B DHO / BIET SBL)
+  if (stab.includes('B DHO') || stab.includes('BDHO') || (stab.includes('DEPOT') && arr.includes('BIET'))) {
+    return 6.00;
+  }
+  // APTS Buffer End (APTS_BE)
+  if (arr.includes('APTS') && (stab.includes('APTS_BE') || stab.includes('APTS BE') || stab.includes('BUFFER') || stab.includes('B/E'))) {
+    return 0.34; // |24.170 - 23.833| = 0.337 km
+  }
+  // PUTH Buffer End (PUTH_BE)
+  if (arr.includes('PUTH') && (stab.includes('PUTH_BE') || stab.includes('PUTH BE') || stab.includes('BUFFER') || stab.includes('B/E'))) {
+    return 0.47; // |18.250 - 17.780| = 0.470 km
+  }
+  // BIET Buffer End (BIET_BE)
+  if (arr.includes('BIET') && (stab.includes('BIET_BE') || stab.includes('BIET BE') || stab.includes('BUFFER') || stab.includes('B/E'))) {
+    return 0.33; // |-9.560 - (-9.227)| = 0.333 km
+  }
+  // NGSA Pocket Track / Buffer End (NGSA_PT / NPKT / NGSA_BE)
+  if (arr.includes('NGSA') && (stab.includes('NGSA_PT') || stab.includes('NGSA PKT') || stab.includes('NPKT') || stab.includes('PT') || stab.includes('PKT') || stab.includes('BE'))) {
+    return 0.44; // |-6.528 - (-6.088)| = 0.440 km
+  }
+  // SPGD Siding
+  if (arr.includes('SPGD') && (stab.includes('SBL') || stab.includes('SIDING') || stab.includes('DN PF'))) {
+    return 0.40;
+  }
+  // JIDL Siding
+  if ((arr.includes('JLHL') || arr.includes('JIDL') || arr.includes('JDHL')) && (stab.includes('JIDL') || stab.includes('SBL') || stab.includes('UP PF'))) {
+    return 0.50;
+  }
+  // NLC Pocket Track
+  if (arr.includes('NLC') && (stab.includes('PT') || stab.includes('PKT') || stab.includes('POCKET'))) {
+    return 0.08;
+  }
+  // MHLI Pocket Track
+  if (arr.includes('MHLI') && (stab.includes('PT') || stab.includes('PKT') || stab.includes('POCKET'))) {
+    return 0.08;
+  }
+
+  // Depot handover from any other station
+  if (stab.includes('DEPOT') || stab.includes('DPO')) {
+    const distToPyid = calculateDistance(arr, 'PYID');
+    return parseFloat((distToPyid + 2.00).toFixed(2));
+  }
+
+  const rawDist = calculateDistance(arrivalStation, stablingLocation);
+  return typeof rawDist === 'number' && rawDist > 0 ? rawDist : 0;
+}
+
+/**
+ * Calculates non-revenue morning induction distance from the train's stabling siding/buffer end/depot track
+ * to the first revenue passenger boarding station.
+ * Train Operator drives the train from the stabling point to the revenue platform before opening doors.
+ *
+ * @param {string} stablingLocation - Overnight stabling location (e.g. 'Depot Rd-3', 'NGSA PKT', 'BIET_BE', 'PUTH_BE', 'APTS_BE')
+ * @param {string} boardingStation - First revenue passenger station (e.g. 'PYID', 'NGSA', 'BIET', 'PUTH', 'APTS')
+ * @returns {number} Distance in kilometers
+ */
+export function getInductionMovementKm(stablingLocation, boardingStation) {
+  if (!stablingLocation || !boardingStation) return 0;
+  const stab = String(stablingLocation).trim().toUpperCase();
+  const board = String(boardingStation).trim().toUpperCase();
+
+  if (stab === board || stab === '--' || board === '--' || stab === '-' || board === '-') return 0;
+
+  // Peenya Depot Induction to PYID platform
+  if ((stab.includes('DEPOT') || stab.includes('DPO') || stab.includes('RD3') || stab.includes('RD-3')) && board.includes('PYID')) {
+    return 2.00;
+  }
+  // Depot to JLHL Up
+  if ((stab.includes('DEPOT') || stab.includes('DPO')) && board.includes('JLHL')) {
+    return 2.70;
+  }
+  // Depot to BIET
+  if ((stab.includes('DEPOT') || stab.includes('DPO')) && board.includes('BIET')) {
+    return 7.84;
+  }
+  // NGSA Pocket Track to NGSA platform (Duty 55 benchmark)
+  if ((stab.includes('NGSA_PT') || stab.includes('NGSA PKT') || stab.includes('NPKT')) && board.includes('NGSA')) {
+    return 0.44;
+  }
+  // BIET Buffer End to BIET platform
+  if ((stab.includes('BIET_BE') || stab.includes('BIET BE')) && board.includes('BIET')) {
+    return 0.33;
+  }
+  // PUTH Buffer End to PUTH platform
+  if ((stab.includes('PUTH_BE') || stab.includes('PUTH BE')) && board.includes('PUTH')) {
+    return 0.47;
+  }
+  // APTS Buffer End to APTS platform
+  if ((stab.includes('APTS_BE') || stab.includes('APTS BE')) && board.includes('APTS')) {
+    return 0.34;
+  }
+  // SPGD siding to SPGD platform
+  if (stab.includes('SPGD') && board.includes('SPGD')) {
+    return 0.40;
+  }
+  // JIDL siding to JLHL platform
+  if (stab.includes('JIDL') && (board.includes('JLHL') || board.includes('JDHL'))) {
+    return 0.50;
+  }
+
+  // True stabling locations check (buffer ends, pocket tracks, sidings, depot)
+  const isActualStablingPoint =
+    stab.includes('DEPOT') || stab.includes('DPO') || stab.includes('RD3') || stab.includes('RD-3') ||
+    stab.includes('BE') || stab.includes('BUFFER') || stab.includes('B/E') ||
+    stab.includes('PKT') || stab.includes('PT') || stab.includes('POCKET') ||
+    stab.includes('SIDING') || stab.includes('SBL');
+
+  if (!isActualStablingPoint) {
+    return 0;
+  }
+
+  const rawDist = calculateDistance(stablingLocation, boardingStation);
+  return typeof rawDist === 'number' && rawDist > 0 ? rawDist : 0;
+}
+
+/**
  * Calculates absolute distance between two stations based on chainage values.
  * Returns exact distance in KM (float, rounded to 2 decimal places).
  */
 export function calculateDistance(fromStationCode, toStationCode) {
   const rawFromStr = String(fromStationCode || "").trim().toUpperCase();
   const rawToStr = String(toStationCode || "").trim().toUpperCase();
+
+  if (!rawFromStr || !rawToStr || rawFromStr === '--' || rawToStr === '--' || rawFromStr === '-' || rawToStr === '-') {
+    return 0;
+  }
+
+  // CC3 Non-driving exclusion
+  if (rawFromStr.includes("CC3") || rawToStr.includes("CC3") || rawFromStr.includes("CC 3") || rawToStr.includes("CC 3")) {
+    return 0;
+  }
+
+  // Special P DHO (Peenya Depot Handover via Rd3 = 2 km)
+  if (
+    (rawToStr.includes("P DHO") || rawToStr.includes("PDHO")) ||
+    (rawFromStr.includes("P DHO") || rawFromStr.includes("PDHO"))
+  ) {
+    if (rawFromStr.includes("PYID") || rawToStr.includes("PYID") || rawFromStr.includes("DEPOT") || rawToStr.includes("DEPOT") || rawFromStr.includes("DPO") || rawToStr.includes("DPO")) {
+      return 2.00;
+    }
+  }
+
+  // Special B DHO (BIET Depot Handover = 6 km)
+  if (
+    (rawToStr.includes("B DHO") || rawToStr.includes("BDHO") || rawToStr.includes("BT DHO")) ||
+    (rawFromStr.includes("B DHO") || rawFromStr.includes("BDHO") || rawFromStr.includes("BT DHO"))
+  ) {
+    if (rawFromStr.includes("BIET") || rawToStr.includes("BIET") || rawFromStr.includes("DEPOT") || rawToStr.includes("DEPOT") || rawFromStr.includes("DPO") || rawToStr.includes("DPO")) {
+      return 6.00;
+    }
+  }
 
   // PYID UP to PYID DN (reversing via BIET BE) operational terminal loop = 13.08 KM
   if (
@@ -144,50 +309,63 @@ export function calculateDistance(fromStationCode, toStationCode) {
                        rawToStr.includes("TURN BACK") ||
                        rawToStr.includes("TRN");
 
-  if (isTurnBackTo) {
-    let cleanToStr = rawToStr
+  const isTurnBackFrom = /\b(TB|T\/B|T\.B|TRN|TURN|TURN\s*BACK|TURNBACK|REV|REVERSING|6\s*CAR\s*STOPPING|STOPPING)\b/i.test(rawFromStr) ||
+                         /[-_ ](TB|TRN)$/i.test(rawFromStr.trim()) ||
+                         /\(TB\)/i.test(rawFromStr) ||
+                         rawFromStr.includes("6 CAR STOPPING") ||
+                         rawFromStr.includes("TURN BACK") ||
+                         rawFromStr.includes("TRN");
+
+  if (isTurnBackTo || isTurnBackFrom) {
+    const turnTargetStr = isTurnBackTo ? rawToStr : rawFromStr;
+    const baseTargetStr = isTurnBackTo ? rawFromStr : rawToStr;
+
+    let cleanTurnStr = turnTargetStr
       .replace(/\b(TB|T\/B|T\.B|TRN|TURN\s*BACK|TURNBACK|REV|REVERSING|6\s*CAR\s*STOPPING|STOPPING)\b/gi, "")
       .replace(/[-_()]/g, " ")
       .trim();
-    let turnNorm = normalizeStationCode(cleanToStr);
+    let turnNorm = normalizeStationCode(cleanTurnStr);
     if (!turnNorm || turnNorm === "DEPOT" || turnNorm === "PYID") {
-      if (rawToStr.includes("RVR")) turnNorm = "RVR";
-      else if (rawToStr.includes("KGWA")) turnNorm = "KGWA";
-      else if (rawToStr.includes("PUTH")) turnNorm = "PUTH";
-      else if (rawToStr.includes("SPGD")) turnNorm = "SPGD";
-      else if (rawToStr.includes("NLC")) turnNorm = "NLC";
-      else if (rawToStr.includes("NGSA")) turnNorm = "NGSA";
-      else if (rawFromStr.includes("NG") || rawFromStr.includes("NPKT")) turnNorm = "RVR";
+      if (turnTargetStr.includes("RVR")) turnNorm = "RVR";
+      else if (turnTargetStr.includes("KGWA")) turnNorm = "KGWA";
+      else if (turnTargetStr.includes("PUTH")) turnNorm = "PUTH";
+      else if (turnTargetStr.includes("SPGD")) turnNorm = "SPGD";
+      else if (turnTargetStr.includes("NLC")) turnNorm = "NLC";
+      else if (turnTargetStr.includes("NGSA")) turnNorm = "NGSA";
+      else if (baseTargetStr.includes("NG") || baseTargetStr.includes("NPKT")) turnNorm = "RVR";
     }
 
     if (turnNorm === "RVR") {
       // Depot-Rd3 -> RVR Dn -> Turn Back at RVR 6 car stopping -> RVR -> PYID Up
       // Depot induction (2.0 km) + PYID Rd3 -> RVR (17.20 km) + RVR -> PYID Up (17.20 km) = 36.40 KM
-      if (rawFromStr.includes("DPO") || rawFromStr.includes("DEPOT")) {
+      if (baseTargetStr.includes("DPO") || baseTargetStr.includes("DEPOT")) {
         return 36.40;
       }
-      if (rawFromStr.includes("NG") || rawFromStr.includes("NPKT") || rawFromStr.includes("NGSA")) {
+      if (baseTargetStr.includes("NG") || baseTargetStr.includes("NPKT") || baseTargetStr.includes("NGSA")) {
         // NGSA_PT (-6.528 KM) -> NGSA (-6.088 KM) -> RVR (14.180 KM) -> PYID (-3.020 KM) = 37.908 KM
-        return 37.908;
+        return 37.91;
       }
-      if (rawFromStr.includes("PYID")) {
-        return 34.40;
+      if (baseTargetStr.includes("BIET")) {
+        // BIET_BE (-9.560 KM) to RVR (14.180 KM) = 23.74 KM + RVR to PYID (17.20 KM) = 40.94 KM
+        return 40.94;
       }
+      // PYID to RVR TB and returning to PYID = 17.20 + 17.20 = 34.40 KM
+      return 34.40;
     }
 
     if (turnNorm) {
-      let normFrom = normalizeStationCode(fromStationCode);
-      if (normFrom === "BIET") normFrom = "BIET_BE";
-      if (normFrom === "APTS") normFrom = "APTS_BE";
+      let normBase = normalizeStationCode(baseTargetStr);
+      if (normBase === "BIET" && !baseTargetStr.includes("BE")) normBase = "BIET_BE";
+      if (normBase === "APTS" && !baseTargetStr.includes("BE")) normBase = "APTS_BE";
 
-      const fromStn = MASTER_STATIONS.find((s) => s.code.toUpperCase() === normFrom);
+      const baseStn = MASTER_STATIONS.find((s) => s.code.toUpperCase() === normBase);
       const turnStn = MASTER_STATIONS.find((s) => s.code.toUpperCase() === turnNorm);
       const pyidStn = MASTER_STATIONS.find((s) => s.code.toUpperCase() === "PYID");
 
-      if (fromStn && turnStn && pyidStn) {
-        let dist1 = Math.abs(turnStn.chainage - fromStn.chainage);
+      if (baseStn && turnStn && pyidStn) {
+        let dist1 = Math.abs(turnStn.chainage - baseStn.chainage);
         const dist2 = Math.abs(pyidStn.chainage - turnStn.chainage);
-        if (normFrom === "DEPOT" && (rawFromStr.includes("RD3") || rawFromStr.includes("RD-3"))) {
+        if (normBase === "DEPOT" && (baseTargetStr.includes("RD3") || baseTargetStr.includes("RD-3"))) {
           dist1 = Math.abs(turnStn.chainage - pyidStn.chainage) + 2.0;
         }
         return parseFloat((dist1 + dist2).toFixed(3));
@@ -195,18 +373,63 @@ export function calculateDistance(fromStationCode, toStationCode) {
     }
   }
 
+  // Pure one-way RVR <-> PYID shortloops
+  const isFromRvr = rawFromStr.includes("RVR") || rawFromStr.includes("R.V.") || rawFromStr.includes("RVROAD");
+  const isToRvr = rawToStr.includes("RVR") || rawToStr.includes("R.V.") || rawToStr.includes("RVROAD");
+  const isFromPyid = rawFromStr.includes("PYID") || rawFromStr.includes("PEENYA INDUSTRY");
+  const isToPyid = rawToStr.includes("PYID") || rawToStr.includes("PEENYA INDUSTRY");
+  const isFromDepot = rawFromStr.includes("DEPOT") || rawFromStr.includes("DPO") || rawFromStr.includes("RD3");
+  const isToDepot = rawToStr.includes("DEPOT") || rawToStr.includes("DPO") || rawToStr.includes("RD3");
+
+  if ((isFromRvr && isToPyid) || (isFromPyid && isToRvr)) {
+    return 17.20;
+  }
+  if ((isFromRvr && isToDepot) || (isFromDepot && isToRvr)) {
+    return 19.20; // 17.20 km mainline + 2.0 km depot delta
+  }
+
   let normFrom = normalizeStationCode(fromStationCode);
   let normTo = normalizeStationCode(toStationCode);
 
-  // Terminal stations: Trains reverse / cab change over is conducted at Buffer Ends
-  // BIET terminal -> BIET_BE (-9.560 KM)
-  // APTS terminal -> APTS_BE (24.170 KM)
-  if (normFrom === "BIET") normFrom = "BIET_BE";
-  if (normTo === "BIET") normTo = "BIET_BE";
-  if (normFrom === "APTS") normFrom = "APTS_BE";
-  if (normTo === "APTS") normTo = "APTS_BE";
+  // Buffer end vs passenger platform distinction for stabling / buffer positioning
+  const rawF = rawFromStr.replace(/[\s_-]/g, "");
+  const rawT = rawToStr.replace(/[\s_-]/g, "");
+  const isBufferF = rawF.includes("BE") || rawF.includes("BUFFER") || rawF.includes("B/E");
+  const isBufferT = rawT.includes("BE") || rawT.includes("BUFFER") || rawT.includes("B/E");
+  const isPktF = rawF.includes("PKT") || rawF.includes("PT") || rawF.includes("POCKET");
+  const isPktT = rawT.includes("PKT") || rawT.includes("PT") || rawT.includes("POCKET");
 
-  if (!normFrom || !normTo || normFrom === normTo) {
+  // Specific platform-to-buffer-end / siding positioning distances
+  if (normFrom === "APTS" && normTo === "APTS_BE") return 0.34;
+  if (normFrom === "APTS_BE" && normTo === "APTS") return 0.34;
+  if (normFrom === "PUTH" && normTo === "PUTH_BE") return 0.47;
+  if (normFrom === "PUTH_BE" && normTo === "PUTH") return 0.47;
+  if (normFrom === "BIET" && normTo === "BIET_BE") return 0.33;
+  if (normFrom === "BIET_BE" && normTo === "BIET") return 0.33;
+  if (normFrom === "NGSA" && normTo === "NGSA_PT") return 0.44;
+  if (normFrom === "NGSA_PT" && normTo === "NGSA") return 0.44;
+  if (normFrom === "PYID" && normTo === "DEPOT") return 2.00;
+  if (normFrom === "DEPOT" && normTo === "PYID") return 2.00;
+  if (normFrom === "BIET" && normTo === "DEPOT") return 6.00;
+  if (normFrom === "DEPOT" && normTo === "BIET") return 6.00;
+
+  // Terminal stations: Trains reverse / cab change over is conducted at Buffer Ends
+  // Only normalize to Buffer End when calculating full running lines between stations,
+  // NOT when calculating the local movement between platform and buffer end.
+  if (normFrom === "BIET" && normTo !== "BIET_BE") normFrom = "BIET_BE";
+  if (normTo === "BIET" && normFrom !== "BIET_BE") normTo = "BIET_BE";
+  if (normFrom === "APTS" && normTo !== "APTS_BE") normFrom = "APTS_BE";
+  if (normTo === "APTS" && normFrom !== "APTS_BE") normTo = "APTS_BE";
+
+  if (!normFrom || !normTo) {
+    return 0;
+  }
+
+  if (normFrom === normTo) {
+    if (normFrom === "APTS" && (isBufferF !== isBufferT)) return 0.34;
+    if (normFrom === "PUTH" && (isBufferF !== isBufferT)) return 0.47;
+    if (normFrom === "BIET" && (isBufferF !== isBufferT)) return 0.33;
+    if (normFrom === "NGSA" && (isBufferF !== isBufferT || isPktF !== isPktT)) return isBufferF !== isBufferT ? 0.41 : 0.44;
     return 0;
   }
 
@@ -413,9 +636,17 @@ export function calculateLegKmsFromWTT(
     .trim();
   const searchTid = cleanTrainNo.replace(/\D/g, "").trim();
 
-  // 1. Non-running activity check
+  // 1. Non-running activity & CC3 desk duty check
+  // CC3 is Crew Controller 3 (Control Desk, supervisory, non-driving) -> 0 KM
   // NTEST = same as PRO/PROTECTION (no km, no driving hours)
   // TGTP, STBK, COUNSELLING, RD3 STBY = non-running
+  const isCC3 =
+    trainLower.includes("cc3") ||
+    trainLower.includes("cc 3") ||
+    trainLower.includes("cc-3") ||
+    takeLower.includes("cc3") ||
+    handLower.includes("cc3");
+
   const isStandby =
     trainLower.includes("stby") ||
     trainLower.includes("standby") ||
@@ -440,6 +671,7 @@ export function calculateLegKmsFromWTT(
   const isPdc = isPdcTrip(rawTrain) || isPdcTrip(takeoverLocation) || isPdcTrip(handoverLocation);
 
   const isNonRunning =
+    isCC3 ||
     !searchTid ||
     isPdc ||
     isStandby ||
@@ -449,7 +681,7 @@ export function calculateLegKmsFromWTT(
     return {
       calculatedKms: 0,
       status: "NON RUNNING",
-      matchSource: "NON_RUNNING",
+      matchSource: isCC3 ? "CC3_DESK" : "NON_RUNNING",
       trainNo: rawTrain || "N/A",
       direction: "N/A",
       boardingStation: "N/A",
@@ -458,6 +690,7 @@ export function calculateLegKmsFromWTT(
       alightingTime: arrTimeStr || "N/A",
       intermediateStations: [],
       segments: [],
+      notes: isCC3 ? "CC3 Control Desk - Non-driving supervisory duty" : "Non-running activity",
     };
   }
 
@@ -660,40 +893,99 @@ export function calculateLegKmsFromWTT(
 
     trainTimeline.sort((a, b) => a.secs - b.secs);
 
-    if (trainTimeline.length >= 2) {
-      let startIdx = 0;
-      let minDepDiff = Infinity;
-      trainTimeline.forEach((stop, idx) => {
-        const diff = Math.abs(stop.secs - depSecs);
-        if (diff < minDepDiff) {
-          minDepDiff = diff;
-          startIdx = idx;
-        }
-      });
+    if (trainTimeline.length >= 1) {
+      let startIdx = -1;
+      let endIdx = -1;
 
-      let endIdx = trainTimeline.length - 1;
-      let minArrDiff = Infinity;
-      trainTimeline.forEach((stop, idx) => {
-        if (idx >= startIdx) {
-          const diff = Math.abs(stop.secs - arrSecs);
-          if (diff < minArrDiff) {
-            minArrDiff = diff;
-            endIdx = idx;
+      // 1. Prioritize actual boarding station if takeoverLocation is specified within 360s
+      if (normFromStn && normFromStn !== "DEPOT") {
+        let bestDepDiff = Infinity;
+        trainTimeline.forEach((stop, idx) => {
+          const matchNorm = normalizeStationCode(stop.station);
+          if (matchNorm === normFromStn || (normFromStn === "BIET" && matchNorm === "BIET_BE") || (normFromStn === "APTS" && matchNorm === "APTS_BE")) {
+            const diff = Math.abs(stop.secs - depSecs);
+            if (diff <= 360 && diff < bestDepDiff) {
+              bestDepDiff = diff;
+              startIdx = idx;
+            }
           }
-        }
-      });
+        });
+      }
 
-      if (endIdx <= startIdx) {
-        endIdx = Math.min(startIdx + 1, trainTimeline.length - 1);
+      if (startIdx === -1) {
+        let minDepDiff = Infinity;
+        trainTimeline.forEach((stop, idx) => {
+          const diff = Math.abs(stop.secs - depSecs);
+          if (diff < minDepDiff) {
+            minDepDiff = diff;
+            startIdx = idx;
+          }
+        });
+      }
+
+      // 2. Prioritize actual deboarding station if handoverLocation is specified
+      const isDepotHand = handLower.includes("pdho") || handLower.includes("p dho") ||
+                          handLower.includes("bdho") || handLower.includes("b dho") ||
+                          handLower.includes("depot") || handLower.includes("dpo");
+
+      if (normToStn && !isDepotHand) {
+        let bestArrDiff = Infinity;
+        trainTimeline.forEach((stop, idx) => {
+          if (idx >= startIdx) {
+            const matchNorm = normalizeStationCode(stop.station);
+            if (matchNorm === normToStn || (normToStn === "BIET" && matchNorm === "BIET_BE") || (normToStn === "APTS" && matchNorm === "APTS_BE")) {
+              const diff = Math.abs(stop.secs - arrSecs);
+              if (diff <= 360 && diff < bestArrDiff) {
+                bestArrDiff = diff;
+                endIdx = idx;
+              }
+            }
+          }
+        });
+      }
+
+      if (endIdx === -1 || endIdx < startIdx) {
+        let minArrDiff = Infinity;
+        trainTimeline.forEach((stop, idx) => {
+          if (idx >= startIdx) {
+            const diff = Math.abs(stop.secs - arrSecs);
+            if (diff < minArrDiff) {
+              minArrDiff = diff;
+              endIdx = idx;
+            }
+          }
+        });
+      }
+
+      if (endIdx < startIdx) {
+        endIdx = startIdx;
       }
 
       const bStop = trainTimeline[startIdx];
       const aStop = trainTimeline[endIdx];
 
-      let pathStops = trainTimeline.slice(startIdx, endIdx + 1).map((s) => s.station);
-      pathStops = expandStationPath(pathStops);
-      const seqResult = calculateSequenceDistance(pathStops);
+      let pathStops = [];
+      let seqResult = { totalExact: 0, segments: [] };
+      if (endIdx > startIdx) {
+        pathStops = trainTimeline.slice(startIdx, endIdx + 1).map((s) => s.station);
+        pathStops = expandStationPath(pathStops);
+        seqResult = calculateSequenceDistance(pathStops);
+      } else {
+        pathStops = [bStop.station];
+      }
+
       let finalKms = seqResult.totalExact > 0 ? parseFloat(seqResult.totalExact.toFixed(2)) : (seqResult.totalRounded || 0);
+
+      // Full round trip starting and ending at PYID via BIET and APTS:
+      // PYID -> BIET (7.66 km) -> APTS (33.88 km) -> PYID (26.22 km) = 67.76 km ≈ 68.00 km
+      const hasNorthTerm = pathStops.includes("BIET") || pathStops.includes("BIET_BE") || pathStops.includes("NGSA");
+      const hasSouthTerm = pathStops.includes("APTS") || pathStops.includes("APTS_BE") || pathStops.includes("PUTH") || pathStops.includes("PUTH_BE");
+      const isPyidStart = pathStops[0] === "PYID" || pathStops[0] === "DEPOT";
+      const isPyidEnd = pathStops[pathStops.length - 1] === "PYID";
+
+      if (isPyidStart && isPyidEnd && hasNorthTerm && hasSouthTerm) {
+        finalKms = 68.00;
+      }
 
       // RVR Turn Back short loop from Depot / PYID (turns back at RVR without continuing south to PUTH or APTS):
       // depot - pyid rd3 (2.0 km) - rvr dn (17.20 km) - turn back at rvr 6 car stopping - rvr - pyid up (17.20 km) = 36.40 km
@@ -718,31 +1010,41 @@ export function calculateLegKmsFromWTT(
         finalKms = (typeof directDist === "number" && directDist > 0) ? parseFloat(directDist.toFixed(2)) : 35;
       }
 
-      // Check if timeline diagram ends earlier than arrSecs (e.g. WTT ended at PYID 20:12:12, but duty continues to 21:05:00 at P DHO)
-      const remainingSecs = arrSecs - aStop.secs;
-      const isDepotHand = handLower.includes("pdho") || handLower.includes("p dho") ||
-                          handLower.includes("bdho") || handLower.includes("b dho") ||
-                          handLower.includes("depot") || handLower.includes("dpo");
+      // Add morning non-revenue induction distance if train starts from stabling siding/depot
+      const morningInduction = getInductionMovementKm(takeoverLocation, bStop.station);
+      if (morningInduction > 0) {
+        finalKms = parseFloat((finalKms + morningInduction).toFixed(2));
+      }
 
-      if (remainingSecs >= 1200 && isDepotHand) {
+      // Handle evening non-revenue stabling / depot handover:
+      if (isDepotHand) {
         if (handLower.includes("pdho") || handLower.includes("p dho") || handLower.includes("depot") || handLower.includes("dpo")) {
-          // Terminal reversal via NGSA to access Peenya Depot via Down line / Road 3
-          // NGSA round-trip (6.14 km) + depot entry approach (1.52 km) = 7.66 KM
-          const depotDelta = 7.66;
-          finalKms = parseFloat((finalKms + depotDelta).toFixed(2));
+          // Direct stabling from current station to Peenya Depot (PYID to Depot is 2.00 km)
+          const depotMoveKm = getStablingMovementKm(aStop.station, "P DHO") || 2.00;
+          finalKms = parseFloat((finalKms + depotMoveKm).toFixed(2));
           if (!pathStops.includes("DEPOT")) {
-            pathStops.push("NGSA", "PYID", "DEPOT");
+            pathStops.push("DEPOT");
           }
         } else if (handLower.includes("bdho") || handLower.includes("b dho")) {
-          const bietDelta = 14.38;
+          const bietDelta = getStablingMovementKm(aStop.station, "B DHO") || 6.00;
           finalKms = parseFloat((finalKms + bietDelta).toFixed(2));
           if (!pathStops.includes("DEPOT")) {
             pathStops.push("BIET", "DEPOT");
           }
         }
+      } else {
+        // Add evening non-revenue stabling distance if train is moved to buffer end/siding/pocket track
+        const eveningStabling = getStablingMovementKm(aStop.station, handoverLocation);
+        if (eveningStabling > 0) {
+          finalKms = parseFloat((finalKms + eveningStabling).toFixed(2));
+        }
       }
 
       if (finalKms > 0) {
+        const alightingStnName = isDepotHand
+          ? (handLower.includes("b") ? "DEPOT (B DHO)" : "DEPOT (P DHO via Rd-3)")
+          : `${aStop.station} ${hasEndDn ? "Dn" : "Up"}`;
+
         return {
           calculatedKms: finalKms,
           status: "MATCHED",
@@ -751,7 +1053,7 @@ export function calculateLegKmsFromWTT(
           direction: bStop.dir,
           boardingStation: `${bStop.station} ${hasStartDn ? "Dn" : "Up"}`,
           boardingTime: bStop.timeStr,
-          alightingStation: isDepotHand ? "DEPOT (P DHO via NGSA Turn Back)" : `${aStop.station} ${hasEndDn ? "Dn" : "Up"}`,
+          alightingStation: alightingStnName,
           alightingTime: aStop.timeStr,
           intermediateStations: pathStops,
           segments: seqResult.segments,
@@ -804,8 +1106,8 @@ export function calculateLegKmsFromWTT(
     if (depSec > 0 && arrSec > 0 && arrSec < depSec) arrSec += 86400;
     const legDur = (depSec > 0 && arrSec > 0) ? (arrSec - depSec) : 0;
 
-    // Check if this is a full revenue driving leg (duration >= 30 mins) rather than a pure yard shunt
-    if (legDur >= 1800) {
+    // Only long revenue driving run starting far away from PYID (e.g. from APTS, PUTH) without timetable
+    if (legDur >= 5400 && fromNorm !== "PYID" && fromNorm !== "DEPOT" && !fromLower.includes("pyid")) {
       const calculatedKms = 55.40;
       return {
         calculatedKms,
@@ -815,21 +1117,15 @@ export function calculateLegKmsFromWTT(
         direction: "UP / DN",
         boardingStation: takeoverLocation || fromNorm,
         boardingTime: depTimeStr || "N/A",
-        alightingStation: "DEPOT (P DHO via NGSA Turn Back)",
+        alightingStation: "DEPOT (P DHO via Rd-3)",
         alightingTime: arrTimeStr || "N/A",
-        intermediateStations: [fromNorm, "NGSA", "PUTH", "PYID", "NGSA", "DEPOT"],
-        segments: [
-          { fromStationCode: fromNorm, toStationCode: "NGSA", calculatedKms: 3.07 },
-          { fromStationCode: "NGSA", toStationCode: "PUTH", calculatedKms: 22.87 },
-          { fromStationCode: "PUTH", toStationCode: "PYID", calculatedKms: 19.80 },
-          { fromStationCode: "PYID", toStationCode: "NGSA", calculatedKms: 3.07 },
-          { fromStationCode: "NGSA", toStationCode: "DEPOT", calculatedKms: 6.59 }
-        ],
-        notes: `P DHO (Revenue Line Service): ${fromNorm} → NGSA → PUTH → PYID → NGSA → DEPOT = ${calculatedKms} km`
+        intermediateStations: [fromNorm, "NGSA", "PUTH", "PYID", "DEPOT"],
+        segments: [],
+        notes: `P DHO (Revenue Line Service): ${fromNorm} → Depot = ${calculatedKms} km`
       };
     }
 
-    const PDHO_FIXED_KM = 2;
+    const PDHO_FIXED_KM = 2.00;
     return {
       calculatedKms: PDHO_FIXED_KM,
       status: "MATCHED",
@@ -1372,6 +1668,33 @@ export function enhanceRosterDuties(duties, scheduleType = "WEEKDAY") {
 export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
   if (!duty) return { leg1Km: 0, leg2Km: 0, leg3Km: 0, leg4Km: 0, totalKm: 0 };
 
+  // CC3 Non-driving Desk Duty check (Crew Controller 3 is desk supervision, not driving)
+  const dutyStr = String(
+    duty.dutyNo || duty.dutyId || duty.dutyType || duty.remarks || duty.dutyProfile || duty.name || ''
+  ).trim().toLowerCase();
+  const cleanDutyId = String(duty.dutyId || duty.dutyNo || '').trim().toLowerCase();
+
+  const isCC3Duty = cleanDutyId === 'cc3' ||
+                    cleanDutyId === 'cc 3' ||
+                    cleanDutyId === 'cc-3' ||
+                    dutyStr === 'cc3' ||
+                    dutyStr === 'cc 3' ||
+                    dutyStr === 'cc-3' ||
+                    /\bcc\s*3\b/i.test(dutyStr) ||
+                    duty.isCC3 === true;
+
+  if (isCC3Duty) {
+    return {
+      leg1Km: 0,
+      leg2Km: 0,
+      leg3Km: 0,
+      leg4Km: 0,
+      totalKm: 0,
+      isNonDriving: true,
+      dutyRole: 'CC3_DESK'
+    };
+  }
+
   const normSchedule = String(scheduleType || 'WEEKDAY').toUpperCase();
   const dutyNoClean = String(duty.dutyNo || duty.dutyId || duty.dutyType || '').replace(/\D/g, '');
 
@@ -1415,6 +1738,17 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
     let toLower = String(toLoc || "").trim().toLowerCase();
     let effFrom = fromLoc;
     let effTo = toLoc;
+
+    // CC3 Exclusion per leg
+    if (
+      trainLower.includes("cc3") ||
+      trainLower.includes("cc 3") ||
+      trainLower.includes("cc-3") ||
+      fromLower.includes("cc3") ||
+      toLower.includes("cc3")
+    ) {
+      return 0;
+    }
 
     const hasNumericTrain = /\d{2,3}/.test(rawTrain);
 
@@ -1465,36 +1799,23 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
     // 2. WTT TIMETABLE SEARCH (Prioritize timetable search for all active trains)
     const wttRes = calculateLegKmsFromWTT(rawTrain, effFrom, effTo, depTime, arrTime, normSchedule);
     if (wttRes && typeof wttRes.calculatedKms === "number" && wttRes.calculatedKms > 0) {
-      let finalResKm = wttRes.calculatedKms;
-      const isDepotHandover = toLower.includes("pdho") || toLower.includes("p dho") || toLower.includes("depot");
-      if (isLongDrivingRun && isDepotHandover && finalResKm >= 45 && finalResKm <= 48) {
-        finalResKm = 55.40;
-      }
-      return Number(finalResKm.toFixed(2));
+      return Number(wttRes.calculatedKms.toFixed(2));
     }
 
-    // 3. SPECIAL HANDOVER OVERRIDES (Only for quick depot positioning/handover under 30 mins)
-    if (!isLongDrivingRun) {
-      // BDHO (train handed over to depot from BIET-JLHL-depot after completion of all trips) = 6 km
-      if (fromLower.includes("bdho") || toLower.includes("bdho")) return 6;
-      // PDHO (train handed over to depot from PYID UP-depot after completion of all trips) = 2 km
-      if (fromLower.includes("pdho") || toLower.includes("pdho")) return 2;
-      // DEPOT-RD3 / DPO-RD3 = 2 km (only for pure depot positioning, NOT for active driving runs like Dpo-Rd3/No PDC or line service)
-      const isNoPdcLocation = fromLower.includes("no pdc") || fromLower.includes("nopdc") || fromLower.includes("no-pdc") || fromLower.includes("no_pdc") ||
-                              toLower.includes("no pdc") || toLower.includes("nopdc") || toLower.includes("no-pdc") || toLower.includes("no_pdc");
-
-      const isPureDepotRd3 = ((fromLower.includes("dpo") || fromLower.includes("depot")) && (toLower.includes("rd3") || toLower.includes("rd-3"))) ||
-                             ((fromLower.includes("rd3") || fromLower.includes("rd-3")) && (toLower.includes("dpo") || toLower.includes("depot")));
-      if (!isNoPdcLocation && isPureDepotRd3) return 2;
-    } else {
-      // Long revenue driving run ending with depot handover P DHO (duration >= 30 mins, e.g. ~2h 32m)
-      if (toLower.includes("pdho") || toLower.includes("p dho") || (toLower.includes("depot") && fromLower.includes("pyid"))) {
-        return 55.40;
-      }
-      if (toLower.includes("bdho") || toLower.includes("b dho")) {
-        return 62.12;
-      }
+    // 3. SPECIAL HANDOVER OVERRIDES (Depot positioning and siding stabling)
+    if (toLower.includes("pdho") || toLower.includes("p dho") || (toLower.includes("depot") && fromLower.includes("pyid"))) {
+      return 2.00;
     }
+    if (toLower.includes("bdho") || toLower.includes("b dho")) {
+      return 6.00;
+    }
+
+    const isNoPdcLocation = fromLower.includes("no pdc") || fromLower.includes("nopdc") || fromLower.includes("no-pdc") || fromLower.includes("no_pdc") ||
+                            toLower.includes("no pdc") || toLower.includes("nopdc") || toLower.includes("no-pdc") || toLower.includes("no_pdc");
+
+    const isPureDepotRd3 = ((fromLower.includes("dpo") || fromLower.includes("depot")) && (toLower.includes("rd3") || toLower.includes("rd-3"))) ||
+                           ((fromLower.includes("rd3") || fromLower.includes("rd-3")) && (toLower.includes("dpo") || toLower.includes("depot")));
+    if (!isNoPdcLocation && isPureDepotRd3) return 2.00;
 
     // 4. CHAINAGE DISTANCE FALLBACK IF LOCATIONS VALID
     if (effFrom && effFrom !== "--" && effTo && effTo !== "--") {
@@ -1528,44 +1849,44 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
   const trips = Array.isArray(duty.trips) ? duty.trips : [];
   const rawL = duty.rawLegs || {};
 
-  // Leg 1
+  // Leg 1: Prioritize actual boarding station before signOnLocation
   const t1 = trips[0] || {};
   const l1Train = t1.trainNo || t1.train || duty.trainId || duty.leg1TrainNo || duty.leg1Train || duty.l1Train || rawL.l1Train;
-  const l1From = cleanLoc(t1.takeoverLocation || t1.fromLoc || t1.from || duty.signOnLocation || duty.leg1DepLoc || duty.leg1BoardLoc);
-  const l1To = cleanLoc(t1.handoverLocation || t1.toLoc || t1.to || duty.leg1HandoverLoc || duty.leg1ArrLoc || duty.leg1DeboardLoc);
+  const l1From = cleanLoc(duty.leg1BoardLoc || duty.leg1DepLoc || t1.takeoverLocation || t1.fromLoc || t1.from || duty.signOnLocation);
+  const l1To = cleanLoc(duty.leg1DeboardLoc || duty.leg1HandoverLoc || duty.leg1ArrLoc || t1.handoverLocation || t1.toLoc || t1.to || duty.signOffLocation);
   const l1DepTime = t1.timeFrm || t1.depTime || duty.leg1TimeFrom || duty.signOnTime || duty.l1Start || rawL.l1Start;
   const l1ArrTime = t1.timeTo || t1.arrTime || duty.leg1TimeTo || duty.leg1ArrTime || duty.l1End || rawL.l1End;
 
   const stored1 = parseStoredKm(t1.calculatedKms || t1.legKm || duty.leg1Km || duty.nightKms);
   const calc1 = getLegKm(l1Train, l1From, l1To, l1DepTime, l1ArrTime);
 
-  // Leg 2
+  // Leg 2: Prioritize actual boarding station
   const t2 = trips[1] || {};
   const l2Train = t2.trainNo || t2.train || duty.leg2TrainNo || duty.leg2Train || duty.l2Train || duty.trainNo2 || duty.train2 || rawL.l2Train;
-  const l2From = cleanLoc(t2.takeoverLocation || t2.fromLoc || t2.from || duty.leg2DepLoc || duty.leg2BoardLoc || duty.leg2FromLoc || duty.l2DepLoc || duty.l2From) || l1To;
-  const l2To = cleanLoc(t2.handoverLocation || t2.toLoc || t2.to || duty.leg2ArrLoc || duty.leg2DeboardLoc || duty.leg2ToLoc || duty.leg2HandoverLoc || duty.l2ArrLoc || duty.l2To);
+  const l2From = cleanLoc(duty.leg2BoardLoc || duty.leg2DepLoc || duty.leg2FromLoc || t2.takeoverLocation || t2.fromLoc || t2.from || duty.l2DepLoc || duty.l2From) || l1To;
+  const l2To = cleanLoc(duty.leg2DeboardLoc || duty.leg2HandoverLoc || duty.leg2ArrLoc || duty.leg2ToLoc || t2.handoverLocation || t2.toLoc || t2.to || duty.l2ArrLoc || duty.l2To);
   const l2DepTime = t2.timeFrm || t2.depTime || duty.leg2DepTime || duty.leg2TimeFrom || duty.leg2BoardTime || duty.l2Start || rawL.l2Start;
   const l2ArrTime = t2.timeTo || t2.arrTime || duty.leg2ArrTime || duty.leg2TimeTo || duty.leg2DeboardTime || duty.l2End || rawL.l2End;
 
   const stored2 = parseStoredKm(t2.calculatedKms || t2.legKm || duty.leg2Km);
   const calc2 = getLegKm(l2Train, l2From, l2To, l2DepTime, l2ArrTime);
 
-  // Leg 3
+  // Leg 3: Prioritize actual boarding station
   const t3 = trips[2] || {};
   const l3Train = t3.trainNo || t3.train || duty.leg3TrainNo || duty.leg3Train || duty.l3Train || duty.trainNo3 || duty.train3 || rawL.l3Train;
-  const l3From = cleanLoc(t3.takeoverLocation || t3.fromLoc || t3.from || duty.leg3DepLoc || duty.leg3BoardLoc || duty.leg3FromLoc || duty.l3DepLoc || duty.l3From) || l2To || l1To;
-  const l3To = cleanLoc(t3.handoverLocation || t3.toLoc || t3.to || duty.leg3ArrLoc || duty.leg3DeboardLoc || duty.leg3ToLoc || duty.leg3HandoverLoc || duty.l3ArrLoc || duty.l3To);
+  const l3From = cleanLoc(duty.leg3BoardLoc || duty.leg3DepLoc || duty.leg3FromLoc || t3.takeoverLocation || t3.fromLoc || t3.from || duty.l3DepLoc || duty.l3From) || l2To || l1To;
+  const l3To = cleanLoc(duty.leg3DeboardLoc || duty.leg3HandoverLoc || duty.leg3ArrLoc || duty.leg3ToLoc || t3.handoverLocation || t3.toLoc || t3.to || duty.l3ArrLoc || duty.l3To);
   const l3DepTime = t3.timeFrm || t3.depTime || duty.leg3DepTime || duty.leg3TimeFrom || duty.leg3BoardTime || duty.l3Start || rawL.l3Start;
   const l3ArrTime = t3.timeTo || t3.arrTime || duty.leg3ArrTime || duty.leg3TimeTo || duty.leg3DeboardTime || duty.l3End || rawL.l3End;
 
   const stored3 = parseStoredKm(t3.calculatedKms || t3.legKm || duty.leg3Km || duty.mornKms);
   const calc3 = getLegKm(l3Train, l3From, l3To, l3DepTime, l3ArrTime);
 
-  // Leg 4
+  // Leg 4: Prioritize actual boarding station
   const t4 = trips[3] || {};
   const l4Train = t4.trainNo || t4.train || duty.leg4TrainNo || duty.leg4Train || duty.l4Train || duty.trainNo4 || duty.train4 || rawL.l4Train;
-  const l4From = cleanLoc(t4.takeoverLocation || t4.fromLoc || t4.from || duty.leg4FinalDepLoc || duty.leg4DepLoc || duty.leg4BoardLoc || duty.leg4FromLoc || duty.l4DepLoc || duty.l4From) || l3To || l2To || l1To;
-  const l4To = cleanLoc(t4.handoverLocation || t4.toLoc || t4.to || duty.leg4FinalArrLoc || duty.leg4ArrLoc || duty.leg4DeboardLoc || duty.leg4ToLoc || duty.leg4HandoverLoc || duty.l4ArrLoc || duty.l4To);
+  const l4From = cleanLoc(duty.leg4FinalDepLoc || duty.leg4BoardLoc || duty.leg4DepLoc || duty.leg4FromLoc || t4.takeoverLocation || t4.fromLoc || t4.from || duty.l4DepLoc || duty.l4From) || l3To || l2To || l1To;
+  const l4To = cleanLoc(duty.leg4FinalArrLoc || duty.leg4DeboardLoc || duty.leg4HandoverLoc || duty.leg4ArrLoc || duty.leg4ToLoc || t4.handoverLocation || t4.toLoc || t4.to || duty.l4ArrLoc || duty.l4To);
   const l4DepTime = t4.timeFrm || t4.depTime || duty.leg4FinalDepTime || duty.leg4DepTime || duty.leg4TimeFrom || duty.leg4BoardTime || duty.l4Start || rawL.l4Start;
   const l4ArrTime = t4.timeTo || t4.arrTime || duty.leg4FinalArrTime || duty.leg4ArrTime || duty.leg4TimeTo || duty.leg4DeboardTime || duty.l4End || rawL.l4End;
 
@@ -1577,11 +1898,11 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
   const storedTotal = parseStoredKm(duty.totalKm || duty.kms || duty.totalKms);
   const officialTotal = parseStoredKm(duty.kms || duty.totalKms || duty.totalKm);
 
-  // Prefer accurate calculated KM whenever calculated > 0 and stored is erroneous/stale depot positioning (<= 2)
-  let leg1Km = (stored1 > 2 || (stored1 > 0 && calc1 === 0)) ? stored1 : (calc1 > 0 ? calc1 : stored1);
-  let leg2Km = (stored2 > 2 || (stored2 > 0 && calc2 === 0)) ? stored2 : (calc2 > 0 ? calc2 : stored2);
-  let leg3Km = (stored3 > 2 || (stored3 > 0 && calc3 === 0)) ? stored3 : (calc3 > 0 ? calc3 : stored3);
-  let leg4Km = (stored4 > 2 || (stored4 > 0 && calc4 === 0)) ? stored4 : (calc4 > 0 ? calc4 : stored4);
+  // Prioritize calculation based on actual train boarding and deboarding location
+  let leg1Km = (calc1 > 0) ? calc1 : stored1;
+  let leg2Km = (calc2 > 0) ? calc2 : stored2;
+  let leg3Km = (calc3 > 0) ? calc3 : stored3;
+  let leg4Km = (calc4 > 0) ? calc4 : stored4;
 
   if (dutyNoClean === '55') {
     // Duty 55 Leg 1: Starts NGSA PKT (NGSA_PT -6.528 KM) -> NGSA (-6.088 KM) -> RVR (+14.180 KM) -> PYID (-3.020 KM)
@@ -1633,7 +1954,30 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
   }
 
   const calculatedTotal = Number((leg1Km + leg2Km + leg3Km + leg4Km).toFixed(2));
-  const totalKm = calculatedTotal > 0 ? calculatedTotal : (officialTotal > 0 ? officialTotal : storedTotal);
+
+  // Authoritative Link Roster KM Fallback Hierarchy:
+  // Tier 1: Authoritative Link Roster Total KM column (duty.kms, duty.totalKm, duty.totalKms, duty.totalDistance, duty.km)
+  const rosterTotalKm = parseStoredKm(
+    duty.kms || duty.totalKm || duty.totalKms || duty.totalDistance || duty.km || duty.kilometers
+  );
+
+  // Tier 2: Preloaded Duty Registry fallback (PRELOADED_DUTIES)
+  let preloadedTotalKm = 0;
+  if (rosterTotalKm === 0) {
+    const preMatch = PRELOADED_DUTIES.find(
+      (p) => p.dutyNo === dutyNoClean || p.dutyNo === duty.dutyId || p.dutyNo === duty.dutyNo
+    );
+    if (preMatch) {
+      preloadedTotalKm = parseStoredKm(preMatch.kms || preMatch.totalKm || preMatch.totalDistance);
+    }
+  }
+
+  // Tier 3: Preloaded / Validated Leg Sum fallback, else 0 KM
+  const totalKm = rosterTotalKm > 0
+    ? rosterTotalKm
+    : (preloadedTotalKm > 0
+        ? preloadedTotalKm
+        : (calculatedTotal > 0 ? calculatedTotal : 0));
 
   return { leg1Km, leg2Km, leg3Km, leg4Km, totalKm };
 }
@@ -1954,9 +2298,39 @@ export function generateRouteStationSchedule(
  * PUTH, APRC, KLPK, VJRH, TGTP, APTS, APTS_BE).
  */
 export function resolveShortLoopDistance(fromLoc, turnLoc, toLoc, options = {}) {
+  let effectiveTurn = turnLoc;
+  let effectiveTo = toLoc;
+
+  const rawTurnStr = String(turnLoc || "").trim();
+  const isTurnBackNotation = /\b(TB|T\/B|T\.B|TRN|TURN|TURN\s*BACK|TURNBACK|REV|6\s*CAR\s*STOPPING)\b/i.test(rawTurnStr);
+
+  if (!effectiveTo || isTurnBackNotation) {
+    if (!effectiveTo) {
+      effectiveTo = fromLoc; // round trip back to origin
+    }
+  }
+
+  // Exact Line 2 RVR Turnback Shortloop benchmarks
+  const rawFromLower = String(fromLoc || "").toLowerCase();
+  const rawTurnLower = String(turnLoc || "").toLowerCase();
+  const rawToLower = String(effectiveTo || "").toLowerCase();
+
+  const isRvrTurn = rawTurnLower.includes("rvr") || rawTurnLower.includes("r.v.");
+  const isFromDepot = rawFromLower.includes("dpo") || rawFromLower.includes("depot");
+  const isFromNgsaPkt = rawFromLower.includes("npkt") || (rawFromLower.includes("ng") && rawFromLower.includes("pkt"));
+  const isFromPyid = rawFromLower.includes("pyid") || rawFromLower.includes("peenya industry");
+  const isToPyid = rawToLower.includes("pyid") || rawToLower.includes("peenya industry");
+
+  if (isRvrTurn) {
+    if (isFromDepot) return 36.40;
+    if (isFromNgsaPkt) return 37.91;
+    if (isFromPyid && (isToPyid || !toLoc)) return 34.40;
+  }
+
   const normFrom = normalizeStationCode(fromLoc) || 'PYID';
-  const normTurn = normalizeStationCode(turnLoc) || 'RVR';
-  const normTo = normalizeStationCode(toLoc) || 'PYID';
+  const cleanTurn = rawTurnStr.replace(/\b(TB|T\/B|T\.B|TRN|TURN\s*BACK|TURNBACK|REV|REVERSING|6\s*CAR\s*STOPPING|STOPPING)\b/gi, "").trim();
+  const normTurn = normalizeStationCode(cleanTurn) || 'RVR';
+  const normTo = normalizeStationCode(effectiveTo) || 'PYID';
 
   const chFrom = MASTER_STATIONS.find(s => s.code.toUpperCase() === normFrom)?.chainage;
   const chTurn = MASTER_STATIONS.find(s => s.code.toUpperCase() === normTurn)?.chainage;
@@ -1971,11 +2345,11 @@ export function resolveShortLoopDistance(fromLoc, turnLoc, toLoc, options = {}) 
   let total = outbound + inbound;
 
   // Add depot shunting delta if starting or ending in depot
-  if (normFrom === 'DEPOT' || String(fromLoc).toLowerCase().includes('dpo') || String(fromLoc).toLowerCase().includes('depot')) {
+  if (normFrom === 'DEPOT' || isFromDepot) {
     total += 2.0; // Depot induction delta
   }
-  if (normTo === 'DEPOT' || String(toLoc).toLowerCase().includes('dpo') || String(toLoc).toLowerCase().includes('depot') || String(toLoc).toLowerCase().includes('pdho')) {
-    total += 1.524; // Depot entry delta via Road 3
+  if (normTo === 'DEPOT' || rawToLower.includes('dpo') || rawToLower.includes('depot') || rawToLower.includes('pdho')) {
+    total += 2.0; // Depot entry delta via Road 3
   }
 
   return parseFloat(total.toFixed(2));

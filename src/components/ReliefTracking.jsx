@@ -21,8 +21,9 @@ import {
   Table, LayoutGrid, Calendar, ShieldCheck, Sparkles, Layers,
   CheckCircle2, Radio, AlertCircle, AlertTriangle, Shield, RefreshCw, 
   ChevronRight, Activity, CalendarDays, Edit3, X, Save,
-  Download, FileSpreadsheet
+  Download, FileSpreadsheet, UploadCloud
 } from 'lucide-react';
+import LinkRosterExcelUploadModal from './roster/LinkRosterExcelUploadModal';
 import { 
   WEEKDAY_RELIEF_ID_CHART, 
   WEEKDAY_RELIEF_ID_CHART_META,
@@ -258,6 +259,8 @@ export default function ReliefTracking({
 
   // ── 0. Authoritative Real-Time Link Roster Listener from Firestore & Events ──
   const [liveFirestoreLinks, setLiveFirestoreLinks] = useState([]);
+  const [inMemoryUploadedLinks, setInMemoryUploadedLinks] = useState({});
+  const [isLinkUploadModalOpen, setIsLinkUploadModalOpen] = useState(false);
   const [linkUpdateTrigger, setLinkUpdateTrigger] = useState(0);
 
   useEffect(() => {
@@ -275,8 +278,13 @@ export default function ReliefTracking({
       setLinkUpdateTrigger(prev => prev + 1);
       const sType = normalizeScheduleDay(e?.detail?.scheduleType || selectedDay || 'WEEKDAY');
       if (e?.detail?.erased || e?.detail?.cleared) {
+        setInMemoryUploadedLinks(prev => ({ ...prev, [sType]: [] }));
         setLiveFirestoreLinks(prev => prev.filter(p => normalizeScheduleDay(p.scheduleType) !== sType));
       } else if (e?.detail?.duties && Array.isArray(e.detail.duties)) {
+        setInMemoryUploadedLinks(prev => ({
+          ...prev,
+          [sType]: e.detail.duties
+        }));
         setLiveFirestoreLinks(prev => {
           const remaining = prev.filter(p => normalizeScheduleDay(p.scheduleType) !== sType);
           return [...remaining, ...e.detail.duties];
@@ -315,22 +323,40 @@ export default function ReliefTracking({
   }, [selectedDay]);
 
   // ── 1. AUTHORITATIVE LINK ROSTER (RESPECTIVE DAY) ──
-  // Priority: liveFirestoreLinks from crew_final_links / live edits ➔ linkRoster prop ➔ allLinks prop ➔ canonical master
+  // Hierarchy: In-memory upload event (0ms) ➔ localStorage upload cache (0ms) ➔ liveFirestoreLinks ➔ linkRoster prop ➔ allLinks prop ➔ canonical master
   const activeLinkRoster = useMemo(() => {
     // 0. If schedule day is explicitly cleared or erased, return empty array immediately
     if (isScheduleDayErased(selectedDay)) {
       return [];
     }
 
-    // 1. Check liveFirestoreLinks from real-time crew_final_links (highest priority: latest uploaded or edited)
+    // 1. Direct in-memory uploaded duties (0ms instant response)
+    if (inMemoryUploadedLinks[selectedDay] && Array.isArray(inMemoryUploadedLinks[selectedDay])) {
+      const cleanInMemory = getCleanLinksForDay(inMemoryUploadedLinks[selectedDay], selectedDay);
+      if (cleanInMemory.length > 0) return cleanInMemory;
+    }
+
+    // 2. Direct localStorage uploaded cache (0ms instant response across component instances)
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const cachedRaw = window.localStorage.getItem(`pyidcc_active_link_roster_${selectedDay.toLowerCase()}`);
+        if (cachedRaw) {
+          const parsed = JSON.parse(cachedRaw);
+          const cleanCached = getCleanLinksForDay(parsed, selectedDay);
+          if (cleanCached.length > 0) return cleanCached;
+        }
+      }
+    } catch (_err) {}
+
+    // 3. Check liveFirestoreLinks from real-time crew_final_links (cleaned via getCleanLinksForDay)
     const fromFirestore = getCleanLinksForDay(liveFirestoreLinks, selectedDay);
     if (fromFirestore.length > 0) return fromFirestore;
 
-    // 2. Check linkRoster prop (if matching selectedDay)
+    // 4. Check linkRoster prop (if matching selectedDay)
     const fromProp = getCleanLinksForDay(linkRoster, selectedDay);
     if (fromProp.length > 0) return fromProp;
 
-    // 3. Check allLinks prop (filtered for selectedDay)
+    // 5. Check allLinks prop (filtered for selectedDay)
     const fromAll = getCleanLinksForDay(allLinks, selectedDay);
     if (fromAll.length > 0) return fromAll;
 
@@ -344,9 +370,9 @@ export default function ReliefTracking({
       return [];
     }
 
-    // 4. Fallback to canonical master registry only if completely pristine
+    // 6. Fallback to canonical master registry only if completely pristine
     return getMasterLinksForDay(selectedDay);
-  }, [linkRoster, allLinks, liveFirestoreLinks, selectedDay, linkUpdateTrigger]);
+  }, [inMemoryUploadedLinks, linkRoster, allLinks, liveFirestoreLinks, selectedDay, linkUpdateTrigger]);
 
   // ── 2. DUTY ROSTER (FOLLOWS TRAIN ID OF EACH DUTY OF LINK ROSTER) ──
   // Derives all duties, trip sequences, and operator assignments from activeLinkRoster
@@ -699,7 +725,7 @@ export default function ReliefTracking({
               </span>
               <span className="px-2 py-0.5 rounded-full bg-emerald-950/90 text-emerald-300 border border-emerald-600/70 text-[9px] font-black uppercase font-mono flex items-center gap-1 shadow-sm" title="Real-time pipeline: Link Roster changes automatically update Duty Roster, Master ID Chart, and Handover Cards">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                LINK ROSTER ➔ DUTY ROSTER ➔ MASTER ID ➔ HANDOVERS
+                AUTO-SYNC: LINK ROSTER ({activeLinkRoster.length}) ➔ DUTY ROSTER ({Object.keys(dynamicDutyLegs).length}) ➔ MASTER ID ({trainColumns.length} TRAINS) ➔ HANDOVERS
               </span>
             </div>
             <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5 flex items-center gap-1.5 flex-wrap">
@@ -796,6 +822,17 @@ export default function ReliefTracking({
               <span>{selectedDay}</span>
             </button>
           </div>
+
+          {/* Direct Link Roster Excel Upload Button */}
+          <button
+            type="button"
+            onClick={() => setIsLinkUploadModalOpen(true)}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-bold font-mono flex items-center gap-1.5 transition-all bg-blue-600 hover:bg-blue-500 text-white shadow-sm ring-1 ring-blue-500/40"
+            title={`Upload new ${selectedDay} Link Roster spreadsheet to auto-generate Duty Roster, Master ID Chart, and Handover Cards`}
+          >
+            <UploadCloud size={13} />
+            <span>Upload Link Roster</span>
+          </button>
         </div>
       </div>
 
@@ -1288,14 +1325,24 @@ export default function ReliefTracking({
             );
           })}
           {finalTrackingKeys.length === 0 && (
-            <div className="col-span-full py-16 text-center text-slate-500 border border-dashed border-slate-800 rounded-xl flex flex-col items-center justify-center p-6 space-y-2">
+            <div className="col-span-full py-16 text-center text-slate-500 border border-dashed border-slate-800 rounded-xl flex flex-col items-center justify-center p-6 space-y-3">
               <LayoutGrid className="h-8 w-8 text-slate-600 mb-1" />
               <p className="text-sm font-bold text-slate-300">No Handover Cards for {selectedDay}</p>
               <p className="text-xs text-slate-500 max-w-md">
                 {isScheduleDayErased(selectedDay) || activeLinkRoster.length === 0
-                  ? `The ${selectedDay} link roster is cleared (0 duties). Upload a new ${selectedDay} Link Roster in the Link Roster tab to automatically populate Handover Cards.`
+                  ? `The ${selectedDay} link roster is cleared or empty (0 duties). Upload a new ${selectedDay} Link Roster to automatically populate Duty Roster, Master ID Chart, and Handover Cards.`
                   : 'No active or relief operators match query parameters.'}
               </p>
+              {(isScheduleDayErased(selectedDay) || activeLinkRoster.length === 0) && (
+                <button
+                  type="button"
+                  onClick={() => setIsLinkUploadModalOpen(true)}
+                  className="px-4 py-2 rounded-lg text-xs font-bold font-mono flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white shadow-md transition-all"
+                >
+                  <UploadCloud size={14} />
+                  <span>Upload {selectedDay} Link Roster (.xlsx)</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -1358,14 +1405,24 @@ export default function ReliefTracking({
 
           {/* Master Grid Table (Horizontally Scrollable) */}
           {filteredIdChartColumns.length === 0 ? (
-            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-10 text-center flex flex-col items-center justify-center space-y-2">
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-10 text-center flex flex-col items-center justify-center space-y-3">
               <Table className="h-8 w-8 text-slate-600 mb-1" />
               <p className="text-sm font-bold text-slate-300">No Shift Legs for {selectedDay} Master ID Chart</p>
               <p className="text-xs text-slate-500 max-w-md">
                 {isScheduleDayErased(selectedDay) || activeLinkRoster.length === 0
-                  ? `The ${selectedDay} link roster is cleared (0 duties). Upload a new ${selectedDay} Link Roster to automatically populate train shift columns.`
+                  ? `The ${selectedDay} link roster is cleared or empty (0 duties). Upload a new ${selectedDay} Link Roster to automatically populate train shift columns.`
                   : 'No train columns match the current filter selection.'}
               </p>
+              {(isScheduleDayErased(selectedDay) || activeLinkRoster.length === 0) && (
+                <button
+                  type="button"
+                  onClick={() => setIsLinkUploadModalOpen(true)}
+                  className="px-4 py-2 rounded-lg text-xs font-bold font-mono flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white shadow-md transition-all"
+                >
+                  <UploadCloud size={14} />
+                  <span>Upload {selectedDay} Link Roster (.xlsx)</span>
+                </button>
+              )}
             </div>
           ) : (
             <div className="border border-slate-800 rounded-xl overflow-x-auto max-h-160 custom-scrollbar bg-slate-950">
@@ -1549,12 +1606,20 @@ export default function ReliefTracking({
           </div>
 
           {Object.keys(dynamicDutyLegs).length === 0 ? (
-            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-10 text-center flex flex-col items-center justify-center space-y-2">
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-10 text-center flex flex-col items-center justify-center space-y-3">
               <Layers className="h-8 w-8 text-slate-600 mb-1" />
               <p className="text-sm font-bold text-slate-300">No Duties Scheduled for {selectedDay}</p>
               <p className="text-xs text-slate-500 max-w-md">
-                The {selectedDay} link roster is cleared (0 duties). Upload a new {selectedDay} Link Roster in the Link Roster tab to automatically synchronize this Duty Roster.
+                The {selectedDay} link roster is cleared or empty (0 duties). Upload a new {selectedDay} Link Roster to automatically synchronize this Duty Roster, Master ID Chart, and Handover Cards.
               </p>
+              <button
+                type="button"
+                onClick={() => setIsLinkUploadModalOpen(true)}
+                className="px-4 py-2 rounded-lg text-xs font-bold font-mono flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white shadow-md transition-all"
+              >
+                <UploadCloud size={14} />
+                <span>Upload {selectedDay} Link Roster (.xlsx)</span>
+              </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-h-160 overflow-y-auto pr-1 custom-scrollbar">
@@ -1993,6 +2058,20 @@ export default function ReliefTracking({
           </div>
         </div>
       )}
+      {/* Real-time Link Roster Upload Modal with zero-manual-intervention auto-sync */}
+      <LinkRosterExcelUploadModal
+        isOpen={isLinkUploadModalOpen}
+        onClose={() => setIsLinkUploadModalOpen(false)}
+        activeDay={selectedDay}
+        onLinkRosterImported={({ duties, scheduleType }) => {
+          const normDay = normalizeScheduleDay(scheduleType || selectedDay);
+          setInMemoryUploadedLinks(prev => ({
+            ...prev,
+            [normDay]: duties
+          }));
+          setLinkUpdateTrigger(prev => prev + 1);
+        }}
+      />
     </div>
   );
 }

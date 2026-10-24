@@ -1667,13 +1667,25 @@ export default function LiveTrainPositionTracker({
   }, [dispatchGatewayDuties]);
 
   // ── 1. ACTIVE DAY LINK ROSTER ──
-  // Follows linkRoster prop or canonical Master Link Roster for activeSchedule
+  // Follows in-memory/localStorage upload cache ➔ linkRoster prop ➔ canonical Master Link Roster for activeSchedule
   const activeDayLinks = useMemo(() => {
     void linkUpdateTrigger;
     const normDay = normalizeScheduleDay(activeSchedule || 'WEEKDAY');
     if (isScheduleDayErased(normDay)) {
       return [];
     }
+    // Check localStorage cache from immediate upload
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const cachedStr = window.localStorage.getItem(`pyidcc_active_link_roster_${normDay.toLowerCase()}`);
+        if (cachedStr) {
+          const parsed = JSON.parse(cachedStr);
+          const cleanCached = getCleanLinksForDay(parsed, normDay);
+          if (cleanCached.length > 0) return cleanCached;
+        }
+      }
+    } catch (_e) {}
+
     const cleanFromProp = getCleanLinksForDay(linkRoster, normDay);
     if (cleanFromProp.length > 0) return cleanFromProp;
     if (Array.isArray(linkRoster) && linkRoster.length > 0) {

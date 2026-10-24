@@ -21,6 +21,8 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { computeDutyLegKms } from '../utils/kmCalculator.js';
+import { inferAllLegLocations } from './wttLocationResolverEngine.js';
+
 
 // Canonical BMRCL Line 2 station sequences
 export const DN_STATIONS = ["BIET", "NGSA", "PYID", "YPM", "RJNR", "KGWA", "NLC", "RVR", "PUTH", "APTS"];
@@ -212,6 +214,44 @@ export function detectScheduleDay(filename = '', sheetName = '', sheetData = [])
   if (combinedText.includes('WEEKDAY') || combinedText.includes('WD') || combinedText.includes('REGULAR')) return 'WEEKDAY';
 
   return 'WEEKDAY';
+}
+
+/**
+ * Recursively removes any undefined keys or values from an object or array.
+ * Firestore setDoc/updateDoc strictly rejects undefined field values with an error:
+ * "Function setDoc() called with invalid data. Unsupported field value: undefined"
+ */
+export function sanitizeForFirestore(val) {
+  if (val === undefined) return null;
+  if (val === null || typeof val !== 'object') return val;
+
+  // Preserve native Dates, Firestore Timestamps, and FieldValues (e.g. serverTimestamp())
+  if (val instanceof Date) return val;
+  if (
+    val.constructor && 
+    val.constructor.name !== 'Object' && 
+    val.constructor.name !== 'Array'
+  ) {
+    return val;
+  }
+  if (val._methodName) {
+    return val;
+  }
+
+  if (Array.isArray(val)) {
+    return val
+      .map(item => sanitizeForFirestore(item))
+      .filter(item => item !== undefined);
+  }
+
+  const result = {};
+  for (const [k, v] of Object.entries(val)) {
+    if (v === undefined) {
+      continue; // Strictly omit undefined keys
+    }
+    result[k] = sanitizeForFirestore(v);
+  }
+  return result;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -612,6 +652,8 @@ export async function parseLinkRosterExcel(fileOrBuffer, targetScheduleType = nu
   let breakCol = -1;
   let counsellingCol = -1;
   let dutyTypeCol = -1;
+  let empNameCol = -1;
+  let empIdCol = -1;
 
   headerRow.forEach((s, idx) => {
     if (s.includes('DUTY NO') || s === 'DUTY') {
@@ -634,6 +676,26 @@ export async function parseLinkRosterExcel(fileOrBuffer, targetScheduleType = nu
       if (dutyTypeCol === -1) dutyTypeCol = idx;
     } else if (s === 'COUNSELLING' || s.includes('COUNS')) {
       if (counsellingCol === -1) counsellingCol = idx;
+    } else if (
+      s.includes('OPERATOR NAME') || 
+      s.includes('DRIVER NAME') || 
+      s === 'OPERATOR' || 
+      s === 'NAME' || 
+      s === 'T.O. NAME' || 
+      s === 'TO NAME' || 
+      s === 'T.O' || 
+      s === 'TO'
+    ) {
+      if (empNameCol === -1) empNameCol = idx;
+    } else if (
+      s.includes('EMP NO') || 
+      s.includes('EMP ID') || 
+      s.includes('EMPLOYEE ID') || 
+      s.includes('EMPLOYEE NO') || 
+      s === 'TOKEN NO' || 
+      s === 'BADGE NO'
+    ) {
+      if (empIdCol === -1) empIdCol = idx;
     } else if ((s === 'BREAK' || s === 'BRK') && (sOffTimeCol !== -1 ? idx > sOffTimeCol : idx >= 28)) {
       if (breakCol === -1) breakCol = idx;
     }
@@ -747,6 +809,22 @@ export async function parseLinkRosterExcel(fileOrBuffer, targetScheduleType = nu
     } else {
       // Otherwise fallback to late night sign-on time (>= 20:00) and duty number / night km presence
       isNightDuty = isNightTime && (dutyInt >= 50 || hasNightKm);
+    }
+
+    // Auto-read Operator Name and Emp ID if present in row
+    let parsedEmpName = '';
+    let parsedEmpId = '';
+    if (empNameCol !== -1 && row[empNameCol] !== undefined && row[empNameCol] !== null) {
+      const cand = String(row[empNameCol]).trim();
+      if (cand && cand !== '--' && cand !== '-' && !cand.toLowerCase().startsWith('duty ') && !cand.toLowerCase().startsWith('train operator')) {
+        parsedEmpName = cand;
+      }
+    }
+    if (empIdCol !== -1 && row[empIdCol] !== undefined && row[empIdCol] !== null) {
+      const candId = String(row[empIdCol]).trim();
+      if (candId && candId !== '--' && candId !== '-') {
+        parsedEmpId = candId;
+      }
     }
 
     let dutyObj;
@@ -1001,6 +1079,10 @@ export async function parseLinkRosterExcel(fileOrBuffer, targetScheduleType = nu
         totalKm: combinedKm > 0 ? combinedKm : '--',
         remarks: String(rawType).trim(),
         dutyProfile: String(rawType).trim(),
+        empName: parsedEmpName ? String(parsedEmpName).trim() : '',
+        operatorName: parsedEmpName ? String(parsedEmpName).trim() : '',
+        empId: parsedEmpId ? String(parsedEmpId).trim() : '',
+        operatorId: parsedEmpId ? String(parsedEmpId).trim() : '',
         isUploaded: true,
         lastModified: new Date().toISOString()
       };
@@ -1128,7 +1210,8 @@ export async function parseLinkRosterExcel(fileOrBuffer, targetScheduleType = nu
         leg2TrainNo: leg2.trainNo,
         leg2DepTime: leg2.timeFrom,
         leg2ArrTime: leg2.timeTo,
-        leg2TimeTo: leg2.tripTime,
+        leg2TimeTo: leg2.timeTo,
+        leg2TripTime: leg2.tripTime,
         leg2ArrLoc: l2To,
         leg2Km: '--',
 
@@ -1137,7 +1220,8 @@ export async function parseLinkRosterExcel(fileOrBuffer, targetScheduleType = nu
         leg3TrainNo: leg3.trainNo,
         leg3DepTime: leg3.timeFrom,
         leg3ArrTime: leg3.timeTo,
-        leg3TimeTo: leg3.tripTime,
+        leg3TimeTo: leg3.timeTo,
+        leg3TripTime: leg3.tripTime,
         leg3ArrLoc: l3To,
         leg3Km: '--',
 
@@ -1146,7 +1230,8 @@ export async function parseLinkRosterExcel(fileOrBuffer, targetScheduleType = nu
         leg4TrainNo: leg4.trainNo,
         leg4FinalDepTime: leg4.timeFrom,
         leg4FinalArrTime: leg4.timeTo,
-        leg4TimeTo: leg4.tripTime,
+        leg4TimeTo: leg4.timeTo,
+        leg4TripTime: leg4.tripTime,
         leg4FinalArrLoc: l4To,
         leg4Km: '--',
 
@@ -1164,27 +1249,44 @@ export async function parseLinkRosterExcel(fileOrBuffer, targetScheduleType = nu
         totalKm: kmsNum,
         remarks: String(row[dutyTypeCol] || '--').trim(),
         dutyProfile: String(row[dutyTypeCol] || '--').trim(),
+        empName: parsedEmpName ? String(parsedEmpName).trim() : '',
+        operatorName: parsedEmpName ? String(parsedEmpName).trim() : '',
+        empId: parsedEmpId ? String(parsedEmpId).trim() : '',
+        operatorId: parsedEmpId ? String(parsedEmpId).trim() : '',
         isUploaded: true,
         lastModified: new Date().toISOString()
       };
 
-      // High-precision distance calculation per leg
-      try {
-        if (typeof computeDutyLegKms === 'function') {
-          const comp = computeDutyLegKms(dutyObj, activeSchedule);
-          if (comp) {
-            if (comp.leg1Km > 0) dutyObj.leg1Km = comp.leg1Km;
-            if (comp.leg2Km > 0) dutyObj.leg2Km = comp.leg2Km;
-            if (comp.leg3Km > 0) dutyObj.leg3Km = comp.leg3Km;
-            if (comp.leg4Km > 0) dutyObj.leg4Km = comp.leg4Km;
-            if ((!dutyObj.kms || dutyObj.kms <= 2) && comp.totalKm > 0) {
-              dutyObj.kms = comp.totalKm;
-              dutyObj.totalKm = comp.totalKm;
+      // High-precision distance calculation per leg based on actual boarding & deboarding locations
+      const rawDutyIdStr = String(dutyObj.dutyNo || dutyObj.dutyId || dutyObj.remarks || '').trim().toLowerCase();
+      const isCC3Duty = rawDutyIdStr === 'cc3' || rawDutyIdStr === 'cc 3' || rawDutyIdStr === 'cc-3' || /\bcc\s*3\b/i.test(rawDutyIdStr);
+
+      if (isCC3Duty) {
+        dutyObj.leg1Km = '--';
+        dutyObj.leg2Km = '--';
+        dutyObj.leg3Km = '--';
+        dutyObj.leg4Km = '--';
+        dutyObj.kms = 0;
+        dutyObj.totalKm = 0;
+        dutyObj.isCC3 = true;
+      } else {
+        try {
+          if (typeof computeDutyLegKms === 'function') {
+            const comp = computeDutyLegKms(dutyObj, activeSchedule);
+            if (comp) {
+              if (comp.leg1Km > 0) dutyObj.leg1Km = comp.leg1Km;
+              if (comp.leg2Km > 0) dutyObj.leg2Km = comp.leg2Km;
+              if (comp.leg3Km > 0) dutyObj.leg3Km = comp.leg3Km;
+              if (comp.leg4Km > 0) dutyObj.leg4Km = comp.leg4Km;
+              if (comp.totalKm > 0) {
+                dutyObj.kms = comp.totalKm;
+                dutyObj.totalKm = comp.totalKm;
+              }
             }
           }
+        } catch {
+          // gracefully keep defaults
         }
-      } catch {
-        // gracefully keep defaults
       }
 
       // Populate structured trips array for day duty
@@ -1224,8 +1326,33 @@ export async function parseLinkRosterExcel(fileOrBuffer, targetScheduleType = nu
       dutyObj.kms = dutyObj.totalKm;
     }
 
-    parsedDuties.push(dutyObj);
+    // Automatically infer accurate TOC and HOC for all 4 legs based on WTT and operational continuity
+    const completeDuty = inferAllLegLocations(dutyObj, activeSchedule);
+
+    // Recompute high-precision KMs using the exact inferred locations & WTT
+    if (!completeDuty.isCC3 && typeof computeDutyLegKms === 'function') {
+      try {
+        const comp = computeDutyLegKms(completeDuty, activeSchedule);
+        if (comp && comp.totalKm > 0) {
+          if (comp.leg1Km > 0) completeDuty.leg1Km = comp.leg1Km;
+          if (comp.leg2Km > 0) completeDuty.leg2Km = comp.leg2Km;
+          if (comp.leg3Km > 0) completeDuty.leg3Km = comp.leg3Km;
+          if (comp.leg4Km > 0) completeDuty.leg4Km = comp.leg4Km;
+          completeDuty.kms = comp.totalKm;
+          completeDuty.totalKm = comp.totalKm;
+          if (Array.isArray(completeDuty.trips)) {
+            completeDuty.trips = completeDuty.trips.map((t, idx) => {
+              const k = idx === 0 ? comp.leg1Km : idx === 1 ? comp.leg2Km : idx === 2 ? comp.leg3Km : comp.leg4Km;
+              return (typeof k === 'number' && k > 0) ? { ...t, calculatedKms: k } : t;
+            });
+          }
+        }
+      } catch {}
+    }
+
+    parsedDuties.push(sanitizeForFirestore(completeDuty));
   }
+
 
   // Calculate clean statistical metrics for Link Roster operational dashboards
   const drivingDuties = parsedDuties.filter(d => !d.isStandby && !d.isProctor && (d.drivingHrs !== '--' && d.drivingHrs !== '00:00:00' || d.legsCount > 0));
@@ -1422,9 +1549,9 @@ export async function saveWttToFirestore(wttRows, scheduleType, onProgress = () 
   const CHUNK_SIZE = 40;
   for (let i = 0; i < operations.length; i += CHUNK_SIZE) {
     const chunk = operations.slice(i, i + CHUNK_SIZE);
-    await Promise.allSettled(chunk.map(op => {
-      if (op.type === 'set') return setDoc(op.ref, op.data);
-      return deleteDoc(op.ref);
+    await Promise.allSettled(chunk.map(async op => {
+      if (op.type === 'set') return await setDoc(op.ref, sanitizeForFirestore(op.data));
+      return await deleteDoc(op.ref);
     }));
   }
 
@@ -1483,6 +1610,8 @@ export async function saveLinkRosterToFirestore(duties, scheduleType, onProgress
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.removeItem(`pyidcc_schedule_erased_${dayTag}`);
       window.localStorage.removeItem(`pyidcc_schedule_cleared_${dayTag}`);
+      window.localStorage.setItem(`pyidcc_active_link_roster_${dayTag}`, JSON.stringify(duties));
+      window.localStorage.setItem(`pyidcc_canonical_links_${dayTag}`, JSON.stringify(duties));
     }
   } catch (_) {}
 
@@ -1498,20 +1627,41 @@ export async function saveLinkRosterToFirestore(duties, scheduleType, onProgress
 
   const operations = [];
 
-  // 1. Stage the parsed duties
+  // 1. Stage the parsed duties with all 4 legs' TOC and HOC accurately inferred and KMs calculated
   duties.forEach(duty => {
-    const docRef = doc(db, 'crew_final_links', duty.id);
+    const enrichedDuty = inferAllLegLocations(duty, normSchedule);
+    if (!enrichedDuty.isCC3 && typeof computeDutyLegKms === 'function') {
+      try {
+        const comp = computeDutyLegKms(enrichedDuty, normSchedule);
+        if (comp && comp.totalKm > 0) {
+          if (comp.leg1Km > 0) enrichedDuty.leg1Km = comp.leg1Km;
+          if (comp.leg2Km > 0) enrichedDuty.leg2Km = comp.leg2Km;
+          if (comp.leg3Km > 0) enrichedDuty.leg3Km = comp.leg3Km;
+          if (comp.leg4Km > 0) enrichedDuty.leg4Km = comp.leg4Km;
+          enrichedDuty.kms = comp.totalKm;
+          enrichedDuty.totalKm = comp.totalKm;
+          if (Array.isArray(enrichedDuty.trips)) {
+            enrichedDuty.trips = enrichedDuty.trips.map((t, idx) => {
+              const k = idx === 0 ? comp.leg1Km : idx === 1 ? comp.leg2Km : idx === 2 ? comp.leg3Km : comp.leg4Km;
+              return (typeof k === 'number' && k > 0) ? { ...t, calculatedKms: k } : t;
+            });
+          }
+        }
+      } catch {}
+    }
+    const docRef = doc(db, 'crew_final_links', enrichedDuty.id);
     operations.push({
       type: 'set',
       ref: docRef,
-      data: {
-        ...duty,
+      data: sanitizeForFirestore({
+        ...enrichedDuty,
         scheduleType: normSchedule,
         isUploaded: true,
         lastModified: serverTimestamp()
-      }
+      })
     });
   });
+
 
   // 2. Discover real orphaned documents for this day (with fast 1.0s timeout protection)
   if (options.eraseOld !== false) {
@@ -1546,12 +1696,13 @@ export async function saveLinkRosterToFirestore(duties, scheduleType, onProgress
   for (let i = 0; i < operations.length; i += CHUNK_SIZE) {
     const chunk = operations.slice(i, i + CHUNK_SIZE);
     
-    // Per-chunk write with 2.5s timeout guarantee
-    const chunkPromise = Promise.allSettled(chunk.map(op => {
+    // Per-chunk write with 2.5s timeout guarantee and async safe mapping
+    const chunkPromise = Promise.allSettled(chunk.map(async op => {
       if (op.type === 'set') {
-        return setDoc(op.ref, op.data, { merge: true });
+        const cleanData = sanitizeForFirestore(op.data);
+        return await setDoc(op.ref, cleanData, { merge: true });
       }
-      return deleteDoc(op.ref);
+      return await deleteDoc(op.ref);
     }));
 
     const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2500));

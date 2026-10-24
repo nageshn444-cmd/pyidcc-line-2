@@ -23,6 +23,10 @@ const QUICK_PROMPTS = [
     text: "Drove from BIET BE buffer end all the way to APTS BE buffer end Southbound." 
   },
   { 
+    label: "RVR Turn Back Short Loop", 
+    text: "Drove train from Peenya Industry (PYID) down to RVR TB (6 car stopping), reversed and returned up to PYID." 
+  },
+  { 
     label: "Pocket Track Crossover", 
     text: "Took train from BIET BE to NGSA PKT, layover, then drove down to Peenya Industry Road 3." 
   },
@@ -33,6 +37,10 @@ const QUICK_PROMPTS = [
   { 
     label: "Depot Induction Run", 
     text: "Inducted train from DEPOT, traveled UP to BIET BE, then down to PUTH BE and hand over." 
+  },
+  { 
+    label: "Night Stabling Shunt", 
+    text: "Completed last revenue trip at APTS platform and shunted train to APTS BE buffer end stabling." 
   }
 ];
 

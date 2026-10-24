@@ -91,5 +91,17 @@ export const PREDEFINED_TRIPS = [
   { description: 'RVR - PYID (Northbound)', actualKms: 17.20, roundedKms: 17 },
   { description: 'RVR - DEPOT (Northbound)', actualKms: 15.90, roundedKms: 16 },
   { description: 'BIET BE - RVR (Southbound)', actualKms: 23.74, roundedKms: 24 },
-  { description: 'RVR - APTS BE (Southbound)', actualKms: 9.99, roundedKms: 10 }
+  { description: 'RVR - APTS BE (Southbound)', actualKms: 9.99, roundedKms: 10 },
+  { description: 'APTS Pf - APTS BE (Night Non-Revenue Stabling)', actualKms: 0.337, roundedKms: 0.34 },
+  { description: 'PUTH Pf - PUTH BE (Night Non-Revenue Stabling)', actualKms: 0.470, roundedKms: 0.47 },
+  { description: 'BIET Pf - BIET BE (Night Non-Revenue Stabling)', actualKms: 0.333, roundedKms: 0.33 },
+  { description: 'NGSA Pf - NGSA PKT (Night Non-Revenue Stabling)', actualKms: 0.440, roundedKms: 0.44 },
+  { description: 'APTS BE - APTS Pf (Morning Out-Induction Movement)', actualKms: 0.337, roundedKms: 0.34 },
+  { description: 'PUTH BE - PUTH Pf (Morning Out-Induction Movement)', actualKms: 0.470, roundedKms: 0.47 },
+  { description: 'BIET BE - BIET Pf (Morning Out-Induction Movement)', actualKms: 0.333, roundedKms: 0.33 },
+  { description: 'NGSA PKT - NGSA Pf (Morning Out-Induction Movement)', actualKms: 0.440, roundedKms: 0.44 },
+  { description: 'PYID - KGWA TB - PYID (Short Loop Turn Back)', actualKms: 21.178, roundedKms: 21 },
+  { description: 'PYID - SPGD TB - PYID (Short Loop Turn Back)', actualKms: 17.770, roundedKms: 18 },
+  { description: 'PYID - NLC TB - PYID (Short Loop Turn Back)', actualKms: 26.846, roundedKms: 27 },
+  { description: 'CC3 Control Desk (Supervisory Desk Duty - Non-Driving)', actualKms: 0.000, roundedKms: 0 }
 ];

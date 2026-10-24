@@ -6143,14 +6143,34 @@ export function getCleanLinksForDay(source, targetDay) {
   const matched = source.filter(l => linkMatchesScheduleDay(l, targetDay));
   if (matched.length === 0) return [];
 
-  // Deduplicate by normalized duty ID
+  // Deduplicate by normalized duty ID with intelligent latest-wins priority
   const map = new Map();
   matched.forEach(item => {
     const rawDuty = item.dutyId || item.dutyNo || item.rawDutyId;
     if (!rawDuty) return;
     const normDuty = normalizeDutyId(rawDuty);
-    if (!map.has(normDuty)) {
+    const existing = map.get(normDuty);
+    if (!existing) {
       map.set(normDuty, item);
+    } else {
+      const existingHasLegs = (existing.leg1TrainNo && existing.leg1TrainNo !== '--') || (existing.trainId && existing.trainId !== '--') || (Array.isArray(existing.trips) && existing.trips.length > 0);
+      const itemHasLegs = (item.leg1TrainNo && item.leg1TrainNo !== '--') || (item.trainId && item.trainId !== '--') || (Array.isArray(item.trips) && item.trips.length > 0);
+      const itemIsUploaded = Boolean(item.isUploaded);
+      const existingIsUploaded = Boolean(existing.isUploaded);
+      const itemTime = new Date(item.lastModified || item.updatedAt || 0).getTime() || (item.timestamp || 0);
+      const existingTime = new Date(existing.lastModified || existing.updatedAt || 0).getTime() || (existing.timestamp || 0);
+
+      if (itemIsUploaded && !existingIsUploaded) {
+        map.set(normDuty, item);
+      } else if (!itemIsUploaded && existingIsUploaded) {
+        // Keep existing uploaded record
+      } else if (itemTime > existingTime) {
+        map.set(normDuty, item);
+      } else if (itemHasLegs && !existingHasLegs) {
+        map.set(normDuty, item);
+      } else {
+        map.set(normDuty, item);
+      }
     }
   });
 

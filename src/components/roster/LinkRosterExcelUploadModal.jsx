@@ -111,6 +111,26 @@ export default function LinkRosterExcelUploadModal({
   const handleConfirmSave = async () => {
     if (!parseResult || !parseResult.duties || parseResult.duties.length === 0) return;
 
+    const dayTag = selectedDay.toLowerCase();
+
+    // 0. Instant localStorage caching & event broadcast (0ms delay across all open consoles)
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem(`pyidcc_schedule_erased_${dayTag}`);
+        window.localStorage.removeItem(`pyidcc_schedule_cleared_${dayTag}`);
+        window.localStorage.setItem(`pyidcc_active_link_roster_${dayTag}`, JSON.stringify(parseResult.duties));
+        window.localStorage.setItem(`pyidcc_canonical_links_${dayTag}`, JSON.stringify(parseResult.duties));
+      }
+    } catch (_) {}
+
+    try {
+      if (typeof window !== 'undefined') {
+        const eventDetail = { scheduleType: selectedDay, duties: parseResult.duties, erased: false, timestamp: Date.now() };
+        window.dispatchEvent(new CustomEvent('pyidcc:link_roster_updated', { detail: eventDetail }));
+        window.dispatchEvent(new CustomEvent('pyidcc_link_roster_updated', { detail: eventDetail }));
+      }
+    } catch (_) {}
+
     // 1. Zero-latency instant UI update across all modules
     if (typeof onLinkRosterImported === 'function') {
       onLinkRosterImported({

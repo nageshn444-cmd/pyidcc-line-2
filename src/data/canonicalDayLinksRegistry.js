@@ -3,6 +3,8 @@
 import { WEEKDAY_MASTER_LINKS } from "./weekdayMasterLinks.js";
 import { normalizeScheduleDay } from "./weekdayReliefIdChartRegistry.js";
 import { getOperatorForDuty } from "./weekdayMasterDutyRoster.js";
+import { inferAllLegLocations } from "../services/wttLocationResolverEngine.js";
+import { computeDutyLegKms } from "../utils/kmCalculator.js";
 
 export const SATURDAY_MASTER_LINKS = [
   {
@@ -179,23 +181,23 @@ export const SATURDAY_MASTER_LINKS = [
     "leg1TimeFrom": "06:13:00",
     "leg1TimeTo": "07:48:12",
     "leg1TripTime": "01:35:12",
-    "leg1HandoverLoc": "--",
-    "leg1ArrLoc": "--",
-    "leg1Km": 43.79,
-    "leg2DepLoc": "--",
+    "leg1HandoverLoc": "PYID Up",
+    "leg1ArrLoc": "PYID Up",
+    "leg1Km": 44.47,
+    "leg2DepLoc": "PYID Up",
     "leg2TrainNo": "208",
     "leg2DepTime": "08:10:12",
     "leg2ArrTime": "10:22:12",
     "leg2TimeTo": "02:12:00",
-    "leg2ArrLoc": "Depot",
-    "leg2Km": 67.46,
-    "leg3DepLoc": "--",
+    "leg2ArrLoc": "PYID Up",
+    "leg2Km": 68,
+    "leg3DepLoc": "PYID Up",
     "leg3TrainNo": "211",
     "leg3DepTime": "10:55:12",
     "leg3ArrTime": "11:40:00",
     "leg3TimeTo": "00:44:48",
     "leg3ArrLoc": "P DHO",
-    "leg3Km": 7.66,
+    "leg3Km": 2,
     "leg4FinalDepLoc": "P DHO",
     "leg4TrainNo": "--",
     "leg4FinalDepTime": "--",
@@ -210,8 +212,8 @@ export const SATURDAY_MASTER_LINKS = [
     "drivingHrs": "04:32:00",
     "breakTime": "00:55:00",
     "counselling": "00:33:00",
-    "kms": 118.91,
-    "totalKm": 118.91,
+    "kms": 114.47,
+    "totalKm": 114.47,
     "remarks": "A3",
     "dutyProfile": "A3",
     "isUploaded": true,
@@ -222,27 +224,27 @@ export const SATURDAY_MASTER_LINKS = [
         "timeFrm": "06:13:00",
         "timeTo": "07:48:12",
         "takeoverLocation": "KGWA DN",
-        "handoverLocation": "--",
+        "handoverLocation": "PYID Up",
         "tripTime": "01:35:12",
-        "calculatedKms": 43.79
+        "calculatedKms": 44.47
       },
       {
         "trainNo": "208",
         "timeFrm": "08:10:12",
         "timeTo": "10:22:12",
-        "takeoverLocation": "--",
-        "handoverLocation": "Depot",
+        "takeoverLocation": "PYID Up",
+        "handoverLocation": "PYID Up",
         "tripTime": "02:12:00",
-        "calculatedKms": 67.46
+        "calculatedKms": 68
       },
       {
         "trainNo": "211",
         "timeFrm": "10:55:12",
         "timeTo": "11:40:00",
-        "takeoverLocation": "--",
+        "takeoverLocation": "PYID Up",
         "handoverLocation": "P DHO",
         "tripTime": "00:44:48",
-        "calculatedKms": 7.66
+        "calculatedKms": 2
       }
     ],
     "isNight": false,
@@ -363,15 +365,15 @@ export const SATURDAY_MASTER_LINKS = [
     "leg2DepTime": "08:54:12",
     "leg2ArrTime": "11:06:12",
     "leg2TimeTo": "02:12:00",
-    "leg2ArrLoc": "PYID",
-    "leg2Km": 67.46,
-    "leg3DepLoc": "--",
+    "leg2ArrLoc": "PYID Up",
+    "leg2Km": 68,
+    "leg3DepLoc": "PYID Up",
     "leg3TrainNo": "203",
     "leg3DepTime": "11:28:12",
     "leg3ArrTime": "12:10:00",
     "leg3TimeTo": "00:41:48",
     "leg3ArrLoc": "P DHO",
-    "leg3Km": 7.66,
+    "leg3Km": 2,
     "leg4FinalDepLoc": "P DHO",
     "leg4TrainNo": "--",
     "leg4FinalDepTime": "--",
@@ -386,8 +388,8 @@ export const SATURDAY_MASTER_LINKS = [
     "drivingHrs": "04:54:30",
     "breakTime": "01:00:30",
     "counselling": "00:22:00",
-    "kms": 116.72,
-    "totalKm": 116.72,
+    "kms": 111.6,
+    "totalKm": 111.6,
     "remarks": "A5T3",
     "dutyProfile": "A5T3",
     "isUploaded": true,
@@ -407,18 +409,18 @@ export const SATURDAY_MASTER_LINKS = [
         "timeFrm": "08:54:12",
         "timeTo": "11:06:12",
         "takeoverLocation": "PYID Up",
-        "handoverLocation": "PYID",
+        "handoverLocation": "PYID Up",
         "tripTime": "02:12:00",
-        "calculatedKms": 67.46
+        "calculatedKms": 68
       },
       {
         "trainNo": "203",
         "timeFrm": "11:28:12",
         "timeTo": "12:10:00",
-        "takeoverLocation": "--",
+        "takeoverLocation": "PYID Up",
         "handoverLocation": "P DHO",
         "tripTime": "00:41:48",
-        "calculatedKms": 7.66
+        "calculatedKms": 2
       }
     ],
     "isNight": false,
@@ -18357,13 +18359,50 @@ export const MONDAY_MASTER_LINKS = [
 
 export { WEEKDAY_MASTER_LINKS };
 
+const _enrichedCanonicalLinksCache = new Map();
+
 export function getMasterLinksForDay(dayType = "WEEKDAY") {
   const norm = normalizeScheduleDay(dayType);
-  if (norm === "GH" || norm === "SATURDAY") return SATURDAY_MASTER_LINKS;
-  if (norm === "SUNDAY") return SUNDAY_MASTER_LINKS;
-  if (norm === "MONDAY") return MONDAY_MASTER_LINKS;
-  return WEEKDAY_MASTER_LINKS;
+  if (_enrichedCanonicalLinksCache.has(norm)) {
+    return _enrichedCanonicalLinksCache.get(norm);
+  }
+  let baseLinks = WEEKDAY_MASTER_LINKS;
+  if (norm === "GH" || norm === "SATURDAY") baseLinks = SATURDAY_MASTER_LINKS;
+  else if (norm === "SUNDAY") baseLinks = SUNDAY_MASTER_LINKS;
+  else if (norm === "MONDAY") baseLinks = MONDAY_MASTER_LINKS;
+
+  const enriched = baseLinks.map(l => {
+    const withLocs = inferAllLegLocations(l, norm);
+    if (!withLocs.isCC3 && typeof computeDutyLegKms === "function") {
+      try {
+        const comp = computeDutyLegKms(withLocs, norm);
+        if (comp && comp.totalKm > 0) {
+          const l1 = comp.leg1Km > 0 ? comp.leg1Km : withLocs.leg1Km;
+          const l2 = comp.leg2Km > 0 ? comp.leg2Km : withLocs.leg2Km;
+          const l3 = comp.leg3Km > 0 ? comp.leg3Km : withLocs.leg3Km;
+          const l4 = comp.leg4Km > 0 ? comp.leg4Km : withLocs.leg4Km;
+          return {
+            ...withLocs,
+            leg1Km: l1,
+            leg2Km: l2,
+            leg3Km: l3,
+            leg4Km: l4,
+            kms: comp.totalKm,
+            totalKm: comp.totalKm,
+            trips: Array.isArray(withLocs.trips) ? withLocs.trips.map((t, idx) => {
+              const k = idx === 0 ? l1 : idx === 1 ? l2 : idx === 2 ? l3 : l4;
+              return (typeof k === "number" && k > 0) ? { ...t, calculatedKms: k } : t;
+            }) : withLocs.trips
+          };
+        }
+      } catch {}
+    }
+    return withLocs;
+  });
+  _enrichedCanonicalLinksCache.set(norm, enriched);
+  return enriched;
 }
+
 
 export function buildCanonicalDutiesForDate(dayType = "WEEKDAY", targetDate = null, includeDefaultOperators = false) {
   const dateStr = targetDate || new Date().toISOString().split("T")[0];
