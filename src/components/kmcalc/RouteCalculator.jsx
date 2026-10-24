@@ -12,6 +12,7 @@ import {
   generateRouteStationSchedule,
   DUTY_55_ROUTE_STOPS
 } from '../../utils/kmCalculator';
+import { inferAllLegLocations } from '../../services/wttLocationResolverEngine';
 import { 
   Plus, 
   Trash2, 
@@ -140,11 +141,12 @@ export default function RouteCalculator({
     try {
       localStorage.removeItem('bmrcl_link_roster_manual_overrides');
     } catch (e) {}
-    const enhanced = enhanceRosterDuties(rawParsedDuties, schedType);
+    const dutiesWithLocs = Array.isArray(rawParsedDuties) ? rawParsedDuties.map(d => inferAllLegLocations(d, schedType)) : [];
+    const enhanced = enhanceRosterDuties(dutiesWithLocs, schedType);
     const data = {
       fileName,
       dayType: schedType,
-      duties: rawParsedDuties,
+      duties: dutiesWithLocs,
       timestamp: new Date().toISOString()
     };
     setSavedUpload(data);
@@ -228,30 +230,43 @@ export default function RouteCalculator({
 
     const getPathStr = (t) => t?.customPathStr || (t?.intermediateStations?.length > 0 ? t.intermediateStations.join(' → ') : (t?.boardingStation && t?.alightingStation ? `${t.boardingStation} → ${t.alightingStation}` : ''));
 
+    const l1K = existing.leg1Km !== undefined ? Number(existing.leg1Km) : (leg1?.calculatedKms || duty.leg1Km || 0);
+    const l2K = existing.leg2Km !== undefined ? Number(existing.leg2Km) : (leg2?.calculatedKms || duty.leg2Km || 0);
+    const l3K = existing.leg3Km !== undefined ? Number(existing.leg3Km) : (leg3?.calculatedKms || duty.leg3Km || 0);
+    const l4K = existing.leg4Km !== undefined ? Number(existing.leg4Km) : (leg4?.calculatedKms || duty.leg4Km || 0);
+    const autoTotal = Number((l1K + l2K + l3K + l4K).toFixed(2));
+
     setEditFormData({
       dutyNo: duty.dutyNo,
       leg1Path: existing.leg1Path !== undefined ? existing.leg1Path : getPathStr(leg1),
-      leg1Km: existing.leg1Km !== undefined ? existing.leg1Km : (leg1?.calculatedKms || 0),
+      leg1Km: l1K,
       leg2Path: existing.leg2Path !== undefined ? existing.leg2Path : getPathStr(leg2),
-      leg2Km: existing.leg2Km !== undefined ? existing.leg2Km : (leg2?.calculatedKms || 0),
+      leg2Km: l2K,
       leg3Path: existing.leg3Path !== undefined ? existing.leg3Path : getPathStr(leg3),
-      leg3Km: existing.leg3Km !== undefined ? existing.leg3Km : (leg3?.calculatedKms || 0),
+      leg3Km: l3K,
       leg4Path: existing.leg4Path !== undefined ? existing.leg4Path : getPathStr(leg4),
-      leg4Km: existing.leg4Km !== undefined ? existing.leg4Km : (leg4?.calculatedKms || 0),
-      totalKm: existing.totalKm !== undefined ? existing.totalKm : (duty.kms || 0),
+      leg4Km: l4K,
+      totalKm: autoTotal > 0 ? autoTotal : (existing.totalKm !== undefined ? existing.totalKm : (duty.kms || 0)),
     });
   };
 
   const handleSaveEditDuty = (dutyNo) => {
+    const l1 = Number(editFormData.leg1Km) || 0;
+    const l2 = Number(editFormData.leg2Km) || 0;
+    const l3 = Number(editFormData.leg3Km) || 0;
+    const l4 = Number(editFormData.leg4Km) || 0;
+    const sum = Number((l1 + l2 + l3 + l4).toFixed(2));
+    const totalKm = sum > 0 ? sum : (Number(editFormData.totalKm) || 0);
+
     const updated = {
       ...manualOverrides,
       [dutyNo]: {
         ...editFormData,
-        leg1Km: Number(editFormData.leg1Km) || 0,
-        leg2Km: Number(editFormData.leg2Km) || 0,
-        leg3Km: Number(editFormData.leg3Km) || 0,
-        leg4Km: Number(editFormData.leg4Km) || 0,
-        totalKm: Number(editFormData.totalKm) !== undefined ? Number(editFormData.totalKm) : (Number(editFormData.leg1Km || 0) + Number(editFormData.leg2Km || 0) + Number(editFormData.leg3Km || 0) + Number(editFormData.leg4Km || 0))
+        leg1Km: l1,
+        leg2Km: l2,
+        leg3Km: l3,
+        leg4Km: l4,
+        totalKm
       }
     };
     setManualOverrides(updated);
@@ -282,13 +297,31 @@ export default function RouteCalculator({
     const validRaw = rawDuties.filter(isValidLinkRosterDuty).map(d => ({
       ...d,
       dutyNo: sanitizeDutyNo(d.dutyNo)
-    })).filter(d => d.dutyNo !== '615' && d.dutyNo !== '620');
+    })).filter(d => d.dutyNo !== '615' && d.dutyNo !== '620')
+       .map(d => inferAllLegLocations(d, timetableSchedule));
 
     const enhanced = enhanceRosterDuties(validRaw, timetableSchedule);
 
     return enhanced.map(duty => {
       const ov = manualOverrides[duty.dutyNo];
-      if (!ov) return duty;
+      if (!ov) {
+        const l1 = Number((duty.trips?.[0]?.calculatedKms || duty.leg1Km || 0).toFixed(2));
+        const l2 = Number((duty.trips?.[1]?.calculatedKms || duty.leg2Km || 0).toFixed(2));
+        const l3 = Number((duty.trips?.[2]?.calculatedKms || duty.leg3Km || 0).toFixed(2));
+        const l4 = Number((duty.trips?.[3]?.calculatedKms || duty.leg4Km || 0).toFixed(2));
+        const sumLegs = Number((l1 + l2 + l3 + l4).toFixed(2));
+        const finalKm = sumLegs > 0 ? sumLegs : (duty.kms || 0);
+        return {
+          ...duty,
+          kms: finalKm,
+          totalKm: finalKm,
+          totalKms: finalKm,
+          leg1Km: l1,
+          leg2Km: l2,
+          leg3Km: l3,
+          leg4Km: l4
+        };
+      }
 
       const trips = [...(duty.trips || [])];
       for (let i = 0; i < 4; i++) {
@@ -307,14 +340,23 @@ export default function RouteCalculator({
         }
       }
 
-      const totalKm = ov.totalKm !== undefined ? Number(ov.totalKm) : (
-        trips.reduce((sum, t) => sum + (t?.calculatedKms || 0), 0)
-      );
+      const l1 = Number((trips[0]?.calculatedKms || 0).toFixed(2));
+      const l2 = Number((trips[1]?.calculatedKms || 0).toFixed(2));
+      const l3 = Number((trips[2]?.calculatedKms || 0).toFixed(2));
+      const l4 = Number((trips[3]?.calculatedKms || 0).toFixed(2));
+      const sumLegs = Number((l1 + l2 + l3 + l4).toFixed(2));
+      const totalKm = sumLegs > 0 ? sumLegs : (ov.totalKm !== undefined ? Number(ov.totalKm) : (duty.kms || 0));
 
       return {
         ...duty,
         trips,
+        leg1Km: l1,
+        leg2Km: l2,
+        leg3Km: l3,
+        leg4Km: l4,
         kms: totalKm,
+        totalKm: totalKm,
+        totalKms: totalKm,
         isManuallyEdited: true
       };
     });
@@ -1315,25 +1357,53 @@ export default function RouteCalculator({
                               <td className="px-2 py-1.5 border-r border-slate-800">
                                 <div className="space-y-1 font-mono">
                                   <input name="routecalculator_input_3" type="text" value={editFormData.leg1Path || ''} onChange={e => setEditFormData({ ...editFormData, leg1Path: e.target.value })} placeholder="e.g. KGWA → PYID" className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200" />
-                                  <div className="flex items-center justify-between text-[9px]"><span className="text-slate-400">Leg 1 KM:</span><input name="routecalculator_input_4" type="number" value={editFormData.leg1Km} onChange={e => setEditFormData({ ...editFormData, leg1Km: e.target.value })} className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right" /></div>
+                                  <div className="flex items-center justify-between text-[9px]"><span className="text-slate-400">Leg 1 KM:</span><input name="routecalculator_input_4" type="number" value={editFormData.leg1Km} onChange={e => {
+                                    const v = e.target.value;
+                                    const l1 = parseFloat(v) || 0;
+                                    const l2 = parseFloat(editFormData.leg2Km) || 0;
+                                    const l3 = parseFloat(editFormData.leg3Km) || 0;
+                                    const l4 = parseFloat(editFormData.leg4Km) || 0;
+                                    setEditFormData({ ...editFormData, leg1Km: v, totalKm: Number((l1 + l2 + l3 + l4).toFixed(2)) });
+                                  }} className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right" /></div>
                                 </div>
                               </td>
                               <td className="px-2 py-1.5 border-r border-slate-800">
                                 <div className="space-y-1 font-mono">
                                   <input name="routecalculator_input_5" type="text" value={editFormData.leg2Path || ''} onChange={e => setEditFormData({ ...editFormData, leg2Path: e.target.value })} placeholder="e.g. PYID → BIET" className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200" />
-                                  <div className="flex items-center justify-between text-[9px]"><span className="text-slate-400">Leg 2 KM:</span><input name="routecalculator_input_6" type="number" value={editFormData.leg2Km} onChange={e => setEditFormData({ ...editFormData, leg2Km: e.target.value })} className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right" /></div>
+                                  <div className="flex items-center justify-between text-[9px]"><span className="text-slate-400">Leg 2 KM:</span><input name="routecalculator_input_6" type="number" value={editFormData.leg2Km} onChange={e => {
+                                    const v = e.target.value;
+                                    const l1 = parseFloat(editFormData.leg1Km) || 0;
+                                    const l2 = parseFloat(v) || 0;
+                                    const l3 = parseFloat(editFormData.leg3Km) || 0;
+                                    const l4 = parseFloat(editFormData.leg4Km) || 0;
+                                    setEditFormData({ ...editFormData, leg2Km: v, totalKm: Number((l1 + l2 + l3 + l4).toFixed(2)) });
+                                  }} className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right" /></div>
                                 </div>
                               </td>
                               <td className="px-2 py-1.5 border-r border-slate-800">
                                 <div className="space-y-1 font-mono">
                                   <input name="routecalculator_input_7" type="text" value={editFormData.leg3Path || ''} onChange={e => setEditFormData({ ...editFormData, leg3Path: e.target.value })} placeholder="e.g. BIET → APTS" className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200" />
-                                  <div className="flex items-center justify-between text-[9px]"><span className="text-slate-400">Leg 3 KM:</span><input name="routecalculator_input_8" type="number" value={editFormData.leg3Km} onChange={e => setEditFormData({ ...editFormData, leg3Km: e.target.value })} className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right" /></div>
+                                  <div className="flex items-center justify-between text-[9px]"><span className="text-slate-400">Leg 3 KM:</span><input name="routecalculator_input_8" type="number" value={editFormData.leg3Km} onChange={e => {
+                                    const v = e.target.value;
+                                    const l1 = parseFloat(editFormData.leg1Km) || 0;
+                                    const l2 = parseFloat(editFormData.leg2Km) || 0;
+                                    const l3 = parseFloat(v) || 0;
+                                    const l4 = parseFloat(editFormData.leg4Km) || 0;
+                                    setEditFormData({ ...editFormData, leg3Km: v, totalKm: Number((l1 + l2 + l3 + l4).toFixed(2)) });
+                                  }} className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right" /></div>
                                 </div>
                               </td>
                               <td className="px-2 py-1.5 border-r border-slate-800">
                                 <div className="space-y-1 font-mono">
                                   <input name="routecalculator_input_9" type="text" value={editFormData.leg4Path || ''} onChange={e => setEditFormData({ ...editFormData, leg4Path: e.target.value })} placeholder="e.g. --" className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-200" />
-                                  <div className="flex items-center justify-between text-[9px]"><span className="text-slate-400">Leg 4 KM:</span><input name="routecalculator_input_10" type="number" value={editFormData.leg4Km} onChange={e => setEditFormData({ ...editFormData, leg4Km: e.target.value })} className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right" /></div>
+                                  <div className="flex items-center justify-between text-[9px]"><span className="text-slate-400">Leg 4 KM:</span><input name="routecalculator_input_10" type="number" value={editFormData.leg4Km} onChange={e => {
+                                    const v = e.target.value;
+                                    const l1 = parseFloat(editFormData.leg1Km) || 0;
+                                    const l2 = parseFloat(editFormData.leg2Km) || 0;
+                                    const l3 = parseFloat(editFormData.leg3Km) || 0;
+                                    const l4 = parseFloat(v) || 0;
+                                    setEditFormData({ ...editFormData, leg4Km: v, totalKm: Number((l1 + l2 + l3 + l4).toFixed(2)) });
+                                  }} className="w-16 bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[10px] text-cyan-400 font-bold text-right" /></div>
                                 </div>
                               </td>
                               <td className="px-2 py-1.5 border-r border-slate-800 text-right">
@@ -1432,8 +1502,8 @@ export default function RouteCalculator({
                                                 <span className="text-emerald-400 font-bold">{trip.calculatedKms || 0} KM</span>
                                               </div>
                                               <div className="grid grid-cols-2 gap-x-3 text-slate-400">
-                                                <span>Board: <span className={isDn ? 'text-amber-300 font-bold' : 'text-slate-200'}>{trip.takeoverLocation} <span className="text-slate-500">({trip.timeFrm || '--'})</span></span></span>
-                                                <span>Deboard: <span className={isDn ? 'text-amber-300 font-bold' : 'text-slate-200'}>{trip.handoverLocation} <span className="text-slate-500">({trip.timeTo || '--'})</span></span></span>
+                                                <span>Board: <span className={isDn ? 'text-amber-300 font-bold' : 'text-slate-200'}>{(trip.boardingStation && trip.boardingStation !== 'N/A' && trip.boardingStation !== '--') ? trip.boardingStation : trip.takeoverLocation} <span className="text-slate-500">({trip.boardingTime || trip.timeFrm || '--'})</span></span></span>
+                                                <span>Deboard: <span className={isDn ? 'text-amber-300 font-bold' : 'text-slate-200'}>{(trip.alightingStation && trip.alightingStation !== 'N/A' && trip.alightingStation !== '--') ? trip.alightingStation : trip.handoverLocation} <span className="text-slate-500">({trip.alightingTime || trip.timeTo || '--'})</span></span></span>
                                               </div>
                                               {trip.segments && trip.segments.length > 0 && (
                                                 <div className="text-[9px] text-slate-600 pt-0.5 truncate">

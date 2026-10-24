@@ -120,14 +120,16 @@ export default function WTTPage(props) {
   const finalMatrixRows = sortedRows.filter(row => {
     let match = true;
     
-    // Train ID & Mode Filter
+    // Train ID, Mode, Takeover & Handover Location Filter
     if (matrixTidSearch) {
       const q = matrixTidSearch.toLowerCase();
       const tidMatch = String(row.trainId || '').toLowerCase().includes(q);
       const modeMatch = String(row.mode || '').toLowerCase().includes(q) ||
         String(row.dnMode || row.downTrip?.mode || '').toLowerCase().includes(q) ||
         String(row.upMode || row.upTrip?.mode || '').toLowerCase().includes(q);
-      match = match && (tidMatch || modeMatch);
+      const locMatch = String(row.takeoverLocation || row.downTrip?.takeoverLocation || '').toLowerCase().includes(q) ||
+        String(row.handoverLocation || row.upTrip?.handoverLocation || '').toLowerCase().includes(q);
+      match = match && (tidMatch || modeMatch || locMatch);
     }
     
     // Time & Station Filters

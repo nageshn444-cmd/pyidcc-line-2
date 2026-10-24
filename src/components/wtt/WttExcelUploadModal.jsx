@@ -123,14 +123,12 @@ export default function WttExcelUploadModal({
     });
 
     try {
-      if (eraseOldData) {
-        // Explicitly clear old Firestore data for this schedule day first
-        await clearWttScheduleForDay(selectedDay, (p) => setSaveProgress(p));
-      }
-
-      await saveWttToFirestore(parseResult.rows, selectedDay, (progress) => {
-        setSaveProgress(progress);
-      });
+      await saveWttToFirestore(
+        parseResult.rows, 
+        selectedDay, 
+        (progress) => setSaveProgress(progress),
+        { eraseOld: eraseOldData }
+      );
 
       setSaveSuccess(true);
       setTimeout(() => {
@@ -155,7 +153,9 @@ export default function WttExcelUploadModal({
       String(r.dnMode || '').toLowerCase().includes(q) ||
       String(r.upMode || '').toLowerCase().includes(q) ||
       String(r.dnTid || '').toLowerCase().includes(q) ||
-      String(r.upTid || '').toLowerCase().includes(q);
+      String(r.upTid || '').toLowerCase().includes(q) ||
+      String(r.takeoverLocation || '').toLowerCase().includes(q) ||
+      String(r.handoverLocation || '').toLowerCase().includes(q);
   });
 
   return (
@@ -313,33 +313,41 @@ export default function WttExcelUploadModal({
           {/* Parse Result Summary Banner */}
           {parseResult && !isParsing && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-xl">
                   <span className="text-[10px] text-slate-500 font-bold uppercase block">Total Trips</span>
-                  <span className="text-lg font-bold text-emerald-400">{parseResult.stats.totalRows}</span>
+                  <span className="text-base font-bold text-emerald-400">{parseResult.stats.totalRows}</span>
                 </div>
-                <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
+                <div className="bg-slate-950 border border-emerald-900/40 p-2.5 rounded-xl bg-emerald-950/20">
+                  <span className="text-[10px] text-emerald-400/80 font-bold uppercase block">Takeover Locs</span>
+                  <span className="text-base font-black text-emerald-300">{parseResult.stats.takeoverCount ?? 0}</span>
+                </div>
+                <div className="bg-slate-950 border border-purple-900/40 p-2.5 rounded-xl bg-purple-950/20">
+                  <span className="text-[10px] text-purple-400/80 font-bold uppercase block">Handover Locs</span>
+                  <span className="text-base font-black text-purple-300">{parseResult.stats.handoverCount ?? 0}</span>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-xl">
                   <span className="text-[10px] text-slate-500 font-bold uppercase block">Mode (ATO / ATP)</span>
-                  <span className="text-sm font-bold text-slate-200 flex items-center gap-1.5 mt-1">
-                    <span className="px-1.5 py-0.5 rounded bg-cyan-950/70 text-cyan-400 border border-cyan-500/30 text-xs font-black">
-                      ATO: {parseResult.stats.atoCount ?? 0}
+                  <span className="text-xs font-bold text-slate-200 flex items-center gap-1 mt-1">
+                    <span className="px-1.5 py-0.5 rounded bg-cyan-950/70 text-cyan-400 border border-cyan-500/30 text-[10px] font-black">
+                      ATO: {parseResult.stats.atoCount ?? parseResult.stats.atoTripsCount ?? 0}
                     </span>
-                    <span className="px-1.5 py-0.5 rounded bg-amber-950/70 text-amber-400 border border-amber-500/30 text-xs font-black">
-                      ATP: {parseResult.stats.atpCount ?? 0}
+                    <span className="px-1.5 py-0.5 rounded bg-amber-950/70 text-amber-400 border border-amber-500/30 text-[10px] font-black">
+                      ATP: {parseResult.stats.atpCount ?? parseResult.stats.atpTripsCount ?? 0}
                     </span>
                   </span>
                 </div>
-                <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
-                  <span className="text-[10px] text-slate-500 font-bold uppercase block">Down Line Trips</span>
-                  <span className="text-lg font-bold text-amber-400">{parseResult.stats.dnTripsCount}</span>
+                <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-xl">
+                  <span className="text-[10px] text-slate-500 font-bold uppercase block">Down / Up Trips</span>
+                  <span className="text-xs font-bold text-slate-200 flex items-center gap-1 mt-1">
+                    <span className="text-amber-400">DN: {parseResult.stats.dnTripsCount}</span>
+                    <span className="text-slate-600">|</span>
+                    <span className="text-cyan-400">UP: {parseResult.stats.upTripsCount}</span>
+                  </span>
                 </div>
-                <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
-                  <span className="text-[10px] text-slate-500 font-bold uppercase block">Up Line Trips</span>
-                  <span className="text-lg font-bold text-cyan-400">{parseResult.stats.upTripsCount}</span>
-                </div>
-                <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
-                  <span className="text-[10px] text-slate-500 font-bold uppercase block">Target Schedule Day</span>
-                  <span className="text-base font-bold text-indigo-400">{selectedDay}</span>
+                <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-xl">
+                  <span className="text-[10px] text-slate-500 font-bold uppercase block">Target Schedule</span>
+                  <span className="text-sm font-bold text-indigo-400">{selectedDay}</span>
                 </div>
               </div>
 
@@ -354,7 +362,7 @@ export default function WttExcelUploadModal({
                     <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-500" />
                     <input
                       type="text"
-                      placeholder="Filter Train ID or Mode..."
+                      placeholder="Filter Train ID, Loc, Mode..."
                       value={previewFilter}
                       onChange={e => setPreviewFilter(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-2.5 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-emerald-500"
@@ -366,18 +374,21 @@ export default function WttExcelUploadModal({
                   <table className="w-full text-center border-collapse text-[10px]">
                     <thead className="bg-slate-900/90 sticky top-0 z-10 text-slate-400 uppercase font-bold border-b border-slate-800">
                       <tr>
-                        <th className="py-2 px-3 border-r border-slate-800 text-left">Seq</th>
+                        <th className="py-2 px-2 border-r border-slate-800 text-left">Seq</th>
+                        <th className="py-2 px-3 border-r border-slate-800 text-emerald-400 bg-emerald-950/20">TAKEOVER LOCATION</th>
                         <th className="py-2 px-3 border-r border-slate-800 text-emerald-400">Train ID</th>
                         <th colSpan="4" className="py-1 px-2 border-r border-slate-800 text-amber-400 bg-amber-950/10">
                           <ArrowDownCircle className="h-3 w-3 inline mr-1" /> Down Line (MODE / BIET / PYID / APTS)
                         </th>
-                        <th colSpan="4" className="py-1 px-2 text-cyan-400 bg-cyan-950/10">
+                        <th colSpan="4" className="py-1 px-2 border-r border-slate-800 text-cyan-400 bg-cyan-950/10">
                           <ArrowUpCircle className="h-3 w-3 inline mr-1" /> Up Line (MODE / APTS / PYID / BIET)
                         </th>
+                        <th className="py-2 px-3 text-purple-400 bg-purple-950/20">HANDOVER LOCATION</th>
                       </tr>
                       <tr className="text-[9px] text-slate-500 border-b border-slate-800 bg-slate-920">
-                        <th className="py-1 border-r border-slate-800">#</th>
-                        <th className="py-1 border-r border-slate-800">TID</th>
+                        <th className="py-1 px-1 border-r border-slate-800">#</th>
+                        <th className="py-1 px-2 border-r border-slate-800 text-emerald-400 bg-emerald-950/20">TOC / INDUCTION</th>
+                        <th className="py-1 px-2 border-r border-slate-800">TID</th>
                         <th className="py-1 px-2 border-r border-slate-800 text-amber-300">MODE</th>
                         <th className="py-1 px-2 border-r border-slate-800">BIET</th>
                         <th className="py-1 px-2 border-r border-slate-800">PYID</th>
@@ -385,17 +396,34 @@ export default function WttExcelUploadModal({
                         <th className="py-1 px-2 border-r border-slate-800 text-cyan-300">MODE</th>
                         <th className="py-1 px-2 border-r border-slate-800">APTS</th>
                         <th className="py-1 px-2 border-r border-slate-800">PYID</th>
-                        <th className="py-1 px-2">BIET</th>
+                        <th className="py-1 px-2 border-r border-slate-800">BIET</th>
+                        <th className="py-1 px-2 text-purple-400 bg-purple-950/20">HOC / STABLING</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60 font-mono text-slate-300">
                       {filteredPreviewRows.slice(0, 100).map((row) => {
                         const dnMode = row.dnMode || row.downTrip?.mode || row.mode || 'ATO';
                         const upMode = row.upMode || row.upTrip?.mode || row.mode || 'ATO';
+                        const takeover = row.takeoverLocation || row.downTrip?.takeoverLocation || '--';
+                        const handover = row.handoverLocation || row.upTrip?.handoverLocation || '--';
+
                         return (
                           <tr key={row.id} className="hover:bg-slate-900/60 transition-colors">
-                            <td className="py-1 px-3 border-r border-slate-800 text-left text-slate-500">{row.rowSeq}</td>
+                            <td className="py-1 px-2 border-r border-slate-800 text-left text-slate-500">{row.rowSeq}</td>
+                            
+                            {/* TAKEOVER LOCATION (Before Train ID) */}
+                            <td className="py-1 px-2 border-r border-slate-800 text-center">
+                              {takeover && takeover !== '--' ? (
+                                <span className="px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 text-[9px] font-black inline-block whitespace-nowrap shadow-sm">
+                                  {takeover}
+                                </span>
+                              ) : (
+                                <span className="text-slate-600 font-sans">--</span>
+                              )}
+                            </td>
+
                             <td className="py-1 px-3 border-r border-slate-800 font-bold text-emerald-400">{row.trainId}</td>
+                            
                             <td className="py-1 px-2 border-r border-slate-800">
                               <span className={`px-1.5 py-0.5 rounded text-[9px] font-black ${
                                 dnMode === 'ATP'
@@ -408,6 +436,7 @@ export default function WttExcelUploadModal({
                             <td className="py-1 px-2 border-r border-slate-800 text-amber-300/90">{row.downTrip?.stations?.BIET || '--'}</td>
                             <td className="py-1 px-2 border-r border-slate-800 text-amber-300/90">{row.downTrip?.stations?.PYID || '--'}</td>
                             <td className="py-1 px-2 border-r border-slate-800 text-amber-300/90">{row.downTrip?.stations?.APTS || '--'}</td>
+                            
                             <td className="py-1 px-2 border-r border-slate-800">
                               <span className={`px-1.5 py-0.5 rounded text-[9px] font-black ${
                                 upMode === 'ATP'
@@ -419,7 +448,18 @@ export default function WttExcelUploadModal({
                             </td>
                             <td className="py-1 px-2 border-r border-slate-800 text-cyan-300/90">{row.upTrip?.stations?.APTS || '--'}</td>
                             <td className="py-1 px-2 border-r border-slate-800 text-cyan-300/90">{row.upTrip?.stations?.PYID || '--'}</td>
-                            <td className="py-1 px-2 text-cyan-300/90">{row.upTrip?.stations?.BIET || '--'}</td>
+                            <td className="py-1 px-2 border-r border-slate-800 text-cyan-300/90">{row.upTrip?.stations?.BIET || '--'}</td>
+
+                            {/* HANDOVER LOCATION (After BIET) */}
+                            <td className="py-1 px-2 text-center">
+                              {handover && handover !== '--' ? (
+                                <span className="px-2 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-500/40 text-[9px] font-black inline-block whitespace-nowrap shadow-sm">
+                                  {handover}
+                                </span>
+                              ) : (
+                                <span className="text-slate-600 font-sans">--</span>
+                              )}
+                            </td>
                           </tr>
                         );
                       })}

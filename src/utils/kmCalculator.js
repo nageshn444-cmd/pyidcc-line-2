@@ -631,7 +631,8 @@ export function calculateLegKmsFromWTT(
   const hasEndDn = isEndDnLine || handLower.includes(" dn") || handLower.endsWith("dn");
 
   const cleanTrainNo = rawTrain
-    .replace(/^(Tr|Train|No|T)\.?\s*/i, "")
+    .replace(/^(Train|Tr|No|T)\.?\s*/i, "")
+    .replace(/^(CR|Duty)\.?\s*/i, "")
     .replace(/\s*(UP|DN)$/i, "")
     .trim();
   const searchTid = cleanTrainNo.replace(/\D/g, "").trim();
@@ -812,7 +813,9 @@ export function calculateLegKmsFromWTT(
   }
 
   if (depSecs > 0 && arrSecs > 0) {
-    const isAliasTrain = /^[BCD]\d+$/i.test(rawTrain.trim()) || /^(CR|DUTY)\s*\d+$/i.test(rawTrain.trim());
+    const is3DigitTrain = Number(searchTid) >= 201 && Number(searchTid) <= 235;
+    const isAliasTrain = !is3DigitTrain && (/^[BCD]\d{1,2}$/i.test(rawTrain.trim()) || /^(CR|DUTY)\s*(0?[1-9]|[1-9][0-9])$/i.test(rawTrain.trim()));
+    const canonicalTid = is3DigitTrain ? searchTid : (Number(searchTid) >= 1 && Number(searchTid) <= 25 ? String(200 + Number(searchTid)) : searchTid);
     let wttRows = [];
 
     if (!isAliasTrain && searchTid) {
@@ -820,14 +823,14 @@ export function calculateLegKmsFromWTT(
         const rowSched = String(row.scheduleType || "WEEKDAY").toUpperCase();
         const rowTid = String(row.trainId || row.upTid || row.dnTid || "")
           .replace(/\D/g, "").trim();
-        return rowSched === normSchedule && (rowTid === searchTid || rowTid.endsWith(searchTid));
+        return rowSched === normSchedule && (rowTid === canonicalTid || rowTid === searchTid);
       });
 
       if (wttRows.length === 0) {
         wttRows = (WTT_MASTER_REGISTRY || []).filter((row) => {
           const rowTid = String(row.trainId || row.upTid || row.dnTid || "")
             .replace(/\D/g, "").trim();
-          return rowTid === searchTid || rowTid.endsWith(searchTid);
+          return rowTid === canonicalTid || rowTid === searchTid;
         });
       }
     }
@@ -1010,10 +1013,13 @@ export function calculateLegKmsFromWTT(
         finalKms = (typeof directDist === "number" && directDist > 0) ? parseFloat(directDist.toFixed(2)) : 35;
       }
 
-      // Add morning non-revenue induction distance if train starts from stabling siding/depot
-      const morningInduction = getInductionMovementKm(takeoverLocation, bStop.station);
-      if (morningInduction > 0) {
-        finalKms = parseFloat((finalKms + morningInduction).toFixed(2));
+      // Add morning non-revenue induction distance only if train starts from stabling siding/depot in early morning
+      const isEarlyMorning = depSecs > 0 && depSecs <= 8 * 3600;
+      if (isEarlyMorning && startIdx <= 1) {
+        const morningInduction = getInductionMovementKm(takeoverLocation, bStop.station);
+        if (morningInduction > 0) {
+          finalKms = parseFloat((finalKms + morningInduction).toFixed(2));
+        }
       }
 
       // Handle evening non-revenue stabling / depot handover:
@@ -1041,9 +1047,10 @@ export function calculateLegKmsFromWTT(
       }
 
       if (finalKms > 0) {
+        const boardingStnName = `${bStop.station} ${bStop.dir === "DOWN" ? "Dn" : "Up"}`;
         const alightingStnName = isDepotHand
           ? (handLower.includes("b") ? "DEPOT (B DHO)" : "DEPOT (P DHO via Rd-3)")
-          : `${aStop.station} ${hasEndDn ? "Dn" : "Up"}`;
+          : `${aStop.station} ${aStop.dir === "DOWN" ? "Dn" : "Up"}`;
 
         return {
           calculatedKms: finalKms,
@@ -1051,7 +1058,7 @@ export function calculateLegKmsFromWTT(
           matchSource: "WTT",
           trainNo: searchTid,
           direction: bStop.dir,
-          boardingStation: `${bStop.station} ${hasStartDn ? "Dn" : "Up"}`,
+          boardingStation: boardingStnName,
           boardingTime: bStop.timeStr,
           alightingStation: alightingStnName,
           alightingTime: aStop.timeStr,
@@ -1589,6 +1596,13 @@ export function enhanceRosterDuties(duties, scheduleType = "WEEKDAY") {
       const legKms = wttResult.calculatedKms || 0;
       totalDutyKms += legKms;
 
+      const resolvedBoarding = (wttResult.boardingStation && wttResult.boardingStation !== "N/A" && wttResult.boardingStation !== "--")
+        ? wttResult.boardingStation
+        : (trip.takeoverLocation || "N/A");
+      const resolvedAlighting = (wttResult.alightingStation && wttResult.alightingStation !== "N/A" && wttResult.alightingStation !== "--")
+        ? wttResult.alightingStation
+        : (trip.handoverLocation || "N/A");
+
       return {
         ...trip,
         legNumber: trip.legNumber || idx + 1,
@@ -1601,10 +1615,12 @@ export function enhanceRosterDuties(duties, scheduleType = "WEEKDAY") {
           : wttResult.matchSource === "NON_RUNNING" ? "NON_RUNNING"
           : "UNMATCHED",
         direction: wttResult.direction || "N/A",
-        boardingStation: wttResult.boardingStation || trip.takeoverLocation || "N/A",
+        boardingStation: resolvedBoarding,
         boardingTime: wttResult.boardingTime || trip.timeFrm || "N/A",
-        alightingStation: wttResult.alightingStation || trip.handoverLocation || "N/A",
+        alightingStation: resolvedAlighting,
         alightingTime: wttResult.alightingTime || trip.timeTo || "N/A",
+        takeoverLocation: resolvedBoarding,
+        handoverLocation: resolvedAlighting,
         intermediateStations: wttResult.intermediateStations || [],
         segments: wttResult.segments || [],
         wttTripId: wttResult.wttTripId || null,
@@ -1622,7 +1638,6 @@ export function enhanceRosterDuties(duties, scheduleType = "WEEKDAY") {
       : "NON RUNNING";
 
     const computedLegs = computeDutyLegKms(duty, normScheduleType);
-    const finalKms = computedLegs.totalKm > 0 ? computedLegs.totalKm : totalDutyKms;
 
     // Synchronize computed leg distances and descriptive paths into trips array
     const syncedTrips = updatedTrips.map((trip, idx) => {
@@ -1646,18 +1661,48 @@ export function enhanceRosterDuties(duties, scheduleType = "WEEKDAY") {
       return trip;
     });
 
-    return {
+    const l1 = Number((syncedTrips[0]?.calculatedKms || computedLegs.leg1Km || 0).toFixed(2));
+    const l2 = Number((syncedTrips[1]?.calculatedKms || computedLegs.leg2Km || 0).toFixed(2));
+    const l3 = Number((syncedTrips[2]?.calculatedKms || computedLegs.leg3Km || 0).toFixed(2));
+    const l4 = Number((syncedTrips[3]?.calculatedKms || computedLegs.leg4Km || 0).toFixed(2));
+
+    if (syncedTrips[0]) syncedTrips[0].calculatedKms = l1;
+    if (syncedTrips[1]) syncedTrips[1].calculatedKms = l2;
+    if (syncedTrips[2]) syncedTrips[2].calculatedKms = l3;
+    if (syncedTrips[3]) syncedTrips[3].calculatedKms = l4;
+
+    const sumLegs = Number((l1 + l2 + l3 + l4).toFixed(2));
+    const finalKms = sumLegs > 0 ? sumLegs : (computedLegs.totalKm > 0 ? computedLegs.totalKm : totalDutyKms);
+
+    const dutyResult = {
       ...duty,
       kms: finalKms,
       totalKm: finalKms,
       totalKms: finalKms,
-      leg1Km: computedLegs.leg1Km,
-      leg2Km: computedLegs.leg2Km,
-      leg3Km: computedLegs.leg3Km,
-      leg4Km: computedLegs.leg4Km,
+      leg1Km: l1,
+      leg2Km: l2,
+      leg3Km: l3,
+      leg4Km: l4,
       trips: syncedTrips,
       validationResult,
     };
+    if (syncedTrips[0]?.takeoverLocation) {
+      dutyResult.leg1DepLoc = syncedTrips[0].takeoverLocation;
+      dutyResult.leg1ArrLoc = syncedTrips[0].handoverLocation;
+    }
+    if (syncedTrips[1]?.takeoverLocation) {
+      dutyResult.leg2DepLoc = syncedTrips[1].takeoverLocation;
+      dutyResult.leg2ArrLoc = syncedTrips[1].handoverLocation;
+    }
+    if (syncedTrips[2]?.takeoverLocation) {
+      dutyResult.leg3DepLoc = syncedTrips[2].takeoverLocation;
+      dutyResult.leg3ArrLoc = syncedTrips[2].handoverLocation;
+    }
+    if (syncedTrips[3]?.takeoverLocation) {
+      dutyResult.leg4DepLoc = syncedTrips[3].takeoverLocation;
+      dutyResult.leg4ArrLoc = syncedTrips[3].handoverLocation;
+    }
+    return dutyResult;
   });
 }
 
@@ -1904,7 +1949,7 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
   let leg3Km = (calc3 > 0) ? calc3 : stored3;
   let leg4Km = (calc4 > 0) ? calc4 : stored4;
 
-  if (dutyNoClean === '55') {
+  if (dutyNoClean === '55' && (l1From.toLowerCase().includes('ngsa') || l1From.toLowerCase().includes('pkt') || duty.signOnLocation?.toLowerCase().includes('ngsa') || (calc1 <= 2 && leg1Km <= 2))) {
     // Duty 55 Leg 1: Starts NGSA PKT (NGSA_PT -6.528 KM) -> NGSA (-6.088 KM) -> RVR (+14.180 KM) -> PYID (-3.020 KM)
     // Precise Actual Kms: 0.440 + 20.268 + 17.200 = 37.908 KM (approx 37.91 KM, round off 38 KM)
     leg1Km = 37.91;
@@ -1972,12 +2017,12 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
     }
   }
 
-  // Tier 3: Preloaded / Validated Leg Sum fallback, else 0 KM
-  const totalKm = rosterTotalKm > 0
-    ? rosterTotalKm
-    : (preloadedTotalKm > 0
-        ? preloadedTotalKm
-        : (calculatedTotal > 0 ? calculatedTotal : 0));
+  // Tier 3: Calculated Leg Sum (LEG 1 + LEG 2 + LEG 3 + LEG 4) strictly prioritized over stale roster totals
+  const totalKm = calculatedTotal > 0
+    ? calculatedTotal
+    : (rosterTotalKm > 0
+        ? rosterTotalKm
+        : (preloadedTotalKm > 0 ? preloadedTotalKm : 0));
 
   return { leg1Km, leg2Km, leg3Km, leg4Km, totalKm };
 }

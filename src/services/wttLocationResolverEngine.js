@@ -56,7 +56,11 @@ export function resolveWttLocation(
   customWttRows = null
 ) {
   const normSchedule = normalizeScheduleDay(scheduleType);
-  const cleanTid = String(trainId || '').replace(/^Train\s*/i, '').trim();
+  const rawClean = String(trainId || '').replace(/^(Train|Tr|No|T)\.?\s*/i, '').replace(/^(CR|Duty)\.?\s*/i, '').trim();
+  const digits = rawClean.replace(/\D/g, '').trim();
+  const is3Digit = Number(digits) >= 201 && Number(digits) <= 235;
+  const canonicalTid = is3Digit ? digits : (Number(digits) >= 1 && Number(digits) <= 25 ? String(200 + Number(digits)) : (digits || rawClean));
+  const cleanTid = canonicalTid;
   const rawHint = String(explicitHint || '').trim();
   const upHint = rawHint.toUpperCase();
 
@@ -77,10 +81,10 @@ export function resolveWttLocation(
   const candidateRows = allRows.filter(r => {
     const sType = normalizeScheduleDay(r.scheduleType);
     if (sType !== normSchedule) return false;
-    const t = String(r.trainId || '').trim();
-    const dt = String(r.dnTid || '').trim();
-    const ut = String(r.upTid || '').trim();
-    return t === cleanTid || dt === cleanTid || ut === cleanTid;
+    const t = String(r.trainId || '').replace(/\D/g, '').trim();
+    const dt = String(r.dnTid || '').replace(/\D/g, '').trim();
+    const ut = String(r.upTid || '').replace(/\D/g, '').trim();
+    return t === cleanTid || dt === cleanTid || ut === cleanTid || t === digits || dt === digits || ut === digits;
   });
 
   let bestMatch = null;
@@ -454,7 +458,7 @@ export function inferAllLegLocations(duty, scheduleType = 'WEEKDAY', customWttRo
 
   // 3. Leg 2 TOC
   if (hasL2) {
-    const isGenericToc2 = !l2Toc || l2Toc === '--' || l2Toc === sOnLoc;
+    const isGenericToc2 = !l2Toc || l2Toc === '--' || l2Toc === sOnLoc || l2Toc === 'Depot' || l2Toc === 'Dpo-Rd3' || l2Toc.includes('RD3') || l2Toc.includes('Rd3');
     if (isSpecialDuty(l2Train)) {
       if (isGenericToc2) l2Toc = getSpecialLoc(l2Train, l1Hoc || sOnLoc);
     } else if (l2Train && l2DepT) {
@@ -484,7 +488,7 @@ export function inferAllLegLocations(duty, scheduleType = 'WEEKDAY', customWttRo
 
   // 5. Leg 3 TOC
   if (hasL3) {
-    const isGenericToc3 = !l3Toc || l3Toc === 'Depot' || l3Toc === 'PYID Depot SBL' || l3Toc === '--';
+    const isGenericToc3 = !l3Toc || l3Toc === 'Depot' || l3Toc === 'PYID Depot SBL' || l3Toc === '--' || l3Toc === 'Dpo-Rd3' || l3Toc.includes('RD3') || l3Toc.includes('Rd3') || l3Toc === sOnLoc;
     if (isSpecialDuty(l3Train)) {
       if (isGenericToc3) l3Toc = getSpecialLoc(l3Train, l2Hoc || sOnLoc);
     } else if (l3Train && l3DepT) {
@@ -513,11 +517,12 @@ export function inferAllLegLocations(duty, scheduleType = 'WEEKDAY', customWttRo
   }
 
   // 7. Leg 4 TOC
-  if (hasL4 && !l4Toc) {
+  if (hasL4) {
+    const isGenericToc4 = !l4Toc || l4Toc === 'Depot' || l4Toc === '--' || l4Toc === 'Dpo-Rd3' || l4Toc.includes('RD3') || l4Toc.includes('Rd3') || l4Toc === sOnLoc;
     if (isSpecialDuty(l4Train)) {
-      l4Toc = getSpecialLoc(l4Train, l3Hoc || sOnLoc);
+      if (isGenericToc4) l4Toc = getSpecialLoc(l4Train, l3Hoc || sOnLoc);
     } else if (l4Train && l4DepT) {
-      const resolved = resolveAndFormat(l4Train, l4DepT, l3Hoc || '');
+      const resolved = resolveAndFormat(l4Train, l4DepT, isGenericToc4 ? (l3Hoc || '') : l4Toc);
       if (resolved && resolved !== '--') l4Toc = resolved;
     }
     if (!l4Toc && l3Hoc) l4Toc = l3Hoc;

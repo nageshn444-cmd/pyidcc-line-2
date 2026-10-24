@@ -23,7 +23,7 @@ export default function ChronologicalMatrix({
   filteredUnifiedRows = [],
   dnStationOrder = [],
   upStationOrder = [],
-  editingCell = { rowId: null, direction: null, station: null, isTid: false, isMode: false },
+  editingCell = { rowId: null, direction: null, station: null, isTid: false, isMode: false, isTakeover: false, isHandover: false },
   setEditingCell = () => {},
   editValue = "",
   setEditValue = () => {},
@@ -196,11 +196,19 @@ export default function ChronologicalMatrix({
     isTidField,
     isModeField,
     value,
+    isTakeoverField = false,
+    isHandoverField = false,
   ) => {
     const updated = [...localRows];
     const row = updated[rowIndex];
     if (isTidField) {
       row.trainId = value;
+    } else if (isTakeoverField) {
+      row.takeoverLocation = value;
+      if (row.downTrip) row.downTrip.takeoverLocation = value;
+    } else if (isHandoverField) {
+      row.handoverLocation = value;
+      if (row.upTrip) row.upTrip.handoverLocation = value;
     } else if (isModeField) {
       const modeVal = (value || 'ATO').toUpperCase();
       if (direction === 'DN') {
@@ -241,11 +249,13 @@ export default function ChronologicalMatrix({
     const updated = [...localRows];
 
     const columns = [
+      { isTakeoverField: true, direction: "DN" },
       { isTidField: true },
       { isModeField: true, direction: "DN" },
       ...dnStationOrder.map((st) => ({ direction: "DN", station: st })),
       { isModeField: true, direction: "UP" },
       ...upStationOrder.map((st) => ({ direction: "UP", station: st })),
+      { isHandoverField: true, direction: "UP" },
     ];
 
     for (let i = 0; i < rows.length; i++) {
@@ -255,11 +265,13 @@ export default function ChronologicalMatrix({
         updated.push({
           id: `temp_${Date.now()}_${i}`,
           trainId: "",
+          takeoverLocation: "--",
+          handoverLocation: "--",
           mode: "ATO",
           dnMode: "ATO",
           upMode: "ATO",
-          downTrip: { isNew: true, mode: "ATO", stations: {} },
-          upTrip: { isNew: true, mode: "ATO", stations: {} },
+          downTrip: { isNew: true, mode: "ATO", takeoverLocation: "--", stations: {} },
+          upTrip: { isNew: true, mode: "ATO", handoverLocation: "--", stations: {} },
         });
       }
 
@@ -274,7 +286,13 @@ export default function ChronologicalMatrix({
         const val = rowValues[j].trim();
         const row = updated[targetRowIdx];
 
-        if (colDef.isTidField) {
+        if (colDef.isTakeoverField) {
+          row.takeoverLocation = val;
+          if (row.downTrip) row.downTrip.takeoverLocation = val;
+        } else if (colDef.isHandoverField) {
+          row.handoverLocation = val;
+          if (row.upTrip) row.upTrip.handoverLocation = val;
+        } else if (colDef.isTidField) {
           row.trainId = val;
         } else if (colDef.isModeField) {
           const modeVal = (val || 'ATO').toUpperCase();
@@ -313,11 +331,13 @@ export default function ChronologicalMatrix({
 
   const handleCopyRowToClipboard = (row) => {
     const rowData = [
+      row.takeoverLocation || row.downTrip?.takeoverLocation || "",
       row.trainId || "",
       row.dnMode || row.downTrip?.mode || row.mode || "ATO",
       ...dnStationOrder.map((st) => row.downTrip?.stations?.[st] || ""),
       row.upMode || row.upTrip?.mode || row.mode || "ATO",
       ...upStationOrder.map((st) => row.upTrip?.stations?.[st] || ""),
+      row.handoverLocation || row.upTrip?.handoverLocation || "",
     ];
     navigator.clipboard.writeText(rowData.join("\t"));
   };
@@ -328,11 +348,13 @@ export default function ChronologicalMatrix({
       {
         id: `temp_${Date.now()}`,
         trainId: "",
+        takeoverLocation: "--",
+        handoverLocation: "--",
         mode: "ATO",
         dnMode: "ATO",
         upMode: "ATO",
-        downTrip: { isNew: true, mode: "ATO", stations: {} },
-        upTrip: { isNew: true, mode: "ATO", stations: {} },
+        downTrip: { isNew: true, mode: "ATO", takeoverLocation: "--", stations: {} },
+        upTrip: { isNew: true, mode: "ATO", handoverLocation: "--", stations: {} },
       },
     ]);
   };
@@ -434,24 +456,28 @@ export default function ChronologicalMatrix({
                     if (sortedRows.length === 0)
                       return alert("No data to export");
                     const headers = [
-                      "TRAIN ID",
+                      "TAKEOVER_LOCATION",
+                      "TRAIN_ID",
                       "DN_MODE",
                       ...dnStationOrder.map((st) => `DN_${st}`),
                       "UP_MODE",
                       ...upStationOrder.map((st) => `UP_${st}`),
+                      "HANDOVER_LOCATION",
                     ];
                     const csvRows = [headers.join(",")];
                     sortedRows.forEach((row) => {
                       const csvRow = [
-                        row.trainId,
-                        row.dnMode || row.downTrip?.mode || row.mode || "ATO",
+                        `"${row.takeoverLocation || row.downTrip?.takeoverLocation || "--"}"`,
+                        `"${row.trainId}"`,
+                        `"${row.dnMode || row.downTrip?.mode || row.mode || "ATO"}"`,
                         ...dnStationOrder.map(
-                          (st) => row.downTrip?.stations?.[st] || "--",
+                          (st) => `"${row.downTrip?.stations?.[st] || "--"}"`,
                         ),
-                        row.upMode || row.upTrip?.mode || row.mode || "ATO",
+                        `"${row.upMode || row.upTrip?.mode || row.mode || "ATO"}"`,
                         ...upStationOrder.map(
-                          (st) => row.upTrip?.stations?.[st] || "--",
+                          (st) => `"${row.upTrip?.stations?.[st] || "--"}"`,
                         ),
+                        `"${row.handoverLocation || row.upTrip?.handoverLocation || "--"}"`,
                       ];
                       csvRows.push(csvRow.join(","));
                     });
@@ -486,7 +512,7 @@ export default function ChronologicalMatrix({
               : "max-h-[82vh] overflow-y-auto cursor-grab active:cursor-grabbing select-none"
           } [scrollbar-width:thin] [scrollbar-color:#334155_#0f172a] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-slate-950`}
         >
-          <table className="w-full text-left border-collapse font-mono text-[11px] min-w-[2000px]">
+          <table className="w-full text-left border-collapse font-mono text-[11px] min-w-[2250px]">
             <thead>
               <tr className="bg-slate-950 border-b border-slate-800 text-center sticky top-0 z-30">
                 {!isTrainOperator && (
@@ -495,25 +521,26 @@ export default function ChronologicalMatrix({
                   </th>
                 )}
                 <th
-                  className="w-20 border-r-2 border-slate-800"
-                  rowSpan="2"
-                >
-                  TRAIN ID
-                </th>
-                <th
-                  colSpan={dnStationOrder.length + 1}
+                  colSpan={dnStationOrder.length + 3}
                   className="text-amber-400 border-r-2 border-slate-800 py-1"
                 >
                   <ArrowDownCircle className="h-3.5 w-3.5 inline" /> DOWN LINE
                 </th>
                 <th
-                  colSpan={upStationOrder.length + 1}
+                  colSpan={upStationOrder.length + 2}
                   className="text-cyan-400 py-1"
                 >
                   <ArrowUpCircle className="h-3.5 w-3.5 inline" /> UP LINE
                 </th>
               </tr>
               <tr className="bg-slate-900 border-b-2 border-slate-800 text-center sticky top-7 z-30 text-[10px]">
+                {/* DOWN LINE SIDE */}
+                <th className="py-1.5 px-2 border-r border-slate-800 text-amber-300 font-bold bg-amber-950/20 whitespace-nowrap min-w-[130px]">
+                  TAKEOVER LOCATION
+                </th>
+                <th className="py-1.5 px-2 border-r-2 border-slate-800 text-slate-100 font-bold bg-slate-900 w-20">
+                  TRAIN ID
+                </th>
                 <th className="py-1.5 px-2 border-r border-slate-800 text-amber-300 font-bold bg-amber-950/20">
                   MODE
                 </th>
@@ -525,6 +552,7 @@ export default function ChronologicalMatrix({
                     {st}
                   </th>
                 ))}
+                {/* UP LINE SIDE */}
                 <th className="py-1.5 px-2 border-r border-slate-800 text-cyan-300 font-bold bg-cyan-950/20">
                   MODE
                 </th>
@@ -536,6 +564,9 @@ export default function ChronologicalMatrix({
                     {st}
                   </th>
                 ))}
+                <th className="py-1.5 px-2 border-r border-slate-800 text-cyan-300 font-bold bg-cyan-950/20 whitespace-nowrap min-w-[130px]">
+                  HANDOVER LOCATION
+                </th>
               </tr>
             </thead>
             <tbody className="text-center">
@@ -558,12 +589,20 @@ export default function ChronologicalMatrix({
                   stationName,
                   isTidField = false,
                   isModeField = false,
+                  isTakeoverField = false,
+                  isHandoverField = false,
                 ) => {
                   const targetTrip =
                     direction === "DN" ? row.downTrip : row.upTrip;
                   const currentColIdx = colIndexCounter++;
 
                   const getCellValue = () => {
+                    if (isTakeoverField) {
+                      return row.takeoverLocation || row.downTrip?.takeoverLocation || "--";
+                    }
+                    if (isHandoverField) {
+                      return row.handoverLocation || row.upTrip?.handoverLocation || "--";
+                    }
                     if (isTidField) return row.trainId || "";
                     if (isModeField) {
                       if (direction === "DN") {
@@ -601,7 +640,7 @@ export default function ChronologicalMatrix({
                       stationName === "PYID"
                         ? "bg-emerald-900/40"
                         : "bg-slate-950";
-                    const cellKey = `${row.id || rowIdx}-${direction}-${isModeField ? "mode" : (stationName || "tid")}`;
+                    const cellKey = `${row.id || rowIdx}-${direction}-${isTakeoverField ? "takeover" : (isHandoverField ? "handover" : (isModeField ? "mode" : (stationName || "tid")))}`;
 
                     if (isModeField) {
                       return (
@@ -622,6 +661,8 @@ export default function ChronologicalMatrix({
                                 false,
                                 true,
                                 e.target.value,
+                                false,
+                                false,
                               )
                             }
                             className={`w-full h-full min-h-7 bg-slate-950 ${direction === "DN" ? "text-amber-400" : "text-cyan-400"} text-center font-bold text-[10px] focus:outline-none focus:ring-1 focus:ring-emerald-500`}
@@ -637,12 +678,12 @@ export default function ChronologicalMatrix({
                     return (
                       <td
                         key={`edit-${cellKey}`}
-                        className={`p-0 border border-slate-800 ${editBg} ${isTidField ? "bg-slate-950 sticky left-0 z-20 border-r-2" : ""}`}
+                        className={`p-0 border border-slate-800 ${editBg} ${isTidField ? "bg-slate-950 border-r-2" : ""}`}
                       >
                         <input
                           id={`wtt-cell-${cellKey}`}
                           name={`wtt_cell_${cellKey}`}
-                          aria-label={`WTT ${direction} ${stationName || "tid"} Row ${rowIdx + 1}`}
+                          aria-label={`WTT ${direction} ${isTakeoverField ? "takeover" : (isHandoverField ? "handover" : (stationName || "tid"))} Row ${rowIdx + 1}`}
                           type="text"
                           value={baseValue === "--" ? "" : baseValue}
                           onChange={(e) =>
@@ -653,6 +694,8 @@ export default function ChronologicalMatrix({
                               isTidField,
                               false,
                               e.target.value,
+                              isTakeoverField,
+                              isHandoverField,
                             )
                           }
                           onPaste={(e) => handlePaste(e, rowIdx, currentColIdx)}
@@ -664,7 +707,7 @@ export default function ChronologicalMatrix({
 
                   // NORMAL VIEW MODE
                   let cellValue =
-                    baseValue !== "--" && delayVal > 0 && !isModeField
+                    baseValue !== "--" && delayVal > 0 && !isModeField && !isTakeoverField && !isHandoverField
                       ? addDelayToTime(baseValue, delayVal)
                       : baseValue;
 
@@ -673,10 +716,12 @@ export default function ChronologicalMatrix({
                     editingCell.direction === direction &&
                     editingCell.station === stationName &&
                     editingCell.isTid === isTidField &&
-                    editingCell.isMode === isModeField;
+                    editingCell.isMode === isModeField &&
+                    editingCell.isTakeover === isTakeoverField &&
+                    editingCell.isHandover === isHandoverField;
 
                   if (isEditing) {
-                    const singleEditKey = `${row.id}-${direction}-${isModeField ? "mode" : (stationName || "tid")}`;
+                    const singleEditKey = `${row.id}-${direction}-${isTakeoverField ? "takeover" : (isHandoverField ? "handover" : (isModeField ? "mode" : (stationName || "tid")))}`;
                     if (isModeField) {
                       return (
                         <td
@@ -695,6 +740,8 @@ export default function ChronologicalMatrix({
                                 null,
                                 false,
                                 true,
+                                false,
+                                false,
                               )
                             }
                             className="w-full bg-slate-950 text-emerald-400 text-center font-bold text-[10px] focus:outline-none"
@@ -711,12 +758,12 @@ export default function ChronologicalMatrix({
                     return (
                       <td
                         key={`edit-single-${singleEditKey}`}
-                        className="p-0.5 bg-slate-950 z-50"
+                        className="p-0.5 bg-slate-950 z-50 border border-emerald-500"
                       >
                         <input
                           id={`wtt-edit-${singleEditKey}`}
                           name={`wtt_edit_${singleEditKey}`}
-                          aria-label={`Edit ${direction} ${stationName || "tid"}`}
+                          aria-label={`Edit ${direction} ${isTakeoverField ? "Takeover" : (isHandoverField ? "Handover" : (stationName || "tid"))}`}
                           type="text"
                           value={editValue}
                           onChange={(e) => setEditValue(e.target.value)}
@@ -727,6 +774,8 @@ export default function ChronologicalMatrix({
                               stationName,
                               isTidField,
                               false,
+                              isTakeoverField,
+                              isHandoverField,
                             )
                           }
                           className="w-full bg-slate-950 text-emerald-400 text-center focus:outline-none"
@@ -736,11 +785,73 @@ export default function ChronologicalMatrix({
                     );
                   }
 
+                  if (isTakeoverField) {
+                    const takeoverVal = baseValue || "--";
+                    return (
+                      <td
+                        key={`cell-${row.id || rowIdx}-takeover`}
+                        onDoubleClick={() => {
+                          if (isTrainOperator) return;
+                          setEditingCell({
+                            rowId: row.id,
+                            direction,
+                            station: null,
+                            isTid: false,
+                            isMode: false,
+                            isTakeover: true,
+                            isHandover: false,
+                          });
+                          setEditValue(takeoverVal === "--" ? "" : takeoverVal);
+                        }}
+                        className={`py-2 px-1.5 border-r border-slate-800/40 ${isTrainOperator ? "" : "cursor-pointer"} text-center font-bold text-[10.5px]`}
+                      >
+                        {takeoverVal !== "--" ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950/60 text-amber-300 border border-amber-500/30 whitespace-nowrap shadow-sm">
+                            {takeoverVal}
+                          </span>
+                        ) : (
+                          <span className="text-slate-700 font-normal">--</span>
+                        )}
+                      </td>
+                    );
+                  }
+
+                  if (isHandoverField) {
+                    const handoverVal = baseValue || "--";
+                    return (
+                      <td
+                        key={`cell-${row.id || rowIdx}-handover`}
+                        onDoubleClick={() => {
+                          if (isTrainOperator) return;
+                          setEditingCell({
+                            rowId: row.id,
+                            direction,
+                            station: null,
+                            isTid: false,
+                            isMode: false,
+                            isTakeover: false,
+                            isHandover: true,
+                          });
+                          setEditValue(handoverVal === "--" ? "" : handoverVal);
+                        }}
+                        className={`py-2 px-1.5 border-r border-slate-800/40 ${isTrainOperator ? "" : "cursor-pointer"} text-center font-bold text-[10.5px]`}
+                      >
+                        {handoverVal !== "--" ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-950/60 text-cyan-300 border border-cyan-500/30 whitespace-nowrap shadow-sm">
+                            {handoverVal}
+                          </span>
+                        ) : (
+                          <span className="text-slate-700 font-normal">--</span>
+                        )}
+                      </td>
+                    );
+                  }
+
                   if (isTidField) {
                     return (
                       <td
                         key={`cell-${row.id || rowIdx}-tid`}
-                        className={`py-2 px-1.5 font-bold ${stickyTidBgClass} sticky left-0 border-r-2 border-slate-800 z-10 text-slate-100 text-center`}
+                        className={`py-2 px-1.5 font-bold ${stickyTidBgClass} border-r-2 border-slate-800 z-10 text-slate-100 text-center`}
                       >
                         {row.trainId}
                       </td>
@@ -760,6 +871,8 @@ export default function ChronologicalMatrix({
                             station: null,
                             isTid: false,
                             isMode: true,
+                            isTakeover: false,
+                            isHandover: false,
                           });
                           setEditValue(modeVal);
                         }}
@@ -797,6 +910,8 @@ export default function ChronologicalMatrix({
                           station: stationName,
                           isTid: isTidField,
                           isMode: false,
+                          isTakeover: false,
+                          isHandover: false,
                         });
                         setEditValue(baseValue);
                       }}
@@ -832,11 +947,13 @@ export default function ChronologicalMatrix({
                         </button>
                       </td>
                     )}
-                    {renderWttCell("DN", null, true, false)}
-                    {renderWttCell("DN", null, false, true)}
-                    {dnStationOrder.map((st) => renderWttCell("DN", st, false, false))}
-                    {renderWttCell("UP", null, false, true)}
-                    {upStationOrder.map((st) => renderWttCell("UP", st, false, false))}
+                    {renderWttCell("DN", null, false, false, true, false)}
+                    {renderWttCell("DN", null, true, false, false, false)}
+                    {renderWttCell("DN", null, false, true, false, false)}
+                    {dnStationOrder.map((st) => renderWttCell("DN", st, false, false, false, false))}
+                    {renderWttCell("UP", null, false, true, false, false)}
+                    {upStationOrder.map((st) => renderWttCell("UP", st, false, false, false, false))}
+                    {renderWttCell("UP", null, false, false, false, true)}
                   </tr>
                 );
               })}

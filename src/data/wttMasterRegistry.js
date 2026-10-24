@@ -28,10 +28,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "05:10:00",
         "BIET": "05:20:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.853Z"
+    "updatedAt": "2026-10-06T22:02:53.853Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_2",
@@ -62,10 +65,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "05:20:00",
         "NGSA": "05:30:00",
         "BIET": "05:37:27"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.853Z"
+    "updatedAt": "2026-10-06T22:02:53.853Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_3",
@@ -96,10 +102,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "05:35:00",
         "BIET": "05:42:27"
-      }
+      },
+      "handoverLocation": "NLC UP"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.853Z"
+    "updatedAt": "2026-10-06T22:02:53.853Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "NLC UP"
   },
   {
     "id": "wtt_weekday_row_4",
@@ -129,7 +138,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "--",
         "PUTH": "--",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "ID 206 Pilot PYID Up to BIET Up"
     },
     "upTrip": {
       "id": "wtt_weekday_row_4_up",
@@ -148,10 +158,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "05:50:00",
         "BIET": "05:57:27"
-      }
+      },
+      "handoverLocation": "PUTH UP"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.854Z"
+    "updatedAt": "2026-10-06T22:02:53.854Z",
+    "takeoverLocation": "ID 206 Pilot PYID Up to BIET Up",
+    "handoverLocation": "PUTH UP"
   },
   {
     "id": "wtt_weekday_row_5",
@@ -181,7 +194,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "--",
         "PUTH": "--",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_5_up",
@@ -200,10 +214,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "05:53:12",
         "NGSA": "05:59:00",
         "BIET": "06:05:00"
-      }
+      },
+      "handoverLocation": "APTS UP"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.854Z"
+    "updatedAt": "2026-10-06T22:02:53.854Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "APTS UP"
   },
   {
     "id": "wtt_weekday_row_6",
@@ -234,10 +251,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "06:03:12",
         "NGSA": "06:09:00",
         "BIET": "06:15:00"
-      }
+      },
+      "handoverLocation": "APTS DN"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.854Z"
+    "updatedAt": "2026-10-06T22:02:53.854Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "APTS DN"
   },
   {
     "id": "wtt_weekday_row_7",
@@ -267,7 +287,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "--",
         "PUTH": "05:10:00",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_7_up",
@@ -286,10 +307,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "06:18:12",
         "NGSA": "06:24:00",
         "BIET": "06:30:00"
-      }
+      },
+      "handoverLocation": "PUTH DN"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.854Z"
+    "updatedAt": "2026-10-06T22:02:53.854Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "PUTH DN"
   },
   {
     "id": "wtt_weekday_row_8",
@@ -319,7 +343,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "--",
         "PUTH": "--",
         "APTS": "05:40:00"
-      }
+      },
+      "takeoverLocation": "SP Dn Pf"
     },
     "upTrip": {
       "id": "wtt_weekday_row_8_up",
@@ -338,10 +363,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "06:33:12",
         "NGSA": "06:39:00",
         "BIET": "06:45:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.854Z"
+    "updatedAt": "2026-10-06T22:02:53.854Z",
+    "takeoverLocation": "SP Dn Pf",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_9",
@@ -371,7 +399,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "--",
         "PUTH": "05:40:00",
         "APTS": "05:50:41"
-      }
+      },
+      "takeoverLocation": "NG DnPf"
     },
     "upTrip": {
       "id": "wtt_weekday_row_9_up",
@@ -390,10 +419,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "06:48:12",
         "NGSA": "06:54:00",
         "BIET": "07:00:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.854Z"
+    "updatedAt": "2026-10-06T22:02:53.854Z",
+    "takeoverLocation": "NG DnPf",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_10",
@@ -423,7 +455,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "05:51:25",
         "PUTH": "05:58:52",
         "APTS": "06:09:33"
-      }
+      },
+      "takeoverLocation": "BEIT DnPf"
     },
     "upTrip": {
       "id": "wtt_weekday_row_10_up",
@@ -442,10 +475,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "07:03:12",
         "NGSA": "07:09:00",
         "BIET": "07:15:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.854Z"
+    "updatedAt": "2026-10-06T22:02:53.854Z",
+    "takeoverLocation": "BEIT DnPf",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_11",
@@ -475,7 +511,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "06:04:52",
         "PUTH": "06:12:19",
         "APTS": "06:23:00"
-      }
+      },
+      "takeoverLocation": "BEIT UpPf"
     },
     "upTrip": {
       "id": "wtt_weekday_row_11_up",
@@ -494,10 +531,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "07:18:12",
         "NGSA": "07:24:00",
         "BIET": "07:30:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.854Z"
+    "updatedAt": "2026-10-06T22:02:53.854Z",
+    "takeoverLocation": "BEIT UpPf",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_12",
@@ -528,10 +568,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "N Pkt Induction, service from NGSA Up",
         "NGSA": "07:30:00",
         "BIET": "07:36:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.854Z"
+    "updatedAt": "2026-10-06T22:02:53.854Z",
+    "takeoverLocation": "NGSA Pkt",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_13",
@@ -561,7 +604,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "06:13:31",
         "PUTH": "06:20:19",
         "APTS": "06:30:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_13_up",
@@ -580,10 +624,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "07:33:12",
         "NGSA": "07:39:00",
         "BIET": "07:45:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.854Z"
+    "updatedAt": "2026-10-06T22:02:53.854Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_14",
@@ -613,7 +660,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "06:28:31",
         "PUTH": "06:35:19",
         "APTS": "06:45:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_14_up",
@@ -632,10 +680,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "07:48:12",
         "NGSA": "07:54:00",
         "BIET": "08:00:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.854Z"
+    "updatedAt": "2026-10-06T22:02:53.854Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_15",
@@ -665,7 +716,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "06:43:31",
         "PUTH": "06:50:19",
         "APTS": "07:00:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_15_up",
@@ -684,10 +736,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "07:58:12",
         "NGSA": "08:04:00",
         "BIET": "08:10:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.854Z"
+    "updatedAt": "2026-10-06T22:02:53.854Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_16",
@@ -717,7 +772,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "06:58:31",
         "PUTH": "07:05:19",
         "APTS": "07:15:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_16_up",
@@ -736,10 +792,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:08:12",
         "NGSA": "08:14:00",
         "BIET": "08:20:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.854Z"
+    "updatedAt": "2026-10-06T22:02:53.854Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_17",
@@ -769,7 +828,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:08:31",
         "PUTH": "07:15:19",
         "APTS": "07:25:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_17_up",
@@ -788,10 +848,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:18:12",
         "NGSA": "08:24:00",
         "BIET": "08:30:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.854Z"
+    "updatedAt": "2026-10-06T22:02:53.854Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_18",
@@ -821,7 +884,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:13:31",
         "PUTH": "07:20:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "PYID RD3"
     },
     "upTrip": {
       "id": "wtt_weekday_row_18_up",
@@ -840,10 +904,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:03:12",
         "NGSA": "08:09:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.854Z"
+    "updatedAt": "2026-10-06T22:02:53.854Z",
+    "takeoverLocation": "PYID RD3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_19",
@@ -873,7 +940,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:18:31",
         "PUTH": "07:25:19",
         "APTS": "07:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_19_up",
@@ -892,10 +960,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:28:12",
         "NGSA": "08:34:00",
         "BIET": "08:40:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.854Z"
+    "updatedAt": "2026-10-06T22:02:53.854Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_20",
@@ -925,7 +996,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:23:31",
         "PUTH": "07:30:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_weekday_row_20_up",
@@ -944,10 +1016,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:13:12",
         "NGSA": "08:19:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.855Z"
+    "updatedAt": "2026-10-06T22:02:53.855Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_21",
@@ -977,7 +1052,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:28:31",
         "PUTH": "07:35:19",
         "APTS": "07:45:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_21_up",
@@ -996,10 +1072,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:38:12",
         "NGSA": "08:44:00",
         "BIET": "08:50:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.855Z"
+    "updatedAt": "2026-10-06T22:02:53.855Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_22",
@@ -1029,7 +1108,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:33:31",
         "PUTH": "07:40:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_weekday_row_22_up",
@@ -1048,10 +1128,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:23:12",
         "NGSA": "08:29:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.855Z"
+    "updatedAt": "2026-10-06T22:02:53.855Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_23",
@@ -1081,7 +1164,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:38:31",
         "PUTH": "07:45:19",
         "APTS": "07:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_23_up",
@@ -1100,10 +1184,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:48:12",
         "NGSA": "08:54:00",
         "BIET": "09:00:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.855Z"
+    "updatedAt": "2026-10-06T22:02:53.855Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_24",
@@ -1133,7 +1220,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:43:31",
         "PUTH": "07:50:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_weekday_row_24_up",
@@ -1152,10 +1240,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:33:12",
         "NGSA": "08:39:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.855Z"
+    "updatedAt": "2026-10-06T22:02:53.855Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_25",
@@ -1185,7 +1276,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:48:31",
         "PUTH": "07:55:19",
         "APTS": "08:05:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_25_up",
@@ -1204,10 +1296,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:58:12",
         "NGSA": "09:04:00",
         "BIET": "09:10:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.855Z"
+    "updatedAt": "2026-10-06T22:02:53.855Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_26",
@@ -1237,7 +1332,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:53:31",
         "PUTH": "08:00:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_weekday_row_26_up",
@@ -1256,10 +1352,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:43:12",
         "NGSA": "08:49:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.855Z"
+    "updatedAt": "2026-10-06T22:02:53.855Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_27",
@@ -1289,7 +1388,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:58:31",
         "PUTH": "08:05:19",
         "APTS": "08:15:00"
-      }
+      },
+      "takeoverLocation": "BEIT DnBE"
     },
     "upTrip": {
       "id": "wtt_weekday_row_27_up",
@@ -1308,10 +1408,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:08:12",
         "NGSA": "09:14:00",
         "BIET": "09:20:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.855Z"
+    "updatedAt": "2026-10-06T22:02:53.855Z",
+    "takeoverLocation": "BEIT DnBE",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_28",
@@ -1341,7 +1444,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:03:31",
         "PUTH": "08:10:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_weekday_row_28_up",
@@ -1360,10 +1464,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:53:12",
         "NGSA": "08:59:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.855Z"
+    "updatedAt": "2026-10-06T22:02:53.855Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_29",
@@ -1393,7 +1500,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:08:31",
         "PUTH": "08:15:19",
         "APTS": "08:25:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_29_up",
@@ -1412,10 +1520,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:18:12",
         "NGSA": "09:24:00",
         "BIET": "09:30:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.855Z"
+    "updatedAt": "2026-10-06T22:02:53.855Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_30",
@@ -1445,7 +1556,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:13:31",
         "PUTH": "08:20:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_weekday_row_30_up",
@@ -1464,10 +1576,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:03:12",
         "NGSA": "09:09:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.855Z"
+    "updatedAt": "2026-10-06T22:02:53.855Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_31",
@@ -1497,7 +1612,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:18:31",
         "PUTH": "08:25:19",
         "APTS": "08:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_31_up",
@@ -1516,10 +1632,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:28:12",
         "NGSA": "09:34:00",
         "BIET": "09:40:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.855Z"
+    "updatedAt": "2026-10-06T22:02:53.855Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_32",
@@ -1549,7 +1668,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:23:31",
         "PUTH": "08:30:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_weekday_row_32_up",
@@ -1568,10 +1688,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:13:12",
         "NGSA": "09:19:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.855Z"
+    "updatedAt": "2026-10-06T22:02:53.855Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_33",
@@ -1601,7 +1724,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:28:31",
         "PUTH": "08:35:19",
         "APTS": "08:45:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_33_up",
@@ -1620,10 +1744,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:38:12",
         "NGSA": "09:44:00",
         "BIET": "09:50:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.855Z"
+    "updatedAt": "2026-10-06T22:02:53.855Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_34",
@@ -1653,7 +1780,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:33:31",
         "PUTH": "08:40:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_weekday_row_34_up",
@@ -1672,10 +1800,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:23:12",
         "NGSA": "09:29:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.855Z"
+    "updatedAt": "2026-10-06T22:02:53.855Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_35",
@@ -1705,7 +1836,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:38:31",
         "PUTH": "08:45:19",
         "APTS": "08:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_35_up",
@@ -1724,10 +1856,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:48:12",
         "NGSA": "09:54:00",
         "BIET": "10:00:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.855Z"
+    "updatedAt": "2026-10-06T22:02:53.855Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_36",
@@ -1757,7 +1892,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:43:31",
         "PUTH": "08:50:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_weekday_row_36_up",
@@ -1776,10 +1912,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:33:12",
         "NGSA": "09:39:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.855Z"
+    "updatedAt": "2026-10-06T22:02:53.855Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_37",
@@ -1809,7 +1948,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:48:31",
         "PUTH": "08:55:19",
         "APTS": "09:05:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_37_up",
@@ -1828,10 +1968,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:58:12",
         "NGSA": "10:04:00",
         "BIET": "10:10:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.855Z"
+    "updatedAt": "2026-10-06T22:02:53.855Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_38",
@@ -1861,7 +2004,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:53:31",
         "PUTH": "09:00:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_38_up",
@@ -1880,10 +2024,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:43:12",
         "NGSA": "09:49:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_39",
@@ -1913,7 +2060,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:58:31",
         "PUTH": "09:05:19",
         "APTS": "09:15:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_39_up",
@@ -1932,10 +2080,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:08:12",
         "NGSA": "10:14:00",
         "BIET": "10:20:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_40",
@@ -1965,7 +2116,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:03:31",
         "PUTH": "09:10:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_40_up",
@@ -1984,10 +2136,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:53:12",
         "NGSA": "09:59:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_41",
@@ -2017,7 +2172,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:08:31",
         "PUTH": "09:15:19",
         "APTS": "09:25:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_41_up",
@@ -2036,10 +2192,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:18:12",
         "NGSA": "10:24:00",
         "BIET": "10:30:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_42",
@@ -2069,7 +2228,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:13:31",
         "PUTH": "09:20:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_42_up",
@@ -2088,10 +2248,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:03:12",
         "NGSA": "10:09:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_43",
@@ -2121,7 +2284,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:18:31",
         "PUTH": "09:25:19",
         "APTS": "09:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_43_up",
@@ -2140,10 +2304,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:28:12",
         "NGSA": "10:34:00",
         "BIET": "10:40:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_44",
@@ -2173,7 +2340,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:23:31",
         "PUTH": "09:30:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_44_up",
@@ -2192,10 +2360,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:13:12",
         "NGSA": "10:19:00",
         "BIET": "10:25:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_45",
@@ -2225,7 +2396,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:28:31",
         "PUTH": "09:35:19",
         "APTS": "09:45:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_45_up",
@@ -2244,10 +2416,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:38:12",
         "NGSA": "10:44:00",
         "BIET": "10:50:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_46",
@@ -2277,7 +2452,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:33:31",
         "PUTH": "09:40:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_46_up",
@@ -2296,10 +2472,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:23:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_weekday_row_47",
@@ -2329,7 +2508,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:38:31",
         "PUTH": "09:45:19",
         "APTS": "09:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_47_up",
@@ -2348,10 +2528,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:48:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_weekday_row_48",
@@ -2381,7 +2564,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:43:31",
         "PUTH": "09:50:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_48_up",
@@ -2400,10 +2584,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:33:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_weekday_row_49",
@@ -2433,7 +2620,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:48:31",
         "PUTH": "09:55:19",
         "APTS": "10:05:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_49_up",
@@ -2452,10 +2640,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:58:12",
         "NGSA": "11:04:00",
         "BIET": "11:10:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_50",
@@ -2485,7 +2676,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:53:31",
         "PUTH": "10:00:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_50_up",
@@ -2504,10 +2696,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:43:12",
         "NGSA": "10:49:00",
         "BIET": "10:55:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_51",
@@ -2537,7 +2732,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:58:31",
         "PUTH": "10:05:19",
         "APTS": "10:15:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_51_up",
@@ -2556,10 +2752,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:08:12",
         "NGSA": "11:14:00",
         "BIET": "11:20:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_52",
@@ -2589,7 +2788,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:03:31",
         "PUTH": "10:10:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_52_up",
@@ -2608,10 +2808,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:53:12",
         "NGSA": "10:59:00",
         "BIET": "11:05:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_53",
@@ -2641,7 +2844,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:08:31",
         "PUTH": "10:15:19",
         "APTS": "10:25:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_53_up",
@@ -2660,10 +2864,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:18:12",
         "NGSA": "11:24:00",
         "BIET": "11:30:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_54",
@@ -2693,7 +2900,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:13:31",
         "PUTH": "10:20:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_54_up",
@@ -2712,10 +2920,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:03:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_weekday_row_55",
@@ -2745,7 +2956,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:18:31",
         "PUTH": "10:25:19",
         "APTS": "10:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_55_up",
@@ -2764,10 +2976,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:28:12",
         "NGSA": "11:34:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "NG PKT"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "NG PKT"
   },
   {
     "id": "wtt_weekday_row_56",
@@ -2797,7 +3012,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:23:31",
         "PUTH": "10:30:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_56_up",
@@ -2816,10 +3032,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:13:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_weekday_row_57",
@@ -2849,7 +3068,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:28:31",
         "PUTH": "10:35:19",
         "APTS": "10:45:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_57_up",
@@ -2868,10 +3088,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:41:12",
         "NGSA": "11:47:00",
         "BIET": "11:53:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_58",
@@ -2901,7 +3124,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:33:31",
         "PUTH": "10:40:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_58_up",
@@ -2920,10 +3144,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:23:12",
         "NGSA": "11:29:00",
         "BIET": "11:35:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_59",
@@ -2953,7 +3180,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:38:31",
         "PUTH": "10:45:19",
         "APTS": "10:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_59_up",
@@ -2972,10 +3200,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:48:12",
         "NGSA": "11:54:00",
         "BIET": "12:00:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_60",
@@ -3005,7 +3236,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:43:31",
         "PUTH": "10:50:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_60_up",
@@ -3024,10 +3256,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:34:12",
         "NGSA": "11:40:00",
         "BIET": "11:46:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_61",
@@ -3057,7 +3292,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:48:31",
         "PUTH": "10:55:19",
         "APTS": "11:05:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_61_up",
@@ -3076,10 +3312,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:58:12",
         "NGSA": "12:04:00",
         "BIET": "12:10:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_62",
@@ -3109,7 +3348,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:53:31",
         "PUTH": "11:00:19",
         "APTS": "11:10:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_62_up",
@@ -3128,10 +3368,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:04:12",
         "NGSA": "12:10:00",
         "BIET": "12:16:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_63",
@@ -3161,7 +3404,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:01:31",
         "PUTH": "11:08:19",
         "APTS": "11:18:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_63_up",
@@ -3180,10 +3424,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:12:12",
         "NGSA": "12:18:00",
         "BIET": "12:24:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_64",
@@ -3213,7 +3460,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:08:31",
         "PUTH": "11:15:19",
         "APTS": "11:25:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_64_up",
@@ -3232,10 +3480,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:18:12",
         "NGSA": "12:24:00",
         "BIET": "12:30:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_65",
@@ -3265,7 +3516,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:15:31",
         "PUTH": "11:22:19",
         "APTS": "11:32:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_65_up",
@@ -3284,10 +3536,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:25:12",
         "NGSA": "12:31:00",
         "BIET": "12:37:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_66",
@@ -3317,7 +3572,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:22:31",
         "PUTH": "11:29:19",
         "APTS": "11:39:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_66_up",
@@ -3336,10 +3592,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:33:12",
         "NGSA": "12:39:00",
         "BIET": "12:45:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.856Z"
+    "updatedAt": "2026-10-06T22:02:53.856Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_67",
@@ -3369,7 +3628,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:30:31",
         "PUTH": "11:37:19",
         "APTS": "11:47:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_67_up",
@@ -3388,10 +3648,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:41:12",
         "NGSA": "12:47:00",
         "BIET": "12:53:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.857Z"
+    "updatedAt": "2026-10-06T22:02:53.857Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_68",
@@ -3421,7 +3684,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:38:31",
         "PUTH": "11:45:19",
         "APTS": "11:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_68_up",
@@ -3440,10 +3704,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:49:12",
         "NGSA": "12:55:00",
         "BIET": "13:01:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.857Z"
+    "updatedAt": "2026-10-06T22:02:53.857Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_69",
@@ -3473,7 +3740,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:46:31",
         "PUTH": "11:53:19",
         "APTS": "12:03:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_69_up",
@@ -3492,10 +3760,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:57:12",
         "NGSA": "13:03:00",
         "BIET": "13:09:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.857Z"
+    "updatedAt": "2026-10-06T22:02:53.857Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_70",
@@ -3525,7 +3796,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:54:31",
         "PUTH": "12:01:19",
         "APTS": "12:11:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_70_up",
@@ -3544,10 +3816,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:05:12",
         "NGSA": "13:11:00",
         "BIET": "13:17:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.857Z"
+    "updatedAt": "2026-10-06T22:02:53.857Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_71",
@@ -3577,7 +3852,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:02:31",
         "PUTH": "12:09:19",
         "APTS": "12:19:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_71_up",
@@ -3596,10 +3872,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:13:12",
         "NGSA": "13:19:00",
         "BIET": "13:25:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.857Z"
+    "updatedAt": "2026-10-06T22:02:53.857Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_72",
@@ -3629,7 +3908,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:10:31",
         "PUTH": "12:17:19",
         "APTS": "12:27:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_72_up",
@@ -3648,10 +3928,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:21:12",
         "NGSA": "13:27:00",
         "BIET": "13:33:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.857Z"
+    "updatedAt": "2026-10-06T22:02:53.857Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_73",
@@ -3681,7 +3964,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:18:31",
         "PUTH": "12:25:19",
         "APTS": "12:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_73_up",
@@ -3700,10 +3984,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:29:12",
         "NGSA": "13:35:00",
         "BIET": "13:41:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.857Z"
+    "updatedAt": "2026-10-06T22:02:53.857Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_74",
@@ -3733,7 +4020,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:26:31",
         "PUTH": "12:33:19",
         "APTS": "12:43:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_74_up",
@@ -3752,10 +4040,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:37:12",
         "NGSA": "13:43:00",
         "BIET": "13:49:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.857Z"
+    "updatedAt": "2026-10-06T22:02:53.857Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_75",
@@ -3785,7 +4076,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:34:31",
         "PUTH": "12:41:19",
         "APTS": "12:51:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_75_up",
@@ -3804,10 +4096,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:45:12",
         "NGSA": "13:51:00",
         "BIET": "13:57:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.857Z"
+    "updatedAt": "2026-10-06T22:02:53.857Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_76",
@@ -3837,7 +4132,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:42:31",
         "PUTH": "12:49:19",
         "APTS": "12:59:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_76_up",
@@ -3856,10 +4152,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:53:12",
         "NGSA": "13:59:00",
         "BIET": "14:05:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.857Z"
+    "updatedAt": "2026-10-06T22:02:53.857Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_77",
@@ -3889,7 +4188,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:50:31",
         "PUTH": "12:57:19",
         "APTS": "13:07:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_77_up",
@@ -3908,10 +4208,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:01:12",
         "NGSA": "14:07:00",
         "BIET": "14:13:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.857Z"
+    "updatedAt": "2026-10-06T22:02:53.857Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_78",
@@ -3941,7 +4244,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:58:31",
         "PUTH": "13:05:19",
         "APTS": "13:15:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_78_up",
@@ -3960,10 +4264,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:09:12",
         "NGSA": "14:15:00",
         "BIET": "14:21:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.857Z"
+    "updatedAt": "2026-10-06T22:02:53.857Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_79",
@@ -3993,7 +4300,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:06:31",
         "PUTH": "13:13:19",
         "APTS": "13:23:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_79_up",
@@ -4012,10 +4320,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:17:12",
         "NGSA": "14:23:00",
         "BIET": "14:29:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.857Z"
+    "updatedAt": "2026-10-06T22:02:53.857Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_80",
@@ -4045,7 +4356,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:14:31",
         "PUTH": "13:21:19",
         "APTS": "13:31:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_80_up",
@@ -4064,10 +4376,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:25:12",
         "NGSA": "14:31:00",
         "BIET": "14:37:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.857Z"
+    "updatedAt": "2026-10-06T22:02:53.857Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_81",
@@ -4097,7 +4412,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:22:31",
         "PUTH": "13:29:19",
         "APTS": "13:39:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_81_up",
@@ -4116,10 +4432,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:33:12",
         "NGSA": "14:39:00",
         "BIET": "14:45:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.857Z"
+    "updatedAt": "2026-10-06T22:02:53.857Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_82",
@@ -4149,7 +4468,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:30:31",
         "PUTH": "13:37:19",
         "APTS": "13:47:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_82_up",
@@ -4168,10 +4488,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:41:12",
         "NGSA": "14:47:00",
         "BIET": "14:53:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.857Z"
+    "updatedAt": "2026-10-06T22:02:53.857Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_83",
@@ -4201,7 +4524,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:38:31",
         "PUTH": "13:45:19",
         "APTS": "13:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_83_up",
@@ -4220,10 +4544,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:49:12",
         "NGSA": "14:55:00",
         "BIET": "15:01:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.858Z"
+    "updatedAt": "2026-10-06T22:02:53.858Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_84",
@@ -4253,7 +4580,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:46:31",
         "PUTH": "13:53:19",
         "APTS": "14:03:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_84_up",
@@ -4272,10 +4600,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:57:12",
         "NGSA": "15:03:00",
         "BIET": "15:09:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.858Z"
+    "updatedAt": "2026-10-06T22:02:53.858Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_85",
@@ -4305,7 +4636,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:54:31",
         "PUTH": "14:01:19",
         "APTS": "14:11:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_85_up",
@@ -4324,10 +4656,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:05:12",
         "NGSA": "15:11:00",
         "BIET": "15:17:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.858Z"
+    "updatedAt": "2026-10-06T22:02:53.858Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_86",
@@ -4357,7 +4692,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:02:31",
         "PUTH": "14:09:19",
         "APTS": "14:19:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_86_up",
@@ -4376,10 +4712,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:13:12",
         "NGSA": "15:19:00",
         "BIET": "15:25:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.858Z"
+    "updatedAt": "2026-10-06T22:02:53.858Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_87",
@@ -4409,7 +4748,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:10:31",
         "PUTH": "14:17:19",
         "APTS": "14:27:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_87_up",
@@ -4428,10 +4768,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:21:12",
         "NGSA": "15:27:00",
         "BIET": "15:33:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.858Z"
+    "updatedAt": "2026-10-06T22:02:53.858Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_88",
@@ -4461,7 +4804,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:18:31",
         "PUTH": "14:25:19",
         "APTS": "14:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_88_up",
@@ -4480,10 +4824,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:29:12",
         "NGSA": "15:35:00",
         "BIET": "15:41:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.858Z"
+    "updatedAt": "2026-10-06T22:02:53.858Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_89",
@@ -4513,7 +4860,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:26:31",
         "PUTH": "14:33:19",
         "APTS": "14:43:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_89_up",
@@ -4532,10 +4880,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:37:12",
         "NGSA": "15:43:00",
         "BIET": "15:49:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.858Z"
+    "updatedAt": "2026-10-06T22:02:53.858Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_90",
@@ -4565,7 +4916,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:34:31",
         "PUTH": "14:41:19",
         "APTS": "14:51:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_90_up",
@@ -4584,10 +4936,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:45:12",
         "NGSA": "15:51:00",
         "BIET": "15:57:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.858Z"
+    "updatedAt": "2026-10-06T22:02:53.858Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_91",
@@ -4617,7 +4972,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:42:31",
         "PUTH": "14:49:19",
         "APTS": "14:59:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_91_up",
@@ -4636,10 +4992,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:53:12",
         "NGSA": "15:59:00",
         "BIET": "16:05:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.858Z"
+    "updatedAt": "2026-10-06T22:02:53.858Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_92",
@@ -4669,7 +5028,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:50:31",
         "PUTH": "14:57:19",
         "APTS": "15:07:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_92_up",
@@ -4688,10 +5048,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:01:12",
         "NGSA": "16:07:00",
         "BIET": "16:13:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.858Z"
+    "updatedAt": "2026-10-06T22:02:53.858Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_93",
@@ -4721,7 +5084,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:58:31",
         "PUTH": "15:05:19",
         "APTS": "15:15:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_93_up",
@@ -4740,10 +5104,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:08:12",
         "NGSA": "16:14:00",
         "BIET": "16:20:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.858Z"
+    "updatedAt": "2026-10-06T22:02:53.858Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_94",
@@ -4773,7 +5140,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:06:31",
         "PUTH": "15:13:19",
         "APTS": "15:23:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_94_up",
@@ -4792,10 +5160,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:17:12",
         "NGSA": "16:23:00",
         "BIET": "16:29:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.858Z"
+    "updatedAt": "2026-10-06T22:02:53.858Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_95",
@@ -4825,7 +5196,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:14:31",
         "PUTH": "15:21:19",
         "APTS": "15:31:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_95_up",
@@ -4844,10 +5216,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:25:12",
         "NGSA": "16:31:00",
         "BIET": "16:37:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.858Z"
+    "updatedAt": "2026-10-06T22:02:53.858Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_96",
@@ -4877,7 +5252,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:22:31",
         "PUTH": "15:29:19",
         "APTS": "15:39:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_96_up",
@@ -4896,10 +5272,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:33:12",
         "NGSA": "16:39:00",
         "BIET": "16:45:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.858Z"
+    "updatedAt": "2026-10-06T22:02:53.858Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_97",
@@ -4929,7 +5308,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:30:31",
         "PUTH": "15:37:19",
         "APTS": "15:47:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_97_up",
@@ -4948,10 +5328,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:41:12",
         "NGSA": "16:47:00",
         "BIET": "16:53:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.858Z"
+    "updatedAt": "2026-10-06T22:02:53.858Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_98",
@@ -4981,7 +5364,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:38:31",
         "PUTH": "15:45:19",
         "APTS": "15:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_98_up",
@@ -5000,10 +5384,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:48:12",
         "NGSA": "16:54:00",
         "BIET": "17:00:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.859Z"
+    "updatedAt": "2026-10-06T22:02:53.859Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_99",
@@ -5033,7 +5420,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:46:31",
         "PUTH": "15:53:19",
         "APTS": "16:03:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_99_up",
@@ -5052,10 +5440,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:57:12",
         "NGSA": "17:03:00",
         "BIET": "17:09:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.859Z"
+    "updatedAt": "2026-10-06T22:02:53.859Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_100",
@@ -5085,7 +5476,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:54:31",
         "PUTH": "16:01:19",
         "APTS": "16:11:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_100_up",
@@ -5104,10 +5496,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:04:12",
         "NGSA": "17:10:00",
         "BIET": "17:16:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.859Z"
+    "updatedAt": "2026-10-06T22:02:53.859Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_101",
@@ -5137,7 +5532,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:02:31",
         "PUTH": "16:09:19",
         "APTS": "16:19:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_101_up",
@@ -5156,10 +5552,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:13:12",
         "NGSA": "17:19:00",
         "BIET": "17:25:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.859Z"
+    "updatedAt": "2026-10-06T22:02:53.859Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_102",
@@ -5189,7 +5588,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:10:31",
         "PUTH": "16:17:19",
         "APTS": "16:27:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_102_up",
@@ -5208,10 +5608,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:20:12",
         "NGSA": "17:26:00",
         "BIET": "17:32:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.859Z"
+    "updatedAt": "2026-10-06T22:02:53.859Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_103",
@@ -5241,7 +5644,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:18:31",
         "PUTH": "16:25:19",
         "APTS": "16:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_103_up",
@@ -5260,10 +5664,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:28:12",
         "NGSA": "17:34:00",
         "BIET": "17:40:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.859Z"
+    "updatedAt": "2026-10-06T22:02:53.859Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_104",
@@ -5293,7 +5700,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:22:31",
         "PUTH": "RVR Turn Back",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "NGSA PKT"
     },
     "upTrip": {
       "id": "wtt_weekday_row_104_up",
@@ -5312,10 +5720,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:00:14",
         "NGSA": "PYID Turn Back",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.859Z"
+    "updatedAt": "2026-10-06T22:02:53.859Z",
+    "takeoverLocation": "NGSA PKT",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_105",
@@ -5345,7 +5756,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:26:31",
         "PUTH": "16:33:19",
         "APTS": "16:43:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_105_up",
@@ -5364,10 +5776,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:36:12",
         "NGSA": "17:42:00",
         "BIET": "17:48:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.860Z"
+    "updatedAt": "2026-10-06T22:02:53.860Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_106",
@@ -5397,7 +5812,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:34:31",
         "PUTH": "16:41:19",
         "APTS": "16:51:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_106_up",
@@ -5416,10 +5832,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:46:12",
         "NGSA": "17:52:00",
         "BIET": "17:58:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.860Z"
+    "updatedAt": "2026-10-06T22:02:53.860Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_107",
@@ -5449,7 +5868,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:38:31",
         "PUTH": "RVR Turn Back",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_weekday_row_107_up",
@@ -5468,10 +5888,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:17:14",
         "NGSA": "17:23:02",
         "BIET": "17:29:02"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.860Z"
+    "updatedAt": "2026-10-06T22:02:53.860Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_108",
@@ -5501,7 +5924,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:43:31",
         "PUTH": "16:50:19",
         "APTS": "17:00:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_108_up",
@@ -5520,10 +5944,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:57:12",
         "NGSA": "18:03:00",
         "BIET": "18:09:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.860Z"
+    "updatedAt": "2026-10-06T22:02:53.860Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_109",
@@ -5553,7 +5980,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:50:31",
         "PUTH": "16:57:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_109_up",
@@ -5572,10 +6000,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:41:12",
         "NGSA": "17:47:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.860Z"
+    "updatedAt": "2026-10-06T22:02:53.860Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_110",
@@ -5605,7 +6036,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:56:31",
         "PUTH": "17:03:19",
         "APTS": "17:13:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_110_up",
@@ -5624,10 +6056,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:07:12",
         "NGSA": "18:13:00",
         "BIET": "18:19:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.860Z"
+    "updatedAt": "2026-10-06T22:02:53.860Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_111",
@@ -5657,7 +6092,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:01:31",
         "PUTH": "17:08:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_111_up",
@@ -5676,10 +6112,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:52:12",
         "NGSA": "17:58:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.860Z"
+    "updatedAt": "2026-10-06T22:02:53.860Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_112",
@@ -5709,7 +6148,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:07:31",
         "PUTH": "17:14:19",
         "APTS": "17:24:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_112_up",
@@ -5728,10 +6168,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:17:12",
         "NGSA": "18:23:00",
         "BIET": "18:29:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.860Z"
+    "updatedAt": "2026-10-06T22:02:53.860Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_113",
@@ -5761,7 +6204,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:12:31",
         "PUTH": "17:19:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_weekday_row_113_up",
@@ -5780,10 +6224,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:02:12",
         "NGSA": "18:08:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.860Z"
+    "updatedAt": "2026-10-06T22:02:53.860Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_114",
@@ -5813,7 +6260,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:17:31",
         "PUTH": "17:24:19",
         "APTS": "17:34:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_114_up",
@@ -5832,10 +6280,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:27:12",
         "NGSA": "18:33:00",
         "BIET": "18:39:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.860Z"
+    "updatedAt": "2026-10-06T22:02:53.860Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_115",
@@ -5865,7 +6316,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:22:31",
         "PUTH": "17:29:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_weekday_row_115_up",
@@ -5884,10 +6336,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:12:12",
         "NGSA": "18:18:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.860Z"
+    "updatedAt": "2026-10-06T22:02:53.860Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_116",
@@ -5917,7 +6372,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:27:31",
         "PUTH": "17:34:19",
         "APTS": "17:44:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_116_up",
@@ -5936,10 +6392,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:37:12",
         "NGSA": "18:43:00",
         "BIET": "18:49:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.861Z"
+    "updatedAt": "2026-10-06T22:02:53.861Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_117",
@@ -5969,7 +6428,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:32:31",
         "PUTH": "17:39:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_117_up",
@@ -5988,10 +6448,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:22:12",
         "NGSA": "18:28:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.861Z"
+    "updatedAt": "2026-10-06T22:02:53.861Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_118",
@@ -6021,7 +6484,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:37:31",
         "PUTH": "17:44:19",
         "APTS": "17:54:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_118_up",
@@ -6040,10 +6504,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:47:12",
         "NGSA": "18:53:00",
         "BIET": "18:59:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.861Z"
+    "updatedAt": "2026-10-06T22:02:53.861Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_119",
@@ -6073,7 +6540,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:42:31",
         "PUTH": "17:49:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_119_up",
@@ -6092,10 +6560,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:32:12",
         "NGSA": "18:38:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.861Z"
+    "updatedAt": "2026-10-06T22:02:53.861Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_120",
@@ -6125,7 +6596,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:47:31",
         "PUTH": "17:54:19",
         "APTS": "18:04:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_120_up",
@@ -6144,10 +6616,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:57:12",
         "NGSA": "19:03:00",
         "BIET": "19:09:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.861Z"
+    "updatedAt": "2026-10-06T22:02:53.861Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_121",
@@ -6177,7 +6652,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:52:31",
         "PUTH": "17:59:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_weekday_row_121_up",
@@ -6196,10 +6672,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:42:12",
         "NGSA": "18:48:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.861Z"
+    "updatedAt": "2026-10-06T22:02:53.861Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_122",
@@ -6229,7 +6708,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:57:31",
         "PUTH": "18:04:19",
         "APTS": "18:14:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_122_up",
@@ -6248,10 +6728,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:07:12",
         "NGSA": "19:13:00",
         "BIET": "19:19:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.861Z"
+    "updatedAt": "2026-10-06T22:02:53.861Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_123",
@@ -6281,7 +6764,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:02:31",
         "PUTH": "18:09:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_weekday_row_123_up",
@@ -6300,10 +6784,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:52:12",
         "NGSA": "18:58:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.861Z"
+    "updatedAt": "2026-10-06T22:02:53.861Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_124",
@@ -6333,7 +6820,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:07:31",
         "PUTH": "18:14:19",
         "APTS": "18:24:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_124_up",
@@ -6352,10 +6840,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:17:12",
         "NGSA": "19:23:00",
         "BIET": "19:29:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.861Z"
+    "updatedAt": "2026-10-06T22:02:53.861Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_125",
@@ -6385,7 +6876,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:12:31",
         "PUTH": "18:19:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_125_up",
@@ -6404,10 +6896,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:02:12",
         "NGSA": "19:08:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.861Z"
+    "updatedAt": "2026-10-06T22:02:53.861Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_126",
@@ -6437,7 +6932,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:17:31",
         "PUTH": "18:24:19",
         "APTS": "18:34:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_126_up",
@@ -6456,10 +6952,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:27:12",
         "NGSA": "19:33:00",
         "BIET": "19:39:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.861Z"
+    "updatedAt": "2026-10-06T22:02:53.861Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_127",
@@ -6489,7 +6988,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:22:31",
         "PUTH": "18:29:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_127_up",
@@ -6508,10 +7008,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:12:12",
         "NGSA": "19:18:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.861Z"
+    "updatedAt": "2026-10-06T22:02:53.861Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_128",
@@ -6541,7 +7044,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:27:31",
         "PUTH": "18:34:19",
         "APTS": "18:44:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_128_up",
@@ -6560,10 +7064,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:37:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.861Z"
+    "updatedAt": "2026-10-06T22:02:53.861Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_weekday_row_129",
@@ -6593,7 +7100,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:32:31",
         "PUTH": "18:39:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_129_up",
@@ -6612,10 +7120,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:22:12",
         "NGSA": "19:28:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.861Z"
+    "updatedAt": "2026-10-06T22:02:53.861Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_130",
@@ -6645,7 +7156,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:37:31",
         "PUTH": "18:44:19",
         "APTS": "18:54:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_130_up",
@@ -6664,10 +7176,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:47:12",
         "NGSA": "19:53:00",
         "BIET": "19:59:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.861Z"
+    "updatedAt": "2026-10-06T22:02:53.861Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_131",
@@ -6697,7 +7212,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:42:31",
         "PUTH": "18:49:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_131_up",
@@ -6716,10 +7232,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:32:12",
         "NGSA": "19:38:00",
         "BIET": "19:44:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.861Z"
+    "updatedAt": "2026-10-06T22:02:53.861Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_132",
@@ -6749,7 +7268,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:47:31",
         "PUTH": "18:54:19",
         "APTS": "19:04:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_132_up",
@@ -6768,10 +7288,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:57:12",
         "NGSA": "20:03:00",
         "BIET": "20:09:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.862Z"
+    "updatedAt": "2026-10-06T22:02:53.862Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_133",
@@ -6801,7 +7324,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:52:31",
         "PUTH": "18:59:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_133_up",
@@ -6820,10 +7344,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:42:12",
         "NGSA": "19:48:00",
         "BIET": "19:54:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.862Z"
+    "updatedAt": "2026-10-06T22:02:53.862Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_134",
@@ -6853,7 +7380,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:57:31",
         "PUTH": "19:04:19",
         "APTS": "19:14:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_134_up",
@@ -6872,10 +7400,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:07:12",
         "NGSA": "20:13:00",
         "BIET": "20:19:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.862Z"
+    "updatedAt": "2026-10-06T22:02:53.862Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_135",
@@ -6905,7 +7436,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:02:31",
         "PUTH": "19:09:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_135_up",
@@ -6924,10 +7456,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:52:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.862Z"
+    "updatedAt": "2026-10-06T22:02:53.862Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_weekday_row_136",
@@ -6957,7 +7492,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:07:31",
         "PUTH": "19:14:19",
         "APTS": "19:24:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_136_up",
@@ -6976,10 +7512,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:17:12",
         "NGSA": "20:23:00",
         "BIET": "20:29:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.862Z"
+    "updatedAt": "2026-10-06T22:02:53.862Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_137",
@@ -7009,7 +7548,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:12:31",
         "PUTH": "19:19:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_137_up",
@@ -7028,10 +7568,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:02:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.862Z"
+    "updatedAt": "2026-10-06T22:02:53.862Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_weekday_row_138",
@@ -7061,7 +7604,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:17:31",
         "PUTH": "19:24:19",
         "APTS": "19:34:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_138_up",
@@ -7080,10 +7624,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:27:12",
         "NGSA": "20:33:00",
         "BIET": "20:39:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.862Z"
+    "updatedAt": "2026-10-06T22:02:53.862Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_139",
@@ -7113,7 +7660,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:22:31",
         "PUTH": "19:29:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_139_up",
@@ -7132,10 +7680,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:12:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.862Z"
+    "updatedAt": "2026-10-06T22:02:53.862Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_weekday_row_140",
@@ -7165,7 +7716,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:27:31",
         "PUTH": "19:34:19",
         "APTS": "19:44:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_140_up",
@@ -7184,10 +7736,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:37:12",
         "NGSA": "20:43:00",
         "BIET": "20:49:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.862Z"
+    "updatedAt": "2026-10-06T22:02:53.862Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_141",
@@ -7217,7 +7772,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:32:31",
         "PUTH": "19:39:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_141_up",
@@ -7236,10 +7792,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:22:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.862Z"
+    "updatedAt": "2026-10-06T22:02:53.862Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_weekday_row_142",
@@ -7269,7 +7828,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:37:31",
         "PUTH": "19:44:19",
         "APTS": "19:54:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_142_up",
@@ -7288,10 +7848,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:47:12",
         "NGSA": "20:53:00",
         "BIET": "20:59:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.862Z"
+    "updatedAt": "2026-10-06T22:02:53.862Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_143",
@@ -7321,7 +7884,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:42:31",
         "PUTH": "19:49:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_143_up",
@@ -7340,10 +7904,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:32:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.862Z"
+    "updatedAt": "2026-10-06T22:02:53.862Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_weekday_row_144",
@@ -7373,7 +7940,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:47:31",
         "PUTH": "19:54:19",
         "APTS": "20:04:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_144_up",
@@ -7392,10 +7960,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:00:12",
         "NGSA": "21:06:00",
         "BIET": "21:12:00"
-      }
+      },
+      "handoverLocation": "Rd3 Stbl"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.862Z"
+    "updatedAt": "2026-10-06T22:02:53.862Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "Rd3 Stbl"
   },
   {
     "id": "wtt_weekday_row_145",
@@ -7425,7 +7996,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:52:31",
         "PUTH": "19:59:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_145_up",
@@ -7444,10 +8016,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:42:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.862Z"
+    "updatedAt": "2026-10-06T22:02:53.862Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_weekday_row_146",
@@ -7477,7 +8052,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:57:31",
         "PUTH": "20:04:19",
         "APTS": "20:14:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_146_up",
@@ -7496,10 +8072,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:07:12",
         "NGSA": "21:13:00",
         "BIET": "21:19:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.862Z"
+    "updatedAt": "2026-10-06T22:02:53.862Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_147",
@@ -7529,7 +8108,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:02:31",
         "PUTH": "20:09:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_147_up",
@@ -7548,10 +8128,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:52:42",
         "NGSA": "20:58:30",
         "BIET": "21:04:30"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.862Z"
+    "updatedAt": "2026-10-06T22:02:53.862Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_148",
@@ -7581,7 +8164,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:07:31",
         "PUTH": "20:14:19",
         "APTS": "20:24:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_148_up",
@@ -7600,10 +8184,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:17:12",
         "NGSA": "21:23:00",
         "BIET": "21:29:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.862Z"
+    "updatedAt": "2026-10-06T22:02:53.862Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_149",
@@ -7633,7 +8220,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:12:31",
         "PUTH": "20:19:19",
         "APTS": "20:29:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_149_up",
@@ -7652,10 +8240,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:25:12",
         "NGSA": "21:31:00",
         "BIET": "21:37:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.862Z"
+    "updatedAt": "2026-10-06T22:02:53.862Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_150",
@@ -7685,7 +8276,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:20:31",
         "PUTH": "20:27:19",
         "APTS": "20:37:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_150_up",
@@ -7704,10 +8296,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:31:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.862Z"
+    "updatedAt": "2026-10-06T22:02:53.862Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_weekday_row_151",
@@ -7737,7 +8332,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:27:31",
         "PUTH": "20:34:19",
         "APTS": "20:44:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_151_up",
@@ -7756,10 +8352,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:37:12",
         "NGSA": "21:43:00",
         "BIET": "21:49:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.863Z"
+    "updatedAt": "2026-10-06T22:02:53.863Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_152",
@@ -7789,7 +8388,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:35:31",
         "PUTH": "20:42:19",
         "APTS": "20:52:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_152_up",
@@ -7808,10 +8408,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:46:12",
         "NGSA": "21:52:00",
         "BIET": "21:58:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.863Z"
+    "updatedAt": "2026-10-06T22:02:53.863Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_153",
@@ -7841,7 +8444,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:43:31",
         "PUTH": "20:50:19",
         "APTS": "21:00:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_153_up",
@@ -7860,10 +8464,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:54:12",
         "NGSA": "22:00:00",
         "BIET": "22:06:00"
-      }
+      },
+      "handoverLocation": "NG PKT   Friday to Dpo"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.863Z"
+    "updatedAt": "2026-10-06T22:02:53.863Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "NG PKT   Friday to Dpo"
   },
   {
     "id": "wtt_weekday_row_154",
@@ -7893,7 +8500,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:51:31",
         "PUTH": "20:58:19",
         "APTS": "21:08:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_154_up",
@@ -7912,10 +8520,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:02:12",
         "NGSA": "22:08:00",
         "BIET": "22:14:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.863Z"
+    "updatedAt": "2026-10-06T22:02:53.863Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_155",
@@ -7945,7 +8556,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:59:31",
         "PUTH": "21:06:19",
         "APTS": "21:16:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_155_up",
@@ -7964,10 +8576,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:10:12",
         "NGSA": "22:16:00",
         "BIET": "22:22:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.863Z"
+    "updatedAt": "2026-10-06T22:02:53.863Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_156",
@@ -7997,7 +8612,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:07:31",
         "PUTH": "21:14:19",
         "APTS": "21:24:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_156_up",
@@ -8016,10 +8632,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:18:12",
         "NGSA": "22:24:00",
         "BIET": "22:30:00"
-      }
+      },
+      "handoverLocation": "B DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.863Z"
+    "updatedAt": "2026-10-06T22:02:53.863Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "B DHO"
   },
   {
     "id": "wtt_weekday_row_157",
@@ -8049,7 +8668,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:17:31",
         "PUTH": "21:24:19",
         "APTS": "21:34:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_157_up",
@@ -8068,10 +8688,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:28:12",
         "NGSA": "22:34:00",
         "BIET": "22:40:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.863Z"
+    "updatedAt": "2026-10-06T22:02:53.863Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_158",
@@ -8101,7 +8724,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:27:31",
         "PUTH": "21:34:19",
         "APTS": "21:44:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_158_up",
@@ -8120,10 +8744,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:38:12",
         "NGSA": "22:44:00",
         "BIET": "22:50:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.863Z"
+    "updatedAt": "2026-10-06T22:02:53.863Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_159",
@@ -8153,7 +8780,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:37:31",
         "PUTH": "21:44:19",
         "APTS": "21:54:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_159_up",
@@ -8172,10 +8800,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:49:52",
         "NGSA": "22:56:20",
         "BIET": "23:02:40"
-      }
+      },
+      "handoverLocation": "BIET DnBE"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.863Z"
+    "updatedAt": "2026-10-06T22:02:53.863Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "BIET DnBE"
   },
   {
     "id": "wtt_weekday_row_160",
@@ -8205,7 +8836,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:47:31",
         "PUTH": "21:54:19",
         "APTS": "22:04:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_160_up",
@@ -8224,10 +8856,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:58:12",
         "NGSA": "23:04:00",
         "BIET": "23:10:00"
-      }
+      },
+      "handoverLocation": "B DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.863Z"
+    "updatedAt": "2026-10-06T22:02:53.863Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "B DHO"
   },
   {
     "id": "wtt_weekday_row_161",
@@ -8257,7 +8892,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:57:31",
         "PUTH": "22:04:19",
         "APTS": "22:14:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_161_up",
@@ -8276,10 +8912,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:08:12",
         "NGSA": "23:14:00",
         "BIET": "23:20:00"
-      }
+      },
+      "handoverLocation": "SP Dn Pf"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.863Z"
+    "updatedAt": "2026-10-06T22:02:53.863Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "SP Dn Pf"
   },
   {
     "id": "wtt_weekday_row_162",
@@ -8309,7 +8948,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "22:07:31",
         "PUTH": "22:14:19",
         "APTS": "22:24:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_162_up",
@@ -8328,10 +8968,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:18:12",
         "NGSA": "23:24:00",
         "BIET": "23:30:00"
-      }
+      },
+      "handoverLocation": "NG DnPf"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.863Z"
+    "updatedAt": "2026-10-06T22:02:53.863Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "NG DnPf"
   },
   {
     "id": "wtt_weekday_row_163",
@@ -8361,7 +9004,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "22:17:31",
         "PUTH": "22:24:19",
         "APTS": "22:34:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_163_up",
@@ -8380,10 +9024,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:28:12",
         "NGSA": "23:34:00",
         "BIET": "23:40:00"
-      }
+      },
+      "handoverLocation": "NG UpPf"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.863Z"
+    "updatedAt": "2026-10-06T22:02:53.863Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "NG UpPf"
   },
   {
     "id": "wtt_weekday_row_164",
@@ -8413,7 +9060,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "22:27:31",
         "PUTH": "22:34:19",
         "APTS": "22:44:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_164_up",
@@ -8432,10 +9080,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:41:12",
         "NGSA": "23:47:00",
         "BIET": "23:53:00"
-      }
+      },
+      "handoverLocation": "BEIT DnPf"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.863Z"
+    "updatedAt": "2026-10-06T22:02:53.863Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "BEIT DnPf"
   },
   {
     "id": "wtt_weekday_row_165",
@@ -8465,7 +9116,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "22:37:31",
         "PUTH": "22:44:19",
         "APTS": "22:54:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_165_up",
@@ -8484,10 +9136,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:54:19",
         "NGSA": "00:00:07",
         "BIET": "00:06:07"
-      }
+      },
+      "handoverLocation": "BEIT UpPf"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.864Z"
+    "updatedAt": "2026-10-06T22:02:53.864Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "BEIT UpPf"
   },
   {
     "id": "wtt_weekday_row_166",
@@ -8517,7 +9172,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "22:53:52",
         "PUTH": "23:01:19",
         "APTS": "23:12:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_166_up",
@@ -8536,10 +9192,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.864Z"
+    "updatedAt": "2026-10-06T22:02:53.864Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_167",
@@ -8569,7 +9228,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "23:08:52",
         "PUTH": "23:16:19",
         "APTS": "23:27:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_167_up",
@@ -8588,10 +9248,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.864Z"
+    "updatedAt": "2026-10-06T22:02:53.864Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_168",
@@ -8621,7 +9284,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "23:23:52",
         "PUTH": "23:31:19",
         "APTS": "23:42:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_168_up",
@@ -8640,10 +9304,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.864Z"
+    "updatedAt": "2026-10-06T22:02:53.864Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_169",
@@ -8673,7 +9340,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "23:38:52",
         "PUTH": "23:46:19",
         "APTS": "23:57:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_169_up",
@@ -8692,10 +9360,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.864Z"
+    "updatedAt": "2026-10-06T22:02:53.864Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_weekday_row_170",
@@ -8725,7 +9396,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "23:46:01",
         "PUTH": "23:52:49",
         "APTS": "00:02:30"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_weekday_row_170_up",
@@ -8744,10 +9416,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.864Z"
+    "updatedAt": "2026-10-06T22:02:53.864Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_1",
@@ -8778,10 +9453,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "04:40:00",
         "BIET": "04:50:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.938Z"
+    "updatedAt": "2026-10-06T22:02:53.938Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_2",
@@ -8812,10 +9490,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "04:55:00",
         "BIET": "05:02:27"
-      }
+      },
+      "handoverLocation": "NLC UP PF"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.938Z"
+    "updatedAt": "2026-10-06T22:02:53.938Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "NLC UP PF"
   },
   {
     "id": "wtt_monday_row_3",
@@ -8846,10 +9527,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "05:15:00",
         "BIET": "05:22:27"
-      }
+      },
+      "handoverLocation": "PUTH UP"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.938Z"
+    "updatedAt": "2026-10-06T22:02:53.938Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "PUTH UP"
   },
   {
     "id": "wtt_monday_row_4",
@@ -8879,7 +9563,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "--",
         "PUTH": "--",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_4_up",
@@ -8898,10 +9583,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "05:17:00",
         "NGSA": "05:23:08",
         "BIET": "05:30:42"
-      }
+      },
+      "handoverLocation": "APTS UP"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.939Z"
+    "updatedAt": "2026-10-06T22:02:53.939Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "APTS UP"
   },
   {
     "id": "wtt_monday_row_5",
@@ -8931,7 +9619,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "--",
         "PUTH": "--",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_5_up",
@@ -8950,10 +9639,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "05:28:12",
         "NGSA": "05:34:00",
         "BIET": "05:40:00"
-      }
+      },
+      "handoverLocation": "APTS DN"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.939Z"
+    "updatedAt": "2026-10-06T22:02:53.939Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "APTS DN"
   },
   {
     "id": "wtt_monday_row_6",
@@ -8984,10 +9676,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "05:48:12",
         "NGSA": "05:54:00",
         "BIET": "06:00:00"
-      }
+      },
+      "handoverLocation": "PUTH DN"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.939Z"
+    "updatedAt": "2026-10-06T22:02:53.939Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "PUTH DN"
   },
   {
     "id": "wtt_monday_row_7",
@@ -9017,7 +9712,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "--",
         "PUTH": "--",
         "APTS": "04:55:00"
-      }
+      },
+      "takeoverLocation": "SP Dn Pf"
     },
     "upTrip": {
       "id": "wtt_monday_row_7_up",
@@ -9036,10 +9732,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "06:03:12",
         "NGSA": "06:09:00",
         "BIET": "06:15:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.939Z"
+    "updatedAt": "2026-10-06T22:02:53.939Z",
+    "takeoverLocation": "SP Dn Pf",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_8",
@@ -9070,10 +9769,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "06:10:00",
         "NGSA": "06:15:48",
         "BIET": "06:21:48"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.939Z"
+    "updatedAt": "2026-10-06T22:02:53.939Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_9",
@@ -9103,7 +9805,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "--",
         "PUTH": "05:05:00",
         "APTS": "05:15:41"
-      }
+      },
+      "takeoverLocation": "NG DnPf"
     },
     "upTrip": {
       "id": "wtt_monday_row_9_up",
@@ -9122,10 +9825,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "06:18:12",
         "NGSA": "06:24:00",
         "BIET": "06:30:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.939Z"
+    "updatedAt": "2026-10-06T22:02:53.939Z",
+    "takeoverLocation": "NG DnPf",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_10",
@@ -9155,7 +9861,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "05:07:25",
         "PUTH": "05:14:52",
         "APTS": "05:25:33"
-      }
+      },
+      "takeoverLocation": "BEIT DnPf"
     },
     "upTrip": {
       "id": "wtt_monday_row_10_up",
@@ -9174,10 +9881,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "06:33:12",
         "NGSA": "06:39:00",
         "BIET": "06:45:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.939Z"
+    "updatedAt": "2026-10-06T22:02:53.939Z",
+    "takeoverLocation": "BEIT DnPf",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_11",
@@ -9207,7 +9917,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "05:29:52",
         "PUTH": "05:37:19",
         "APTS": "05:48:00"
-      }
+      },
+      "takeoverLocation": "BEIT UpPf"
     },
     "upTrip": {
       "id": "wtt_monday_row_11_up",
@@ -9226,10 +9937,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "06:48:12",
         "NGSA": "06:54:00",
         "BIET": "07:00:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.939Z"
+    "updatedAt": "2026-10-06T22:02:53.939Z",
+    "takeoverLocation": "BEIT UpPf",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_12",
@@ -9259,7 +9973,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "05:43:31",
         "PUTH": "05:50:19",
         "APTS": "06:00:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_12_up",
@@ -9278,10 +9993,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "07:03:12",
         "NGSA": "07:09:00",
         "BIET": "07:15:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.939Z"
+    "updatedAt": "2026-10-06T22:02:53.939Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_13",
@@ -9311,7 +10029,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "05:58:31",
         "PUTH": "06:05:19",
         "APTS": "06:15:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_13_up",
@@ -9330,10 +10049,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "07:18:12",
         "NGSA": "07:24:00",
         "BIET": "07:30:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.939Z"
+    "updatedAt": "2026-10-06T22:02:53.939Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_14",
@@ -9364,10 +10086,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "N Pkt Induction, service from NGSA Up",
         "NGSA": "07:30:00",
         "BIET": "07:36:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.939Z"
+    "updatedAt": "2026-10-06T22:02:53.939Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_15",
@@ -9397,7 +10122,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "06:13:31",
         "PUTH": "06:20:19",
         "APTS": "06:30:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_15_up",
@@ -9416,10 +10142,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "07:33:12",
         "NGSA": "07:39:00",
         "BIET": "07:45:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.939Z"
+    "updatedAt": "2026-10-06T22:02:53.939Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_16",
@@ -9449,7 +10178,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "06:28:31",
         "PUTH": "06:35:19",
         "APTS": "06:45:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_16_up",
@@ -9468,10 +10198,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "07:48:12",
         "NGSA": "07:54:00",
         "BIET": "08:00:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.939Z"
+    "updatedAt": "2026-10-06T22:02:53.939Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_17",
@@ -9501,7 +10234,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "06:43:31",
         "PUTH": "06:50:19",
         "APTS": "07:00:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_17_up",
@@ -9520,10 +10254,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "07:58:12",
         "NGSA": "08:04:00",
         "BIET": "08:10:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.939Z"
+    "updatedAt": "2026-10-06T22:02:53.939Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_18",
@@ -9553,7 +10290,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "06:58:31",
         "PUTH": "07:05:19",
         "APTS": "07:15:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_18_up",
@@ -9572,10 +10310,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:08:12",
         "NGSA": "08:14:00",
         "BIET": "08:20:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.939Z"
+    "updatedAt": "2026-10-06T22:02:53.939Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_19",
@@ -9605,7 +10346,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:08:31",
         "PUTH": "07:15:19",
         "APTS": "07:25:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_19_up",
@@ -9624,10 +10366,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:18:12",
         "NGSA": "08:24:00",
         "BIET": "08:30:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.939Z"
+    "updatedAt": "2026-10-06T22:02:53.939Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_20",
@@ -9657,7 +10402,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:13:31",
         "PUTH": "07:20:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "PYID RD3"
     },
     "upTrip": {
       "id": "wtt_monday_row_20_up",
@@ -9676,10 +10422,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:03:12",
         "NGSA": "08:09:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.939Z"
+    "updatedAt": "2026-10-06T22:02:53.939Z",
+    "takeoverLocation": "PYID RD3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_21",
@@ -9709,7 +10458,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:18:31",
         "PUTH": "07:25:19",
         "APTS": "07:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_21_up",
@@ -9728,10 +10478,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:28:12",
         "NGSA": "08:34:00",
         "BIET": "08:40:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.939Z"
+    "updatedAt": "2026-10-06T22:02:53.939Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_22",
@@ -9761,7 +10514,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:23:31",
         "PUTH": "07:30:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_monday_row_22_up",
@@ -9780,10 +10534,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:13:12",
         "NGSA": "08:19:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.940Z"
+    "updatedAt": "2026-10-06T22:02:53.940Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_23",
@@ -9813,7 +10570,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:28:31",
         "PUTH": "07:35:19",
         "APTS": "07:45:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_23_up",
@@ -9832,10 +10590,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:38:12",
         "NGSA": "08:44:00",
         "BIET": "08:50:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.940Z"
+    "updatedAt": "2026-10-06T22:02:53.940Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_24",
@@ -9865,7 +10626,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:33:31",
         "PUTH": "07:40:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_monday_row_24_up",
@@ -9884,10 +10646,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:23:12",
         "NGSA": "08:29:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.940Z"
+    "updatedAt": "2026-10-06T22:02:53.940Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_25",
@@ -9917,7 +10682,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:38:31",
         "PUTH": "07:45:19",
         "APTS": "07:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_25_up",
@@ -9936,10 +10702,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:48:12",
         "NGSA": "08:54:00",
         "BIET": "09:00:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.940Z"
+    "updatedAt": "2026-10-06T22:02:53.940Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_26",
@@ -9969,7 +10738,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:43:31",
         "PUTH": "07:50:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_monday_row_26_up",
@@ -9988,10 +10758,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:33:12",
         "NGSA": "08:39:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.940Z"
+    "updatedAt": "2026-10-06T22:02:53.940Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_27",
@@ -10021,7 +10794,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:48:31",
         "PUTH": "07:55:19",
         "APTS": "08:05:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_27_up",
@@ -10040,10 +10814,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:58:12",
         "NGSA": "09:04:00",
         "BIET": "09:10:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.940Z"
+    "updatedAt": "2026-10-06T22:02:53.940Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_28",
@@ -10073,7 +10850,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:53:31",
         "PUTH": "08:00:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_monday_row_28_up",
@@ -10092,10 +10870,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:43:12",
         "NGSA": "08:49:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.940Z"
+    "updatedAt": "2026-10-06T22:02:53.940Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_29",
@@ -10125,7 +10906,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:58:31",
         "PUTH": "08:05:19",
         "APTS": "08:15:00"
-      }
+      },
+      "takeoverLocation": "BEIT DnBE"
     },
     "upTrip": {
       "id": "wtt_monday_row_29_up",
@@ -10144,10 +10926,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:08:12",
         "NGSA": "09:14:00",
         "BIET": "09:20:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.940Z"
+    "updatedAt": "2026-10-06T22:02:53.940Z",
+    "takeoverLocation": "BEIT DnBE",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_30",
@@ -10177,7 +10962,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:03:31",
         "PUTH": "08:10:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_monday_row_30_up",
@@ -10196,10 +10982,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:53:12",
         "NGSA": "08:59:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.940Z"
+    "updatedAt": "2026-10-06T22:02:53.940Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_31",
@@ -10229,7 +11018,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:08:31",
         "PUTH": "08:15:19",
         "APTS": "08:25:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_31_up",
@@ -10248,10 +11038,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:18:12",
         "NGSA": "09:24:00",
         "BIET": "09:30:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.940Z"
+    "updatedAt": "2026-10-06T22:02:53.940Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_32",
@@ -10281,7 +11074,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:13:31",
         "PUTH": "08:20:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_monday_row_32_up",
@@ -10300,10 +11094,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:03:12",
         "NGSA": "09:09:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.940Z"
+    "updatedAt": "2026-10-06T22:02:53.940Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_33",
@@ -10333,7 +11130,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:18:31",
         "PUTH": "08:25:19",
         "APTS": "08:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_33_up",
@@ -10352,10 +11150,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:28:12",
         "NGSA": "09:34:00",
         "BIET": "09:40:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.940Z"
+    "updatedAt": "2026-10-06T22:02:53.940Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_34",
@@ -10385,7 +11186,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:23:31",
         "PUTH": "08:30:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_monday_row_34_up",
@@ -10404,10 +11206,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:13:12",
         "NGSA": "09:19:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.940Z"
+    "updatedAt": "2026-10-06T22:02:53.940Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_35",
@@ -10437,7 +11242,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:28:31",
         "PUTH": "08:35:19",
         "APTS": "08:45:00"
-      }
+      },
+      "takeoverLocation": "NGSA Pkt"
     },
     "upTrip": {
       "id": "wtt_monday_row_35_up",
@@ -10456,10 +11262,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:38:12",
         "NGSA": "09:44:00",
         "BIET": "09:50:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.940Z"
+    "updatedAt": "2026-10-06T22:02:53.940Z",
+    "takeoverLocation": "NGSA Pkt",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_36",
@@ -10489,7 +11298,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:33:31",
         "PUTH": "08:40:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_monday_row_36_up",
@@ -10508,10 +11318,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:23:12",
         "NGSA": "09:29:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.940Z"
+    "updatedAt": "2026-10-06T22:02:53.940Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_37",
@@ -10541,7 +11354,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:38:31",
         "PUTH": "08:45:19",
         "APTS": "08:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_37_up",
@@ -10560,10 +11374,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:48:12",
         "NGSA": "09:54:00",
         "BIET": "10:00:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.941Z"
+    "updatedAt": "2026-10-06T22:02:53.941Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_38",
@@ -10593,7 +11410,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:43:31",
         "PUTH": "08:50:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_monday_row_38_up",
@@ -10612,10 +11430,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:33:12",
         "NGSA": "09:39:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.941Z"
+    "updatedAt": "2026-10-06T22:02:53.941Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_39",
@@ -10645,7 +11466,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:48:31",
         "PUTH": "08:55:19",
         "APTS": "09:05:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_39_up",
@@ -10664,10 +11486,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:58:12",
         "NGSA": "10:04:00",
         "BIET": "10:10:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.941Z"
+    "updatedAt": "2026-10-06T22:02:53.941Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_40",
@@ -10697,7 +11522,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:53:31",
         "PUTH": "09:00:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_40_up",
@@ -10716,10 +11542,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:43:12",
         "NGSA": "09:49:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.941Z"
+    "updatedAt": "2026-10-06T22:02:53.941Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_41",
@@ -10749,7 +11578,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:58:31",
         "PUTH": "09:05:19",
         "APTS": "09:15:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_41_up",
@@ -10768,10 +11598,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:08:12",
         "NGSA": "10:14:00",
         "BIET": "10:20:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.941Z"
+    "updatedAt": "2026-10-06T22:02:53.941Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_42",
@@ -10801,7 +11634,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:03:31",
         "PUTH": "09:10:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_42_up",
@@ -10820,10 +11654,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:53:12",
         "NGSA": "09:59:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.941Z"
+    "updatedAt": "2026-10-06T22:02:53.941Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_43",
@@ -10853,7 +11690,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:08:31",
         "PUTH": "09:15:19",
         "APTS": "09:25:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_43_up",
@@ -10872,10 +11710,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:18:12",
         "NGSA": "10:24:00",
         "BIET": "10:30:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.941Z"
+    "updatedAt": "2026-10-06T22:02:53.941Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_44",
@@ -10905,7 +11746,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:13:31",
         "PUTH": "09:20:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_44_up",
@@ -10924,10 +11766,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:03:12",
         "NGSA": "10:09:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.942Z"
+    "updatedAt": "2026-10-06T22:02:53.942Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_45",
@@ -10957,7 +11802,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:18:31",
         "PUTH": "09:25:19",
         "APTS": "09:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_45_up",
@@ -10976,10 +11822,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:28:12",
         "NGSA": "10:34:00",
         "BIET": "10:40:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.942Z"
+    "updatedAt": "2026-10-06T22:02:53.942Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_46",
@@ -11009,7 +11858,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:23:31",
         "PUTH": "09:30:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_46_up",
@@ -11028,10 +11878,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:13:12",
         "NGSA": "10:19:00",
         "BIET": "10:25:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.942Z"
+    "updatedAt": "2026-10-06T22:02:53.942Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_47",
@@ -11061,7 +11914,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:28:31",
         "PUTH": "09:35:19",
         "APTS": "09:45:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_47_up",
@@ -11080,10 +11934,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:38:12",
         "NGSA": "10:44:00",
         "BIET": "10:50:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.942Z"
+    "updatedAt": "2026-10-06T22:02:53.942Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_48",
@@ -11113,7 +11970,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:33:31",
         "PUTH": "09:40:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_48_up",
@@ -11132,10 +11990,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:23:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.942Z"
+    "updatedAt": "2026-10-06T22:02:53.942Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_monday_row_49",
@@ -11165,7 +12026,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:38:31",
         "PUTH": "09:45:19",
         "APTS": "09:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_49_up",
@@ -11184,10 +12046,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:48:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.942Z"
+    "updatedAt": "2026-10-06T22:02:53.942Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_monday_row_50",
@@ -11217,7 +12082,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:43:31",
         "PUTH": "09:50:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_50_up",
@@ -11236,10 +12102,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:33:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.942Z"
+    "updatedAt": "2026-10-06T22:02:53.942Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_monday_row_51",
@@ -11269,7 +12138,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:48:31",
         "PUTH": "09:55:19",
         "APTS": "10:05:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_51_up",
@@ -11288,10 +12158,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:58:12",
         "NGSA": "11:04:00",
         "BIET": "11:10:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.942Z"
+    "updatedAt": "2026-10-06T22:02:53.942Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_52",
@@ -11321,7 +12194,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:53:31",
         "PUTH": "10:00:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_52_up",
@@ -11340,10 +12214,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:43:12",
         "NGSA": "10:49:00",
         "BIET": "10:55:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.942Z"
+    "updatedAt": "2026-10-06T22:02:53.942Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_53",
@@ -11373,7 +12250,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:58:31",
         "PUTH": "10:05:19",
         "APTS": "10:15:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_53_up",
@@ -11392,10 +12270,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:08:12",
         "NGSA": "11:14:00",
         "BIET": "11:20:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.942Z"
+    "updatedAt": "2026-10-06T22:02:53.942Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_54",
@@ -11425,7 +12306,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:03:31",
         "PUTH": "10:10:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_54_up",
@@ -11444,10 +12326,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:53:12",
         "NGSA": "10:59:00",
         "BIET": "11:05:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.942Z"
+    "updatedAt": "2026-10-06T22:02:53.942Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_55",
@@ -11477,7 +12362,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:08:31",
         "PUTH": "10:15:19",
         "APTS": "10:25:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_55_up",
@@ -11496,10 +12382,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:18:12",
         "NGSA": "11:24:00",
         "BIET": "11:30:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.942Z"
+    "updatedAt": "2026-10-06T22:02:53.942Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_56",
@@ -11529,7 +12418,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:13:31",
         "PUTH": "10:20:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_56_up",
@@ -11548,10 +12438,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:03:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.943Z"
+    "updatedAt": "2026-10-06T22:02:53.943Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_monday_row_57",
@@ -11581,7 +12474,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:18:31",
         "PUTH": "10:25:19",
         "APTS": "10:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_57_up",
@@ -11600,10 +12494,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:28:12",
         "NGSA": "11:34:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "NG PKT"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.943Z"
+    "updatedAt": "2026-10-06T22:02:53.943Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "NG PKT"
   },
   {
     "id": "wtt_monday_row_58",
@@ -11633,7 +12530,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:23:31",
         "PUTH": "10:30:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_58_up",
@@ -11652,10 +12550,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:13:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.943Z"
+    "updatedAt": "2026-10-06T22:02:53.943Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_monday_row_59",
@@ -11685,7 +12586,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:28:31",
         "PUTH": "10:35:19",
         "APTS": "10:45:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_59_up",
@@ -11704,10 +12606,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:41:12",
         "NGSA": "11:47:00",
         "BIET": "11:53:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.943Z"
+    "updatedAt": "2026-10-06T22:02:53.943Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_60",
@@ -11737,7 +12642,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:33:31",
         "PUTH": "10:40:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_60_up",
@@ -11756,10 +12662,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:23:12",
         "NGSA": "11:29:00",
         "BIET": "11:35:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.943Z"
+    "updatedAt": "2026-10-06T22:02:53.943Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_61",
@@ -11789,7 +12698,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:38:31",
         "PUTH": "10:45:19",
         "APTS": "10:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_61_up",
@@ -11808,10 +12718,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:48:12",
         "NGSA": "11:54:00",
         "BIET": "12:00:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.943Z"
+    "updatedAt": "2026-10-06T22:02:53.943Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_62",
@@ -11841,7 +12754,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:43:31",
         "PUTH": "10:50:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_62_up",
@@ -11860,10 +12774,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:34:12",
         "NGSA": "11:40:00",
         "BIET": "11:46:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.943Z"
+    "updatedAt": "2026-10-06T22:02:53.943Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_63",
@@ -11893,7 +12810,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:48:31",
         "PUTH": "10:55:19",
         "APTS": "11:05:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_63_up",
@@ -11912,10 +12830,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:58:12",
         "NGSA": "12:04:00",
         "BIET": "12:10:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.943Z"
+    "updatedAt": "2026-10-06T22:02:53.943Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_64",
@@ -11945,7 +12866,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:53:31",
         "PUTH": "11:00:19",
         "APTS": "11:10:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_64_up",
@@ -11964,10 +12886,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:04:12",
         "NGSA": "12:10:00",
         "BIET": "12:16:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.944Z"
+    "updatedAt": "2026-10-06T22:02:53.944Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_65",
@@ -11997,7 +12922,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:01:31",
         "PUTH": "11:08:19",
         "APTS": "11:18:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_65_up",
@@ -12016,10 +12942,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:12:12",
         "NGSA": "12:18:00",
         "BIET": "12:24:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.944Z"
+    "updatedAt": "2026-10-06T22:02:53.944Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_66",
@@ -12049,7 +12978,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:08:31",
         "PUTH": "11:15:19",
         "APTS": "11:25:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_66_up",
@@ -12068,10 +12998,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:18:12",
         "NGSA": "12:24:00",
         "BIET": "12:30:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.944Z"
+    "updatedAt": "2026-10-06T22:02:53.944Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_67",
@@ -12101,7 +13034,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:15:31",
         "PUTH": "11:22:19",
         "APTS": "11:32:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_67_up",
@@ -12120,10 +13054,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:25:12",
         "NGSA": "12:31:00",
         "BIET": "12:37:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.944Z"
+    "updatedAt": "2026-10-06T22:02:53.944Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_68",
@@ -12153,7 +13090,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:22:31",
         "PUTH": "11:29:19",
         "APTS": "11:39:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_68_up",
@@ -12172,10 +13110,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:33:12",
         "NGSA": "12:39:00",
         "BIET": "12:45:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.944Z"
+    "updatedAt": "2026-10-06T22:02:53.944Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_69",
@@ -12205,7 +13146,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:30:31",
         "PUTH": "11:37:19",
         "APTS": "11:47:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_69_up",
@@ -12224,10 +13166,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:41:12",
         "NGSA": "12:47:00",
         "BIET": "12:53:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.944Z"
+    "updatedAt": "2026-10-06T22:02:53.944Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_70",
@@ -12257,7 +13202,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:38:31",
         "PUTH": "11:45:19",
         "APTS": "11:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_70_up",
@@ -12276,10 +13222,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:49:12",
         "NGSA": "12:55:00",
         "BIET": "13:01:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.945Z"
+    "updatedAt": "2026-10-06T22:02:53.945Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_71",
@@ -12309,7 +13258,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:46:31",
         "PUTH": "11:53:19",
         "APTS": "12:03:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_71_up",
@@ -12328,10 +13278,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:57:12",
         "NGSA": "13:03:00",
         "BIET": "13:09:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.945Z"
+    "updatedAt": "2026-10-06T22:02:53.945Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_72",
@@ -12361,7 +13314,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:54:31",
         "PUTH": "12:01:19",
         "APTS": "12:11:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_72_up",
@@ -12380,10 +13334,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:05:12",
         "NGSA": "13:11:00",
         "BIET": "13:17:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.945Z"
+    "updatedAt": "2026-10-06T22:02:53.945Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_73",
@@ -12413,7 +13370,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:02:31",
         "PUTH": "12:09:19",
         "APTS": "12:19:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_73_up",
@@ -12432,10 +13390,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:13:12",
         "NGSA": "13:19:00",
         "BIET": "13:25:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.945Z"
+    "updatedAt": "2026-10-06T22:02:53.945Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_74",
@@ -12465,7 +13426,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:10:31",
         "PUTH": "12:17:19",
         "APTS": "12:27:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_74_up",
@@ -12484,10 +13446,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:21:12",
         "NGSA": "13:27:00",
         "BIET": "13:33:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.945Z"
+    "updatedAt": "2026-10-06T22:02:53.945Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_75",
@@ -12517,7 +13482,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:18:31",
         "PUTH": "12:25:19",
         "APTS": "12:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_75_up",
@@ -12536,10 +13502,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:29:12",
         "NGSA": "13:35:00",
         "BIET": "13:41:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.945Z"
+    "updatedAt": "2026-10-06T22:02:53.945Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_76",
@@ -12569,7 +13538,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:26:31",
         "PUTH": "12:33:19",
         "APTS": "12:43:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_76_up",
@@ -12588,10 +13558,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:37:12",
         "NGSA": "13:43:00",
         "BIET": "13:49:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.945Z"
+    "updatedAt": "2026-10-06T22:02:53.945Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_77",
@@ -12621,7 +13594,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:34:31",
         "PUTH": "12:41:19",
         "APTS": "12:51:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_77_up",
@@ -12640,10 +13614,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:45:12",
         "NGSA": "13:51:00",
         "BIET": "13:57:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.945Z"
+    "updatedAt": "2026-10-06T22:02:53.945Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_78",
@@ -12673,7 +13650,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:42:31",
         "PUTH": "12:49:19",
         "APTS": "12:59:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_78_up",
@@ -12692,10 +13670,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:53:12",
         "NGSA": "13:59:00",
         "BIET": "14:05:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.945Z"
+    "updatedAt": "2026-10-06T22:02:53.945Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_79",
@@ -12725,7 +13706,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:50:31",
         "PUTH": "12:57:19",
         "APTS": "13:07:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_79_up",
@@ -12744,10 +13726,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:01:12",
         "NGSA": "14:07:00",
         "BIET": "14:13:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.945Z"
+    "updatedAt": "2026-10-06T22:02:53.945Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_80",
@@ -12777,7 +13762,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:58:31",
         "PUTH": "13:05:19",
         "APTS": "13:15:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_80_up",
@@ -12796,10 +13782,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:09:12",
         "NGSA": "14:15:00",
         "BIET": "14:21:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.945Z"
+    "updatedAt": "2026-10-06T22:02:53.945Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_81",
@@ -12829,7 +13818,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:06:31",
         "PUTH": "13:13:19",
         "APTS": "13:23:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_81_up",
@@ -12848,10 +13838,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:17:12",
         "NGSA": "14:23:00",
         "BIET": "14:29:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.945Z"
+    "updatedAt": "2026-10-06T22:02:53.945Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_82",
@@ -12881,7 +13874,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:14:31",
         "PUTH": "13:21:19",
         "APTS": "13:31:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_82_up",
@@ -12900,10 +13894,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:25:12",
         "NGSA": "14:31:00",
         "BIET": "14:37:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.945Z"
+    "updatedAt": "2026-10-06T22:02:53.945Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_83",
@@ -12933,7 +13930,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:22:31",
         "PUTH": "13:29:19",
         "APTS": "13:39:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_83_up",
@@ -12952,10 +13950,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:33:12",
         "NGSA": "14:39:00",
         "BIET": "14:45:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.945Z"
+    "updatedAt": "2026-10-06T22:02:53.945Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_84",
@@ -12985,7 +13986,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:30:31",
         "PUTH": "13:37:19",
         "APTS": "13:47:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_84_up",
@@ -13004,10 +14006,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:41:12",
         "NGSA": "14:47:00",
         "BIET": "14:53:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.946Z"
+    "updatedAt": "2026-10-06T22:02:53.946Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_85",
@@ -13037,7 +14042,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:38:31",
         "PUTH": "13:45:19",
         "APTS": "13:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_85_up",
@@ -13056,10 +14062,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:49:12",
         "NGSA": "14:55:00",
         "BIET": "15:01:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.946Z"
+    "updatedAt": "2026-10-06T22:02:53.946Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_86",
@@ -13089,7 +14098,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:46:31",
         "PUTH": "13:53:19",
         "APTS": "14:03:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_86_up",
@@ -13108,10 +14118,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:57:12",
         "NGSA": "15:03:00",
         "BIET": "15:09:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.946Z"
+    "updatedAt": "2026-10-06T22:02:53.946Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_87",
@@ -13141,7 +14154,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:54:31",
         "PUTH": "14:01:19",
         "APTS": "14:11:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_87_up",
@@ -13160,10 +14174,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:05:12",
         "NGSA": "15:11:00",
         "BIET": "15:17:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.946Z"
+    "updatedAt": "2026-10-06T22:02:53.946Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_88",
@@ -13193,7 +14210,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:02:31",
         "PUTH": "14:09:19",
         "APTS": "14:19:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_88_up",
@@ -13212,10 +14230,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:13:12",
         "NGSA": "15:19:00",
         "BIET": "15:25:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.946Z"
+    "updatedAt": "2026-10-06T22:02:53.946Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_89",
@@ -13245,7 +14266,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:10:31",
         "PUTH": "14:17:19",
         "APTS": "14:27:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_89_up",
@@ -13264,10 +14286,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:21:12",
         "NGSA": "15:27:00",
         "BIET": "15:33:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.946Z"
+    "updatedAt": "2026-10-06T22:02:53.946Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_90",
@@ -13297,7 +14322,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:18:31",
         "PUTH": "14:25:19",
         "APTS": "14:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_90_up",
@@ -13316,10 +14342,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:29:12",
         "NGSA": "15:35:00",
         "BIET": "15:41:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.946Z"
+    "updatedAt": "2026-10-06T22:02:53.946Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_91",
@@ -13349,7 +14378,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:26:31",
         "PUTH": "14:33:19",
         "APTS": "14:43:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_91_up",
@@ -13368,10 +14398,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:37:12",
         "NGSA": "15:43:00",
         "BIET": "15:49:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.946Z"
+    "updatedAt": "2026-10-06T22:02:53.946Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_92",
@@ -13401,7 +14434,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:34:31",
         "PUTH": "14:41:19",
         "APTS": "14:51:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_92_up",
@@ -13420,10 +14454,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:45:12",
         "NGSA": "15:51:00",
         "BIET": "15:57:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.946Z"
+    "updatedAt": "2026-10-06T22:02:53.946Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_93",
@@ -13453,7 +14490,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:42:31",
         "PUTH": "14:49:19",
         "APTS": "14:59:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_93_up",
@@ -13472,10 +14510,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:53:12",
         "NGSA": "15:59:00",
         "BIET": "16:05:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.946Z"
+    "updatedAt": "2026-10-06T22:02:53.946Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_94",
@@ -13505,7 +14546,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:50:31",
         "PUTH": "14:57:19",
         "APTS": "15:07:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_94_up",
@@ -13524,10 +14566,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:01:12",
         "NGSA": "16:07:00",
         "BIET": "16:13:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.946Z"
+    "updatedAt": "2026-10-06T22:02:53.946Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_95",
@@ -13557,7 +14602,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:58:31",
         "PUTH": "15:05:19",
         "APTS": "15:15:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_95_up",
@@ -13576,10 +14622,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:08:12",
         "NGSA": "16:14:00",
         "BIET": "16:20:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.946Z"
+    "updatedAt": "2026-10-06T22:02:53.946Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_96",
@@ -13609,7 +14658,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:06:31",
         "PUTH": "15:13:19",
         "APTS": "15:23:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_96_up",
@@ -13628,10 +14678,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:17:12",
         "NGSA": "16:23:00",
         "BIET": "16:29:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.946Z"
+    "updatedAt": "2026-10-06T22:02:53.946Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_97",
@@ -13661,7 +14714,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:14:31",
         "PUTH": "15:21:19",
         "APTS": "15:31:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_97_up",
@@ -13680,10 +14734,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:25:12",
         "NGSA": "16:31:00",
         "BIET": "16:37:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.946Z"
+    "updatedAt": "2026-10-06T22:02:53.946Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_98",
@@ -13713,7 +14770,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:22:31",
         "PUTH": "15:29:19",
         "APTS": "15:39:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_98_up",
@@ -13732,10 +14790,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:33:12",
         "NGSA": "16:39:00",
         "BIET": "16:45:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.946Z"
+    "updatedAt": "2026-10-06T22:02:53.946Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_99",
@@ -13765,7 +14826,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:30:31",
         "PUTH": "15:37:19",
         "APTS": "15:47:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_99_up",
@@ -13784,10 +14846,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:41:12",
         "NGSA": "16:47:00",
         "BIET": "16:53:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.947Z"
+    "updatedAt": "2026-10-06T22:02:53.947Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_100",
@@ -13817,7 +14882,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:38:31",
         "PUTH": "15:45:19",
         "APTS": "15:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_100_up",
@@ -13836,10 +14902,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:48:12",
         "NGSA": "16:54:00",
         "BIET": "17:00:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.947Z"
+    "updatedAt": "2026-10-06T22:02:53.947Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_101",
@@ -13869,7 +14938,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:46:31",
         "PUTH": "15:53:19",
         "APTS": "16:03:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_101_up",
@@ -13888,10 +14958,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:57:12",
         "NGSA": "17:03:00",
         "BIET": "17:09:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.947Z"
+    "updatedAt": "2026-10-06T22:02:53.947Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_102",
@@ -13921,7 +14994,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:54:31",
         "PUTH": "16:01:19",
         "APTS": "16:11:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_102_up",
@@ -13940,10 +15014,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:04:12",
         "NGSA": "17:10:00",
         "BIET": "17:16:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.947Z"
+    "updatedAt": "2026-10-06T22:02:53.947Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_103",
@@ -13973,7 +15050,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:02:31",
         "PUTH": "16:09:19",
         "APTS": "16:19:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_103_up",
@@ -13992,10 +15070,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:13:12",
         "NGSA": "17:19:00",
         "BIET": "17:25:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.947Z"
+    "updatedAt": "2026-10-06T22:02:53.947Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_104",
@@ -14025,7 +15106,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:10:31",
         "PUTH": "16:17:19",
         "APTS": "16:27:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_104_up",
@@ -14044,10 +15126,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:20:12",
         "NGSA": "17:26:00",
         "BIET": "17:32:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.947Z"
+    "updatedAt": "2026-10-06T22:02:53.947Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_105",
@@ -14077,7 +15162,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:18:31",
         "PUTH": "16:25:19",
         "APTS": "16:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_105_up",
@@ -14096,10 +15182,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:28:12",
         "NGSA": "17:34:00",
         "BIET": "17:40:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.947Z"
+    "updatedAt": "2026-10-06T22:02:53.947Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_106",
@@ -14129,7 +15218,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:22:31",
         "PUTH": "RVR Turn Back",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "NGSA PKT"
     },
     "upTrip": {
       "id": "wtt_monday_row_106_up",
@@ -14148,10 +15238,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:00:14",
         "NGSA": "PYID Turn Back",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.947Z"
+    "updatedAt": "2026-10-06T22:02:53.947Z",
+    "takeoverLocation": "NGSA PKT",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_107",
@@ -14181,7 +15274,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:26:31",
         "PUTH": "16:33:19",
         "APTS": "16:43:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_107_up",
@@ -14200,10 +15294,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:36:12",
         "NGSA": "17:42:00",
         "BIET": "17:48:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.947Z"
+    "updatedAt": "2026-10-06T22:02:53.947Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_108",
@@ -14233,7 +15330,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:34:31",
         "PUTH": "16:41:19",
         "APTS": "16:51:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_108_up",
@@ -14252,10 +15350,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:46:12",
         "NGSA": "17:52:00",
         "BIET": "17:58:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.947Z"
+    "updatedAt": "2026-10-06T22:02:53.947Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_109",
@@ -14285,7 +15386,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:38:31",
         "PUTH": "RVR Turn Back",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_monday_row_109_up",
@@ -14304,10 +15406,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:17:14",
         "NGSA": "17:23:02",
         "BIET": "17:29:02"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.947Z"
+    "updatedAt": "2026-10-06T22:02:53.947Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_110",
@@ -14337,7 +15442,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:43:31",
         "PUTH": "16:50:19",
         "APTS": "17:00:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_110_up",
@@ -14356,10 +15462,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:57:12",
         "NGSA": "18:03:00",
         "BIET": "18:09:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.948Z"
+    "updatedAt": "2026-10-06T22:02:53.948Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_111",
@@ -14389,7 +15498,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:50:31",
         "PUTH": "16:57:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_111_up",
@@ -14408,10 +15518,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:41:12",
         "NGSA": "17:47:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.948Z"
+    "updatedAt": "2026-10-06T22:02:53.948Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_112",
@@ -14441,7 +15554,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:56:31",
         "PUTH": "17:03:19",
         "APTS": "17:13:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_112_up",
@@ -14460,10 +15574,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:07:12",
         "NGSA": "18:13:00",
         "BIET": "18:19:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.948Z"
+    "updatedAt": "2026-10-06T22:02:53.948Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_113",
@@ -14493,7 +15610,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:01:31",
         "PUTH": "17:08:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_113_up",
@@ -14512,10 +15630,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:52:12",
         "NGSA": "17:58:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.948Z"
+    "updatedAt": "2026-10-06T22:02:53.948Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_114",
@@ -14545,7 +15666,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:07:31",
         "PUTH": "17:14:19",
         "APTS": "17:24:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_114_up",
@@ -14564,10 +15686,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:17:12",
         "NGSA": "18:23:00",
         "BIET": "18:29:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.948Z"
+    "updatedAt": "2026-10-06T22:02:53.948Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_115",
@@ -14597,7 +15722,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:12:31",
         "PUTH": "17:19:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_monday_row_115_up",
@@ -14616,10 +15742,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:02:12",
         "NGSA": "18:08:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.948Z"
+    "updatedAt": "2026-10-06T22:02:53.948Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_116",
@@ -14649,7 +15778,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:17:31",
         "PUTH": "17:24:19",
         "APTS": "17:34:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_116_up",
@@ -14668,10 +15798,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:27:12",
         "NGSA": "18:33:00",
         "BIET": "18:39:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.948Z"
+    "updatedAt": "2026-10-06T22:02:53.948Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_117",
@@ -14701,7 +15834,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:22:31",
         "PUTH": "17:29:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_monday_row_117_up",
@@ -14720,10 +15854,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:12:12",
         "NGSA": "18:18:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.948Z"
+    "updatedAt": "2026-10-06T22:02:53.948Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_118",
@@ -14753,7 +15890,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:27:31",
         "PUTH": "17:34:19",
         "APTS": "17:44:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_118_up",
@@ -14772,10 +15910,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:37:12",
         "NGSA": "18:43:00",
         "BIET": "18:49:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.948Z"
+    "updatedAt": "2026-10-06T22:02:53.948Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_119",
@@ -14805,7 +15946,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:32:31",
         "PUTH": "17:39:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_119_up",
@@ -14824,10 +15966,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:22:12",
         "NGSA": "18:28:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.948Z"
+    "updatedAt": "2026-10-06T22:02:53.948Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_120",
@@ -14857,7 +16002,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:37:31",
         "PUTH": "17:44:19",
         "APTS": "17:54:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_120_up",
@@ -14876,10 +16022,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:47:12",
         "NGSA": "18:53:00",
         "BIET": "18:59:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.948Z"
+    "updatedAt": "2026-10-06T22:02:53.948Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_121",
@@ -14909,7 +16058,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:42:31",
         "PUTH": "17:49:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_121_up",
@@ -14928,10 +16078,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:32:12",
         "NGSA": "18:38:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.948Z"
+    "updatedAt": "2026-10-06T22:02:53.948Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_122",
@@ -14961,7 +16114,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:47:31",
         "PUTH": "17:54:19",
         "APTS": "18:04:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_122_up",
@@ -14980,10 +16134,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:57:12",
         "NGSA": "19:03:00",
         "BIET": "19:09:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.948Z"
+    "updatedAt": "2026-10-06T22:02:53.948Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_123",
@@ -15013,7 +16170,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:52:31",
         "PUTH": "17:59:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_monday_row_123_up",
@@ -15032,10 +16190,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:42:12",
         "NGSA": "18:48:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.948Z"
+    "updatedAt": "2026-10-06T22:02:53.948Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_124",
@@ -15065,7 +16226,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:57:31",
         "PUTH": "18:04:19",
         "APTS": "18:14:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_124_up",
@@ -15084,10 +16246,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:07:12",
         "NGSA": "19:13:00",
         "BIET": "19:19:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.948Z"
+    "updatedAt": "2026-10-06T22:02:53.948Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_125",
@@ -15117,7 +16282,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:02:31",
         "PUTH": "18:09:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo-Rd3"
     },
     "upTrip": {
       "id": "wtt_monday_row_125_up",
@@ -15136,10 +16302,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:52:12",
         "NGSA": "18:58:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.948Z"
+    "updatedAt": "2026-10-06T22:02:53.948Z",
+    "takeoverLocation": "Dpo-Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_126",
@@ -15169,7 +16338,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:07:31",
         "PUTH": "18:14:19",
         "APTS": "18:24:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_126_up",
@@ -15188,10 +16358,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:17:12",
         "NGSA": "19:23:00",
         "BIET": "19:29:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.949Z"
+    "updatedAt": "2026-10-06T22:02:53.949Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_127",
@@ -15221,7 +16394,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:12:31",
         "PUTH": "18:19:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_127_up",
@@ -15240,10 +16414,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:02:12",
         "NGSA": "19:08:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.949Z"
+    "updatedAt": "2026-10-06T22:02:53.949Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_128",
@@ -15273,7 +16450,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:17:31",
         "PUTH": "18:24:19",
         "APTS": "18:34:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_128_up",
@@ -15292,10 +16470,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:27:12",
         "NGSA": "19:33:00",
         "BIET": "19:39:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.949Z"
+    "updatedAt": "2026-10-06T22:02:53.949Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_129",
@@ -15325,7 +16506,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:22:31",
         "PUTH": "18:29:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_129_up",
@@ -15344,10 +16526,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:12:12",
         "NGSA": "19:18:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.949Z"
+    "updatedAt": "2026-10-06T22:02:53.949Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_130",
@@ -15377,7 +16562,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:27:31",
         "PUTH": "18:34:19",
         "APTS": "18:44:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_130_up",
@@ -15396,10 +16582,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:37:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.949Z"
+    "updatedAt": "2026-10-06T22:02:53.949Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_monday_row_131",
@@ -15429,7 +16618,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:32:31",
         "PUTH": "18:39:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_131_up",
@@ -15448,10 +16638,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:22:12",
         "NGSA": "19:28:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.949Z"
+    "updatedAt": "2026-10-06T22:02:53.949Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_132",
@@ -15481,7 +16674,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:37:31",
         "PUTH": "18:44:19",
         "APTS": "18:54:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_132_up",
@@ -15500,10 +16694,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:47:12",
         "NGSA": "19:53:00",
         "BIET": "19:59:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.949Z"
+    "updatedAt": "2026-10-06T22:02:53.949Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_133",
@@ -15533,7 +16730,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:42:31",
         "PUTH": "18:49:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_133_up",
@@ -15552,10 +16750,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:32:12",
         "NGSA": "19:38:00",
         "BIET": "19:44:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.949Z"
+    "updatedAt": "2026-10-06T22:02:53.949Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_134",
@@ -15585,7 +16786,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:47:31",
         "PUTH": "18:54:19",
         "APTS": "19:04:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_134_up",
@@ -15604,10 +16806,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:57:12",
         "NGSA": "20:03:00",
         "BIET": "20:09:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.949Z"
+    "updatedAt": "2026-10-06T22:02:53.949Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_135",
@@ -15637,7 +16842,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:52:31",
         "PUTH": "18:59:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_135_up",
@@ -15656,10 +16862,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:42:12",
         "NGSA": "19:48:00",
         "BIET": "19:54:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.949Z"
+    "updatedAt": "2026-10-06T22:02:53.949Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_136",
@@ -15689,7 +16898,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:57:31",
         "PUTH": "19:04:19",
         "APTS": "19:14:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_136_up",
@@ -15708,10 +16918,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:07:12",
         "NGSA": "20:13:00",
         "BIET": "20:19:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.949Z"
+    "updatedAt": "2026-10-06T22:02:53.949Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_137",
@@ -15741,7 +16954,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:02:31",
         "PUTH": "19:09:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_137_up",
@@ -15760,10 +16974,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:52:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.949Z"
+    "updatedAt": "2026-10-06T22:02:53.949Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_monday_row_138",
@@ -15793,7 +17010,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:07:31",
         "PUTH": "19:14:19",
         "APTS": "19:24:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_138_up",
@@ -15812,10 +17030,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:17:12",
         "NGSA": "20:23:00",
         "BIET": "20:29:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.949Z"
+    "updatedAt": "2026-10-06T22:02:53.949Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_139",
@@ -15845,7 +17066,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:12:31",
         "PUTH": "19:19:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_139_up",
@@ -15864,10 +17086,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:02:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.949Z"
+    "updatedAt": "2026-10-06T22:02:53.949Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_monday_row_140",
@@ -15897,7 +17122,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:17:31",
         "PUTH": "19:24:19",
         "APTS": "19:34:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_140_up",
@@ -15916,10 +17142,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:27:12",
         "NGSA": "20:33:00",
         "BIET": "20:39:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.949Z"
+    "updatedAt": "2026-10-06T22:02:53.949Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_141",
@@ -15949,7 +17178,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:22:31",
         "PUTH": "19:29:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_141_up",
@@ -15968,10 +17198,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:12:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.949Z"
+    "updatedAt": "2026-10-06T22:02:53.949Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_monday_row_142",
@@ -16001,7 +17234,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:27:31",
         "PUTH": "19:34:19",
         "APTS": "19:44:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_142_up",
@@ -16020,10 +17254,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:37:12",
         "NGSA": "20:43:00",
         "BIET": "20:49:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.949Z"
+    "updatedAt": "2026-10-06T22:02:53.949Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_143",
@@ -16053,7 +17290,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:32:31",
         "PUTH": "19:39:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_143_up",
@@ -16072,10 +17310,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:22:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.950Z"
+    "updatedAt": "2026-10-06T22:02:53.950Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_monday_row_144",
@@ -16105,7 +17346,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:37:31",
         "PUTH": "19:44:19",
         "APTS": "19:54:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_144_up",
@@ -16124,10 +17366,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:47:12",
         "NGSA": "20:53:00",
         "BIET": "20:59:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.950Z"
+    "updatedAt": "2026-10-06T22:02:53.950Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_145",
@@ -16157,7 +17402,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:42:31",
         "PUTH": "19:49:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_145_up",
@@ -16176,10 +17422,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:32:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.950Z"
+    "updatedAt": "2026-10-06T22:02:53.950Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_monday_row_146",
@@ -16209,7 +17458,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:47:31",
         "PUTH": "19:54:19",
         "APTS": "20:04:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_146_up",
@@ -16228,10 +17478,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:00:12",
         "NGSA": "21:06:00",
         "BIET": "21:12:00"
-      }
+      },
+      "handoverLocation": "Rd3 Stbl"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.950Z"
+    "updatedAt": "2026-10-06T22:02:53.950Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "Rd3 Stbl"
   },
   {
     "id": "wtt_monday_row_147",
@@ -16261,7 +17514,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:52:31",
         "PUTH": "19:59:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_147_up",
@@ -16280,10 +17534,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:42:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.950Z"
+    "updatedAt": "2026-10-06T22:02:53.950Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_monday_row_148",
@@ -16313,7 +17570,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:57:31",
         "PUTH": "20:04:19",
         "APTS": "20:14:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_148_up",
@@ -16332,10 +17590,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:07:12",
         "NGSA": "21:13:00",
         "BIET": "21:19:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.950Z"
+    "updatedAt": "2026-10-06T22:02:53.950Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_149",
@@ -16365,7 +17626,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:02:31",
         "PUTH": "20:09:19",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_149_up",
@@ -16384,10 +17646,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:52:42",
         "NGSA": "20:58:30",
         "BIET": "21:04:30"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.950Z"
+    "updatedAt": "2026-10-06T22:02:53.950Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_150",
@@ -16417,7 +17682,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:07:31",
         "PUTH": "20:14:19",
         "APTS": "20:24:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_150_up",
@@ -16436,10 +17702,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:17:12",
         "NGSA": "21:23:00",
         "BIET": "21:29:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.950Z"
+    "updatedAt": "2026-10-06T22:02:53.950Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_151",
@@ -16469,7 +17738,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:12:31",
         "PUTH": "20:19:19",
         "APTS": "20:29:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_151_up",
@@ -16488,10 +17758,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:25:12",
         "NGSA": "21:31:00",
         "BIET": "21:37:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.950Z"
+    "updatedAt": "2026-10-06T22:02:53.950Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_152",
@@ -16521,7 +17794,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:20:31",
         "PUTH": "20:27:19",
         "APTS": "20:37:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_152_up",
@@ -16540,10 +17814,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:31:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.950Z"
+    "updatedAt": "2026-10-06T22:02:53.950Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_monday_row_153",
@@ -16573,7 +17850,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:27:31",
         "PUTH": "20:34:19",
         "APTS": "20:44:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_153_up",
@@ -16592,10 +17870,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:37:12",
         "NGSA": "21:43:00",
         "BIET": "21:49:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.950Z"
+    "updatedAt": "2026-10-06T22:02:53.950Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_154",
@@ -16625,7 +17906,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:35:31",
         "PUTH": "20:42:19",
         "APTS": "20:52:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_154_up",
@@ -16644,10 +17926,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:46:12",
         "NGSA": "21:52:00",
         "BIET": "21:58:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.950Z"
+    "updatedAt": "2026-10-06T22:02:53.950Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_155",
@@ -16677,7 +17962,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:43:31",
         "PUTH": "20:50:19",
         "APTS": "21:00:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_155_up",
@@ -16696,10 +17982,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:54:12",
         "NGSA": "22:00:00",
         "BIET": "22:06:00"
-      }
+      },
+      "handoverLocation": "NG Pkt"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.950Z"
+    "updatedAt": "2026-10-06T22:02:53.950Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "NG Pkt"
   },
   {
     "id": "wtt_monday_row_156",
@@ -16729,7 +18018,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:51:31",
         "PUTH": "20:58:19",
         "APTS": "21:08:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_156_up",
@@ -16748,10 +18038,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:02:12",
         "NGSA": "22:08:00",
         "BIET": "22:14:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.950Z"
+    "updatedAt": "2026-10-06T22:02:53.950Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_157",
@@ -16781,7 +18074,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:59:31",
         "PUTH": "21:06:19",
         "APTS": "21:16:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_157_up",
@@ -16800,10 +18094,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:10:12",
         "NGSA": "22:16:00",
         "BIET": "22:22:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.950Z"
+    "updatedAt": "2026-10-06T22:02:53.950Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_158",
@@ -16833,7 +18130,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:07:31",
         "PUTH": "21:14:19",
         "APTS": "21:24:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_158_up",
@@ -16852,10 +18150,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:18:12",
         "NGSA": "22:24:00",
         "BIET": "22:30:00"
-      }
+      },
+      "handoverLocation": "B DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.950Z"
+    "updatedAt": "2026-10-06T22:02:53.950Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "B DHO"
   },
   {
     "id": "wtt_monday_row_159",
@@ -16885,7 +18186,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:17:31",
         "PUTH": "21:24:19",
         "APTS": "21:34:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_159_up",
@@ -16904,10 +18206,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:28:12",
         "NGSA": "22:34:00",
         "BIET": "22:40:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.951Z"
+    "updatedAt": "2026-10-06T22:02:53.951Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_160",
@@ -16937,7 +18242,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:27:31",
         "PUTH": "21:34:19",
         "APTS": "21:44:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_160_up",
@@ -16956,10 +18262,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:38:12",
         "NGSA": "22:44:00",
         "BIET": "22:50:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.951Z"
+    "updatedAt": "2026-10-06T22:02:53.951Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_161",
@@ -16989,7 +18298,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:37:31",
         "PUTH": "21:44:19",
         "APTS": "21:54:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_161_up",
@@ -17008,10 +18318,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:49:52",
         "NGSA": "22:56:20",
         "BIET": "23:02:40"
-      }
+      },
+      "handoverLocation": "BIET DnBE"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.951Z"
+    "updatedAt": "2026-10-06T22:02:53.951Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "BIET DnBE"
   },
   {
     "id": "wtt_monday_row_162",
@@ -17041,7 +18354,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:47:31",
         "PUTH": "21:54:19",
         "APTS": "22:04:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_162_up",
@@ -17060,10 +18374,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:58:12",
         "NGSA": "23:04:00",
         "BIET": "23:10:00"
-      }
+      },
+      "handoverLocation": "B DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.951Z"
+    "updatedAt": "2026-10-06T22:02:53.951Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "B DHO"
   },
   {
     "id": "wtt_monday_row_163",
@@ -17093,7 +18410,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:57:31",
         "PUTH": "22:04:19",
         "APTS": "22:14:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_163_up",
@@ -17112,10 +18430,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:08:12",
         "NGSA": "23:14:00",
         "BIET": "23:20:00"
-      }
+      },
+      "handoverLocation": "SP Dn Pf"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.951Z"
+    "updatedAt": "2026-10-06T22:02:53.951Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "SP Dn Pf"
   },
   {
     "id": "wtt_monday_row_164",
@@ -17145,7 +18466,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "22:07:31",
         "PUTH": "22:14:19",
         "APTS": "22:24:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_164_up",
@@ -17164,10 +18486,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:18:12",
         "NGSA": "23:24:00",
         "BIET": "23:30:00"
-      }
+      },
+      "handoverLocation": "NG DnPf"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.951Z"
+    "updatedAt": "2026-10-06T22:02:53.951Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "NG DnPf"
   },
   {
     "id": "wtt_monday_row_165",
@@ -17197,7 +18522,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "22:17:31",
         "PUTH": "22:24:19",
         "APTS": "22:34:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_165_up",
@@ -17216,10 +18542,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:28:12",
         "NGSA": "23:34:00",
         "BIET": "23:40:00"
-      }
+      },
+      "handoverLocation": "NG UpPf"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.951Z"
+    "updatedAt": "2026-10-06T22:02:53.951Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "NG UpPf"
   },
   {
     "id": "wtt_monday_row_166",
@@ -17249,7 +18578,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "22:27:31",
         "PUTH": "22:34:19",
         "APTS": "22:44:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_166_up",
@@ -17268,10 +18598,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:41:12",
         "NGSA": "23:47:00",
         "BIET": "23:53:00"
-      }
+      },
+      "handoverLocation": "BEIT DnPf"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.951Z"
+    "updatedAt": "2026-10-06T22:02:53.951Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "BEIT DnPf"
   },
   {
     "id": "wtt_monday_row_167",
@@ -17301,7 +18634,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "22:37:31",
         "PUTH": "22:44:19",
         "APTS": "22:54:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_167_up",
@@ -17320,10 +18654,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:54:19",
         "NGSA": "00:00:07",
         "BIET": "00:06:07"
-      }
+      },
+      "handoverLocation": "BEIT UpPf"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.951Z"
+    "updatedAt": "2026-10-06T22:02:53.951Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "BEIT UpPf"
   },
   {
     "id": "wtt_monday_row_168",
@@ -17353,7 +18690,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "22:53:52",
         "PUTH": "23:01:19",
         "APTS": "23:12:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_168_up",
@@ -17372,10 +18710,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.951Z"
+    "updatedAt": "2026-10-06T22:02:53.951Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_169",
@@ -17405,7 +18746,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "23:08:52",
         "PUTH": "23:16:19",
         "APTS": "23:27:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_169_up",
@@ -17424,10 +18766,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.951Z"
+    "updatedAt": "2026-10-06T22:02:53.951Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_170",
@@ -17457,7 +18802,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "23:23:52",
         "PUTH": "23:31:19",
         "APTS": "23:42:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_170_up",
@@ -17476,10 +18822,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.951Z"
+    "updatedAt": "2026-10-06T22:02:53.951Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_171",
@@ -17509,7 +18858,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "23:38:52",
         "PUTH": "23:46:19",
         "APTS": "23:57:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_171_up",
@@ -17528,10 +18878,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.951Z"
+    "updatedAt": "2026-10-06T22:02:53.951Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_monday_row_172",
@@ -17561,7 +18914,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "23:46:01",
         "PUTH": "23:52:49",
         "APTS": "00:02:30"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_monday_row_172_up",
@@ -17580,10 +18934,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:53.951Z"
+    "updatedAt": "2026-10-06T22:02:53.951Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_1",
@@ -17613,7 +18970,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "--",
         "PUTH": "--",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_1_up",
@@ -17632,10 +18990,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "05:10:00",
         "BIET": "05:20:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_2",
@@ -17665,7 +19026,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "--",
         "PUTH": "--",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_2_up",
@@ -17684,10 +19046,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "05:20:00",
         "NGSA": "05:30:00",
         "BIET": "05:37:27"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_3",
@@ -17718,10 +19083,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "05:35:00",
         "BIET": "05:42:27"
-      }
+      },
+      "handoverLocation": "NLC UP PF"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "NLC UP PF"
   },
   {
     "id": "wtt_saturday_row_4",
@@ -17752,10 +19120,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "05:50:00",
         "BIET": "05:57:27"
-      }
+      },
+      "handoverLocation": "PUTH UP"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "PUTH UP"
   },
   {
     "id": "wtt_saturday_row_5",
@@ -17786,10 +19157,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "05:53:12",
         "NGSA": "05:59:00",
         "BIET": "06:05:00"
-      }
+      },
+      "handoverLocation": "APTS UP"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "APTS UP"
   },
   {
     "id": "wtt_saturday_row_6",
@@ -17820,10 +19194,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "06:03:12",
         "NGSA": "06:09:00",
         "BIET": "06:15:00"
-      }
+      },
+      "handoverLocation": "APTS DN"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "APTS DN"
   },
   {
     "id": "wtt_saturday_row_7",
@@ -17854,10 +19231,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "06:18:12",
         "NGSA": "06:24:00",
         "BIET": "06:30:00"
-      }
+      },
+      "handoverLocation": "PUTH DN"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "PUTH DN"
   },
   {
     "id": "wtt_saturday_row_8",
@@ -17887,7 +19267,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "--",
         "PUTH": "--",
         "APTS": "05:40:00"
-      }
+      },
+      "takeoverLocation": "SPGD DN PF"
     },
     "upTrip": {
       "id": "wtt_saturday_row_8_up",
@@ -17906,10 +19287,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "06:33:12",
         "NGSA": "06:39:00",
         "BIET": "06:45:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "SPGD DN PF",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_9",
@@ -17939,7 +19323,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "--",
         "PUTH": "05:40:00",
         "APTS": "05:50:41"
-      }
+      },
+      "takeoverLocation": "NGSA DN PF"
     },
     "upTrip": {
       "id": "wtt_saturday_row_9_up",
@@ -17958,10 +19343,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "06:48:12",
         "NGSA": "06:54:00",
         "BIET": "07:00:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "NGSA DN PF",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_10",
@@ -17991,7 +19379,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "05:51:25",
         "PUTH": "05:58:52",
         "APTS": "06:09:33"
-      }
+      },
+      "takeoverLocation": "BEIT DN PF"
     },
     "upTrip": {
       "id": "wtt_saturday_row_10_up",
@@ -18010,10 +19399,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "07:03:12",
         "NGSA": "07:09:00",
         "BIET": "07:15:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "BEIT DN PF",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_11",
@@ -18043,7 +19435,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "06:04:52",
         "PUTH": "06:12:19",
         "APTS": "06:23:00"
-      }
+      },
+      "takeoverLocation": "BEIT UP PF"
     },
     "upTrip": {
       "id": "wtt_saturday_row_11_up",
@@ -18062,10 +19455,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "07:18:12",
         "NGSA": "07:24:00",
         "BIET": "07:30:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "BEIT UP PF",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_12",
@@ -18095,7 +19491,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "06:13:31",
         "PUTH": "06:20:19",
         "APTS": "06:30:00"
-      }
+      },
+      "takeoverLocation": "NGSA UP"
     },
     "upTrip": {
       "id": "wtt_saturday_row_12_up",
@@ -18114,10 +19511,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "07:33:12",
         "NGSA": "07:39:00",
         "BIET": "07:45:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "NGSA UP",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_13",
@@ -18147,7 +19547,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "06:28:31",
         "PUTH": "06:35:19",
         "APTS": "06:45:00"
-      }
+      },
+      "takeoverLocation": "DP-JH-P UP"
     },
     "upTrip": {
       "id": "wtt_saturday_row_13_up",
@@ -18166,10 +19567,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "07:48:12",
         "NGSA": "07:54:00",
         "BIET": "08:00:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "DP-JH-P UP",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_14",
@@ -18199,7 +19603,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "06:43:31",
         "PUTH": "06:50:19",
         "APTS": "07:00:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_14_up",
@@ -18218,10 +19623,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "07:59:12",
         "NGSA": "08:05:00",
         "BIET": "08:11:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_15",
@@ -18251,7 +19659,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "06:58:31",
         "PUTH": "07:05:19",
         "APTS": "07:15:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_15_up",
@@ -18270,10 +19679,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:10:12",
         "NGSA": "08:16:00",
         "BIET": "08:22:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_16",
@@ -18303,7 +19715,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:09:31",
         "PUTH": "07:16:19",
         "APTS": "07:26:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_16_up",
@@ -18322,10 +19735,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:21:12",
         "NGSA": "08:27:00",
         "BIET": "08:33:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_17",
@@ -18355,7 +19771,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:15:01",
         "PUTH": "07:21:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "PYID RD3"
     },
     "upTrip": {
       "id": "wtt_saturday_row_17_up",
@@ -18374,10 +19791,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:04:42",
         "NGSA": "08:11:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "PYID RD3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_18",
@@ -18407,7 +19827,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:20:31",
         "PUTH": "07:27:19",
         "APTS": "07:37:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_18_up",
@@ -18426,10 +19847,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:32:12",
         "NGSA": "08:38:00",
         "BIET": "08:44:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_19",
@@ -18459,7 +19883,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:26:01",
         "PUTH": "07:32:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo - Rd3"
     },
     "upTrip": {
       "id": "wtt_saturday_row_19_up",
@@ -18478,10 +19903,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:15:42",
         "NGSA": "08:22:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "Dpo - Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_20",
@@ -18511,7 +19939,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:31:31",
         "PUTH": "07:38:19",
         "APTS": "07:48:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_20_up",
@@ -18530,10 +19959,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:43:12",
         "NGSA": "08:49:00",
         "BIET": "08:55:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_21",
@@ -18563,7 +19995,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:37:01",
         "PUTH": "07:43:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo - Rd3"
     },
     "upTrip": {
       "id": "wtt_saturday_row_21_up",
@@ -18582,10 +20015,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:26:42",
         "NGSA": "08:33:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "Dpo - Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_22",
@@ -18615,7 +20051,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:42:31",
         "PUTH": "07:49:19",
         "APTS": "07:59:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_22_up",
@@ -18634,10 +20071,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:54:12",
         "NGSA": "09:00:00",
         "BIET": "09:06:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_23",
@@ -18667,7 +20107,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:48:01",
         "PUTH": "07:54:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo - Rd3"
     },
     "upTrip": {
       "id": "wtt_saturday_row_23_up",
@@ -18686,10 +20127,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:37:42",
         "NGSA": "08:43:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "Dpo - Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_24",
@@ -18719,7 +20163,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:53:31",
         "PUTH": "08:00:19",
         "APTS": "08:10:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_24_up",
@@ -18738,10 +20183,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:05:12",
         "NGSA": "09:11:00",
         "BIET": "09:17:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_25",
@@ -18771,7 +20219,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:59:01",
         "PUTH": "08:05:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo - Rd3"
     },
     "upTrip": {
       "id": "wtt_saturday_row_25_up",
@@ -18790,10 +20239,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:48:42",
         "NGSA": "08:54:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "Dpo - Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_26",
@@ -18823,7 +20275,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:04:31",
         "PUTH": "08:11:19",
         "APTS": "08:21:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_26_up",
@@ -18842,10 +20295,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:16:12",
         "NGSA": "09:22:00",
         "BIET": "09:28:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_27",
@@ -18875,7 +20331,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:10:01",
         "PUTH": "08:16:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo - Rd3"
     },
     "upTrip": {
       "id": "wtt_saturday_row_27_up",
@@ -18894,10 +20351,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:59:42",
         "NGSA": "09:05:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "Dpo - Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_28",
@@ -18927,7 +20387,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:15:31",
         "PUTH": "08:22:19",
         "APTS": "08:32:00"
-      }
+      },
+      "takeoverLocation": "BEIT DN BE"
     },
     "upTrip": {
       "id": "wtt_saturday_row_28_up",
@@ -18946,10 +20407,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:27:12",
         "NGSA": "09:33:00",
         "BIET": "09:39:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "BEIT DN BE",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_29",
@@ -18979,7 +20443,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:21:01",
         "PUTH": "08:27:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo - Rd3"
     },
     "upTrip": {
       "id": "wtt_saturday_row_29_up",
@@ -18998,10 +20463,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:10:42",
         "NGSA": "09:16:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "Dpo - Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_30",
@@ -19031,7 +20499,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:26:31",
         "PUTH": "08:33:19",
         "APTS": "08:43:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_30_up",
@@ -19050,10 +20519,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:38:12",
         "NGSA": "09:44:00",
         "BIET": "09:50:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_31",
@@ -19083,7 +20555,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:32:01",
         "PUTH": "08:38:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo - Rd3"
     },
     "upTrip": {
       "id": "wtt_saturday_row_31_up",
@@ -19102,10 +20575,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:21:42",
         "NGSA": "09:27:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "Dpo - Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_32",
@@ -19135,7 +20611,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:37:31",
         "PUTH": "08:44:19",
         "APTS": "08:54:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_32_up",
@@ -19154,10 +20631,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:49:12",
         "NGSA": "09:55:00",
         "BIET": "10:01:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_33",
@@ -19187,7 +20667,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:43:01",
         "PUTH": "08:49:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo - Rd3"
     },
     "upTrip": {
       "id": "wtt_saturday_row_33_up",
@@ -19206,10 +20687,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:32:42",
         "NGSA": "09:38:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "Dpo - Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_34",
@@ -19239,7 +20723,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:48:31",
         "PUTH": "08:55:19",
         "APTS": "09:05:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_34_up",
@@ -19258,10 +20743,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:00:12",
         "NGSA": "10:06:00",
         "BIET": "10:12:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_35",
@@ -19291,7 +20779,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:54:01",
         "PUTH": "09:00:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_35_up",
@@ -19310,10 +20799,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:43:42",
         "NGSA": "09:49:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_36",
@@ -19343,7 +20835,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:59:31",
         "PUTH": "09:06:19",
         "APTS": "09:16:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_36_up",
@@ -19362,10 +20855,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:11:12",
         "NGSA": "10:17:00",
         "BIET": "10:23:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_37",
@@ -19395,7 +20891,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:05:01",
         "PUTH": "09:11:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_37_up",
@@ -19414,10 +20911,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:54:42",
         "NGSA": "10:00:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_38",
@@ -19447,7 +20947,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:10:31",
         "PUTH": "09:17:19",
         "APTS": "09:27:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_38_up",
@@ -19466,10 +20967,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:22:12",
         "NGSA": "10:28:00",
         "BIET": "10:34:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_39",
@@ -19499,7 +21003,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:16:01",
         "PUTH": "09:22:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_39_up",
@@ -19518,10 +21023,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:05:42",
         "NGSA": "10:11:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_40",
@@ -19551,7 +21059,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:21:31",
         "PUTH": "09:28:19",
         "APTS": "09:38:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_40_up",
@@ -19570,10 +21079,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:33:12",
         "NGSA": "10:39:00",
         "BIET": "10:45:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_41",
@@ -19603,7 +21115,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:27:01",
         "PUTH": "09:33:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_41_up",
@@ -19622,10 +21135,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:16:42",
         "NGSA": "10:22:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.000Z"
+    "updatedAt": "2026-10-06T22:02:54.000Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_42",
@@ -19655,7 +21171,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:32:31",
         "PUTH": "09:39:19",
         "APTS": "09:49:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_42_up",
@@ -19674,10 +21191,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:44:12",
         "NGSA": "10:50:00",
         "BIET": "10:56:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_43",
@@ -19707,7 +21227,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:38:01",
         "PUTH": "09:44:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_43_up",
@@ -19726,10 +21247,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:27:42",
         "NGSA": "10:33:30",
         "BIET": "10:39:30"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_44",
@@ -19759,7 +21283,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:43:31",
         "PUTH": "09:50:19",
         "APTS": "10:00:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_44_up",
@@ -19778,10 +21303,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:55:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_saturday_row_45",
@@ -19811,7 +21339,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:49:01",
         "PUTH": "09:55:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_45_up",
@@ -19830,10 +21359,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:38:42",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_saturday_row_46",
@@ -19863,7 +21395,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:54:31",
         "PUTH": "10:01:19",
         "APTS": "10:11:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_46_up",
@@ -19882,10 +21415,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:06:12",
         "NGSA": "11:12:00",
         "BIET": "11:18:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_47",
@@ -19915,7 +21451,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:00:01",
         "PUTH": "10:06:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_47_up",
@@ -19934,10 +21471,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:49:42",
         "NGSA": "10:55:30",
         "BIET": "11:01:30"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_48",
@@ -19967,7 +21507,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:05:31",
         "PUTH": "10:12:19",
         "APTS": "10:22:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_48_up",
@@ -19986,10 +21527,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:17:12",
         "NGSA": "11:23:00",
         "BIET": "11:29:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_49",
@@ -20019,7 +21563,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:11:01",
         "PUTH": "10:17:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_49_up",
@@ -20038,10 +21583,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:00:42",
         "NGSA": "11:06:30",
         "BIET": "11:12:30"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_50",
@@ -20071,7 +21619,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:16:31",
         "PUTH": "10:23:19",
         "APTS": "10:33:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_50_up",
@@ -20090,10 +21639,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:28:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_saturday_row_51",
@@ -20123,7 +21675,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:22:01",
         "PUTH": "10:28:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_51_up",
@@ -20142,10 +21695,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:11:42",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_saturday_row_52",
@@ -20175,7 +21731,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:27:31",
         "PUTH": "10:34:19",
         "APTS": "10:44:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_52_up",
@@ -20194,10 +21751,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:39:12",
         "NGSA": "11:45:00",
         "BIET": "11:51:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_53",
@@ -20227,7 +21787,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:33:01",
         "PUTH": "10:39:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_53_up",
@@ -20246,10 +21807,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:22:42",
         "NGSA": "11:28:30",
         "BIET": "11:34:30"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_54",
@@ -20279,7 +21843,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:38:31",
         "PUTH": "10:45:19",
         "APTS": "10:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_54_up",
@@ -20298,10 +21863,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:50:12",
         "NGSA": "11:56:00",
         "BIET": "12:02:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_55",
@@ -20331,7 +21899,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:44:01",
         "PUTH": "10:50:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_55_up",
@@ -20350,10 +21919,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:33:42",
         "NGSA": "11:39:30",
         "BIET": "11:45:30"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_56",
@@ -20383,7 +21955,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:49:31",
         "PUTH": "10:56:19",
         "APTS": "11:06:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_56_up",
@@ -20402,10 +21975,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:01:12",
         "NGSA": "12:07:00",
         "BIET": "12:13:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_57",
@@ -20435,7 +22011,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:55:01",
         "PUTH": "11:01:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_57_up",
@@ -20454,10 +22031,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:44:42",
         "NGSA": "11:50:30",
         "BIET": "11:56:30"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_58",
@@ -20487,7 +22067,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:00:31",
         "PUTH": "11:07:19",
         "APTS": "11:17:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_58_up",
@@ -20506,10 +22087,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:11:12",
         "NGSA": "12:17:00",
         "BIET": "12:23:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_59",
@@ -20539,7 +22123,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:06:01",
         "PUTH": "11:12:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_59_up",
@@ -20558,10 +22143,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:55:42",
         "NGSA": "12:01:30",
         "BIET": "12:07:30"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_60",
@@ -20591,7 +22179,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:11:31",
         "PUTH": "11:18:19",
         "APTS": "11:28:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_60_up",
@@ -20610,10 +22199,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:21:12",
         "NGSA": "12:27:00",
         "BIET": "12:33:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_61",
@@ -20643,7 +22235,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:22:31",
         "PUTH": "11:29:19",
         "APTS": "11:39:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_61_up",
@@ -20662,10 +22255,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:31:12",
         "NGSA": "12:37:00",
         "BIET": "12:43:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_62",
@@ -20695,7 +22291,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:30:31",
         "PUTH": "11:37:19",
         "APTS": "11:47:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_62_up",
@@ -20714,10 +22311,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:41:12",
         "NGSA": "12:47:00",
         "BIET": "12:53:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_63",
@@ -20747,7 +22347,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:38:31",
         "PUTH": "11:45:19",
         "APTS": "11:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_63_up",
@@ -20766,10 +22367,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:49:12",
         "NGSA": "12:55:00",
         "BIET": "13:01:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_64",
@@ -20799,7 +22403,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:46:31",
         "PUTH": "11:53:19",
         "APTS": "12:03:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_64_up",
@@ -20818,10 +22423,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:57:12",
         "NGSA": "13:03:00",
         "BIET": "13:09:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_65",
@@ -20851,7 +22459,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:54:31",
         "PUTH": "12:01:19",
         "APTS": "12:11:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_65_up",
@@ -20870,10 +22479,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:05:12",
         "NGSA": "13:11:00",
         "BIET": "13:17:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_66",
@@ -20903,7 +22515,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:02:31",
         "PUTH": "12:09:19",
         "APTS": "12:19:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_66_up",
@@ -20922,10 +22535,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:13:12",
         "NGSA": "13:19:00",
         "BIET": "13:25:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_67",
@@ -20955,7 +22571,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:10:31",
         "PUTH": "12:17:19",
         "APTS": "12:27:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_67_up",
@@ -20974,10 +22591,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:21:12",
         "NGSA": "13:27:00",
         "BIET": "13:33:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_68",
@@ -21007,7 +22627,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:18:31",
         "PUTH": "12:25:19",
         "APTS": "12:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_68_up",
@@ -21026,10 +22647,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:29:12",
         "NGSA": "13:35:00",
         "BIET": "13:41:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_69",
@@ -21059,7 +22683,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:26:31",
         "PUTH": "12:33:19",
         "APTS": "12:43:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_69_up",
@@ -21078,10 +22703,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:37:12",
         "NGSA": "13:43:00",
         "BIET": "13:49:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_70",
@@ -21111,7 +22739,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:34:31",
         "PUTH": "12:41:19",
         "APTS": "12:51:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_70_up",
@@ -21130,10 +22759,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:45:12",
         "NGSA": "13:51:00",
         "BIET": "13:57:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_71",
@@ -21163,7 +22795,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:42:31",
         "PUTH": "12:49:19",
         "APTS": "12:59:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_71_up",
@@ -21182,10 +22815,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:53:12",
         "NGSA": "13:59:00",
         "BIET": "14:05:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_72",
@@ -21215,7 +22851,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:50:31",
         "PUTH": "12:57:19",
         "APTS": "13:07:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_72_up",
@@ -21234,10 +22871,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:01:12",
         "NGSA": "14:07:00",
         "BIET": "14:13:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_73",
@@ -21267,7 +22907,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:58:31",
         "PUTH": "13:05:19",
         "APTS": "13:15:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_73_up",
@@ -21286,10 +22927,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:09:12",
         "NGSA": "14:15:00",
         "BIET": "14:21:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_74",
@@ -21319,7 +22963,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:06:31",
         "PUTH": "13:13:19",
         "APTS": "13:23:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_74_up",
@@ -21338,10 +22983,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:17:12",
         "NGSA": "14:23:00",
         "BIET": "14:29:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_75",
@@ -21371,7 +23019,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:14:31",
         "PUTH": "13:21:19",
         "APTS": "13:31:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_75_up",
@@ -21390,10 +23039,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:25:12",
         "NGSA": "14:31:00",
         "BIET": "14:37:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_76",
@@ -21423,7 +23075,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:22:31",
         "PUTH": "13:29:19",
         "APTS": "13:39:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_76_up",
@@ -21442,10 +23095,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:33:12",
         "NGSA": "14:39:00",
         "BIET": "14:45:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.001Z"
+    "updatedAt": "2026-10-06T22:02:54.001Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_77",
@@ -21475,7 +23131,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:30:31",
         "PUTH": "13:37:19",
         "APTS": "13:47:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_77_up",
@@ -21494,10 +23151,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:41:12",
         "NGSA": "14:47:00",
         "BIET": "14:53:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_78",
@@ -21527,7 +23187,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:38:31",
         "PUTH": "13:45:19",
         "APTS": "13:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_78_up",
@@ -21546,10 +23207,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:49:12",
         "NGSA": "14:55:00",
         "BIET": "15:01:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_79",
@@ -21579,7 +23243,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:46:31",
         "PUTH": "13:53:19",
         "APTS": "14:03:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_79_up",
@@ -21598,10 +23263,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:57:12",
         "NGSA": "15:03:00",
         "BIET": "15:09:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_80",
@@ -21631,7 +23299,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:54:31",
         "PUTH": "14:01:19",
         "APTS": "14:11:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_80_up",
@@ -21650,10 +23319,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:05:12",
         "NGSA": "15:11:00",
         "BIET": "15:17:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_81",
@@ -21683,7 +23355,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:02:31",
         "PUTH": "14:09:19",
         "APTS": "14:19:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_81_up",
@@ -21702,10 +23375,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:13:12",
         "NGSA": "15:19:00",
         "BIET": "15:25:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_82",
@@ -21735,7 +23411,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:10:31",
         "PUTH": "14:17:19",
         "APTS": "14:27:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_82_up",
@@ -21754,10 +23431,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:21:12",
         "NGSA": "15:27:00",
         "BIET": "15:33:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_83",
@@ -21787,7 +23467,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:18:31",
         "PUTH": "14:25:19",
         "APTS": "14:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_83_up",
@@ -21806,10 +23487,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:29:12",
         "NGSA": "15:35:00",
         "BIET": "15:41:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_84",
@@ -21839,7 +23523,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:26:31",
         "PUTH": "14:33:19",
         "APTS": "14:43:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_84_up",
@@ -21858,10 +23543,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:37:12",
         "NGSA": "15:43:00",
         "BIET": "15:49:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_85",
@@ -21891,7 +23579,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:34:31",
         "PUTH": "14:41:19",
         "APTS": "14:51:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_85_up",
@@ -21910,10 +23599,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:45:12",
         "NGSA": "15:51:00",
         "BIET": "15:57:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_86",
@@ -21943,7 +23635,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:42:31",
         "PUTH": "14:49:19",
         "APTS": "14:59:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_86_up",
@@ -21962,10 +23655,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:53:12",
         "NGSA": "15:59:00",
         "BIET": "16:05:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_87",
@@ -21995,7 +23691,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:50:31",
         "PUTH": "14:57:19",
         "APTS": "15:07:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_87_up",
@@ -22014,10 +23711,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:01:12",
         "NGSA": "16:07:00",
         "BIET": "16:13:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_88",
@@ -22047,7 +23747,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:58:31",
         "PUTH": "15:05:19",
         "APTS": "15:15:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_88_up",
@@ -22066,10 +23767,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:08:12",
         "NGSA": "16:14:00",
         "BIET": "16:20:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_89",
@@ -22099,7 +23803,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:06:31",
         "PUTH": "15:13:19",
         "APTS": "15:23:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_89_up",
@@ -22118,10 +23823,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:17:12",
         "NGSA": "16:23:00",
         "BIET": "16:29:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_90",
@@ -22151,7 +23859,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:14:31",
         "PUTH": "15:21:19",
         "APTS": "15:31:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_90_up",
@@ -22170,10 +23879,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:25:12",
         "NGSA": "16:31:00",
         "BIET": "16:37:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_91",
@@ -22203,7 +23915,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:22:31",
         "PUTH": "15:29:19",
         "APTS": "15:39:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_91_up",
@@ -22222,10 +23935,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:33:12",
         "NGSA": "16:39:00",
         "BIET": "16:45:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_92",
@@ -22255,7 +23971,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:30:31",
         "PUTH": "15:37:19",
         "APTS": "15:47:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_92_up",
@@ -22274,10 +23991,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:41:12",
         "NGSA": "16:47:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_93",
@@ -22307,7 +24027,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:38:31",
         "PUTH": "15:45:19",
         "APTS": "15:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_93_up",
@@ -22326,10 +24047,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:49:12",
         "NGSA": "16:55:00",
         "BIET": "17:01:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_94",
@@ -22359,7 +24083,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:46:31",
         "PUTH": "15:53:19",
         "APTS": "16:03:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_94_up",
@@ -22378,10 +24103,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:57:12",
         "NGSA": "17:03:00",
         "BIET": "17:09:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_95",
@@ -22411,7 +24139,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:54:31",
         "PUTH": "16:01:19",
         "APTS": "16:11:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_95_up",
@@ -22430,10 +24159,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:04:12",
         "NGSA": "17:10:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_96",
@@ -22463,7 +24195,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:02:31",
         "PUTH": "16:09:19",
         "APTS": "16:19:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_96_up",
@@ -22482,10 +24215,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:13:12",
         "NGSA": "17:19:00",
         "BIET": "17:25:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_97",
@@ -22515,7 +24251,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:10:31",
         "PUTH": "16:17:19",
         "APTS": "16:27:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_97_up",
@@ -22534,10 +24271,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:20:12",
         "NGSA": "17:26:00",
         "BIET": "17:32:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_98",
@@ -22567,7 +24307,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:18:31",
         "PUTH": "16:25:19",
         "APTS": "16:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_98_up",
@@ -22586,10 +24327,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:28:12",
         "NGSA": "17:34:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_99",
@@ -22619,7 +24363,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:26:31",
         "PUTH": "16:33:19",
         "APTS": "16:43:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_99_up",
@@ -22638,10 +24383,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:36:12",
         "NGSA": "17:42:00",
         "BIET": "17:48:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_100",
@@ -22671,7 +24419,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:34:31",
         "PUTH": "16:41:19",
         "APTS": "16:51:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_100_up",
@@ -22690,10 +24439,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:46:12",
         "NGSA": "17:52:00",
         "BIET": "17:58:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_101",
@@ -22723,7 +24475,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:44:31",
         "PUTH": "16:51:19",
         "APTS": "17:01:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_101_up",
@@ -22742,10 +24495,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:56:12",
         "NGSA": "18:02:00",
         "BIET": "18:08:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_102",
@@ -22775,7 +24531,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:50:01",
         "PUTH": "16:56:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_102_up",
@@ -22794,10 +24551,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:41:12",
         "NGSA": "17:47:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_103",
@@ -22827,7 +24587,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:55:31",
         "PUTH": "17:02:19",
         "APTS": "17:12:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_103_up",
@@ -22846,10 +24607,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:07:12",
         "NGSA": "18:13:00",
         "BIET": "18:19:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_104",
@@ -22879,7 +24643,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:01:01",
         "PUTH": "17:07:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_104_up",
@@ -22898,10 +24663,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:51:12",
         "NGSA": "17:57:00",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_105",
@@ -22931,7 +24699,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:06:31",
         "PUTH": "17:13:19",
         "APTS": "17:23:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_105_up",
@@ -22950,10 +24719,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:18:12",
         "NGSA": "18:24:00",
         "BIET": "18:30:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_106",
@@ -22983,7 +24755,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:12:01",
         "PUTH": "17:18:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo - Rd3"
     },
     "upTrip": {
       "id": "wtt_saturday_row_106_up",
@@ -23002,10 +24775,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:01:42",
         "NGSA": "18:07:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "Dpo - Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_107",
@@ -23035,7 +24811,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:17:31",
         "PUTH": "17:24:19",
         "APTS": "17:34:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_107_up",
@@ -23054,10 +24831,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:29:12",
         "NGSA": "18:35:00",
         "BIET": "18:41:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_108",
@@ -23087,7 +24867,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:23:01",
         "PUTH": "17:29:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo - Rd3"
     },
     "upTrip": {
       "id": "wtt_saturday_row_108_up",
@@ -23106,10 +24887,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:12:42",
         "NGSA": "18:18:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "Dpo - Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_109",
@@ -23139,7 +24923,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:28:31",
         "PUTH": "17:35:19",
         "APTS": "17:45:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_109_up",
@@ -23158,10 +24943,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:40:12",
         "NGSA": "18:46:00",
         "BIET": "18:52:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_110",
@@ -23191,7 +24979,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:34:01",
         "PUTH": "17:40:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_110_up",
@@ -23210,10 +24999,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:23:42",
         "NGSA": "18:29:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_111",
@@ -23243,7 +25035,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:39:31",
         "PUTH": "17:46:19",
         "APTS": "17:56:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_111_up",
@@ -23262,10 +25055,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:51:12",
         "NGSA": "18:57:00",
         "BIET": "19:03:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_112",
@@ -23295,7 +25091,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:45:01",
         "PUTH": "17:51:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo - Rd3"
     },
     "upTrip": {
       "id": "wtt_saturday_row_112_up",
@@ -23314,10 +25111,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:34:42",
         "NGSA": "18:40:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "Dpo - Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_113",
@@ -23347,7 +25147,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:50:31",
         "PUTH": "17:57:19",
         "APTS": "18:07:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_113_up",
@@ -23366,10 +25167,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:02:12",
         "NGSA": "19:08:00",
         "BIET": "19:14:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_114",
@@ -23399,7 +25203,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:56:01",
         "PUTH": "18:02:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_114_up",
@@ -23418,10 +25223,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:45:42",
         "NGSA": "18:51:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_115",
@@ -23451,7 +25259,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:01:31",
         "PUTH": "18:08:19",
         "APTS": "18:18:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_115_up",
@@ -23470,10 +25279,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:13:12",
         "NGSA": "19:19:00",
         "BIET": "19:25:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_116",
@@ -23503,7 +25315,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:07:01",
         "PUTH": "18:13:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "Dpo - Rd3"
     },
     "upTrip": {
       "id": "wtt_saturday_row_116_up",
@@ -23522,10 +25335,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:56:42",
         "NGSA": "19:02:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "Dpo - Rd3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_117",
@@ -23555,7 +25371,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:12:31",
         "PUTH": "18:19:19",
         "APTS": "18:29:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_117_up",
@@ -23574,10 +25391,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:24:12",
         "NGSA": "19:30:00",
         "BIET": "19:36:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_118",
@@ -23607,7 +25427,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:18:01",
         "PUTH": "18:24:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_118_up",
@@ -23626,10 +25447,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:07:42",
         "NGSA": "19:13:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_119",
@@ -23659,7 +25483,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:23:31",
         "PUTH": "18:30:19",
         "APTS": "18:40:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_119_up",
@@ -23678,10 +25503,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:35:12",
         "NGSA": "19:41:00",
         "BIET": "19:47:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_120",
@@ -23711,7 +25539,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:29:01",
         "PUTH": "18:35:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_120_up",
@@ -23730,10 +25559,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:18:42",
         "NGSA": "19:24:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_121",
@@ -23763,7 +25595,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:34:31",
         "PUTH": "18:41:19",
         "APTS": "18:51:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_121_up",
@@ -23782,10 +25615,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:46:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_saturday_row_122",
@@ -23815,7 +25651,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:40:01",
         "PUTH": "18:46:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_122_up",
@@ -23834,10 +25671,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:29:42",
         "NGSA": "19:35:30",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.002Z"
+    "updatedAt": "2026-10-06T22:02:54.002Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_123",
@@ -23867,7 +25707,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:45:31",
         "PUTH": "18:52:19",
         "APTS": "19:02:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_123_up",
@@ -23886,10 +25727,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:57:12",
         "NGSA": "20:03:00",
         "BIET": "20:09:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_124",
@@ -23919,7 +25763,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:51:01",
         "PUTH": "18:57:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_124_up",
@@ -23938,10 +25783,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:40:42",
         "NGSA": "19:46:30",
         "BIET": "19:52:30"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_125",
@@ -23971,7 +25819,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:56:31",
         "PUTH": "19:03:19",
         "APTS": "19:13:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_125_up",
@@ -23990,10 +25839,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:08:12",
         "NGSA": "20:14:00",
         "BIET": "20:20:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_126",
@@ -24023,7 +25875,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:02:01",
         "PUTH": "19:08:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_126_up",
@@ -24042,10 +25895,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:51:42",
         "NGSA": "19:57:30",
         "BIET": "20:03:30"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_127",
@@ -24075,7 +25931,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:07:31",
         "PUTH": "19:14:19",
         "APTS": "19:24:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_127_up",
@@ -24094,10 +25951,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:19:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_saturday_row_128",
@@ -24127,7 +25987,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:13:01",
         "PUTH": "19:19:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_128_up",
@@ -24146,10 +26007,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:02:42",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_saturday_row_129",
@@ -24179,7 +26043,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:18:31",
         "PUTH": "19:25:19",
         "APTS": "19:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_129_up",
@@ -24198,10 +26063,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:30:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_saturday_row_130",
@@ -24231,7 +26099,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:24:01",
         "PUTH": "19:30:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_130_up",
@@ -24250,10 +26119,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:13:42",
         "NGSA": "20:19:30",
         "BIET": "20:25:30"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_131",
@@ -24283,7 +26155,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:29:31",
         "PUTH": "19:36:19",
         "APTS": "19:46:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_131_up",
@@ -24302,10 +26175,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:41:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_saturday_row_132",
@@ -24335,7 +26211,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:35:01",
         "PUTH": "19:41:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_132_up",
@@ -24354,10 +26231,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:24:42",
         "NGSA": "20:30:30",
         "BIET": "20:36:30"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_133",
@@ -24387,7 +26267,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:40:31",
         "PUTH": "19:47:19",
         "APTS": "19:57:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_133_up",
@@ -24406,10 +26287,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:52:12",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "P DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "P DHO"
   },
   {
     "id": "wtt_saturday_row_134",
@@ -24439,7 +26323,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:46:01",
         "PUTH": "19:52:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_134_up",
@@ -24458,10 +26343,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:35:42",
         "NGSA": "20:41:30",
         "BIET": "20:47:30"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_135",
@@ -24491,7 +26379,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:51:31",
         "PUTH": "19:58:19",
         "APTS": "20:08:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_135_up",
@@ -24510,10 +26399,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:03:12",
         "NGSA": "21:09:00",
         "BIET": "21:15:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_136",
@@ -24543,7 +26435,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:57:01",
         "PUTH": "20:03:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_136_up",
@@ -24562,10 +26455,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:46:42",
         "NGSA": "20:52:30",
         "BIET": "20:58:30"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_137",
@@ -24595,7 +26491,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:02:31",
         "PUTH": "20:09:19",
         "APTS": "20:19:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_137_up",
@@ -24614,10 +26511,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:14:12",
         "NGSA": "21:20:00",
         "BIET": "21:26:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_138",
@@ -24647,7 +26547,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:08:01",
         "PUTH": "20:14:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_138_up",
@@ -24666,10 +26567,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:57:42",
         "NGSA": "21:03:30",
         "BIET": "21:09:30"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_139",
@@ -24699,7 +26603,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:13:31",
         "PUTH": "20:20:19",
         "APTS": "20:30:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_139_up",
@@ -24718,10 +26623,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:25:12",
         "NGSA": "21:31:00",
         "BIET": "21:37:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_140",
@@ -24751,7 +26659,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:19:01",
         "PUTH": "20:25:49",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_140_up",
@@ -24770,10 +26679,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:08:42",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "RD3"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "RD3"
   },
   {
     "id": "wtt_saturday_row_141",
@@ -24803,7 +26715,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:24:31",
         "PUTH": "20:31:19",
         "APTS": "20:41:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_141_up",
@@ -24822,10 +26735,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:35:12",
         "NGSA": "21:41:00",
         "BIET": "21:47:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_142",
@@ -24855,7 +26771,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:35:31",
         "PUTH": "20:42:19",
         "APTS": "20:52:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_142_up",
@@ -24874,10 +26791,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:45:12",
         "NGSA": "21:51:00",
         "BIET": "21:57:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_143",
@@ -24907,7 +26827,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:43:31",
         "PUTH": "20:50:19",
         "APTS": "21:00:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_143_up",
@@ -24926,10 +26847,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:54:12",
         "NGSA": "22:00:00",
         "BIET": "22:06:00"
-      }
+      },
+      "handoverLocation": "N PKT"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "N PKT"
   },
   {
     "id": "wtt_saturday_row_144",
@@ -24959,7 +26883,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:51:31",
         "PUTH": "20:58:19",
         "APTS": "21:08:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_144_up",
@@ -24978,10 +26903,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:02:12",
         "NGSA": "22:08:00",
         "BIET": "22:14:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_145",
@@ -25011,7 +26939,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:59:31",
         "PUTH": "21:06:19",
         "APTS": "21:16:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_145_up",
@@ -25030,10 +26959,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:10:12",
         "NGSA": "22:16:00",
         "BIET": "22:22:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_146",
@@ -25063,7 +26995,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:07:31",
         "PUTH": "21:14:19",
         "APTS": "21:24:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_146_up",
@@ -25082,10 +27015,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:18:12",
         "NGSA": "22:24:00",
         "BIET": "22:30:00"
-      }
+      },
+      "handoverLocation": "B DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "B DHO"
   },
   {
     "id": "wtt_saturday_row_147",
@@ -25115,7 +27051,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:17:31",
         "PUTH": "21:24:19",
         "APTS": "21:34:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_147_up",
@@ -25134,10 +27071,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:28:12",
         "NGSA": "22:34:00",
         "BIET": "22:40:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_148",
@@ -25167,7 +27107,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:27:31",
         "PUTH": "21:34:19",
         "APTS": "21:44:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_148_up",
@@ -25186,10 +27127,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:38:12",
         "NGSA": "22:44:00",
         "BIET": "22:50:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_149",
@@ -25219,7 +27163,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:37:31",
         "PUTH": "21:44:19",
         "APTS": "21:54:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_149_up",
@@ -25238,10 +27183,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:49:52",
         "NGSA": "22:56:20",
         "BIET": "23:02:40"
-      }
+      },
+      "handoverLocation": "BT DN B/E"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "BT DN B/E"
   },
   {
     "id": "wtt_saturday_row_150",
@@ -25271,7 +27219,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:47:31",
         "PUTH": "21:54:19",
         "APTS": "22:04:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_150_up",
@@ -25290,10 +27239,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:58:12",
         "NGSA": "23:04:00",
         "BIET": "23:10:00"
-      }
+      },
+      "handoverLocation": "B DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "B DHO"
   },
   {
     "id": "wtt_saturday_row_151",
@@ -25323,7 +27275,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:57:31",
         "PUTH": "22:04:19",
         "APTS": "22:14:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_151_up",
@@ -25342,10 +27295,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:08:12",
         "NGSA": "23:14:00",
         "BIET": "23:20:00"
-      }
+      },
+      "handoverLocation": "SPGD DN PF"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "SPGD DN PF"
   },
   {
     "id": "wtt_saturday_row_152",
@@ -25375,7 +27331,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "22:07:31",
         "PUTH": "22:14:19",
         "APTS": "22:24:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_152_up",
@@ -25394,10 +27351,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:18:12",
         "NGSA": "23:24:00",
         "BIET": "23:30:00"
-      }
+      },
+      "handoverLocation": "NG DN PF"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "NG DN PF"
   },
   {
     "id": "wtt_saturday_row_153",
@@ -25427,7 +27387,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "22:17:31",
         "PUTH": "22:24:19",
         "APTS": "22:34:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_153_up",
@@ -25446,10 +27407,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:28:12",
         "NGSA": "23:34:00",
         "BIET": "23:40:00"
-      }
+      },
+      "handoverLocation": "NG UP Pf"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "NG UP Pf"
   },
   {
     "id": "wtt_saturday_row_154",
@@ -25479,7 +27443,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "22:27:31",
         "PUTH": "22:34:19",
         "APTS": "22:44:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_154_up",
@@ -25498,10 +27463,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:41:12",
         "NGSA": "23:47:00",
         "BIET": "23:53:00"
-      }
+      },
+      "handoverLocation": "BEIT DN PF"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "BEIT DN PF"
   },
   {
     "id": "wtt_saturday_row_155",
@@ -25531,7 +27499,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "22:37:31",
         "PUTH": "22:44:19",
         "APTS": "22:54:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_155_up",
@@ -25550,10 +27519,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:54:19",
         "NGSA": "00:00:07",
         "BIET": "00:06:07"
-      }
+      },
+      "handoverLocation": "BEIT UP PF"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "BEIT UP PF"
   },
   {
     "id": "wtt_saturday_row_156",
@@ -25583,7 +27555,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "22:53:52",
         "PUTH": "23:01:19",
         "APTS": "23:12:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_156_up",
@@ -25602,10 +27575,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_157",
@@ -25635,7 +27611,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "23:08:52",
         "PUTH": "23:16:19",
         "APTS": "23:27:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_157_up",
@@ -25654,10 +27631,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_158",
@@ -25687,7 +27667,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "23:23:52",
         "PUTH": "23:31:19",
         "APTS": "23:42:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_158_up",
@@ -25706,10 +27687,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_159",
@@ -25739,7 +27723,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "23:38:52",
         "PUTH": "23:46:19",
         "APTS": "23:57:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_159_up",
@@ -25758,10 +27743,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_saturday_row_160",
@@ -25791,7 +27779,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "23:46:01",
         "PUTH": "23:52:49",
         "APTS": "00:02:30"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_saturday_row_160_up",
@@ -25810,10 +27799,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.003Z"
+    "updatedAt": "2026-10-06T22:02:54.003Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_1",
@@ -25843,7 +27835,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "--",
         "PUTH": "--",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_1_up",
@@ -25862,10 +27855,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "07:35:00",
         "BIET": "07:41:00"
-      }
+      },
+      "handoverLocation": "APTS UP"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.022Z"
+    "updatedAt": "2026-10-06T22:02:54.022Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "APTS UP"
   },
   {
     "id": "wtt_sunday_row_2",
@@ -25895,7 +27891,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "--",
         "PUTH": "--",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_2_up",
@@ -25914,10 +27911,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "07:38:12",
         "NGSA": "07:44:00",
         "BIET": "07:50:00"
-      }
+      },
+      "handoverLocation": "PUTH UP"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.022Z"
+    "updatedAt": "2026-10-06T22:02:54.022Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "PUTH UP"
   },
   {
     "id": "wtt_sunday_row_3",
@@ -25947,7 +27947,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "--",
         "PUTH": "--",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_3_up",
@@ -25966,10 +27967,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "07:48:12",
         "NGSA": "07:54:00",
         "BIET": "08:00:00"
-      }
+      },
+      "handoverLocation": "APTS DN"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.022Z"
+    "updatedAt": "2026-10-06T22:02:54.022Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "APTS DN"
   },
   {
     "id": "wtt_sunday_row_4",
@@ -25999,7 +28003,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "--",
         "PUTH": "--",
         "APTS": "--"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_4_up",
@@ -26018,10 +28023,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:03:12",
         "NGSA": "08:09:00",
         "BIET": "08:15:00"
-      }
+      },
+      "handoverLocation": "TGTP DN"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.022Z"
+    "updatedAt": "2026-10-06T22:02:54.022Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "TGTP DN"
   },
   {
     "id": "wtt_sunday_row_5",
@@ -26051,7 +28059,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "Pilot by TO from PUTH Dn to APTS Dn",
         "PUTH": "07:10:00",
         "APTS": "07:15:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_5_up",
@@ -26070,10 +28079,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:18:12",
         "NGSA": "08:24:00",
         "BIET": "08:30:00"
-      }
+      },
+      "handoverLocation": "PUTH DN"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.022Z"
+    "updatedAt": "2026-10-06T22:02:54.022Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "PUTH DN"
   },
   {
     "id": "wtt_sunday_row_6",
@@ -26103,7 +28115,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "--",
         "PUTH": "07:28:00",
         "APTS": "07:37:41"
-      }
+      },
+      "takeoverLocation": "NGSA DN PF"
     },
     "upTrip": {
       "id": "wtt_sunday_row_6_up",
@@ -26122,10 +28135,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:33:12",
         "NGSA": "08:39:00",
         "BIET": "08:45:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.022Z"
+    "updatedAt": "2026-10-06T22:02:54.022Z",
+    "takeoverLocation": "NGSA DN PF",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_7",
@@ -26155,7 +28171,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:35:45",
         "PUTH": "07:42:48",
         "APTS": "07:52:29"
-      }
+      },
+      "takeoverLocation": "RD-3"
     },
     "upTrip": {
       "id": "wtt_sunday_row_7_up",
@@ -26174,10 +28191,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:46:12",
         "NGSA": "08:52:00",
         "BIET": "08:58:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.022Z"
+    "updatedAt": "2026-10-06T22:02:54.022Z",
+    "takeoverLocation": "RD-3",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_8",
@@ -26207,7 +28227,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:46:31",
         "PUTH": "07:53:19",
         "APTS": "08:03:00"
-      }
+      },
+      "takeoverLocation": "BT DN PF"
     },
     "upTrip": {
       "id": "wtt_sunday_row_8_up",
@@ -26226,10 +28247,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "08:56:12",
         "NGSA": "09:02:00",
         "BIET": "09:08:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.022Z"
+    "updatedAt": "2026-10-06T22:02:54.022Z",
+    "takeoverLocation": "BT DN PF",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_9",
@@ -26259,7 +28283,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "07:53:31",
         "PUTH": "08:00:19",
         "APTS": "08:10:00"
-      }
+      },
+      "takeoverLocation": "BT UP PF"
     },
     "upTrip": {
       "id": "wtt_sunday_row_9_up",
@@ -26278,10 +28303,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:06:12",
         "NGSA": "09:12:00",
         "BIET": "09:18:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.022Z"
+    "updatedAt": "2026-10-06T22:02:54.022Z",
+    "takeoverLocation": "BT UP PF",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_10",
@@ -26311,7 +28339,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:00:31",
         "PUTH": "08:07:19",
         "APTS": "08:17:00"
-      }
+      },
+      "takeoverLocation": "JIDL UP"
     },
     "upTrip": {
       "id": "wtt_sunday_row_10_up",
@@ -26330,10 +28359,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:16:12",
         "NGSA": "09:22:00",
         "BIET": "09:28:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "JIDL UP",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_11",
@@ -26363,7 +28395,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:10:31",
         "PUTH": "08:17:19",
         "APTS": "08:27:00"
-      }
+      },
+      "takeoverLocation": "PY UP 07:00"
     },
     "upTrip": {
       "id": "wtt_sunday_row_11_up",
@@ -26382,10 +28415,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:26:12",
         "NGSA": "09:32:00",
         "BIET": "09:38:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "PY UP 07:00",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_12",
@@ -26415,7 +28451,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:20:31",
         "PUTH": "08:27:19",
         "APTS": "08:37:00"
-      }
+      },
+      "takeoverLocation": "PY UP 07:10"
     },
     "upTrip": {
       "id": "wtt_sunday_row_12_up",
@@ -26434,10 +28471,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:36:12",
         "NGSA": "09:42:00",
         "BIET": "09:48:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "PY UP 07:10",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_13",
@@ -26467,7 +28507,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:30:31",
         "PUTH": "08:37:19",
         "APTS": "08:47:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_13_up",
@@ -26486,10 +28527,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:46:12",
         "NGSA": "09:52:00",
         "BIET": "09:58:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_14",
@@ -26519,7 +28563,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:40:31",
         "PUTH": "08:47:19",
         "APTS": "08:57:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_14_up",
@@ -26538,10 +28583,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "09:56:12",
         "NGSA": "10:02:00",
         "BIET": "10:08:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_15",
@@ -26571,7 +28619,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "08:50:31",
         "PUTH": "08:57:19",
         "APTS": "09:07:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_15_up",
@@ -26590,10 +28639,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:06:12",
         "NGSA": "10:12:00",
         "BIET": "10:18:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_16",
@@ -26623,7 +28675,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:00:31",
         "PUTH": "09:07:19",
         "APTS": "09:17:00"
-      }
+      },
+      "takeoverLocation": "PY UP 07:50"
     },
     "upTrip": {
       "id": "wtt_sunday_row_16_up",
@@ -26642,10 +28695,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:16:12",
         "NGSA": "10:22:00",
         "BIET": "10:28:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "PY UP 07:50",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_17",
@@ -26675,7 +28731,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:10:31",
         "PUTH": "09:17:19",
         "APTS": "09:27:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_17_up",
@@ -26694,10 +28751,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:26:12",
         "NGSA": "10:32:00",
         "BIET": "10:38:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_18",
@@ -26727,7 +28787,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:20:31",
         "PUTH": "09:27:19",
         "APTS": "09:37:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_18_up",
@@ -26746,10 +28807,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:36:12",
         "NGSA": "10:42:00",
         "BIET": "10:48:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_19",
@@ -26779,7 +28843,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:30:31",
         "PUTH": "09:37:19",
         "APTS": "09:47:00"
-      }
+      },
+      "takeoverLocation": "BT DN BE"
     },
     "upTrip": {
       "id": "wtt_sunday_row_19_up",
@@ -26798,10 +28863,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:46:12",
         "NGSA": "10:52:00",
         "BIET": "10:58:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "BT DN BE",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_20",
@@ -26831,7 +28899,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:40:31",
         "PUTH": "09:47:19",
         "APTS": "09:57:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_20_up",
@@ -26850,10 +28919,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "10:56:12",
         "NGSA": "11:02:00",
         "BIET": "11:08:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_21",
@@ -26883,7 +28955,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "09:50:31",
         "PUTH": "09:57:19",
         "APTS": "10:07:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_21_up",
@@ -26902,10 +28975,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:06:12",
         "NGSA": "11:12:00",
         "BIET": "11:18:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_22",
@@ -26935,7 +29011,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:00:31",
         "PUTH": "10:07:43",
         "APTS": "10:18:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_22_up",
@@ -26954,10 +29031,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:16:12",
         "NGSA": "11:22:00",
         "BIET": "11:28:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_23",
@@ -26987,7 +29067,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:10:31",
         "PUTH": "10:17:43",
         "APTS": "10:28:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_23_up",
@@ -27006,10 +29087,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:26:12",
         "NGSA": "11:32:00",
         "BIET": "11:38:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_24",
@@ -27039,7 +29123,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:20:31",
         "PUTH": "10:27:43",
         "APTS": "10:38:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_24_up",
@@ -27058,10 +29143,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:36:12",
         "NGSA": "11:42:00",
         "BIET": "11:48:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_25",
@@ -27091,7 +29179,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:30:31",
         "PUTH": "10:37:43",
         "APTS": "10:48:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_25_up",
@@ -27110,10 +29199,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:46:12",
         "NGSA": "11:52:00",
         "BIET": "11:58:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_26",
@@ -27143,7 +29235,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:40:31",
         "PUTH": "10:47:43",
         "APTS": "10:58:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_26_up",
@@ -27162,10 +29255,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "11:56:12",
         "NGSA": "12:02:00",
         "BIET": "12:08:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_27",
@@ -27195,7 +29291,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "10:50:31",
         "PUTH": "10:57:43",
         "APTS": "11:08:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_27_up",
@@ -27214,10 +29311,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:06:12",
         "NGSA": "12:12:00",
         "BIET": "12:18:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_28",
@@ -27247,7 +29347,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:00:31",
         "PUTH": "11:07:43",
         "APTS": "11:18:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_28_up",
@@ -27266,10 +29367,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:16:12",
         "NGSA": "12:22:00",
         "BIET": "12:28:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_29",
@@ -27299,7 +29403,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:10:31",
         "PUTH": "11:17:43",
         "APTS": "11:28:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_29_up",
@@ -27318,10 +29423,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:26:12",
         "NGSA": "12:32:00",
         "BIET": "12:38:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_30",
@@ -27351,7 +29459,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:20:31",
         "PUTH": "11:27:43",
         "APTS": "11:38:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_30_up",
@@ -27370,10 +29479,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:36:12",
         "NGSA": "12:42:00",
         "BIET": "12:48:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_31",
@@ -27403,7 +29515,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:30:31",
         "PUTH": "11:37:43",
         "APTS": "11:48:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_31_up",
@@ -27422,10 +29535,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:46:12",
         "NGSA": "12:52:00",
         "BIET": "12:58:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_32",
@@ -27455,7 +29571,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:38:31",
         "PUTH": "11:45:43",
         "APTS": "11:56:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_32_up",
@@ -27474,10 +29591,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "12:56:12",
         "NGSA": "13:02:00",
         "BIET": "13:08:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_33",
@@ -27507,7 +29627,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:46:31",
         "PUTH": "11:53:43",
         "APTS": "12:04:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_33_up",
@@ -27526,10 +29647,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:04:12",
         "NGSA": "13:10:00",
         "BIET": "13:16:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_34",
@@ -27559,7 +29683,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "11:54:31",
         "PUTH": "12:01:43",
         "APTS": "12:12:24"
-      }
+      },
+      "takeoverLocation": "PY UP 10:45"
     },
     "upTrip": {
       "id": "wtt_sunday_row_34_up",
@@ -27578,10 +29703,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:12:12",
         "NGSA": "13:18:00",
         "BIET": "13:24:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "PY UP 10:45",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_35",
@@ -27611,7 +29739,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:02:31",
         "PUTH": "12:09:43",
         "APTS": "12:20:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_35_up",
@@ -27630,10 +29759,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:20:12",
         "NGSA": "13:26:00",
         "BIET": "13:32:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_36",
@@ -27663,7 +29795,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:10:31",
         "PUTH": "12:17:43",
         "APTS": "12:28:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_36_up",
@@ -27682,10 +29815,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:28:12",
         "NGSA": "13:34:00",
         "BIET": "13:40:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_37",
@@ -27715,7 +29851,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:18:31",
         "PUTH": "12:25:43",
         "APTS": "12:36:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_37_up",
@@ -27734,10 +29871,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:36:12",
         "NGSA": "13:42:00",
         "BIET": "13:48:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_38",
@@ -27767,7 +29907,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:26:31",
         "PUTH": "12:33:43",
         "APTS": "12:44:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_38_up",
@@ -27786,10 +29927,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:44:12",
         "NGSA": "13:50:00",
         "BIET": "13:56:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_39",
@@ -27819,7 +29963,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:34:31",
         "PUTH": "12:41:43",
         "APTS": "12:52:24"
-      }
+      },
+      "takeoverLocation": "PY UP 11:25"
     },
     "upTrip": {
       "id": "wtt_sunday_row_39_up",
@@ -27838,10 +29983,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "13:52:12",
         "NGSA": "13:58:00",
         "BIET": "14:04:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "PY UP 11:25",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_40",
@@ -27871,7 +30019,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:42:31",
         "PUTH": "12:49:43",
         "APTS": "13:00:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_40_up",
@@ -27890,10 +30039,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:00:12",
         "NGSA": "14:06:00",
         "BIET": "14:12:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_41",
@@ -27923,7 +30075,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:50:31",
         "PUTH": "12:57:43",
         "APTS": "13:08:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_41_up",
@@ -27942,10 +30095,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:08:12",
         "NGSA": "14:14:00",
         "BIET": "14:20:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_42",
@@ -27975,7 +30131,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "12:58:31",
         "PUTH": "13:05:43",
         "APTS": "13:16:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_42_up",
@@ -27994,10 +30151,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:16:12",
         "NGSA": "14:22:00",
         "BIET": "14:28:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_43",
@@ -28027,7 +30187,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:06:31",
         "PUTH": "13:13:43",
         "APTS": "13:24:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_43_up",
@@ -28046,10 +30207,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:24:12",
         "NGSA": "14:30:00",
         "BIET": "14:36:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_44",
@@ -28079,7 +30243,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:14:31",
         "PUTH": "13:21:43",
         "APTS": "13:32:24"
-      }
+      },
+      "takeoverLocation": "PY UP 12:05"
     },
     "upTrip": {
       "id": "wtt_sunday_row_44_up",
@@ -28098,10 +30263,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:32:12",
         "NGSA": "14:38:00",
         "BIET": "14:44:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "PY UP 12:05",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_45",
@@ -28131,7 +30299,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:22:31",
         "PUTH": "13:29:43",
         "APTS": "13:40:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_45_up",
@@ -28150,10 +30319,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:40:12",
         "NGSA": "14:46:00",
         "BIET": "14:52:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_46",
@@ -28183,7 +30355,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:30:31",
         "PUTH": "13:37:43",
         "APTS": "13:48:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_46_up",
@@ -28202,10 +30375,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:48:12",
         "NGSA": "14:54:00",
         "BIET": "15:00:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_47",
@@ -28235,7 +30411,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:38:31",
         "PUTH": "13:45:43",
         "APTS": "13:56:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_47_up",
@@ -28254,10 +30431,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "14:56:12",
         "NGSA": "15:02:00",
         "BIET": "15:08:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_48",
@@ -28287,7 +30467,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:46:31",
         "PUTH": "13:53:43",
         "APTS": "14:04:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_48_up",
@@ -28306,10 +30487,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:04:12",
         "NGSA": "15:10:00",
         "BIET": "15:16:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_49",
@@ -28339,7 +30523,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "13:54:31",
         "PUTH": "14:01:43",
         "APTS": "14:12:24"
-      }
+      },
+      "takeoverLocation": "N PKT"
     },
     "upTrip": {
       "id": "wtt_sunday_row_49_up",
@@ -28358,10 +30543,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:12:12",
         "NGSA": "15:18:00",
         "BIET": "15:24:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "N PKT",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_50",
@@ -28391,7 +30579,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:02:31",
         "PUTH": "14:09:43",
         "APTS": "14:20:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_50_up",
@@ -28410,10 +30599,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:20:12",
         "NGSA": "15:26:00",
         "BIET": "15:32:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_51",
@@ -28443,7 +30635,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:10:31",
         "PUTH": "14:17:43",
         "APTS": "14:28:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_51_up",
@@ -28462,10 +30655,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:28:12",
         "NGSA": "15:34:00",
         "BIET": "15:40:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_52",
@@ -28495,7 +30691,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:18:31",
         "PUTH": "14:25:43",
         "APTS": "14:36:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_52_up",
@@ -28514,10 +30711,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:36:12",
         "NGSA": "15:42:00",
         "BIET": "15:48:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.023Z"
+    "updatedAt": "2026-10-06T22:02:54.023Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_53",
@@ -28547,7 +30747,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:26:31",
         "PUTH": "14:33:43",
         "APTS": "14:44:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_53_up",
@@ -28566,10 +30767,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:44:12",
         "NGSA": "15:50:00",
         "BIET": "15:56:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_54",
@@ -28599,7 +30803,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:34:31",
         "PUTH": "14:41:43",
         "APTS": "14:52:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_54_up",
@@ -28618,10 +30823,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "15:52:12",
         "NGSA": "15:58:00",
         "BIET": "16:04:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_55",
@@ -28651,7 +30859,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:42:31",
         "PUTH": "14:49:43",
         "APTS": "15:00:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_55_up",
@@ -28670,10 +30879,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:00:12",
         "NGSA": "16:06:00",
         "BIET": "16:12:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_56",
@@ -28703,7 +30915,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:50:31",
         "PUTH": "14:57:43",
         "APTS": "15:08:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_56_up",
@@ -28722,10 +30935,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:08:12",
         "NGSA": "16:14:00",
         "BIET": "16:20:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_57",
@@ -28755,7 +30971,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "14:58:31",
         "PUTH": "15:05:43",
         "APTS": "15:16:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_57_up",
@@ -28774,10 +30991,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:16:12",
         "NGSA": "16:22:00",
         "BIET": "16:28:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_58",
@@ -28807,7 +31027,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:06:31",
         "PUTH": "15:13:43",
         "APTS": "15:24:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_58_up",
@@ -28826,10 +31047,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:24:12",
         "NGSA": "16:30:00",
         "BIET": "16:36:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_59",
@@ -28859,7 +31083,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:14:31",
         "PUTH": "15:21:43",
         "APTS": "15:32:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_59_up",
@@ -28878,10 +31103,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:32:12",
         "NGSA": "16:38:00",
         "BIET": "16:44:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_60",
@@ -28911,7 +31139,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:22:31",
         "PUTH": "15:29:43",
         "APTS": "15:40:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_60_up",
@@ -28930,10 +31159,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:40:12",
         "NGSA": "16:46:00",
         "BIET": "16:52:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_61",
@@ -28963,7 +31195,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:30:31",
         "PUTH": "15:37:43",
         "APTS": "15:48:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_61_up",
@@ -28982,10 +31215,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:48:12",
         "NGSA": "16:54:00",
         "BIET": "17:00:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_62",
@@ -29015,7 +31251,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:38:31",
         "PUTH": "15:45:43",
         "APTS": "15:56:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_62_up",
@@ -29034,10 +31271,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "16:56:12",
         "NGSA": "17:02:00",
         "BIET": "17:08:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_63",
@@ -29067,7 +31307,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:46:31",
         "PUTH": "15:53:43",
         "APTS": "16:04:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_63_up",
@@ -29086,10 +31327,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:04:12",
         "NGSA": "17:10:00",
         "BIET": "17:16:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_64",
@@ -29119,7 +31363,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "15:54:31",
         "PUTH": "16:01:43",
         "APTS": "16:12:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_64_up",
@@ -29138,10 +31383,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:12:12",
         "NGSA": "17:18:00",
         "BIET": "17:24:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_65",
@@ -29171,7 +31419,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:02:31",
         "PUTH": "16:09:43",
         "APTS": "16:20:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_65_up",
@@ -29190,10 +31439,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:20:12",
         "NGSA": "17:26:00",
         "BIET": "17:32:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_66",
@@ -29223,7 +31475,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:10:31",
         "PUTH": "16:17:43",
         "APTS": "16:28:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_66_up",
@@ -29242,10 +31495,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:28:12",
         "NGSA": "17:34:00",
         "BIET": "17:40:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_67",
@@ -29275,7 +31531,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:18:31",
         "PUTH": "16:25:43",
         "APTS": "16:36:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_67_up",
@@ -29294,10 +31551,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:36:12",
         "NGSA": "17:42:00",
         "BIET": "17:48:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_68",
@@ -29327,7 +31587,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:26:31",
         "PUTH": "16:33:43",
         "APTS": "16:44:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_68_up",
@@ -29346,10 +31607,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:44:12",
         "NGSA": "17:50:00",
         "BIET": "17:56:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_69",
@@ -29379,7 +31643,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:34:31",
         "PUTH": "16:41:43",
         "APTS": "16:52:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_69_up",
@@ -29398,10 +31663,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "17:52:12",
         "NGSA": "17:58:00",
         "BIET": "18:04:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_70",
@@ -29431,7 +31699,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:42:31",
         "PUTH": "16:49:43",
         "APTS": "17:00:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_70_up",
@@ -29450,10 +31719,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:00:12",
         "NGSA": "18:06:00",
         "BIET": "18:12:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_71",
@@ -29483,7 +31755,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:50:31",
         "PUTH": "16:57:43",
         "APTS": "17:08:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_71_up",
@@ -29502,10 +31775,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:08:12",
         "NGSA": "18:14:00",
         "BIET": "18:20:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_72",
@@ -29535,7 +31811,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "16:58:31",
         "PUTH": "17:05:43",
         "APTS": "17:16:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_72_up",
@@ -29554,10 +31831,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:16:12",
         "NGSA": "18:22:00",
         "BIET": "18:28:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_73",
@@ -29587,7 +31867,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:06:31",
         "PUTH": "17:13:43",
         "APTS": "17:24:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_73_up",
@@ -29606,10 +31887,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:24:12",
         "NGSA": "18:30:00",
         "BIET": "18:36:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_74",
@@ -29639,7 +31923,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:14:31",
         "PUTH": "17:21:43",
         "APTS": "17:32:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_74_up",
@@ -29658,10 +31943,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:32:12",
         "NGSA": "18:38:00",
         "BIET": "18:44:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_75",
@@ -29691,7 +31979,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:22:31",
         "PUTH": "17:29:43",
         "APTS": "17:40:24"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_75_up",
@@ -29710,10 +31999,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:40:12",
         "NGSA": "18:46:00",
         "BIET": "18:52:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_76",
@@ -29743,7 +32035,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:30:31",
         "PUTH": "17:37:19",
         "APTS": "17:47:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_76_up",
@@ -29762,10 +32055,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:48:12",
         "NGSA": "18:54:00",
         "BIET": "19:00:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_77",
@@ -29795,7 +32091,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:38:31",
         "PUTH": "17:45:19",
         "APTS": "17:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_77_up",
@@ -29814,10 +32111,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "18:56:12",
         "NGSA": "19:02:00",
         "BIET": "19:08:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_78",
@@ -29847,7 +32147,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:46:31",
         "PUTH": "17:53:19",
         "APTS": "18:03:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_78_up",
@@ -29866,10 +32167,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:04:12",
         "NGSA": "19:10:00",
         "BIET": "19:16:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_79",
@@ -29899,7 +32203,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "17:54:31",
         "PUTH": "18:01:19",
         "APTS": "18:11:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_79_up",
@@ -29918,10 +32223,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:12:12",
         "NGSA": "19:18:00",
         "BIET": "19:24:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_80",
@@ -29951,7 +32259,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:02:31",
         "PUTH": "18:09:19",
         "APTS": "18:19:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_80_up",
@@ -29970,10 +32279,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:20:12",
         "NGSA": "19:26:00",
         "BIET": "19:32:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_81",
@@ -30003,7 +32315,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:10:31",
         "PUTH": "18:17:19",
         "APTS": "18:27:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_81_up",
@@ -30022,10 +32335,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:28:12",
         "NGSA": "19:34:00",
         "BIET": "19:40:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_82",
@@ -30055,7 +32371,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:18:31",
         "PUTH": "18:25:19",
         "APTS": "18:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_82_up",
@@ -30074,10 +32391,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:36:12",
         "NGSA": "19:42:00",
         "BIET": "19:48:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_83",
@@ -30107,7 +32427,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:26:31",
         "PUTH": "18:33:19",
         "APTS": "18:43:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_83_up",
@@ -30126,10 +32447,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:44:12",
         "NGSA": "19:50:00",
         "BIET": "19:56:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_84",
@@ -30159,7 +32483,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:34:31",
         "PUTH": "18:41:19",
         "APTS": "18:51:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_84_up",
@@ -30178,10 +32503,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "19:52:12",
         "NGSA": "19:58:00",
         "BIET": "20:04:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_85",
@@ -30211,7 +32539,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:42:31",
         "PUTH": "18:49:19",
         "APTS": "18:59:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_85_up",
@@ -30230,10 +32559,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:00:12",
         "NGSA": "20:06:00",
         "BIET": "20:12:00"
-      }
+      },
+      "handoverLocation": "B. DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "B. DHO"
   },
   {
     "id": "wtt_sunday_row_86",
@@ -30263,7 +32595,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:50:31",
         "PUTH": "18:57:19",
         "APTS": "19:07:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_86_up",
@@ -30282,10 +32615,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:08:12",
         "NGSA": "20:14:00",
         "BIET": "20:20:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_87",
@@ -30315,7 +32651,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "18:58:31",
         "PUTH": "19:05:19",
         "APTS": "19:15:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_87_up",
@@ -30334,10 +32671,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:16:12",
         "NGSA": "20:22:00",
         "BIET": "20:28:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_88",
@@ -30367,7 +32707,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:06:31",
         "PUTH": "19:13:19",
         "APTS": "19:23:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_88_up",
@@ -30386,10 +32727,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:24:12",
         "NGSA": "20:30:00",
         "BIET": "20:36:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_89",
@@ -30419,7 +32763,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:14:31",
         "PUTH": "19:21:19",
         "APTS": "19:31:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_89_up",
@@ -30438,10 +32783,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:32:12",
         "NGSA": "20:38:00",
         "BIET": "20:44:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_90",
@@ -30471,7 +32819,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:22:31",
         "PUTH": "19:29:19",
         "APTS": "19:39:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_90_up",
@@ -30490,10 +32839,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:40:12",
         "NGSA": "20:46:00",
         "BIET": "20:52:00"
-      }
+      },
+      "handoverLocation": "B. DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "B. DHO"
   },
   {
     "id": "wtt_sunday_row_91",
@@ -30523,7 +32875,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:30:31",
         "PUTH": "19:37:19",
         "APTS": "19:47:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_91_up",
@@ -30542,10 +32895,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:48:12",
         "NGSA": "20:54:00",
         "BIET": "21:00:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_92",
@@ -30575,7 +32931,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:38:31",
         "PUTH": "19:45:19",
         "APTS": "19:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_92_up",
@@ -30594,10 +32951,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "20:56:12",
         "NGSA": "21:02:00",
         "BIET": "21:08:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_93",
@@ -30627,7 +32987,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:46:31",
         "PUTH": "19:53:19",
         "APTS": "20:03:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_93_up",
@@ -30646,10 +33007,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:04:12",
         "NGSA": "21:10:00",
         "BIET": "21:16:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_94",
@@ -30679,7 +33043,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "19:54:31",
         "PUTH": "20:01:19",
         "APTS": "20:11:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_94_up",
@@ -30698,10 +33063,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:12:12",
         "NGSA": "21:18:00",
         "BIET": "21:24:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_95",
@@ -30731,7 +33099,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:02:31",
         "PUTH": "20:09:19",
         "APTS": "20:19:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_95_up",
@@ -30750,10 +33119,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:20:12",
         "NGSA": "21:26:00",
         "BIET": "21:32:00"
-      }
+      },
+      "handoverLocation": "N PKT"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.024Z"
+    "updatedAt": "2026-10-06T22:02:54.024Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "N PKT"
   },
   {
     "id": "wtt_sunday_row_96",
@@ -30783,7 +33155,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:10:31",
         "PUTH": "20:17:19",
         "APTS": "20:27:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_96_up",
@@ -30802,10 +33175,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:28:12",
         "NGSA": "21:34:00",
         "BIET": "21:40:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_97",
@@ -30835,7 +33211,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:18:31",
         "PUTH": "20:25:19",
         "APTS": "20:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_97_up",
@@ -30854,10 +33231,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:36:12",
         "NGSA": "21:42:00",
         "BIET": "21:48:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_98",
@@ -30887,7 +33267,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:26:31",
         "PUTH": "20:33:19",
         "APTS": "20:43:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_98_up",
@@ -30906,10 +33287,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:44:12",
         "NGSA": "21:50:00",
         "BIET": "21:56:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_99",
@@ -30939,7 +33323,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:34:31",
         "PUTH": "20:41:19",
         "APTS": "20:51:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_99_up",
@@ -30958,10 +33343,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "21:52:12",
         "NGSA": "21:58:00",
         "BIET": "22:04:00"
-      }
+      },
+      "handoverLocation": "B. DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "B. DHO"
   },
   {
     "id": "wtt_sunday_row_100",
@@ -30991,7 +33379,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:42:31",
         "PUTH": "20:49:19",
         "APTS": "20:59:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_100_up",
@@ -31010,10 +33399,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:00:12",
         "NGSA": "22:06:00",
         "BIET": "22:12:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_101",
@@ -31043,7 +33435,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:50:31",
         "PUTH": "20:57:19",
         "APTS": "21:07:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_101_up",
@@ -31062,10 +33455,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:09:12",
         "NGSA": "22:15:00",
         "BIET": "22:21:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_102",
@@ -31095,7 +33491,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "20:58:31",
         "PUTH": "21:05:19",
         "APTS": "21:15:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_102_up",
@@ -31114,10 +33511,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:16:12",
         "NGSA": "22:22:00",
         "BIET": "22:28:00"
-      }
+      },
+      "handoverLocation": "B. DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "B. DHO"
   },
   {
     "id": "wtt_sunday_row_103",
@@ -31147,7 +33547,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:08:31",
         "PUTH": "21:15:19",
         "APTS": "21:25:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_103_up",
@@ -31166,10 +33567,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:24:12",
         "NGSA": "22:30:00",
         "BIET": "22:36:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_104",
@@ -31199,7 +33603,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:18:31",
         "PUTH": "21:25:19",
         "APTS": "21:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_104_up",
@@ -31218,10 +33623,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:32:12",
         "NGSA": "22:38:00",
         "BIET": "22:44:00"
-      }
+      },
+      "handoverLocation": "B. DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "B. DHO"
   },
   {
     "id": "wtt_sunday_row_105",
@@ -31251,7 +33659,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:28:31",
         "PUTH": "21:35:19",
         "APTS": "21:45:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_105_up",
@@ -31270,10 +33679,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:42:12",
         "NGSA": "22:48:00",
         "BIET": "22:54:00"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_106",
@@ -31303,7 +33715,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:38:31",
         "PUTH": "21:45:19",
         "APTS": "21:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_106_up",
@@ -31322,10 +33735,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "22:52:12",
         "NGSA": "22:58:00",
         "BIET": "23:04:00"
-      }
+      },
+      "handoverLocation": "BT DN BE"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "BT DN BE"
   },
   {
     "id": "wtt_sunday_row_107",
@@ -31355,7 +33771,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:48:31",
         "PUTH": "21:55:19",
         "APTS": "22:05:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_107_up",
@@ -31374,10 +33791,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:02:12",
         "NGSA": "23:08:00",
         "BIET": "23:14:00"
-      }
+      },
+      "handoverLocation": "B. DHO"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "B. DHO"
   },
   {
     "id": "wtt_sunday_row_108",
@@ -31407,7 +33827,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "21:58:31",
         "PUTH": "22:05:19",
         "APTS": "22:15:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_108_up",
@@ -31426,10 +33847,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:12:12",
         "NGSA": "23:18:00",
         "BIET": "23:24:00"
-      }
+      },
+      "handoverLocation": "SPGD DN PF"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "SPGD DN PF"
   },
   {
     "id": "wtt_sunday_row_109",
@@ -31459,7 +33883,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "22:08:31",
         "PUTH": "22:15:19",
         "APTS": "22:25:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_109_up",
@@ -31478,10 +33903,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:22:12",
         "NGSA": "23:28:00",
         "BIET": "23:34:00"
-      }
+      },
+      "handoverLocation": "NGSA DN"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "NGSA DN"
   },
   {
     "id": "wtt_sunday_row_110",
@@ -31511,7 +33939,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "22:18:31",
         "PUTH": "22:25:19",
         "APTS": "22:35:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_110_up",
@@ -31530,10 +33959,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:31:12",
         "NGSA": "23:37:00",
         "BIET": "23:43:00"
-      }
+      },
+      "handoverLocation": "NGSA UP Pf"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "NGSA UP Pf"
   },
   {
     "id": "wtt_sunday_row_111",
@@ -31563,7 +33995,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "22:28:31",
         "PUTH": "22:35:19",
         "APTS": "22:45:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_111_up",
@@ -31582,10 +34015,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:38:12",
         "NGSA": "23:44:00",
         "BIET": "23:50:00"
-      }
+      },
+      "handoverLocation": "BEIT DN"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "BEIT DN"
   },
   {
     "id": "wtt_sunday_row_112",
@@ -31615,7 +34051,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "22:38:31",
         "PUTH": "22:45:19",
         "APTS": "22:55:00"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_112_up",
@@ -31634,10 +34071,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "23:53:12",
         "NGSA": "23:59:00",
         "BIET": "00:05:00"
-      }
+      },
+      "handoverLocation": "BEIT UP"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "BEIT UP"
   },
   {
     "id": "wtt_sunday_row_113",
@@ -31667,7 +34107,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "22:50:08",
         "PUTH": "22:56:56",
         "APTS": "23:07:37"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_113_up",
@@ -31686,10 +34127,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_114",
@@ -31719,7 +34163,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "23:05:35",
         "PUTH": "23:12:23",
         "APTS": "23:23:04"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_114_up",
@@ -31738,10 +34183,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_115",
@@ -31771,7 +34219,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "23:20:35",
         "PUTH": "23:27:23",
         "APTS": "23:38:04"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_115_up",
@@ -31790,10 +34239,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_116",
@@ -31823,7 +34275,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "23:35:35",
         "PUTH": "23:42:23",
         "APTS": "23:53:04"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_116_up",
@@ -31842,10 +34295,13 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   },
   {
     "id": "wtt_sunday_row_117",
@@ -31875,7 +34331,8 @@ export const WTT_MASTER_REGISTRY = [
         "RVR": "23:46:01",
         "PUTH": "23:52:49",
         "APTS": "00:02:30"
-      }
+      },
+      "takeoverLocation": "--"
     },
     "upTrip": {
       "id": "wtt_sunday_row_117_up",
@@ -31894,9 +34351,12 @@ export const WTT_MASTER_REGISTRY = [
         "PYID": "--",
         "NGSA": "--",
         "BIET": "--"
-      }
+      },
+      "handoverLocation": "--"
     },
     "isUploaded": true,
-    "updatedAt": "2026-10-06T22:02:54.025Z"
+    "updatedAt": "2026-10-06T22:02:54.025Z",
+    "takeoverLocation": "--",
+    "handoverLocation": "--"
   }
 ];

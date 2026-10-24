@@ -403,22 +403,42 @@ export async function parseWttExcel(fileOrBuffer, targetScheduleType = null) {
     upLineStartCol = Math.floor(headerRow.length / 2);
   }
 
-  // Find Mode and Train ID column indices (TID / Mode)
+  // Find Mode and Train ID column indices (TID / Mode), Takeover/Induction and Handover
   let dnModeCol = -1;
   let upModeCol = -1;
   let dnTidCol = -1;
   let upTidCol = -1;
+  let inductCol = -1;
+  let handoverCol = -1;
 
-  headerRow.forEach((c, idx) => {
-    const s = String(c || '').trim().toUpperCase();
-    if (s.includes('MODE')) {
-      if (idx < upLineStartCol && dnModeCol === -1) dnModeCol = idx;
-      else if (idx >= upLineStartCol && upModeCol === -1) upModeCol = idx;
-    }
-    if (s.includes('TID') || s.includes('TR NO') || s.includes('TRAIN')) {
-      if (idx < upLineStartCol && dnTidCol === -1) dnTidCol = idx;
-      else if (idx >= upLineStartCol && upTidCol === -1) upTidCol = idx;
-    }
+  // Scan headerRow and candidate rows above it (rows 0..headerRowIdx) for header labels
+  const candidateHeaderRows = [];
+  for (let r = 0; r <= headerRowIdx; r++) {
+    if (data[r]) candidateHeaderRows.push(data[r]);
+  }
+
+  const TAKER_PATTERN = /INDUCT|TAKEOVER|TAKER|TAKE\s*OVER|TOC|FROM|DEPOT|DEP\s*LOC|T\.?O\.?C/i;
+  const HANDOVER_PATTERN = /HANDOVER|HAND\s*OVER|STABLING|STABLE|HOC|H\.?O\.?C|DESTINATION|ARR\s*LOC|STBL/i;
+
+  candidateHeaderRows.forEach(row => {
+    row.forEach((c, idx) => {
+      const s = String(c || '').trim();
+      if (!s) return;
+      if (TAKER_PATTERN.test(s) && inductCol === -1 && idx < upLineStartCol) {
+        inductCol = idx;
+      }
+      if (HANDOVER_PATTERN.test(s) && handoverCol === -1) {
+        handoverCol = idx;
+      }
+      if (/MODE/i.test(s)) {
+        if (idx < upLineStartCol && dnModeCol === -1) dnModeCol = idx;
+        else if (idx >= upLineStartCol && upModeCol === -1) upModeCol = idx;
+      }
+      if (/(?:TID|TR\s*NO|TRAIN)/i.test(s)) {
+        if (idx < upLineStartCol && dnTidCol === -1) dnTidCol = idx;
+        else if (idx >= upLineStartCol && upTidCol === -1) upTidCol = idx;
+      }
+    });
   });
 
   // Fallback checks for Mode columns if header wasn't labeled with "MODE"
@@ -430,6 +450,12 @@ export async function parseWttExcel(fileOrBuffer, targetScheduleType = null) {
     upModeCol = upTidCol - 1;
   } else if (upModeCol === -1 && upLineStartCol >= 0) {
     upModeCol = upLineStartCol;
+  }
+
+  // Fallback check for Induction / Takeover Location column:
+  // In standard BMRCL WTT format, Induction is immediately before dnTidCol (column 1)
+  if (inductCol === -1 && dnTidCol > 0) {
+    inductCol = dnTidCol - 1;
   }
 
   // 3. Map Down Line and Up Line station column indices accurately
@@ -449,6 +475,12 @@ export async function parseWttExcel(fileOrBuffer, targetScheduleType = null) {
       }
     }
   });
+
+  // Fallback check for Handover Location:
+  // In standard BMRCL WTT format, Handover is immediately after UP line BIET
+  if (handoverCol === -1 && upCols['BIET'] !== undefined) {
+    handoverCol = upCols['BIET'] + 1;
+  }
 
   // 4. Extract data rows
   const parsedRows = [];
@@ -512,12 +544,22 @@ export async function parseWttExcel(fileOrBuffer, targetScheduleType = null) {
     const rowSeq = parsedRows.length + 1;
     const rowDocId = `wtt_${activeSchedule.toLowerCase()}_row_${rowSeq}`;
 
+    const rawTakeover = inductCol >= 0 ? row[inductCol] : '';
+    const rawHandover = handoverCol >= 0 ? row[handoverCol] : '';
+    const takeoverLocation = (rawTakeover !== undefined && rawTakeover !== null && String(rawTakeover).trim() !== '' && String(rawTakeover).trim() !== '-' && String(rawTakeover).trim() !== '--')
+      ? String(rawTakeover).trim()
+      : '--';
+    const handoverLocation = (rawHandover !== undefined && rawHandover !== null && String(rawHandover).trim() !== '' && String(rawHandover).trim() !== '-' && String(rawHandover).trim() !== '--')
+      ? String(rawHandover).trim()
+      : '--';
+
     const downTrip = hasDnTimes ? {
       id: `${rowDocId}_dn`,
       scheduleType: activeSchedule,
       trainId: cleanTrainNo(dnTid || trainId),
       terminalLoopRoute: 'BIET - APTS (DN)',
       mode: dnMode || effectiveMode || 'ATO',
+      takeoverLocation: takeoverLocation,
       stations: dnStationTimes
     } : null;
 
@@ -527,6 +569,7 @@ export async function parseWttExcel(fileOrBuffer, targetScheduleType = null) {
       trainId: cleanTrainNo(upTid || trainId),
       terminalLoopRoute: 'APTS - BIET (UP)',
       mode: upMode || effectiveMode || 'ATO',
+      handoverLocation: handoverLocation,
       stations: upStationTimes
     } : null;
 
@@ -544,6 +587,8 @@ export async function parseWttExcel(fileOrBuffer, targetScheduleType = null) {
       mode: effectiveMode || 'ATO',
       dnMode: downTrip ? (dnMode || downTrip.mode || 'ATO') : '--',
       upMode: upTrip ? (upMode || upTrip.mode || 'ATO') : '--',
+      takeoverLocation: takeoverLocation,
+      handoverLocation: handoverLocation,
       downTrip: downTrip,
       upTrip: upTrip,
       isUploaded: true,
@@ -562,6 +607,10 @@ export async function parseWttExcel(fileOrBuffer, targetScheduleType = null) {
       upTripsCount,
       atoTripsCount,
       atpTripsCount,
+      atoCount: atoTripsCount,
+      atpCount: atpTripsCount,
+      takeoverCount: parsedRows.filter(r => r.takeoverLocation && r.takeoverLocation !== '--').length,
+      handoverCount: parsedRows.filter(r => r.handoverLocation && r.handoverLocation !== '--').length,
       dnStationCount: Object.keys(dnCols).length,
       upStationCount: Object.keys(upCols).length
     },
@@ -1383,9 +1432,17 @@ export async function parseLinkRosterExcel(fileOrBuffer, targetScheduleType = nu
 
 /**
  * Saves parsed WTT timetable rows into Firestore collection 'wtt_final_matrix'
- * using chunks of 400 operations per batch to satisfy Firestore limits.
+ * using fast native writeBatch commits for maximum speed and zero latency.
  */
-export async function saveWttToFirestore(wttRows, scheduleType, onProgress = () => {}) {
+export async function saveWttToFirestore(wttRows, scheduleType, onProgress = () => {}, options = { eraseOld: true }) {
+  let progressCb = onProgress;
+  let opts = options;
+  if (typeof onProgress === 'object' && onProgress !== null) {
+    opts = onProgress;
+    progressCb = () => {};
+  }
+  const eraseOld = opts?.eraseOld !== false;
+
   const normSchedule = normalizeScheduleType(scheduleType);
   if (!Array.isArray(wttRows) || wttRows.length === 0) {
     throw new Error('No WTT rows to save.');
@@ -1403,58 +1460,22 @@ export async function saveWttToFirestore(wttRows, scheduleType, onProgress = () 
     console.warn('In-memory registry update:', err);
   }
 
-  onProgress({ stage: 'SAVING', message: `Preparing ${wttRows.length} trips...`, progress: 30 });
-
-  // 1. Collect existing documents for this scheduleType to cleanly purge all old data
-  const wttCol = collection(db, 'wtt_final_matrix');
-  const existingDocIds = new Set();
+  // Clear erased flag from localStorage for this schedule day
   const dayTag = normSchedule.toLowerCase();
-
-  // Pre-seed known row IDs from previous editions up to 650 so orphaned rows are purged immediately without waiting
-  for (let i = wttRows.length + 1; i <= 650; i++) {
-    existingDocIds.add(`wtt_${dayTag}_row_${i}`);
-    existingDocIds.add(`wtt_${dayTag}_row_${i}_dn`);
-    existingDocIds.add(`wtt_${dayTag}_row_${i}_up`);
-  }
-
-  // Fast scoped query with 1.5s timeout protection
-  const fetchOldPromise = (async () => {
-    try {
-      const q = query(wttCol, where('scheduleType', '==', normSchedule));
-      const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ docs: [] }), 1500));
-      const snap = await Promise.race([getDocs(q), timeoutPromise]);
-      snap.docs.forEach(d => {
-        const docId = d.id;
-        const docIdLower = docId.toLowerCase();
-        if (docIdLower.startsWith(`wtt_${dayTag}`) || docIdLower.includes(dayTag)) {
-          existingDocIds.add(docId);
-        }
-      });
-    } catch (err) {
-      console.warn('Could not query old wtt_final_matrix documents:', err);
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem(`pyidcc_wtt_erased_${dayTag}`);
     }
-  })();
+  } catch (_) {}
 
-  // Purge any stale delay incidents for this schedule with 1.5s timeout
-  const incRefsToDelete = [];
-  const fetchIncPromise = (async () => {
-    try {
-      const qInc = query(collection(db, 'wtt_live_incidents'), where('scheduleType', '==', normSchedule));
-      const timeoutInc = new Promise(resolve => setTimeout(() => resolve({ docs: [] }), 1500));
-      const incSnap = await Promise.race([getDocs(qInc), timeoutInc]);
-      incSnap.docs.forEach(d => incRefsToDelete.push(d.ref));
-    } catch (err) {
-      console.warn('Could not query old wtt_live_incidents:', err);
-    }
-  })();
+  progressCb({ stage: 'SAVING', message: `Preparing ${wttRows.length} trips...`, progress: 25 });
 
-  // 2. Prepare batches (max 400 ops per batch)
-  const BATCH_LIMIT = 400;
+  const wttCol = collection(db, 'wtt_final_matrix');
   const operations = [];
   const newDocIdsSet = new Set();
 
   wttRows.forEach(row => {
-    // 2a. Save full row document
+    // Save full row document
     const rowDocRef = doc(db, 'wtt_final_matrix', row.id);
     newDocIdsSet.add(row.id);
     operations.push({
@@ -1470,6 +1491,8 @@ export async function saveWttToFirestore(wttRows, scheduleType, onProgress = () 
         mode: row.mode || row.dnMode || row.upMode || 'ATO',
         dnMode: row.downTrip ? (row.dnMode || row.downTrip?.mode || 'ATO') : '--',
         upMode: row.upTrip ? (row.upMode || row.upTrip?.mode || 'ATO') : '--',
+        takeoverLocation: row.takeoverLocation || row.downTrip?.takeoverLocation || '--',
+        handoverLocation: row.handoverLocation || row.upTrip?.handoverLocation || '--',
         downTrip: row.downTrip || null,
         upTrip: row.upTrip || null,
         isUploaded: true,
@@ -1477,7 +1500,7 @@ export async function saveWttToFirestore(wttRows, scheduleType, onProgress = () 
       }
     });
 
-    // 2b. Also save direct Down Trip document for telemetry/sub-systems
+    // Save direct Down Trip document for telemetry/sub-systems
     if (row.downTrip) {
       const dnDocId = row.downTrip.id || `${row.id}_dn`;
       const dnDocRef = doc(db, 'wtt_final_matrix', dnDocId);
@@ -1492,6 +1515,7 @@ export async function saveWttToFirestore(wttRows, scheduleType, onProgress = () 
           scheduleType: normSchedule,
           terminalLoopRoute: 'DN',
           mode: row.downTrip.mode || row.dnMode || row.mode || 'ATO',
+          takeoverLocation: row.downTrip.takeoverLocation || row.takeoverLocation || '--',
           stations: row.downTrip.stations || {},
           isUploaded: true,
           lastUpdated: serverTimestamp()
@@ -1499,7 +1523,7 @@ export async function saveWttToFirestore(wttRows, scheduleType, onProgress = () 
       });
     }
 
-    // 2c. Also save direct Up Trip document for telemetry/sub-systems
+    // Save direct Up Trip document for telemetry/sub-systems
     if (row.upTrip) {
       const upDocId = row.upTrip.id || `${row.id}_up`;
       const upDocRef = doc(db, 'wtt_final_matrix', upDocId);
@@ -1514,6 +1538,7 @@ export async function saveWttToFirestore(wttRows, scheduleType, onProgress = () 
           scheduleType: normSchedule,
           terminalLoopRoute: 'UP',
           mode: row.upTrip.mode || row.upMode || row.mode || 'ATO',
+          handoverLocation: row.upTrip.handoverLocation || row.handoverLocation || '--',
           stations: row.upTrip.stations || {},
           isUploaded: true,
           lastUpdated: serverTimestamp()
@@ -1522,46 +1547,74 @@ export async function saveWttToFirestore(wttRows, scheduleType, onProgress = () 
     }
   });
 
-  // Await fast fetch of old documents & incidents (max 1.5s)
-  await Promise.all([fetchOldPromise, fetchIncPromise]);
+  // Query and purge real obsolete documents & incidents in under 1.2s
+  if (eraseOld) {
+    const fetchOldPromise = (async () => {
+      try {
+        const q = query(wttCol, where('scheduleType', '==', normSchedule));
+        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ docs: [] }), 1200));
+        const snap = await Promise.race([getDocs(q), timeoutPromise]);
+        snap.docs.forEach(d => {
+          if (!newDocIdsSet.has(d.id)) {
+            operations.push({ type: 'delete', ref: d.ref });
+          }
+        });
+      } catch (err) {
+        console.warn('Could not query old wtt_final_matrix documents:', err);
+      }
+    })();
 
-  // Delete orphaned / obsolete documents from prior schedule editions
-  existingDocIds.forEach(oldId => {
-    if (!newDocIdsSet.has(oldId)) {
-      operations.push({
-        type: 'delete',
-        ref: doc(db, 'wtt_final_matrix', oldId)
-      });
-    }
-  });
+    const fetchIncPromise = (async () => {
+      try {
+        const qInc = query(collection(db, 'wtt_live_incidents'), where('scheduleType', '==', normSchedule));
+        const timeoutInc = new Promise(resolve => setTimeout(() => resolve({ docs: [] }), 1200));
+        const incSnap = await Promise.race([getDocs(qInc), timeoutInc]);
+        incSnap.docs.forEach(d => {
+          operations.push({ type: 'delete', ref: d.ref });
+        });
+      } catch (err) {
+        console.warn('Could not query old wtt_live_incidents:', err);
+      }
+    })();
 
-  // Purge old delay incidents for this schedule so trains are strictly on-schedule
-  incRefsToDelete.forEach(ref => {
-    operations.push({
-      type: 'delete',
-      ref: ref
-    });
-  });
-
-  onProgress({ stage: 'COMMITTING', message: `Committing ${operations.length} operations in parallel...`, progress: 70 });
-
-  // 3. Execute chunked direct writes for zero-lock performance
-  const CHUNK_SIZE = 40;
-  for (let i = 0; i < operations.length; i += CHUNK_SIZE) {
-    const chunk = operations.slice(i, i + CHUNK_SIZE);
-    await Promise.allSettled(chunk.map(async op => {
-      if (op.type === 'set') return await setDoc(op.ref, sanitizeForFirestore(op.data));
-      return await deleteDoc(op.ref);
-    }));
+    await Promise.all([fetchOldPromise, fetchIncPromise]);
   }
 
-  onProgress({
+  progressCb({ stage: 'COMMITTING', message: `Committing ${operations.length} operations in parallel...`, progress: 75 });
+
+  // Native Firestore writeBatch grouping (max 450 per batch)
+  const BATCH_SIZE = 450;
+  const batches = [];
+  let currentBatch = writeBatch(db);
+  let opCount = 0;
+
+  for (const op of operations) {
+    if (opCount >= BATCH_SIZE) {
+      batches.push(currentBatch);
+      currentBatch = writeBatch(db);
+      opCount = 0;
+    }
+    if (op.type === 'set') {
+      currentBatch.set(op.ref, sanitizeForFirestore(op.data));
+    } else if (op.type === 'delete') {
+      currentBatch.delete(op.ref);
+    }
+    opCount++;
+  }
+  if (opCount > 0) {
+    batches.push(currentBatch);
+  }
+
+  // Parallel atomic commits (all batches commit concurrently in 1 round trip)
+  await Promise.all(batches.map(b => b.commit()));
+
+  progressCb({
     stage: 'COMMITTED',
     progress: 100,
     message: `Deployed ${wttRows.length} trips successfully!`
   });
 
-  // 4. Broadcast system-wide WTT update events for zero-latency module synchronization
+  // Broadcast system-wide WTT update events for zero-latency module synchronization
   try {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('pyidcc:wtt_updated', {
@@ -1767,29 +1820,39 @@ export async function clearWttScheduleForDay(scheduleType, onProgress = () => {}
     console.warn('In-memory registry clear warning:', err);
   }
 
-  // 3. Fast atomic deletion of REAL existing Firestore docs via writeBatch
+  // 3. Fast atomic deletion of REAL existing Firestore docs via parallel writeBatch commits
   const wttCol = collection(db, 'wtt_final_matrix');
   try {
     const q = query(wttCol, where('scheduleType', '==', normSchedule));
-    const snap = await getDocs(q);
-    if (!snap.empty) {
+    const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ docs: [] }), 1200));
+    const snap = await Promise.race([getDocs(q), timeoutPromise]);
+    if (!snap.empty && snap.docs.length > 0) {
       const BATCH_SIZE = 450;
-      for (let i = 0; i < snap.docs.length; i += BATCH_SIZE) {
-        const chunk = snap.docs.slice(i, i + BATCH_SIZE);
-        const batch = writeBatch(db);
-        chunk.forEach(d => batch.delete(d.ref));
-        await batch.commit();
-      }
+      const batches = [];
+      let currentBatch = writeBatch(db);
+      let count = 0;
+      snap.docs.forEach(d => {
+        if (count >= BATCH_SIZE) {
+          batches.push(currentBatch);
+          currentBatch = writeBatch(db);
+          count = 0;
+        }
+        currentBatch.delete(d.ref);
+        count++;
+      });
+      if (count > 0) batches.push(currentBatch);
+      await Promise.all(batches.map(b => b.commit()));
     }
   } catch (err) {
     console.warn('Query wtt_final_matrix for clear error:', err);
   }
 
-  // 4. Purge delay incidents for this schedule
+  // 4. Purge delay incidents for this schedule in parallel
   try {
     const qInc = query(collection(db, 'wtt_live_incidents'), where('scheduleType', '==', normSchedule));
-    const incSnap = await getDocs(qInc);
-    if (!incSnap.empty) {
+    const timeoutInc = new Promise(resolve => setTimeout(() => resolve({ docs: [] }), 1200));
+    const incSnap = await Promise.race([getDocs(qInc), timeoutInc]);
+    if (!incSnap.empty && incSnap.docs.length > 0) {
       const batch = writeBatch(db);
       incSnap.docs.forEach(d => batch.delete(d.ref));
       await batch.commit();

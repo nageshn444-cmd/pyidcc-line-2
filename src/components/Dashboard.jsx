@@ -1747,7 +1747,7 @@ Format the response strictly as a single JSON object.`;
     } catch (err) { console.error(err); }
   };
 
-  const handleWttCellSave = async (row, direction, stationName, isTidField, isModeField = false) => {
+  const handleWttCellSave = async (row, direction, stationName, isTidField, isModeField = false, isTakeoverField = false, isHandoverField = false) => {
     if (isOperatorOrViewer) {
       alert("Read-Only Mode: Train Operators cannot edit WTT records.");
       return;
@@ -1757,6 +1757,32 @@ Format the response strictly as a single JSON object.`;
       const targetId = targetTrip.id || `wtt_${activeDay.toLowerCase()}_${row.trainId}_${direction.toLowerCase()}`;
       if (isTidField) {
         await setDoc(doc(db, "wtt_final_matrix", targetId), { trainId: editValue, scheduleType: activeDay }, { merge: true });
+      } else if (isTakeoverField) {
+        await setDoc(doc(db, "wtt_final_matrix", targetId), {
+          trainId: row.trainId || '',
+          scheduleType: activeDay,
+          terminalLoopRoute: direction,
+          takeoverLocation: editValue
+        }, { merge: true });
+        const parentId = targetTrip.parentRowId || row.id;
+        if (parentId && parentId !== targetId) {
+          await setDoc(doc(db, "wtt_final_matrix", parentId), {
+            takeoverLocation: editValue
+          }, { merge: true });
+        }
+      } else if (isHandoverField) {
+        await setDoc(doc(db, "wtt_final_matrix", targetId), {
+          trainId: row.trainId || '',
+          scheduleType: activeDay,
+          terminalLoopRoute: direction,
+          handoverLocation: editValue
+        }, { merge: true });
+        const parentId = targetTrip.parentRowId || row.id;
+        if (parentId && parentId !== targetId) {
+          await setDoc(doc(db, "wtt_final_matrix", parentId), {
+            handoverLocation: editValue
+          }, { merge: true });
+        }
       } else if (isModeField) {
         const modeVal = (editValue || 'ATO').toUpperCase();
         await setDoc(doc(db, "wtt_final_matrix", targetId), {
@@ -1780,7 +1806,7 @@ Format the response strictly as a single JSON object.`;
           stations: { ...(targetTrip.stations || {}), [stationName]: editValue }
         }, { merge: true });
       }
-      setEditingCell({ rowId: null, direction: null, station: null, isTid: false, isMode: false, isDeployment: false }); fetchLiveData();
+      setEditingCell({ rowId: null, direction: null, station: null, isTid: false, isMode: false, isTakeover: false, isHandover: false, isDeployment: false }); fetchLiveData();
     } catch (err) { console.error("Error saving WTT cell:", err); }
   };
 
@@ -1801,6 +1827,7 @@ Format the response strictly as a single JSON object.`;
             terminalLoopRoute: "DN",
             mode: dnMode,
             dnMode: dnMode,
+            takeoverLocation: row.takeoverLocation || row.downTrip.takeoverLocation || '--',
             stations: row.downTrip.stations || {}
           }, { merge: true });
         }
@@ -1813,6 +1840,7 @@ Format the response strictly as a single JSON object.`;
             terminalLoopRoute: "UP",
             mode: upMode,
             upMode: upMode,
+            handoverLocation: row.handoverLocation || row.upTrip.handoverLocation || '--',
             stations: row.upTrip.stations || {}
           }, { merge: true });
         }
@@ -1823,6 +1851,8 @@ Format the response strictly as a single JSON object.`;
             mode: row.mode || row.dnMode || row.upMode || 'ATO',
             dnMode: row.dnMode || row.downTrip?.mode || 'ATO',
             upMode: row.upMode || row.upTrip?.mode || 'ATO',
+            takeoverLocation: row.takeoverLocation || row.downTrip?.takeoverLocation || '--',
+            handoverLocation: row.handoverLocation || row.upTrip?.handoverLocation || '--',
           }, { merge: true });
         }
       }
