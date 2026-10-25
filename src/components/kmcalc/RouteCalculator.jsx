@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { PREDEFINED_TRIPS } from '../../data/kmcalc/masterStations';
 import { PRELOADED_DUTIES } from '../../data/kmcalc/preloadedDuties';
+import { PRELOADED_SATURDAY_DUTIES } from '../../data/kmcalc/preloadedSaturdayDuties';
 import { 
   calculateDistance, 
   parseCSVToDuties, 
@@ -187,7 +188,15 @@ export default function RouteCalculator({
   };
 
   const handleLoadSampleRoster = () => {
-    saveUploadedRoster('BMRCL_Sample_Benchmark_Link_Roster.xlsx', PRELOADED_DUTIES, timetableSchedule);
+    const isSat = timetableSchedule === 'SATURDAY';
+    const duties = isSat ? PRELOADED_SATURDAY_DUTIES : PRELOADED_DUTIES;
+    const fName = isSat ? 'Saturday & GH Link roster.xlsx' : 'BMRCL_Sample_Benchmark_Link_Roster.xlsx';
+    saveUploadedRoster(fName, duties, timetableSchedule);
+  };
+
+  const handleLoadSaturdayRoster = () => {
+    setTimetableSchedule('SATURDAY');
+    saveUploadedRoster('Saturday & GH Link roster.xlsx', PRELOADED_SATURDAY_DUTIES, 'SATURDAY');
   };
 
   // Helper to sanitize duty numbers and remove binary garbage or corrupted cell characters
@@ -292,7 +301,7 @@ export default function RouteCalculator({
     if (savedUpload && Array.isArray(savedUpload.duties) && savedUpload.duties.length > 0) {
       rawDuties = savedUpload.duties;
     } else {
-      rawDuties = PRELOADED_DUTIES;
+      rawDuties = timetableSchedule === 'SATURDAY' ? PRELOADED_SATURDAY_DUTIES : PRELOADED_DUTIES;
     }
     const validRaw = rawDuties.filter(isValidLinkRosterDuty).map(d => ({
       ...d,
@@ -578,7 +587,7 @@ export default function RouteCalculator({
 
             const trips = [];
 
-            legCols.forEach(lCol => {
+            legCols.forEach((lCol, lColIdx) => {
               const trainCell = lCol.trainCol !== -1 ? row[lCol.trainCol] : null;
               const timeFrmCell = lCol.timeFrmCol !== -1 ? row[lCol.timeFrmCol] : null;
               const timeToCell = lCol.timeToCol !== -1 ? row[lCol.timeToCol] : null;
@@ -611,8 +620,8 @@ export default function RouteCalculator({
                   trainNo: trainNo || 'Unknown',
                   timeFrm,
                   timeTo,
-                  takeoverLocation: takeoverLocation || signOnLocation,
-                  handoverLocation: handoverLocation || signOffLocation,
+                  takeoverLocation: takeoverLocation || (lColIdx === 0 ? signOnLocation : ''),
+                  handoverLocation: handoverLocation || (lColIdx === legCols.length - 1 ? signOffLocation : ''),
                   isShortLoop: isUnderlined,
                   isUnderlined,
                   isFrmTimeBold,
@@ -651,8 +660,8 @@ export default function RouteCalculator({
                   const trObj = trainCells[tIdx] || { val: `Train ${tIdx + 1}`, underline: false };
                   const tFrmObj = timeCells[1 + tIdx * 2] || timeCells[0] || { val: '06:00:00', bold: false };
                   const tToObj = timeCells[2 + tIdx * 2] || timeCells[1] || { val: '08:00:00', bold: false };
-                  const tTake = locationCells[tIdx] || signOnLocation;
-                  const tHand = locationCells[tIdx + 1] || signOffLocation;
+                  const tTake = locationCells[tIdx] || (tIdx === 0 ? signOnLocation : '');
+                  const tHand = locationCells[tIdx + 1] || (tIdx === numTrips - 1 ? signOffLocation : '');
 
                   trips.push({
                     legNumber: tIdx + 1,
@@ -689,8 +698,8 @@ export default function RouteCalculator({
                 const trainNo = val;
                 const timeFrm = row[c + 1]?.val || row[c + 2]?.val || '';
                 const timeTo = row[c + 2]?.val || row[c + 3]?.val || '';
-                const takeoverLocation = row[c - 1]?.val || currentDutyObj.signOnLocation;
-                const handoverLocation = row[c + 4]?.val || currentDutyObj.signOffLocation;
+                const takeoverLocation = row[c - 1]?.val || '';
+                const handoverLocation = row[c + 4]?.val || '';
 
                 const isAlreadyAdded = currentDutyObj.trips.some(t => t.trainNo === trainNo && t.timeFrm === timeFrm);
                 if (!isAlreadyAdded) {
@@ -702,8 +711,8 @@ export default function RouteCalculator({
                     trainNo,
                     timeFrm,
                     timeTo,
-                    takeoverLocation: takeoverLocation || currentDutyObj.signOnLocation,
-                    handoverLocation: handoverLocation || currentDutyObj.signOffLocation,
+                    takeoverLocation: takeoverLocation || '',
+                    handoverLocation: handoverLocation || '',
                     isShortLoop: Boolean(row[c]?.underline),
                     isUnderlined: Boolean(row[c]?.underline),
                     isBoldedTime: Boolean(row[c + 1]?.bold || row[c + 2]?.bold),
@@ -799,6 +808,29 @@ export default function RouteCalculator({
         const arrayBuffer = evt.target.result;
         const workbook = XLSX.read(arrayBuffer, { type: 'array', cellStyles: true, cellHTML: true, cellNF: true, cellDates: true });
         
+        // Deep auto-detection from sheet names and initial header rows
+        const sheetNamesStr = (workbook.SheetNames || []).join(' ').toLowerCase();
+        let topCellsStr = '';
+        try {
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          if (firstSheet) {
+            const jsonRows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+            topCellsStr = jsonRows.slice(0, 5).flat().filter(Boolean).join(' ').toLowerCase();
+          }
+        } catch (e) {}
+
+        const combinedText = `${nameLower} ${sheetNamesStr} ${topCellsStr}`;
+        if (combinedText.includes('sat') || combinedText.includes('gh') || combinedText.includes('holiday')) {
+          detectedSchedule = 'SATURDAY';
+        } else if (combinedText.includes('sun')) {
+          detectedSchedule = 'SUNDAY';
+        } else if (combinedText.includes('mon')) {
+          detectedSchedule = 'MONDAY';
+        } else if (combinedText.includes('week') || combinedText.includes('wkday')) {
+          detectedSchedule = 'WEEKDAY';
+        }
+        setTimetableSchedule(detectedSchedule);
+
         let parsed = parseExcelWorkbookToDuties(workbook);
         
         if (!parsed || parsed.length === 0) {
@@ -1294,14 +1326,19 @@ export default function RouteCalculator({
                               <h4 className="text-xs font-bold text-slate-200 font-mono uppercase tracking-wider">NO LINK ROSTER UPLOADED</h4>
                               <p className="text-[10px] text-slate-400 font-mono mt-1 max-w-md mx-auto">Upload a Weekday/Monday/Sunday Link Roster Excel file to calculate Leg 1-4 and Total Kilometer summaries.</p>
                             </div>
-                            <div className="flex items-center gap-3 pt-2">
+                            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                               <button onClick={() => fileInputRef.current?.click()} className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-mono font-bold flex items-center gap-2 transition-colors shadow-md uppercase tracking-wider">
                                 <Upload className="w-4 h-4" />
                                 Upload Link Roster Excel
                               </button>
                               <button onClick={handleLoadSampleRoster} className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs font-mono font-semibold flex items-center gap-2 transition-colors border border-slate-700">
-                                Load Benchmark Link Roster
+                                {timetableSchedule === 'SATURDAY' ? 'Load Saturday Benchmark Link' : 'Load Weekday Benchmark Link'}
                               </button>
+                              {timetableSchedule !== 'SATURDAY' && (
+                                <button onClick={handleLoadSaturdayRoster} className="px-3.5 py-2 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 rounded text-xs font-mono font-semibold flex items-center gap-2 transition-colors border border-indigo-700">
+                                  Load Saturday & GH Link (75 Duties)
+                                </button>
+                              )}
                             </div>
                           </div>
                         </td>

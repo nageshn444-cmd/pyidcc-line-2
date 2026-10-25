@@ -1388,8 +1388,8 @@ export function parseCSVToDuties(csvText) {
           const trNo = trainCells[tIdx] || `Train ${tIdx + 1}`;
           const tFrm = timeCells[1 + tIdx * 2] || timeCells[0] || "06:00:00";
           const tTo = timeCells[2 + tIdx * 2] || timeCells[1] || "08:00:00";
-          const tTake = locationCells[tIdx] || signOnLocation;
-          const tHand = locationCells[tIdx + 1] || signOffLocation;
+          const tTake = locationCells[tIdx] || (tIdx === 0 ? signOnLocation : '');
+          const tHand = locationCells[tIdx + 1] || (tIdx === numTrips - 1 ? signOffLocation : '');
 
           trips.push({
             legNumber: tIdx + 1,
