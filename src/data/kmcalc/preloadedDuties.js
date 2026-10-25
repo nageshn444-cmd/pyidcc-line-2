@@ -964,29 +964,34 @@ export const PRELOADED_DUTIES = [
     "signOnLocation": "PYID Dn",
     "sOffTime": "15:10:00",
     "signOffLocation": "PYID",
-    "kms": 173,
+    "kms": 169.58,
+    "totalKm": 169.58,
     "dutyHrs": "08:00:00",
     "drivingHrs": "05:38:00",
     "breakTime": "02:01:00",
     "dutyType": "25T3",
     "dutyProfile": "25T3",
     "counselling": "--",
+    "leg1Km": 54.38,
+    "leg2Km": 47.74,
+    "leg3Km": 13.08,
+    "leg4Km": 54.38,
     "trips": [
       {
         "trainNo": "217",
         "timeFrm": "07:25:00",
-        "timeTo": "09:08:00",
+        "timeTo": "09:08:12",
         "takeoverLocation": "PYID Dn",
         "handoverLocation": "PYID",
-        "calculatedKms": 0
+        "calculatedKms": 54.38
       },
       {
         "trainNo": "212",
-        "timeFrm": "09:43:00",
-        "timeTo": "11:23:00",
+        "timeFrm": "09:43:12",
+        "timeTo": "11:23:12",
         "takeoverLocation": "PYID",
         "handoverLocation": "PYID",
-        "calculatedKms": 0
+        "calculatedKms": 47.74
       },
       {
         "trainNo": "206",
@@ -994,15 +999,15 @@ export const PRELOADED_DUTIES = [
         "timeTo": "12:43:00",
         "takeoverLocation": "PYID",
         "handoverLocation": "PYID",
-        "calculatedKms": 0
+        "calculatedKms": 13.08
       },
       {
         "trainNo": "210",
         "timeFrm": "13:21:00",
-        "timeTo": "15:05:00",
+        "timeTo": "15:05:12",
         "takeoverLocation": "PYID Dn",
         "handoverLocation": "PYID",
-        "calculatedKms": 0
+        "calculatedKms": 54.38
       }
     ]
   },

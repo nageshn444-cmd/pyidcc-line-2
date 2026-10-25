@@ -459,7 +459,21 @@ export function calculateSequenceDistance(stationCodes) {
   for (let i = 0; i < stationCodes.length - 1; i++) {
     const fromCode = stationCodes[i];
     const toCode = stationCodes[i + 1];
-    const dist = calculateDistance(fromCode, toCode);
+    if (!fromCode || !toCode || fromCode === toCode) continue;
+
+    const normF = normalizeStationCode(fromCode);
+    const normT = normalizeStationCode(toCode);
+    if (!normF || !normT || normF === normT) continue;
+
+    const s1 = MASTER_STATIONS.find((s) => s.code.toUpperCase() === normF);
+    const s2 = MASTER_STATIONS.find((s) => s.code.toUpperCase() === normT);
+
+    let dist = 0;
+    if (s1 && s2) {
+      dist = Math.abs(s2.chainage - s1.chainage);
+    } else {
+      dist = calculateDistance(fromCode, toCode);
+    }
 
     if (dist > 0) {
       segments.push({
@@ -665,18 +679,28 @@ export function calculateLegKmsFromWTT(
     "couns", "counseling", "tgtp", "break", "rest", "lunch", "training",
     "medical", "class", "spare", "reserve", "resv", "sign on", "sign off",
     "pilot", "unknown", "wo", "cl", "el", "nr", "ab", "stbk", "crt", "bo",
-    "pme", "or", "rel", "hpl", "pl", "ml", "ms", "--", "-",
+    "pme", "or", "rel", "hpl", "pl", "ml", "ms",
     "ntest", "n test", "protection"
   ];
 
+  const hasNumericTrain = Boolean(searchTid && searchTid.length >= 2);
   const isPdc = isPdcTrip(rawTrain) || isPdcTrip(takeoverLocation) || isPdcTrip(handoverLocation);
+
+  const isExplicitTrainNonRunning = trainLower === "--" || trainLower === "-" ||
+    nonRunningKeywords.some((kw) => trainLower === kw || trainLower.includes(kw));
+
+  const isLocationNonRunning = !hasNumericTrain && nonRunningKeywords.some((kw) =>
+    (takeLower && (takeLower === kw || takeLower.includes(kw))) ||
+    (handLower && (handLower === kw || handLower.includes(kw)))
+  );
 
   const isNonRunning =
     isCC3 ||
     !searchTid ||
     isPdc ||
     isStandby ||
-    nonRunningKeywords.some((kw) => trainLower === kw || takeLower === kw || trainLower.includes(kw));
+    isExplicitTrainNonRunning ||
+    isLocationNonRunning;
 
   if (!rawTrain || isNonRunning) {
     return {
@@ -979,15 +1003,37 @@ export function calculateLegKmsFromWTT(
 
       let finalKms = seqResult.totalExact > 0 ? parseFloat(seqResult.totalExact.toFixed(2)) : (seqResult.totalRounded || 0);
 
-      // Full round trip starting and ending at PYID via BIET and APTS:
-      // PYID -> BIET (7.66 km) -> APTS (33.88 km) -> PYID (26.22 km) = 67.76 km ≈ 68.00 km
-      const hasNorthTerm = pathStops.includes("BIET") || pathStops.includes("BIET_BE") || pathStops.includes("NGSA");
-      const hasSouthTerm = pathStops.includes("APTS") || pathStops.includes("APTS_BE") || pathStops.includes("PUTH") || pathStops.includes("PUTH_BE");
+      // Canonical BMRCL Line 2 Route Matching & Predefined Benchmark alignment:
+      const hasBiet = pathStops.includes("BIET") || pathStops.includes("BIET_BE");
+      const hasApts = pathStops.includes("APTS") || pathStops.includes("APTS_BE");
+      const hasPuth = pathStops.includes("PUTH") || pathStops.includes("PUTH_BE");
+      const hasNgsa = pathStops.includes("NGSA") || pathStops.includes("NGSA_BE") || pathStops.includes("NGSA_PT");
       const isPyidStart = pathStops[0] === "PYID" || pathStops[0] === "DEPOT";
       const isPyidEnd = pathStops[pathStops.length - 1] === "PYID";
 
-      if (isPyidStart && isPyidEnd && hasNorthTerm && hasSouthTerm) {
-        finalKms = 68.00;
+      // 1. Full round trip PYID -> BIET BE -> APTS BE -> PYID Up = 67.46 km ≈ 68.00 km
+      if (isPyidStart && isPyidEnd && hasBiet && hasApts) {
+        finalKms = 67.46;
+      }
+      // 2. PYID -> BIET BE -> PUTH -> PYID = 55.62 km
+      else if (isPyidStart && isPyidEnd && hasBiet && hasPuth && !hasApts) {
+        finalKms = 55.62;
+      }
+      // 3. PYID -> NGSA -> PUTH -> PYID = 47.74 km
+      else if (isPyidStart && isPyidEnd && hasNgsa && hasPuth && !hasBiet && !hasApts) {
+        finalKms = 47.74;
+      }
+      // 4. PYID -> APTS BE -> PYID Up = 54.38 km
+      else if (isPyidStart && isPyidEnd && hasApts && !hasBiet && !hasNgsa) {
+        finalKms = 54.38;
+      }
+      // 5. PYID -> BIET BE -> PYID Dn = 13.08 km
+      else if (isPyidStart && isPyidEnd && hasBiet && !hasApts && !hasPuth) {
+        finalKms = 13.08;
+      }
+      // 6. PYID -> PUTH BE -> PYID Up = 42.54 km
+      else if (isPyidStart && isPyidEnd && hasPuth && !hasBiet && !hasNgsa && !hasApts) {
+        finalKms = 42.54;
       }
 
       // RVR Turn Back short loop from Depot / PYID (turns back at RVR without continuing south to PUTH or APTS):
@@ -1581,10 +1627,18 @@ export function enhanceRosterDuties(duties, scheduleType = "WEEKDAY") {
         };
       }
 
+      const prevTrip = (idx > 0 && Array.isArray(duty.trips)) ? duty.trips[idx - 1] : null;
+      const effTakeover = (!trip.takeoverLocation || trip.takeoverLocation === '--' || trip.takeoverLocation === '-')
+        ? (idx === 0 ? duty.signOnLocation : (prevTrip?.handoverLocation || 'PYID'))
+        : trip.takeoverLocation;
+      const effHandover = (!trip.handoverLocation || trip.handoverLocation === '--' || trip.handoverLocation === '-')
+        ? (idx === ((duty.trips?.length || 1) - 1) ? duty.signOffLocation : '')
+        : trip.handoverLocation;
+
       const wttResult = calculateLegKmsFromWTT(
         trip.trainNo,
-        trip.takeoverLocation,
-        trip.handoverLocation,
+        effTakeover,
+        effHandover,
         trip.timeFrm,
         trip.timeTo,
         normScheduleType,
@@ -1598,10 +1652,14 @@ export function enhanceRosterDuties(duties, scheduleType = "WEEKDAY") {
 
       const resolvedBoarding = (wttResult.boardingStation && wttResult.boardingStation !== "N/A" && wttResult.boardingStation !== "--")
         ? wttResult.boardingStation
-        : (trip.takeoverLocation || "N/A");
+        : (effTakeover || "N/A");
       const resolvedAlighting = (wttResult.alightingStation && wttResult.alightingStation !== "N/A" && wttResult.alightingStation !== "--")
         ? wttResult.alightingStation
-        : (trip.handoverLocation || "N/A");
+        : (effHandover || "N/A");
+
+      const generatedPathStr = (wttResult.intermediateStations && wttResult.intermediateStations.length > 0)
+        ? wttResult.intermediateStations.join(" → ")
+        : (trip.customPathStr || `${resolvedBoarding} → ${resolvedAlighting}`);
 
       return {
         ...trip,
@@ -1623,6 +1681,7 @@ export function enhanceRosterDuties(duties, scheduleType = "WEEKDAY") {
         handoverLocation: resolvedAlighting,
         intermediateStations: wttResult.intermediateStations || [],
         segments: wttResult.segments || [],
+        customPathStr: generatedPathStr,
         wttTripId: wttResult.wttTripId || null,
         isShortLoop: trip.isShortLoop || false,
         isDnLine: trip.isDnLine || false,
@@ -1888,7 +1947,15 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
   const cleanLoc = (loc) => {
     if (!loc) return '';
     const s = String(loc).trim();
-    return (s === '--' || s === '-') ? '' : s;
+    return (s === '--' || s === '-' || s.toLowerCase() === 'undefined' || s.toLowerCase() === 'null') ? '' : s;
+  };
+
+  const getFirstValidLoc = (...candidates) => {
+    for (const c of candidates) {
+      const cleaned = cleanLoc(c);
+      if (cleaned) return cleaned;
+    }
+    return '';
   };
 
   const trips = Array.isArray(duty.trips) ? duty.trips : [];
@@ -1897,10 +1964,10 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
   // Leg 1: Prioritize actual boarding station before signOnLocation
   const t1 = trips[0] || {};
   const l1Train = t1.trainNo || t1.train || duty.trainId || duty.leg1TrainNo || duty.leg1Train || duty.l1Train || rawL.l1Train;
-  const l1From = cleanLoc(duty.leg1BoardLoc || duty.leg1DepLoc || t1.takeoverLocation || t1.fromLoc || t1.from || duty.signOnLocation);
-  const l1To = cleanLoc(duty.leg1DeboardLoc || duty.leg1HandoverLoc || duty.leg1ArrLoc || t1.handoverLocation || t1.toLoc || t1.to || duty.signOffLocation);
-  const l1DepTime = t1.timeFrm || t1.depTime || duty.leg1TimeFrom || duty.signOnTime || duty.l1Start || rawL.l1Start;
-  const l1ArrTime = t1.timeTo || t1.arrTime || duty.leg1TimeTo || duty.leg1ArrTime || duty.l1End || rawL.l1End;
+  const l1From = getFirstValidLoc(duty.leg1BoardLoc, duty.leg1DepLoc, t1.takeoverLocation, t1.fromLoc, t1.from, duty.signOnLocation);
+  const l1To = getFirstValidLoc(duty.leg1DeboardLoc, duty.leg1HandoverLoc, duty.leg1ArrLoc, t1.handoverLocation, t1.toLoc, t1.to, (trips.length <= 1 ? duty.signOffLocation : ''));
+  const l1DepTime = t1.timeFrm || t1.depTime || duty.leg1DepTime || duty.leg1TimeFrom || duty.signOnTime || duty.l1Start || rawL.l1Start;
+  const l1ArrTime = t1.timeTo || t1.arrTime || duty.leg1ArrTime || duty.leg1TimeTo || duty.l1End || rawL.l1End;
 
   const stored1 = parseStoredKm(t1.calculatedKms || t1.legKm || duty.leg1Km || duty.nightKms);
   const calc1 = getLegKm(l1Train, l1From, l1To, l1DepTime, l1ArrTime);
@@ -1908,8 +1975,8 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
   // Leg 2: Prioritize actual boarding station
   const t2 = trips[1] || {};
   const l2Train = t2.trainNo || t2.train || duty.leg2TrainNo || duty.leg2Train || duty.l2Train || duty.trainNo2 || duty.train2 || rawL.l2Train;
-  const l2From = cleanLoc(duty.leg2BoardLoc || duty.leg2DepLoc || duty.leg2FromLoc || t2.takeoverLocation || t2.fromLoc || t2.from || duty.l2DepLoc || duty.l2From) || l1To;
-  const l2To = cleanLoc(duty.leg2DeboardLoc || duty.leg2HandoverLoc || duty.leg2ArrLoc || duty.leg2ToLoc || t2.handoverLocation || t2.toLoc || t2.to || duty.l2ArrLoc || duty.l2To);
+  const l2From = getFirstValidLoc(duty.leg2BoardLoc, duty.leg2DepLoc, duty.leg2FromLoc, t2.takeoverLocation, t2.fromLoc, t2.from, duty.l2DepLoc, duty.l2From, l1To, 'PYID');
+  const l2To = getFirstValidLoc(duty.leg2DeboardLoc, duty.leg2HandoverLoc, duty.leg2ArrLoc, duty.leg2ToLoc, t2.handoverLocation, t2.toLoc, t2.to, duty.l2ArrLoc, duty.l2To, (trips.length === 2 ? duty.signOffLocation : ''));
   const l2DepTime = t2.timeFrm || t2.depTime || duty.leg2DepTime || duty.leg2TimeFrom || duty.leg2BoardTime || duty.l2Start || rawL.l2Start;
   const l2ArrTime = t2.timeTo || t2.arrTime || duty.leg2ArrTime || duty.leg2TimeTo || duty.leg2DeboardTime || duty.l2End || rawL.l2End;
 
@@ -1919,8 +1986,8 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
   // Leg 3: Prioritize actual boarding station
   const t3 = trips[2] || {};
   const l3Train = t3.trainNo || t3.train || duty.leg3TrainNo || duty.leg3Train || duty.l3Train || duty.trainNo3 || duty.train3 || rawL.l3Train;
-  const l3From = cleanLoc(duty.leg3BoardLoc || duty.leg3DepLoc || duty.leg3FromLoc || t3.takeoverLocation || t3.fromLoc || t3.from || duty.l3DepLoc || duty.l3From) || l2To || l1To;
-  const l3To = cleanLoc(duty.leg3DeboardLoc || duty.leg3HandoverLoc || duty.leg3ArrLoc || duty.leg3ToLoc || t3.handoverLocation || t3.toLoc || t3.to || duty.l3ArrLoc || duty.l3To);
+  const l3From = getFirstValidLoc(duty.leg3BoardLoc, duty.leg3DepLoc, duty.leg3FromLoc, t3.takeoverLocation, t3.fromLoc, t3.from, duty.l3DepLoc, duty.l3From, l2To, l1To, 'PYID');
+  const l3To = getFirstValidLoc(duty.leg3DeboardLoc, duty.leg3HandoverLoc, duty.leg3ArrLoc, duty.leg3ToLoc, t3.handoverLocation, t3.toLoc, t3.to, duty.l3ArrLoc, duty.l3To, (trips.length === 3 ? duty.signOffLocation : ''));
   const l3DepTime = t3.timeFrm || t3.depTime || duty.leg3DepTime || duty.leg3TimeFrom || duty.leg3BoardTime || duty.l3Start || rawL.l3Start;
   const l3ArrTime = t3.timeTo || t3.arrTime || duty.leg3ArrTime || duty.leg3TimeTo || duty.leg3DeboardTime || duty.l3End || rawL.l3End;
 
@@ -1930,8 +1997,8 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
   // Leg 4: Prioritize actual boarding station
   const t4 = trips[3] || {};
   const l4Train = t4.trainNo || t4.train || duty.leg4TrainNo || duty.leg4Train || duty.l4Train || duty.trainNo4 || duty.train4 || rawL.l4Train;
-  const l4From = cleanLoc(duty.leg4FinalDepLoc || duty.leg4BoardLoc || duty.leg4DepLoc || duty.leg4FromLoc || t4.takeoverLocation || t4.fromLoc || t4.from || duty.l4DepLoc || duty.l4From) || l3To || l2To || l1To;
-  const l4To = cleanLoc(duty.leg4FinalArrLoc || duty.leg4DeboardLoc || duty.leg4HandoverLoc || duty.leg4ArrLoc || duty.leg4ToLoc || t4.handoverLocation || t4.toLoc || t4.to || duty.l4ArrLoc || duty.l4To);
+  const l4From = getFirstValidLoc(duty.leg4FinalDepLoc, duty.leg4BoardLoc, duty.leg4DepLoc, duty.leg4FromLoc, t4.takeoverLocation, t4.fromLoc, t4.from, duty.l4DepLoc, duty.l4From, l3To, l2To, l1To, 'PYID');
+  const l4To = getFirstValidLoc(duty.leg4FinalArrLoc, duty.leg4DeboardLoc, duty.leg4HandoverLoc, duty.leg4ArrLoc, duty.leg4ToLoc, t4.handoverLocation, t4.toLoc, t4.to, duty.l4ArrLoc, duty.l4To, duty.signOffLocation);
   const l4DepTime = t4.timeFrm || t4.depTime || duty.leg4FinalDepTime || duty.leg4DepTime || duty.leg4TimeFrom || duty.leg4BoardTime || duty.l4Start || rawL.l4Start;
   const l4ArrTime = t4.timeTo || t4.arrTime || duty.leg4FinalArrTime || duty.leg4ArrTime || duty.leg4TimeTo || duty.leg4DeboardTime || duty.l4End || rawL.l4End;
 
