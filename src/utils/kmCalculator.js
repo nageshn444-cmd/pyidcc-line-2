@@ -117,6 +117,7 @@ export function normalizeStationCode(rawCode) {
     .replace(/[^A-Z0-9_-]/g, "");
 }
 
+
 /**
  * Calculates non-revenue stabling positioning distance from the last trip arrival
  * station to the train's stabling siding/buffer end/depot track.
@@ -494,55 +495,258 @@ export function calculateSequenceDistance(stationCodes) {
 }
 
 /**
- * Parses time-string "HH:MM:SS" or "HH:MM" (or AM/PM) to total seconds.
+ * Parses time-string "HH:MM:SS" or "HH:MM" (or Date, decimal fraction) to total seconds from midnight.
+ * Returns -1 for invalid or missing times.
  */
 export function timeStringToSeconds(timeStr) {
-  if (timeStr === undefined || timeStr === null || timeStr === "") return 0;
+  if (timeStr === undefined || timeStr === null || timeStr === "" || timeStr === "--" || timeStr === "-") return -1;
 
-  // Handle Excel decimal time fraction (0.0 to 1.0)
+  if (timeStr instanceof Date) {
+    return timeStr.getHours() * 3600 + timeStr.getMinutes() * 60 + timeStr.getSeconds();
+  }
+
   if (typeof timeStr === "number") {
-    if (timeStr > 0 && timeStr < 1) {
+    if (timeStr >= 0 && timeStr < 1) {
       return Math.round(timeStr * 86400);
     }
-    timeStr = String(timeStr);
+    if (timeStr >= 1) {
+      const frac = timeStr - Math.floor(timeStr);
+      return Math.round(frac * 86400);
+    }
   }
 
-  let str = String(timeStr).trim().toUpperCase();
+  let str = String(timeStr).trim();
 
-  // Handle 12-hour AM/PM format
-  const isPm = str.includes("PM");
-  const isAm = str.includes("AM");
-  str = str.replace(/(AM|PM|\s)/g, "");
+  // If it's a date string representation like "Sat Dec 30 1899 07:59:00 ..."
+  const dateMatch = str.match(/\b(\d{1,2}):(\d{2})(?::(\d{2}))?\b/);
+  if (dateMatch) {
+    const isPm = /pm/i.test(str);
+    const isAm = /am/i.test(str);
+    let hrs = parseInt(dateMatch[1], 10);
+    const mins = parseInt(dateMatch[2], 10);
+    const secs = dateMatch[3] ? parseInt(dateMatch[3], 10) : 0;
+    if (isPm && hrs < 12) hrs += 12;
+    if (isAm && hrs === 12) hrs = 0;
+    return hrs * 3600 + mins * 60 + secs;
+  }
 
-  // Normalize dot notation e.g. "18.32" -> "18:32", "21.05" -> "21:05"
   if (str.includes(".") && !str.includes(":")) {
-    str = str.replace(/\./g, ":");
+    const dotParts = str.split(".");
+    if (dotParts.length === 2 && !isNaN(Number(dotParts[0])) && !isNaN(Number(dotParts[1]))) {
+      const h = Number(dotParts[0]);
+      const m = Number(dotParts[1]);
+      return h * 3600 + m * 60;
+    }
   }
 
-  const parts = str.split(":").map(Number);
-  if (parts.some(isNaN)) return 0;
-
-  let hrs = parts[0] || 0;
-  const mins = parts[1] || 0;
-  const secs = parts[2] || 0;
-
-  if (isPm && hrs < 12) hrs += 12;
-  if (isAm && hrs === 12) hrs = 0;
-
-  return hrs * 3600 + mins * 60 + secs;
+  return -1;
 }
 
 /**
  * Converts seconds back to "HH:MM:SS" format.
  */
 export function secondsToTimeString(totalSeconds) {
-  if (totalSeconds < 0 || isNaN(totalSeconds)) return "00:00:00";
-  const hrs = Math.floor(totalSeconds / 3600);
-  const mins = Math.floor((totalSeconds % 3600) / 60);
-  const secs = Math.floor(totalSeconds % 60);
-
+  if (totalSeconds < 0 || isNaN(totalSeconds)) return "--";
+  const norm = ((totalSeconds % 86400) + 86400) % 86400;
+  const hrs = Math.floor(norm / 3600);
+  const mins = Math.floor((norm % 3600) / 60);
+  const secs = norm % 60;
   const pad = (n) => String(n).padStart(2, "0");
   return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+}
+
+/**
+ * Normalizes train IDs (stripping CR prefix, Train/Tr prefixes, whitespace, punctuation).
+ */
+export function cleanTrainId(raw) {
+  if (raw === undefined || raw === null) return "";
+  let s = String(raw).trim();
+  s = s.replace(/^CR[-_\s]*/i, "");
+  s = s.replace(/^(Train|Tr|No|T)\.?\s*/i, "");
+  return s.replace(/[^0-9a-zA-Z]/g, "");
+}
+
+// Master Station Chainages Lookup
+export const stationChainages = {};
+MASTER_STATIONS.forEach((s) => {
+  stationChainages[s.code] = s.chainage;
+});
+
+export function getStationChainage(rawCode) {
+  if (!rawCode) return null;
+  const c = String(rawCode).trim().toUpperCase().replace(/[\s_]/g, "");
+  if (c === "BIETBE" || c === "BIET_BE") return stationChainages["BIET_BE"];
+  if (c === "APTSBE" || c === "APTS_BE") return stationChainages["APTS_BE"];
+  if (c === "PUTHBE" || c === "PUTH_BE") return stationChainages["PUTH_BE"];
+  if (c === "NGSABE" || c === "NGSA_BE") return stationChainages["NGSA_BE"];
+  if (c === "NGSAPT" || c === "NGSA_PT") return stationChainages["NGSA_PT"];
+  if (c.includes("DEPOT") || c.includes("DPO")) return stationChainages["DEPOT"];
+  if (stationChainages[rawCode] !== undefined) return stationChainages[rawCode];
+  if (stationChainages[c] !== undefined) return stationChainages[c];
+  const norm = normalizeStationCode(rawCode);
+  if (stationChainages[norm] !== undefined) return stationChainages[norm];
+  return null;
+}
+
+// In-Memory Index for WTT events by Schedule Type & Train ID
+export const WTT_INDEX = {};
+
+export function buildWttIndex(wttRows = WTT_MASTER_REGISTRY) {
+  const schedules = ["WEEKDAY", "SATURDAY", "SUNDAY", "MONDAY"];
+  schedules.forEach((sched) => {
+    WTT_INDEX[sched] = {};
+  });
+
+  const rows = Array.isArray(wttRows) ? wttRows : [];
+  rows.forEach((r) => {
+    let sched = String(r.scheduleType || "WEEKDAY").toUpperCase();
+    if (sched === "GH" || sched === "SATURDAY_GH" || sched === "SATURDAY & GH") sched = "SATURDAY";
+    if (sched === "MONDAY_GH") sched = "MONDAY";
+    if (!WTT_INDEX[sched]) WTT_INDEX[sched] = {};
+
+    ["downTrip", "upTrip"].forEach((tripKey) => {
+      const trip = r[tripKey];
+      if (!trip || !trip.stations) return;
+      const rawTid = trip.trainId || r.trainId || (tripKey === "upTrip" ? r.upTid : r.dnTid);
+      const tid = cleanTrainId(rawTid);
+      if (!tid) return;
+
+      if (!WTT_INDEX[sched][tid]) WTT_INDEX[sched][tid] = [];
+
+      Object.entries(trip.stations).forEach(([st, tVal]) => {
+        if (!tVal || tVal === "--" || tVal === "-" || String(tVal).toLowerCase().includes("rev")) return;
+        const secs = timeStringToSeconds(tVal);
+        if (secs >= 0) {
+          WTT_INDEX[sched][tid].push({
+            trainId: tid,
+            station: st,
+            timeStr: String(tVal).trim(),
+            secs,
+            dir: tripKey === "upTrip" ? "UP" : "DN",
+            rowSeq: r.rowSeq,
+            tripId: trip.id,
+          });
+        }
+      });
+    });
+  });
+
+  Object.keys(WTT_INDEX).forEach((sched) => {
+    Object.keys(WTT_INDEX[sched]).forEach((tid) => {
+      WTT_INDEX[sched][tid].sort((a, b) => a.secs - b.secs);
+    });
+  });
+}
+
+// Build index immediately on module evaluation
+buildWttIndex();
+
+/**
+ * Searches the selected day's WTT for matching train ID and event within approved ±2 minutes (120 seconds).
+ */
+export function findMatchingWttEvent(scheduleType, trainId, targetTimeStr, minIndex = 0) {
+  let sched = String(scheduleType || "WEEKDAY").toUpperCase();
+  if (sched === "GH" || sched === "SATURDAY_GH" || sched === "SATURDAY & GH") sched = "SATURDAY";
+  if (sched === "MONDAY_GH") sched = "MONDAY";
+
+  const tid = cleanTrainId(trainId);
+  const timeline = WTT_INDEX[sched]?.[tid] || [];
+  const targetSecs = timeStringToSeconds(targetTimeStr);
+
+  if (targetSecs < 0 || !timeline.length) {
+    return {
+      event: null,
+      index: -1,
+      diff: Infinity,
+      status: !timeline.length ? "TRAIN_NOT_FOUND" : "INVALID_TIME",
+    };
+  }
+
+  let bestMatch = null;
+  let bestDiff = Infinity;
+  let bestIdx = -1;
+  let isAmbiguous = false;
+
+  for (let i = minIndex; i < timeline.length; i++) {
+    const ev = timeline[i];
+    let diff = Math.abs(ev.secs - targetSecs);
+    if (Math.abs(ev.secs + 86400 - targetSecs) < diff) diff = Math.abs(ev.secs + 86400 - targetSecs);
+    if (Math.abs(ev.secs - (targetSecs + 86400)) < diff) diff = Math.abs(ev.secs - (targetSecs + 86400));
+
+    if (diff <= 120) {
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        bestMatch = ev;
+        bestIdx = i;
+        isAmbiguous = false;
+      } else if (diff === bestDiff && bestMatch && bestMatch.station !== ev.station) {
+        isAmbiguous = true;
+      }
+    }
+  }
+
+  if (!bestMatch) {
+    return { event: null, index: -1, diff: Infinity, status: "UNMATCHED_TIME" };
+  }
+
+  return {
+    event: bestMatch,
+    index: bestIdx,
+    diff: bestDiff,
+    isExact: bestDiff === 0,
+    isAmbiguous,
+    status: isAmbiguous ? "AMBIGUOUS" : bestDiff === 0 ? "EXACT" : "TOLERANCE_MATCH",
+  };
+}
+
+/**
+ * Calculates actual route distance along Line 2 track sequence between matched WTT events.
+ */
+export function calculateTimelineRouteDistance(timeline, startIdx, endIdx) {
+  if (!timeline || startIdx < 0 || endIdx < 0 || endIdx < startIdx) return 0;
+  if (startIdx === endIdx) return 0;
+
+  const slice = timeline.slice(startIdx, endIdx + 1);
+  if (slice.length < 2) return 0;
+
+  let totalKm = 0;
+  let currentDir = slice[0].dir;
+  let segStartStn = slice[0].station;
+
+  for (let i = 1; i < slice.length; i++) {
+    const ev = slice[i];
+    const prevEv = slice[i - 1];
+
+    if (ev.dir !== currentDir) {
+      let turnBuffer = prevEv.station;
+      if (currentDir === "UP") {
+        if (prevEv.station === "BIET") turnBuffer = "BIET_BE";
+        else if (prevEv.station === "NGSA") turnBuffer = "NGSA_BE";
+      } else {
+        if (prevEv.station === "APTS") turnBuffer = "APTS_BE";
+        else if (prevEv.station === "PUTH") turnBuffer = "PUTH_BE";
+        else if (prevEv.station === "RVR") turnBuffer = "RVR";
+      }
+
+      const c1 = getStationChainage(segStartStn);
+      const c2 = getStationChainage(turnBuffer);
+      if (c1 !== null && c2 !== null) {
+        totalKm += Math.abs(c2 - c1);
+      }
+
+      segStartStn = turnBuffer;
+      currentDir = ev.dir;
+    }
+  }
+
+  const lastStn = slice[slice.length - 1].station;
+  const c1 = getStationChainage(segStartStn);
+  const c2 = getStationChainage(lastStn);
+  if (c1 !== null && c2 !== null) {
+    totalKm += Math.abs(c2 - c1);
+  }
+
+  return Number(totalKm.toFixed(2));
 }
 
 const LINE2_STATION_ORDER = [
@@ -623,7 +827,7 @@ export function expandStationPath(stnList) {
 
 /**
  * Calculates kilometers for a single leg by matching trainId, day type (scheduleType),
- * and board/deboard time windows against master WTT registry or station chainages.
+ * and board/deboard time windows against master WTT registry within approved ±2 minutes (120 seconds).
  */
 export function calculateLegKmsFromWTT(
   trainId,
@@ -631,612 +835,141 @@ export function calculateLegKmsFromWTT(
   handoverLocation,
   depTimeStr,
   arrTimeStr,
-  scheduleType = "WEEKDAY",
-  isShortLoop = false,
-  isStartDnLine = false,
-  isEndDnLine = false,
+  scheduleType = "WEEKDAY"
 ) {
   const rawTrain = String(trainId || "").trim();
   const trainLower = rawTrain.toLowerCase();
   const takeLower = String(takeoverLocation || "").toLowerCase();
   const handLower = String(handoverLocation || "").toLowerCase();
 
-  const hasStartDn = isStartDnLine || takeLower.includes(" dn") || takeLower.endsWith("dn");
-  const hasEndDn = isEndDnLine || handLower.includes(" dn") || handLower.endsWith("dn");
-
-  const cleanTrainNo = rawTrain
-    .replace(/^(Train|Tr|No|T)\.?\s*/i, "")
-    .replace(/^(CR|Duty)\.?\s*/i, "")
-    .replace(/\s*(UP|DN)$/i, "")
-    .trim();
-  const searchTid = cleanTrainNo.replace(/\D/g, "").trim();
-
-  // 1. Non-running activity & CC3 desk duty check
-  // CC3 is Crew Controller 3 (Control Desk, supervisory, non-driving) -> 0 KM
-  // NTEST = same as PRO/PROTECTION (no km, no driving hours)
-  // TGTP, STBK, COUNSELLING, RD3 STBY = non-running
-  const isCC3 =
-    trainLower.includes("cc3") ||
-    trainLower.includes("cc 3") ||
-    trainLower.includes("cc-3") ||
-    takeLower.includes("cc3") ||
-    handLower.includes("cc3");
-
-  const isStandby =
-    trainLower.includes("stby") ||
-    trainLower.includes("standby") ||
-    trainLower.includes("pro") ||
-    trainLower.includes("ntest") ||
-    trainLower.includes("protection") ||
-    takeLower.includes("rd3 stby") ||
-    takeLower.includes("rd3-stby") ||
-    takeLower.includes("rd-3 stby") ||
-    takeLower.includes("ntest") ||
-    takeLower.includes("stbk") ||
-    takeLower.includes("tgtp");
-
-  const nonRunningKeywords = [
-    "couns", "counseling", "tgtp", "break", "rest", "lunch", "training",
-    "medical", "class", "spare", "reserve", "resv", "sign on", "sign off",
-    "pilot", "unknown", "wo", "cl", "el", "nr", "ab", "stbk", "crt", "bo",
-    "pme", "or", "rel", "hpl", "pl", "ml", "ms",
-    "ntest", "n test", "protection"
-  ];
-
-  const hasNumericTrain = Boolean(searchTid && searchTid.length >= 2);
-  const isPdc = isPdcTrip(rawTrain) || isPdcTrip(takeoverLocation) || isPdcTrip(handoverLocation);
-
-  const isExplicitTrainNonRunning = trainLower === "--" || trainLower === "-" ||
-    nonRunningKeywords.some((kw) => trainLower === kw || trainLower.includes(kw));
-
-  const isLocationNonRunning = !hasNumericTrain && nonRunningKeywords.some((kw) =>
-    (takeLower && (takeLower === kw || takeLower.includes(kw))) ||
-    (handLower && (handLower === kw || handLower.includes(kw)))
-  );
-
   const isNonRunning =
-    isCC3 ||
-    !searchTid ||
-    isPdc ||
-    isStandby ||
-    isExplicitTrainNonRunning ||
-    isLocationNonRunning;
+    !rawTrain ||
+    trainLower === "--" ||
+    trainLower === "-" ||
+    /^(pro|stby|standby|cc3|cc-3|cc 3|couns|counseling|ntest|protection|tgtp|rd3\s*stby)/i.test(trainLower) ||
+    /^(cc3|cc-3|cc 3)/i.test(takeLower) ||
+    /^(cc3|cc-3|cc 3)/i.test(handLower);
 
-  if (!rawTrain || isNonRunning) {
+  if (isNonRunning) {
     return {
       calculatedKms: 0,
-      status: "NON RUNNING",
-      matchSource: isCC3 ? "CC3_DESK" : "NON_RUNNING",
+      status: "NON_RUNNING",
+      matchSource: "NON_RUNNING",
       trainNo: rawTrain || "N/A",
-      direction: "N/A",
-      boardingStation: "N/A",
-      boardingTime: depTimeStr || "N/A",
-      alightingStation: "N/A",
-      alightingTime: arrTimeStr || "N/A",
-      intermediateStations: [],
-      segments: [],
-      notes: isCC3 ? "CC3 Control Desk - Non-driving supervisory duty" : "Non-running activity",
+      origin: "DESK",
+      destination: "DESK",
+      rosterFrom: depTimeStr || "--",
+      rosterTo: arrTimeStr || "--",
+      matchedFrom: "--",
+      matchedTo: "--",
+      validation: "Non-running / Supervisory / Standby activity",
     };
   }
 
-  // ── SPECIAL HANDLING: BDHO (B DHO) & PDHO (P DHO) ──────────────────────
-  //
-  // B DHO (Bt DHO): After the operator's LAST regular trip, the train is
-  //   handed over to depot via BIET station. The operator drives FROM their
-  //   current position (takeoverLocation) TO BIET_BE (depot entry via BIET).
-  //
-  //   AWP (Automatic Work Path) for PYID boarding:
-  //     PYID UP → BIET_BE (6.54 km) → PYID DN (6.54 km) → DEPOT (1.30 km)
-  //     = 14.38 km ≈ 14 km  [per PREDEFINED_TRIPS "PYID Up - Bt DHO (AWP)"]
-  //   For other boarding stations: direct chainage boarding_loc → BIET_BE
-  //
-  const normFromStn = normalizeStationCode(takeoverLocation);
-  const normToStn = normalizeStationCode(handoverLocation);
-  let directKm = 0;
-  if (takeoverLocation && handoverLocation) {
-    directKm = calculateDistance(takeoverLocation, handoverLocation);
-  } else if (normFromStn && normToStn && normFromStn !== normToStn) {
-    directKm = calculateDistance(normFromStn, normToStn);
-  }
+  let sched = String(scheduleType || "WEEKDAY").toUpperCase();
+  if (sched === "GH" || sched === "SATURDAY_GH" || sched === "SATURDAY & GH") sched = "SATURDAY";
+  if (sched === "MONDAY_GH") sched = "MONDAY";
 
-  // ── SPECIAL HANDLING: TURN BACK (TB / TURN BACK / REV / TRN) ───────────
-  // Operational Turn Back trips (e.g. RVR TB, KGWA TB, PUTH TB, etc.)
-  // When a leg specifies a turn-back at a station (such as RVR TB):
-  // 1. Outbound leg: boardingStation -> turnBackStation (e.g. DEPOT -> RVR = 15.900 KM)
-  // 2. Return leg: turnBackStation -> PYID (e.g. RVR -> PYID = 17.200 KM)
-  // Total distance = 15.900 + 17.200 = 33.100 KM
-  // Duty 55 Leg 1: NGSA_PT (-6.528 KM) -> NGSA (-6.088 KM) -> RVR (+14.180 KM) -> PYID (-3.020 KM) = 37.908 KM
-  const isTurnBackHand = /\b(TB|T\/B|T\.B|TRN|TURN|TURN\s*BACK|TURNBACK|REV|REVERSING|6\s*CAR\s*STOPPING|STOPPING)\b/i.test(handLower) ||
-                         /[-_ ](TB|TRN)$/i.test(handLower.trim()) ||
-                         /\(TB\)/i.test(handLower) ||
-                         trainLower.includes("tb") ||
-                         trainLower.includes("turn back") ||
-                         trainLower.includes("b55") ||
-                         trainLower === "55" ||
-                         handLower.includes("6 car stopping") ||
-                         handLower.includes("turn back at rvr") ||
-                         (takeLower.includes("ng") && handLower.includes("pyid") && (handLower.includes("trn") || handLower.includes("turn") || trainLower.includes("b55") || trainLower.includes("55")));
+  const tid = cleanTrainId(rawTrain);
+  const timeline = WTT_INDEX[sched]?.[tid] || [];
 
-  if (isTurnBackHand) {
-    const isRvr = handLower.includes("rvr") || handLower.includes("r.v.") || handLower.includes("rvroad") ||
-                  trainLower.includes("rvr") || takeLower.includes("ng") || takeLower.includes("ngsa") ||
-                  trainLower.includes("b55") || trainLower === "55";
-
-    let turnStationCode = "RVR";
-    if (!isRvr) {
-      const cleanTurn = handLower
-        .replace(/\b(TB|T\/B|T\.B|TRN|TURN\s*BACK|TURNBACK|REV|REVERSING|6\s*CAR\s*STOPPING|STOPPING)\b/gi, "")
-        .replace(/[-_()]/g, " ")
-        .trim();
-      turnStationCode = normalizeStationCode(cleanTurn) || "RVR";
-    }
-
-    const fromNorm = normalizeStationCode(takeoverLocation) || "DEPOT";
-    let totalKm = 0;
-    let intermediateStations = [fromNorm, turnStationCode, "PYID"];
-    let segments = [];
-
-    if (turnStationCode === "RVR") {
-      if (fromNorm === "NGSA_PT" || fromNorm === "NGSA" || takeLower.includes("ng") || trainLower.includes("b55") || trainLower === "55") {
-        // Duty 55 Leg 1: NGSA_PT (-6.528 KM) -> NGSA (-6.088 KM) -> RVR (+14.180 KM) -> PYID (-3.020 KM) = 37.908 KM
-        totalKm = 37.908;
-        intermediateStations = [fromNorm, "NGSA", "RVR", "PYID"];
-        segments = [
-          { fromStationCode: fromNorm, toStationCode: "NGSA", calculatedKms: 0.44 },
-          { fromStationCode: "NGSA", toStationCode: "RVR", calculatedKms: 20.268 },
-          { fromStationCode: "RVR", toStationCode: "PYID", calculatedKms: 17.200 },
-        ];
-      } else if (takeLower.includes("dpo") || takeLower.includes("depot")) {
-        totalKm = 36.40;
-        segments = [
-          { fromStationCode: fromNorm, toStationCode: turnStationCode, calculatedKms: 19.20 },
-          { fromStationCode: turnStationCode, toStationCode: "PYID", calculatedKms: 17.20 },
-        ];
-      } else {
-        totalKm = 34.40;
-        segments = [
-          { fromStationCode: fromNorm, toStationCode: turnStationCode, calculatedKms: 17.20 },
-          { fromStationCode: turnStationCode, toStationCode: "PYID", calculatedKms: 17.20 },
-        ];
-      }
-    } else {
-      const dist1 = calculateDistance(fromNorm, turnStationCode);
-      const dist2 = calculateDistance(turnStationCode, "PYID");
-      totalKm = parseFloat((dist1 + dist2).toFixed(3));
-      segments = [
-        { fromStationCode: fromNorm, toStationCode: turnStationCode, calculatedKms: parseFloat((totalKm / 2).toFixed(2)) },
-        { fromStationCode: turnStationCode, toStationCode: "PYID", calculatedKms: parseFloat((totalKm / 2).toFixed(2)) },
-      ];
-    }
-
-    if (totalKm > 0) {
-      return {
-        calculatedKms: totalKm,
-        status: "MATCHED",
-        matchSource: "SPECIAL",
-        trainNo: searchTid || rawTrain,
-        direction: "DN / UP",
-        boardingStation: takeoverLocation || fromNorm,
-        boardingTime: depTimeStr || "N/A",
-        alightingStation: `${handoverLocation || turnStationCode + " TB"} (via PYID Return)`,
-        alightingTime: arrTimeStr || "N/A",
-        intermediateStations,
-        segments,
-        notes: `${turnStationCode} TB (Turn Back): ${fromNorm} → ${turnStationCode} → PYID = ${totalKm} KM`,
-      };
-    }
-  }
-
-  // 1. Search WTT for Train ID + Schedule Type FIRST if departure and arrival times are valid
-  const normSchedule = String(scheduleType || "WEEKDAY").toUpperCase();
-  const depSecs = timeStringToSeconds(depTimeStr);
-  let arrSecs = timeStringToSeconds(arrTimeStr);
-  const isOvernight = depSecs > 0 && arrSecs > 0 && arrSecs < depSecs;
-  if (isOvernight) {
-    arrSecs += 86400; // Overnight shift crossover (e.g. 21:32:00 to 00:15:00 next day)
-  }
-
-  if (depSecs > 0 && arrSecs > 0) {
-    const is3DigitTrain = Number(searchTid) >= 201 && Number(searchTid) <= 235;
-    const isAliasTrain = !is3DigitTrain && (/^[BCD]\d{1,2}$/i.test(rawTrain.trim()) || /^(CR|DUTY)\s*(0?[1-9]|[1-9][0-9])$/i.test(rawTrain.trim()));
-    const canonicalTid = is3DigitTrain ? searchTid : (Number(searchTid) >= 1 && Number(searchTid) <= 25 ? String(200 + Number(searchTid)) : searchTid);
-    let wttRows = [];
-
-    if (!isAliasTrain && searchTid) {
-      wttRows = (WTT_MASTER_REGISTRY || []).filter((row) => {
-        const rowSched = String(row.scheduleType || "WEEKDAY").toUpperCase();
-        const rowTid = String(row.trainId || row.upTid || row.dnTid || "")
-          .replace(/\D/g, "").trim();
-        return rowSched === normSchedule && (rowTid === canonicalTid || rowTid === searchTid);
-      });
-
-      if (wttRows.length === 0) {
-        wttRows = (WTT_MASTER_REGISTRY || []).filter((row) => {
-          const rowTid = String(row.trainId || row.upTid || row.dnTid || "")
-            .replace(/\D/g, "").trim();
-          return rowTid === canonicalTid || rowTid === searchTid;
-        });
-      }
-    }
-
-    if (wttRows.length === 0) {
-      // Find candidate train whose arrival matches this window to within 180s
-      const candidateRows = (WTT_MASTER_REGISTRY || []).filter((row) => {
-        const rowSched = String(row.scheduleType || "WEEKDAY").toUpperCase();
-        if (rowSched !== normSchedule) return false;
-        const upArr = row.upTrip?.stations?.PYID || row.upTrip?.stations?.PUTH || row.upTrip?.stations?.KGWA;
-        const upArrSec = timeStringToSeconds(upArr);
-        return upArrSec > 0 && Math.abs(upArrSec - arrSecs) <= 180;
-      });
-      if (candidateRows.length > 0) {
-        const bestTid = candidateRows[0].trainId;
-        wttRows = (WTT_MASTER_REGISTRY || []).filter(r => 
-          String(r.scheduleType || "WEEKDAY").toUpperCase() === normSchedule &&
-          (r.trainId === bestTid || r.upTid === bestTid || r.dnTid === bestTid)
-        );
-      }
-    }
-
-    const trainTimeline = [];
-    wttRows.forEach((row) => {
-      ["downTrip", "upTrip"].forEach((tripKey) => {
-        const trip = row[tripKey];
-        if (!trip || !trip.stations) return;
-
-        Object.entries(trip.stations).forEach(([stCode, timeVal]) => {
-          if (
-            timeVal &&
-            timeVal !== "--" &&
-            timeVal !== "-" &&
-            !String(timeVal).toLowerCase().includes("rev")
-          ) {
-            const secs = timeStringToSeconds(timeVal);
-            if (secs > 0) {
-              const normSt = normalizeStationCode(stCode);
-              const effectiveSt = normSt === "BIET" ? "BIET_BE" : normSt === "APTS" ? "APTS_BE" : normSt;
-              if (secs >= depSecs - 1800 && secs <= arrSecs + 1800) {
-                trainTimeline.push({
-                  station: effectiveSt,
-                  timeStr: String(timeVal).trim(),
-                  secs: secs,
-                  tripId: trip.id,
-                  dir: tripKey === "upTrip" ? "UP" : "DOWN",
-                });
-              }
-              if (isOvernight && (secs + 86400) >= depSecs - 1800 && (secs + 86400) <= arrSecs + 1800) {
-                trainTimeline.push({
-                  station: effectiveSt,
-                  timeStr: String(timeVal).trim(),
-                  secs: secs + 86400,
-                  tripId: trip.id,
-                  dir: tripKey === "upTrip" ? "UP" : "DOWN",
-                });
-              }
-            }
-          }
-        });
-      });
-    });
-
-    trainTimeline.sort((a, b) => a.secs - b.secs);
-
-    if (trainTimeline.length >= 1) {
-      let startIdx = -1;
-      let endIdx = -1;
-
-      // 1. Prioritize actual boarding station if takeoverLocation is specified within 360s
-      if (normFromStn && normFromStn !== "DEPOT") {
-        let bestDepDiff = Infinity;
-        trainTimeline.forEach((stop, idx) => {
-          const matchNorm = normalizeStationCode(stop.station);
-          if (matchNorm === normFromStn || (normFromStn === "BIET" && matchNorm === "BIET_BE") || (normFromStn === "APTS" && matchNorm === "APTS_BE")) {
-            const diff = Math.abs(stop.secs - depSecs);
-            if (diff <= 360 && diff < bestDepDiff) {
-              bestDepDiff = diff;
-              startIdx = idx;
-            }
-          }
-        });
-      }
-
-      if (startIdx === -1) {
-        let minDepDiff = Infinity;
-        trainTimeline.forEach((stop, idx) => {
-          const diff = Math.abs(stop.secs - depSecs);
-          if (diff < minDepDiff) {
-            minDepDiff = diff;
-            startIdx = idx;
-          }
-        });
-      }
-
-      // 2. Prioritize actual deboarding station if handoverLocation is specified
-      const isDepotHand = handLower.includes("pdho") || handLower.includes("p dho") ||
-                          handLower.includes("bdho") || handLower.includes("b dho") ||
-                          handLower.includes("depot") || handLower.includes("dpo");
-
-      if (normToStn && !isDepotHand) {
-        let bestArrDiff = Infinity;
-        trainTimeline.forEach((stop, idx) => {
-          if (idx >= startIdx) {
-            const matchNorm = normalizeStationCode(stop.station);
-            if (matchNorm === normToStn || (normToStn === "BIET" && matchNorm === "BIET_BE") || (normToStn === "APTS" && matchNorm === "APTS_BE")) {
-              const diff = Math.abs(stop.secs - arrSecs);
-              if (diff <= 360 && diff < bestArrDiff) {
-                bestArrDiff = diff;
-                endIdx = idx;
-              }
-            }
-          }
-        });
-      }
-
-      if (endIdx === -1 || endIdx < startIdx) {
-        let minArrDiff = Infinity;
-        trainTimeline.forEach((stop, idx) => {
-          if (idx >= startIdx) {
-            const diff = Math.abs(stop.secs - arrSecs);
-            if (diff < minArrDiff) {
-              minArrDiff = diff;
-              endIdx = idx;
-            }
-          }
-        });
-      }
-
-      if (endIdx < startIdx) {
-        endIdx = startIdx;
-      }
-
-      const bStop = trainTimeline[startIdx];
-      const aStop = trainTimeline[endIdx];
-
-      let pathStops = [];
-      let seqResult = { totalExact: 0, segments: [] };
-      if (endIdx > startIdx) {
-        pathStops = trainTimeline.slice(startIdx, endIdx + 1).map((s) => s.station);
-        pathStops = expandStationPath(pathStops);
-        seqResult = calculateSequenceDistance(pathStops);
-      } else {
-        pathStops = [bStop.station];
-      }
-
-      let finalKms = seqResult.totalExact > 0 ? parseFloat(seqResult.totalExact.toFixed(2)) : (seqResult.totalRounded || 0);
-
-      // Canonical BMRCL Line 2 Route Matching & Predefined Benchmark alignment:
-      const hasBiet = pathStops.includes("BIET") || pathStops.includes("BIET_BE");
-      const hasApts = pathStops.includes("APTS") || pathStops.includes("APTS_BE");
-      const hasPuth = pathStops.includes("PUTH") || pathStops.includes("PUTH_BE");
-      const hasNgsa = pathStops.includes("NGSA") || pathStops.includes("NGSA_BE") || pathStops.includes("NGSA_PT");
-      const isPyidStart = pathStops[0] === "PYID" || pathStops[0] === "DEPOT";
-      const isPyidEnd = pathStops[pathStops.length - 1] === "PYID";
-
-      // 1. Full round trip PYID -> BIET BE -> APTS BE -> PYID Up = 67.46 km ≈ 68.00 km
-      if (isPyidStart && isPyidEnd && hasBiet && hasApts) {
-        finalKms = 67.46;
-      }
-      // 2. PYID -> BIET BE -> PUTH -> PYID = 55.62 km
-      else if (isPyidStart && isPyidEnd && hasBiet && hasPuth && !hasApts) {
-        finalKms = 55.62;
-      }
-      // 3. PYID -> NGSA -> PUTH -> PYID = 47.74 km
-      else if (isPyidStart && isPyidEnd && hasNgsa && hasPuth && !hasBiet && !hasApts) {
-        finalKms = 47.74;
-      }
-      // 4. PYID -> APTS BE -> PYID Up = 54.38 km
-      else if (isPyidStart && isPyidEnd && hasApts && !hasBiet && !hasNgsa) {
-        finalKms = 54.38;
-      }
-      // 5. PYID -> BIET BE -> PYID Dn = 13.08 km
-      else if (isPyidStart && isPyidEnd && hasBiet && !hasApts && !hasPuth) {
-        finalKms = 13.08;
-      }
-      // 6. PYID -> PUTH BE -> PYID Up = 42.54 km
-      else if (isPyidStart && isPyidEnd && hasPuth && !hasBiet && !hasNgsa && !hasApts) {
-        finalKms = 42.54;
-      }
-
-      // RVR Turn Back short loop from Depot / PYID (turns back at RVR without continuing south to PUTH or APTS):
-      // depot - pyid rd3 (2.0 km) - rvr dn (17.20 km) - turn back at rvr 6 car stopping - rvr - pyid up (17.20 km) = 36.40 km
-      if (
-        pathStops.includes("RVR") &&
-        !pathStops.includes("PUTH") &&
-        !pathStops.includes("PUTH_BE") &&
-        !pathStops.includes("APTS") &&
-        !pathStops.includes("APTS_BE") &&
-        (pathStops[0] === "PYID" || pathStops[0] === "DEPOT") &&
-        pathStops[pathStops.length - 1] === "PYID"
-      ) {
-        if (takeLower.includes("dpo") || takeLower.includes("depot")) {
-          finalKms = 36.40;
-        } else {
-          finalKms = 34.40;
-        }
-      }
-
-      if (finalKms > 150) {
-        const directDist = calculateDistance(bStop.station, aStop.station);
-        finalKms = (typeof directDist === "number" && directDist > 0) ? parseFloat(directDist.toFixed(2)) : 35;
-      }
-
-      // Add morning non-revenue induction distance only if train starts from stabling siding/depot in early morning
-      const isEarlyMorning = depSecs > 0 && depSecs <= 8 * 3600;
-      if (isEarlyMorning && startIdx <= 1) {
-        const morningInduction = getInductionMovementKm(takeoverLocation, bStop.station);
-        if (morningInduction > 0) {
-          finalKms = parseFloat((finalKms + morningInduction).toFixed(2));
-        }
-      }
-
-      // Handle evening non-revenue stabling / depot handover:
-      if (isDepotHand) {
-        if (handLower.includes("pdho") || handLower.includes("p dho") || handLower.includes("depot") || handLower.includes("dpo")) {
-          // Direct stabling from current station to Peenya Depot (PYID to Depot is 2.00 km)
-          const depotMoveKm = getStablingMovementKm(aStop.station, "P DHO") || 2.00;
-          finalKms = parseFloat((finalKms + depotMoveKm).toFixed(2));
-          if (!pathStops.includes("DEPOT")) {
-            pathStops.push("DEPOT");
-          }
-        } else if (handLower.includes("bdho") || handLower.includes("b dho")) {
-          const bietDelta = getStablingMovementKm(aStop.station, "B DHO") || 6.00;
-          finalKms = parseFloat((finalKms + bietDelta).toFixed(2));
-          if (!pathStops.includes("DEPOT")) {
-            pathStops.push("BIET", "DEPOT");
-          }
-        }
-      } else {
-        // Add evening non-revenue stabling distance if train is moved to buffer end/siding/pocket track
-        const eveningStabling = getStablingMovementKm(aStop.station, handoverLocation);
-        if (eveningStabling > 0) {
-          finalKms = parseFloat((finalKms + eveningStabling).toFixed(2));
-        }
-      }
-
-      if (finalKms > 0) {
-        const boardingStnName = `${bStop.station} ${bStop.dir === "DOWN" ? "Dn" : "Up"}`;
-        const alightingStnName = isDepotHand
-          ? (handLower.includes("b") ? "DEPOT (B DHO)" : "DEPOT (P DHO via Rd-3)")
-          : `${aStop.station} ${aStop.dir === "DOWN" ? "Dn" : "Up"}`;
-
-        return {
-          calculatedKms: finalKms,
-          status: "MATCHED",
-          matchSource: "WTT",
-          trainNo: searchTid,
-          direction: bStop.dir,
-          boardingStation: boardingStnName,
-          boardingTime: bStop.timeStr,
-          alightingStation: alightingStnName,
-          alightingTime: aStop.timeStr,
-          intermediateStations: pathStops,
-          segments: seqResult.segments,
-        };
-      }
-    }
-  }
-
-  // 2. SPECIAL HANDOVER OVERRIDES & DEPOT SHUNTS (Fallback when WTT search is not matched)
-  const rawTrainUpper = rawTrain.toUpperCase();
-  const isBDHO = rawTrainUpper.includes("BDHO") || rawTrainUpper.includes("B DHO") ||
-                  rawTrainUpper.includes("BT DHO") || rawTrainUpper.includes("BTDHO") ||
-                  takeLower.includes("bdho") || handLower.includes("bdho") ||
-                  takeLower.includes("b dho") || handLower.includes("b dho");
-  const isPDHO = rawTrainUpper.includes("PDHO") || rawTrainUpper.includes("P DHO") ||
-                  takeLower.includes("pdho") || handLower.includes("pdho") ||
-                  takeLower.includes("p dho") || handLower.includes("p dho");
-
-  if (isBDHO) {
-    const fromNorm = normalizeStationCode(takeoverLocation) || "PYID";
-    const BDHO_AWP_KM = {
-      "PYID": 14, "PEYA": 13, "JLHL": 10, "NGSA": 7, "DSH": 9,
-      "KGWA": 17, "PUTH": 27, "APTS": 34, "NLC": 19, "RJNR": 13,
-      "YPM": 10, "SPGD": 16,
-    };
-    const finalKm = BDHO_AWP_KM[fromNorm] !== undefined
-      ? BDHO_AWP_KM[fromNorm]
-      : Math.round(calculateDistance(fromNorm, "BIET_BE")) || 7;
-
+  if (!timeline.length) {
     return {
-      calculatedKms: finalKm,
-      status: "MATCHED",
-      matchSource: "SPECIAL",
-      trainNo: searchTid || rawTrain,
-      direction: "UP",
-      boardingStation: takeoverLocation || fromNorm,
-      boardingTime: depTimeStr || "N/A",
-      alightingStation: "BIET_BE (Depot via BIET)",
-      alightingTime: arrTimeStr || "N/A",
-      intermediateStations: [fromNorm, "BIET", "BIET_BE"],
-      segments: [{ fromStationCode: fromNorm, toStationCode: "BIET_BE", calculatedKms: finalKm }],
-      notes: `B DHO (AWP): ${fromNorm} → BIET_BE (Depot) = ${finalKm} km`,
+      calculatedKms: 0,
+      status: "TRAIN_NOT_FOUND",
+      matchSource: "UNMATCHED",
+      trainNo: rawTrain,
+      origin: "UNKNOWN",
+      destination: "UNKNOWN",
+      rosterFrom: depTimeStr || "--",
+      rosterTo: arrTimeStr || "--",
+      matchedFrom: "--",
+      matchedTo: "--",
+      validation: `Train ID "${rawTrain}" not found in ${sched} WTT`,
     };
   }
 
-  if (isPDHO) {
-    const fromNorm = normalizeStationCode(takeoverLocation) || "PYID";
-    const depSec = timeStringToSeconds(depTimeStr);
-    let arrSec = timeStringToSeconds(arrTimeStr);
-    if (depSec > 0 && arrSec > 0 && arrSec < depSec) arrSec += 86400;
-    const legDur = (depSec > 0 && arrSec > 0) ? (arrSec - depSec) : 0;
-
-    // Only long revenue driving run starting far away from PYID (e.g. from APTS, PUTH) without timetable
-    if (legDur >= 5400 && fromNorm !== "PYID" && fromNorm !== "DEPOT" && !fromLower.includes("pyid")) {
-      const calculatedKms = 55.40;
-      return {
-        calculatedKms,
-        status: "MATCHED",
-        matchSource: "SPECIAL",
-        trainNo: searchTid || rawTrain,
-        direction: "UP / DN",
-        boardingStation: takeoverLocation || fromNorm,
-        boardingTime: depTimeStr || "N/A",
-        alightingStation: "DEPOT (P DHO via Rd-3)",
-        alightingTime: arrTimeStr || "N/A",
-        intermediateStations: [fromNorm, "NGSA", "PUTH", "PYID", "DEPOT"],
-        segments: [],
-        notes: `P DHO (Revenue Line Service): ${fromNorm} → Depot = ${calculatedKms} km`
-      };
-    }
-
-    const PDHO_FIXED_KM = 2.00;
+  const mFrom = findMatchingWttEvent(sched, tid, depTimeStr, 0);
+  if (!mFrom || !mFrom.event) {
     return {
-      calculatedKms: PDHO_FIXED_KM,
-      status: "MATCHED",
-      matchSource: "SPECIAL",
-      trainNo: searchTid || rawTrain,
-      direction: "DN",
-      boardingStation: takeoverLocation || fromNorm,
-      boardingTime: depTimeStr || "N/A",
-      alightingStation: "DEPOT (via PYID Rd3)",
-      alightingTime: arrTimeStr || "N/A",
-      intermediateStations: [fromNorm, "PYID", "DEPOT"],
-      segments: [{ fromStationCode: fromNorm, toStationCode: "DEPOT", calculatedKms: PDHO_FIXED_KM }],
-      notes: "P DHO: Depot handover via PYID Rd3 = 2 km (fixed)",
+      calculatedKms: 0,
+      status: "UNMATCHED_FROM",
+      matchSource: "UNMATCHED",
+      trainNo: rawTrain,
+      origin: "UNMATCHED",
+      destination: "UNMATCHED",
+      rosterFrom: depTimeStr || "--",
+      rosterTo: arrTimeStr || "--",
+      matchedFrom: "--",
+      matchedTo: "--",
+      validation: `FROM time "${depTimeStr}" not found in WTT for Train ${rawTrain} within approved ±2 min tolerance`,
     };
   }
 
-  // 5. High-Precision Direct Chainage Fallback for Valid Running Train
-  if (directKm > 0) {
-    const finalKm = directKm % 1 === 0 ? Math.round(directKm) : parseFloat(directKm.toFixed(3));
+  const mTo = findMatchingWttEvent(sched, tid, arrTimeStr, Math.max(0, mFrom.index));
+  if (!mTo || !mTo.event) {
     return {
-      calculatedKms: finalKm,
-      status: "MATCHED",
-      matchSource: "CHAINAGE",
-      trainNo: searchTid,
-      direction: hasStartDn || hasEndDn ? "DOWN" : "UP",
-      boardingStation: takeoverLocation || normFromStn,
-      boardingTime: depTimeStr || "N/A",
-      alightingStation: handoverLocation || normToStn,
-      alightingTime: arrTimeStr || "N/A",
-      intermediateStations: [normFromStn, normToStn],
-      segments: [
-        {
-          fromStationCode: normFromStn,
-          toStationCode: normToStn,
-          calculatedKms: finalKm,
-        },
-      ],
+      calculatedKms: 0,
+      status: "UNMATCHED_TO",
+      matchSource: "UNMATCHED",
+      trainNo: rawTrain,
+      origin: mFrom.event.station,
+      destination: "UNMATCHED",
+      rosterFrom: depTimeStr || "--",
+      rosterTo: arrTimeStr || "--",
+      matchedFrom: mFrom.event.timeStr,
+      matchedTo: "--",
+      fromDiff: mFrom.diff,
+      validation: `TO time "${arrTimeStr}" not found in WTT for Train ${rawTrain} within approved ±2 min tolerance`,
     };
   }
+
+  let dist = calculateTimelineRouteDistance(timeline, mFrom.index, mTo.index);
+
+  // Check special handover depot movements (P DHO = 2 km, B DHO = 6 km)
+  let specialKm = 0;
+  const handUpper = String(handoverLocation || "").toUpperCase();
+  if (handUpper.includes("P DHO") || handUpper.includes("PDHO")) {
+    specialKm = 2.0;
+  } else if (handUpper.includes("B DHO") || handUpper.includes("BDHO")) {
+    specialKm = 6.0;
+  }
+  dist = Number((dist + specialKm).toFixed(2));
+
+  const isExact = mFrom.isExact && mTo.isExact;
+  const isAmbiguous = mFrom.isAmbiguous || mTo.isAmbiguous;
+  const status = isAmbiguous ? "AMBIGUOUS" : isExact ? "EXACT" : "TOLERANCE_MATCH";
+  const validation = isAmbiguous
+    ? "Multiple plausible WTT events within tolerance"
+    : isExact
+    ? "Exact WTT match"
+    : `Matched within tolerance (FROM: ${mFrom.diff}s, TO: ${mTo.diff}s)`;
 
   return {
-    calculatedKms: 0,
-    status: "UNMATCHED WTT",
-    matchSource: "UNMATCHED",
-    trainNo: searchTid,
-    direction: "UNKNOWN",
-    boardingStation: "UNMATCHED",
-    boardingTime: depTimeStr,
-    alightingStation: "UNMATCHED",
-    alightingTime: arrTimeStr,
-    intermediateStations: [],
-    segments: [],
+    calculatedKms: dist,
+    status,
+    matchSource: "WTT",
+    trainNo: rawTrain,
+    origin: mFrom.event.station,
+    matchedFrom: mFrom.event.timeStr,
+    fromDiff: mFrom.diff,
+    destination: mTo.event.station,
+    matchedTo: mTo.event.timeStr,
+    toDiff: mTo.diff,
+    rosterFrom: depTimeStr || "--",
+    rosterTo: arrTimeStr || "--",
+    direction: `${mFrom.event.dir} → ${mTo.event.dir}`,
+    boardingStation: mFrom.event.station,
+    boardingTime: mFrom.event.timeStr,
+    alightingStation: mTo.event.station,
+    alightingTime: mTo.event.timeStr,
+    validation,
+    wttFromEvent: mFrom.event,
+    wttToEvent: mTo.event,
+    customPathStr: `${mFrom.event.station} → ${mTo.event.station}`,
   };
 }
 
-/**
- * Parses raw CSV or spreadsheet lines to Duty array with Leg 1-4 support.
- */
 export function parseCSVToDuties(csvText) {
   if (!csvText) return [];
 
@@ -1442,337 +1175,15 @@ export function expandChangeoverPath(fromRaw, toRaw, targetKm) {
   return pathList.length > 0 ? pathList.join(" → ") : `${s1} → ${s2}`;
 }
 
-export function enhanceRosterDuties(duties, scheduleType = "WEEKDAY") {
-  if (!duties || !Array.isArray(duties)) return [];
-
-  const normScheduleType = String(scheduleType || "WEEKDAY").toUpperCase();
-
-  return duties.map((duty) => {
-    let totalDutyKms = 0;
-    const dutyNoClean = String(duty.dutyNo || "").replace(/[^0-9]/g, "");
-
-    const isSpecialType = (type) => {
-      const t = String(type || "").toLowerCase();
-      return t.includes("sby") || t.includes("standby") || t.includes("pro");
-    };
-
-    if (
-      isSpecialType(duty.dutyType) &&
-      (!duty.trips ||
-        duty.trips.length === 0 ||
-        duty.trips.every((t) => String(t.trainNo || "").toLowerCase().includes("stby") || String(t.trainNo || "").toLowerCase().includes("pro")))
-    ) {
-      return {
-        ...duty,
-        kms: 0,
-      };
-    }
-
-    // Check Changeover Table for Night Duties (e.g. 48-62 on Sunday, 64-77 on Weekday/Saturday)
-    let tableKey = "WEEKDAY__SATURDAY";
-    if (normScheduleType === "SUNDAY") tableKey = "SUNDAY__MONDAY";
-    else if (normScheduleType === "SATURDAY") tableKey = "SATURDAY__SUNDAY";
-    else if (normScheduleType === "MONDAY") tableKey = "SUNDAY__MONDAY";
-    else if (normScheduleType === "GH" || normScheduleType === "MONDAY_GH") tableKey = "SUNDAY__MONDAY_GH";
-
-    const changeoverMatch =
-      CHANGEOVER_TABLE[tableKey]?.[dutyNoClean] ||
-      CHANGEOVER_TABLE["WEEKDAY__SATURDAY"]?.[dutyNoClean] ||
-      CHANGEOVER_TABLE["SUNDAY__MONDAY"]?.[dutyNoClean];
-
-    const isNightDutyNo =
-      (normScheduleType === "SUNDAY" && Number(dutyNoClean) >= 48 && Number(dutyNoClean) <= 62) ||
-      (normScheduleType === "WEEKDAY" ? (Number(dutyNoClean) >= 61 && Number(dutyNoClean) <= 74) : (Number(dutyNoClean) >= 64 && Number(dutyNoClean) <= 77));
-
-    if (changeoverMatch && isNightDutyNo) {
-      const co = changeoverMatch;
-      const coTrips = [];
-
-      // Night Leg 1
-      if (co.nightKms > 0 || co.nightTrainNo) {
-        coTrips.push({
-          legNumber: 1,
-          trainNo: co.nightTrainNo || "Night Run",
-          timeFrm: co.nightDepTime || "21:30:00",
-          timeTo: co.nightArrTime || "00:00:00",
-          takeoverLocation: co.signOnLocation || "PYID",
-          handoverLocation: co.nightHandoverLoc || "PYID",
-          calculatedKms: co.nightKms || 0,
-          customPathStr: expandChangeoverPath(co.signOnLocation, co.nightHandoverLoc, co.nightKms),
-          status: "VALIDATED",
-        });
-      }
-
-      // Pilot Leg 2 if pilot movement exists
-      if (co.pilotKms > 0) {
-        coTrips.push({
-          legNumber: coTrips.length + 1,
-          trainNo: "PILOT",
-          timeFrm: "--",
-          timeTo: "--",
-          takeoverLocation: co.takeoverLocation || co.nightHandoverLoc || "PILOT",
-          handoverLocation: co.takeoverLocation || co.nightHandoverLoc || "PILOT",
-          calculatedKms: co.pilotKms,
-          customPathStr: expandChangeoverPath(co.takeoverLocation || co.nightHandoverLoc, "PYID", co.pilotKms),
-          status: "VALIDATED",
-        });
-      }
-
-      // Morning Leg 3
-      const isMornPdc = isPdcTrip(co.mornTrainNo) || isPdcTrip(co.takeoverLocation);
-      const mornKmsVal = isMornPdc ? 0 : (co.mornKms || 0);
-
-      if (mornKmsVal > 0 || (co.mornTrainNo && co.mornTrainNo !== "--")) {
-        coTrips.push({
-          legNumber: coTrips.length + 1,
-          trainNo: co.mornTrainNo || "Morn Run",
-          timeFrm: co.mornDepTime || "06:00:00",
-          timeTo: co.mornArrTime || "07:30:00",
-          takeoverLocation: co.takeoverLocation || "PYID",
-          handoverLocation: co.mornHandoverLoc || "PYID",
-          calculatedKms: mornKmsVal,
-          customPathStr: expandChangeoverPath(co.takeoverLocation, co.mornHandoverLoc, mornKmsVal),
-          status: "VALIDATED",
-        });
-      }
-
-      const computedLegs = computeDutyLegKms({ ...duty, ...co }, normScheduleType);
-      const finalTotalKms = co.totalKms || computedLegs.totalKm || (co.nightKms + (co.pilotKms || 0) + mornKmsVal);
-
-      return {
-        ...duty,
-        kms: finalTotalKms,
-        totalKm: finalTotalKms,
-        totalKms: finalTotalKms,
-        nightKms: co.nightKms || 0,
-        mornKms: mornKmsVal,
-        leg1Km: computedLegs.leg1Km || co.nightKms || 0,
-        leg2Km: computedLegs.leg2Km || co.pilotKms || 0,
-        leg3Km: computedLegs.leg3Km || mornKmsVal,
-        leg4Km: computedLegs.leg4Km || 0,
-        trips: coTrips,
-        sOnTime: co.signOnTime || duty.sOnTime,
-        signOnLocation: co.signOnLocation || duty.signOnLocation,
-        sOffTime: co.signOffTime || duty.sOffTime,
-        signOffLocation: co.signOffLocation || duty.signOffLocation,
-        drivingHrs: co.drivingHrs || duty.drivingHrs,
-        isNight: true,
-        validationResult: "VALIDATED",
-      };
-    }
-
-    const updatedTrips = (duty.trips || []).map((trip, idx) => {
-      const trainNoClean = String(trip.trainNo || "").toLowerCase();
-
-      const isCounselling =
-        trainNoClean.includes("couns") ||
-        trainNoClean.includes("counseling") ||
-        trip.counsellingTime ||
-        trip.isCounselling;
-
-      if (isCounselling) {
-        return {
-          ...trip,
-          legNumber: trip.legNumber || idx + 1,
-          calculatedKms: 0,
-          segments: [],
-          isCounselling: true,
-        };
-      }
-
-      const takeNorm = normalizeStationCode(trip.takeoverLocation);
-      const handNorm = normalizeStationCode(trip.handoverLocation);
-      const tripTrainLower = String(trip.trainNo || "").toLowerCase();
-
-      // Non-running activities — NTEST / PRO / PROTECTION / STBY / TGTP / STBK / COUNSELLING / PDC
-      const isNonRunningActivity =
-        tripTrainLower.includes("ntest") ||
-        tripTrainLower.includes("n test") ||
-        tripTrainLower.includes("protection") ||
-        tripTrainLower.includes("couns") ||
-        tripTrainLower.includes("tgtp") ||
-        tripTrainLower.includes("stbk") ||
-        tripTrainLower.includes("stby") ||
-        isPdcTrip(trip.trainNo) ||
-        isPdcTrip(trip.takeoverLocation) ||
-        tripTrainLower === "pro" ||
-        tripTrainLower === "--" ||
-        tripTrainLower === "-";
-
-      if (isNonRunningActivity) {
-        return {
-          ...trip,
-          legNumber: trip.legNumber || idx + 1,
-          calculatedKms: 0,
-          segments: [],
-          status: "NON RUNNING",
-          notes: "Non-running: NTEST/PRO/STBY/TGTP/STBK/Counselling/PDC — no km or driving hours",
-        };
-      }
-
-      // True depot-to-depot yard movement with no real running train — 0 km
-      const hasRealTrainNo = /^\d+$/.test(String(trip.trainNo || "").replace(/[^0-9]/g, "")) &&
-        !tripTrainLower.includes("stby") &&
-        !tripTrainLower.includes("pro") &&
-        !tripTrainLower.includes("ntest") &&
-        !tripTrainLower.includes("pdc");
-
-      if (takeNorm === "DEPOT" && handNorm === "DEPOT" && !hasRealTrainNo) {
-        return {
-          ...trip,
-          legNumber: trip.legNumber || idx + 1,
-          calculatedKms: 0,
-          segments: [],
-          status: "NON RUNNING",
-        };
-      }
-
-      const prevTrip = (idx > 0 && Array.isArray(duty.trips)) ? duty.trips[idx - 1] : null;
-      const effTakeover = (!trip.takeoverLocation || trip.takeoverLocation === '--' || trip.takeoverLocation === '-')
-        ? (idx === 0 ? duty.signOnLocation : (prevTrip?.handoverLocation || 'PYID'))
-        : trip.takeoverLocation;
-      const effHandover = (!trip.handoverLocation || trip.handoverLocation === '--' || trip.handoverLocation === '-')
-        ? (idx === ((duty.trips?.length || 1) - 1) ? duty.signOffLocation : '')
-        : trip.handoverLocation;
-
-      const wttResult = calculateLegKmsFromWTT(
-        trip.trainNo,
-        effTakeover,
-        effHandover,
-        trip.timeFrm,
-        trip.timeTo,
-        normScheduleType,
-        Boolean(trip.isShortLoop || trip.isUnderlined),
-        Boolean(trip.isStartDnLine || trip.isFrmTimeBold),
-        Boolean(trip.isEndDnLine || trip.isToTimeBold),
-      );
-
-      const legKms = wttResult.calculatedKms || 0;
-      totalDutyKms += legKms;
-
-      const resolvedBoarding = (wttResult.boardingStation && wttResult.boardingStation !== "N/A" && wttResult.boardingStation !== "--")
-        ? wttResult.boardingStation
-        : (effTakeover || "N/A");
-      const resolvedAlighting = (wttResult.alightingStation && wttResult.alightingStation !== "N/A" && wttResult.alightingStation !== "--")
-        ? wttResult.alightingStation
-        : (effHandover || "N/A");
-
-      const generatedPathStr = (wttResult.intermediateStations && wttResult.intermediateStations.length > 0)
-        ? wttResult.intermediateStations.join(" → ")
-        : (trip.customPathStr || `${resolvedBoarding} → ${resolvedAlighting}`);
-
-      return {
-        ...trip,
-        legNumber: trip.legNumber || idx + 1,
-        calculatedKms: legKms,
-        status: wttResult.status || "UNMATCHED WTT",
-        matchSource: wttResult.matchSource || "UNMATCHED",
-        wttMatchDepth: wttResult.matchSource === "WTT" ? "EXACT_WTT"
-          : wttResult.matchSource === "SPECIAL" ? "EXACT_WTT"
-          : wttResult.matchSource === "CHAINAGE" ? "CHAINAGE_FALLBACK"
-          : wttResult.matchSource === "NON_RUNNING" ? "NON_RUNNING"
-          : "UNMATCHED",
-        direction: wttResult.direction || "N/A",
-        boardingStation: resolvedBoarding,
-        boardingTime: wttResult.boardingTime || trip.timeFrm || "N/A",
-        alightingStation: resolvedAlighting,
-        alightingTime: wttResult.alightingTime || trip.timeTo || "N/A",
-        takeoverLocation: resolvedBoarding,
-        handoverLocation: resolvedAlighting,
-        intermediateStations: wttResult.intermediateStations || [],
-        segments: wttResult.segments || [],
-        customPathStr: generatedPathStr,
-        wttTripId: wttResult.wttTripId || null,
-        isShortLoop: trip.isShortLoop || false,
-        isDnLine: trip.isDnLine || false,
-      };
-    });
-
-    const hasUnmatched = updatedTrips.some((t) => t.status === "UNMATCHED WTT");
-    const hasMatched = updatedTrips.some((t) => t.status === "MATCHED");
-    const validationResult = hasUnmatched
-      ? "MANUAL REVIEW"
-      : hasMatched
-      ? "VALIDATED"
-      : "NON RUNNING";
-
-    const computedLegs = computeDutyLegKms(duty, normScheduleType);
-
-    // Synchronize computed leg distances and descriptive paths into trips array
-    const syncedTrips = updatedTrips.map((trip, idx) => {
-      const legKey = `leg${idx + 1}Km`;
-      const compVal = computedLegs[legKey];
-      if (typeof compVal === "number" && compVal > 0) {
-        let customPath = trip.customPathStr;
-        if ((dutyNoClean === '59' || dutyNoClean === '60') && idx === 1 && compVal === 55.40) {
-          customPath = "PYID Up → NGSA → PUTH → PYID → NGSA → PYID → Depot (P DHO)";
-        } else if ((dutyNoClean === '59' || dutyNoClean === '60') && idx === 0 && compVal === 41.60) {
-          customPath = "Dpo - Rd3 → PUTH → PYID";
-        }
-        return {
-          ...trip,
-          calculatedKms: compVal,
-          customPathStr: customPath || trip.customPathStr,
-          status: "MATCHED",
-          wttMatchDepth: trip.wttMatchDepth === "UNMATCHED" ? "EXACT_WTT" : trip.wttMatchDepth
-        };
-      }
-      return trip;
-    });
-
-    const l1 = Number((syncedTrips[0]?.calculatedKms || computedLegs.leg1Km || 0).toFixed(2));
-    const l2 = Number((syncedTrips[1]?.calculatedKms || computedLegs.leg2Km || 0).toFixed(2));
-    const l3 = Number((syncedTrips[2]?.calculatedKms || computedLegs.leg3Km || 0).toFixed(2));
-    const l4 = Number((syncedTrips[3]?.calculatedKms || computedLegs.leg4Km || 0).toFixed(2));
-
-    if (syncedTrips[0]) syncedTrips[0].calculatedKms = l1;
-    if (syncedTrips[1]) syncedTrips[1].calculatedKms = l2;
-    if (syncedTrips[2]) syncedTrips[2].calculatedKms = l3;
-    if (syncedTrips[3]) syncedTrips[3].calculatedKms = l4;
-
-    const sumLegs = Number((l1 + l2 + l3 + l4).toFixed(2));
-    const finalKms = sumLegs > 0 ? sumLegs : (computedLegs.totalKm > 0 ? computedLegs.totalKm : totalDutyKms);
-
-    const dutyResult = {
-      ...duty,
-      kms: finalKms,
-      totalKm: finalKms,
-      totalKms: finalKms,
-      leg1Km: l1,
-      leg2Km: l2,
-      leg3Km: l3,
-      leg4Km: l4,
-      trips: syncedTrips,
-      validationResult,
-    };
-    if (syncedTrips[0]?.takeoverLocation) {
-      dutyResult.leg1DepLoc = syncedTrips[0].takeoverLocation;
-      dutyResult.leg1ArrLoc = syncedTrips[0].handoverLocation;
-    }
-    if (syncedTrips[1]?.takeoverLocation) {
-      dutyResult.leg2DepLoc = syncedTrips[1].takeoverLocation;
-      dutyResult.leg2ArrLoc = syncedTrips[1].handoverLocation;
-    }
-    if (syncedTrips[2]?.takeoverLocation) {
-      dutyResult.leg3DepLoc = syncedTrips[2].takeoverLocation;
-      dutyResult.leg3ArrLoc = syncedTrips[2].handoverLocation;
-    }
-    if (syncedTrips[3]?.takeoverLocation) {
-      dutyResult.leg4DepLoc = syncedTrips[3].takeoverLocation;
-      dutyResult.leg4ArrLoc = syncedTrips[3].handoverLocation;
-    }
-    return dutyResult;
-  });
-}
-
 /**
- * Calculates kilometers for each leg (Leg 1, Leg 2, Leg 3, Leg 4) and total kilometers
- * for a Link Roster duty object using BMRCL Green Line Dual Parallel Tracks chainage engine.
+ * Calculates kilometers for each leg (Leg 1, Leg 2, Leg 3, Leg 4) independently
+ * and compiles final cumulative kilometer summary using ceiling rounding:
+ * Raw Duty KM = Leg 1 + Leg 2 + Leg 3 + Leg 4
+ * Final Duty KM = Math.ceil(Raw Duty KM)
  */
 export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
-  if (!duty) return { leg1Km: 0, leg2Km: 0, leg3Km: 0, leg4Km: 0, totalKm: 0 };
+  if (!duty) return { leg1Km: 0, leg2Km: 0, leg3Km: 0, leg4Km: 0, rawTotalKm: 0, totalKm: 0, finalTotalKm: 0, validationResult: 'EMPTY', trips: [] };
 
-  // CC3 Non-driving Desk Duty check (Crew Controller 3 is desk supervision, not driving)
   const dutyStr = String(
     duty.dutyNo || duty.dutyId || duty.dutyType || duty.remarks || duty.dutyProfile || duty.name || ''
   ).trim().toLowerCase();
@@ -1793,306 +1204,159 @@ export function computeDutyLegKms(duty, scheduleType = 'WEEKDAY') {
       leg2Km: 0,
       leg3Km: 0,
       leg4Km: 0,
+      rawTotalKm: 0,
       totalKm: 0,
+      finalTotalKm: 0,
       isNonDriving: true,
-      dutyRole: 'CC3_DESK'
+      dutyRole: 'CC3_DESK',
+      validationResult: 'NON RUNNING',
+      trips: []
     };
   }
 
-  const normSchedule = String(scheduleType || 'WEEKDAY').toUpperCase();
-  const dutyNoClean = String(duty.dutyNo || duty.dutyId || duty.dutyType || '').replace(/\D/g, '');
-
-  const isNightDutyNo =
-    (normSchedule === "SUNDAY" && Number(dutyNoClean) >= 48 && Number(dutyNoClean) <= 62) ||
-    (normSchedule === "WEEKDAY" ? (Number(dutyNoClean) >= 61 && Number(dutyNoClean) <= 74) : (Number(dutyNoClean) >= 64 && Number(dutyNoClean) <= 77));
-
-  // Only apply CHANGEOVER_TABLE if duty is explicitly marked as changeover or not on WEEKDAY standard link roster
-  if (dutyNoClean && isNightDutyNo && normSchedule !== "WEEKDAY" && duty.isChangeover === true) {
-    let tableKey = "WEEKDAY__SATURDAY";
-    if (normSchedule === "SUNDAY") tableKey = "SUNDAY__MONDAY";
-    else if (normSchedule === "SATURDAY") tableKey = "SATURDAY__SUNDAY";
-    else if (normSchedule === "MONDAY") tableKey = "SUNDAY__MONDAY";
-    else if (normSchedule === "GH" || normSchedule === "MONDAY_GH") tableKey = "SUNDAY__MONDAY_GH";
-
-    const coMatch = CHANGEOVER_TABLE[tableKey]?.[dutyNoClean] ||
-                    CHANGEOVER_TABLE["SUNDAY__MONDAY"]?.[dutyNoClean] ||
-                    CHANGEOVER_TABLE["WEEKDAY__SATURDAY"]?.[dutyNoClean];
-
-    if (coMatch) {
-      const isMornPdc = isPdcTrip(coMatch.mornTrainNo) || isPdcTrip(coMatch.takeoverLocation);
-      const mornKmsVal = isMornPdc ? 0 : (coMatch.mornKms || 0);
-      const nightKmVal = coMatch.nightKms || 0;
-      const pilotKmVal = coMatch.pilotKms || 0;
-      const totalKmsVal = coMatch.totalKms || (nightKmVal + pilotKmVal + mornKmsVal);
-
-      return {
-        leg1Km: nightKmVal,
-        leg2Km: pilotKmVal,
-        leg3Km: mornKmsVal,
-        leg4Km: 0,
-        totalKm: totalKmsVal
-      };
-    }
-  }
-
-  const getLegKm = (trainNo, fromLoc, toLoc, depTime, arrTime) => {
-    let rawTrain = String(trainNo || "").trim();
-    let trainLower = rawTrain.toLowerCase();
-    let fromLower = String(fromLoc || "").trim().toLowerCase();
-    let toLower = String(toLoc || "").trim().toLowerCase();
-    let effFrom = fromLoc;
-    let effTo = toLoc;
-
-    // CC3 Exclusion per leg
-    if (
-      trainLower.includes("cc3") ||
-      trainLower.includes("cc 3") ||
-      trainLower.includes("cc-3") ||
-      fromLower.includes("cc3") ||
-      toLower.includes("cc3")
-    ) {
-      return 0;
-    }
-
-    const hasNumericTrain = /\d{2,3}/.test(rawTrain);
-
-    // If Couns(...) is mentioned behind/after the trip (e.g. Couns(12:30), Couns(13:00)),
-    // do not treat the active train driving leg as non-running!
-    // Sanitize effFrom and effTo so counselling is stripped and mapped to PYID crew base.
-    if (/couns/i.test(fromLower)) {
-      if (hasNumericTrain) {
-        effFrom = "PYID";
-        fromLower = "pyid";
-      }
-    }
-    if (/couns/i.test(toLower)) {
-      if (hasNumericTrain) {
-        effTo = "PYID";
-        toLower = "pyid";
-      }
-    }
-
-    // 1. NON-RUNNING EXCLUSIONS (return 0 KM)
-    // Non-running: counselling, counseling, reserv, resv, ntest, n test, rd3 stby, rd3-stby, pro, protection, standby, stby, spare, reserve
-    const nonRunningKeywords = [
-      "couns", "counseling", "reserv", "resv", "ntest", "n test",
-      "rd3 stby", "rd3-stby", "rd-3 stby", "pro", "protection",
-      "standby", "stby", "spare", "reserve", "training", "medical", "class"
-    ];
-
-    const isPdc = isPdcTrip(rawTrain) || isPdcTrip(effFrom) || isPdcTrip(effTo);
-
-    // If train number is valid and real, fromLoc/toLoc having non-running keyword shouldn't void the whole trip unless train itself is non-running
-    const isNonRunning = isPdc || (
-      hasNumericTrain
-        ? nonRunningKeywords.some((kw) => trainLower === kw || trainLower.includes(kw))
-        : nonRunningKeywords.some((kw) => trainLower.includes(kw) || fromLower.includes(kw) || toLower.includes(kw))
-    );
-
-    if (isNonRunning || trainLower === "--" || trainLower === "-" || (!rawTrain && !depTime && !arrTime)) {
-      return 0;
-    }
-
-    // Calculate trip duration
-    const depSec = timeStringToSeconds(depTime);
-    let arrSec = timeStringToSeconds(arrTime);
-    if (depSec > 0 && arrSec > 0 && arrSec < depSec) arrSec += 86400;
-    const durationSec = (depSec > 0 && arrSec > 0) ? (arrSec - depSec) : 0;
-    const isLongDrivingRun = durationSec >= 1800; // >= 30 mins cannot be a simple 2 km depot positioning move
-
-    // 2. WTT TIMETABLE SEARCH (Prioritize timetable search for all active trains)
-    const wttRes = calculateLegKmsFromWTT(rawTrain, effFrom, effTo, depTime, arrTime, normSchedule);
-    if (wttRes && typeof wttRes.calculatedKms === "number" && wttRes.calculatedKms > 0) {
-      return Number(wttRes.calculatedKms.toFixed(2));
-    }
-
-    // 3. SPECIAL HANDOVER OVERRIDES (Depot positioning and siding stabling)
-    if (toLower.includes("pdho") || toLower.includes("p dho") || (toLower.includes("depot") && fromLower.includes("pyid"))) {
-      return 2.00;
-    }
-    if (toLower.includes("bdho") || toLower.includes("b dho")) {
-      return 6.00;
-    }
-
-    const isNoPdcLocation = fromLower.includes("no pdc") || fromLower.includes("nopdc") || fromLower.includes("no-pdc") || fromLower.includes("no_pdc") ||
-                            toLower.includes("no pdc") || toLower.includes("nopdc") || toLower.includes("no-pdc") || toLower.includes("no_pdc");
-
-    const isPureDepotRd3 = ((fromLower.includes("dpo") || fromLower.includes("depot")) && (toLower.includes("rd3") || toLower.includes("rd-3"))) ||
-                           ((fromLower.includes("rd3") || fromLower.includes("rd-3")) && (toLower.includes("dpo") || toLower.includes("depot")));
-    if (!isNoPdcLocation && isPureDepotRd3) return 2.00;
-
-    // 4. CHAINAGE DISTANCE FALLBACK IF LOCATIONS VALID
-    if (effFrom && effFrom !== "--" && effTo && effTo !== "--") {
-      const distRes = calculateDistance(effFrom, effTo);
-      if (typeof distRes === "number" && distRes > 0) {
-        return Number(distRes.toFixed(2));
-      }
-      if (distRes && typeof distRes.calculatedKms === "number" && distRes.calculatedKms > 0) {
-        return Number(distRes.calculatedKms.toFixed(2));
-      }
-    }
-
-    return 0;
-  };
-
-  const parseStoredKm = (val) => {
-    if (typeof val === 'number' && val > 0) return val;
-    if (typeof val === 'string' && val.trim() !== '' && val.trim() !== '--') {
-      const n = parseFloat(val.replace(/[^0-9.]/g, ''));
-      if (!isNaN(n) && n > 0) return n;
-    }
-    return 0;
-  };
-
-  const cleanLoc = (loc) => {
-    if (!loc) return '';
-    const s = String(loc).trim();
-    return (s === '--' || s === '-' || s.toLowerCase() === 'undefined' || s.toLowerCase() === 'null') ? '' : s;
-  };
-
-  const getFirstValidLoc = (...candidates) => {
-    for (const c of candidates) {
-      const cleaned = cleanLoc(c);
-      if (cleaned) return cleaned;
-    }
-    return '';
-  };
-
   const trips = Array.isArray(duty.trips) ? duty.trips : [];
-  const rawL = duty.rawLegs || {};
+  const processedTrips = [];
+  const legKms = [0, 0, 0, 0];
+  let hasUnmatched = false;
+  let hasRunning = false;
 
-  // Leg 1: Prioritize actual boarding station before signOnLocation
-  const t1 = trips[0] || {};
-  const l1Train = t1.trainNo || t1.train || duty.trainId || duty.leg1TrainNo || duty.leg1Train || duty.l1Train || rawL.l1Train;
-  const l1From = getFirstValidLoc(duty.leg1BoardLoc, duty.leg1DepLoc, t1.takeoverLocation, t1.fromLoc, t1.from, duty.signOnLocation);
-  const l1To = getFirstValidLoc(duty.leg1DeboardLoc, duty.leg1HandoverLoc, duty.leg1ArrLoc, t1.handoverLocation, t1.toLoc, t1.to, (trips.length <= 1 ? duty.signOffLocation : ''));
-  const l1DepTime = t1.timeFrm || t1.depTime || duty.leg1DepTime || duty.leg1TimeFrom || duty.signOnTime || duty.l1Start || rawL.l1Start;
-  const l1ArrTime = t1.timeTo || t1.arrTime || duty.leg1ArrTime || duty.leg1TimeTo || duty.l1End || rawL.l1End;
-
-  const stored1 = parseStoredKm(t1.calculatedKms || t1.legKm || duty.leg1Km || duty.nightKms);
-  const calc1 = getLegKm(l1Train, l1From, l1To, l1DepTime, l1ArrTime);
-
-  // Leg 2: Prioritize actual boarding station
-  const t2 = trips[1] || {};
-  const l2Train = t2.trainNo || t2.train || duty.leg2TrainNo || duty.leg2Train || duty.l2Train || duty.trainNo2 || duty.train2 || rawL.l2Train;
-  const l2From = getFirstValidLoc(duty.leg2BoardLoc, duty.leg2DepLoc, duty.leg2FromLoc, t2.takeoverLocation, t2.fromLoc, t2.from, duty.l2DepLoc, duty.l2From, l1To, 'PYID');
-  const l2To = getFirstValidLoc(duty.leg2DeboardLoc, duty.leg2HandoverLoc, duty.leg2ArrLoc, duty.leg2ToLoc, t2.handoverLocation, t2.toLoc, t2.to, duty.l2ArrLoc, duty.l2To, (trips.length === 2 ? duty.signOffLocation : ''));
-  const l2DepTime = t2.timeFrm || t2.depTime || duty.leg2DepTime || duty.leg2TimeFrom || duty.leg2BoardTime || duty.l2Start || rawL.l2Start;
-  const l2ArrTime = t2.timeTo || t2.arrTime || duty.leg2ArrTime || duty.leg2TimeTo || duty.leg2DeboardTime || duty.l2End || rawL.l2End;
-
-  const stored2 = parseStoredKm(t2.calculatedKms || t2.legKm || duty.leg2Km);
-  const calc2 = getLegKm(l2Train, l2From, l2To, l2DepTime, l2ArrTime);
-
-  // Leg 3: Prioritize actual boarding station
-  const t3 = trips[2] || {};
-  const l3Train = t3.trainNo || t3.train || duty.leg3TrainNo || duty.leg3Train || duty.l3Train || duty.trainNo3 || duty.train3 || rawL.l3Train;
-  const l3From = getFirstValidLoc(duty.leg3BoardLoc, duty.leg3DepLoc, duty.leg3FromLoc, t3.takeoverLocation, t3.fromLoc, t3.from, duty.l3DepLoc, duty.l3From, l2To, l1To, 'PYID');
-  const l3To = getFirstValidLoc(duty.leg3DeboardLoc, duty.leg3HandoverLoc, duty.leg3ArrLoc, duty.leg3ToLoc, t3.handoverLocation, t3.toLoc, t3.to, duty.l3ArrLoc, duty.l3To, (trips.length === 3 ? duty.signOffLocation : ''));
-  const l3DepTime = t3.timeFrm || t3.depTime || duty.leg3DepTime || duty.leg3TimeFrom || duty.leg3BoardTime || duty.l3Start || rawL.l3Start;
-  const l3ArrTime = t3.timeTo || t3.arrTime || duty.leg3ArrTime || duty.leg3TimeTo || duty.leg3DeboardTime || duty.l3End || rawL.l3End;
-
-  const stored3 = parseStoredKm(t3.calculatedKms || t3.legKm || duty.leg3Km || duty.mornKms);
-  const calc3 = getLegKm(l3Train, l3From, l3To, l3DepTime, l3ArrTime);
-
-  // Leg 4: Prioritize actual boarding station
-  const t4 = trips[3] || {};
-  const l4Train = t4.trainNo || t4.train || duty.leg4TrainNo || duty.leg4Train || duty.l4Train || duty.trainNo4 || duty.train4 || rawL.l4Train;
-  const l4From = getFirstValidLoc(duty.leg4FinalDepLoc, duty.leg4BoardLoc, duty.leg4DepLoc, duty.leg4FromLoc, t4.takeoverLocation, t4.fromLoc, t4.from, duty.l4DepLoc, duty.l4From, l3To, l2To, l1To, 'PYID');
-  const l4To = getFirstValidLoc(duty.leg4FinalArrLoc, duty.leg4DeboardLoc, duty.leg4HandoverLoc, duty.leg4ArrLoc, duty.leg4ToLoc, t4.handoverLocation, t4.toLoc, t4.to, duty.l4ArrLoc, duty.l4To, duty.signOffLocation);
-  const l4DepTime = t4.timeFrm || t4.depTime || duty.leg4FinalDepTime || duty.leg4DepTime || duty.leg4TimeFrom || duty.leg4BoardTime || duty.l4Start || rawL.l4Start;
-  const l4ArrTime = t4.timeTo || t4.arrTime || duty.leg4FinalArrTime || duty.leg4ArrTime || duty.leg4TimeTo || duty.leg4DeboardTime || duty.l4End || rawL.l4End;
-
-  const stored4 = parseStoredKm(t4.calculatedKms || t4.legKm || duty.leg4Km);
-  const calc4 = getLegKm(l4Train, l4From, l4To, l4DepTime, l4ArrTime);
-
-  const nightKms = parseStoredKm(duty.nightKms);
-  const mornKms = parseStoredKm(duty.mornKms);
-  const storedTotal = parseStoredKm(duty.totalKm || duty.kms || duty.totalKms);
-  const officialTotal = parseStoredKm(duty.kms || duty.totalKms || duty.totalKm);
-
-  // Prioritize calculation based on actual train boarding and deboarding location
-  let leg1Km = (calc1 > 0) ? calc1 : stored1;
-  let leg2Km = (calc2 > 0) ? calc2 : stored2;
-  let leg3Km = (calc3 > 0) ? calc3 : stored3;
-  let leg4Km = (calc4 > 0) ? calc4 : stored4;
-
-  if (dutyNoClean === '55' && (l1From.toLowerCase().includes('ngsa') || l1From.toLowerCase().includes('pkt') || duty.signOnLocation?.toLowerCase().includes('ngsa') || (calc1 <= 2 && leg1Km <= 2))) {
-    // Duty 55 Leg 1: Starts NGSA PKT (NGSA_PT -6.528 KM) -> NGSA (-6.088 KM) -> RVR (+14.180 KM) -> PYID (-3.020 KM)
-    // Precise Actual Kms: 0.440 + 20.268 + 17.200 = 37.908 KM (approx 37.91 KM, round off 38 KM)
-    leg1Km = 37.91;
-    if (leg2Km === 0) leg2Km = 47.74;
-    if (leg3Km === 0) leg3Km = 47.74;
-  }
-
-  if (dutyNoClean === '59') {
-    // Duty 59 (Monday Link / Weekday Benchmark):
-    // Leg 1: Train 223 inducted from Dpo - Rd3 (15:45:00) -> PUTH (17:19:19) -> PYID (18:02:12) = 41.60 KM (Driving: 2:17)
-    // Leg 2: Train 209 PYID (18:32:00) -> NGSA -> PUTH -> PYID -> NGSA -> PYID -> Depot P DHO (21:05:00) = 55.40 KM (Driving: 2:32)
-    // Total Duty Kilometers = 41.60 + 55.40 = 97.00 KM
-    if (calc1 > 2) leg1Km = calc1;
-    else if (leg1Km <= 2 || leg1Km === 0) leg1Km = 41.60;
-
-    if (calc2 > 2) {
-      leg2Km = (calc2 >= 45 && calc2 <= 48) ? 55.40 : calc2;
-    } else if (leg2Km <= 2 || leg2Km === 0 || leg2Km === 47.74) {
-      leg2Km = 55.40;
+  for (let i = 0; i < 4; i++) {
+    const t = trips[i];
+    if (!t || (!t.trainNo && !t.timeFrm && !t.timeTo)) {
+      processedTrips.push({
+        legNumber: i + 1,
+        trainNo: '--',
+        calculatedKms: 0,
+        status: 'EMPTY',
+        validation: 'No leg scheduled'
+      });
+      continue;
     }
-  }
 
-  if (dutyNoClean === '60') {
-    // Duty 60 (Monday Link / Weekday Benchmark):
-    // Leg 1: Train 222 inducted from Dpo - Rd3 (15:50:00) -> PUTH (17:29:19) -> PYID (18:12:12) = 41.60 KM (Driving: 2:22)
-    // Leg 2: Train 216 PYID (18:42:00) -> NGSA -> PUTH -> PYID -> NGSA -> PYID -> Depot P DHO (21:15:00) = 55.40 KM (Driving: 2:32)
-    // Total Duty Kilometers = 41.60 + 55.40 = 97.00 KM
-    if (calc1 > 2) leg1Km = calc1;
-    else if (leg1Km <= 2 || leg1Km === 0) leg1Km = 41.60;
-
-    if (calc2 > 2) {
-      leg2Km = (calc2 >= 45 && calc2 <= 48) ? 55.40 : calc2;
-    } else if (leg2Km <= 2 || leg2Km === 0 || leg2Km === 47.74) {
-      leg2Km = 55.40;
-    }
-  }
-
-  if (normSchedule === "WEEKDAY" && isNightDutyNo) {
-    leg3Km = 0;
-    leg4Km = 0;
-  } else {
-    if (nightKms > 0) leg1Km = nightKms;
-    if (mornKms > 0) {
-      if (leg2Km > 0 && leg3Km === 0) leg2Km = mornKms;
-      else leg3Km = mornKms;
-    }
-  }
-
-  const calculatedTotal = Number((leg1Km + leg2Km + leg3Km + leg4Km).toFixed(2));
-
-  // Authoritative Link Roster KM Fallback Hierarchy:
-  // Tier 1: Authoritative Link Roster Total KM column (duty.kms, duty.totalKm, duty.totalKms, duty.totalDistance, duty.km)
-  const rosterTotalKm = parseStoredKm(
-    duty.kms || duty.totalKm || duty.totalKms || duty.totalDistance || duty.km || duty.kilometers
-  );
-
-  // Tier 2: Preloaded Duty Registry fallback (PRELOADED_DUTIES)
-  let preloadedTotalKm = 0;
-  if (rosterTotalKm === 0) {
-    const preMatch = PRELOADED_DUTIES.find(
-      (p) => p.dutyNo === dutyNoClean || p.dutyNo === duty.dutyId || p.dutyNo === duty.dutyNo
+    const res = calculateLegKmsFromWTT(
+      t.trainNo,
+      t.takeoverLocation,
+      t.handoverLocation,
+      t.timeFrm,
+      t.timeTo,
+      scheduleType
     );
-    if (preMatch) {
-      preloadedTotalKm = parseStoredKm(preMatch.kms || preMatch.totalKm || preMatch.totalDistance);
+
+    legKms[i] = res.calculatedKms || 0;
+
+    if (res.status === 'UNMATCHED_FROM' || res.status === 'UNMATCHED_TO' || res.status === 'TRAIN_NOT_FOUND' || res.status === 'AMBIGUOUS') {
+      hasUnmatched = true;
     }
+    if (res.status !== 'NON_RUNNING' && res.status !== 'EMPTY') {
+      hasRunning = true;
+    }
+
+    processedTrips.push({
+      ...t,
+      legNumber: i + 1,
+      trainNo: t.trainNo || res.trainNo,
+      calculatedKms: res.calculatedKms,
+      origin: res.origin,
+      originStation: res.origin,
+      destination: res.destination,
+      destinationStation: res.destination,
+      matchedFrom: res.matchedFrom,
+      matchedFromTime: res.matchedFrom,
+      matchedTo: res.matchedTo,
+      matchedToTime: res.matchedTo,
+      fromDiff: res.fromDiff,
+      toDiff: res.toDiff,
+      rosterFrom: res.rosterFrom || t.timeFrm,
+      rosterTo: res.rosterTo || t.timeTo,
+      timeFrm: t.timeFrm || res.rosterFrom,
+      timeTo: t.timeTo || res.rosterTo,
+      boardingStation: res.origin,
+      alightingStation: res.destination,
+      boardingTime: res.matchedFrom,
+      alightingTime: res.matchedTo,
+      status: res.status,
+      matchStatus: res.status,
+      wttMatchDepth: (res.status === 'EXACT_MATCH' || res.status === 'TOLERANCE_MATCH') ? 'EXACT_WTT' : (res.status === 'NON_RUNNING' ? 'NON_RUNNING' : 'UNMATCHED'),
+      validation: res.validation,
+      wttFromEvent: res.wttFromEvent,
+      wttToEvent: res.wttToEvent,
+      customPathStr: res.customPathStr || (res.origin && res.destination ? `${res.origin} → ${res.destination}` : t.customPathStr),
+      direction: res.direction
+    });
   }
 
-  // Tier 3: Calculated Leg Sum (LEG 1 + LEG 2 + LEG 3 + LEG 4) strictly prioritized over stale roster totals
-  const totalKm = calculatedTotal > 0
-    ? calculatedTotal
-    : (rosterTotalKm > 0
-        ? rosterTotalKm
-        : (preloadedTotalKm > 0 ? preloadedTotalKm : 0));
+  const rawTotalKm = Number((legKms[0] + legKms[1] + legKms[2] + legKms[3]).toFixed(2));
+  const finalTotalKm = Math.ceil(Number(rawTotalKm.toFixed(4)));
 
-  return { leg1Km, leg2Km, leg3Km, leg4Km, totalKm };
+  let validationResult = 'VALIDATED';
+  if (!hasRunning) {
+    validationResult = 'NON RUNNING';
+  } else if (hasUnmatched) {
+    validationResult = 'MANUAL REVIEW';
+  }
+
+  return {
+    leg1Km: legKms[0],
+    leg2Km: legKms[1],
+    leg3Km: legKms[2],
+    leg4Km: legKms[3],
+    rawTotalKm,
+    totalKm: finalTotalKm,
+    finalTotalKm,
+    validationResult,
+    trips: processedTrips
+  };
 }
+
+/**
+ * Enhances roster duties by reading actual uploaded Link Roster data,
+ * matching WTT events for every leg, calculating route distance,
+ * and computing ceiling-rounded duty totals.
+ */
+export function enhanceRosterDuties(duties, scheduleType = 'WEEKDAY') {
+  if (!duties || !Array.isArray(duties)) return [];
+
+  const normScheduleType = String(scheduleType || 'WEEKDAY').toUpperCase();
+
+  return duties.map((duty) => {
+    const computed = computeDutyLegKms(duty, normScheduleType);
+
+    const dutyResult = {
+      ...duty,
+      kms: computed.totalKm,
+      totalKm: computed.totalKm,
+      totalKms: computed.totalKm,
+      rawTotalKm: computed.rawTotalKm,
+      finalTotalKm: computed.finalTotalKm,
+      leg1Km: computed.leg1Km,
+      leg2Km: computed.leg2Km,
+      leg3Km: computed.leg3Km,
+      leg4Km: computed.leg4Km,
+      trips: computed.trips,
+      validationResult: computed.validationResult,
+    };
+
+    if (computed.trips[0]?.origin) {
+      dutyResult.leg1DepLoc = computed.trips[0].origin;
+      dutyResult.leg1ArrLoc = computed.trips[0].destination;
+    }
+    if (computed.trips[1]?.origin) {
+      dutyResult.leg2DepLoc = computed.trips[1].origin;
+      dutyResult.leg2ArrLoc = computed.trips[1].destination;
+    }
+    if (computed.trips[2]?.origin) {
+      dutyResult.leg3DepLoc = computed.trips[2].origin;
+      dutyResult.leg3ArrLoc = computed.trips[2].destination;
+    }
+    if (computed.trips[3]?.origin) {
+      dutyResult.leg4DepLoc = computed.trips[3].origin;
+      dutyResult.leg4ArrLoc = computed.trips[3].destination;
+    }
+
+    return dutyResult;
+  });
+}
+
 
 /**
  * Calculates KM confidence score for a roster duty based on WTT match depth.

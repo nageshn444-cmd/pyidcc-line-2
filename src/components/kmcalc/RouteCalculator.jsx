@@ -318,13 +318,15 @@ export default function RouteCalculator({
         const l2 = Number((duty.trips?.[1]?.calculatedKms || duty.leg2Km || 0).toFixed(2));
         const l3 = Number((duty.trips?.[2]?.calculatedKms || duty.leg3Km || 0).toFixed(2));
         const l4 = Number((duty.trips?.[3]?.calculatedKms || duty.leg4Km || 0).toFixed(2));
-        const sumLegs = Number((l1 + l2 + l3 + l4).toFixed(2));
-        const finalKm = sumLegs > 0 ? sumLegs : (duty.kms || 0);
+        const rawTotalKm = duty.rawTotalKm !== undefined ? duty.rawTotalKm : Number((l1 + l2 + l3 + l4).toFixed(2));
+        const finalTotalKm = duty.finalTotalKm !== undefined ? duty.finalTotalKm : Math.ceil(Number(rawTotalKm.toFixed(4)));
         return {
           ...duty,
-          kms: finalKm,
-          totalKm: finalKm,
-          totalKms: finalKm,
+          kms: finalTotalKm,
+          totalKm: finalTotalKm,
+          totalKms: finalTotalKm,
+          rawTotalKm,
+          finalTotalKm,
           leg1Km: l1,
           leg2Km: l2,
           leg3Km: l3,
@@ -354,7 +356,8 @@ export default function RouteCalculator({
       const l3 = Number((trips[2]?.calculatedKms || 0).toFixed(2));
       const l4 = Number((trips[3]?.calculatedKms || 0).toFixed(2));
       const sumLegs = Number((l1 + l2 + l3 + l4).toFixed(2));
-      const totalKm = sumLegs > 0 ? sumLegs : (ov.totalKm !== undefined ? Number(ov.totalKm) : (duty.kms || 0));
+      const rawTotal = sumLegs > 0 ? sumLegs : (ov.totalKm !== undefined ? Number(ov.totalKm) : (duty.rawTotalKm !== undefined ? duty.rawTotalKm : (duty.kms || 0)));
+      const finalCeil = Math.ceil(Number(rawTotal.toFixed(4)));
 
       return {
         ...duty,
@@ -363,9 +366,11 @@ export default function RouteCalculator({
         leg2Km: l2,
         leg3Km: l3,
         leg4Km: l4,
-        kms: totalKm,
-        totalKm: totalKm,
-        totalKms: totalKm,
+        rawTotalKm: rawTotal,
+        finalTotalKm: finalCeil,
+        kms: finalCeil,
+        totalKm: finalCeil,
+        totalKms: finalCeil,
         isManuallyEdited: true
       };
     });
@@ -916,7 +921,9 @@ export default function RouteCalculator({
       'Leg 4 KM': d.trips?.[3]?.calculatedKms || 0,
       'Night KM': d.nightKms || 0,
       'Morn KM': d.mornKms || 0,
-      'Total KM': d.kms || 0,
+      'Raw Total KM': d.rawTotalKm !== undefined ? d.rawTotalKm : (d.kms || 0),
+      'Final Ceil KM': d.finalTotalKm !== undefined ? d.finalTotalKm : Math.ceil(d.kms || 0),
+      'Total KM': d.finalTotalKm !== undefined ? d.finalTotalKm : (d.kms || 0),
       'Validation': d.validationResult || '--',
       'KM Confidence': calculateKmConfidence(d),
       'Night Duty': d.isNight ? 'YES' : 'NO',
@@ -932,14 +939,15 @@ export default function RouteCalculator({
           'Duty No': d.dutyNo,
           'Leg No': tIdx + 1,
           'Train No': t.trainNo || '--',
-          'Boarding Station': t.takeoverLocation || '--',
-          'Boarding Time': t.timeFrm || '--',
-          'Alighting Station': t.handoverLocation || '--',
-          'Alighting Time': t.timeTo || '--',
+          'Roster FROM': t.rosterFrom || t.timeFrm || '--',
+          'Matched FROM': t.matchedFrom || t.matchedFromTime || '--',
+          'Origin (WTT)': t.origin || t.originStation || t.boardingStation || '--',
+          'Roster TO': t.rosterTo || t.timeTo || '--',
+          'Matched TO': t.matchedTo || t.matchedToTime || '--',
+          'Destination (WTT)': t.destination || t.destinationStation || t.alightingStation || '--',
           'Calculated KM': t.calculatedKms || 0,
-          'WTT Match Depth': t.wttMatchDepth || '--',
-          'Match Source': t.matchSource || '--',
-          'Status': t.status || '--',
+          'Match Status': t.matchStatus || t.status || '--',
+          'Validation': t.validation || '--',
           'Direction': t.direction || '--',
           'Short Loop': t.isShortLoop ? 'YES' : 'NO',
           'DN Line': t.isDnLine ? 'YES' : 'NO',
@@ -1310,14 +1318,15 @@ export default function RouteCalculator({
                       <th className="px-3 py-2 border-b border-slate-800">LEG 2 ROUTE (KM)</th>
                       <th className="px-3 py-2 border-b border-slate-800">LEG 3 ROUTE (KM)</th>
                       <th className="px-3 py-2 border-b border-slate-800">LEG 4 ROUTE (KM)</th>
-                      <th className="px-3 py-2 border-b border-slate-800 text-emerald-400 w-28">TOTAL KM</th>
-                      <th className="px-3 py-2 border-b border-slate-800 text-center w-28">STATUS / EDIT</th>
+                      <th className="px-2 py-2 border-b border-slate-800 text-right w-24">RAW TOTAL</th>
+                      <th className="px-2 py-2 border-b border-slate-800 text-emerald-400 text-right w-24">FINAL CEIL</th>
+                      <th className="px-3 py-2 border-b border-slate-800 text-center w-28">STATUS / AUDIT</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/40">
                     {activeDuties.length === 0 ? (
                       <tr>
-                        <td colSpan="7" className="py-12 text-center">
+                        <td colSpan="8" className="py-12 text-center">
                           <div className="flex flex-col items-center justify-center space-y-3">
                             <div className="p-3 bg-slate-950 rounded-full border border-slate-800">
                               <FileSpreadsheet className="w-8 h-8 text-emerald-500" />
@@ -1357,26 +1366,40 @@ export default function RouteCalculator({
                         const maxLegKm = Math.max(leg1?.calculatedKms || 0, leg2?.calculatedKms || 0, leg3?.calculatedKms || 0, leg4?.calculatedKms || 0, 1);
 
                         const formatRouteKmCell = (trip) => {
-                          if (!trip || trip.isCounselling || (trip.calculatedKms === 0 && !trip.boardingStation && !trip.customPathStr)) {
-                            return <span className="text-slate-600 font-mono">-- (0 KM)</span>;
+                          if (!trip || trip.isCounselling || (trip.calculatedKms === 0 && !trip.boardingStation && !trip.customPathStr && !trip.origin)) {
+                            return <span className="text-slate-600 font-mono text-[9px]">-- (0 KM)</span>;
                           }
                           const kms = trip.calculatedKms || 0;
-                          let pathStr = trip.customPathStr || '';
-                          if (!pathStr) {
-                            if (trip.intermediateStations && trip.intermediateStations.length > 0) {
-                              pathStr = trip.intermediateStations.join(' → ');
-                            } else if (trip.boardingStation && trip.alightingStation) {
-                              pathStr = `${trip.boardingStation} → ${trip.alightingStation}`;
-                            } else {
-                              pathStr = `${trip.takeoverLocation || 'PYID'} → ${trip.handoverLocation || 'PYID'}`;
-                            }
-                          }
+                          const origin = trip.origin || trip.originStation || trip.boardingStation || trip.takeoverLocation || 'PYID';
+                          const dest = trip.destination || trip.destinationStation || trip.alightingStation || trip.handoverLocation || 'PYID';
+                          const trainNo = trip.trainNo || '--';
+                          
+                          const isExact = trip.matchStatus === 'EXACT' || trip.matchStatus === 'EXACT_MATCH';
+                          const isTol = trip.matchStatus === 'TOLERANCE_MATCH';
+                          const isUnmatched = trip.matchStatus?.startsWith('UNMATCHED') || trip.status === 'UNMATCHED';
+                          
+                          const badgeCls = isExact
+                            ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800'
+                            : isTol
+                            ? 'bg-cyan-950/80 text-cyan-400 border-cyan-800'
+                            : isUnmatched
+                            ? 'bg-rose-950/80 text-rose-400 border-rose-800'
+                            : 'bg-slate-800/80 text-slate-400 border-slate-700';
+
+                          const badgeText = isExact ? 'EXACT' : isTol ? '±TOL' : isUnmatched ? 'UNMATCHED' : (trip.matchStatus || trip.status || 'OK');
                           const barPct = kms > 0 ? Math.max(5, Math.min(100, (kms / maxLegKm) * 100)) : 0;
+
                           return (
-                            <div className="space-y-0.5">
-                              <div className="text-[10px] font-mono leading-relaxed truncate max-w-xs" title={`${pathStr} (${kms} KM)`}>
-                                <span className="text-slate-300">{pathStr}</span>{' '}
-                                <span className="text-cyan-400 font-bold">({kms} KM)</span>
+                            <div className="space-y-1 font-mono">
+                              <div className="flex items-center justify-between gap-1 flex-wrap">
+                                <span className="text-[10px] text-cyan-400 font-bold">Tr{trainNo}</span>
+                                <span className={`px-1 py-0.2 rounded border text-[7.5px] font-bold uppercase tracking-wider ${badgeCls}`}>
+                                  {badgeText}
+                                </span>
+                              </div>
+                              <div className="text-[9.5px] leading-snug truncate max-w-xs" title={`${origin} → ${dest} (${kms} KM)`}>
+                                <span className="text-slate-200">{origin} → {dest}</span>{' '}
+                                <span className="text-emerald-400 font-bold">({kms} KM)</span>
                               </div>
                               {kms > 0 && (
                                 <div className="h-0.5 rounded-full bg-slate-800 overflow-hidden">
@@ -1445,8 +1468,14 @@ export default function RouteCalculator({
                               </td>
                               <td className="px-2 py-1.5 border-r border-slate-800 text-right">
                                 <div className="space-y-1 font-mono text-right">
-                                  <span className="text-[9px] text-slate-400 block">Total KM:</span>
-                                  <input name="routecalculator_input_11" type="number" value={editFormData.totalKm} onChange={e => setEditFormData({ ...editFormData, totalKm: e.target.value })} className="w-20 bg-slate-950 border border-emerald-600 rounded px-1.5 py-1 text-xs text-emerald-400 font-extrabold text-right" />
+                                  <span className="text-[8.5px] text-slate-500 block">Raw KM:</span>
+                                  <span className="text-xs font-bold text-cyan-400">{editFormData.totalKm || 0}</span>
+                                </div>
+                              </td>
+                              <td className="px-2 py-1.5 border-r border-slate-800 text-right">
+                                <div className="space-y-1 font-mono text-right">
+                                  <span className="text-[8.5px] text-emerald-400 block font-bold">Ceil KM:</span>
+                                  <span className="text-xs font-black text-emerald-300">{Math.ceil(editFormData.totalKm || 0)}</span>
                                 </div>
                               </td>
                               <td className="px-2 py-2 text-center">
@@ -1476,10 +1505,19 @@ export default function RouteCalculator({
                               <td onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)} className="px-3 py-2 text-slate-300 border-r border-slate-800 cursor-pointer">{formatRouteKmCell(leg2)}</td>
                               <td onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)} className="px-3 py-2 text-slate-300 border-r border-slate-800 cursor-pointer">{formatRouteKmCell(leg3)}</td>
                               <td onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)} className="px-3 py-2 text-slate-300 border-r border-slate-800 cursor-pointer">{formatRouteKmCell(leg4)}</td>
-                              <td onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)} className="px-3 py-2 cursor-pointer">
+                              <td onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)} className="px-2 py-2 text-right border-r border-slate-800 cursor-pointer">
+                                <span className="text-xs font-mono font-semibold text-slate-300">
+                                  {duty.rawTotalKm !== undefined ? Number(duty.rawTotalKm).toFixed(2) : (duty.kms || 0)} KM
+                                </span>
+                              </td>
+                              <td onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)} className="px-2 py-2 text-right border-r border-slate-800 cursor-pointer">
                                 <div className="flex flex-col items-end gap-0.5">
-                                  <span className="text-xs font-black text-emerald-400">{duty.kms} KM</span>
-                                  <span className={`text-[8px] font-bold px-1.5 rounded border font-mono uppercase ${confColor}`}>{confidence}</span>
+                                  <span className="text-xs font-black font-mono text-emerald-400">
+                                    {duty.finalTotalKm !== undefined ? duty.finalTotalKm : Math.ceil(duty.kms || 0)} KM
+                                  </span>
+                                  <span className={`text-[8px] font-bold px-1.5 rounded border font-mono uppercase ${confColor}`}>
+                                    {confidence}
+                                  </span>
                                 </div>
                               </td>
                               <td className="px-2 py-2 text-center">
@@ -1488,72 +1526,182 @@ export default function RouteCalculator({
                                     {duty.validationResult === 'VALIDATED' ? '✓ OK' : duty.validationResult === 'MANUAL REVIEW' ? '⚠ REV' : '— NR'}
                                   </span>
                                   <div className="flex items-center gap-1">
-                                    <button onClick={() => handleStartEditDuty(duty)} className="px-2 py-1 bg-slate-800 hover:bg-emerald-900/60 border border-slate-700 hover:border-emerald-700 text-slate-300 hover:text-emerald-300 rounded text-[9px] font-bold transition-colors uppercase">Edit</button>
+                                    <button onClick={() => setExpandedDutyNo(isExpanded ? null : duty.dutyNo)} className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded text-[9px] font-mono transition-colors">
+                                      {isExpanded ? 'Hide' : 'Audit'}
+                                    </button>
+                                    <button onClick={() => handleStartEditDuty(duty)} className="px-1.5 py-0.5 bg-slate-900 hover:bg-emerald-950 border border-slate-800 hover:border-emerald-700 text-slate-400 hover:text-emerald-300 rounded text-[9px] font-mono transition-colors">
+                                      Edit
+                                    </button>
                                     {duty.isManuallyEdited && (
-                                      <button onClick={() => handleResetDutyOverride(duty.dutyNo)} className="px-1.5 py-1 bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 rounded text-[9px] transition-colors" title="Reset to WTT values">↺</button>
+                                      <button onClick={() => handleResetDutyOverride(duty.dutyNo)} className="px-1.5 py-0.5 bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 rounded text-[9px] transition-colors" title="Reset to WTT values">↺</button>
                                     )}
                                   </div>
                                 </div>
                               </td>
                             </tr>
 
-                            {/* Expanded Trip Detail */}
+                            {/* Section 11 Transparent WTT Event-Matching Audit Detail */}
                             {isExpanded && (
-                              <tr className="bg-slate-950/70">
-                                <td colSpan={7} className="p-3 border-t border-slate-800">
-                                  <div className="space-y-2">
-                                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono flex items-center justify-between flex-wrap gap-2">
-                                      <div className="flex items-center gap-1.5">
-                                        <FileText className="w-3.5 h-3.5 text-emerald-400" />
-                                        Duty {duty.dutyNo} · {duty.sOnTime || '--'} → {duty.sOffTime || '--'} @ {duty.signOnLocation || 'PYID'}
+                              <tr className="bg-slate-950/95 border-b border-slate-800">
+                                <td colSpan={8} className="p-4 border-t border-slate-800">
+                                  <div className="space-y-3">
+                                    {/* Duty Level Header and Summary */}
+                                    <div className="bg-slate-900/90 border border-slate-800 rounded-lg p-3">
+                                      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-2.5">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="px-2.5 py-1 bg-emerald-950 border border-emerald-700 text-emerald-300 font-bold font-mono text-xs rounded">
+                                            DUTY #{duty.dutyNo}
+                                          </span>
+                                          <span className="text-slate-400 text-xs font-mono">
+                                            Sign-on: <strong className="text-slate-200">{duty.sOnTime || '--'}</strong> @ {duty.signOnLocation || 'PYID'}
+                                          </span>
+                                          <span className="text-slate-600">→</span>
+                                          <span className="text-slate-400 text-xs font-mono">
+                                            Sign-off: <strong className="text-slate-200">{duty.sOffTime || '--'}</strong> @ {duty.signOffLocation || 'PYID'}
+                                          </span>
+                                          {duty.isNight && <span className="text-xs" title="Night/Changeover Duty">🌙 Night</span>}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded border font-mono uppercase ${confColor}`}>
+                                            Confidence: {confidence}
+                                          </span>
+                                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded border font-mono uppercase ${
+                                            duty.validationResult === 'VALIDATED'
+                                              ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800'
+                                              : duty.validationResult === 'MANUAL REVIEW'
+                                              ? 'bg-amber-950/80 text-amber-400 border-amber-800'
+                                              : 'bg-slate-900 text-slate-400 border-slate-800'
+                                          }`}>
+                                            {duty.validationResult}
+                                          </span>
+                                        </div>
                                       </div>
-                                      <div className="flex items-center gap-2">
-                                        <span className={`text-[8px] font-bold px-2 py-0.5 rounded border font-mono uppercase ${confColor}`}>Confidence: {confidence}</span>
-                                        <span className={`text-[8px] font-bold uppercase font-mono ${valColor}`}>{duty.validationResult}</span>
+
+                                      {/* Kilometer Breakdown Summary (Section 11) */}
+                                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-2 pt-2.5 text-center font-mono text-[10px]">
+                                        <div className="bg-slate-950/60 p-2 rounded border border-slate-800/60">
+                                          <div className="text-slate-500 text-[8.5px] uppercase">Leg 1 KM</div>
+                                          <div className="font-bold text-slate-200 text-xs mt-0.5">{duty.leg1Km || 0} KM</div>
+                                        </div>
+                                        <div className="bg-slate-950/60 p-2 rounded border border-slate-800/60">
+                                          <div className="text-slate-500 text-[8.5px] uppercase">Leg 2 KM</div>
+                                          <div className="font-bold text-slate-200 text-xs mt-0.5">{duty.leg2Km || 0} KM</div>
+                                        </div>
+                                        <div className="bg-slate-950/60 p-2 rounded border border-slate-800/60">
+                                          <div className="text-slate-500 text-[8.5px] uppercase">Leg 3 KM</div>
+                                          <div className="font-bold text-slate-200 text-xs mt-0.5">{duty.leg3Km || 0} KM</div>
+                                        </div>
+                                        <div className="bg-slate-950/60 p-2 rounded border border-slate-800/60">
+                                          <div className="text-slate-500 text-[8.5px] uppercase">Leg 4 KM</div>
+                                          <div className="font-bold text-slate-200 text-xs mt-0.5">{duty.leg4Km || 0} KM</div>
+                                        </div>
+                                        <div className="bg-slate-950/60 p-2 rounded border border-slate-800/60">
+                                          <div className="text-slate-500 text-[8.5px] uppercase">Raw Total (L1-4)</div>
+                                          <div className="font-bold text-cyan-400 text-xs mt-0.5">
+                                            {duty.rawTotalKm !== undefined ? Number(duty.rawTotalKm).toFixed(2) : (duty.kms || 0)} KM
+                                          </div>
+                                        </div>
+                                        <div className="bg-emerald-950/40 p-2 rounded border border-emerald-800/60">
+                                          <div className="text-emerald-400 text-[8.5px] uppercase font-bold">Final Ceil KM</div>
+                                          <div className="font-black text-emerald-300 text-sm mt-0.5">
+                                            {duty.finalTotalKm !== undefined ? duty.finalTotalKm : Math.ceil(duty.kms || 0)} KM
+                                          </div>
+                                        </div>
+                                        <div className="bg-slate-950/60 p-2 rounded border border-slate-800/60">
+                                          <div className="text-slate-500 text-[8.5px] uppercase">Rule</div>
+                                          <div className="text-slate-400 text-[9px] mt-1 font-mono">Math.ceil()</div>
+                                        </div>
                                       </div>
                                     </div>
-                                    {duty.trips && duty.trips.length > 0 ? (
-                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                        {duty.trips.map((trip, tIdx) => {
-                                          const isShort = trip.isShortLoop || trip.isUnderlined;
-                                          const isDn = trip.isDnLine || trip.isBoldedTime;
-                                          const isCouns = trip.isCounselling;
-                                          const md = trip.wttMatchDepth;
-                                          const mdBadge = md === 'EXACT_WTT'
-                                            ? { label: 'WTT Match', cls: 'bg-emerald-950 text-emerald-400 border-emerald-800' }
-                                            : md === 'CHAINAGE_FALLBACK'
-                                            ? { label: 'Chainage', cls: 'bg-cyan-950 text-cyan-400 border-cyan-800' }
-                                            : md === 'NON_RUNNING'
-                                            ? { label: 'Non-Running', cls: 'bg-slate-800 text-slate-400 border-slate-700' }
-                                            : { label: 'Unmatched', cls: 'bg-rose-950 text-rose-400 border-rose-800' };
-                                          return (
-                                            <div key={tIdx} className="bg-slate-900 border border-slate-800 rounded p-2 text-[10px] font-mono space-y-1">
-                                              <div className="flex justify-between items-center border-b border-slate-800 pb-1 flex-wrap gap-1">
-                                                <div className="flex items-center gap-1.5 flex-wrap">
-                                                  <span className={`font-bold ${isShort ? 'underline decoration-emerald-400 decoration-2 text-emerald-300' : 'text-cyan-400'}`}>Leg {tIdx + 1}: Tr{trip.trainNo}</span>
-                                                  {isShort && <span className="px-1 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800 rounded text-[8px] uppercase">Short</span>}
-                                                  {isDn && <span className="px-1 py-0.5 bg-amber-950 text-amber-400 border border-amber-800 rounded text-[8px] uppercase">DN</span>}
-                                                  {isCouns && <span className="px-1 py-0.5 bg-slate-800 text-slate-400 border border-slate-700 rounded text-[8px] uppercase">Counselling</span>}
-                                                  <span className={`px-1 py-0.5 rounded border text-[8px] uppercase font-bold ${mdBadge.cls}`}>{mdBadge.label}</span>
-                                                </div>
-                                                <span className="text-emerald-400 font-bold">{trip.calculatedKms || 0} KM</span>
-                                              </div>
-                                              <div className="grid grid-cols-2 gap-x-3 text-slate-400">
-                                                <span>Board: <span className={isDn ? 'text-amber-300 font-bold' : 'text-slate-200'}>{(trip.boardingStation && trip.boardingStation !== 'N/A' && trip.boardingStation !== '--') ? trip.boardingStation : trip.takeoverLocation} <span className="text-slate-500">({trip.boardingTime || trip.timeFrm || '--'})</span></span></span>
-                                                <span>Deboard: <span className={isDn ? 'text-amber-300 font-bold' : 'text-slate-200'}>{(trip.alightingStation && trip.alightingStation !== 'N/A' && trip.alightingStation !== '--') ? trip.alightingStation : trip.handoverLocation} <span className="text-slate-500">({trip.alightingTime || trip.timeTo || '--'})</span></span></span>
-                                              </div>
-                                              {trip.segments && trip.segments.length > 0 && (
-                                                <div className="text-[9px] text-slate-600 pt-0.5 truncate">
-                                                  Segments: {trip.segments.map(s => `${s.fromStationCode}→${s.toStationCode}(${s.calculatedKms}km)`).join(', ')}
-                                                </div>
-                                              )}
-                                            </div>
-                                          );
-                                        })}
+
+                                    {/* Section 11 Transparent WTT Event Audit Table */}
+                                    <div className="border border-slate-800 rounded-lg overflow-hidden bg-slate-950">
+                                      <div className="bg-slate-900/90 px-3 py-2 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
+                                        <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                                          Working Time Table (WTT) Event-Matching & Route Distance Audit
+                                        </span>
+                                        <span className="text-[9px] text-slate-500 font-mono">Schedule: {timetableSchedule} · Tolerance: ±2 mins (120s)</span>
                                       </div>
-                                    ) : (
-                                      <div className="text-[10px] text-slate-500 italic">No train trips recorded for this duty (Standby / PRO).</div>
-                                    )}
+
+                                      <div className="overflow-x-auto">
+                                        <table className="w-full text-left text-[9px] font-mono border-collapse">
+                                          <thead className="bg-slate-900/60 text-slate-400 uppercase text-[8.5px] border-b border-slate-800">
+                                            <tr>
+                                              <th className="px-2.5 py-1.5">Leg</th>
+                                              <th className="px-2.5 py-1.5">Train ID</th>
+                                              <th className="px-2.5 py-1.5">Roster FROM</th>
+                                              <th className="px-2.5 py-1.5 text-cyan-300">Matched FROM</th>
+                                              <th className="px-2.5 py-1.5 text-emerald-300 font-bold">Origin (WTT)</th>
+                                              <th className="px-2.5 py-1.5">Roster TO</th>
+                                              <th className="px-2.5 py-1.5 text-cyan-300">Matched TO</th>
+                                              <th className="px-2.5 py-1.5 text-emerald-300 font-bold">Destination (WTT)</th>
+                                              <th className="px-2.5 py-1.5 text-right font-bold text-amber-300">Route Dist (KM)</th>
+                                              <th className="px-2.5 py-1.5 text-center">Match Status</th>
+                                              <th className="px-2.5 py-1.5">Validation / Details</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-slate-800/40">
+                                            {[0, 1, 2, 3].map((li) => {
+                                              const t = duty.trips?.[li];
+                                              if (!t || (t.status === 'EMPTY' && !t.trainNo)) {
+                                                return (
+                                                  <tr key={li} className="text-slate-600">
+                                                    <td className="px-2.5 py-1.5 font-bold">Leg {li + 1}</td>
+                                                    <td className="px-2.5 py-1.5">--</td>
+                                                    <td className="px-2.5 py-1.5">--</td>
+                                                    <td className="px-2.5 py-1.5">--</td>
+                                                    <td className="px-2.5 py-1.5">--</td>
+                                                    <td className="px-2.5 py-1.5">--</td>
+                                                    <td className="px-2.5 py-1.5">--</td>
+                                                    <td className="px-2.5 py-1.5">--</td>
+                                                    <td className="px-2.5 py-1.5 text-right">0.00</td>
+                                                    <td className="px-2.5 py-1.5 text-center text-slate-600">EMPTY</td>
+                                                    <td className="px-2.5 py-1.5 text-slate-600">No leg scheduled</td>
+                                                  </tr>
+                                                );
+                                              }
+
+                                              const isExact = t.matchStatus === 'EXACT' || t.matchStatus === 'EXACT_MATCH';
+                                              const isTol = t.matchStatus === 'TOLERANCE_MATCH';
+                                              const isUnmatched = t.matchStatus?.startsWith('UNMATCHED') || t.status === 'UNMATCHED';
+
+                                              const badgeCls = isExact
+                                                ? 'bg-emerald-950 text-emerald-400 border-emerald-800'
+                                                : isTol
+                                                ? 'bg-cyan-950 text-cyan-400 border-cyan-800'
+                                                : isUnmatched
+                                                ? 'bg-rose-950 text-rose-400 border-rose-800'
+                                                : 'bg-slate-900 text-slate-400 border-slate-700';
+
+                                              const badgeText = isExact ? 'EXACT' : isTol ? '±TOL' : isUnmatched ? 'UNMATCHED' : (t.matchStatus || t.status || '--');
+
+                                              return (
+                                                <tr key={li} className="hover:bg-slate-900/40 transition-colors">
+                                                  <td className="px-2.5 py-1.5 font-bold text-slate-300">Leg {li + 1}</td>
+                                                  <td className="px-2.5 py-1.5 font-bold text-cyan-400">Tr{t.trainNo || '--'}</td>
+                                                  <td className="px-2.5 py-1.5 text-slate-400">{t.rosterFrom || t.timeFrm || '--'}</td>
+                                                  <td className="px-2.5 py-1.5 text-cyan-300">{t.matchedFrom || t.matchedFromTime || '--'}</td>
+                                                  <td className="px-2.5 py-1.5 font-bold text-emerald-300">{t.origin || t.originStation || t.boardingStation || '--'}</td>
+                                                  <td className="px-2.5 py-1.5 text-slate-400">{t.rosterTo || t.timeTo || '--'}</td>
+                                                  <td className="px-2.5 py-1.5 text-cyan-300">{t.matchedTo || t.matchedToTime || '--'}</td>
+                                                  <td className="px-2.5 py-1.5 font-bold text-emerald-300">{t.destination || t.destinationStation || t.alightingStation || '--'}</td>
+                                                  <td className="px-2.5 py-1.5 text-right font-black text-amber-300">{Number(t.calculatedKms || 0).toFixed(2)} KM</td>
+                                                  <td className="px-2.5 py-1.5 text-center">
+                                                    <span className={`px-1.5 py-0.5 rounded border text-[8px] font-bold uppercase ${badgeCls}`}>
+                                                      {badgeText}
+                                                    </span>
+                                                  </td>
+                                                  <td className="px-2.5 py-1.5 text-slate-400 text-[8.5px]">
+                                                    {t.validation || (t.wttFromEvent && t.wttToEvent ? `${t.wttFromEvent.station} (${t.wttFromEvent.timeStr}) ➔ ${t.wttToEvent.station} (${t.wttToEvent.timeStr})` : '--')}
+                                                  </td>
+                                                </tr>
+                                              );
+                                            })}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </div>
                                   </div>
                                 </td>
                               </tr>
@@ -1588,8 +1736,10 @@ export default function RouteCalculator({
                               {duty.isManuallyEdited && <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" title="Manually edited" />}
                             </div>
                             <div className="flex flex-col items-end">
-                              <span className="text-xl font-black text-emerald-400">{duty.kms}</span>
-                              <span className="text-[8px] text-slate-500 uppercase">KM Total</span>
+                              <span className="text-xl font-black text-emerald-400">{duty.finalTotalKm !== undefined ? duty.finalTotalKm : duty.kms}</span>
+                              <span className="text-[8px] text-slate-400 font-mono uppercase">
+                                Ceil KM <span className="text-slate-500 font-normal">({duty.rawTotalKm !== undefined ? Number(duty.rawTotalKm).toFixed(2) : duty.kms} raw)</span>
+                              </span>
                             </div>
                           </div>
                           <div className="flex items-center gap-1.5 text-[9px]">
@@ -1604,10 +1754,14 @@ export default function RouteCalculator({
                               if (!trip) return null;
                               const kms = trip.calculatedKms || 0;
                               const bw = kms > 0 ? Math.max(5, Math.min(100, (kms / maxLegKm) * 100)) : 0;
+                              const orig = trip.origin || trip.originStation || trip.boardingStation || '--';
+                              const dest = trip.destination || trip.destinationStation || trip.alightingStation || '--';
                               return (
                                 <div key={li} className="space-y-0.5">
-                                  <div className="flex justify-between text-[9px]">
-                                    <span className="text-slate-500">Leg {li + 1} · Tr{trip.trainNo || '--'}</span>
+                                  <div className="flex justify-between items-center text-[9px]">
+                                    <span className="text-slate-400 truncate max-w-[140px]" title={`Tr${trip.trainNo || '--'}: ${orig} → ${dest}`}>
+                                      L{li + 1} Tr{trip.trainNo || '--'}: {orig}→{dest}
+                                    </span>
                                     <span className={kms > 0 ? 'text-cyan-400 font-bold' : 'text-slate-600'}>{kms > 0 ? `${kms} km` : '--'}</span>
                                   </div>
                                   <div className="h-1 rounded-full bg-slate-800 overflow-hidden">
@@ -1711,14 +1865,14 @@ export default function RouteCalculator({
                   <table className="w-full text-left text-[9px] border-collapse font-mono whitespace-nowrap">
                     <thead className="sticky top-0 z-10 bg-slate-950 text-slate-400 uppercase tracking-wider text-[9px] shadow-sm">
                       <tr>
-                        {['Duty #', 'Sign On', 'Location', 'Sign Off', 'Location', 'L1 Route', 'L1 KM', 'L2 Route', 'L2 KM', 'L3 Route', 'L3 KM', 'L4 Route', 'L4 KM', 'Total KM', 'Status', 'Confidence'].map((col, i) => (
+                        {['Duty #', 'Sign On', 'Location', 'Sign Off', 'Location', 'L1 Route', 'L1 KM', 'L2 Route', 'L2 KM', 'L3 Route', 'L3 KM', 'L4 Route', 'L4 KM', 'Raw Total', 'Final Ceil', 'Status', 'Confidence'].map((col, i) => (
                           <th key={i} className="px-2 py-1.5 border-b border-slate-800 font-bold">{col}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/40">
                       {filteredActiveDuties.length === 0 ? (
-                        <tr><td colSpan={16} className="px-3 py-8 text-center text-slate-500 font-mono">No duties loaded.</td></tr>
+                        <tr><td colSpan={17} className="px-3 py-8 text-center text-slate-500 font-mono">No duties loaded.</td></tr>
                       ) : filteredActiveDuties.map((duty, idx) => {
                         const conf = calculateKmConfidence(duty);
                         const l1 = duty.trips?.[0]; const l2 = duty.trips?.[1]; const l3 = duty.trips?.[2]; const l4 = duty.trips?.[3];
@@ -1741,7 +1895,8 @@ export default function RouteCalculator({
                             <td className="px-2 py-1.5 text-cyan-400 font-bold border-r border-slate-800/50">{l3?.calculatedKms || 0}</td>
                             <td className="px-2 py-1.5 text-slate-400 border-r border-slate-800/50 max-w-[120px] truncate">{gp(l4)}</td>
                             <td className="px-2 py-1.5 text-cyan-400 font-bold border-r border-slate-800/50">{l4?.calculatedKms || 0}</td>
-                            <td className="px-2 py-1.5 text-emerald-400 font-black border-r border-slate-800/50">{duty.kms}</td>
+                            <td className="px-2 py-1.5 text-cyan-400 font-bold border-r border-slate-800/50">{duty.rawTotalKm !== undefined ? Number(duty.rawTotalKm).toFixed(2) : (duty.kms || 0)}</td>
+                            <td className="px-2 py-1.5 text-emerald-400 font-black border-r border-slate-800/50">{duty.finalTotalKm !== undefined ? duty.finalTotalKm : Math.ceil(duty.kms || 0)}</td>
                             <td className={`px-2 py-1.5 font-bold border-r border-slate-800/50 ${duty.validationResult === 'VALIDATED' ? 'text-emerald-400' : duty.validationResult === 'MANUAL REVIEW' ? 'text-amber-400' : 'text-slate-500'}`}>{duty.validationResult}</td>
                             <td className={`px-2 py-1.5 font-bold ${conf === 'HIGH' ? 'text-emerald-400' : conf === 'MED' ? 'text-amber-400' : 'text-rose-400'}`}>{conf}</td>
                           </tr>
