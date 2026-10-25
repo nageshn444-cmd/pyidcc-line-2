@@ -2914,31 +2914,6 @@ export default function LiveTrainPositionTracker({
     };
   }, [simulatedTime, internalTimeSecs, matrixRows, liveIncidents, dynamicTrainTrackingMap, stationChainageDB, activeSchedule, dailyCrewTracks, RELIEF_STATION_CONFIG, propLiveTrainTrackingMap, interpolateTripStations, dispatchDutyOperatorMap, dispatchTrainOperatorMap, getAtsStationIndex, handoverCardsMap]);
 
-  useEffect(() => {
-    try {
-      const payload = {
-        activeSchedule,
-        simulatedTime,
-        matrixRowsCount: (matrixRows || []).length,
-        wttMatrixCount: (wttMatrix || []).length,
-        propUnifiedRowsCount: (propUnifiedRows || []).length,
-        livePositionsCount: (liveTrainPositions || []).length,
-        runningCount: (liveTrainPositions || []).filter(t => !t.isStabling).length,
-        stabledCount: (liveTrainPositions || []).filter(t => t.isStabling).length,
-        runningSamples: (liveTrainPositions || []).filter(t => !t.isStabling).slice(0, 3),
-        stabledSamples: (liveTrainPositions || []).filter(t => t.isStabling).slice(0, 3),
-        sampleRow: (matrixRows || [])[0]
-      };
-      fetch('http://localhost:9876', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).catch(() => {});
-    } catch (_e) {
-      /* ignore */
-    }
-  }, [activeSchedule, simulatedTime, matrixRows, liveTrainPositions, propUnifiedRows, wttMatrix]);
-
   // Automated Voice Announcement Trigger on 3-Minute Trip Completion Basis
   // STRICT RULE 1: Announce next train operator name when current driving operator's trip completes in next 3 mins.
   // STRICT RULE 2: If there is no verified reliever, DO NOT make any announcement!
