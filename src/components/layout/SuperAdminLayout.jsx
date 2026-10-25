@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect, Suspense } from 'react';
+import React, { useState, useRef, useMemo, useEffect, useCallback, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../../firebase';
 import { writeBatch, doc, serverTimestamp, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -48,6 +48,7 @@ import { useAuth, isOwnerUser } from '../../context/AuthContext';
 import { BMRCL_CREW_REGISTRY } from '../../data/bmrclCrewRegistry';
 import { computeDutyLegKms } from '../../utils/kmCalculator'; // WTT km calculation engine
 import { getMasterLinksForDay } from '../../data/canonicalDayLinksRegistry';
+import { isScheduleDayErased } from '../../data/weekdayReliefIdChartRegistry';
 import { WTT_MASTER_REGISTRY } from '../../data/wttMasterRegistry';
 import { inferAllLegLocations } from '../../services/wttLocationResolverEngine';
 
@@ -549,6 +550,20 @@ export default function SuperAdminLayout({
     };
   }, []);
 
+  // Helper to look up operator in autoReaderDutyMap across any alias (e.g. '01', '1', 'CR01')
+  const getFromAutoReaderMap = useCallback((map, dutyId) => {
+    if (!map || !dutyId) return null;
+    const norm = normalizeDutyId(dutyId);
+    if (!norm) return null;
+    if (map.has(norm)) return map.get(norm);
+    const plain = norm.replace(/^CR0?/, '');
+    if (map.has(plain)) return map.get(plain);
+    if (map.has(plain.padStart(2, '0'))) return map.get(plain.padStart(2, '0'));
+    const crKey = 'CR' + (parseInt(plain, 10) < 10 ? '0' + parseInt(plain, 10) : parseInt(plain, 10));
+    if (map.has(crKey)) return map.get(crKey);
+    return null;
+  }, []);
+
   // Authoritative Auto-Reader & Classifier Duty Map
   const autoReaderDutyMap = useMemo(() => {
     const map = new Map();
@@ -587,19 +602,8 @@ export default function SuperAdminLayout({
           rawLegs: d.rawLegs || null,
           rawRecord: d
         };
+        // Set on normalized duty ID so map.size accurately reflects staffed duties count
         map.set(normId, dutyPayload);
-
-        // Bi-directional cross-indexing for CR duties (e.g. '42' <-> 'CR42')
-        if (normId.startsWith('CR')) {
-          const plainNum = normId.replace(/^CR0?/, '');
-          const paddedPlain = plainNum.padStart(2, '0');
-          map.set(plainNum, dutyPayload);
-          map.set(paddedPlain, dutyPayload);
-        } else if (/^\d+$/.test(normId)) {
-          const num = parseInt(normId, 10);
-          const crKey = 'CR' + (num < 10 ? '0' + num : String(num));
-          map.set(crKey, dutyPayload);
-        }
       }
     };
 
@@ -647,7 +651,12 @@ export default function SuperAdminLayout({
   }, [deployments, firestoreConsoleDuties, autoReaderUpdateTrigger]);
 
   const allDayRosterLinks = useMemo(() => {
-    // If filteredLinks is empty or explicitly erased, do not synthesize ghost duties!
+    // If schedule day is explicitly cleared or erased, return empty array immediately
+    if (isScheduleDayErased(activeDay)) {
+      return [];
+    }
+
+    // If filteredLinks is empty, do not synthesize ghost duties
     if (!filteredLinks || filteredLinks.length === 0) {
       return [];
     }
@@ -657,72 +666,30 @@ export default function SuperAdminLayout({
     // If active duties exist in autoReaderDutyMap:
     // When showOnlyActiveDuties is true, strictly show ONLY active duties with train operators assigned!
     if (showOnlyActiveDuties && autoReaderDutyMap.size > 0) {
-      const hasInAutoReader = (dutyId) => {
-        const norm = normalizeDutyId(dutyId);
-        if (autoReaderDutyMap.has(norm)) return true;
-        const plain = norm.replace(/^CR0?/, '');
-        if (autoReaderDutyMap.has(plain) || autoReaderDutyMap.has(plain.padStart(2, '0'))) return true;
-        const crKey = 'CR' + (parseInt(plain, 10) < 10 ? '0' + parseInt(plain, 10) : parseInt(plain, 10));
-        if (autoReaderDutyMap.has(crKey)) return true;
-        return false;
-      };
-
-      const matchedFromLinks = filteredLinks.filter(l => hasInAutoReader(l.dutyId));
-      const matchedDutyKeys = new Set();
-      matchedFromLinks.forEach(l => {
-        const norm = normalizeDutyId(l.dutyId);
-        matchedDutyKeys.add(norm);
-        const plain = norm.replace(/^CR0?/, '');
-        matchedDutyKeys.add(plain);
-        matchedDutyKeys.add(plain.padStart(2, '0'));
-        const crKey = 'CR' + (parseInt(plain, 10) < 10 ? '0' + parseInt(plain, 10) : parseInt(plain, 10));
-        matchedDutyKeys.add(crKey);
-      });
-
-      const masterLinks = getMasterLinksForDay(activeDay) || [];
-
-      const extraFromAutoReader = [];
-      autoReaderDutyMap.forEach((arDuty, normId) => {
-        const plain = normId.replace(/^CR0?/, '');
-        const crKey = 'CR' + (parseInt(plain, 10) < 10 ? '0' + parseInt(plain, 10) : parseInt(plain, 10));
-        if (!matchedDutyKeys.has(normId) && !matchedDutyKeys.has(plain) && !matchedDutyKeys.has(plain.padStart(2, '0')) && !matchedDutyKeys.has(crKey)) {
-          const canon = masterLinks.find(m => {
-            const mNorm = normalizeDutyId(m.dutyId || m.dutyNo);
-            const mPlain = mNorm.replace(/^CR0?/, '');
-            return mNorm === normId || mPlain === plain || mPlain === plain.padStart(2, '0') || mNorm === crKey;
-          });
-
-          if (canon) {
-            extraFromAutoReader.push({
-              ...canon,
-              id: `link_${String(activeDay || 'weekday').toLowerCase()}_duty_${canon.dutyId || normId}`,
-              dutyId: canon.dutyId || normId,
-              isUploaded: true
-            });
-          } else {
-            extraFromAutoReader.push({
-              id: `link_${String(activeDay || 'weekday').toLowerCase()}_duty_${normId}`,
-              dutyId: normId,
-              trainId: arDuty.trainId || '--',
-              signOnTime: arDuty.signOnTime || '--',
-              signOffTime: arDuty.signOffTime || '--',
-              signOnLocation: arDuty.signOnLocation || 'PYID',
-              signOffLocation: arDuty.signOffLocation || 'PYID',
-              leg1TimeFrom: arDuty.signOnTime || '--',
-              leg1HandoverLoc: arDuty.signOnLocation || 'PYID',
-              isUploaded: true
-            });
-          }
-        }
-      });
-
-      sourceList = [...matchedFromLinks, ...extraFromAutoReader].sort((a, b) =>
-        String(a.dutyId).localeCompare(String(b.dutyId), undefined, { numeric: true })
-      );
+      sourceList = filteredLinks.filter(l => Boolean(getFromAutoReaderMap(autoReaderDutyMap, l.dutyId || l.dutyNo)));
     }
 
-    return sourceList.map(l => inferAllLegLocations(l, activeDay));
-  }, [filteredLinks, autoReaderDutyMap, showOnlyActiveDuties, activeDay]);
+    // STRICT DEDUPLICATION: Ensure every duty appears EXACTLY ONCE!
+    const uniqueMap = new Map();
+    for (const link of sourceList) {
+      const normId = normalizeDutyId(link.dutyId || link.dutyNo);
+      if (!normId) continue;
+      if (!uniqueMap.has(normId)) {
+        uniqueMap.set(normId, link);
+      } else {
+        const existing = uniqueMap.get(normId);
+        const existingHasLegs = (existing.leg1TrainNo && existing.leg1TrainNo !== '--') || (existing.trainId && existing.trainId !== '--');
+        const linkHasLegs = (link.leg1TrainNo && link.leg1TrainNo !== '--') || (link.trainId && link.trainId !== '--');
+        if (!existingHasLegs && linkHasLegs) {
+          uniqueMap.set(normId, link);
+        }
+      }
+    }
+
+    return Array.from(uniqueMap.values())
+      .sort((a, b) => String(a.dutyId || a.dutyNo).localeCompare(String(b.dutyId || b.dutyNo), undefined, { numeric: true }))
+      .map(l => inferAllLegLocations(l, activeDay));
+  }, [filteredLinks, autoReaderDutyMap, showOnlyActiveDuties, activeDay, getFromAutoReaderMap]);
 
 
   const finalRosterLinks = useMemo(() => {
@@ -1002,29 +969,39 @@ export default function SuperAdminLayout({
     }
     setIsClearingRoster(true);
     try {
-      // 1. Mark schedule as erased in localStorage immediately
+      const dayTag = activeDay.toLowerCase();
+      // 1. Mark schedule as erased in localStorage immediately and purge all caches for this day
       if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(`pyidcc_schedule_erased_${activeDay.toLowerCase()}`, 'true');
-        window.localStorage.removeItem(`pyidcc_canonical_links_${activeDay.toLowerCase()}`);
+        window.localStorage.setItem(`pyidcc_schedule_erased_${dayTag}`, 'true');
+        window.localStorage.setItem(`pyidcc_schedule_cleared_${dayTag}`, 'true');
+        window.localStorage.removeItem(`pyidcc_active_link_roster_${dayTag}`);
+        window.localStorage.removeItem(`pyidcc_canonical_links_${dayTag}`);
         window.localStorage.removeItem('pyidcc_roster_desk_console_cache');
         window.localStorage.removeItem('pyidcc_active_dispatch_deployments');
+        window.localStorage.removeItem('pyidcc_roster_desk_meta');
+        Object.keys(window.localStorage).forEach(key => {
+          if (key.includes(`_link_roster_${dayTag}`) || key.includes(`_links_${dayTag}`)) {
+            window.localStorage.removeItem(key);
+          }
+        });
       }
 
       // 2. Immediately notify parent (Dashboard) and subsequent systems (ReliefTracking, LiveTrainPositionTracker)
       if (typeof onLinkRosterImported === 'function') {
-        onLinkRosterImported({ scheduleType: activeDay, duties: [], erased: true });
+        onLinkRosterImported({ scheduleType: activeDay, duties: [], erased: true, cleared: true });
       }
 
       // 3. Broadcast system-wide events immediately to all open components and listeners
-      const eventDetail = { scheduleType: activeDay, duties: [], erased: true, timestamp: Date.now() };
+      const eventDetail = { scheduleType: activeDay, duties: [], erased: true, cleared: true, timestamp: Date.now() };
       window.dispatchEvent(new CustomEvent('pyidcc:link_roster_updated', { detail: eventDetail }));
       window.dispatchEvent(new CustomEvent('pyidcc_link_roster_updated', { detail: eventDetail }));
 
       // 4. Erase from Firestore and in-memory master registry
       const { clearLinkRosterForDay } = await import('../../services/wttAndLinkRosterImportService');
-      await clearLinkRosterForDay(activeDay);
+      const res = await clearLinkRosterForDay(activeDay);
 
-      alert(`✅ Erased old ${activeDay} Link Roster duties completely. Upload new Link Roster spreadsheet to deploy latest duties.`);
+      alert(`✅ Erased old ${activeDay} Link Roster duties completely (${res.deletedCount || 0} records deleted). Upload new Link Roster spreadsheet to deploy latest duties.`);
+      if (fetchLiveData) fetchLiveData();
     } catch (err) {
       console.error(err);
       alert(`Failed to erase old Link Roster: ${err.message}`);
@@ -2100,10 +2077,7 @@ export default function SuperAdminLayout({
                         const normDutyId = normalizeDutyId(dutyRaw.dutyId);
                         const plainNum = normDutyId.replace(/^CR0?/, '');
                         const crKey = 'CR' + (parseInt(plainNum, 10) < 10 ? '0' + parseInt(plainNum, 10) : parseInt(plainNum, 10));
-                        const autoReaderMatch = autoReaderDutyMap.get(normDutyId) || 
-                                                autoReaderDutyMap.get(crKey) || 
-                                                autoReaderDutyMap.get(plainNum) || 
-                                                autoReaderDutyMap.get(plainNum.padStart(2, '0'));
+                        const autoReaderMatch = getFromAutoReaderMap(autoReaderDutyMap, dutyRaw.dutyId);
                         const matchedDeploy = autoReaderMatch || deployments.find(d => {
                           const dNorm = normalizeDutyId(d.dutyId);
                           return dNorm === normDutyId || dNorm === crKey || dNorm === plainNum || dNorm === plainNum.padStart(2, '0');

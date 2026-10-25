@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth, isOwnerUser } from '../context/AuthContext';
 import { WTT_MASTER_REGISTRY } from '../data/wttMasterRegistry';
-import { buildWeekdayLiveTrainTrackingMap, buildLiveTrainTrackingMap } from '../data/weekdayReliefIdChartRegistry';
+import { buildWeekdayLiveTrainTrackingMap, buildLiveTrainTrackingMap, isScheduleDayErased } from '../data/weekdayReliefIdChartRegistry';
 
 import { lazyWithRetry } from '../utils/lazyWithRetry';
 
@@ -28,7 +28,8 @@ import {
   SATURDAY_MASTER_LINKS,
   SUNDAY_MASTER_LINKS,
   MONDAY_MASTER_LINKS,
-  getMasterLinksForDay
+  getMasterLinksForDay,
+  clearMasterLinksCacheForDay
 } from '../data/canonicalDayLinksRegistry';
 import { getOperatorForDuty } from '../data/weekdayMasterDutyRoster';
 
@@ -113,7 +114,7 @@ const isValidDutyId = (id) => {
 
 // Deduplicate: given an array of link/deployment objects keyed by normalized dutyId,
 // keep only the best entry per duty (prefer the one with an operator assigned,
-// prefer the zero-padded document ID over the bare numeric one).
+// prefer the one with authentic train/leg numbers, prefer uploaded data).
 const deduplicateByDutyId = (items, getIdFn = (x) => x.dutyId) => {
   const seen = new Map();
   for (const item of items) {
@@ -124,14 +125,18 @@ const deduplicateByDutyId = (items, getIdFn = (x) => x.dutyId) => {
       seen.set(norm, { ...item, dutyId: norm });
     } else {
       const existing = seen.get(norm);
-      const existingHasOp = existing.empName && existing.empName !== '--';
-      const currentHasOp = (item.empName && item.empName !== '--') ||
-                           (item.name && item.name !== '--');
-      // Replace existing if current has an operator and existing does not
+      const existingHasOp = existing.empName && existing.empName !== '--' && !existing.empName.startsWith('Duty ');
+      const currentHasOp = item.empName && item.empName !== '--' && !item.empName.startsWith('Duty ');
+      const existingHasLegs = (existing.leg1TrainNo && existing.leg1TrainNo !== '--') || (existing.trainId && existing.trainId !== '--');
+      const currentHasLegs = (item.leg1TrainNo && item.leg1TrainNo !== '--') || (item.trainId && item.trainId !== '--');
+
       if (!existingHasOp && currentHasOp) {
-        seen.set(norm, { ...item, dutyId: norm });
+        seen.set(norm, { ...existing, ...item, dutyId: norm });
+      } else if (!existingHasLegs && currentHasLegs) {
+        seen.set(norm, { ...existing, ...item, dutyId: norm });
+      } else if (!existing.isUploaded && item.isUploaded) {
+        seen.set(norm, { ...existing, ...item, dutyId: norm });
       }
-      // Otherwise keep existing (already normalized ID)
     }
   }
   return Array.from(seen.values());
@@ -660,6 +665,21 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       synchronizedPairs.sort((a, b) => getEarliestTimeSeconds(a) - getEarliestTimeSeconds(b));
       setUnifiedRows(synchronizedPairs);
 
+      // Check if user explicitly erased this schedule day
+      const dayKey = targetSchedule.toLowerCase();
+      const isExplicitlyErased = (typeof window !== 'undefined' && window.localStorage &&
+        (Boolean(window.localStorage.getItem(`pyidcc_schedule_erased_${dayKey}`)) ||
+         Boolean(window.localStorage.getItem(`pyidcc_schedule_cleared_${dayKey}`)))) ||
+        isScheduleDayErased(targetSchedule);
+
+      if (isExplicitlyErased) {
+        setLinks([]);
+        dailyDeploymentRef.current = [];
+        setDailyDeployment([]);
+        setLiveTrainTrackingMap({});
+        return;
+      }
+
       // Deduplicate links
       let rawDayLinks = linksData.filter(l =>
         normalizeScheduleType(l.scheduleType, l.id) === targetSchedule &&
@@ -668,10 +688,6 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
 
       // Check if DB has uploaded / custom links for this targetSchedule
       const hasUploadedLinks = rawDayLinks.some(l => l.isUploaded === true);
-
-      // Check if user explicitly erased this schedule day
-      const isExplicitlyErased = typeof window !== 'undefined' && window.localStorage &&
-        Boolean(window.localStorage.getItem(`pyidcc_schedule_erased_${targetSchedule.toLowerCase()}`));
 
       let masterDayLinks = [];
       if (targetSchedule === 'SATURDAY') {
@@ -684,31 +700,43 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
         masterDayLinks = WEEKDAY_MASTER_LINKS;
       }
 
-      // Fallback or fill missing canonical links (such as CR42-CR48 for SUNDAY)
-      if (!isExplicitlyErased) {
+      if (rawDayLinks.length === 0) {
+        // First check localStorage for any uploaded custom links for this day
+        if (typeof window !== 'undefined' && window.localStorage) {
+          try {
+            const cached = window.localStorage.getItem(`pyidcc_active_link_roster_${dayKey}`);
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                rawDayLinks = parsed;
+              }
+            }
+          } catch (_) {}
+        }
+        // If still empty, fall back to canonical masterDayLinks
         if (rawDayLinks.length === 0) {
           rawDayLinks = masterDayLinks;
-        } else {
-          // If the DB links are missing any duties present in masterDayLinks (e.g. CR42-CR48), fill in the missing canonical duties!
-          const existingNormMap = new Set();
-          rawDayLinks.forEach(l => {
-            const norm = normalizeDutyId(l.dutyId);
-            existingNormMap.add(norm);
-            const plain = norm.replace(/^CR0?/, '');
-            existingNormMap.add(plain);
-            existingNormMap.add(plain.padStart(2, '0'));
-            const cr = 'CR' + (parseInt(plain, 10) < 10 ? '0' + parseInt(plain, 10) : parseInt(plain, 10));
-            existingNormMap.add(cr);
-          });
-          masterDayLinks.forEach(masterLink => {
-            const mNorm = normalizeDutyId(masterLink.dutyId);
-            const mPlain = mNorm.replace(/^CR0?/, '');
-            const mCr = 'CR' + (parseInt(mPlain, 10) < 10 ? '0' + parseInt(mPlain, 10) : parseInt(mPlain, 10));
-            if (!existingNormMap.has(mNorm) && !existingNormMap.has(mPlain) && !existingNormMap.has(mCr)) {
-              rawDayLinks.push({ ...masterLink, isUploaded: false });
-            }
-          });
         }
+      } else if (!hasUploadedLinks) {
+        // If these are raw Firestore canonical duties and NOT an uploaded spreadsheet, fill in missing canonical duties
+        const existingNormMap = new Set();
+        rawDayLinks.forEach(l => {
+          const norm = normalizeDutyId(l.dutyId);
+          existingNormMap.add(norm);
+          const plain = norm.replace(/^CR0?/, '');
+          existingNormMap.add(plain);
+          existingNormMap.add(plain.padStart(2, '0'));
+          const cr = 'CR' + (parseInt(plain, 10) < 10 ? '0' + parseInt(plain, 10) : parseInt(plain, 10));
+          existingNormMap.add(cr);
+        });
+        masterDayLinks.forEach(masterLink => {
+          const mNorm = normalizeDutyId(masterLink.dutyId);
+          const mPlain = mNorm.replace(/^CR0?/, '');
+          const mCr = 'CR' + (parseInt(mPlain, 10) < 10 ? '0' + parseInt(mPlain, 10) : parseInt(mPlain, 10));
+          if (!existingNormMap.has(mNorm) && !existingNormMap.has(mPlain) && !existingNormMap.has(mCr)) {
+            rawDayLinks.push({ ...masterLink, isUploaded: false });
+          }
+        });
       }
 
       const dedupedLinks = deduplicateByDutyId(rawDayLinks);
@@ -716,10 +744,10 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
         const normId = normalizeDutyId(l.dutyId);
         const plain = normId.replace(/^CR0?/, '');
         const crKey = 'CR' + (parseInt(plain, 10) < 10 ? '0' + parseInt(plain, 10) : parseInt(plain, 10));
-        const masterMatch = masterDayLinks.find(m => {
+        const masterMatch = (!hasUploadedLinks && !l.isUploaded) ? masterDayLinks.find(m => {
           const mNorm = normalizeDutyId(m.dutyId);
           return mNorm === normId || mNorm === crKey || mNorm.replace(/^CR0?/, '') === plain;
-        });
+        }) : null;
 
         // If l is missing legs but masterMatch has them, hydrate them!
         const hasLegs = (l.leg1TrainNo && l.leg1TrainNo !== '--') || (l.leg2TrainNo && l.leg2TrainNo !== '--') || (l.trainId && l.trainId !== '--');
@@ -727,8 +755,8 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
 
         return {
           ...enriched,
-          id: enriched.id || `link_${targetSchedule.toLowerCase()}_duty_${normId}`,
-          dutyId: masterMatch?.dutyId || normId
+          id: enriched.id || `link_${dayKey}_duty_${normId}`,
+          dutyId: normId
         };
       }).sort((a, b) =>
         String(a.dutyId).localeCompare(String(b.dutyId), undefined, { numeric: true })
@@ -1619,36 +1647,70 @@ Format the response strictly as a single JSON object.`;
     }
   };
 
-  const handleLinkRosterImported = async ({ scheduleType, duties, erased }) => {
-    if (scheduleType) setActiveDay(scheduleType);
-    const validDuties = Array.isArray(duties) ? duties : [];
-    setLinks(validDuties);
-    liveLinksDataRef.current = validDuties;
+  const handleLinkRosterImported = async ({ scheduleType, duties, erased, cleared }) => {
+    const norm = scheduleType ? normalizeScheduleType(scheduleType) : normalizeScheduleType(activeDay);
+    if (norm) setActiveDay(norm);
+    const dayTag = norm.toLowerCase();
+    const isErasedOrCleared = Boolean(erased || cleared || (Array.isArray(duties) && duties.length === 0));
 
-    if (erased) {
+    if (isErasedOrCleared) {
+      setLinks([]);
+      if (liveLinksDataRef.current) {
+        liveLinksDataRef.current = liveLinksDataRef.current.filter(
+          l => normalizeScheduleType(l.scheduleType, l.id) !== norm
+        );
+      }
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.setItem(`pyidcc_schedule_erased_${(scheduleType || '').toLowerCase()}`, 'true');
+          window.localStorage.setItem(`pyidcc_schedule_erased_${dayTag}`, 'true');
+          window.localStorage.setItem(`pyidcc_schedule_cleared_${dayTag}`, 'true');
+          window.localStorage.removeItem(`pyidcc_active_link_roster_${dayTag}`);
+          window.localStorage.removeItem(`pyidcc_canonical_links_${dayTag}`);
+          window.localStorage.removeItem('pyidcc_roster_desk_console_cache');
+          window.localStorage.removeItem('pyidcc_active_dispatch_deployments');
         }
       } catch (_) {}
-    } else if (validDuties.length > 0) {
+
+      // Clear canonical master links cache in memory
+      clearMasterLinksCacheForDay(norm);
+
+      // Re-sync immediately
+      const activeWtt = (liveWttDataRef.current && liveWttDataRef.current.length > 0) ? liveWttDataRef.current : WTT_MASTER_REGISTRY;
+      processAndSyncData(activeWtt, [], [], attendanceLogs || [], liveIncidents || []);
+    } else {
+      const validDuties = deduplicateByDutyId(Array.isArray(duties) ? duties : []);
+      setLinks(validDuties);
+      if (liveLinksDataRef.current) {
+        const otherDays = liveLinksDataRef.current.filter(
+          l => normalizeScheduleType(l.scheduleType, l.id) !== norm
+        );
+        liveLinksDataRef.current = [...otherDays, ...validDuties];
+      } else {
+        liveLinksDataRef.current = validDuties;
+      }
+
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.removeItem(`pyidcc_schedule_erased_${(scheduleType || '').toLowerCase()}`);
+          window.localStorage.removeItem(`pyidcc_schedule_erased_${dayTag}`);
+          window.localStorage.removeItem(`pyidcc_schedule_cleared_${dayTag}`);
+          window.localStorage.setItem(`pyidcc_active_link_roster_${dayTag}`, JSON.stringify(validDuties));
+          window.localStorage.setItem(`pyidcc_canonical_links_${dayTag}`, JSON.stringify(validDuties));
         }
       } catch (_) {}
+
+      const activeWtt = (liveWttDataRef.current && liveWttDataRef.current.length > 0) ? liveWttDataRef.current : WTT_MASTER_REGISTRY;
+      processAndSyncData(activeWtt, validDuties, dailyDeployment || [], attendanceLogs || [], liveIncidents || []);
     }
 
-    // Immediately synchronize unified rows with current in-memory data
-    const activeWtt = (liveWttDataRef.current && liveWttDataRef.current.length > 0) ? liveWttDataRef.current : WTT_MASTER_REGISTRY;
-    processAndSyncData(activeWtt, validDuties, dailyDeployment || [], attendanceLogs || [], liveIncidents || []);
-
-    window.dispatchEvent(new CustomEvent('pyidcc:link_roster_updated', {
-      detail: { scheduleType, duties: validDuties, erased: !!erased, timestamp: Date.now() }
-    }));
-    window.dispatchEvent(new CustomEvent('pyidcc_link_roster_updated', {
-      detail: { scheduleType, duties: validDuties, erased: !!erased, timestamp: Date.now() }
-    }));
+    const eventDetail = {
+      scheduleType: norm,
+      duties: isErasedOrCleared ? [] : (Array.isArray(duties) ? duties : []),
+      erased: isErasedOrCleared,
+      cleared: isErasedOrCleared,
+      timestamp: Date.now()
+    };
+    window.dispatchEvent(new CustomEvent('pyidcc:link_roster_updated', { detail: eventDetail }));
+    window.dispatchEvent(new CustomEvent('pyidcc_link_roster_updated', { detail: eventDetail }));
   };
 
   const handleIncidentLogSubmit = async (e) => {

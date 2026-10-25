@@ -1402,27 +1402,49 @@ export async function parseLinkRosterExcel(fileOrBuffer, targetScheduleType = nu
     parsedDuties.push(sanitizeForFirestore(completeDuty));
   }
 
+  // Deduplicate parsed duties strictly by normalized duty ID so each duty has exactly one entry
+  const dedupedDutiesMap = new Map();
+  for (const duty of parsedDuties) {
+    const rawId = duty.dutyId || duty.dutyNo;
+    const norm = normalizeDutyId(rawId);
+    if (!norm) continue;
+    const docId = `link_${activeSchedule.toLowerCase()}_duty_${norm}`;
+    if (!dedupedDutiesMap.has(norm)) {
+      dedupedDutiesMap.set(norm, { ...duty, dutyId: norm, docId, id: docId });
+    } else {
+      const existing = dedupedDutiesMap.get(norm);
+      const existingHasLegs = (existing.leg1TrainNo && existing.leg1TrainNo !== '--') || (existing.trainId && existing.trainId !== '--') || (Array.isArray(existing.trips) && existing.trips.length > 0);
+      const dutyHasLegs = (duty.leg1TrainNo && duty.leg1TrainNo !== '--') || (duty.trainId && duty.trainId !== '--') || (Array.isArray(duty.trips) && duty.trips.length > 0);
+      if (!existingHasLegs && dutyHasLegs) {
+        dedupedDutiesMap.set(norm, { ...duty, dutyId: norm, docId, id: docId });
+      }
+    }
+  }
+
+  const uniqueParsedDuties = Array.from(dedupedDutiesMap.values()).sort((a, b) =>
+    String(a.dutyId).localeCompare(String(b.dutyId), undefined, { numeric: true })
+  );
 
   // Calculate clean statistical metrics for Link Roster operational dashboards
-  const drivingDuties = parsedDuties.filter(d => !d.isStandby && !d.isProctor && (d.drivingHrs !== '--' && d.drivingHrs !== '00:00:00' || d.legsCount > 0));
-  const standbyDuties = parsedDuties.filter(d => d.isStandby || d.isProctor);
-  const nightDuties = parsedDuties.filter(d => d.isNight);
-  const cleanTotalKms = Math.round(parsedDuties.reduce((acc, d) => acc + (typeof d.kms === 'number' ? d.kms : 0), 0) * 100) / 100;
+  const drivingDuties = uniqueParsedDuties.filter(d => !d.isStandby && !d.isProctor && (d.drivingHrs !== '--' && d.drivingHrs !== '00:00:00' || d.legsCount > 0));
+  const standbyDuties = uniqueParsedDuties.filter(d => d.isStandby || d.isProctor);
+  const nightDuties = uniqueParsedDuties.filter(d => d.isNight);
+  const cleanTotalKms = Math.round(uniqueParsedDuties.reduce((acc, d) => acc + (typeof d.kms === 'number' ? d.kms : 0), 0) * 100) / 100;
 
   return {
     scheduleType: activeSchedule,
     detectedDay,
     sheetName,
-    duties: parsedDuties,
+    duties: uniqueParsedDuties,
     stats: {
-      totalDuties: parsedDuties.length,
+      totalDuties: uniqueParsedDuties.length,
       totalKms: cleanTotalKms,
       withDrivingHours: drivingDuties.length,
       standbyCount: standbyDuties.length,
       nightCount: nightDuties.length,
-      validDutiesCount: parsedDuties.length
+      validDutiesCount: uniqueParsedDuties.length
     },
-    warnings: parsedDuties.length === 0 ? ['No duty rows found in sheet.'] : []
+    warnings: uniqueParsedDuties.length === 0 ? ['No duty rows found in sheet.'] : []
   };
 }
 
@@ -1645,15 +1667,39 @@ export async function saveLinkRosterToFirestore(duties, scheduleType, onProgress
     throw new Error('No Link Roster duties to save.');
   }
 
-  // 0. ZERO-LATENCY INSTANT IN-MEMORY SYNC & EVENT BROADCAST
-  // Instantly mutate in-memory canonical registry and broadcast events so all open modules
-  // (Duty Roster, Master ID Chart, Handover Cards, Live Tracking) update immediately with 0ms delay!
+  // 0. DEDUPLICATE input duties strictly by normalized duty ID so each duty has exactly one entry
+  const dedupedMap = new Map();
+  duties.forEach(duty => {
+    const rawId = duty.dutyId || duty.dutyNo;
+    const norm = normalizeDutyId(rawId);
+    if (!norm) return;
+    const docId = `link_${dayTag}_duty_${norm}`;
+    if (!dedupedMap.has(norm)) {
+      dedupedMap.set(norm, { ...duty, dutyId: norm, docId, id: docId });
+    } else {
+      const existing = dedupedMap.get(norm);
+      const existingHasLegs = (existing.leg1TrainNo && existing.leg1TrainNo !== '--') || (existing.trainId && existing.trainId !== '--') || (Array.isArray(existing.trips) && existing.trips.length > 0);
+      const dutyHasLegs = (duty.leg1TrainNo && duty.leg1TrainNo !== '--') || (duty.trainId && duty.trainId !== '--') || (Array.isArray(duty.trips) && duty.trips.length > 0);
+      if (!existingHasLegs && dutyHasLegs) {
+        dedupedMap.set(norm, { ...duty, dutyId: norm, docId, id: docId });
+      }
+    }
+  });
+
+  const cleanDuties = Array.from(dedupedMap.values()).sort((a, b) =>
+    String(a.dutyId).localeCompare(String(b.dutyId), undefined, { numeric: true })
+  );
+
+  // 1. ZERO-LATENCY INSTANT IN-MEMORY SYNC & EVENT BROADCAST
   try {
-    const { getMasterLinksForDay } = await import('../data/canonicalDayLinksRegistry.js');
+    const { getMasterLinksForDay, clearMasterLinksCacheForDay } = await import('../data/canonicalDayLinksRegistry.js');
+    if (typeof clearMasterLinksCacheForDay === 'function') {
+      clearMasterLinksCacheForDay(normSchedule);
+    }
     const dayLinks = getMasterLinksForDay(normSchedule);
     if (Array.isArray(dayLinks)) {
       dayLinks.length = 0;
-      dayLinks.push(...duties);
+      dayLinks.push(...cleanDuties);
     }
   } catch (err) {
     console.warn('In-memory canonical links update:', err);
@@ -1663,25 +1709,25 @@ export async function saveLinkRosterToFirestore(duties, scheduleType, onProgress
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.removeItem(`pyidcc_schedule_erased_${dayTag}`);
       window.localStorage.removeItem(`pyidcc_schedule_cleared_${dayTag}`);
-      window.localStorage.setItem(`pyidcc_active_link_roster_${dayTag}`, JSON.stringify(duties));
-      window.localStorage.setItem(`pyidcc_canonical_links_${dayTag}`, JSON.stringify(duties));
+      window.localStorage.setItem(`pyidcc_active_link_roster_${dayTag}`, JSON.stringify(cleanDuties));
+      window.localStorage.setItem(`pyidcc_canonical_links_${dayTag}`, JSON.stringify(cleanDuties));
     }
   } catch (_) {}
 
   try {
     if (typeof window !== 'undefined') {
-      const eventDetail = { scheduleType: normSchedule, duties, erased: false, cleared: false, timestamp: Date.now() };
+      const eventDetail = { scheduleType: normSchedule, duties: cleanDuties, erased: false, cleared: false, timestamp: Date.now() };
       window.dispatchEvent(new CustomEvent('pyidcc:link_roster_updated', { detail: eventDetail }));
       window.dispatchEvent(new CustomEvent('pyidcc_link_roster_updated', { detail: eventDetail }));
     }
   } catch {}
 
-  onProgress({ stage: 'STAGING', message: `Staging ${duties.length} duties with clean atomic overwrite...`, progress: 25 });
+  onProgress({ stage: 'STAGING', message: `Staging ${cleanDuties.length} duties with clean atomic overwrite...`, progress: 25 });
 
   const operations = [];
 
-  // 1. Stage the parsed duties with all 4 legs' TOC and HOC accurately inferred and KMs calculated
-  duties.forEach(duty => {
+  // 2. Stage the parsed duties with all 4 legs' TOC and HOC accurately inferred and KMs calculated
+  cleanDuties.forEach(duty => {
     const enrichedDuty = inferAllLegLocations(duty, normSchedule);
     if (!enrichedDuty.isCC3 && typeof computeDutyLegKms === 'function') {
       try {
@@ -1715,18 +1761,20 @@ export async function saveLinkRosterToFirestore(duties, scheduleType, onProgress
     });
   });
 
-
-  // 2. Discover real orphaned documents for this day (with fast 1.0s timeout protection)
+  // 3. Discover real orphaned/obsolete documents for this day and delete them
   if (options.eraseOld !== false) {
     onProgress({ stage: 'SCANNING', message: `Verifying existing ${normSchedule} link records...`, progress: 40 });
     try {
-      const q = query(collection(db, 'crew_final_links'), where('scheduleType', '==', normSchedule));
-      const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ docs: [] }), 1000));
-      const snap = await Promise.race([getDocs(q), timeoutPromise]);
+      const snap = await getDocs(collection(db, 'crew_final_links'));
       if (snap && snap.docs && snap.docs.length > 0) {
-        const newDocIds = new Set(duties.map(d => d.id));
+        const newDocIds = new Set(cleanDuties.map(d => d.id));
         snap.docs.forEach(docSnap => {
-          if (!newDocIds.has(docSnap.id)) {
+          const dData = docSnap.data() || {};
+          const dId = docSnap.id.toLowerCase();
+          const dSched = normalizeScheduleType(dData.scheduleType, docSnap.id);
+          const isThisDay = dSched === normSchedule || dId.startsWith(`link_${dayTag}`) || dId.includes(`_${dayTag}_`);
+
+          if (isThisDay && !newDocIds.has(docSnap.id)) {
             operations.push({
               type: 'delete',
               ref: docSnap.ref
@@ -1735,30 +1783,28 @@ export async function saveLinkRosterToFirestore(duties, scheduleType, onProgress
         });
       }
     } catch (_) {
-      // Non-blocking fallback: proceed with updating parsed duties
+      // Non-blocking fallback
     }
   }
 
   onProgress({ stage: 'SAVING', message: `Writing ${operations.length} duties to database...`, progress: 55 });
 
-  // 3. Ultra-fast chunked direct writes with Promise.allSettled and per-chunk timeout protection
-  // This eliminates writeBatch IndexedDB lock contention and never hangs!
+  // 4. Ultra-fast chunked direct writes with Promise.allSettled and clean non-merging overwrite
   const CHUNK_SIZE = 25;
   let committed = 0;
 
   for (let i = 0; i < operations.length; i += CHUNK_SIZE) {
     const chunk = operations.slice(i, i + CHUNK_SIZE);
     
-    // Per-chunk write with 2.5s timeout guarantee and async safe mapping
     const chunkPromise = Promise.allSettled(chunk.map(async op => {
       if (op.type === 'set') {
         const cleanData = sanitizeForFirestore(op.data);
-        return await setDoc(op.ref, cleanData, { merge: true });
+        return await setDoc(op.ref, cleanData, { merge: false });
       }
       return await deleteDoc(op.ref);
     }));
 
-    const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2500));
+    const timeoutPromise = new Promise(resolve => setTimeout(resolve, 3500));
     await Promise.race([chunkPromise, timeoutPromise]);
 
     committed += chunk.length;
@@ -1772,23 +1818,23 @@ export async function saveLinkRosterToFirestore(duties, scheduleType, onProgress
 
   onProgress({ stage: 'SYNCING', message: `Synchronizing Line 2 crew controls...`, progress: 95 });
 
-  // 4. Background changeover transition sync (non-blocking)
+  // 5. Background changeover transition sync (non-blocking)
   try {
     import('./changeoverService.js').then(({ syncLinkRosterWithChangeoverTransitions }) => {
-      syncLinkRosterWithChangeoverTransitions(normSchedule, duties).catch(e => console.warn('Changeover background sync:', e));
+      syncLinkRosterWithChangeoverTransitions(normSchedule, cleanDuties).catch(e => console.warn('Changeover background sync:', e));
     }).catch(() => {});
   } catch {}
 
   onProgress({
     stage: 'DONE',
     progress: 100,
-    message: `Deployed ${duties.length} ${normSchedule} duties successfully!`
+    message: `Deployed ${cleanDuties.length} ${normSchedule} duties successfully!`
   });
 
   return {
     success: true,
     scheduleType: normSchedule,
-    savedDutiesCount: duties.length
+    savedDutiesCount: cleanDuties.length
   };
 }
 
@@ -1881,55 +1927,33 @@ export async function clearLinkRosterForDay(scheduleType, onProgress = () => {})
   const normSchedule = normalizeScheduleType(scheduleType);
   const dayTag = normSchedule.toLowerCase();
 
-  onProgress({ stage: 'CLEARING', message: `Locating old ${normSchedule} Link Roster data...`, progress: 30 });
+  onProgress({ stage: 'CLEARING', message: `Purging all ${normSchedule} Link Roster data...`, progress: 20 });
 
-  // 1. Mark schedule as erased in localStorage immediately
+  // 1. Mark schedule as erased in localStorage immediately and purge all caches for this day
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.setItem(`pyidcc_schedule_erased_${dayTag}`, 'true');
+      window.localStorage.setItem(`pyidcc_schedule_cleared_${dayTag}`, 'true');
+      window.localStorage.removeItem(`pyidcc_active_link_roster_${dayTag}`);
       window.localStorage.removeItem(`pyidcc_canonical_links_${dayTag}`);
       window.localStorage.removeItem('pyidcc_roster_desk_console_cache');
       window.localStorage.removeItem('pyidcc_active_dispatch_deployments');
+      window.localStorage.removeItem('pyidcc_roster_desk_meta');
+      // Also clear any date-specific link caches
+      Object.keys(window.localStorage).forEach(k => {
+        if (k.includes(`_link_roster_${dayTag}`) || k.includes(`_links_${dayTag}`)) {
+          window.localStorage.removeItem(k);
+        }
+      });
     }
   } catch (_) {}
 
-  // 2. Query and delete real existing documents via atomic writeBatch
-  const linksCol = collection(db, 'crew_final_links');
-  let deletedCount = 0;
+  // 2. Clear in-memory canonical registry cache
   try {
-    const q = query(linksCol, where('scheduleType', '==', normSchedule));
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      const BATCH_SIZE = 450;
-      for (let i = 0; i < snap.docs.length; i += BATCH_SIZE) {
-        const chunk = snap.docs.slice(i, i + BATCH_SIZE);
-        const batch = writeBatch(db);
-        chunk.forEach(d => batch.delete(d.ref));
-        await batch.commit();
-        deletedCount += chunk.length;
-      }
+    const { getMasterLinksForDay, clearMasterLinksCacheForDay } = await import('../data/canonicalDayLinksRegistry.js');
+    if (typeof clearMasterLinksCacheForDay === 'function') {
+      clearMasterLinksCacheForDay(normSchedule);
     }
-  } catch (err) {
-    console.warn('Error deleting crew_final_links docs:', err);
-  }
-
-  // 3. Purge standard deterministic IDs in one fast batch just in case
-  try {
-    const batch = writeBatch(db);
-    for (let i = 1; i <= 90; i++) {
-      const pad = String(i).padStart(2, '0');
-      batch.delete(doc(db, 'crew_final_links', `link_${dayTag}_duty_${pad}`));
-    }
-    for (let i = 1; i <= 100; i++) {
-      const pad = String(i).padStart(2, '0');
-      batch.delete(doc(db, 'crew_final_links', `link_${dayTag}_duty_CR${pad}`));
-    }
-    await batch.commit();
-  } catch (_) {}
-
-  // 4. Clear in-memory canonical registry
-  try {
-    const { getMasterLinksForDay } = await import('../data/canonicalDayLinksRegistry.js');
     const dayLinks = getMasterLinksForDay(normSchedule);
     if (Array.isArray(dayLinks)) {
       dayLinks.length = 0;
@@ -1938,7 +1962,66 @@ export async function clearLinkRosterForDay(scheduleType, onProgress = () => {})
     console.warn('In-memory clear warning:', err);
   }
 
-  // 5. Synchronously broadcast system-wide events to all open components and listeners
+  // 3. Exhaustive deletion of all Firestore 'crew_final_links' documents for this day
+  onProgress({ stage: 'PURGING_DB', message: `Purging all ${normSchedule} records from database...`, progress: 45 });
+  const linksCol = collection(db, 'crew_final_links');
+  let deletedCount = 0;
+
+  try {
+    const snap = await getDocs(linksCol);
+    if (!snap.empty) {
+      const docsToDelete = [];
+      snap.docs.forEach(docSnap => {
+        const data = docSnap.data() || {};
+        const docId = docSnap.id.toLowerCase();
+        const schedRaw = String(data.scheduleType || '').trim();
+        const docSched = normalizeScheduleType(schedRaw, docSnap.id);
+
+        const isMatch = docSched === normSchedule ||
+                        schedRaw.toUpperCase() === normSchedule ||
+                        schedRaw.toLowerCase() === dayTag ||
+                        docId.startsWith(`link_${dayTag}`) ||
+                        docId.includes(`_${dayTag}_`) ||
+                        docId.endsWith(`_${dayTag}`);
+
+        if (isMatch) {
+          docsToDelete.push(docSnap.ref);
+        }
+      });
+
+      const BATCH_SIZE = 400;
+      for (let i = 0; i < docsToDelete.length; i += BATCH_SIZE) {
+        const chunk = docsToDelete.slice(i, i + BATCH_SIZE);
+        const batch = writeBatch(db);
+        chunk.forEach(ref => batch.delete(ref));
+        await batch.commit();
+        deletedCount += chunk.length;
+      }
+    }
+  } catch (err) {
+    console.warn('Exhaustive crew_final_links docs delete error:', err);
+  }
+
+  // 4. Purge deterministic standard and special IDs in one batch just in case
+  try {
+    const batch = writeBatch(db);
+    for (let i = 1; i <= 100; i++) {
+      const pad = String(i).padStart(2, '0');
+      batch.delete(doc(db, 'crew_final_links', `link_${dayTag}_duty_${pad}`));
+      batch.delete(doc(db, 'crew_final_links', `link_${dayTag}_duty_${i}`));
+      batch.delete(doc(db, 'crew_final_links', `link_${dayTag}_${pad}`));
+      batch.delete(doc(db, 'crew_final_links', `link_${dayTag}_${i}`));
+      batch.delete(doc(db, 'crew_final_links', `link_${dayTag}_duty_CR${pad}`));
+      batch.delete(doc(db, 'crew_final_links', `link_${dayTag}_duty_CR${i}`));
+    }
+    ['pro1', 'pro2', 'pro3', 'pro_1', 'pro_2', 'pro_3', 'cc1', 'cc2', 'cc3', 'stby', 'resv', 'or'].forEach(key => {
+      batch.delete(doc(db, 'crew_final_links', `link_${dayTag}_duty_${key}`));
+      batch.delete(doc(db, 'crew_final_links', `link_${dayTag}_${key}`));
+    });
+    await batch.commit();
+  } catch (_) {}
+
+  // 5. Broadcast system-wide events to all open components and listeners
   try {
     if (typeof window !== 'undefined') {
       const eventDetail = { scheduleType: normSchedule, duties: [], erased: true, cleared: true, timestamp: Date.now() };

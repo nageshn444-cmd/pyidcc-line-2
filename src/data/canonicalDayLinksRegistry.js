@@ -1,7 +1,7 @@
 // Canonical Day Links Registry for all BMRCL Line-2 schedules
 // Synchronized with official BMRCL Link Roster Excel files
 import { WEEKDAY_MASTER_LINKS } from "./weekdayMasterLinks.js";
-import { normalizeScheduleDay } from "./weekdayReliefIdChartRegistry.js";
+import { normalizeScheduleDay, isScheduleDayErased } from "./weekdayReliefIdChartRegistry.js";
 import { getOperatorForDuty } from "./weekdayMasterDutyRoster.js";
 import { inferAllLegLocations } from "../services/wttLocationResolverEngine.js";
 import { computeDutyLegKms } from "../utils/kmCalculator.js";
@@ -18361,8 +18361,16 @@ export { WEEKDAY_MASTER_LINKS };
 
 const _enrichedCanonicalLinksCache = new Map();
 
+export function clearMasterLinksCacheForDay(dayType = "WEEKDAY") {
+  const norm = normalizeScheduleDay(dayType);
+  _enrichedCanonicalLinksCache.delete(norm);
+}
+
 export function getMasterLinksForDay(dayType = "WEEKDAY") {
   const norm = normalizeScheduleDay(dayType);
+  if (typeof window !== 'undefined' && isScheduleDayErased(norm)) {
+    return [];
+  }
   if (_enrichedCanonicalLinksCache.has(norm)) {
     return _enrichedCanonicalLinksCache.get(norm);
   }
