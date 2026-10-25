@@ -3652,6 +3652,18 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
   // feed it into the EXISTING roster file processing pipeline.
   // This does not parse/classify the workbook itself.
   const loadGccRosterFromLocalBridge = async () => {
+    // Skip if running on HTTPS (production) or if the bridge is not explicitly enabled
+    if (typeof window === "undefined") return false;
+    if (window.location.protocol === "https:") {
+      setGccBridgeStatus("OFFLINE");
+      return false;
+    }
+    const isBridgeEnabled = window.localStorage && window.localStorage.getItem("pyidcc_enable_gcc_bridge") === "true";
+    if (!isBridgeEnabled) {
+      setGccBridgeStatus("DISABLED");
+      return false;
+    }
+
     const bridgeBase = "http://127.0.0.1:17845";
 
     try {
@@ -3668,7 +3680,7 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
       if (!status.fileExists) {
         setGccBridgeStatus("CONNECTED_NO_FILE");
         setGccBridgeFileName("");
-        return;
+        return true;
       }
 
       setGccBridgeStatus("CONNECTED");
@@ -3681,7 +3693,7 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
         status.lastModified || "",
       ].join("|");
 
-      if (gccBridgeSignatureRef.current === signature) return;
+      if (gccBridgeSignatureRef.current === signature) return true;
 
       const fileResponse = await fetch(`${bridgeBase}/file`, {
         cache: "no-store",
@@ -3714,26 +3726,40 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
 
       // IMPORTANT: use the existing Browse-file processing function.
       await processFileAndDeploy(file);
+      return true;
     } catch (error) {
       setGccBridgeStatus("OFFLINE");
-      console.debug("PYIDCC GCC local bridge unavailable:", error);
+      return false;
     }
   };
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    // Do not poll local bridge on HTTPS or if not opted-in
+    if (window.location.protocol === "https:" || window.localStorage?.getItem("pyidcc_enable_gcc_bridge") !== "true") {
+      setGccBridgeStatus("DISABLED");
+      return;
+    }
+
     let cancelled = false;
+    let timer = null;
 
     const checkBridge = async () => {
       if (cancelled) return;
-      await loadGccRosterFromLocalBridge();
+      const ok = await loadGccRosterFromLocalBridge();
+      // If bridge is unreachable, stop periodic polling to prevent flooding console with connection errors
+      if (ok === false && timer) {
+        window.clearInterval(timer);
+        timer = null;
+      }
     };
 
     checkBridge();
-    const timer = window.setInterval(checkBridge, 30000);
+    timer = window.setInterval(checkBridge, 30000);
 
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      if (timer) window.clearInterval(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
