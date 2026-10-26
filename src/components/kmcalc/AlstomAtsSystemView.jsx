@@ -2183,7 +2183,11 @@ export default function AlstomAtsSystemView({
             <button
               key={shift.label}
               onClick={() => {
-                setIsSimPlaying(false);
+                if (typeof onToggleSimPlay === 'function' && isSimPlaying) {
+                  onToggleSimPlay();
+                } else {
+                  setInternalSimPlaying(false);
+                }
                 onTimeChange(shift.mins);
               }}
               className="px-2 py-0.5 bg-[#20252e] hover:bg-slate-800 border border-slate-600 rounded text-[9px] text-cyan-300 font-bold transition-colors cursor-pointer"

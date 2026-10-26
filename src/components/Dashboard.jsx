@@ -324,8 +324,16 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
   const [activeDay, setActiveDay] = useState(() => {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        const saved = window.localStorage.getItem('pyidcc_active_day_override') || window.localStorage.getItem('pyidcc_target_deployment_day');
-        if (saved) return normalizeScheduleType(saved);
+        const isAuto = window.localStorage.getItem('pyidcc_schedule_auto_mode');
+        if (isAuto === 'true' || isAuto === null) {
+          const calDay = new Date().getDay();
+          if (calDay === 0) return 'SUNDAY';
+          if (calDay === 6) return 'SATURDAY';
+          if (calDay === 1) return 'MONDAY';
+          return 'WEEKDAY';
+        }
+        const saved = window.localStorage.getItem('pyidcc_active_day_override');
+        if (saved && saved !== 'AUTO') return normalizeScheduleType(saved);
       }
     } catch (e) {}
     const day = new Date().getDay(); // 0=Sun, 1=Mon, 2=Tue ... 6=Sat
@@ -345,8 +353,15 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       }
     };
     const handleStorage = (e) => {
+      if (e.key === 'pyidcc_schedule_auto_mode') {
+        if (e.newValue !== 'false') {
+          const calDay = new Date().getDay();
+          const target = calDay === 0 ? 'SUNDAY' : calDay === 6 ? 'SATURDAY' : calDay === 1 ? 'MONDAY' : 'WEEKDAY';
+          setActiveDay(target);
+        }
+      }
       if (e.key === 'pyidcc_active_day_override' || e.key === 'pyidcc_target_deployment_day') {
-        if (e.newValue) setActiveDay(normalizeScheduleType(e.newValue));
+        if (e.newValue && e.newValue !== 'AUTO') setActiveDay(normalizeScheduleType(e.newValue));
       }
     };
     window.addEventListener('pyidcc-active-day-changed', handleActiveDaySync);
@@ -356,6 +371,25 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       window.removeEventListener('storage', handleStorage);
     };
   }, []);
+
+  // Periodic Calendar Day Rollover: Automatically transitions timetable when midnight passes
+  useEffect(() => {
+    const checkCalendarDay = () => {
+      try {
+        const isAuto = typeof window !== 'undefined' && window.localStorage
+          ? window.localStorage.getItem('pyidcc_schedule_auto_mode')
+          : 'true';
+        if (isAuto === 'false') return;
+        const calDay = new Date().getDay();
+        const expected = calDay === 0 ? 'SUNDAY' : calDay === 6 ? 'SATURDAY' : calDay === 1 ? 'MONDAY' : 'WEEKDAY';
+        if (activeDay !== expected) {
+          setActiveDay(expected);
+        }
+      } catch {}
+    };
+    const timer = setInterval(checkCalendarDay, 10000);
+    return () => clearInterval(timer);
+  }, [activeDay]);
   const [unifiedRows, setUnifiedRows] = useState([]);
   const [links, setLinks] = useState([]);
   const [dailyDeployment, setDailyDeployment] = useState([]);

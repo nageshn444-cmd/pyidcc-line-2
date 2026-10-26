@@ -1454,7 +1454,7 @@ export default function SuperAdminLayout({
                 liveTrainTrackingMap={liveTrainTrackingMap}
                 unifiedRows={unifiedRows}
                 activeDay={activeDay}
-                onScheduleChange={setActiveDay}
+                onScheduleChange={handleDayTabChange}
                 linkRoster={allDayRosterLinks}
                 allLinks={allLinks && allLinks.length > 0 ? allLinks : filteredLinks}
               />

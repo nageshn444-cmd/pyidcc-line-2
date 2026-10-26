@@ -53,7 +53,7 @@ const ALL_LINE2_FLEET = [
 export default function LiveTrainPositionTracker({ 
   liveTrainTrackingMap: propLiveTrainTrackingMap = {}, 
   unifiedRows: propUnifiedRows = [],
-  activeDay: propActiveDay = 'WEEKDAY',
+  activeDay: propActiveDay = null,
   onScheduleChange
 }) {
   // States
@@ -200,11 +200,36 @@ export default function LiveTrainPositionTracker({
   const [isRecalibratingKm, setIsRecalibratingKm] = useState(false);
   const [kmRecalibrationCount, setKmRecalibrationCount] = useState(0);
   const [_expandedTrainTripsId, _setExpandedTrainTripsId] = useState(null);
+  // Helper: Determine canonical schedule day based on real-time calendar day
+  const getCalendarDaySchedule = useCallback(() => {
+    const day = new Date().getDay(); // 0 = Sun, 1 = Mon, 2..5 = Tue..Fri, 6 = Sat
+    if (day === 0) return 'SUNDAY';
+    if (day === 6) return 'SATURDAY';
+    if (day === 1) return 'MONDAY';
+    return 'WEEKDAY';
+  }, []);
+
+  // Whether automatic calendar-based timetable sync is active (defaults to true)
+  const [isAutoSchedule, setIsAutoSchedule] = useState(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const val = window.localStorage.getItem('pyidcc_schedule_auto_mode');
+        if (val === 'false') return false;
+      }
+    } catch { /* ignore */ }
+    return true; // Default to AUTOMATIC schedule matching the current day
+  });
+
   const [activeSchedule, setActiveSchedule] = useState(() => {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        const saved = window.localStorage.getItem('pyidcc_active_day_override') || window.localStorage.getItem('pyidcc_target_deployment_day');
-        if (saved) return normalizeScheduleDay(saved);
+        const isAuto = window.localStorage.getItem('pyidcc_schedule_auto_mode');
+        if (isAuto === 'true' || isAuto === null) {
+          const calDay = new Date().getDay();
+          return calDay === 0 ? 'SUNDAY' : calDay === 6 ? 'SATURDAY' : calDay === 1 ? 'MONDAY' : 'WEEKDAY';
+        }
+        const saved = window.localStorage.getItem('pyidcc_active_day_override');
+        if (saved && saved !== 'AUTO') return normalizeScheduleDay(saved);
       }
     } catch (_e) {
       /* ignore */
@@ -221,14 +246,24 @@ export default function LiveTrainPositionTracker({
   useEffect(() => {
     const handleActiveDaySync = (e) => {
       const day = e?.detail?.dayType || e?.detail;
+      const isAuto = e?.detail?.isAuto;
+      if (isAuto !== undefined) {
+        setIsAutoSchedule(Boolean(isAuto));
+      }
       if (day) {
         const norm = normalizeScheduleDay(day);
         setActiveSchedule(norm);
       }
     };
     const handleStorage = (e) => {
+      if (e.key === 'pyidcc_schedule_auto_mode') {
+        setIsAutoSchedule(e.newValue !== 'false');
+        if (e.newValue !== 'false') {
+          setActiveSchedule(getCalendarDaySchedule());
+        }
+      }
       if (e.key === 'pyidcc_active_day_override' || e.key === 'pyidcc_target_deployment_day') {
-        if (e.newValue) setActiveSchedule(normalizeScheduleDay(e.newValue));
+        if (e.newValue && e.newValue !== 'AUTO') setActiveSchedule(normalizeScheduleDay(e.newValue));
       }
     };
     window.addEventListener('pyidcc-active-day-changed', handleActiveDaySync);
@@ -237,7 +272,35 @@ export default function LiveTrainPositionTracker({
       window.removeEventListener('pyidcc-active-day-changed', handleActiveDaySync);
       window.removeEventListener('storage', handleStorage);
     };
-  }, []);
+  }, [getCalendarDaySchedule]);
+
+  // Automatic Real-Time Schedule Rollover / Calendar Day Sync Timer
+  // When isAutoSchedule is true, automatically keeps activeSchedule synchronized to current day
+  // (Weekday, Monday, Saturday & GH, Sunday) and rolls over at midnight automatically
+  useEffect(() => {
+    const syncToCalendarDay = () => {
+      if (!isAutoSchedule) return;
+      const todaySched = getCalendarDaySchedule();
+      setActiveSchedule(prev => {
+        if (prev !== todaySched) {
+          if (typeof onScheduleChange === 'function') {
+            onScheduleChange(todaySched);
+          }
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('pyidcc-active-day-changed', {
+              detail: { dayType: todaySched, isAuto: true }
+            }));
+          }
+          return todaySched;
+        }
+        return prev;
+      });
+    };
+
+    syncToCalendarDay();
+    const timer = setInterval(syncToCalendarDay, 10000); // verify every 10 seconds
+    return () => clearInterval(timer);
+  }, [isAutoSchedule, getCalendarDaySchedule, onScheduleChange]);
 
   // Canonical station sequence for UP line (Official ALSTOM IATS / ATS System View with all 34 stations South APTD ➔ North BIET)
   const _CANONICAL_UP_STATIONS = useMemo(() => {
@@ -308,12 +371,55 @@ export default function LiveTrainPositionTracker({
     return s1 === s2;
   };
 
-  // Sync active schedule when prop changes
+  // Schedule change handler supporting both explicit day selection and AUTO calendar day tracking
+  const handleScheduleSelect = useCallback((newVal) => {
+    if (newVal === 'AUTO') {
+      setIsAutoSchedule(true);
+      const todaySched = getCalendarDaySchedule();
+      setActiveSchedule(todaySched);
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('pyidcc_schedule_auto_mode', 'true');
+          window.localStorage.removeItem('pyidcc_active_day_override');
+          window.dispatchEvent(new CustomEvent('pyidcc-active-day-changed', {
+            detail: { dayType: todaySched, isAuto: true }
+          }));
+          window.dispatchEvent(new CustomEvent('pyidcc:active_day_changed', {
+            detail: { day: todaySched, dayType: todaySched, isAuto: true }
+          }));
+        }
+      } catch {}
+      if (typeof onScheduleChange === 'function') {
+        onScheduleChange(todaySched);
+      }
+    } else {
+      setIsAutoSchedule(false);
+      const norm = normalizeScheduleDay(newVal);
+      setActiveSchedule(norm);
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('pyidcc_schedule_auto_mode', 'false');
+          window.localStorage.setItem('pyidcc_active_day_override', norm);
+          window.dispatchEvent(new CustomEvent('pyidcc-active-day-changed', {
+            detail: { dayType: norm, isAuto: false }
+          }));
+          window.dispatchEvent(new CustomEvent('pyidcc:active_day_changed', {
+            detail: { day: norm, dayType: norm, isAuto: false }
+          }));
+        }
+      } catch {}
+      if (typeof onScheduleChange === 'function') {
+        onScheduleChange(norm);
+      }
+    }
+  }, [getCalendarDaySchedule, onScheduleChange]);
+
+  // Sync active schedule when prop changes (if not in auto schedule mode)
   useEffect(() => {
-    if (propActiveDay) {
+    if (propActiveDay && !isAutoSchedule) {
       setActiveSchedule(normalizeScheduleDay(propActiveDay));
     }
-  }, [propActiveDay]);
+  }, [propActiveDay, isAutoSchedule]);
 
   // Real-time Firestore subscriptions
   useEffect(() => {
@@ -1732,14 +1838,16 @@ export default function LiveTrainPositionTracker({
   // STRICT RULE: WTT timetable is the master source of truth for train scheduled times and track movement
   const matrixRows = useMemo(() => {
     void linkUpdateTrigger;
-    if (isWttScheduleErased(activeSchedule)) {
-      return [];
-    }
 
     // 1. Filter canonical master rows from WTT_MASTER_REGISTRY matching activeSchedule
     const canonicalDayRows = WTT_MASTER_REGISTRY.filter(t => 
       isScheduleMatch(t.scheduleType || getItemSchedule(t), activeSchedule)
     );
+
+    // If custom/uploaded WTT schedule was erased, fall back directly to canonical master rows
+    if (isWttScheduleErased(activeSchedule)) {
+      return canonicalDayRows;
+    }
 
     // Helper to check if a trip object has valid stations
     const hasValidTrip = (trip) => {
@@ -1852,7 +1960,7 @@ export default function LiveTrainPositionTracker({
       const rawStart = stations[0].timeMin;
       let rawEnd = stations[stations.length - 1].timeMin;
       if (rawEnd < rawStart) rawEnd += 1440;
-      if (rawEnd - rawStart > 120 || rawEnd <= rawStart) return;
+      if (rawEnd - rawStart > 180 || rawEnd <= rawStart) return;
 
       // Physical unit number strictly parsed (201 to 223)
       const rawUnit = String(row.trainId || (tripDirection === 'UP' ? row.upTid : row.dnTid) || trip.trainId || '').trim();
@@ -2208,9 +2316,14 @@ export default function LiveTrainPositionTracker({
       }
     };
 
-    // 0. Pre-index the final scheduled trip for each train in matrixRows as authoritative fallback
+    // 0. Fallback-safe source rows: ensure trains are ALWAYS running even if matrixRows was cleared
+    const effectiveMatrixRows = (matrixRows && matrixRows.length > 0)
+      ? matrixRows
+      : WTT_MASTER_REGISTRY.filter(t => isScheduleMatch(t.scheduleType || getItemSchedule(t), activeSchedule));
+
+    // 0. Pre-index the final scheduled trip for each train in effectiveMatrixRows as authoritative fallback
     const lastTripByTrainMap = new Map();
-    matrixRows.forEach(row => {
+    effectiveMatrixRows.forEach(row => {
       if (!row) return;
       const getTids = () => {
         const set = new Set();
@@ -2230,7 +2343,7 @@ export default function LiveTrainPositionTracker({
     });
 
     // 1. Process all matrix sheet rows: BOTH downTrip and upTrip
-    matrixRows.forEach(row => {
+    effectiveMatrixRows.forEach(row => {
       if (!row) return;
       if (row.downTrip) {
         processTrip(row.downTrip, 'DOWN', row);
@@ -2686,8 +2799,8 @@ export default function LiveTrainPositionTracker({
       });
     };
 
-    // 1. Ingest matrixRows
-    matrixRows.forEach(row => {
+    // 1. Ingest effectiveMatrixRows
+    effectiveMatrixRows.forEach(row => {
       if (!row) return;
       if (row.downTrip) registerTripToMap(row.downTrip, 'downTrip', row);
       if (row.upTrip) registerTripToMap(row.upTrip, 'upTrip', row);
@@ -2695,19 +2808,6 @@ export default function LiveTrainPositionTracker({
         registerTripToMap(row, 'singleTrip', row);
       }
     });
-
-    // 2. Ingest WTT_MASTER_REGISTRY ONLY as fallback if matrixRows has no entries for activeSchedule
-    if (matrixRows.length === 0) {
-      (WTT_MASTER_REGISTRY || []).forEach(row => {
-        if (!row) return;
-        if (!isScheduleMatch(row.scheduleType || getItemSchedule(row), activeSchedule)) return;
-        if (row.downTrip) registerTripToMap(row.downTrip, 'downTrip', row);
-        if (row.upTrip) registerTripToMap(row.upTrip, 'upTrip', row);
-        if (!row.downTrip && !row.upTrip && row.stations) {
-          registerTripToMap(row, 'singleTrip', row);
-        }
-      });
-    }
 
     // Calculate Corridor Headways & Spatial Spacing between active trains on Line-2
     const runningUp = uniquePositions.filter(p => !p.isStabling && p.direction === 'UP');
@@ -3619,27 +3719,78 @@ export default function LiveTrainPositionTracker({
             {isLiveClock ? 'Live Clock: ALWAYS ON' : 'Live Clock: PAUSED'}
           </button>
 
+          {/* Quick Simulation Run / Fast-Forward */}
+          <div className="flex items-center gap-1 bg-slate-900 px-2 py-0.5 rounded border border-slate-750">
+            <button
+              type="button"
+              onClick={() => {
+                setIsSimPlaying(prev => {
+                  const next = !prev;
+                  if (next) setIsLiveClock(false);
+                  return next;
+                });
+              }}
+              className={`flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded transition-all ${
+                isSimPlaying
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30'
+                  : 'text-cyan-400 hover:text-cyan-200'
+              }`}
+              title={isSimPlaying ? "Pause Timetable Simulation" : "Run automated timetable train movement across the day"}
+            >
+              {isSimPlaying ? '⏸ PAUSE SIM' : '▶ RUN SIM'}
+            </button>
+            {[1, 2, 5, 10].map(speed => (
+              <button
+                key={speed}
+                type="button"
+                onClick={() => setSimSpeedMultiplier(speed)}
+                className={`px-1 py-0.2 rounded text-[7.5px] font-bold transition ${
+                  simSpeedMultiplier === speed
+                    ? 'bg-cyan-500 text-slate-950 font-black'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title={`Set Simulation Speed to ${speed}x`}
+              >
+                {speed}x
+              </button>
+            ))}
+          </div>
+
           <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase tracking-wider pl-2 border-l border-slate-800">
             Schedule:
           </div>
-          <select
-            id="livetrainpositiontra-i2"
-            name="livetrainpositiontra-i2"
-            value={activeSchedule}
-            onChange={(e) => {
-              setActiveSchedule(e.target.value);
-              if (typeof onScheduleChange === 'function') {
-                onScheduleChange(e.target.value);
-              }
-            }}
-            className="bg-slate-900 border border-slate-700 text-xs rounded px-2 py-1 focus:outline-none focus:border-cyan-500 font-bold text-cyan-300 font-mono cursor-pointer"
-          >
-            <option value="WEEKDAY">WEEKDAY (Tue - Fri)</option>
-            <option value="MONDAY">MONDAY (Early Induction)</option>
-            <option value="SATURDAY">SATURDAY</option>
-            <option value="SUNDAY">SUNDAY</option>
-            <option value="GH">GENERAL HOLIDAY (GH)</option>
-          </select>
+          <div className="flex items-center gap-2">
+            <select
+              id="livetrainpositiontra-i2"
+              name="livetrainpositiontra-i2"
+              value={isAutoSchedule ? 'AUTO' : activeSchedule}
+              onChange={(e) => handleScheduleSelect(e.target.value)}
+              className="bg-slate-900 border border-slate-700 text-xs rounded px-2.5 py-1 focus:outline-none focus:border-cyan-500 font-bold text-cyan-300 font-mono cursor-pointer"
+            >
+              <option value="AUTO">⚡ AUTO (Today: {getCalendarDaySchedule()})</option>
+              <option value="WEEKDAY">WEEKDAY (Tue - Fri)</option>
+              <option value="MONDAY">MONDAY (Early Induction)</option>
+              <option value="SATURDAY">SATURDAY</option>
+              <option value="SUNDAY">SUNDAY</option>
+              <option value="GH">GENERAL HOLIDAY (GH)</option>
+            </select>
+
+            {isAutoSchedule ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                Auto Sync ({activeSchedule})
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleScheduleSelect('AUTO')}
+                className="text-[8.5px] font-bold text-cyan-400 hover:text-cyan-300 underline flex items-center gap-1"
+                title="Click to resume automatic calendar day schedule matching today"
+              >
+                <RotateCcw size={10} /> Auto-Sync Today ({getCalendarDaySchedule()})
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -3697,6 +3848,41 @@ export default function LiveTrainPositionTracker({
           ))}
         </div>
       </div>
+
+      {/* Line-2 Night Stabling Window Advisory */}
+      {liveTrainPositions.filter(t => !t.isStabling).length === 0 && (
+        <div className="mb-4 bg-amber-950/60 border border-amber-500/50 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-amber-200">
+          <div className="flex items-center gap-2 text-xs">
+            <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 animate-bounce" />
+            <span>
+              <strong>Line-2 Stabling Window at {simulatedTime} ({activeSchedule}):</strong> All {liveTrainPositions.length} fleet trains are stabled in Peenya Depot SBL tracks & terminal buffer ends. Regular revenue service runs 05:00 ➔ 23:30.
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setSimulatedTime('08:30');
+                setIsLiveClock(false);
+                setInternalTimeSecs(510 * 60);
+              }}
+              className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-black rounded text-[10px] uppercase shadow-md transition cursor-pointer"
+            >
+              ▶ Jump to Morning Peak (08:30)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsSimPlaying(true);
+                setIsLiveClock(false);
+              }}
+              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black rounded text-[10px] uppercase shadow-md transition cursor-pointer"
+            >
+              ▶ Run Fast Simulation
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Schematic / Mobile View Selector ── */}
       <div className="mb-4 bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between gap-3 flex-wrap">
