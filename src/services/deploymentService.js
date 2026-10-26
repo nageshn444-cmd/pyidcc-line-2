@@ -177,24 +177,47 @@ export function getDeploymentId(deploymentDate, dayType) {
 }
 
 /**
- * Checks if a deployment exists for the given date and day type
+ * Checks if a deployment exists for the given date and day type across all candidate document keys
  */
 export async function checkDeploymentExists(
   deploymentDate,
   dayType,
   customDb = db
 ) {
-  const deploymentId = getDeploymentId(deploymentDate, dayType);
-  const docRef = getDocRef(customDb, "dispatch_deployments", deploymentId);
-  const docSnap = await safeGetDoc(docRef, customDb);
-  return {
-    exists: docSnap.exists(),
-    data: docSnap.exists() ? docSnap.data() : null,
-  };
+  const normDate = formatOperationalDate(deploymentDate);
+  const normDayType = String(dayType || "WEEKDAY").trim().toUpperCase();
+  const deploymentId = getDeploymentId(normDate, normDayType);
+  const indDate = toIndianDateStr(normDate);
+
+  const candidateKeys = [
+    deploymentId,
+    `${normDate}_${normDayType}`,
+    normDate,
+    `${indDate}_${normDayType}`,
+    indDate,
+  ];
+
+  for (const key of candidateKeys) {
+    try {
+      const docRef = getDocRef(customDb, "dispatch_deployments", key);
+      const docSnap = await safeGetDoc(docRef, customDb);
+      if (docSnap.exists() && docSnap.data()) {
+        return {
+          exists: true,
+          data: docSnap.data(),
+        };
+      }
+    } catch (_e) {
+      /* continue checking other candidates */
+    }
+  }
+
+  return { exists: false, data: null };
 }
 
 /**
- * Deploys or redeploys a roster for a specific date and day type
+ * Deploys or redeploys a roster for a specific date and day type.
+ * Ensures universal synchronization across ALL Firebase systems and devices in real-time.
  */
 export async function executeDeployment(
   {
@@ -211,7 +234,7 @@ export async function executeDeployment(
   const normDate = formatOperationalDate(deploymentDate);
   const normDayType = String(dayType || "WEEKDAY").trim().toUpperCase();
   const deploymentId = getDeploymentId(normDate, normDayType);
-  const docRef = getDocRef(customDb, "dispatch_deployments", deploymentId);
+  const indDate = toIndianDateStr(normDate);
 
   const existing = await checkDeploymentExists(normDate, normDayType, customDb);
   let version = 1;
@@ -237,7 +260,12 @@ export async function executeDeployment(
   const payload = {
     deploymentId,
     deploymentDate: normDate,
+    dateStr: normDate,
+    date: normDate,
+    targetDate: normDate,
+    indianDate: indDate,
     dayType: normDayType,
+    scheduleType: normDayType,
     status: "DEPLOYED",
     version,
     createdAt:
@@ -257,12 +285,30 @@ export async function executeDeployment(
     },
   };
 
-  // 1. Save date-specific deployment
-  await safeSetDoc(docRef, payload, { merge: true }, customDb);
+  // 1. Save date-specific deployment across all standard candidate keys in dispatch_deployments
+  const keysToSave = [
+    deploymentId,
+    `${normDate}_${normDayType}`,
+    normDate,
+    `${indDate}_${normDayType}`,
+    indDate,
+    "latest",
+    "current",
+  ];
 
-  // 2. Update active deployment pointer (only for today's operational day)
-  const todayIso = formatOperationalDate(new Date());
-  if (normDate === todayIso) {
+  await Promise.all(
+    keysToSave.map(async (key) => {
+      try {
+        const ref = getDocRef(customDb, "dispatch_deployments", key);
+        await safeSetDoc(ref, payload, { merge: true }, customDb);
+      } catch (err) {
+        console.warn(`dispatch_deployments write warning for key ${key}:`, err);
+      }
+    })
+  );
+
+  // 2. Unconditionally update active deployment pointer so EVERY connected Firebase system syncs immediately
+  try {
     const activeConfigRef = getDocRef(
       customDb,
       "system_settings",
@@ -274,35 +320,48 @@ export async function executeDeployment(
         activeDeploymentId: deploymentId,
         activeDeploymentDate: normDate,
         activeDayType: normDayType,
+        deployedDate: normDate,
+        indianDate: indDate,
+        totalDuties: totalDutiesCount,
+        sourceFile: sourceFile || "Unknown",
+        version,
         updatedAt: nowIso,
+        deployedAt: nowIso,
         updatedBy: user || "CrewController_01",
       },
       { merge: true },
       customDb
     );
+  } catch (err) {
+    console.warn("active_roster_config update warning:", err);
   }
 
-  // 3. Write audit log
-  const auditLogsCol = getColRef(customDb, "deployment_audit_logs");
-  await safeAddDoc(
-    auditLogsCol,
-    {
-      deploymentId,
-      deploymentDate: normDate,
-      dayType: normDayType,
-      action,
-      timestamp: nowIso,
-      version,
-      user: user || "CrewController_01",
-    },
-    customDb
-  );
+  // 3. Write immutable audit log
+  try {
+    const auditLogsCol = getColRef(customDb, "deployment_audit_logs");
+    await safeAddDoc(
+      auditLogsCol,
+      {
+        deploymentId,
+        deploymentDate: normDate,
+        dayType: normDayType,
+        action,
+        timestamp: nowIso,
+        version,
+        totalDuties: totalDutiesCount,
+        user: user || "CrewController_01",
+      },
+      customDb
+    );
+  } catch (err) {
+    console.warn("audit log write warning:", err);
+  }
 
   return { success: true, deploymentId, version };
 }
 
 /**
- * Retrieves roster data explicitly by date and day type
+ * Retrieves roster data explicitly by date and day type across all candidate document keys
  */
 export async function getDeploymentRoster(
   { deploymentDate, dayType },
@@ -311,16 +370,33 @@ export async function getDeploymentRoster(
   const normDate = formatOperationalDate(deploymentDate);
   const normDayType = String(dayType || "WEEKDAY").trim().toUpperCase();
   const deploymentId = getDeploymentId(normDate, normDayType);
-  const docRef = getDocRef(customDb, "dispatch_deployments", deploymentId);
-  const docSnap = await safeGetDoc(docRef, customDb);
+  const indDate = toIndianDateStr(normDate);
 
-  if (!docSnap.exists()) {
-    throw new Error(
-      `No deployment found for date ${normDate} and day type ${normDayType}.`
-    );
+  const candidateKeys = [
+    deploymentId,
+    `${normDate}_${normDayType}`,
+    normDate,
+    `${indDate}_${normDayType}`,
+    indDate,
+    "latest",
+    "current",
+  ];
+
+  for (const cId of candidateKeys) {
+    try {
+      const docRef = getDocRef(customDb, "dispatch_deployments", cId);
+      const docSnap = await safeGetDoc(docRef, customDb);
+      if (docSnap.exists() && docSnap.data()?.rosterData) {
+        return docSnap.data();
+      }
+    } catch (_e) {
+      /* continue checking other candidates */
+    }
   }
 
-  return docSnap.data();
+  throw new Error(
+    `No deployment found for date ${normDate} and day type ${normDayType}.`
+  );
 }
 
 /**

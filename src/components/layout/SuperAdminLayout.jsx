@@ -516,13 +516,34 @@ export default function SuperAdminLayout({
   const [firestoreConsoleDuties, setFirestoreConsoleDuties] = useState([]);
   const [showOnlyActiveDuties, setShowOnlyActiveDuties] = useState(true);
 
-  // Real-time synchronization with Automated Dispatch Gate & Roster Desk Console
+  // Real-time synchronization with Automated Dispatch Gate & Roster Desk Console across all systems
   useEffect(() => {
+    const syncDutiesToLocal = (duties, metaData = {}) => {
+      if (!Array.isArray(duties) || duties.length === 0) return;
+      setFirestoreConsoleDuties(duties);
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('pyidcc_active_dispatch_deployments', JSON.stringify(duties));
+          if (metaData && typeof metaData === 'object') {
+            window.localStorage.setItem('pyidcc_roster_desk_console_cache', JSON.stringify(metaData));
+            const dDate = metaData.date || metaData.deploymentDate || metaData.targetDate;
+            if (dDate) {
+              window.localStorage.setItem(`pyidcc_roster_desk_console_cache_${dDate}`, JSON.stringify(metaData));
+              window.localStorage.setItem('pyidcc_target_deployment_date', dDate);
+            }
+          }
+          window.dispatchEvent(new CustomEvent('pyidcc_dispatch_deployments_updated', {
+            detail: { deployments: duties, duties, date: metaData?.date || metaData?.deploymentDate }
+          }));
+        }
+      } catch (_e) {}
+    };
+
     const unsubCurrent = onSnapshot(doc(db, 'roster_desk_console', 'current'), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
         if (Array.isArray(data?.duties) && data.duties.length > 0) {
-          setFirestoreConsoleDuties(data.duties);
+          syncDutiesToLocal(data.duties, data);
         }
       }
     }, () => {});
@@ -531,8 +552,24 @@ export default function SuperAdminLayout({
       if (snap.exists()) {
         const data = snap.data();
         if (Array.isArray(data?.duties) && data.duties.length > 0) {
-          setFirestoreConsoleDuties(data.duties);
+          syncDutiesToLocal(data.duties, data);
         }
+      }
+    }, () => {});
+
+    const unsubDeployLatest = onSnapshot(doc(db, 'dispatch_deployments', 'latest'), (snap) => {
+      if (snap.exists()) {
+        const depData = snap.data();
+        const duties = depData?.rosterData?.duties || depData?.duties;
+        if (Array.isArray(duties) && duties.length > 0) {
+          syncDutiesToLocal(duties, depData.rosterData || depData);
+        }
+      }
+    }, () => {});
+
+    const unsubActiveConfig = onSnapshot(doc(db, 'system_settings', 'active_roster_config'), (snap) => {
+      if (snap.exists()) {
+        setAutoReaderUpdateTrigger(prev => prev + 1);
       }
     }, () => {});
 
@@ -544,6 +581,8 @@ export default function SuperAdminLayout({
     return () => {
       unsubCurrent();
       unsubLatest();
+      unsubDeployLatest();
+      unsubActiveConfig();
       window.removeEventListener('pyidcc_dispatch_deployments_updated', handleUpdate);
       window.removeEventListener('pyidcc-active-day-changed', handleUpdate);
       window.removeEventListener('storage', handleUpdate);

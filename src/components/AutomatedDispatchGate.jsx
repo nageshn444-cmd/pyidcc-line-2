@@ -2243,13 +2243,18 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
   useEffect(() => {
     const activeDate = formatOperationalDate(targetDeploymentDate);
     const altDate = toIndianDateStr(activeDate);
+    const slashInd = altDate ? altDate.replace(/-/g, "/") : "";
+    const slashIso = activeDate ? activeDate.replace(/-/g, "/") : "";
+    const dateVariants = Array.from(
+      new Set([activeDate, altDate, slashInd, slashIso].filter(Boolean)),
+    );
 
     let isSubscribed = true;
 
-    // Listen to dispatch_deployments for any document deployed on this calendar date
+    // Listen to dispatch_deployments for any document deployed on this calendar date across all date formats
     const qDep = query(
       collection(db, "dispatch_deployments"),
-      where("deploymentDate", "==", activeDate),
+      where("deploymentDate", "in", dateVariants),
     );
 
     const unsubDep = onSnapshot(
@@ -2336,22 +2341,59 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
               );
             } catch (e) {}
           }
-          setConsoleData(
-            enforceSingleDutyRule(sanitizeConsoleContainer(matched.rosterData)),
+          const cleanConsole = enforceSingleDutyRule(
+            sanitizeConsoleContainer(matched.rosterData),
           );
+          setConsoleData(cleanConsole);
           if (
             Array.isArray(matched.rosterData.duties) &&
             matched.rosterData.duties.length > 0
           ) {
-            setFallbackDeployments(
-              deduplicateDeployments(
-                matched.rosterData.duties.map((d) => ({
-                  ...d,
-                  date: activeDate,
-                  deploymentDate: activeDate,
-                })),
-              ),
+            const formattedDuties = deduplicateDeployments(
+              matched.rosterData.duties.map((d) => ({
+                ...d,
+                date: activeDate,
+                deploymentDate: activeDate,
+                targetDate: activeDate,
+              })),
             );
+            setFallbackDeployments(formattedDuties);
+
+            // Synchronize authoritative deployed duties & console data to localStorage and broadcast to all application components
+            try {
+              if (typeof window !== "undefined" && window.localStorage) {
+                window.localStorage.setItem(
+                  "pyidcc_active_dispatch_deployments",
+                  JSON.stringify(formattedDuties),
+                );
+                window.localStorage.setItem(
+                  "pyidcc_roster_desk_console_cache",
+                  JSON.stringify(cleanConsole),
+                );
+                window.localStorage.setItem(
+                  `pyidcc_roster_desk_console_cache_${activeDate}`,
+                  JSON.stringify(cleanConsole),
+                );
+                window.localStorage.setItem(
+                  "pyidcc_target_deployment_date",
+                  activeDate,
+                );
+                window.dispatchEvent(
+                  new CustomEvent("pyidcc_dispatch_deployments_updated", {
+                    detail: {
+                      deployments: formattedDuties,
+                      duties: formattedDuties,
+                      date: activeDate,
+                    },
+                  }),
+                );
+                window.dispatchEvent(
+                  new CustomEvent("pyidcc_console_data_updated", {
+                    detail: { consoleData: cleanConsole, date: activeDate },
+                  }),
+                );
+              }
+            } catch (_e) {}
           }
         } else {
           // Check if there is an in-memory staged draft for this active calendar date
@@ -2403,9 +2445,34 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
       },
     );
 
+    // Also listen to system_settings/active_roster_config so deployments on ANY system instantly trigger cross-device sync
+    const unsubRosterConfig = onSnapshot(
+      doc(db, "system_settings", "active_roster_config"),
+      (snap) => {
+        if (!isSubscribed || !snap.exists()) return;
+        const cfg = snap.data();
+        const cfgDate = formatOperationalDate(
+          cfg.activeDate || cfg.date || cfg.deploymentDate,
+        );
+        if (
+          cfgDate &&
+          (cfgDate === activeDate || (altDate && cfgDate === altDate))
+        ) {
+          if (
+            cfg.activeDayType &&
+            cfg.activeDayType !== normalizeScheduleType(targetDayType)
+          ) {
+            setTargetDayType(cfg.activeDayType);
+          }
+        }
+      },
+      () => {},
+    );
+
     return () => {
       isSubscribed = false;
       unsubDep();
+      unsubRosterConfig();
     };
   }, [
     targetDeploymentDate,
@@ -2495,43 +2562,53 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
     // 2. Deploy active train driving duties to crew_daily_deployment
     const dutyMap = new Map();
     const todayIso = formatOperationalDate(new Date());
+    const indDate = toIndianDateStr(depDate);
 
     dutiesToDeploy.forEach((d) => {
       if (!d.dutyId) return;
+      const dutyPayload = {
+        ...d,
+        dutyId: d.dutyId,
+        empId: d.empId || "--",
+        empName: d.empName || "--",
+        scheduleType: depDayType,
+        dayType: depDayType,
+        date: depDate,
+        targetDate: depDate,
+        deploymentDate: depDate,
+        remarks: `Deployment for ${depDate} (${depDayType})`,
+        lastUpdated: serverTimestamp(),
+      };
+
+      // 2a. Date-specific document ID
       const dateDocId = `gcc_deploy_${depDate}_duty_${d.dutyId}`;
       dutyMap.set(dateDocId, {
         ref: doc(db, "crew_daily_deployment", dateDocId),
-        data: {
-          ...d,
-          dutyId: d.dutyId,
-          empId: d.empId || "--",
-          empName: d.empName || "--",
-          scheduleType: depDayType,
-          dayType: depDayType,
-          date: depDate,
-          remarks: `Deployment for ${depDate} (${depDayType})`,
-          lastUpdated: serverTimestamp(),
-        },
+        data: dutyPayload,
       });
 
-      // If deploying for today, also write schedule-type doc ID for backwards compatibility
-      if (depDate === todayIso) {
-        const todayDocId = `gcc_deploy_${depDayType.toLowerCase()}_duty_${d.dutyId}`;
-        dutyMap.set(todayDocId, {
-          ref: doc(db, "crew_daily_deployment", todayDocId),
-          data: {
-            ...d,
-            dutyId: d.dutyId,
-            empId: d.empId || "--",
-            empName: d.empName || "--",
-            scheduleType: depDayType,
-            dayType: depDayType,
-            date: depDate,
-            remarks: `Deployment for ${depDate} (${depDayType})`,
-            lastUpdated: serverTimestamp(),
-          },
+      // 2b. Indian date format document ID (e.g. 27-10-2026 vs 2026-10-27)
+      if (indDate && indDate !== depDate) {
+        const indDocId = `gcc_deploy_${indDate}_duty_${d.dutyId}`;
+        dutyMap.set(indDocId, {
+          ref: doc(db, "crew_daily_deployment", indDocId),
+          data: dutyPayload,
         });
       }
+
+      // 2c. Unconditionally write schedule-type doc ID so systems querying by dayType always get active deployed duties
+      const schedDocId = `gcc_deploy_${depDayType.toLowerCase()}_duty_${d.dutyId}`;
+      dutyMap.set(schedDocId, {
+        ref: doc(db, "crew_daily_deployment", schedDocId),
+        data: dutyPayload,
+      });
+
+      // 2d. Direct duty ID doc for instant canonical overrides
+      const directDocId = `gcc_deploy_duty_${d.dutyId}`;
+      dutyMap.set(directDocId, {
+        ref: doc(db, "crew_daily_deployment", directDocId),
+        data: dutyPayload,
+      });
     });
 
     const dutyEntries = Array.from(dutyMap.values());
@@ -2574,7 +2651,6 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
     await setDoc(doc(db, "dispatch_excel_cache", depDate), consoleSnapshot, {
       merge: true,
     });
-    const indDate = toIndianDateStr(depDate);
     if (indDate && indDate !== depDate) {
       await setDoc(doc(db, "dispatch_excel_cache", indDate), consoleSnapshot, {
         merge: true,
@@ -2586,21 +2662,28 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
           merge: true,
         },
       );
+      await setDoc(doc(db, "roster_desk_console", indDate), consoleSnapshot, {
+        merge: true,
+      });
     }
 
-    if (depDate === todayIso) {
-      await setDoc(doc(db, "roster_desk_console", "current"), consoleSnapshot, {
-        merge: true,
-      });
-      await setDoc(doc(db, "roster_desk_console", "latest"), consoleSnapshot, {
-        merge: true,
-      });
-      await setDoc(
-        doc(db, "dispatch_excel_cache", "current"),
-        consoleSnapshot,
-        { merge: true },
-      );
-    }
+    // Unconditionally update current and latest pointers so all connected systems and devices sync instantly
+    await setDoc(doc(db, "roster_desk_console", "current"), consoleSnapshot, {
+      merge: true,
+    });
+    await setDoc(doc(db, "roster_desk_console", "latest"), consoleSnapshot, {
+      merge: true,
+    });
+    await setDoc(
+      doc(db, "dispatch_excel_cache", "current"),
+      consoleSnapshot,
+      { merge: true },
+    );
+    await setDoc(
+      doc(db, "dispatch_excel_cache", "latest"),
+      consoleSnapshot,
+      { merge: true },
+    );
 
     // 4. Save official deployment record in dispatch_deployments
     const result = await executeDeployment({
@@ -2690,6 +2773,40 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
         localStorage.setItem(
           "pyidcc_active_deployment_id",
           result.deploymentId,
+        );
+        localStorage.setItem(
+          "pyidcc_target_deployment_date",
+          targetDeploymentDate,
+        );
+        localStorage.setItem(
+          "pyidcc_target_deployment_day",
+          targetDayType,
+        );
+        localStorage.setItem(
+          "pyidcc_active_dispatch_deployments",
+          JSON.stringify(dutiesToDeploy),
+        );
+        localStorage.setItem(
+          "pyidcc_roster_desk_console_cache",
+          JSON.stringify(cleanConsole),
+        );
+        localStorage.setItem(
+          `pyidcc_roster_desk_console_cache_${targetDeploymentDate}`,
+          JSON.stringify(cleanConsole),
+        );
+        window.dispatchEvent(
+          new CustomEvent("pyidcc_dispatch_deployments_updated", {
+            detail: {
+              deployments: dutiesToDeploy,
+              duties: dutiesToDeploy,
+              date: targetDeploymentDate,
+            },
+          }),
+        );
+        window.dispatchEvent(
+          new CustomEvent("pyidcc_console_data_updated", {
+            detail: { consoleData: cleanConsole, date: targetDeploymentDate },
+          }),
         );
       } catch (e) {
         console.warn("Storage save warning:", e);
@@ -2964,6 +3081,7 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
           ...d,
           date: targetDeploymentDate,
           deploymentDate: targetDeploymentDate,
+          targetDate: targetDeploymentDate,
         }));
         const deduped = deduplicateDeployments(mappedDuties);
         setFallbackDeployments(deduped);
@@ -2991,6 +3109,38 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
             },
           };
         });
+
+        // Universal cross-system localStorage & event synchronization
+        try {
+          if (typeof window !== "undefined" && window.localStorage) {
+            window.localStorage.setItem(
+              "pyidcc_active_dispatch_deployments",
+              JSON.stringify(deduped),
+            );
+            window.localStorage.setItem(
+              `pyidcc_roster_desk_console_cache_${targetDeploymentDate}`,
+              JSON.stringify(data),
+            );
+            window.localStorage.setItem(
+              "pyidcc_roster_desk_console_cache",
+              JSON.stringify(data),
+            );
+            window.dispatchEvent(
+              new CustomEvent("pyidcc_dispatch_deployments_updated", {
+                detail: {
+                  deployments: deduped,
+                  duties: deduped,
+                  date: targetDeploymentDate,
+                },
+              }),
+            );
+            window.dispatchEvent(
+              new CustomEvent("pyidcc_console_data_updated", {
+                detail: { consoleData: data, date: targetDeploymentDate },
+              }),
+            );
+          }
+        } catch (_e) {}
       }
       if (data.isPublishedForOperators !== undefined) {
         setIsPublishedToOperators(Boolean(data.isPublishedForOperators));
@@ -3009,7 +3159,25 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
       },
     );
 
+    const unsubDeskDate = onSnapshot(
+      doc(db, "roster_desk_console", targetDeploymentDate),
+      (snap) => {
+        if (snap.exists()) loadCacheData(snap.data());
+      },
+      () => {},
+    );
+
+    const unsubDeskDatePrefixed = onSnapshot(
+      doc(db, "roster_desk_console", `date_${targetDeploymentDate}`),
+      (snap) => {
+        if (snap.exists()) loadCacheData(snap.data());
+      },
+      () => {},
+    );
+
     let unsubAltDate = null;
+    let unsubAltDesk = null;
+    let unsubAltDeskPrefixed = null;
     const altDate = toIndianDateStr(targetDeploymentDate);
     if (altDate && altDate !== targetDeploymentDate) {
       unsubAltDate = onSnapshot(
@@ -3023,11 +3191,29 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
           console.warn("Dispatch cache alt date listener error:", err);
         },
       );
+      unsubAltDesk = onSnapshot(
+        doc(db, "roster_desk_console", altDate),
+        (snap) => {
+          if (snap.exists()) loadCacheData(snap.data());
+        },
+        () => {},
+      );
+      unsubAltDeskPrefixed = onSnapshot(
+        doc(db, "roster_desk_console", `date_${altDate}`),
+        (snap) => {
+          if (snap.exists()) loadCacheData(snap.data());
+        },
+        () => {},
+      );
     }
 
     return () => {
       unsubTargetDate();
+      unsubDeskDate();
+      unsubDeskDatePrefixed();
       if (unsubAltDate) unsubAltDate();
+      if (unsubAltDesk) unsubAltDesk();
+      if (unsubAltDeskPrefixed) unsubAltDeskPrefixed();
     };
   }, [targetDeploymentDate, mergeConsoleData]);
 
@@ -3625,8 +3811,38 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
           result.deploymentId,
         );
         localStorage.setItem(
+          "pyidcc_target_deployment_date",
+          targetDateStr,
+        );
+        localStorage.setItem(
+          "pyidcc_target_deployment_day",
+          deployDayType,
+        );
+        localStorage.setItem(
+          "pyidcc_active_dispatch_deployments",
+          JSON.stringify(dutiesToDeploy),
+        );
+        localStorage.setItem(
+          "pyidcc_roster_desk_console_cache",
+          JSON.stringify(cleanConsole),
+        );
+        localStorage.setItem(
           `pyidcc_roster_desk_console_cache_${targetDateStr}`,
           JSON.stringify(cleanConsole),
+        );
+        window.dispatchEvent(
+          new CustomEvent("pyidcc_dispatch_deployments_updated", {
+            detail: {
+              deployments: dutiesToDeploy,
+              duties: dutiesToDeploy,
+              date: targetDateStr,
+            },
+          }),
+        );
+        window.dispatchEvent(
+          new CustomEvent("pyidcc_console_data_updated", {
+            detail: { consoleData: cleanConsole, date: targetDateStr },
+          }),
         );
       } catch (e) {
         console.warn("Storage save warning:", e);

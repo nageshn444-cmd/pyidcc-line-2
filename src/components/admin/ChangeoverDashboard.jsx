@@ -8,11 +8,13 @@ import {
   getTransitMinutes
 } from '../../services/changeoverService';
 import { calculateDistance } from '../../utils/kmCalculator';
+import * as XLSX from 'xlsx';
 
 import { 
   RefreshCw, Play, Shield, Moon, Sun, CheckCircle2, 
   ChevronDown, ChevronUp, Eye, X, AlertCircle, User, AlertTriangle, 
-  Search, Cpu, Zap, Clock, Route, Plus, Minus, Train, Undo, RotateCcw
+  Search, Cpu, Zap, Clock, Route, Plus, Minus, Train, Undo, RotateCcw,
+  EyeOff, MapPin, Edit3, Download, FileSpreadsheet
 } from 'lucide-react';
 import { db } from '../../firebase';
 import { doc, getDoc, setDoc, collection, onSnapshot, query, where } from 'firebase/firestore';
@@ -330,10 +332,14 @@ export default function ChangeoverDashboard({ onRefresh }) {
   const [dashboardStablingOverrides, setDashboardStablingOverrides] = useState({});
   const [stablingModalRow, setStablingModalRow] = useState(null);
   const [selectedStablingLoc, setSelectedStablingLoc] = useState('DEPOT');
+  const [selectedMornTrain, setSelectedMornTrain] = useState('');
+  const [selectedMornDep, setSelectedMornDep] = useState('');
+  const [modalActiveField, setModalActiveField] = useState('stabling'); // 'stabling' | 'train' | 'dep'
   const [stablingSearch, setStablingSearch] = useState('');
 
   // ── 40-Min PDC Override & Mutual View Toggle (PDC Sign-On vs Leg 3 Dep) ──
   const [showPdcSignOnCol, setShowPdcSignOnCol] = useState(false);
+  const [showTakeoverLocCol, setShowTakeoverLocCol] = useState(true);
   const [globalPdcMode, setGlobalPdcMode] = useState('DEFAULT'); // 'DEFAULT' | 'ALL_ADDED' | 'ALL_REMOVED'
   const [dutyPdcOverrides, setDutyPdcOverrides] = useState({}); // { [dutyNo]: boolean }
   const [modalPdcActive, setModalPdcActive] = useState(true);
@@ -438,19 +444,32 @@ export default function ChangeoverDashboard({ onRefresh }) {
     return groups;
   }, [filteredStablingOptions]);
 
-  const handleOpenStablingModal = (row) => {
+  const handleOpenStablingModal = (row, initialFocusField = 'stabling') => {
     setStablingModalRow(row);
     setStablingSearch('');
+    setModalActiveField(initialFocusField);
     const baseRow = CHANGEOVER_TABLE[tableKey]?.[row.dutyNo] || {};
     const originalLoc = baseRow.takeoverLocation || baseRow.actualStablingLocation || baseRow.assignedStablingLocation || 'DEPOT';
-    const currentLoc = dashboardStablingOverrides[row.dutyNo]?.takeoverLocation ||
-      (typeof dashboardStablingOverrides[row.dutyNo] === 'string' ? dashboardStablingOverrides[row.dutyNo] : null) || 
-      row.actualStablingLocation || 
-      originalLoc;
+    const override = dashboardStablingOverrides[row.dutyNo];
+    const currentLoc = (override && typeof override === 'object' && override.takeoverLocation)
+      ? override.takeoverLocation
+      : ((typeof override === 'string' ? override : null) || row.actualStablingLocation || originalLoc);
     setSelectedStablingLoc(currentLoc);
 
+    const originalTrain = baseRow.mornTrainNo || '--';
+    const currentTrain = (override && typeof override === 'object' && override.mornTrainNo !== undefined)
+      ? override.mornTrainNo
+      : (row.mornTrainNo || originalTrain);
+    setSelectedMornTrain(currentTrain);
+
+    const originalDep = baseRow.mornDepTime || '05:15:00';
+    const currentDep = (override && typeof override === 'object' && override.mornDepTime !== undefined)
+      ? override.mornDepTime
+      : (row.mornDepTime || originalDep);
+    setSelectedMornDep(currentDep);
+
     // Initialize modal PDC active state from duty override or row state
-    const isPdcActive = isDutyPdcEnabled(row.dutyNo, dashboardStablingOverrides[row.dutyNo]);
+    const isPdcActive = isDutyPdcEnabled(row.dutyNo, override);
     setModalPdcActive(isPdcActive);
   };
 
@@ -458,11 +477,21 @@ export default function ChangeoverDashboard({ onRefresh }) {
     if (!stablingModalRow) return;
     const dutyNo = stablingModalRow.dutyNo;
     const chosenLoc = selectedStablingLoc;
+    const chosenTrain = (selectedMornTrain || '').trim();
+    const chosenDep = (selectedMornDep || '').trim();
     const isPdcActive = modalPdcActive;
-    const originalDefault = stablingModalRow.originalDefaultLoc || 'DEPOT';
+    const baseRow = CHANGEOVER_TABLE[tableKey]?.[dutyNo] || {};
+    const originalDefault = stablingModalRow.originalDefaultLoc || baseRow.takeoverLocation || 'DEPOT';
+    const originalTrain = stablingModalRow.originalDefaultTrain || baseRow.mornTrainNo || '--';
+    const originalDep = stablingModalRow.originalDefaultDep || baseRow.mornDepTime || '05:15:00';
 
-    // If reset to canonical default stabling and default PDC (included), remove the override entirely
-    if (chosenLoc === originalDefault && isPdcActive === true) {
+    // If reset to canonical default values for all fields, remove the override entirely
+    if (
+      chosenLoc === originalDefault &&
+      isPdcActive === true &&
+      (chosenTrain === originalTrain || !chosenTrain) &&
+      (chosenDep === originalDep || !chosenDep)
+    ) {
       setDashboardStablingOverrides(prev => {
         const copy = { ...prev };
         delete copy[dutyNo];
@@ -486,6 +515,8 @@ export default function ChangeoverDashboard({ onRefresh }) {
       [dutyNo]: {
         takeoverLocation: chosenLoc,
         actualStablingLocation: chosenLoc,
+        mornTrainNo: chosenTrain || originalTrain,
+        mornDepTime: chosenDep || originalDep,
         pdcDisabled: !isPdcActive,
         pdcMinutes: isPdcActive ? 40 : 0
       }
@@ -982,12 +1013,22 @@ export default function ChangeoverDashboard({ onRefresh }) {
         
         // Sacred canonical default stabling location - NEVER deleted or overwritten!
         const originalDefaultLoc = baseRow.takeoverLocation || baseRow.actualStablingLocation || baseRow.assignedStablingLocation || 'DEPOT';
+        const originalDefaultTrain = baseRow.mornTrainNo || '--';
+        const originalDefaultDep = baseRow.mornDepTime || '05:15:00';
         
         // In-session temporary manual modification at Night Changeover Control
         const rawOverride = dashboardStablingOverrides[dutyNo];
         const actualOverrideLoc = (rawOverride && typeof rawOverride === 'object')
           ? (rawOverride.takeoverLocation || rawOverride.actualStablingLocation || originalDefaultLoc)
           : (rawOverride || originalDefaultLoc);
+
+        const actualOverrideTrain = (rawOverride && typeof rawOverride === 'object' && rawOverride.mornTrainNo !== undefined)
+          ? rawOverride.mornTrainNo
+          : originalDefaultTrain;
+
+        const actualOverrideDep = (rawOverride && typeof rawOverride === 'object' && rawOverride.mornDepTime !== undefined)
+          ? rawOverride.mornDepTime
+          : originalDefaultDep;
 
         const isPdcActive = isDutyPdcEnabled(dutyNo, rawOverride);
 
@@ -1000,18 +1041,26 @@ export default function ChangeoverDashboard({ onRefresh }) {
         effectiveRow.nightSignOnTime = leg1NightSignOn;
         effectiveRow.isPdcActive = isPdcActive;
         effectiveRow.originalDefaultLoc = originalDefaultLoc;
+        effectiveRow.originalDefaultTrain = originalDefaultTrain;
+        effectiveRow.originalDefaultDep = originalDefaultDep;
+        effectiveRow.mornTrainNo = actualOverrideTrain;
+        effectiveRow.mornDepTime = actualOverrideDep;
+        effectiveRow.isTrainOverridden = Boolean(rawOverride && rawOverride.mornTrainNo && rawOverride.mornTrainNo !== originalDefaultTrain);
+        effectiveRow.isDepOverridden = Boolean(rawOverride && rawOverride.mornDepTime && rawOverride.mornDepTime !== originalDefaultDep);
         effectiveRow.isManuallyModified = Boolean(
           (rawOverride && actualOverrideLoc !== originalDefaultLoc) ||
+          effectiveRow.isTrainOverridden ||
+          effectiveRow.isDepOverridden ||
           dutyPdcOverrides[dutyNo] !== undefined ||
           globalPdcMode !== 'DEFAULT'
         );
 
-        if (actualOverrideLoc || baseRow.mornDepTime) {
+        if (actualOverrideLoc || effectiveRow.mornDepTime) {
           const pdcCalc = calculateStablingAndPdcSignOn({
-            trainId: baseRow.mornTrainNo,
+            trainId: effectiveRow.mornTrainNo,
             stablingLocation: actualOverrideLoc,
             assignedStablingLocation: baseRow.assignedStablingLocation || originalDefaultLoc,
-            revenueStartTime: baseRow.mornDepTime,
+            revenueStartTime: effectiveRow.mornDepTime,
             targetScheduleType: nextDay,
             pdcDisabled: !isPdcActive
           });
@@ -1116,6 +1165,195 @@ export default function ChangeoverDashboard({ onRefresh }) {
 
   const fromLabel = DAY_OPTIONS.find(o => o.value === currentDay)?.label || currentDay;
   const toLabel = DAY_OPTIONS.find(o => o.value === nextDay)?.label || nextDay;
+
+  // ── Download Complete Changeover & Crew Link Report in Excel Format ──
+  const handleExportExcel = useCallback(() => {
+    if (!previewRows || !previewRows.length) {
+      alert("No changeover preview data available to export.");
+      return;
+    }
+
+    try {
+      // Helper to compute Morning Aux on time (40-min PDC sign-on time)
+      const computeMorningAuxOnTime = (r) => {
+        const rawAux = r.mornSignOnTime || r.calculatedSignOnTime;
+        if (rawAux && rawAux !== '--') {
+          const str = String(rawAux).trim();
+          return (str.length > 5 && str.endsWith(':00')) ? str.slice(0, 5) : str;
+        }
+        if (r.mornDepTime && r.mornDepTime !== '--') {
+          const parts = String(r.mornDepTime).split(':').map(Number);
+          const depSecs = (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
+          const pdcMins = r.isPdcActive !== false ? (r.pdcMinutes || 40) : 0;
+          let auxSecs = depSecs - (pdcMins * 60);
+          if (auxSecs < 0) auxSecs += 86400;
+          const h = String(Math.floor(auxSecs / 3600) % 24).padStart(2, '0');
+          const m = String(Math.floor((auxSecs % 3600) / 60)).padStart(2, '0');
+          return `${h}:${m}`;
+        }
+        return '--';
+      };
+
+      // 1. Primary Changeover Dataset (Exact 8 Columns requested by user)
+      const primaryReportRows = previewRows.map((r) => {
+        const op = r.operator || {};
+        return {
+          'Duty No': r.dutyNo,
+          'Operator Name': op.empName || op.name || '--',
+          'Emp ID': op.empId ? String(op.empId) : '--',
+          'Night Train ID': r.nightTrainNo || r.trainId || op.trainId || '--',
+          'Handover Loc': r.nightHandoverLoc || '--',
+          'morning take over Loc': r.takeoverLocation || r.actualStablingLocation || r.assignedStablingLocation || '--',
+          'Leg 3 Morning Train No': r.mornTrainNo || '--',
+          'Morning Aux on time': computeMorningAuxOnTime(r),
+        };
+      });
+
+      // 2. Comprehensive Master Dataset (All Fields Preserved for Deep Audit)
+      const exportRows = previewRows.map((r, idx) => {
+        const op = r.operator || {};
+        let statusText = 'ACTIVE / REGULAR';
+        if (op.isUnassigned) statusText = 'UNASSIGNED';
+        else if (op.isRelief) statusText = 'RELIEF';
+        else if (op.isExchanged) statusText = 'EXCHANGED';
+        else if (op.isSwapped) statusText = 'SWAPPED';
+        else if (op.isNR) statusText = 'NR (NO REPORT)';
+        else if (op.isAB) statusText = 'AB (ABSENT)';
+
+        let swapDetails = '--';
+        if (op.swappedDutyId) swapDetails = `Swapped with Duty #${op.swappedDutyId}`;
+        else if (op.swappedWith) swapDetails = `Swapped with ${op.swappedWith}`;
+        else if (op.exchangedWith) swapDetails = `Exchanged with ${op.exchangedWith}`;
+
+        return {
+          'Sl No': idx + 1,
+          'Duty No': r.dutyNo,
+          'Night Shift Date': currentDate,
+          'Night Schedule Type': fromLabel,
+          'Morning Target Date': nextDate,
+          'Morning Schedule Type': toLabel,
+
+          // Active Operator Details (Dispatch Gateway Core & Roster)
+          'Operator Name': op.empName || '--',
+          'Emp ID': op.empId ? String(op.empId) : '--',
+          'Operator Status': statusText,
+          'Operator Source': op.source || '--',
+          'Swap / Exchange Info': swapDetails,
+          'Operator Remarks': op.remarks || '--',
+
+          // Leg 1: Night Run Details
+          'Leg 1 Sign On Time': r.signOnTime || r.nightSignOnTime || '--',
+          'Leg 1 Sign On Loc': r.signOnLocation || '--',
+          'Leg 1 Night Train No': r.nightTrainNo || '--',
+          'Leg 1 Dep Time': r.nightDepTime || '--',
+          'Leg 1 Arr Time': r.nightArrTime || '--',
+          'Leg 1 Trip Duration': r.nightTripTime || '--',
+          'Leg 1 Handover Loc': r.nightHandoverLoc || '--',
+          'Leg 1 Night KM': Number(r.nightKms) || 0,
+
+          // Leg 2: Rest / Mid-Shift Layover
+          'Leg 2 Rest From Loc': r.nightHandoverLoc || '--',
+          'Leg 2 Rest To Loc (Stabling)': r.takeoverLocation || r.actualStablingLocation || '--',
+          'Leg 2 Break Duration': r.nightBreak || '--',
+
+          // Leg 3: Morning Takeover Run Details
+          'Leg 3 Takeover Loc': r.takeoverLocation || r.actualStablingLocation || '--',
+          'Leg 3 Default Stabling Loc': r.originalDefaultLoc || '--',
+          'Leg 3 Stabling Modified': r.isManuallyModified ? 'YES' : 'NO',
+          'Leg 3 Morning Train No': r.mornTrainNo || '--',
+          'Leg 3 Train ID Modified': r.isTrainOverridden ? 'YES' : 'NO',
+          'Leg 3 Dep Time': r.mornDepTime || '--',
+          'Leg 3 Dep Time Modified': r.isDepOverridden ? 'YES' : 'NO',
+          'Leg 3 Arr Time': r.mornArrTime || '--',
+          'Leg 3 Trip Duration': r.mornTripTime || '--',
+          'Leg 3 Handover Loc': r.mornHandoverLoc || '--',
+          'Leg 3 Sign Off Time': r.signOffTime || '--',
+          'Leg 3 Sign Off Loc': r.signOffLocation || '--',
+          'Leg 3 40-Min PDC Active': r.isPdcActive ? 'ENABLED' : 'REMOVED',
+          'Morning Aux on time': computeMorningAuxOnTime(r),
+          'Leg 3 Morning PDC Sign On': r.mornSignOnTime || r.calculatedSignOnTime || '--',
+          'Leg 3 Transit Minutes': r.transitMinutes ?? '--',
+          'Leg 3 PDC Minutes': r.pdcMinutes ?? '--',
+          'Leg 3 Alternative Stabling': r.isAlternativeStabling ? 'YES' : 'NO',
+          'Leg 3 Morning KM': Number(r.mornKms) || 0,
+
+          // Crew Link Totals & Shift Integrity
+          'Total Changeover KM': Number(r.totalKms) || ((Number(r.nightKms) || 0) + (Number(r.mornKms) || 0)),
+          'Duty Hours': r.dutyHrs || '--',
+          'Driving Hours': r.drivingHrs || '--',
+          'In-Session Modification': r.isManuallyModified ? 'MODIFIED' : 'DEFAULT'
+        };
+      });
+
+      // 3. Build Fleet Operational Summary
+      const summaryRows = [
+        { 'Metric': 'Project / System', 'Value': 'Peenya Industry Depot Crew Control (BMRCL Line 2)' },
+        { 'Metric': 'Report Title', 'Value': 'Night Changeover Preview & Crew Link Operational Report' },
+        { 'Metric': 'Generated On (IST)', 'Value': new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) },
+        { 'Metric': 'Night Shift Date', 'Value': currentDate },
+        { 'Metric': 'Night Schedule Type', 'Value': `${fromLabel} (${currentDay})` },
+        { 'Metric': 'Target Morning Date', 'Value': nextDate },
+        { 'Metric': 'Target Morning Schedule', 'Value': `${toLabel} (${nextDay})` },
+        { 'Metric': 'Total Changeover Duties', 'Value': previewRows.length },
+        { 'Metric': 'Active Assigned Operators', 'Value': operatorStats.assigned },
+        { 'Metric': 'Unassigned / Pending Operators', 'Value': operatorStats.unassigned },
+        { 'Metric': 'Relief Operators', 'Value': operatorStats.reliefCount },
+        { 'Metric': 'Swapped / Exchanged Operators', 'Value': operatorStats.swapCount },
+        { 'Metric': 'Abnormal (NR / AB) Operators', 'Value': operatorStats.abnormalCount },
+        { 'Metric': 'Total Night Leg Distance', 'Value': `${stats?.totalNightKm || 0} KM` },
+        { 'Metric': 'Total Morning Leg Distance', 'Value': `${stats?.totalMornKm || 0} KM` },
+        { 'Metric': 'Total Changeover Fleet Distance', 'Value': `${stats?.totalKm || 0} KM` },
+        { 'Metric': 'Average Distance per Duty', 'Value': `${stats?.duties ? (stats.totalKm / stats.duties).toFixed(1) : 0} KM/duty` },
+        { 'Metric': '40-Min PDC Engine Status', 'Value': 'Synchronized with Dispatch Gateway Core' },
+      ];
+
+      // Auto-fit column helper
+      const calcColWidths = (dataRows) => {
+        if (!dataRows || !dataRows.length) return [];
+        const cols = Object.keys(dataRows[0]);
+        return cols.map(col => {
+          let maxLen = col.length;
+          for (let i = 0; i < dataRows.length; i++) {
+            const val = String(dataRows[i][col] ?? '');
+            if (val.length > maxLen) maxLen = val.length;
+          }
+          return { wch: Math.min(Math.max(maxLen + 3, 10), 45) };
+        });
+      };
+
+      const wb = XLSX.utils.book_new();
+
+      // Sheet 1: Primary Changeover Report (Exact 8 Columns requested by user)
+      const wsPrimary = XLSX.utils.json_to_sheet(primaryReportRows);
+      wsPrimary['!cols'] = [
+        { wch: 12 }, // Duty No
+        { wch: 28 }, // Operator Name
+        { wch: 14 }, // Emp ID
+        { wch: 18 }, // Night Train ID
+        { wch: 18 }, // Handover Loc
+        { wch: 25 }, // morning take over Loc
+        { wch: 26 }, // Leg 3 Morning Train No
+        { wch: 24 }, // Morning Aux on time
+      ];
+      XLSX.utils.book_append_sheet(wb, wsPrimary, 'Changeover_Report');
+
+      // Sheet 2: Comprehensive Full Master Data Sheet
+      const wsMain = XLSX.utils.json_to_sheet(exportRows);
+      wsMain['!cols'] = calcColWidths(exportRows);
+      XLSX.utils.book_append_sheet(wb, wsMain, 'Full_Changeover_Master');
+
+      // Sheet 3: Summary Sheet
+      const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+      wsSummary['!cols'] = calcColWidths(summaryRows);
+      XLSX.utils.book_append_sheet(wb, wsSummary, 'Operational_Summary');
+
+      const fileName = `BMRCL_Line2_Changeover_CrewLink_${currentDate}_to_${nextDate}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+    } catch (err) {
+      console.error("Failed to export Changeover Excel report:", err);
+      alert(`Error generating Excel report: ${err.message}`);
+    }
+  }, [previewRows, currentDate, currentDay, nextDate, nextDay, fromLabel, toLabel, stats, operatorStats]);
 
   // ── Perform Changeover with Real-Time Active Operators & 40-Min PDC Engine ──
   const handlePerformChangeover = async () => {
@@ -1411,6 +1649,19 @@ export default function ChangeoverDashboard({ onRefresh }) {
                 <span className="text-slate-500">AVG:</span>
                 <span className="text-slate-200">{(stats.totalKm / (stats.duties || 1)).toFixed(1)} km/duty</span>
               </div>
+
+              {/* Excel Report Download Button in Banner */}
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                disabled={!previewRows.length}
+                className="bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:from-slate-800 disabled:to-slate-700 text-slate-950 disabled:text-slate-500 font-black px-3.5 py-1.5 rounded-lg text-[11px] flex items-center gap-1.5 transition-all shadow-md hover:shadow-emerald-500/25 uppercase tracking-wider cursor-pointer disabled:cursor-not-allowed border border-emerald-400/40 ml-1"
+                title="Download complete Changeover Preview & Crew Link report in Excel format (.xlsx) with all data and metrics"
+              >
+                <Download className="h-3.5 w-3.5 stroke-[2.5]" />
+                <FileSpreadsheet className="h-3.5 w-3.5 hidden sm:inline" />
+                <span>Download Excel Report</span>
+              </button>
             </div>
           )}
         </div>
@@ -1532,6 +1783,28 @@ export default function ChangeoverDashboard({ onRefresh }) {
                 <span className="text-[8px] px-1 py-0.2 rounded bg-cyan-950/80 text-cyan-300">Leg 3 Dep Hidden</span>
               </button>
             </div>
+
+            {/* Takeover Loc Unhide / Hide Toggle Button */}
+            <div className="inline-flex rounded-lg border border-slate-750 bg-slate-900 p-0.5 ml-1">
+              <button
+                type="button"
+                onClick={() => setShowTakeoverLocCol(prev => !prev)}
+                className={`px-2.5 py-1 rounded text-[10px] font-bold font-mono transition flex items-center gap-1.5 cursor-pointer ${
+                  showTakeoverLocCol
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm'
+                    : 'bg-slate-900 text-slate-400 hover:text-slate-200'
+                }`}
+                title={showTakeoverLocCol ? "Click to hide Takeover Loc column at Leg 3" : "Click to unhide Takeover Loc column at Leg 3"}
+              >
+                {showTakeoverLocCol ? <Eye className="h-3 w-3 text-purple-400" /> : <EyeOff className="h-3 w-3 text-slate-500" />}
+                <span>{showTakeoverLocCol ? "Takeover Loc Unhidden" : "Unhide Takeover Loc"}</span>
+                <span className={`text-[8px] px-1.5 py-0.2 rounded font-bold ${
+                  showTakeoverLocCol ? 'bg-purple-950/90 text-purple-300' : 'bg-rose-950/90 text-rose-300'
+                }`}>
+                  {showTakeoverLocCol ? 'Visible' : 'Hidden'}
+                </span>
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -1578,6 +1851,18 @@ export default function ChangeoverDashboard({ onRefresh }) {
                 <Shield className="h-3 w-3 text-emerald-500" /> Default Stabling Intact
               </span>
             )}
+
+            {/* Quick Excel Export in Toolbar */}
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              disabled={!previewRows.length}
+              className="px-2.5 py-1 rounded text-[10px] font-bold bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-300 transition flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Download complete Changeover & Crew Link report in Excel format (.xlsx)"
+            >
+              <Download className="h-3 w-3 stroke-[2.5]" />
+              <span>Excel Report</span>
+            </button>
           </div>
         </div>
 
@@ -1594,7 +1879,7 @@ export default function ChangeoverDashboard({ onRefresh }) {
                   <th colSpan="7" className="px-2.5 py-2 border-r border-slate-800 text-blue-400 bg-blue-950/20">
                     <span className="inline-flex items-center gap-1.5"><Moon className="h-3 w-3 text-blue-400" /> Leg 1: Night Shift Run</span>
                   </th>
-                  <th colSpan="7" className="px-2.5 py-2 border-r border-slate-800 text-amber-400 bg-amber-950/20">
+                  <th colSpan={showTakeoverLocCol ? 7 : 6} className="px-2.5 py-2 border-r border-slate-800 text-amber-400 bg-amber-950/20">
                     <span className="inline-flex items-center gap-1.5"><Sun className="h-3 w-3 text-amber-400" /> Leg 3: Morning Takeover Run</span>
                   </th>
                   <th colSpan="3" className="px-2.5 py-2 text-emerald-400 bg-emerald-950/20">
@@ -1611,8 +1896,21 @@ export default function ChangeoverDashboard({ onRefresh }) {
                   <th className="px-2 py-1.5">Arr</th>
                   <th className="px-2 py-1.5">Handover</th>
                   <th className="px-2 py-1.5 border-r border-slate-800 text-blue-300 font-bold bg-blue-950/40">Night Leg Km</th>
-                  <th className="px-2 py-1.5">Takeover Loc</th>
-                  <th className="px-2 py-1.5 text-amber-400 font-bold">Train</th>
+                  {showTakeoverLocCol && (
+                    <th 
+                      onClick={() => setShowTakeoverLocCol(false)} 
+                      className="px-2 py-1.5 cursor-pointer hover:bg-slate-800/80 transition select-none group"
+                      title="Takeover Loc is unhidden. Click to hide Takeover Loc column at Leg 3."
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        Takeover Loc 
+                        <EyeOff className="h-2.5 w-2.5 text-slate-500 group-hover:text-purple-400 transition" />
+                      </span>
+                    </th>
+                  )}
+                  <th className="px-2 py-1.5 text-amber-400 font-bold" title="Morning Train ID (@Train id) — Click ✎ on any row to edit">
+                    <span className="inline-flex items-center gap-1">Train <span className="text-[9px] text-amber-400/80">✎</span></span>
+                  </th>
                   {/* Mutual Exclusive Header: PDC S/ON (40m) vs Leg 3 Dep */}
                   {showPdcSignOnCol ? (
                     <th 
@@ -1765,40 +2063,88 @@ export default function ChangeoverDashboard({ onRefresh }) {
                         </td>
 
                         {/* Morning Takeover (Leg 3) Stabling Location with Edit Option */}
-                        <td className="px-2 py-2 text-[10px]">
+                        {showTakeoverLocCol && (
+                          <td className="px-2 py-2 text-[10px]">
+                            <div className="flex items-center justify-center">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenStablingModal(r, 'stabling');
+                                }}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-100 hover:text-cyan-300 border border-slate-700 hover:border-cyan-500/50 font-bold transition group cursor-pointer text-[10.5px] shadow-xs"
+                                title="Click to edit stabling / takeover location"
+                              >
+                                <span className="font-mono font-bold tracking-tight">{r.takeoverLocation || r.actualStablingLocation || '--'}</span>
+                                <span className="text-cyan-400 group-hover:text-cyan-200 text-xs font-bold" title="Edit Stabling Location">✎</span>
+                              </button>
+                            </div>
+                          </td>
+                        )}
+
+                        {/* Morning Takeover (Leg 3) Train ID with Direct Edit Option */}
+                        <td className="px-2 py-2 text-amber-300 font-bold">
                           <div className="flex items-center justify-center">
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleOpenStablingModal(r);
+                                handleOpenStablingModal(r, 'train');
                               }}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-100 hover:text-cyan-300 border border-slate-700 hover:border-cyan-500/50 font-bold transition group cursor-pointer text-[10.5px] shadow-xs"
-                              title="Click to edit stabling / takeover location"
+                              className={`inline-flex items-center gap-1.5 px-2 py-1 rounded font-mono font-bold transition group cursor-pointer text-[10.5px] border shadow-xs ${
+                                r.isTrainOverridden
+                                  ? 'bg-amber-955/90 text-amber-300 border-amber-500/60 ring-1 ring-amber-500/30'
+                                  : 'bg-slate-800/80 hover:bg-slate-700 text-amber-300 hover:text-amber-100 border-slate-700 hover:border-amber-500/50'
+                              }`}
+                              title="Click to edit Morning Train ID (@Train id)"
                             >
-                              <span className="font-mono font-bold tracking-tight">{r.takeoverLocation || r.actualStablingLocation || '--'}</span>
-                              <span className="text-cyan-400 group-hover:text-cyan-200 text-xs font-bold" title="Edit Stabling Location">✎</span>
+                              <span className="font-mono font-bold tracking-tight">{r.mornTrainNo || '--'}</span>
+                              <span className="text-amber-400 group-hover:text-amber-200 text-xs font-bold" title="Edit Train ID">✎</span>
                             </button>
                           </div>
                         </td>
-                        <td className="px-2 py-2 text-amber-300 font-bold">{r.mornTrainNo || '--'}</td>
-                        {/* Mutual Exclusive Cell: 40-Min PDC S/ON vs Leg 3 Dep */}
+
+                        {/* Mutual Exclusive Cell: 40-Min PDC S/ON vs Leg 3 Dep with Direct Edit Option */}
                         {showPdcSignOnCol ? (
                           <td 
-                            className="px-2 py-2 text-cyan-300 font-mono font-bold bg-cyan-955/20 border-r border-slate-800/40"
-                            title={r.isPdcActive ? `Duty ${r.dutyNo} 40-Min PDC S/ON: ${r.mornSignOnTime || r.calculatedSignOnTime} (WTT Dep: ${r.mornDepTime})` : `Duty ${r.dutyNo} PDC Removed: ${r.mornSignOnTime || r.mornDepTime}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenStablingModal(r, 'dep');
+                            }}
+                            className="px-2 py-2 text-cyan-300 font-mono font-bold bg-cyan-955/20 border-r border-slate-800/40 cursor-pointer hover:bg-cyan-950/40 transition"
+                            title={r.isPdcActive ? `Duty ${r.dutyNo} 40-Min PDC S/ON: ${r.mornSignOnTime || r.calculatedSignOnTime} (WTT Dep: ${r.mornDepTime}). Click to edit.` : `Duty ${r.dutyNo} PDC Removed: ${r.mornSignOnTime || r.mornDepTime}. Click to edit.`}
                           >
-                            {r.isPdcActive ? (
-                              <TimeCell t={r.mornSignOnTime || r.calculatedSignOnTime} />
-                            ) : (
-                              <span className="text-slate-500 line-through text-[10px]" title="40-Min PDC Removed (No 40m buffer)">
-                                {r.mornSignOnTime ? String(r.mornSignOnTime).slice(0, 5) : String(r.mornDepTime).slice(0, 5)}
-                              </span>
-                            )}
+                            <div className="flex items-center justify-center gap-1">
+                              {r.isPdcActive ? (
+                                <TimeCell t={r.mornSignOnTime || r.calculatedSignOnTime} />
+                              ) : (
+                                <span className="text-slate-500 line-through text-[10px]" title="40-Min PDC Removed (No 40m buffer)">
+                                  {r.mornSignOnTime ? String(r.mornSignOnTime).slice(0, 5) : String(r.mornDepTime).slice(0, 5)}
+                                </span>
+                              )}
+                              <span className="text-cyan-400/80 group-hover:text-cyan-200 text-[10px] font-bold">✎</span>
+                            </div>
                           </td>
                         ) : (
                           <td className="px-2 py-2 text-slate-300">
-                            <TimeCell t={r.mornDepTime} />
+                            <div className="flex items-center justify-center">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenStablingModal(r, 'dep');
+                                }}
+                                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded font-mono font-bold transition group cursor-pointer text-[10.5px] border shadow-xs ${
+                                  r.isDepOverridden
+                                    ? 'bg-cyan-955/90 text-cyan-300 border-cyan-500/60 ring-1 ring-cyan-500/30'
+                                    : 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-cyan-300 border-slate-700 hover:border-cyan-500/50'
+                                }`}
+                                title="Click to edit Leg 3 Departure Time (Leg 3 Dep ⇄)"
+                              >
+                                <TimeCell t={r.mornDepTime} />
+                                <span className="text-cyan-400 group-hover:text-cyan-200 text-xs font-bold" title="Edit Leg 3 Departure Time">✎</span>
+                              </button>
+                            </div>
                           </td>
                         )}
                         <td className="px-2 py-2 text-slate-300"><TimeCell t={r.mornArrTime} /></td>
@@ -1824,8 +2170,8 @@ export default function ChangeoverDashboard({ onRefresh }) {
 
                       {/* Expandable Crew Link & Leg Breakdown Drawer */}
                       {isExpanded && (
-                        <tr className="bg-slate-950/95 border-b border-amber-500/40">
-                          <td colSpan={19} className="p-3 text-left">
+                        <tr className="bg-slate-955/95 border-b border-amber-500/40">
+                          <td colSpan={showTakeoverLocCol ? 19 : 18} className="p-3 text-left">
                             <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 shadow-xl space-y-3">
                               <div className="flex items-center justify-between border-b border-slate-800 pb-2 flex-wrap gap-2">
                                 <div className="flex items-center gap-2">
@@ -1941,49 +2287,268 @@ export default function ChangeoverDashboard({ onRefresh }) {
           </div>
         )}
 
-        {/* Stabling Override Modal Prompt for Changeover Dashboard */}
+        {/* Stabling & Leg 3 Morning Takeover Edit Modal (Train ID, Leg 3 Dep, TOC, PDC) */}
         {stablingModalRow && (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 font-mono text-slate-200 shadow-2xl space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-                <h3 className="text-sm font-black uppercase text-cyan-400 flex items-center gap-2">
-                  <Clock className="h-4 w-4" /> Night Stabling &amp; 40-Min PDC Override
-                </h3>
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg p-5 font-mono text-slate-200 shadow-2xl space-y-3.5 max-h-[92vh] overflow-y-auto custom-scrollbar">
+              
+              {/* Modal Header */}
+              <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                    <Sun className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase text-slate-100 flex items-center gap-2">
+                      <span>Leg 3: Morning Takeover Settings</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/50">
+                        Duty #{stablingModalRow.dutyNo}
+                      </span>
+                    </h3>
+                    <p className="text-[9.5px] text-slate-400">
+                      Edit Morning Train ID, Leg 3 Departure Time, Stabling Location &amp; 40-Min PDC
+                    </p>
+                  </div>
+                </div>
                 <button
+                  type="button"
                   onClick={() => setStablingModalRow(null)}
-                  className="text-slate-400 hover:text-white"
+                  className="text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-slate-800 transition"
                 >
                   ✕
                 </button>
               </div>
 
-              <div className="space-y-3 text-xs">
-                <div className="bg-slate-955 p-3 rounded-lg border border-slate-800 space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Duty Number:</span>
-                    <strong className="text-emerald-400">{stablingModalRow.dutyNo}</strong>
+              {/* Navigation Tabs for Quick Section Focus */}
+              <div className="flex items-center gap-1 bg-slate-955 p-1 rounded-lg border border-slate-800 text-[10px] flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setModalActiveField('all')}
+                  className={`px-2.5 py-1 rounded font-bold transition cursor-pointer ${
+                    modalActiveField === 'all'
+                      ? 'bg-slate-800 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  ⚡ All Settings
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalActiveField('train')}
+                  className={`px-2.5 py-1 rounded font-bold transition flex items-center gap-1 cursor-pointer ${
+                    modalActiveField === 'train'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Train className="h-3 w-3 text-amber-400" />
+                  <span>Train ID (@Train): #{selectedMornTrain || '--'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalActiveField('dep')}
+                  className={`px-2.5 py-1 rounded font-bold transition flex items-center gap-1 cursor-pointer ${
+                    modalActiveField === 'dep'
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Clock className="h-3 w-3 text-cyan-400" />
+                  <span>Leg 3 Dep (⇄): {selectedMornDep ? String(selectedMornDep).slice(0, 5) : '--:--'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalActiveField('stabling')}
+                  className={`px-2.5 py-1 rounded font-bold transition flex items-center gap-1 cursor-pointer ${
+                    modalActiveField === 'stabling'
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <MapPin className="h-3 w-3 text-purple-400" />
+                  <span>Takeover Loc</span>
+                </button>
+              </div>
+
+              {/* Duty & Canonical Defaults Summary Card */}
+              <div className="bg-slate-955 p-3 rounded-lg border border-slate-800 text-[10px] grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div>
+                  <span className="text-slate-500 block uppercase">Duty:</span>
+                  <strong className="text-emerald-400 font-bold text-xs">{stablingModalRow.dutyNo}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500 block uppercase">Default Train:</span>
+                  <strong className="text-amber-300 font-bold">{stablingModalRow.originalDefaultTrain || '--'}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500 block uppercase">Default WTT Dep:</span>
+                  <strong className="text-cyan-300 font-bold">{stablingModalRow.originalDefaultDep ? String(stablingModalRow.originalDefaultDep).slice(0, 5) : '05:15'}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500 block uppercase">Default Stabling:</span>
+                  <strong className="text-slate-200 font-bold truncate block" title={stablingModalRow.originalDefaultLoc || 'DEPOT'}>
+                    {stablingModalRow.originalDefaultLoc || 'DEPOT'}
+                  </strong>
+                </div>
+              </div>
+
+              {/* EDIT OPTION 1: Morning Train ID (@Train id) */}
+              {(modalActiveField === 'all' || modalActiveField === 'train') && (
+                <div className={`p-3 rounded-xl border space-y-2 transition ${
+                  modalActiveField === 'train' 
+                    ? 'bg-amber-955/20 border-amber-500/50 ring-1 ring-amber-500/30' 
+                    : 'bg-slate-955 border-slate-800'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10.5px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Train className="h-3.5 w-3.5 text-amber-400" /> Morning Train ID (@Train id):
+                    </label>
+                    {selectedMornTrain !== (stablingModalRow.originalDefaultTrain || '--') && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedMornTrain(stablingModalRow.originalDefaultTrain || '--')}
+                        className="text-[9px] text-amber-400 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
+                        title="Restore original canonical train number"
+                      >
+                        <RotateCcw className="h-2.5 w-2.5" /> Reset Train ({stablingModalRow.originalDefaultTrain || '--'})
+                      </button>
+                    )}
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Morning Train ID:</span>
-                    <strong className="text-cyan-300">{stablingModalRow.mornTrainNo || '--'}</strong>
+                  
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={selectedMornTrain}
+                      onChange={(e) => setSelectedMornTrain(e.target.value)}
+                      placeholder="e.g. 210, 207, 211, Ntest, --"
+                      className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-lg px-3 py-1.5 text-xs text-amber-300 font-bold font-mono focus:outline-none"
+                    />
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Canonical Default Stabling:</span>
-                    <strong className="text-emerald-400 font-bold flex items-center gap-1">
-                      <Shield className="h-3 w-3 text-emerald-400" />
-                      {stablingModalRow.originalDefaultLoc || stablingModalRow.assignedStablingLocation || 'DEPOT'}
-                    </strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">WTT Revenue Departure:</span>
-                    <strong className="text-slate-200">{stablingModalRow.mornDepTime || '05:15:00'}</strong>
+
+                  {/* Quick rake suggestions */}
+                  <div className="flex items-center gap-1 flex-wrap pt-0.5 text-[9px] font-mono">
+                    <span className="text-slate-500">Quick Rakes:</span>
+                    {['201', '202', '203', '204', '205', '206', '207', '208', '209', '210', '211', '212', '215', '217', 'Ntest', '--'].map(tNo => (
+                      <button
+                        key={tNo}
+                        type="button"
+                        onClick={() => setSelectedMornTrain(tNo)}
+                        className={`px-1.5 py-0.5 rounded border transition cursor-pointer ${
+                          selectedMornTrain === tNo
+                            ? 'bg-amber-500/30 text-amber-200 border-amber-500/70 font-bold shadow-xs'
+                            : 'bg-slate-900 text-slate-400 border-slate-750 hover:text-slate-200'
+                        }`}
+                      >
+                        {tNo}
+                      </button>
+                    ))}
                   </div>
                 </div>
+              )}
 
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      Select Takeover / Stabling Location (Up &amp; Dn Line):
+              {/* EDIT OPTION 2: Leg 3 Departure Time (Leg 3 Dep ⇄) */}
+              {(modalActiveField === 'all' || modalActiveField === 'dep') && (
+                <div className={`p-3 rounded-xl border space-y-2 transition ${
+                  modalActiveField === 'dep' 
+                    ? 'bg-cyan-955/20 border-cyan-500/50 ring-1 ring-cyan-500/30' 
+                    : 'bg-slate-955 border-slate-800'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10.5px] font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5 text-cyan-400" /> Leg 3 Departure Time (Leg 3 Dep ⇄):
+                    </label>
+                    {selectedMornDep !== (stablingModalRow.originalDefaultDep || '05:15:00') && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedMornDep(stablingModalRow.originalDefaultDep || '05:15:00')}
+                        className="text-[9px] text-cyan-400 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
+                        title="Restore canonical WTT departure time"
+                      >
+                        <RotateCcw className="h-2.5 w-2.5" /> Reset Dep ({stablingModalRow.originalDefaultDep ? String(stablingModalRow.originalDefaultDep).slice(0, 5) : '05:15'})
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex gap-1.5 items-center">
+                    <input
+                      type="text"
+                      value={selectedMornDep}
+                      onChange={(e) => setSelectedMornDep(e.target.value)}
+                      placeholder="HH:mm:ss (e.g. 04:40:00)"
+                      className="w-full bg-slate-950 border border-slate-700 focus:border-cyan-500 rounded-lg px-3 py-1.5 text-xs text-cyan-300 font-bold font-mono focus:outline-none"
+                    />
+
+                    {/* Quick offset buttons */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const secs = parseTimeToSeconds(selectedMornDep || '05:00:00');
+                        const newSecs = Math.max(0, secs - 600);
+                        const h = Math.floor(newSecs / 3600);
+                        const m = Math.floor((newSecs % 3600) / 60);
+                        setSelectedMornDep(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`);
+                      }}
+                      className="px-2 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[10px] text-slate-300 rounded font-mono font-bold cursor-pointer"
+                      title="-10 Minutes"
+                    >
+                      -10m
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const secs = parseTimeToSeconds(selectedMornDep || '05:00:00');
+                        const newSecs = Math.max(0, secs - 300);
+                        const h = Math.floor(newSecs / 3600);
+                        const m = Math.floor((newSecs % 3600) / 60);
+                        setSelectedMornDep(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`);
+                      }}
+                      className="px-2 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[10px] text-slate-300 rounded font-mono font-bold cursor-pointer"
+                      title="-5 Minutes"
+                    >
+                      -5m
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const secs = parseTimeToSeconds(selectedMornDep || '05:00:00');
+                        const newSecs = secs + 300;
+                        const h = Math.floor(newSecs / 3600);
+                        const m = Math.floor((newSecs % 3600) / 60);
+                        setSelectedMornDep(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`);
+                      }}
+                      className="px-2 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[10px] text-slate-300 rounded font-mono font-bold cursor-pointer"
+                      title="+5 Minutes"
+                    >
+                      +5m
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const secs = parseTimeToSeconds(selectedMornDep || '05:00:00');
+                        const newSecs = secs + 600;
+                        const h = Math.floor(newSecs / 3600);
+                        const m = Math.floor((newSecs % 3600) / 60);
+                        setSelectedMornDep(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`);
+                      }}
+                      className="px-2 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[10px] text-slate-300 rounded font-mono font-bold cursor-pointer"
+                      title="+10 Minutes"
+                    >
+                      +10m
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* EDIT OPTION 3: Takeover / Stabling Location */}
+              {(modalActiveField === 'all' || modalActiveField === 'stabling') && (
+                <div className={`p-3 rounded-xl border space-y-2 transition ${
+                  modalActiveField === 'stabling' 
+                    ? 'bg-purple-955/20 border-purple-500/50 ring-1 ring-purple-500/30' 
+                    : 'bg-slate-955 border-slate-800'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[10.5px] font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <MapPin className="h-3.5 w-3.5 text-purple-400" /> Select Takeover / Stabling Location (Up &amp; Dn Line):
                     </label>
                     <span className="text-[9px] font-mono text-cyan-400">
                       {filteredStablingOptions.length} available
@@ -1991,7 +2556,7 @@ export default function ChangeoverDashboard({ onRefresh }) {
                   </div>
 
                   {/* Search station filter */}
-                  <div className="relative mb-1.5">
+                  <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500" />
                     <input
                       type="text"
@@ -2012,7 +2577,7 @@ export default function ChangeoverDashboard({ onRefresh }) {
                   </div>
 
                   {/* Quick Shortcut Pills */}
-                  <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <button
                       type="button"
                       onClick={() => {
@@ -2110,7 +2675,7 @@ export default function ChangeoverDashboard({ onRefresh }) {
                     value={selectedStablingLoc}
                     onChange={(e) => setSelectedStablingLoc(e.target.value)}
                     className="w-full bg-slate-955 border border-slate-700 rounded-lg p-2 text-xs text-purple-300 font-bold focus:border-cyan-500 focus:outline-none custom-scrollbar"
-                    size={stablingSearch ? Math.min(8, Math.max(3, filteredStablingOptions.length)) : 6}
+                    size={stablingSearch ? Math.min(8, Math.max(3, filteredStablingOptions.length)) : 5}
                   >
                     {Object.entries(groupedStablingOptions).map(([cat, opts]) => (
                       <optgroup key={cat} label={cat} className="bg-slate-900 text-cyan-400 font-bold py-1">
@@ -2123,8 +2688,8 @@ export default function ChangeoverDashboard({ onRefresh }) {
                     ))}
                   </select>
 
-                  <div className="flex items-center justify-between text-[10px] mt-1.5 text-slate-400 font-mono">
-                    <span>Chosen: <strong className="text-amber-300 font-bold bg-amber-950/60 border border-amber-500/40 px-1.5 py-0.5 rounded">{selectedStablingLoc}</strong></span>
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                    <span>Chosen Takeover: <strong className="text-amber-300 font-bold bg-amber-950/60 border border-amber-500/40 px-1.5 py-0.5 rounded">{selectedStablingLoc}</strong></span>
                     {stablingSearch && (
                       <button
                         type="button"
@@ -2136,109 +2701,113 @@ export default function ChangeoverDashboard({ onRefresh }) {
                     )}
                   </div>
                 </div>
+              )}
 
-                {/* 40-Min PDC Inclusion/Removal Controls */}
-                <div className="bg-slate-955 p-3 rounded-xl border border-slate-800 space-y-2.5">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5 text-cyan-400" /> 40-Min Pre-Departure Check (PDC) Status
-                    </span>
-                    <span className={`text-[9.5px] px-2 py-0.5 rounded font-bold border ${
-                      modalPdcActive 
-                        ? 'bg-emerald-955 text-emerald-300 border-emerald-500/50 shadow-sm' 
-                        : 'bg-rose-955 text-rose-300 border-rose-500/50 shadow-sm'
-                    }`}>
-                      {modalPdcActive ? '40-MIN PDC INCLUDED (+40m)' : '40-MIN PDC REMOVED (0m)'}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setModalPdcActive(true)}
-                      className={`py-2 px-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 border cursor-pointer ${
-                        modalPdcActive
-                          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/60 shadow-md ring-1 ring-cyan-500/30'
-                          : 'bg-slate-900 text-slate-400 border-slate-750 hover:text-slate-200'
-                      }`}
-                    >
-                      <Plus className="h-3.5 w-3.5 text-cyan-400" />
-                      <span>Add 40-Min PDC</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setModalPdcActive(false)}
-                      className={`py-2 px-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 border cursor-pointer ${
-                        !modalPdcActive
-                          ? 'bg-rose-500/20 text-rose-300 border-rose-500/60 shadow-md ring-1 ring-rose-500/30'
-                          : 'bg-slate-900 text-slate-400 border-slate-750 hover:text-slate-200'
-                      }`}
-                    >
-                      <Minus className="h-3.5 w-3.5 text-rose-400" />
-                      <span>Remove 40-Min PDC</span>
-                    </button>
-                  </div>
-
-                  {/* Live Recalculation Preview */}
-                  {(() => {
-                    const previewPdcCalc = calculateStablingAndPdcSignOn({
-                      trainId: stablingModalRow.mornTrainNo,
-                      stablingLocation: selectedStablingLoc,
-                      assignedStablingLocation: stablingModalRow.assignedStablingLocation || stablingModalRow.takeoverLocation || 'DEPOT',
-                      revenueStartTime: stablingModalRow.mornDepTime,
-                      targetScheduleType: nextDay,
-                      pdcDisabled: !modalPdcActive
-                    });
-
-                    return (
-                      <div className="bg-slate-900/90 border border-cyan-800/40 p-2.5 rounded-lg text-[10px] space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-400 font-bold uppercase">Resulting Morning Sign-On:</span>
-                          <strong className="text-sm font-black font-mono text-cyan-300">
-                            {previewPdcCalc.signOnTime}
-                          </strong>
-                        </div>
-                        <p className="text-slate-400 text-[9.5px]">
-                          {previewPdcCalc.calculationBreakdown}
-                        </p>
-                      </div>
-                    );
-                  })()}
+              {/* 40-Min PDC Inclusion/Removal Controls */}
+              <div className="bg-slate-955 p-3 rounded-xl border border-slate-800 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-cyan-400" /> 40-Min Pre-Departure Check (PDC) Status
+                  </span>
+                  <span className={`text-[9.5px] px-2 py-0.5 rounded font-bold border ${
+                    modalPdcActive 
+                      ? 'bg-emerald-955 text-emerald-300 border-emerald-500/50 shadow-sm' 
+                      : 'bg-rose-955 text-rose-300 border-rose-500/50 shadow-sm'
+                  }`}>
+                    {modalPdcActive ? '40-MIN PDC INCLUDED (+40m)' : '40-MIN PDC REMOVED (0m)'}
+                  </span>
                 </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setModalPdcActive(true)}
+                    className={`py-1.5 px-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 border cursor-pointer ${
+                      modalPdcActive
+                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/60 shadow-md ring-1 ring-cyan-500/30'
+                        : 'bg-slate-900 text-slate-400 border-slate-750 hover:text-slate-200'
+                    }`}
+                  >
+                    <Plus className="h-3.5 w-3.5 text-cyan-400" />
+                    <span>Add 40-Min PDC</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModalPdcActive(false)}
+                    className={`py-1.5 px-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 border cursor-pointer ${
+                      !modalPdcActive
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/60 shadow-md ring-1 ring-rose-500/30'
+                        : 'bg-slate-900 text-slate-400 border-slate-750 hover:text-slate-200'
+                    }`}
+                  >
+                    <Minus className="h-3.5 w-3.5 text-rose-400" />
+                    <span>Remove 40-Min PDC</span>
+                  </button>
+                </div>
+
+                {/* Live Recalculation Preview */}
+                {(() => {
+                  const previewPdcCalc = calculateStablingAndPdcSignOn({
+                    trainId: selectedMornTrain || stablingModalRow.mornTrainNo,
+                    stablingLocation: selectedStablingLoc,
+                    assignedStablingLocation: stablingModalRow.assignedStablingLocation || stablingModalRow.takeoverLocation || 'DEPOT',
+                    revenueStartTime: selectedMornDep || stablingModalRow.mornDepTime,
+                    targetScheduleType: nextDay,
+                    pdcDisabled: !modalPdcActive
+                  });
+
+                  return (
+                    <div className="bg-slate-900/90 border border-cyan-800/40 p-2.5 rounded-lg text-[10px] space-y-1 mt-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400 font-bold uppercase">Calculated Morning Sign-On:</span>
+                        <strong className="text-sm font-black font-mono text-cyan-300">
+                          {previewPdcCalc.signOnTime}
+                        </strong>
+                      </div>
+                      <p className="text-slate-400 text-[9.5px]">
+                        {previewPdcCalc.calculationBreakdown}
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
 
+              {/* Action Buttons */}
               <div className="flex items-center justify-between pt-2 border-t border-slate-800 flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => {
                     setSelectedStablingLoc(stablingModalRow.originalDefaultLoc || 'DEPOT');
+                    setSelectedMornTrain(stablingModalRow.originalDefaultTrain || '--');
+                    setSelectedMornDep(stablingModalRow.originalDefaultDep || '05:15:00');
                     setModalPdcActive(true);
                   }}
                   className="px-2.5 py-1.5 rounded text-[10px] font-bold text-amber-400 hover:text-amber-200 border border-amber-500/40 bg-amber-950/40 hover:bg-amber-950/70 transition flex items-center gap-1 cursor-pointer"
-                  title="Reset to canonical default stabling location and default PDC (+40m)"
+                  title="Reset to canonical default stabling, default train, and default departure time"
                 >
-                  <RotateCcw className="h-3 w-3" /> Reset to Default Stabling
+                  <RotateCcw className="h-3 w-3" /> Reset to Defaults
                 </button>
 
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setStablingModalRow(null)}
-                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer"
+                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={handleConfirmStabling}
-                    className="bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-black px-4 py-2 rounded-lg text-xs uppercase tracking-wider shadow-md transition cursor-pointer"
+                    className="bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-black px-4 py-1.5 rounded-lg text-xs uppercase tracking-wider shadow-md transition cursor-pointer"
                   >
                     Apply In-Session Modification
                   </button>
                 </div>
               </div>
+
               <p className="text-[9px] text-slate-500 italic text-center">
-                🛡️ In-session modification only. Original default stabling will be restored automatically upon page refresh.
+                🛡️ In-session modification only. Original canonical data is 100% preserved and restored upon page refresh.
               </p>
             </div>
           </div>

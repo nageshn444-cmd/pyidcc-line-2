@@ -1199,6 +1199,13 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       runProcessing();
     });
 
+    const handleDispatchUpdate = () => runProcessing();
+    window.addEventListener('pyidcc_dispatch_deployments_updated', handleDispatchUpdate);
+    window.addEventListener('storage', handleDispatchUpdate);
+
+    const unsubDeskCurrent = onSnapshot(doc(db, "roster_desk_console", "current"), () => runProcessing(), () => {});
+    const unsubDeskLatest = onSnapshot(doc(db, "roster_desk_console", "latest"), () => runProcessing(), () => {});
+
     return () => {
       if (animFrameId) cancelAnimationFrame(animFrameId);
       unsubDeploy();
@@ -1207,6 +1214,10 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       unsubEmployees();
       unsubWtt();
       unsubLinks();
+      unsubDeskCurrent();
+      unsubDeskLatest();
+      window.removeEventListener('pyidcc_dispatch_deployments_updated', handleDispatchUpdate);
+      window.removeEventListener('storage', handleDispatchUpdate);
     };
   }, [activeDay]);
 
