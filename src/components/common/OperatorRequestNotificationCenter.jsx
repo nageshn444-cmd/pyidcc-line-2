@@ -1,4 +1,4 @@
-import { collection, onSnapshot, query } from "firebase/firestore";
+import { collection, limit, onSnapshot, query } from "firebase/firestore";
 import {
   ArrowRightLeft,
   Bell,
@@ -100,6 +100,11 @@ export default function OperatorRequestNotificationCenter() {
     }
   });
 
+  const soundEnabledRef = useRef(soundEnabled);
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled;
+  }, [soundEnabled]);
+
   const toggleSound = () => {
     setSoundEnabled((prev) => {
       const next = !prev;
@@ -130,7 +135,7 @@ export default function OperatorRequestNotificationCenter() {
   useEffect(() => {
     if (!isSupervisorOrAdmin) return;
 
-    const q = query(collection(db, "shift_exchanges"));
+    const q = query(collection(db, "shift_exchanges"), limit(50));
     const unsub = onSnapshot(
       q,
       (snap) => {
@@ -179,7 +184,7 @@ export default function OperatorRequestNotificationCenter() {
           pending.forEach((req) => {
             if (!seenRequestIdsRef.current.has(req.id)) {
               seenRequestIdsRef.current.add(req.id);
-              if (soundEnabled) playRequestNotificationSound("SHIFT_EXCHANGE");
+              if (soundEnabledRef.current) playRequestNotificationSound("SHIFT_EXCHANGE");
               setActivePopup(req);
             }
           });
@@ -193,13 +198,13 @@ export default function OperatorRequestNotificationCenter() {
     );
 
     return () => unsub();
-  }, [isSupervisorOrAdmin, soundEnabled]);
+  }, [isSupervisorOrAdmin]);
 
   // 2. Leave Requests Listener (status: Pending / PENDING)
   useEffect(() => {
     if (!isSupervisorOrAdmin) return;
 
-    const q = query(collection(db, "leave_requests"));
+    const q = query(collection(db, "leave_requests"), limit(50));
     const unsub = onSnapshot(
       q,
       (snap) => {
@@ -243,7 +248,7 @@ export default function OperatorRequestNotificationCenter() {
           pending.forEach((req) => {
             if (!seenRequestIdsRef.current.has(req.id)) {
               seenRequestIdsRef.current.add(req.id);
-              if (soundEnabled) playRequestNotificationSound("LEAVE_REQUEST");
+              if (soundEnabledRef.current) playRequestNotificationSound("LEAVE_REQUEST");
               setActivePopup(req);
             }
           });
@@ -257,13 +262,13 @@ export default function OperatorRequestNotificationCenter() {
     );
 
     return () => unsub();
-  }, [isSupervisorOrAdmin, soundEnabled]);
+  }, [isSupervisorOrAdmin]);
 
   // 3. Login Requests Listener (requestStatus: Pending)
   useEffect(() => {
     if (!isSupervisorOrAdmin) return;
 
-    const q = query(collection(db, "login_requests"));
+    const q = query(collection(db, "login_requests"), limit(50));
     const unsub = onSnapshot(
       q,
       (snap) => {
@@ -294,7 +299,7 @@ export default function OperatorRequestNotificationCenter() {
           pending.forEach((req) => {
             if (!seenRequestIdsRef.current.has(req.id)) {
               seenRequestIdsRef.current.add(req.id);
-              if (soundEnabled) playRequestNotificationSound("LOGIN_REQUEST");
+              if (soundEnabledRef.current) playRequestNotificationSound("LOGIN_REQUEST");
               setActivePopup(req);
             }
           });
@@ -316,7 +321,7 @@ export default function OperatorRequestNotificationCenter() {
       unsub();
       clearTimeout(timer);
     };
-  }, [isSupervisorOrAdmin, soundEnabled]);
+  }, [isSupervisorOrAdmin]);
 
   // Combined pending list
   const allPendingRequests = useMemo(() => {

@@ -2002,25 +2002,6 @@ export async function clearLinkRosterForDay(scheduleType, onProgress = () => {})
     console.warn('Exhaustive crew_final_links docs delete error:', err);
   }
 
-  // 4. Purge deterministic standard and special IDs in one batch just in case
-  try {
-    const batch = writeBatch(db);
-    for (let i = 1; i <= 100; i++) {
-      const pad = String(i).padStart(2, '0');
-      batch.delete(doc(db, 'crew_final_links', `link_${dayTag}_duty_${pad}`));
-      batch.delete(doc(db, 'crew_final_links', `link_${dayTag}_duty_${i}`));
-      batch.delete(doc(db, 'crew_final_links', `link_${dayTag}_${pad}`));
-      batch.delete(doc(db, 'crew_final_links', `link_${dayTag}_${i}`));
-      batch.delete(doc(db, 'crew_final_links', `link_${dayTag}_duty_CR${pad}`));
-      batch.delete(doc(db, 'crew_final_links', `link_${dayTag}_duty_CR${i}`));
-    }
-    ['pro1', 'pro2', 'pro3', 'pro_1', 'pro_2', 'pro_3', 'cc1', 'cc2', 'cc3', 'stby', 'resv', 'or'].forEach(key => {
-      batch.delete(doc(db, 'crew_final_links', `link_${dayTag}_duty_${key}`));
-      batch.delete(doc(db, 'crew_final_links', `link_${dayTag}_${key}`));
-    });
-    await batch.commit();
-  } catch (_) {}
-
   // 5. Broadcast system-wide events to all open components and listeners
   try {
     if (typeof window !== 'undefined') {

@@ -191,11 +191,8 @@ export async function checkDeploymentExists(
 
   const candidateKeys = [
     deploymentId,
-    `${normDate}_${normDayType}`,
-    normDate,
-    `${indDate}_${normDayType}`,
-    indDate,
-  ];
+    indDate ? `${indDate}_${normDayType}` : null,
+  ].filter(Boolean);
 
   for (const key of candidateKeys) {
     try {
@@ -285,15 +282,10 @@ export async function executeDeployment(
     },
   };
 
-  // 1. Save date-specific deployment across all standard candidate keys in dispatch_deployments
+  // 1. Save date-specific deployment under canonical deploymentId and latest sync pointer
   const keysToSave = [
     deploymentId,
-    `${normDate}_${normDayType}`,
-    normDate,
-    `${indDate}_${normDayType}`,
-    indDate,
     "latest",
-    "current",
   ];
 
   await Promise.all(
@@ -374,13 +366,8 @@ export async function getDeploymentRoster(
 
   const candidateKeys = [
     deploymentId,
-    `${normDate}_${normDayType}`,
-    normDate,
-    `${indDate}_${normDayType}`,
-    indDate,
-    "latest",
-    "current",
-  ];
+    indDate ? `${indDate}_${normDayType}` : null,
+  ].filter(Boolean);
 
   for (const cId of candidateKeys) {
     try {

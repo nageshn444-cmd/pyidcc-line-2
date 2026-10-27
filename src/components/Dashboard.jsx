@@ -407,6 +407,15 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
 
   const liveWttDataRef = useRef(WTT_MASTER_REGISTRY);
   const liveLinksDataRef = useRef(WEEKDAY_MASTER_LINKS);
+  const activeDayRef = useRef(activeDay);
+  const runProcessingRef = useRef(null);
+
+  useEffect(() => {
+    activeDayRef.current = activeDay;
+    if (runProcessingRef.current) {
+      runProcessingRef.current();
+    }
+  }, [activeDay]);
 
   // Incident Control States
   const [targetTid, setTargetTid] = useState('');
@@ -1079,7 +1088,7 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
   useEffect(() => {
     setLoading(false);
     let wttData = (liveWttDataRef.current && liveWttDataRef.current.length > 0) ? liveWttDataRef.current : WTT_MASTER_REGISTRY;
-    let linksData = (liveLinksDataRef.current && liveLinksDataRef.current.length > 0) ? liveLinksDataRef.current : (activeDay === 'WEEKDAY' ? WEEKDAY_MASTER_LINKS : []);
+    let linksData = (liveLinksDataRef.current && liveLinksDataRef.current.length > 0) ? liveLinksDataRef.current : (activeDayRef.current === 'WEEKDAY' ? WEEKDAY_MASTER_LINKS : []);
     let deployData = [];
     let attData = [];
     let incData = [];
@@ -1092,33 +1101,12 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
         processAndSyncData(activeWtt, linksData, deployData, attData, incData);
       });
     };
+    runProcessingRef.current = runProcessing;
 
     // First paint uses current active/cached data immediately
     runProcessing();
 
-    const fetchBase = async () => {
-      try {
-        const [wttSnapshot, linksSnapshot] = await Promise.all([
-          getDocs(collection(db, "wtt_final_matrix")),
-          getDocs(collection(db, "crew_final_links"))
-        ]);
-        const remoteWtt = wttSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        const remoteLinks = linksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if (remoteWtt.length > 0) {
-          wttData = remoteWtt;
-          liveWttDataRef.current = remoteWtt;
-        }
-        if (remoteLinks.length > 0) {
-          linksData = remoteLinks;
-          liveLinksDataRef.current = remoteLinks;
-        }
-        runProcessing();
-      } catch (err) {
-        console.warn("Background WTT/link refresh failed; using local master data:", err);
-      }
-    };
-    fetchBase();
-
+    // Real-time listeners provide instant initial snapshot and subsequent live updates
     const unsubDeploy = onSnapshot(collection(db, "crew_daily_deployment"), (snap) => {
       deployData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       runProcessing();
@@ -1207,6 +1195,7 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
     const unsubDeskLatest = onSnapshot(doc(db, "roster_desk_console", "latest"), () => runProcessing(), () => {});
 
     return () => {
+      runProcessingRef.current = null;
       if (animFrameId) cancelAnimationFrame(animFrameId);
       unsubDeploy();
       unsubAtt();
@@ -1219,7 +1208,7 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
       window.removeEventListener('pyidcc_dispatch_deployments_updated', handleDispatchUpdate);
       window.removeEventListener('storage', handleDispatchUpdate);
     };
-  }, [activeDay]);
+  }, []);
 
   // ── Real-Time Dynamic Ticker for Live Train & Reliever Tracking Handover ──
   // Re-evaluates handover times every 5 seconds so transitions (e.g. 10:58, 13:13) happen seamlessly
