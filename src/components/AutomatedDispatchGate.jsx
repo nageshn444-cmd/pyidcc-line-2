@@ -4715,6 +4715,8 @@ Rules:
   const [swapMode, setSwapMode] = useState("PAIR"); // "PAIR" (2 ops) or "TRIPLE" (3 ops)
   const [swapSearchQuery, setSwapSearchQuery] = useState("");
   const [swapOperationType, setSwapOperationType] = useState("SWAP"); // "SWAP" or "EXCHANGE"
+  const [swapToastMessage, setSwapToastMessage] = useState("");
+  const [isSubmittingSwap, setIsSubmittingSwap] = useState(false);
 
   const duplicateEmpIds = useMemo(() => {
     const counts = {};
@@ -5756,90 +5758,13 @@ Rules:
     const isExchange = swapOperationType === "EXCHANGE";
     const statusValue = isExchange ? "EXCHANGED" : "SWAPPED_BY_CC";
 
+    setIsSubmittingSwap(true);
+
     try {
-      const batch = writeBatch(db);
       let newConsoleData = { ...consoleData };
       let updatedConsole = false;
 
-      const updateMainlineDeployment = (itemTarget, itemSource, notePrefix) => {
-        const payload = {
-          empName: itemSource.empName,
-          name: itemSource.empName,
-          operatorName: itemSource.empName,
-          empId: itemSource.empId,
-          empNo: itemSource.empId,
-          status: statusValue,
-          isSwapped: !isExchange,
-          swapped: !isExchange,
-          isExchanged: isExchange,
-          exchanged: isExchange,
-          swappedWith: itemSource.empName,
-          swappedDutyId: itemSource.dutyId,
-          originalEmpId: itemTarget.empId,
-          originalEmpName: itemTarget.empName,
-          remarks: isExchange
-            ? `${notePrefix || "Shift Exchanged"} with ${itemSource.category} (${itemSource.empName || itemSource.dutyId})`
-            : `${notePrefix || "Swapped"} with ${itemSource.category} (${itemSource.empName || itemSource.dutyId})`,
-          lastUpdated: serverTimestamp(),
-        };
-
-        // 1. Target original Firestore docId if present
-        if (itemTarget.docId) {
-          batch.set(
-            doc(db, "crew_daily_deployment", itemTarget.docId),
-            payload,
-            { merge: true },
-          );
-        }
-
-        // 2. Also write date-isolated doc IDs
-        const normId = String(
-          parseInt(itemTarget.dutyId, 10) || itemTarget.dutyId,
-        ).trim();
-        const paddedId = normId.padStart(2, "0");
-        const sched = normalizeScheduleType(currentDayType).toLowerCase();
-
-        const possibleDocIds = new Set();
-        if (targetDeploymentDate) {
-          const isoD = formatOperationalDate(targetDeploymentDate);
-          const indD = toIndianDateStr(targetDeploymentDate);
-          possibleDocIds.add(`gcc_deploy_${isoD}_duty_${normId}`);
-          possibleDocIds.add(`gcc_deploy_${isoD}_duty_${paddedId}`);
-          if (indD && indD !== isoD) {
-            possibleDocIds.add(`gcc_deploy_${indD}_duty_${normId}`);
-            possibleDocIds.add(`gcc_deploy_${indD}_duty_${paddedId}`);
-          }
-        }
-        const todayIso = formatOperationalDate(new Date());
-        if (targetDeploymentDate === todayIso) {
-          possibleDocIds.add(`gcc_deploy_${sched}_duty_${normId}`);
-          possibleDocIds.add(`gcc_deploy_${sched}_duty_${paddedId}`);
-          possibleDocIds.add(`gcc_deploy_active_run_duty_${paddedId}`);
-          possibleDocIds.add(`gcc_deploy_active_run_duty_${normId}`);
-        }
-
-        possibleDocIds.forEach((dId) => {
-          batch.set(doc(db, "crew_daily_deployment", dId), payload, {
-            merge: true,
-          });
-        });
-      };
-
       if (isTriple) {
-        // Standard Cyclic Rotation:
-        // Op 1 (Duty 1) ➔ Duty 2: Duty 2 gets Op 1
-        // Op 2 (Duty 2) ➔ Duty 3: Duty 3 gets Op 2
-        // Op 3 (Duty 3) ➔ Duty 1: Duty 1 gets Op 3
-        if (item1.type === "MAINLINE") {
-          updateMainlineDeployment(item1, item3, "Triple Swap Duty 1 ← Op 3");
-        }
-        if (item2.type === "MAINLINE") {
-          updateMainlineDeployment(item2, item1, "Triple Swap Duty 2 ← Op 1");
-        }
-        if (item3.type === "MAINLINE") {
-          updateMainlineDeployment(item3, item2, "Triple Swap Duty 3 ← Op 2");
-        }
-
         if (
           item1.type === "CONSOLE" ||
           item2.type === "CONSOLE" ||
@@ -5860,93 +5785,7 @@ Rules:
           );
           updatedConsole = true;
         }
-
-        if (isExchange) {
-          const activeExchangeDate =
-            targetDeploymentDate || formatOperationalDate(new Date());
-          const exRef = doc(collection(db, "shift_exchanges"));
-          const exPayload = {
-            isTriple: true,
-            operator1Id: String(item1.empId || ""),
-            operator1Name: String(item1.empName || ""),
-            operator1Duty: String(item1.dutyId || ""),
-            operator2Id: String(item2.empId || ""),
-            operator2Name: String(item2.empName || ""),
-            operator2Duty: String(item2.dutyId || ""),
-            operator3Id: String(item3.empId || ""),
-            operator3Name: String(item3.empName || ""),
-            operator3Duty: String(item3.dutyId || ""),
-            exchangeDate: activeExchangeDate,
-            status: "APPROVED",
-            isOperational: true,
-            approvedBy: "DISPATCH GATEWAY CORE (CC/GCC)",
-            approvedAt: serverTimestamp(),
-            approvalTime: new Date().toISOString(),
-            remarks: `Triple exchange approved via DISPATCH GATEWAY CORE: Op 1 (${item1.empName}) ➔ Duty ${item2.dutyId} | Op 2 (${item2.empName}) ➔ Duty ${item3.dutyId} | Op 3 (${item3.empName}) ➔ Duty ${item1.dutyId}`,
-            createdAt: serverTimestamp(),
-          };
-          batch.set(exRef, exPayload);
-          batch.set(
-            doc(
-              db,
-              "shift_exchanges_operational",
-              `${exRef.id}_${item1.dutyId}`,
-            ),
-            { ...exPayload, dutyNumber: item1.dutyId },
-          );
-          batch.set(
-            doc(
-              db,
-              "shift_exchanges_operational",
-              `${exRef.id}_${item2.dutyId}`,
-            ),
-            { ...exPayload, dutyNumber: item2.dutyId },
-          );
-          batch.set(
-            doc(
-              db,
-              "shift_exchanges_operational",
-              `${exRef.id}_${item3.dutyId}`,
-            ),
-            { ...exPayload, dutyNumber: item3.dutyId },
-          );
-        }
-
-        try {
-          const auditRef = doc(collection(db, "auditLogs"));
-          batch.set(auditRef, {
-            action: isExchange
-              ? "ROSTER_DESK_TRIPLE_EXCHANGE"
-              : "ROSTER_DESK_TRIPLE_SWAP",
-            performedBy: "Crew Controller / GCC (DISPATCH GATEWAY CORE)",
-            timestamp: serverTimestamp(),
-            operationType: isExchange
-              ? "TRIPLE_DUTY_EXCHANGE"
-              : "TRIPLE_DUTY_SWAP",
-            isTriple: true,
-            duty1: item1.label,
-            duty2: item2.label,
-            duty3: item3.label,
-            operator1: `${item1.empName} (${item1.empId})`,
-            operator2: `${item2.empName} (${item2.empId})`,
-            operator3: `${item3.empName} (${item3.empId})`,
-            details: `${isExchange ? "Triple Exchange" : "Triple Swap"}: Op 1 [${item1.category}] ${item1.label} ➔ Duty ${item2.dutyId} | Op 2 [${item2.category}] ${item2.label} ➔ Duty ${item3.dutyId} | Op 3 [${item3.category}] ${item3.label} ➔ Duty ${item1.dutyId}`,
-          });
-        } catch (logErr) {
-          console.warn("Audit log error:", logErr);
-        }
       } else {
-        // 1. If item1 is Mainline:
-        if (item1.type === "MAINLINE") {
-          updateMainlineDeployment(item1, item2);
-        }
-
-        // 2. If item2 is Mainline:
-        if (item2.type === "MAINLINE") {
-          updateMainlineDeployment(item2, item1);
-        }
-
-        // 3. If any item is from Roster Desk Console, swap operators across all console registers:
         if (item1.type === "CONSOLE" || item2.type === "CONSOLE") {
           newConsoleData = swapOperatorsInConsoleData(
             newConsoleData,
@@ -5957,8 +5796,6 @@ Rules:
           );
           updatedConsole = true;
         }
-
-        // 4. If both items are mainline duties, also update consoleData.duties if present
         if (
           item1.type === "MAINLINE" &&
           item2.type === "MAINLINE" &&
@@ -5973,123 +5810,9 @@ Rules:
           );
           updatedConsole = true;
         }
-
-        // 5. If Duty Exchange, also record to shift_exchanges & shift_exchanges_operational
-        if (isExchange) {
-          const activeExchangeDate =
-            targetDeploymentDate || formatOperationalDate(new Date());
-          const exRef = doc(collection(db, "shift_exchanges"));
-          const exPayload = {
-            operator1Id: String(item1.empId || ""),
-            operator1Name: String(item1.empName || ""),
-            operator1Duty: String(item1.dutyId || ""),
-            operator2Id: String(item2.empId || ""),
-            operator2Name: String(item2.empName || ""),
-            operator2Duty: String(item2.dutyId || ""),
-            exchangeDate: activeExchangeDate,
-            status: "APPROVED",
-            isOperational: true,
-            approvedBy: "DISPATCH GATEWAY CORE (CC/GCC)",
-            approvedAt: serverTimestamp(),
-            approvalTime: new Date().toISOString(),
-            remarks: `Mutual exchange approved via DISPATCH GATEWAY CORE between Duty ${item1.dutyId} and Duty ${item2.dutyId}`,
-            createdAt: serverTimestamp(),
-          };
-          batch.set(exRef, exPayload);
-          batch.set(
-            doc(
-              db,
-              "shift_exchanges_operational",
-              `${exRef.id}_${item1.dutyId}`,
-            ),
-            { ...exPayload, dutyNumber: item1.dutyId },
-          );
-          batch.set(
-            doc(
-              db,
-              "shift_exchanges_operational",
-              `${exRef.id}_${item2.dutyId}`,
-            ),
-            { ...exPayload, dutyNumber: item2.dutyId },
-          );
-        }
-
-        // 6. Audit Log
-        try {
-          const auditRef = doc(collection(db, "auditLogs"));
-          batch.set(auditRef, {
-            action: isExchange
-              ? "ROSTER_DESK_DUTY_EXCHANGE"
-              : "ROSTER_DESK_DUTY_SWAP",
-            performedBy: "Crew Controller / GCC (DISPATCH GATEWAY CORE)",
-            timestamp: serverTimestamp(),
-            operationType: isExchange ? "DUTY_EXCHANGE" : "DUTY_SWAP",
-            duty1: item1.label,
-            duty2: item2.label,
-            operator1: `${item1.empName} (${item1.empId})`,
-            operator2: `${item2.empName} (${item2.empId})`,
-            details: `${isExchange ? "Exchanged" : "Swapped"}: [${item1.category}] ${item1.label} ↔ [${item2.category}] ${item2.label}`,
-          });
-        } catch (logErr) {
-          console.warn("Audit log error:", logErr);
-        }
       }
 
-      if (updatedConsole) {
-        newConsoleData.lastUpdated = serverTimestamp();
-        const activeDateStr =
-          targetDeploymentDate || formatOperationalDate(new Date());
-        const altActiveDateStr = toIndianDateStr(activeDateStr);
-        const isCurrentDay =
-          activeDateStr === formatOperationalDate(new Date());
-
-        batch.set(
-          doc(db, "dispatch_excel_cache", activeDateStr),
-          newConsoleData,
-          { merge: true },
-        );
-        if (altActiveDateStr && altActiveDateStr !== activeDateStr) {
-          batch.set(
-            doc(db, "dispatch_excel_cache", altActiveDateStr),
-            newConsoleData,
-            { merge: true },
-          );
-        }
-
-        if (isCurrentDay) {
-          batch.set(doc(db, "roster_desk_console", "current"), newConsoleData, {
-            merge: true,
-          });
-          batch.set(doc(db, "roster_desk_console", "latest"), newConsoleData, {
-            merge: true,
-          });
-          batch.set(
-            doc(db, "dispatch_excel_cache", "current"),
-            newConsoleData,
-            {
-              merge: true,
-            },
-          );
-        }
-        if (typeof window !== "undefined" && window.localStorage) {
-          window.localStorage.setItem(
-            `pyidcc_roster_desk_console_cache_${activeDateStr}`,
-            JSON.stringify(newConsoleData),
-          );
-        }
-        setConsoleData(newConsoleData);
-      }
-
-      // Close modal and reset fields immediately for fast snappy response
-      setShowSwapModal(false);
-      setSwapDuty1("");
-      setSwapDuty2("");
-      setSwapDuty3("");
-      setSwapSearchQuery("");
-
-      await batch.commit();
-
-      // Persist swapped duties into date-specific dispatch_deployments record with safety fallback
+      // Mainline roster mapping
       const baseDuties = deduplicatedDeployments?.length
         ? deduplicatedDeployments
         : currentDeploymentRecord?.rosterData?.duties?.length
@@ -6097,13 +5820,6 @@ Rules:
           : fallbackDeployments?.length
             ? fallbackDeployments
             : [];
-
-      if (!baseDuties || baseDuties.length === 0) {
-        alert(
-          "Cannot swap: No active deployed duties found for this date. Please ensure a roster is deployed.",
-        );
-        return;
-      }
 
       const updatedDuties = baseDuties.map((d) => {
         const normDId = normalizeDutyId(d.dutyId);
@@ -6178,35 +5894,434 @@ Rules:
         return d;
       });
 
-      const affectedIds = new Set(
-        [
-          item1.dutyId,
-          item2.dutyId,
-          ...(isTriple && item3 ? [item3.dutyId] : []),
-        ].filter(Boolean),
+      const activeDateStr =
+        targetDeploymentDate || formatOperationalDate(new Date());
+      const altActiveDateStr = toIndianDateStr(activeDateStr);
+      const todayIso = formatOperationalDate(new Date());
+      const isToday = activeDateStr === todayIso;
+      const sched = normalizeScheduleType(
+        targetDayType || currentDayType,
+      ).toLowerCase();
+      const deploymentId = getDeploymentId(
+        activeDateStr,
+        targetDayType || currentDayType,
       );
+      const altDeploymentId = altActiveDateStr
+        ? `${altActiveDateStr}_${targetDayType || currentDayType}`
+        : null;
 
-      await persistDutyMutation(
-        updatedDuties,
-        updatedConsole ? newConsoleData : consoleData,
-        affectedIds,
-      );
+      const existingRosterData = currentDeploymentRecord?.rosterData || {};
+      const mergedConsole = updatedConsole ? newConsoleData : consoleData || {};
+      const newRosterData = {
+        ...existingRosterData,
+        ...mergedConsole,
+        controlDesks: mergedConsole.controlDesks?.length
+          ? mergedConsole.controlDesks
+          : existingRosterData.controlDesks || consoleData.controlDesks || [],
+        coOperators: mergedConsole.coOperators?.length
+          ? mergedConsole.coOperators
+          : existingRosterData.coOperators || consoleData.coOperators || [],
+        leaves: mergedConsole.leaves?.length
+          ? mergedConsole.leaves
+          : existingRosterData.leaves || consoleData.leaves || [],
+        standbys: mergedConsole.standbys?.length
+          ? mergedConsole.standbys
+          : existingRosterData.standbys || consoleData.standbys || [],
+        weeklyOffs: mergedConsole.weeklyOffs?.length
+          ? mergedConsole.weeklyOffs
+          : existingRosterData.weeklyOffs || consoleData.weeklyOffs || [],
+        bookedOff:
+          mergedConsole.bookedOff !== undefined
+            ? mergedConsole.bookedOff
+            : existingRosterData.bookedOff || consoleData.bookedOff || [],
+        duties:
+          updatedDuties.length > 0
+            ? updatedDuties
+            : existingRosterData.duties || [],
+        date: activeDateStr,
+        dateStr: activeDateStr,
+        dayType: targetDayType,
+        scheduleType: targetDayType,
+        lastUpdated: serverTimestamp(),
+      };
 
-      if (isTriple) {
-        alert(
-          `✅ ${isExchange ? "Triple Duty Exchange" : "Triple Duties Swap"} Completed Successfully:\n${item1.label} ➔ ${item2.label} ➔ ${item3.label} ➔ ${item1.label}`,
+      // ── 1. IMMEDIATE OPTIMISTIC UPDATE (0ms LATENCY) ──
+      // Immediately dismiss modal & reset selections
+      setShowSwapModal(false);
+      setSwapDuty1("");
+      setSwapDuty2("");
+      setSwapDuty3("");
+      setSwapSearchQuery("");
+
+      // Immediately apply local state in React
+      if (updatedConsole) {
+        setConsoleData(newConsoleData);
+      }
+      if (updatedDuties.length > 0) {
+        const dedupedList = deduplicateDeployments(updatedDuties);
+        setFallbackDeployments(dedupedList);
+      }
+      setCurrentDeploymentRecord((prev) => ({
+        ...(prev || {}),
+        deploymentId,
+        deploymentDate: activeDateStr,
+        dayType: targetDayType,
+        rosterData: newRosterData,
+      }));
+
+      // Immediately cache to localStorage
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.setItem(
+          `pyidcc_roster_desk_console_cache_${activeDateStr}`,
+          JSON.stringify(newConsoleData),
         );
-      } else {
-        alert(
-          `✅ ${isExchange ? "Duty Exchanged" : "Duties Swapped"} Successfully:\n${item1.label}\n↔\n${item2.label}`,
+        if (updatedDuties.length > 0) {
+          window.localStorage.setItem(
+            `pyidcc_daily_deployment_backup_${activeDateStr}`,
+            JSON.stringify(updatedDuties),
+          );
+        }
+      }
+
+      // Immediately dispatch real-time events for other components
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("pyidcc:roster_data_updated", {
+            detail: {
+              date: activeDateStr,
+              scheduleType: targetDayType,
+              timestamp: Date.now(),
+            },
+          }),
+        );
+        window.dispatchEvent(
+          new CustomEvent("pyidcc:deployment_mutated", {
+            detail: { date: activeDateStr, timestamp: Date.now() },
+          }),
         );
       }
-      if (onImportComplete) onImportComplete();
+
+      // Instant Non-Blocking Toast Notification (Replaces slow blocking native alert)
+      const instantMsg = isTriple
+        ? `Triple ${isExchange ? "Shift Exchange" : "Duties Swap"} Confirmed: ${item1.label} ➔ ${item2.label} ➔ ${item3.label} ➔ ${item1.label}`
+        : `${isExchange ? "Duty Exchange" : "Duties Swap"} Confirmed: ${item1.label} ↔ ${item2.label}`;
+      setSwapToastMessage(instantMsg);
+      setTimeout(() => setSwapToastMessage(""), 5000);
+
+      // ── 2. SINGLE CONSOLIDATED FIRESTORE BATCH (BACKGROUND COMMIT) ──
+      const batch = writeBatch(db);
+
+      const updateMainlineDeployment = (
+        itemTarget,
+        itemSource,
+        notePrefix,
+      ) => {
+        const payload = {
+          empName: itemSource.empName,
+          name: itemSource.empName,
+          operatorName: itemSource.empName,
+          empId: itemSource.empId,
+          empNo: itemSource.empId,
+          status: statusValue,
+          isSwapped: !isExchange,
+          swapped: !isExchange,
+          isExchanged: isExchange,
+          exchanged: isExchange,
+          swappedWith: itemSource.empName,
+          swappedDutyId: itemSource.dutyId,
+          originalEmpId: itemTarget.empId,
+          originalEmpName: itemTarget.empName,
+          remarks: isExchange
+            ? `${notePrefix || "Shift Exchanged"} with ${itemSource.category} (${itemSource.empName || itemSource.dutyId})`
+            : `${notePrefix || "Swapped"} with ${itemSource.category} (${itemSource.empName || itemSource.dutyId})`,
+          lastUpdated: serverTimestamp(),
+        };
+
+        if (itemTarget.docId) {
+          batch.set(
+            doc(db, "crew_daily_deployment", itemTarget.docId),
+            payload,
+            { merge: true },
+          );
+        }
+
+        const normId = String(
+          parseInt(itemTarget.dutyId, 10) || itemTarget.dutyId,
+        ).trim();
+        const paddedId = normId.padStart(2, "0");
+
+        const possibleDocIds = new Set();
+        if (activeDateStr) {
+          const isoD = formatOperationalDate(activeDateStr);
+          const indD = toIndianDateStr(activeDateStr);
+          possibleDocIds.add(`gcc_deploy_${isoD}_duty_${normId}`);
+          possibleDocIds.add(`gcc_deploy_${isoD}_duty_${paddedId}`);
+          if (indD && indD !== isoD) {
+            possibleDocIds.add(`gcc_deploy_${indD}_duty_${normId}`);
+            possibleDocIds.add(`gcc_deploy_${indD}_duty_${paddedId}`);
+          }
+        }
+        if (isToday) {
+          possibleDocIds.add(`gcc_deploy_${sched}_duty_${normId}`);
+          possibleDocIds.add(`gcc_deploy_${sched}_duty_${paddedId}`);
+          possibleDocIds.add(`gcc_deploy_active_run_duty_${paddedId}`);
+          possibleDocIds.add(`gcc_deploy_active_run_duty_${normId}`);
+        }
+
+        possibleDocIds.forEach((dId) => {
+          batch.set(doc(db, "crew_daily_deployment", dId), payload, {
+            merge: true,
+          });
+        });
+      };
+
+      if (isTriple) {
+        if (item1.type === "MAINLINE") {
+          updateMainlineDeployment(item1, item3, "Triple Swap Duty 1 ← Op 3");
+        }
+        if (item2.type === "MAINLINE") {
+          updateMainlineDeployment(item2, item1, "Triple Swap Duty 2 ← Op 1");
+        }
+        if (item3.type === "MAINLINE") {
+          updateMainlineDeployment(item3, item2, "Triple Swap Duty 3 ← Op 2");
+        }
+
+        if (isExchange) {
+          const exRef = doc(collection(db, "shift_exchanges"));
+          const exPayload = {
+            isTriple: true,
+            operator1Id: String(item1.empId || ""),
+            operator1Name: String(item1.empName || ""),
+            operator1Duty: String(item1.dutyId || ""),
+            operator2Id: String(item2.empId || ""),
+            operator2Name: String(item2.empName || ""),
+            operator2Duty: String(item2.dutyId || ""),
+            operator3Id: String(item3.empId || ""),
+            operator3Name: String(item3.empName || ""),
+            operator3Duty: String(item3.dutyId || ""),
+            exchangeDate: activeDateStr,
+            status: "APPROVED",
+            isOperational: true,
+            approvedBy: "DISPATCH GATEWAY CORE (CC/GCC)",
+            approvedAt: serverTimestamp(),
+            approvalTime: new Date().toISOString(),
+            remarks: `Triple exchange approved via DISPATCH GATEWAY CORE: Op 1 (${item1.empName}) ➔ Duty ${item2.dutyId} | Op 2 (${item2.empName}) ➔ Duty ${item3.dutyId} | Op 3 (${item3.empName}) ➔ Duty ${item1.dutyId}`,
+            createdAt: serverTimestamp(),
+          };
+          batch.set(exRef, exPayload);
+          batch.set(
+            doc(
+              db,
+              "shift_exchanges_operational",
+              `${exRef.id}_${item1.dutyId}`,
+            ),
+            { ...exPayload, dutyNumber: item1.dutyId },
+          );
+          batch.set(
+            doc(
+              db,
+              "shift_exchanges_operational",
+              `${exRef.id}_${item2.dutyId}`,
+            ),
+            { ...exPayload, dutyNumber: item2.dutyId },
+          );
+          batch.set(
+            doc(
+              db,
+              "shift_exchanges_operational",
+              `${exRef.id}_${item3.dutyId}`,
+            ),
+            { ...exPayload, dutyNumber: item3.dutyId },
+          );
+        }
+
+        try {
+          const auditRef = doc(collection(db, "auditLogs"));
+          batch.set(auditRef, {
+            action: isExchange
+              ? "ROSTER_DESK_TRIPLE_EXCHANGE"
+              : "ROSTER_DESK_TRIPLE_SWAP",
+            performedBy: "Crew Controller / GCC (DISPATCH GATEWAY CORE)",
+            timestamp: serverTimestamp(),
+            operationType: isExchange
+              ? "TRIPLE_DUTY_EXCHANGE"
+              : "TRIPLE_DUTY_SWAP",
+            isTriple: true,
+            duty1: item1.label,
+            duty2: item2.label,
+            duty3: item3.label,
+            operator1: `${item1.empName} (${item1.empId})`,
+            operator2: `${item2.empName} (${item2.empId})`,
+            operator3: `${item3.empName} (${item3.empId})`,
+            details: `${isExchange ? "Triple Exchange" : "Triple Swap"}: Op 1 [${item1.category}] ${item1.label} ➔ Duty ${item2.dutyId} | Op 2 [${item2.category}] ${item2.label} ➔ Duty ${item3.dutyId} | Op 3 [${item3.category}] ${item3.label} ➔ Duty ${item1.dutyId}`,
+          });
+        } catch (logErr) {
+          console.warn("Audit log error:", logErr);
+        }
+      } else {
+        if (item1.type === "MAINLINE") {
+          updateMainlineDeployment(item1, item2);
+        }
+        if (item2.type === "MAINLINE") {
+          updateMainlineDeployment(item2, item1);
+        }
+
+        if (isExchange) {
+          const exRef = doc(collection(db, "shift_exchanges"));
+          const exPayload = {
+            operator1Id: String(item1.empId || ""),
+            operator1Name: String(item1.empName || ""),
+            operator1Duty: String(item1.dutyId || ""),
+            operator2Id: String(item2.empId || ""),
+            operator2Name: String(item2.empName || ""),
+            operator2Duty: String(item2.dutyId || ""),
+            exchangeDate: activeDateStr,
+            status: "APPROVED",
+            isOperational: true,
+            approvedBy: "DISPATCH GATEWAY CORE (CC/GCC)",
+            approvedAt: serverTimestamp(),
+            approvalTime: new Date().toISOString(),
+            remarks: `Mutual exchange approved via DISPATCH GATEWAY CORE between Duty ${item1.dutyId} and Duty ${item2.dutyId}`,
+            createdAt: serverTimestamp(),
+          };
+          batch.set(exRef, exPayload);
+          batch.set(
+            doc(
+              db,
+              "shift_exchanges_operational",
+              `${exRef.id}_${item1.dutyId}`,
+            ),
+            { ...exPayload, dutyNumber: item1.dutyId },
+          );
+          batch.set(
+            doc(
+              db,
+              "shift_exchanges_operational",
+              `${exRef.id}_${item2.dutyId}`,
+            ),
+            { ...exPayload, dutyNumber: item2.dutyId },
+          );
+        }
+
+        try {
+          const auditRef = doc(collection(db, "auditLogs"));
+          batch.set(auditRef, {
+            action: isExchange
+              ? "ROSTER_DESK_DUTY_EXCHANGE"
+              : "ROSTER_DESK_DUTY_SWAP",
+            performedBy: "Crew Controller / GCC (DISPATCH GATEWAY CORE)",
+            timestamp: serverTimestamp(),
+            operationType: isExchange ? "DUTY_EXCHANGE" : "DUTY_SWAP",
+            duty1: item1.label,
+            duty2: item2.label,
+            operator1: `${item1.empName} (${item1.empId})`,
+            operator2: `${item2.empName} (${item2.empId})`,
+            details: `${isExchange ? "Exchanged" : "Swapped"}: [${item1.category}] ${item1.label} ↔ [${item2.category}] ${item2.label}`,
+          });
+        } catch (logErr) {
+          console.warn("Audit log error:", logErr);
+        }
+      }
+
+      // Persist dispatch_deployments
+      batch.set(
+        doc(db, "dispatch_deployments", deploymentId),
+        {
+          deploymentId,
+          deploymentDate: activeDateStr,
+          dayType: targetDayType,
+          scheduleType: targetDayType,
+          rosterData: newRosterData,
+          updatedAt: new Date().toISOString(),
+          lastUpdated: serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+      if (altDeploymentId && altDeploymentId !== deploymentId) {
+        batch.set(
+          doc(db, "dispatch_deployments", altDeploymentId),
+          {
+            deploymentId: altDeploymentId,
+            deploymentDate: activeDateStr,
+            dayType: targetDayType,
+            scheduleType: targetDayType,
+            rosterData: newRosterData,
+            updatedAt: new Date().toISOString(),
+            lastUpdated: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
+
+      // Update dispatch_excel_cache
+      const cachePayload = {
+        ...newRosterData,
+        lastUpdated: serverTimestamp(),
+      };
+      batch.set(
+        doc(db, "dispatch_excel_cache", activeDateStr),
+        cachePayload,
+        { merge: true },
+      );
+      if (altActiveDateStr && altActiveDateStr !== activeDateStr) {
+        batch.set(
+          doc(db, "dispatch_excel_cache", altActiveDateStr),
+          cachePayload,
+          { merge: true },
+        );
+      }
+
+      // Update live console if today
+      if (isToday) {
+        batch.set(doc(db, "roster_desk_console", "current"), cachePayload, {
+          merge: true,
+        });
+        batch.set(doc(db, "roster_desk_console", "latest"), cachePayload, {
+          merge: true,
+        });
+        batch.set(
+          doc(db, "dispatch_excel_cache", "current"),
+          cachePayload,
+          { merge: true },
+        );
+      }
+
+      // Touch latest_deployment_meta for listener sync
+      batch.set(
+        doc(db, "roster_desk_console", "latest_deployment_meta"),
+        {
+          dateStr: activeDateStr,
+          lastMutation: serverTimestamp(),
+          lastUpdated: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }),
+        },
+        { merge: true },
+      );
+
+      // Async fire and forget with background complete handler
+      batch
+        .commit()
+        .then(() => {
+          console.log("Roster Desk Duty Swap/Exchange committed successfully.");
+          if (onImportComplete) onImportComplete();
+        })
+        .catch((commitErr) => {
+          console.error("Failed to commit swap to Firestore:", commitErr);
+          setSwapToastMessage(
+            `⚠️ Note: Updated locally, cloud sync issue: ${commitErr.message}`,
+          );
+        });
     } catch (err) {
-      console.error(err);
+      console.error("Error executing swap:", err);
       alert(
         `Failed to ${isExchange ? "exchange" : "swap"} duties: ` + err.message,
       );
+    } finally {
+      setIsSubmittingSwap(false);
     }
   };
 
@@ -9045,6 +9160,31 @@ Rules:
 
   return (
     <div className="space-y-6 font-mono">
+      {/* Floating Instant Toast Notification for Swap/Exchange */}
+      {swapToastMessage && (
+        <div className="fixed top-5 right-5 z-[9999] max-w-md bg-slate-900 border-2 border-emerald-500 text-slate-100 p-4 rounded-xl shadow-2xl shadow-emerald-950/60 flex items-start gap-3 font-mono animate-in fade-in slide-in-from-top-4 duration-200">
+          <CheckCircle className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <div className="text-[11px] font-black text-emerald-300 uppercase tracking-widest flex items-center gap-1.5">
+              <span>CONFIRMED IMMEDIATELY</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
+                0ms LATENCY
+              </span>
+            </div>
+            <div className="text-xs text-slate-200 mt-1 font-bold break-words leading-relaxed">
+              {swapToastMessage}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSwapToastMessage("")}
+            className="text-slate-400 hover:text-white font-bold text-sm ml-1 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Header & Tabs */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-800 pb-4">
         <div>
@@ -15514,14 +15654,15 @@ Rules:
               <button
                 onClick={handleExecuteSwap}
                 disabled={
-                  swapMode === "TRIPLE"
+                  isSubmittingSwap ||
+                  (swapMode === "TRIPLE"
                     ? !swapDuty1 ||
                       !swapDuty2 ||
                       !swapDuty3 ||
                       swapDuty1 === swapDuty2 ||
                       swapDuty2 === swapDuty3 ||
                       swapDuty1 === swapDuty3
-                    : !swapDuty1 || !swapDuty2 || swapDuty1 === swapDuty2
+                    : !swapDuty1 || !swapDuty2 || swapDuty1 === swapDuty2)
                 }
                 className={`px-4 py-1.5 rounded text-xs font-black uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                   swapOperationType === "EXCHANGE"
@@ -15529,13 +15670,22 @@ Rules:
                     : "bg-amber-400 hover:bg-amber-300 text-slate-955"
                 }`}
               >
-                {swapMode === "TRIPLE"
-                  ? swapOperationType === "EXCHANGE"
-                    ? "CONFIRM TRIPLE EXCHANGE"
-                    : "CONFIRM TRIPLE SWAP"
-                  : swapOperationType === "EXCHANGE"
-                    ? "CONFIRM EXCHANGE"
-                    : "CONFIRM SWAP"}
+                {isSubmittingSwap ? (
+                  <span className="flex items-center gap-1.5">
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span>CONFIRMING...</span>
+                  </span>
+                ) : swapMode === "TRIPLE" ? (
+                  swapOperationType === "EXCHANGE" ? (
+                    "CONFIRM TRIPLE EXCHANGE"
+                  ) : (
+                    "CONFIRM TRIPLE SWAP"
+                  )
+                ) : swapOperationType === "EXCHANGE" ? (
+                  "CONFIRM EXCHANGE"
+                ) : (
+                  "CONFIRM SWAP"
+                )}
               </button>
             </div>
           </div>
