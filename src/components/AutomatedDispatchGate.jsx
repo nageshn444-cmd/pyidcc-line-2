@@ -1625,13 +1625,33 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
     calculateDefaultDayType(targetDeploymentDate),
   );
   const userExplicitDayTypeRef = useRef(false);
-  const [currentDeploymentRecord, setCurrentDeploymentRecord] = useState(null);
+  const [currentDeploymentRecord, setCurrentDeploymentRecord] = useState(() => {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        const cached = window.localStorage.getItem(
+          `pyidcc_current_deployment_record_${formatOperationalDate(targetDeploymentDate)}`,
+        );
+        if (cached) return JSON.parse(cached);
+      }
+    } catch (_e) {}
+    return null;
+  });
   const [deploymentHistoryList, setDeploymentHistoryList] = useState([]);
+  const deploymentHistoryListRef = useRef(deploymentHistoryList);
+  useEffect(() => {
+    deploymentHistoryListRef.current = deploymentHistoryList;
+  }, [deploymentHistoryList]);
+
   const [showDeploymentHistory, setShowDeploymentHistory] = useState(false);
   const [isDeployingGateway, setIsDeployingGateway] = useState(false);
 
   // Staging & Confirmation Engine States (Multi-Day Map: dateStr -> stagedData)
   const [stagedRostersByDate, setStagedRostersByDate] = useState({});
+  const stagedRostersByDateRef = useRef(stagedRostersByDate);
+  useEffect(() => {
+    stagedRostersByDateRef.current = stagedRostersByDate;
+  }, [stagedRostersByDate]);
+
   const stagedRoster = stagedRostersByDate[targetDeploymentDate] || null;
 
   const setStagedRoster = useCallback(
@@ -1726,13 +1746,13 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
         }
       } else if (!userExplicitDayTypeRef.current) {
         // Auto resolve dayType from historical deployment or staged data if available
-        const historyMatch = (deploymentHistoryList || []).find((d) => {
+        const historyMatch = (deploymentHistoryListRef.current || deploymentHistoryList || []).find((d) => {
           const dDate = formatOperationalDate(
             d.deploymentDate || d.date || d.targetDate,
           );
           return dDate === formatted || (d.id && d.id.includes(formatted));
         });
-        const stagedMatch = stagedRostersByDate[formatted];
+        const stagedMatch = stagedRostersByDateRef.current?.[formatted] || stagedRostersByDate[formatted];
         const computedDayType =
           historyMatch?.dayType ||
           historyMatch?.scheduleType ||
@@ -1768,9 +1788,13 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
         onDateChange(formatted);
       }
 
-      // Load staged roster for this target date if present; otherwise check history or clean state
-      const stagedForDate = stagedRostersByDate[formatted];
+      // Load staged roster for this target date if present; otherwise check history, local cache, or clean state
+      const stagedForDate = stagedRostersByDateRef.current?.[formatted] || stagedRostersByDate[formatted];
       if (stagedForDate) {
+        setCurrentDeploymentRecord({
+          status: "STAGED",
+          dateStr: formatted,
+        });
         setConsoleData(
           enforceSingleDutyRule(sanitizeConsoleContainer(stagedForDate)),
         );
@@ -1778,7 +1802,7 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
           setFallbackDeployments(deduplicateDeployments(stagedForDate.duties));
         }
       } else {
-        const historyMatch = (deploymentHistoryList || []).find((d) => {
+        const historyMatch = (deploymentHistoryListRef.current || deploymentHistoryList || []).find((d) => {
           const dDate = formatOperationalDate(
             d.deploymentDate || d.date || d.targetDate,
           );
@@ -1800,27 +1824,42 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
             );
           }
         } else {
-          // Strictly date-isolated blank slate: clear previous day's personnel
-          setCurrentDeploymentRecord(null);
-          setFallbackDeployments([]);
-          setConsoleData({
-            controlDesks: [],
-            coOperators: [],
-            leaves: [],
-            standbys: [],
-            outstationStepbacks: [],
-            crtTraining: [],
-            bmrtiTraining: [],
-            weeklyOffs: [],
-            relievedOperators: [],
-            pmeOperators: [],
-            routeLearning: [],
-            notReporting: [],
-            absents: [],
-            bookedOff: [],
-            onDuty: [],
-            customRegisters: {},
-          });
+          // Check local cache for instant retrieval without flicker
+          let cachedRec = null;
+          try {
+            const raw = localStorage.getItem(`pyidcc_current_deployment_record_${formatted}`);
+            if (raw) cachedRec = JSON.parse(raw);
+          } catch (_e) {}
+
+          if (cachedRec && cachedRec.rosterData) {
+            setCurrentDeploymentRecord(cachedRec);
+            setConsoleData(enforceSingleDutyRule(sanitizeConsoleContainer(cachedRec.rosterData)));
+            if (cachedRec.rosterData.duties) {
+              setFallbackDeployments(deduplicateDeployments(cachedRec.rosterData.duties));
+            }
+          } else {
+            // Strictly date-isolated blank slate: clear previous day's personnel
+            setCurrentDeploymentRecord(null);
+            setFallbackDeployments([]);
+            setConsoleData({
+              controlDesks: [],
+              coOperators: [],
+              leaves: [],
+              standbys: [],
+              outstationStepbacks: [],
+              crtTraining: [],
+              bmrtiTraining: [],
+              weeklyOffs: [],
+              relievedOperators: [],
+              pmeOperators: [],
+              routeLearning: [],
+              notReporting: [],
+              absents: [],
+              bookedOff: [],
+              onDuty: [],
+              customRegisters: {},
+            });
+          }
         }
       }
     },
@@ -1828,8 +1867,7 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
       setActiveDay,
       rollingDays,
       onDateChange,
-      deploymentHistoryList,
-      stagedRostersByDate,
+      targetDayType,
     ],
   );
 
@@ -2251,6 +2289,33 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
 
     let isSubscribed = true;
 
+    // 0ms instant display from local memory/cache while Firestore connects
+    const stagedNow = stagedRostersByDateRef.current?.[activeDate];
+    if (stagedNow) {
+      setCurrentDeploymentRecord({
+        status: "STAGED",
+        dateStr: activeDate,
+      });
+      setConsoleData(enforceSingleDutyRule(sanitizeConsoleContainer(stagedNow)));
+      if (stagedNow.duties && stagedNow.duties.length > 0) {
+        setFallbackDeployments(deduplicateDeployments(stagedNow.duties));
+      }
+    } else {
+      try {
+        const cachedLocal = localStorage.getItem(`pyidcc_current_deployment_record_${activeDate}`);
+        if (cachedLocal) {
+          const parsed = JSON.parse(cachedLocal);
+          if (parsed && parsed.status === "DEPLOYED" && parsed.rosterData) {
+            setCurrentDeploymentRecord(parsed);
+            setConsoleData(enforceSingleDutyRule(sanitizeConsoleContainer(parsed.rosterData)));
+            if (parsed.rosterData.duties) {
+              setFallbackDeployments(deduplicateDeployments(parsed.rosterData.duties));
+            }
+          }
+        }
+      } catch (_e) {}
+    }
+
     // Listen to dispatch_deployments for any document deployed on this calendar date across all date formats
     const qDep = query(
       collection(db, "dispatch_deployments"),
@@ -2273,9 +2338,20 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
             ) || docs[0];
         }
 
-        // If not found in snapshot query, check deploymentHistoryList
-        if (!matched && deploymentHistoryList?.length > 0) {
-          matched = deploymentHistoryList.find((d) => {
+        // Direct document lookup (e.g. 2026-10-29_WEEKDAY)
+        if (!matched) {
+          try {
+            const directId = getDeploymentId(activeDate, targetDayType);
+            const directDocSnap = await getDoc(doc(db, "dispatch_deployments", directId));
+            if (directDocSnap.exists() && directDocSnap.data()?.rosterData) {
+              matched = { id: directDocSnap.id, ...directDocSnap.data() };
+            }
+          } catch (_e) {}
+        }
+
+        // If not found in snapshot query, check deploymentHistoryListRef
+        if (!matched && deploymentHistoryListRef.current?.length > 0) {
+          matched = deploymentHistoryListRef.current.find((d) => {
             const dDate = formatOperationalDate(
               d.deploymentDate || d.date || d.targetDate,
             );
@@ -2316,6 +2392,19 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
           } catch (_e) {
             /* ignore read error */
           }
+        }
+
+        // Check localStorage cache before resetting
+        if (!matched) {
+          try {
+            const cachedLocal = localStorage.getItem(`pyidcc_current_deployment_record_${activeDate}`);
+            if (cachedLocal) {
+              const parsed = JSON.parse(cachedLocal);
+              if (parsed && parsed.status === "DEPLOYED" && parsed.rosterData) {
+                matched = parsed;
+              }
+            }
+          } catch (_e) {}
         }
 
         if (!isSubscribed) return;
@@ -2397,7 +2486,7 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
           }
         } else {
           // Check if there is an in-memory staged draft for this active calendar date
-          const stagedForThisDate = stagedRostersByDate[activeDate];
+          const stagedForThisDate = stagedRostersByDateRef.current?.[activeDate];
           if (stagedForThisDate) {
             setCurrentDeploymentRecord({
               status: "STAGED",
@@ -2477,8 +2566,6 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
   }, [
     targetDeploymentDate,
     targetDayType,
-    deploymentHistoryList,
-    stagedRostersByDate,
   ]);
 
   // Real-time listener for deployment history list
@@ -2746,6 +2833,7 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
           hour: "2-digit",
           minute: "2-digit",
         }),
+        isDeployed: true,
       };
       setDeployedRosterInfo(meta);
       await setDoc(
@@ -2753,6 +2841,33 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
         meta,
         { merge: true },
       );
+
+      const deployedRecord = {
+        id: result.deploymentId,
+        deploymentId: result.deploymentId,
+        deploymentDate: targetDeploymentDate,
+        date: targetDeploymentDate,
+        dateStr: targetDeploymentDate,
+        targetDate: targetDeploymentDate,
+        dayType: targetDayType,
+        scheduleType: targetDayType,
+        status: "DEPLOYED",
+        version: result.version || 1,
+        source: "UI_DEPLOY",
+        sourceFile: meta.sheetName,
+        rosterData: { ...cleanConsole, duties: dutiesToDeploy },
+        metadata: {
+          line: "Green Line",
+          totalDuties: dutiesToDeploy.length,
+          totalTrainCrew: dutiesToDeploy.length * 2,
+        },
+      };
+
+      setCurrentDeploymentRecord(deployedRecord);
+      setDeploymentHistoryList((prev) => [
+        deployedRecord,
+        ...(prev || []).filter((d) => d.id !== result.deploymentId),
+      ]);
 
       setConsoleData(cleanConsole);
       setFallbackDeployments(deduplicateDeployments(dutiesToDeploy));
@@ -2793,6 +2908,14 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
         localStorage.setItem(
           `pyidcc_roster_desk_console_cache_${targetDeploymentDate}`,
           JSON.stringify(cleanConsole),
+        );
+        localStorage.setItem(
+          `pyidcc_current_deployment_record_${targetDeploymentDate}`,
+          JSON.stringify(deployedRecord),
+        );
+        localStorage.setItem(
+          "pyidcc_roster_desk_meta",
+          JSON.stringify(meta),
         );
         window.dispatchEvent(
           new CustomEvent("pyidcc_dispatch_deployments_updated", {
@@ -2850,6 +2973,33 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
         deployedSummaries.push(
           `• ${dStr} (${schedType}): ${dutiesToDeploy.length} Duties [ID: ${result.deploymentId}]`,
         );
+      }
+      if (dates.includes(targetDeploymentDate)) {
+        const directId = getDeploymentId(targetDeploymentDate, targetDayType);
+        const stagedForCurrent = stagedRostersByDate[targetDeploymentDate];
+        const record = {
+          id: directId,
+          deploymentId: directId,
+          deploymentDate: targetDeploymentDate,
+          date: targetDeploymentDate,
+          dateStr: targetDeploymentDate,
+          targetDate: targetDeploymentDate,
+          dayType: targetDayType,
+          scheduleType: targetDayType,
+          status: "DEPLOYED",
+          rosterData: stagedForCurrent,
+        };
+        setCurrentDeploymentRecord(record);
+        setDeploymentHistoryList((prev) => [
+          record,
+          ...(prev || []).filter((d) => d.id !== directId),
+        ]);
+        try {
+          localStorage.setItem(
+            `pyidcc_current_deployment_record_${targetDeploymentDate}`,
+            JSON.stringify(record),
+          );
+        } catch (_e) {}
       }
       setStagedRostersByDate({});
       setIsRosterConfirmed(true);
@@ -4681,8 +4831,13 @@ Rules:
             hour: "2-digit",
             minute: "2-digit",
           }),
+          isDeployed: false,
         };
         setDeployedRosterInfo(meta);
+        setCurrentDeploymentRecord({
+          status: "STAGED",
+          dateStr: targetDateStr,
+        });
         const fileTypeLabel = isJSON
           ? "JSON"
           : isPDF
@@ -10159,15 +10314,27 @@ Rules:
                       (dep.id && dep.id.includes(d.dateStr))
                     );
                   });
-                  const isDeployed = Boolean(depMatch);
+                  const isCurrentMatch =
+                    currentDeploymentRecord?.status === "DEPLOYED" &&
+                    formatOperationalDate(
+                      currentDeploymentRecord.deploymentDate ||
+                        currentDeploymentRecord.date ||
+                        currentDeploymentRecord.dateStr,
+                    ) === d.dateStr;
+                  const isDeployed = Boolean(depMatch || isCurrentMatch);
                   const stagedMatch = stagedRostersByDate[d.dateStr];
-                  const isStaged = Boolean(stagedMatch);
+                  const isCurrentStagedMatch =
+                    !isDeployed &&
+                    currentDeploymentRecord?.status === "STAGED" &&
+                    formatOperationalDate(currentDeploymentRecord.dateStr) === d.dateStr;
+                  const isStaged = Boolean(stagedMatch || isCurrentStagedMatch);
                   const dutyCount = isDeployed
-                    ? depMatch.rosterData?.duties?.length ||
-                      depMatch.metadata?.totalDuties ||
-                      0
+                    ? depMatch?.rosterData?.duties?.length ||
+                      depMatch?.metadata?.totalDuties ||
+                      (isCurrentMatch ? currentDeploymentRecord?.rosterData?.duties?.length || currentDeploymentRecord?.metadata?.totalDuties : 0) ||
+                      (isSelected ? deduplicatedDeployments.length : 0)
                     : isStaged
-                      ? stagedMatch.duties?.length || 0
+                      ? stagedMatch?.duties?.length || 0
                       : 0;
 
                   const rawType = isDeployed
@@ -10553,7 +10720,12 @@ Rules:
 
             {/* ── Step 3 — INSPECT & STAGE ROSTER (PREVIEW) ── */}
             {(() => {
-              const canInspect = !!selectedRosterFile && !isInspectingPath;
+              const hasGoogleSheet =
+                isGoogleSheetUrl(excelPathInput) ||
+                isGoogleSheetUrl(connectedGoogleSheetUrl);
+              const canInspect =
+                (!isInspectingPath && !isSyncingGoogleSheet) &&
+                (!!selectedRosterFile || hasGoogleSheet);
               const d = activeSelectedDayObj;
               const effectiveDayType = targetDayType || d.scheduleType;
               const displayType =
@@ -10583,17 +10755,23 @@ Rules:
                 <div className="flex flex-col sm:flex-row items-center gap-3">
                   <button
                     type="button"
-                    onClick={() =>
-                      processFileAndDeploy(
-                        selectedRosterFile,
-                        null,
-                        activeSelectedDayObj.date,
-                      )
-                    }
+                    onClick={async () => {
+                      if (selectedRosterFile) {
+                        await processFileAndDeploy(
+                          selectedRosterFile,
+                          null,
+                          activeSelectedDayObj.date,
+                        );
+                      } else if (hasGoogleSheet) {
+                        await handleSyncFromGoogleSheet(
+                          excelPathInput || connectedGoogleSheetUrl,
+                        );
+                      }
+                    }}
                     disabled={!canInspect}
                     title={
-                      !selectedRosterFile
-                        ? "Select a roster file first (Step 2)"
+                      !canInspect
+                        ? "Select a roster file or provide a Google Sheet URL first (Step 2)"
                         : `Inspect & stage roster preview for ${d.displayLabel} as ${displayType}. Click DEPLOY ROSTER in Step 1 to deploy.`
                     }
                     className={`flex-1 bg-linear-to-r ${grad} text-slate-950 font-black text-xs px-6 py-3.5 rounded-xl shadow-md flex items-center justify-center gap-2.5 uppercase tracking-wider transition-all ${
@@ -10602,20 +10780,20 @@ Rules:
                         : "opacity-35 cursor-not-allowed"
                     }`}
                   >
-                    {isInspectingPath ? (
+                    {isInspectingPath || isSyncingGoogleSheet ? (
                       <Loader2 className="h-5 w-5 animate-spin" />
                     ) : (
                       <Cpu className="h-5 w-5" />
                     )}
                     <span className="text-sm">
-                      {isInspectingPath
+                      {isInspectingPath || isSyncingGoogleSheet
                         ? `Inspecting ${d.badge} Roster…`
                         : `INSPECT & STAGE ROSTER — ${dayLabel} (${displayType})`}
                     </span>
                   </button>
-                  {!selectedRosterFile && (
+                  {!selectedRosterFile && !hasGoogleSheet && (
                     <span className="text-[10px] text-slate-500 font-mono italic whitespace-nowrap">
-                      ← Select a file in Step 2 to enable
+                      ← Select a file or enter a Google Sheet URL in Step 2 to enable
                     </span>
                   )}
                 </div>
@@ -10700,104 +10878,194 @@ Rules:
               </div>
             )}
 
-            {/* Active Deployed Roster Date Notification Banner */}
-            {(deployedRosterInfo || deduplicatedDeployments.length > 0) && (
-              <div className="bg-emerald-950/70 border border-emerald-500/60 rounded-xl p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs font-mono animate-in fade-in duration-300 shadow-xl">
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
-                  <div>
-                    <div className="font-black text-emerald-300 text-xs flex items-center gap-2 tracking-wide uppercase">
-                      <span>
-                        Date Roster Sheet (
-                        {deployedRosterInfo?.sheetName || currentDayType})
-                        Parsed & Deployed!
-                      </span>
-                      {deployedRosterInfo?.deployedAt && (
-                        <span className="text-[10px] text-emerald-400/80 font-normal">
-                          [{deployedRosterInfo.deployedAt}]
-                        </span>
-                      )}
+            {/* Active Deployed or Staged Roster Notification Banner */}
+            {(() => {
+              const activeDateStr = formatOperationalDate(targetDeploymentDate);
+              const isTargetDateDeployed =
+                currentDeploymentRecord?.status === "DEPLOYED" ||
+                (deployedRosterInfo?.dateStr === activeDateStr &&
+                  deployedRosterInfo?.isDeployed);
+              const stagedForActive =
+                stagedRostersByDate[activeDateStr] || stagedRoster;
+              const isTargetDateStaged =
+                !isTargetDateDeployed &&
+                Boolean(
+                  stagedForActive ||
+                    (deployedRosterInfo?.dateStr === activeDateStr &&
+                      !deployedRosterInfo?.isDeployed),
+                );
+
+              if (!isTargetDateDeployed && !isTargetDateStaged) {
+                return null;
+              }
+
+              const info =
+                deployedRosterInfo?.dateStr === activeDateStr
+                  ? deployedRosterInfo
+                  : null;
+              const sheetTitle =
+                info?.sheetName ||
+                stagedForActive?.sheetName ||
+                currentDeploymentRecord?.sourceFile ||
+                currentDayType;
+              const timeLabel =
+                info?.deployedAt ||
+                info?.stagedAt ||
+                currentDeploymentRecord?.updatedAt ||
+                "";
+              const deployedCount =
+                info?.deployedCount ||
+                currentDeploymentRecord?.rosterData?.duties?.length ||
+                stagedForActive?.duties?.length ||
+                deduplicatedDeployments.length;
+              const woCount =
+                info?.woCount ??
+                currentDeploymentRecord?.rosterData?.weeklyOffs?.length ??
+                stagedForActive?.weeklyOffs?.length ??
+                consoleData.weeklyOffs.length;
+              const leaveCount =
+                info?.leaveCount ??
+                currentDeploymentRecord?.rosterData?.leaves?.length ??
+                stagedForActive?.leaves?.length ??
+                consoleData.leaves.length;
+
+              if (isTargetDateDeployed) {
+                return (
+                  <div className="bg-emerald-950/70 border border-emerald-500/60 rounded-xl p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs font-mono animate-in fade-in duration-300 shadow-xl">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-black text-emerald-300 text-xs flex items-center gap-2 tracking-wide uppercase">
+                          <span>
+                            Date Roster Sheet ({sheetTitle}) Parsed &amp; Deployed!
+                          </span>
+                          {timeLabel && (
+                            <span className="text-[10px] text-emerald-400/80 font-normal">
+                              [{timeLabel}]
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-emerald-200/90 font-medium mt-1">
+                          Target Day ({activeDateStr}): Deployed{" "}
+                          <span className="font-black text-emerald-300">
+                            {deployedCount}
+                          </span>{" "}
+                          Operators to Dispatch Gate |{" "}
+                          <span className="font-black text-emerald-300">
+                            {woCount}
+                          </span>{" "}
+                          to Weekly Off Page |{" "}
+                          <span className="font-black text-emerald-300">
+                            {leaveCount}
+                          </span>{" "}
+                          to Leave &amp; Rest Page.
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-[11px] text-emerald-200/90 font-medium mt-1">
-                      Target Day (
-                      {deployedRosterInfo?.dateStr ||
-                        new Date().toLocaleDateString("en-GB")}
-                      ): Deployed{" "}
-                      <span className="font-black text-emerald-300">
-                        {deployedRosterInfo?.deployedCount ||
-                          deduplicatedDeployments.length}
-                      </span>{" "}
-                      Operators to Dispatch Gate |{" "}
-                      <span className="font-black text-emerald-300">
-                        {deployedRosterInfo?.woCount ??
-                          consoleData.weeklyOffs.length}
-                      </span>{" "}
-                      to Weekly Off Page |{" "}
-                      <span className="font-black text-emerald-300">
-                        {deployedRosterInfo?.leaveCount ??
-                          consoleData.leaves.length}
-                      </span>{" "}
-                      to Leave & Rest Page.
+                    <div className="flex items-center gap-2 shrink-0 self-end md:self-center flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setShowOfficialGccSheetModal(true)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs font-mono uppercase tracking-wider transition shadow cursor-pointer"
+                        title="View 1:1 official GCC Roster Sheet"
+                      >
+                        <FileSpreadsheet className="w-3.5 h-3.5" />
+                        <span>View 1:1 Sheet</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const targetDateToPub = activeDateStr;
+                          if (!targetDateToPub) {
+                            alert("No active roster date available to publish.");
+                            return;
+                          }
+                          const nextStatus = !isPublishedToOperators;
+                          setIsPublishedToOperators(nextStatus);
+                          try {
+                            await setDoc(
+                              doc(db, "dispatch_excel_cache", targetDateToPub),
+                              {
+                                isPublishedForOperators: nextStatus,
+                                publishedAt: serverTimestamp(),
+                              },
+                              { merge: true },
+                            );
+                          } catch (err) {
+                            console.error("Failed to toggle publish:", err);
+                            setIsPublishedToOperators(!nextStatus);
+                          }
+                        }}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition border ${
+                          isPublishedToOperators
+                            ? "bg-emerald-900/90 text-emerald-300 border-emerald-500"
+                            : "bg-amber-950/80 text-amber-300 border-amber-500"
+                        }`}
+                      >
+                        <Radio
+                          className={`w-3.5 h-3.5 ${isPublishedToOperators ? "text-emerald-400 animate-pulse" : "text-amber-400"}`}
+                        />
+                        <span>
+                          {isPublishedToOperators
+                            ? "● PUBLISHED TO TOs"
+                            : "○ UNPUBLISHED"}
+                        </span>
+                      </button>
+                      <span className="bg-emerald-900/90 text-emerald-300 text-[10px] font-bold px-3 py-1 rounded-lg border border-emerald-600 uppercase tracking-widest shadow">
+                        DEPLOYED DATE: {activeDateStr}
+                      </span>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 self-end md:self-center flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => setShowOfficialGccSheetModal(true)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs font-mono uppercase tracking-wider transition shadow cursor-pointer"
-                    title="View 1:1 official GCC Roster Sheet"
-                  >
-                    <FileSpreadsheet className="w-3.5 h-3.5" />
-                    <span>View 1:1 Sheet</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      // Always use activeSelectedDateStr first — deployedRosterInfo.dateStr
-                      // may point to today even when the user is publishing tomorrow's roster.
-                      const targetDateStr =
-                        activeSelectedDateStr || deployedRosterInfo?.dateStr;
-                      const nextStatus = !isPublishedToOperators;
-                      setIsPublishedToOperators(nextStatus);
-                      try {
-                        await setDoc(
-                          doc(db, "dispatch_excel_cache", targetDateStr),
-                          {
-                            isPublishedForOperators: nextStatus,
-                            publishedAt: serverTimestamp(),
-                          },
-                          { merge: true },
-                        );
-                      } catch (err) {
-                        console.error("Failed to toggle publish:", err);
-                        // Revert optimistic update on failure
-                        setIsPublishedToOperators(!nextStatus);
-                      }
-                    }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition border ${
-                      isPublishedToOperators
-                        ? "bg-emerald-900/90 text-emerald-300 border-emerald-500"
-                        : "bg-amber-950/80 text-amber-300 border-amber-500"
-                    }`}
-                  >
-                    <Radio
-                      className={`w-3.5 h-3.5 ${isPublishedToOperators ? "text-emerald-400 animate-pulse" : "text-amber-400"}`}
-                    />
-                    <span>
-                      {isPublishedToOperators
-                        ? "● PUBLISHED TO TOs"
-                        : "○ UNPUBLISHED"}
+                );
+              }
+
+              // Staged Banner (Pending final deploy click)
+              return (
+                <div className="bg-amber-950/70 border border-amber-500/60 rounded-xl p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs font-mono animate-in fade-in duration-300 shadow-xl">
+                  <div className="flex items-start gap-3">
+                    <Sparkles className="h-5 w-5 text-amber-400 shrink-0 mt-0.5 animate-pulse" />
+                    <div>
+                      <div className="font-black text-amber-300 text-xs flex items-center gap-2 tracking-wide uppercase">
+                        <span>
+                          Date Roster Sheet ({sheetTitle}) Parsed &amp; Staged (Preview)!
+                        </span>
+                        {timeLabel && (
+                          <span className="text-[10px] text-amber-400/80 font-normal">
+                            [{timeLabel}]
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-amber-200/90 font-medium mt-1">
+                        Target Day ({activeDateStr}): Staged{" "}
+                        <span className="font-black text-amber-300">
+                          {deployedCount}
+                        </span>{" "}
+                        Operators in preview. Click DEPLOY ROSTER in Step 1 to deploy.
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 self-end md:self-center flex-wrap">
+                    <button
+                      type="button"
+                      onClick={handleDeployClick}
+                      disabled={isDeployingGateway}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-linear-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-lg shadow-md cursor-pointer transition disabled:opacity-50"
+                      title={`Deploy staged roster now for ${activeDateStr}`}
+                    >
+                      {isDeployingGateway ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Cpu className="w-3.5 h-3.5" />
+                      )}
+                      <span>DEPLOY ROSTER NOW</span>
+                    </button>
+                    <span className="bg-amber-950 text-amber-300 text-[10px] font-bold px-3 py-1 rounded-lg border border-amber-600 uppercase tracking-widest shadow">
+                      STATUS: STAGED (READY TO DEPLOY)
                     </span>
-                  </button>
-                  <span className="bg-emerald-900/90 text-emerald-300 text-[10px] font-bold px-3 py-1 rounded-lg border border-emerald-600 uppercase tracking-widest shadow">
-                    DEPLOYED DATE:{" "}
-                    {deployedRosterInfo?.dateStr ||
-                      new Date().toLocaleDateString("en-GB")}
-                  </span>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
 
           {/* 2. Control Toolbar: Search, Filters, Duplicate Check & Actions */}
