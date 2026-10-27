@@ -2251,24 +2251,29 @@ export const rosterAutoClassifierService = {
       updatedAt: serverTimestamp(),
     };
 
-    await setDoc(doc(db, "dispatch_excel_cache", dateStr), consoleSnapshot, {
-      merge: true,
-    });
+    const initialWrites = [
+      setDoc(doc(db, "dispatch_excel_cache", dateStr), consoleSnapshot, {
+        merge: true,
+      }),
+    ];
 
     // If deploying for today, also update current active console
     if (dateStr === todayStr) {
-      await setDoc(
-        doc(db, "dispatch_excel_cache", "current"),
-        consoleSnapshot,
-        { merge: true },
+      initialWrites.push(
+        setDoc(
+          doc(db, "dispatch_excel_cache", "current"),
+          consoleSnapshot,
+          { merge: true },
+        ),
+        setDoc(doc(db, "roster_desk_console", "current"), consoleSnapshot, {
+          merge: true,
+        }),
+        setDoc(doc(db, "roster_desk_console", "latest"), consoleSnapshot, {
+          merge: true,
+        }),
       );
-      await setDoc(doc(db, "roster_desk_console", "current"), consoleSnapshot, {
-        merge: true,
-      });
-      await setDoc(doc(db, "roster_desk_console", "latest"), consoleSnapshot, {
-        merge: true,
-      });
     }
+    await Promise.all(initialWrites);
 
     try {
       if (typeof window !== "undefined" && window.localStorage) {
@@ -2370,14 +2375,16 @@ export const rosterAutoClassifierService = {
         }
       }
 
-      // Safe chunked commit (max 100 ops per batch)
+      // Safe chunked commit (max 100 ops per batch) parallelized
       const dutyEntries = Array.from(dutyMap.values());
+      const batchPromises = [];
       for (let i = 0; i < dutyEntries.length; i += 100) {
         const chunk = dutyEntries.slice(i, i + 100);
         const chunkBatch = writeBatch(db);
         chunk.forEach(({ ref, data }) => chunkBatch.set(ref, data, { merge: true }));
-        await chunkBatch.commit();
+        batchPromises.push(chunkBatch.commit());
       }
+      await Promise.all(batchPromises);
     }
 
     // Comprehensive Cross-Page Deployment to Dedicated Registers:

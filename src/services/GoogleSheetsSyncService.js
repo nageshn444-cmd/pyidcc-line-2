@@ -73,7 +73,45 @@ export function parseGoogleSheetUrl(url) {
 }
 
 /**
- * Fetches CSV content directly from Google Sheets
+ * Helper to execute fetch with a strict timeout signal
+ */
+async function fetchWithTimeout(url, options = {}, timeoutMs = 3500) {
+  let timer;
+  let signal;
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    signal = AbortSignal.timeout(timeoutMs);
+  } else {
+    const controller = new AbortController();
+    timer = setTimeout(() => controller.abort(), timeoutMs);
+    signal = controller.signal;
+  }
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal,
+    });
+    if (timer) clearTimeout(timer);
+    return response;
+  } catch (err) {
+    if (timer) clearTimeout(timer);
+    throw err;
+  }
+}
+
+/**
+ * Validates whether the fetched text is genuine CSV data and not an HTML error or login page.
+ */
+function validateCsvContent(text) {
+  if (!text || typeof text !== 'string') return false;
+  if (text.includes('<!DOCTYPE html>') || text.includes('<html') || text.includes('Sign in to your Google Account')) {
+    return false;
+  }
+  return text.includes(',') || text.includes('\t') || text.includes('\n');
+}
+
+/**
+ * Fetches CSV content directly from Google Sheets with ultra-fast parallel proxy fallback
  */
 export async function fetchGoogleSheetCsv(url) {
   const parsed = parseGoogleSheetUrl(url);
@@ -81,48 +119,81 @@ export async function fetchGoogleSheetCsv(url) {
     throw new Error('Please enter a valid Google Sheets URL (e.g. https://docs.google.com/spreadsheets/d/...)');
   }
 
-  const candidateEndpoints = [];
-  if (parsed.isPublished) {
-    candidateEndpoints.push(parsed.csvUrl);
-    candidateEndpoints.push(`https://corsproxy.io/?${encodeURIComponent(parsed.csvUrl)}`);
-    candidateEndpoints.push(`https://api.allorigins.win/raw?url=${encodeURIComponent(parsed.csvUrl)}`);
-  } else {
-    // 1. Direct GViz CSV endpoint (most permissive CORS headers for public sheets)
-    candidateEndpoints.push(parsed.gvizCsvUrl);
-    // 2. Direct Export CSV endpoint
-    candidateEndpoints.push(parsed.csvUrl);
-    // 3. Fallback CORS proxies
-    candidateEndpoints.push(`https://corsproxy.io/?${encodeURIComponent(parsed.csvUrl)}`);
-    candidateEndpoints.push(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(parsed.csvUrl)}`);
-    candidateEndpoints.push(`https://api.allorigins.win/raw?url=${encodeURIComponent(parsed.gvizCsvUrl)}`);
-  }
-
   let isRestricted = false;
-  for (const ep of candidateEndpoints) {
+
+  // 1. First, attempt direct Google Sheets endpoints with a fast 2.5s timeout.
+  // For published/public sheets or CORS-tolerant browsers, this resolves in ~200-500ms!
+  const directEndpoints = parsed.isPublished
+    ? [parsed.csvUrl]
+    : [parsed.gvizCsvUrl, parsed.csvUrl];
+
+  for (const ep of directEndpoints) {
     try {
-      const response = await fetch(ep, {
+      const response = await fetchWithTimeout(ep, {
         cache: 'no-store',
-        headers: { 'Accept': 'text/csv, text/plain, */*' }
-      });
+        headers: { 'Accept': 'text/csv, text/plain, */*' },
+      }, 2500);
 
       if (response.status === 401 || response.status === 403) {
         isRestricted = true;
-      }
-
-      if (response.ok) {
+      } else if (response.ok) {
         const text = await response.text();
-        // Check if response is actually HTML (login page or error)
-        if (text && !text.includes('<!DOCTYPE html>') && !text.includes('<html')) {
-          if (text.includes(',') || text.includes('\t') || text.includes('\n')) {
-            return text;
-          }
-        } else if (text && text.includes('Sign in to your Google Account')) {
+        if (text.includes('Sign in to your Google Account')) {
           isRestricted = true;
+        } else if (validateCsvContent(text)) {
+          return text;
         }
       }
     } catch {
-      // Continue to next endpoint
+      // Direct fetch failed (CORS or network timeout); advance to fast concurrent proxy race
     }
+  }
+
+  // 2. If direct endpoints failed (e.g. browser CORS restrictions on Google servers),
+  // race multiple independent CORS proxies concurrently. The fastest working proxy wins!
+  const targetCsvUrl = parsed.isPublished ? parsed.csvUrl : (parsed.gvizCsvUrl || parsed.csvUrl);
+  const targetExportUrl = parsed.csvUrl;
+
+  const proxyCandidates = [
+    `https://corsproxy.io/?${encodeURIComponent(targetCsvUrl)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(targetCsvUrl)}`,
+    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetCsvUrl)}`,
+    `https://corsproxy.io/?${encodeURIComponent(targetExportUrl)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(targetExportUrl)}`,
+  ];
+
+  try {
+    const fastestResult = await Promise.any(
+      proxyCandidates.map(async (proxyUrl) => {
+        const response = await fetchWithTimeout(proxyUrl, {
+          cache: 'no-store',
+          headers: { 'Accept': 'text/csv, text/plain, */*' },
+        }, 4500);
+
+        if (response.status === 401 || response.status === 403) {
+          isRestricted = true;
+          throw new Error('Restricted');
+        }
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const text = await response.text();
+        if (text && text.includes('Sign in to your Google Account')) {
+          isRestricted = true;
+          throw new Error('Restricted');
+        }
+        if (validateCsvContent(text)) {
+          return text;
+        }
+        throw new Error('Invalid CSV payload');
+      })
+    );
+
+    if (fastestResult) {
+      return fastestResult;
+    }
+  } catch {
+    // All proxies failed or timed out
   }
 
   if (isRestricted) {

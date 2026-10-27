@@ -2699,16 +2699,18 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
     });
 
     const dutyEntries = Array.from(dutyMap.values());
+    const batchPromises = [];
     for (let i = 0; i < dutyEntries.length; i += 100) {
       const chunk = dutyEntries.slice(i, i + 100);
       const chunkBatch = writeBatch(db);
       chunk.forEach(({ ref, data }) =>
         chunkBatch.set(ref, data, { merge: true }),
       );
-      await chunkBatch.commit();
+      batchPromises.push(chunkBatch.commit());
     }
+    await Promise.all(batchPromises);
 
-    // 3. Cache in dispatch_excel_cache & roster_desk_console
+    // 3. Cache in dispatch_excel_cache & roster_desk_console (Parallelized)
     const consoleSnapshot = {
       date: depDate,
       dayType: depDayType,
@@ -2724,53 +2726,23 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
       updatedAt: serverTimestamp(),
     };
 
-    // Save to date-partitioned documents in Firestore
-    await setDoc(
-      doc(db, "roster_desk_console", `date_${depDate}`),
-      consoleSnapshot,
-      {
-        merge: true,
-      },
-    );
-    await setDoc(doc(db, "roster_desk_console", depDate), consoleSnapshot, {
-      merge: true,
-    });
-    await setDoc(doc(db, "dispatch_excel_cache", depDate), consoleSnapshot, {
-      merge: true,
-    });
+    const consoleWrites = [
+      setDoc(doc(db, "roster_desk_console", `date_${depDate}`), consoleSnapshot, { merge: true }),
+      setDoc(doc(db, "roster_desk_console", depDate), consoleSnapshot, { merge: true }),
+      setDoc(doc(db, "dispatch_excel_cache", depDate), consoleSnapshot, { merge: true }),
+      setDoc(doc(db, "roster_desk_console", "current"), consoleSnapshot, { merge: true }),
+      setDoc(doc(db, "roster_desk_console", "latest"), consoleSnapshot, { merge: true }),
+      setDoc(doc(db, "dispatch_excel_cache", "current"), consoleSnapshot, { merge: true }),
+      setDoc(doc(db, "dispatch_excel_cache", "latest"), consoleSnapshot, { merge: true }),
+    ];
     if (indDate && indDate !== depDate) {
-      await setDoc(doc(db, "dispatch_excel_cache", indDate), consoleSnapshot, {
-        merge: true,
-      });
-      await setDoc(
-        doc(db, "roster_desk_console", `date_${indDate}`),
-        consoleSnapshot,
-        {
-          merge: true,
-        },
+      consoleWrites.push(
+        setDoc(doc(db, "dispatch_excel_cache", indDate), consoleSnapshot, { merge: true }),
+        setDoc(doc(db, "roster_desk_console", `date_${indDate}`), consoleSnapshot, { merge: true }),
+        setDoc(doc(db, "roster_desk_console", indDate), consoleSnapshot, { merge: true }),
       );
-      await setDoc(doc(db, "roster_desk_console", indDate), consoleSnapshot, {
-        merge: true,
-      });
     }
-
-    // Unconditionally update current and latest pointers so all connected systems and devices sync instantly
-    await setDoc(doc(db, "roster_desk_console", "current"), consoleSnapshot, {
-      merge: true,
-    });
-    await setDoc(doc(db, "roster_desk_console", "latest"), consoleSnapshot, {
-      merge: true,
-    });
-    await setDoc(
-      doc(db, "dispatch_excel_cache", "current"),
-      consoleSnapshot,
-      { merge: true },
-    );
-    await setDoc(
-      doc(db, "dispatch_excel_cache", "latest"),
-      consoleSnapshot,
-      { merge: true },
-    );
+    await Promise.all(consoleWrites);
 
     // 4. Save official deployment record in dispatch_deployments
     const result = await executeDeployment({
@@ -2878,6 +2850,7 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
         return copy;
       });
       setIsRosterConfirmed(true);
+      setStagedRoster(null);
 
       // Propagate chosen schedule type across application
       if (setActiveDay) {
@@ -3916,7 +3889,7 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
         },
       );
 
-      // Update latest deployment metadata
+      // Update latest deployment metadata & history
       const meta = {
         sheetName:
           stagedRoster.sheetName ||
@@ -3932,23 +3905,53 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
           hour: "2-digit",
           minute: "2-digit",
         }),
+        isDeployed: true,
       };
+
+      const deployedRecord = {
+        id: result.deploymentId,
+        deploymentId: result.deploymentId,
+        deploymentDate: targetDateStr,
+        date: targetDateStr,
+        dateStr: targetDateStr,
+        targetDate: targetDateStr,
+        dayType: deployDayType,
+        scheduleType: deployDayType,
+        status: "DEPLOYED",
+        version: result.version || 1,
+        source: "UI_DEPLOY",
+        sourceFile: meta.sheetName,
+        rosterData: { ...cleanConsole, duties: dutiesToDeploy },
+        metadata: {
+          line: "Green Line",
+          totalDuties: dutiesToDeploy.length,
+          totalTrainCrew: dutiesToDeploy.length * 2,
+        },
+      };
+
+      setCurrentDeploymentRecord(deployedRecord);
+      setDeploymentHistoryList((prev) => [
+        deployedRecord,
+        ...(prev || []).filter((d) => d.id !== result.deploymentId),
+      ]);
+
       setDeployedRosterInfo(meta);
-      await setDoc(
+      setDoc(
         doc(db, "roster_desk_console", "latest_deployment_meta"),
         meta,
         { merge: true },
-      );
+      ).catch((e) => console.warn("latest_deployment_meta write warning:", e));
 
       setConsoleData(cleanConsole);
       setFallbackDeployments(deduplicateDeployments(dutiesToDeploy));
-      // Remove date from staged drafts
+      // Remove date from staged drafts and clear active preview draft
       setStagedRostersByDate((prev) => {
         const copy = { ...prev };
         delete copy[targetDateStr];
         return copy;
       });
       setIsRosterConfirmed(true);
+      setStagedRoster(null);
 
       // Propagate chosen schedule type across application
       if (setActiveDay) {
@@ -3975,6 +3978,14 @@ const AutomatedDispatchGate = forwardRef(function AutomatedDispatchGate(
         localStorage.setItem(
           "pyidcc_roster_desk_console_cache",
           JSON.stringify(cleanConsole),
+        );
+        localStorage.setItem(
+          `pyidcc_current_deployment_record_${targetDateStr}`,
+          JSON.stringify(deployedRecord),
+        );
+        localStorage.setItem(
+          "pyidcc_current_deployment_record",
+          JSON.stringify(deployedRecord),
         );
         localStorage.setItem(
           `pyidcc_roster_desk_console_cache_${targetDateStr}`,
