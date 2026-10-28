@@ -425,7 +425,7 @@ export default function LiveTrainPositionTracker({
   useEffect(() => {
     const unsubDeploy = onSnapshot(collection(db, 'crew_daily_deployment'), (snap) => {
       setDailyDeployments(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    }, (err) => console.warn("LiveTrainTracker crew_daily_deployment:", err));
 
     const unsubDeskCurrent = onSnapshot(doc(db, 'roster_desk_console', 'current'), (docSnap) => {
       if (docSnap.exists()) {
@@ -435,35 +435,25 @@ export default function LiveTrainPositionTracker({
           setConsoleDeskDuties(duties);
         }
       }
-    });
-
-    const unsubDeskLatest = onSnapshot(doc(db, 'roster_desk_console', 'latest'), (docSnap) => {
-      if (docSnap.exists()) {
-        const d = docSnap.data();
-        const duties = d.duties || d.onDuty || d.allDuties || [];
-        if (duties.length > 0) {
-          setConsoleDeskDuties(duties);
-        }
-      }
-    });
+    }, (err) => console.warn("LiveTrainTracker roster_desk_console/current:", err));
 
     // crew_final_links: maps dutyId → leg1TrainNo, leg2TrainNo, leg3TrainNo, leg4TrainNo
     const unsubLinks = onSnapshot(collection(db, 'crew_final_links'), (snap) => {
       setLinkRoster(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    }, (err) => console.warn("LiveTrainTracker crew_final_links:", err));
 
     // daily_crew_tracks: keyed {date}_{trainId}, has currentOperator.name as a direct fallback
     const unsubTracks = onSnapshot(collection(db, 'daily_crew_tracks'), (snap) => {
       setDailyCrewTracks(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    }, (err) => console.warn("LiveTrainTracker daily_crew_tracks:", err));
 
     const unsubWtt = onSnapshot(collection(db, 'wtt_final_matrix'), (snap) => {
       setWttMatrix(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    }, (err) => console.warn("LiveTrainTracker wtt_final_matrix:", err));
 
     const unsubIncidents = onSnapshot(collection(db, 'wtt_live_incidents'), (snap) => {
       setLiveIncidents(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    }, (err) => console.warn("LiveTrainTracker wtt_live_incidents:", err));
 
     const unsubChainage = onSnapshot(collection(db, 'station_chainage'), (snap) => {
       if (!snap.empty) {
@@ -476,12 +466,11 @@ export default function LiveTrainPositionTracker({
         });
         setStationChainageDB(chainageMap);
       }
-    });
+    }, (err) => console.warn("LiveTrainTracker station_chainage:", err));
 
     return () => {
       unsubDeploy();
       unsubDeskCurrent();
-      unsubDeskLatest();
       unsubLinks();
       unsubTracks();
       unsubWtt();

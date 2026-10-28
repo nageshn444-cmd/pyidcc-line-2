@@ -1110,30 +1110,30 @@ export default function Dashboard({ initialTab = 'DISPATCH' }) {
     const unsubDeploy = onSnapshot(collection(db, "crew_daily_deployment"), (snap) => {
       deployData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       runProcessing();
-    });
+    }, (err) => console.warn("Dashboard crew_daily_deployment listener:", err));
 
     const unsubAtt = onSnapshot(collection(db, "crew_live_attendance"), (snap) => {
       attData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       runProcessing();
-    });
+    }, (err) => console.warn("Dashboard crew_live_attendance listener:", err));
 
     const unsubInc = onSnapshot(collection(db, "wtt_live_incidents"), (snap) => {
       incData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setLiveIncidents(incData);
       runProcessing();
-    });
+    }, (err) => console.warn("Dashboard wtt_live_incidents listener:", err));
 
     const unsubWtt = onSnapshot(collection(db, "wtt_final_matrix"), (snap) => {
       wttData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       liveWttDataRef.current = wttData;
       runProcessing();
-    });
+    }, (err) => console.warn("Dashboard wtt_final_matrix listener:", err));
 
     const unsubLinks = onSnapshot(collection(db, "crew_final_links"), (snap) => {
       linksData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       liveLinksDataRef.current = linksData;
       runProcessing();
-    });
+    }, (err) => console.warn("Dashboard crew_final_links listener:", err));
 
     const unsubEmployees = onSnapshot(collection(db, "crewRegistry"), (snap) => {
       if (snap.empty) {

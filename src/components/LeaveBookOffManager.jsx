@@ -62,8 +62,277 @@ export default function LeaveBookOffManager() {
       return true;
     };
 
+    let leaves = [];
+    let absents = [];
+    let weeklyOffs = [];
+    let cacheDateRecords = [];
+    let cacheAltRecords = [];
+    let cacheCurrentRecords = [];
+
+    const extractFromCacheDoc = (dId, data) => {
+      if (!data) return [];
+      const rDate = data.date || data.dateStr || selectedDate;
+      if (dId === 'current' && data.date && data.date !== selectedDate && data.dateStr !== selectedDate) {
+        return [];
+      }
+
+      const rosterExtracted = [];
+
+      (data.weeklyOffs || []).forEach(wo => {
+        if (wo.empNo || wo.name) {
+          rosterExtracted.push({
+            id: `cache_wo_${wo.empNo}_${rDate}`,
+            sourceCollection: 'dispatch_excel_cache',
+            employeeId: String(wo.empNo || '').trim(),
+            employeeName: String(wo.name || '').trim().toUpperCase(),
+            code: 'WO',
+            startDate: rDate,
+            endDate: rDate,
+            status: 'ROSTERED',
+            reason: 'Roster Desk Weekly Off',
+            source: 'Roster Desk'
+          });
+        }
+      });
+
+      (data.leaves || []).forEach(l => {
+        if (l.empNo || l.name) {
+          rosterExtracted.push({
+            id: `cache_leave_${l.empNo}_${rDate}`,
+            sourceCollection: 'dispatch_excel_cache',
+            employeeId: String(l.empNo || '').trim(),
+            employeeName: String(l.name || '').trim().toUpperCase(),
+            code: l.type || 'CL',
+            startDate: rDate,
+            endDate: rDate,
+            status: 'ROSTERED',
+            reason: `Roster Leave (${l.type || 'CL'})`,
+            source: 'Roster Desk'
+          });
+        }
+      });
+
+      (data.standbys || []).forEach(sb => {
+        if (sb.empNo || sb.name) {
+          rosterExtracted.push({
+            id: `cache_sb_${sb.empNo}_${rDate}`,
+            sourceCollection: 'dispatch_excel_cache',
+            employeeId: String(sb.empNo || '').trim(),
+            employeeName: String(sb.name || '').trim().toUpperCase(),
+            code: 'STANDBY',
+            startDate: rDate,
+            endDate: rDate,
+            status: 'ROSTERED',
+            reason: `Standby Operator (${sb.time || 'Shift'})`,
+            source: 'Roster Desk'
+          });
+        }
+      });
+
+      (data.outstationStepbacks || []).forEach(stbk => {
+        if (stbk.empNo || stbk.name) {
+          rosterExtracted.push({
+            id: `cache_stbk_${stbk.empNo}_${rDate}`,
+            sourceCollection: 'dispatch_excel_cache',
+            employeeId: String(stbk.empNo || '').trim(),
+            employeeName: String(stbk.name || '').trim().toUpperCase(),
+            code: 'STBK',
+            startDate: rDate,
+            endDate: rDate,
+            status: 'ROSTERED',
+            reason: `Step-Back Duty @ ${stbk.station || 'PYID'}`,
+            source: 'Roster Desk'
+          });
+        }
+      });
+
+      (data.crtTraining || []).forEach(crt => {
+        if (crt.empNo || crt.name) {
+          rosterExtracted.push({
+            id: `cache_crt_${crt.empNo}_${rDate}`,
+            sourceCollection: 'dispatch_excel_cache',
+            employeeId: String(crt.empNo || '').trim(),
+            employeeName: String(crt.name || '').trim().toUpperCase(),
+            code: 'CRT',
+            startDate: rDate,
+            endDate: rDate,
+            status: 'ROSTERED',
+            reason: 'Competency Refresher Training (CRT)',
+            source: 'Roster Desk'
+          });
+        }
+      });
+
+      (data.bmrtiTraining || []).forEach(trg => {
+        if (trg.empNo || trg.name) {
+          rosterExtracted.push({
+            id: `cache_trg_${trg.empNo}_${rDate}`,
+            sourceCollection: 'dispatch_excel_cache',
+            employeeId: String(trg.empNo || '').trim(),
+            employeeName: String(trg.name || '').trim().toUpperCase(),
+            code: 'TRAINING',
+            startDate: rDate,
+            endDate: rDate,
+            status: 'ROSTERED',
+            reason: 'General Training (BMRTI / RMTT)',
+            source: 'Roster Desk'
+          });
+        }
+      });
+
+      (data.pmeOperators || []).forEach(pme => {
+        if (pme.empNo || pme.name) {
+          rosterExtracted.push({
+            id: `cache_pme_${pme.empNo}_${rDate}`,
+            sourceCollection: 'dispatch_excel_cache',
+            employeeId: String(pme.empNo || '').trim(),
+            employeeName: String(pme.name || '').trim().toUpperCase(),
+            code: 'PME',
+            startDate: rDate,
+            endDate: rDate,
+            status: 'ROSTERED',
+            reason: 'Periodical Medical Examination (PME)',
+            source: 'Roster Desk'
+          });
+        }
+      });
+
+      (data.relievedOperators || []).forEach(rel => {
+        if (rel.empNo || rel.name) {
+          rosterExtracted.push({
+            id: `cache_rel_${rel.empNo}_${rDate}`,
+            sourceCollection: 'dispatch_excel_cache',
+            employeeId: String(rel.empNo || '').trim(),
+            employeeName: String(rel.name || '').trim().toUpperCase(),
+            code: 'REL',
+            startDate: rDate,
+            endDate: rDate,
+            status: 'ROSTERED',
+            reason: 'Relieved Operator',
+            source: 'Roster Desk'
+          });
+        }
+      });
+
+      return rosterExtracted;
+    };
+
+    const syncRecords = () => {
+      const rosterExtracted = [...cacheDateRecords, ...cacheAltRecords, ...cacheCurrentRecords];
+
+      // Master Dataset Fallback Synthesizer for selectedDate if Firestore has no records
+      const fallbackSynthesized = [];
+      if (leaves.length === 0 && absents.length === 0 && weeklyOffs.length === 0 && rosterExtracted.length === 0) {
+        // Extract default allocations from BMRCL_CREW_REGISTRY for live continuity
+        BMRCL_CREW_REGISTRY.forEach(c => {
+          const empId = String(c.id);
+          const name = c.name;
+
+          if (c.activeCrew === false || c.status === 'WO' || ['21498', '21502', '21965', '22264', '22269', '22464', '22465', '22469', '21506', '21509', '21694', '21702'].includes(empId)) {
+            fallbackSynthesized.push({
+              id: `fallback_wo_${empId}_${selectedDate}`,
+              employeeId: empId,
+              employeeName: name,
+              code: 'WO',
+              startDate: selectedDate,
+              endDate: selectedDate,
+              status: 'SCHEDULED',
+              reason: 'Master Registry Weekly Off',
+              source: 'BMRCL Master Roster'
+            });
+          } else if (['21949', '22506', '22298'].includes(empId)) {
+            fallbackSynthesized.push({
+              id: `fallback_leave_${empId}_${selectedDate}`,
+              employeeId: empId,
+              employeeName: name,
+              code: 'CL',
+              startDate: selectedDate,
+              endDate: selectedDate,
+              status: 'APPROVED',
+              reason: 'Scheduled Casual Leave',
+              source: 'BMRCL Master Roster'
+            });
+          } else if (['22240', '22561', '22522'].includes(empId)) {
+            fallbackSynthesized.push({
+              id: `fallback_sb_${empId}_${selectedDate}`,
+              employeeId: empId,
+              employeeName: name,
+              code: 'STANDBY',
+              startDate: selectedDate,
+              endDate: selectedDate,
+              status: 'SCHEDULED',
+              reason: 'Emergency Standby Operator',
+              source: 'BMRCL Master Roster'
+            });
+          } else if (['22244', '21967', '21994'].includes(empId)) {
+            fallbackSynthesized.push({
+              id: `fallback_stbk_${empId}_${selectedDate}`,
+              employeeId: empId,
+              employeeName: name,
+              code: 'STBK',
+              startDate: selectedDate,
+              endDate: selectedDate,
+              status: 'SCHEDULED',
+              reason: 'Outstation Step-Back Duty',
+              source: 'BMRCL Master Roster'
+            });
+          } else if (['22501'].includes(empId)) {
+            fallbackSynthesized.push({
+              id: `fallback_crt_${empId}_${selectedDate}`,
+              employeeId: empId,
+              employeeName: name,
+              code: 'CRT',
+              startDate: selectedDate,
+              endDate: selectedDate,
+              status: 'SCHEDULED',
+              reason: 'Competency Refresher Training',
+              source: 'BMRCL Master Roster'
+            });
+          } else if (['21490', '21407', '21496', '21414', '21483'].includes(empId)) {
+            fallbackSynthesized.push({
+              id: `fallback_trg_${empId}_${selectedDate}`,
+              employeeId: empId,
+              employeeName: name,
+              code: 'TRAINING',
+              startDate: selectedDate,
+              endDate: selectedDate,
+              status: 'SCHEDULED',
+              reason: 'RMTT Training Course',
+              source: 'BMRCL Master Roster'
+            });
+          } else if (['21469', '21470', '21479'].includes(empId)) {
+            fallbackSynthesized.push({
+              id: `fallback_rel_${empId}_${selectedDate}`,
+              employeeId: empId,
+              employeeName: name,
+              code: 'REL',
+              startDate: selectedDate,
+              endDate: selectedDate,
+              status: 'SCHEDULED',
+              reason: 'Relieved Operator',
+              source: 'BMRCL Master Roster'
+            });
+          }
+        });
+      }
+
+      // Deduplicate all records strictly by employeeId + startDate + code
+      const combinedMap = new Map();
+      [...leaves, ...absents, ...weeklyOffs, ...rosterExtracted, ...fallbackSynthesized].forEach(item => {
+        const empKey = item.employeeId || item.employeeName;
+        const key = `${empKey}_${item.startDate}_${item.code}`;
+        if (!combinedMap.has(key)) {
+          combinedMap.set(key, item);
+        }
+      });
+
+      setRecordsList(Array.from(combinedMap.values()));
+      setLoading(false);
+    };
+
+    // 1. Parallel listener: leave_requests
     const unsubLeaves = onSnapshot(collection(db, 'leave_requests'), (snap) => {
-      const leaves = [];
+      leaves = [];
       snap.docs.forEach(d => {
         const data = d.data();
         const empId = data.employeeId || data.empId;
@@ -84,327 +353,109 @@ export default function LeaveBookOffManager() {
           source: 'Leave Portal'
         });
       });
+      syncRecords();
+    }, (err) => {
+      console.warn("Leave requests subscription error:", err);
+      syncRecords();
+    });
 
-      const unsubAbsent = onSnapshot(collection(db, 'absent_bookoff_register'), (absentSnap) => {
-        const absents = [];
-        absentSnap.docs.forEach(d => {
-          const data = d.data();
-          const empId = data.employeeId || data.empId;
-          const empName = data.employeeName || data.name;
+    // 2. Parallel listener: absent_bookoff_register
+    const unsubAbsent = onSnapshot(collection(db, 'absent_bookoff_register'), (absentSnap) => {
+      absents = [];
+      absentSnap.docs.forEach(d => {
+        const data = d.data();
+        const empId = data.employeeId || data.empId;
+        const empName = data.employeeName || data.name;
 
-          if (!isValidOperator(empId, empName)) return;
+        if (!isValidOperator(empId, empName)) return;
 
-          absents.push({
+        absents.push({
+          id: d.id,
+          sourceCollection: 'absent_bookoff_register',
+          employeeId: String(empId).trim(),
+          employeeName: String(empName).trim().toUpperCase(),
+          code: data.code || data.category || 'AB',
+          startDate: data.date || data.startDate || selectedDate,
+          endDate: data.date || data.endDate || selectedDate,
+          status: data.status || 'APPROVED',
+          reason: data.remarks || data.reason || 'Absent / BO Record',
+          source: 'BO Register'
+        });
+      });
+      syncRecords();
+    }, (err) => {
+      console.warn("Absent register subscription error:", err);
+      syncRecords();
+    });
+
+    // 3. Parallel listener: weekly_off_register
+    const unsubWO = onSnapshot(collection(db, 'weekly_off_register'), (woSnap) => {
+      weeklyOffs = [];
+      woSnap.docs.forEach(d => {
+        const data = d.data();
+        const empId = data.employeeId || data.empId;
+        const empName = data.employeeName || data.name;
+
+        if (isValidOperator(empId, empName)) {
+          weeklyOffs.push({
             id: d.id,
-            sourceCollection: 'absent_bookoff_register',
+            sourceCollection: 'weekly_off_register',
             employeeId: String(empId).trim(),
             employeeName: String(empName).trim().toUpperCase(),
-            code: data.code || data.category || 'AB',
+            code: 'WO',
             startDate: data.date || data.startDate || selectedDate,
             endDate: data.date || data.endDate || selectedDate,
             status: data.status || 'APPROVED',
-            reason: data.remarks || data.reason || 'Absent / BO Record',
-            source: 'BO Register'
+            reason: data.remarks || 'Weekly Off (WO)',
+            source: 'Weekly Off Register'
           });
-        });
-
-        const unsubWO = onSnapshot(collection(db, 'weekly_off_register'), (woSnap) => {
-          const weeklyOffs = [];
-          woSnap.docs.forEach(d => {
-            const data = d.data();
-            const empId = data.employeeId || data.empId;
-            const empName = data.employeeName || data.name;
-
-            if (isValidOperator(empId, empName)) {
-              weeklyOffs.push({
-                id: d.id,
-                sourceCollection: 'weekly_off_register',
-                employeeId: String(empId).trim(),
-                employeeName: String(empName).trim().toUpperCase(),
-                code: 'WO',
-                startDate: data.date || data.startDate || selectedDate,
-                endDate: data.date || data.endDate || selectedDate,
-                status: data.status || 'APPROVED',
-                reason: data.remarks || 'Weekly Off (WO)',
-                source: 'Weekly Off Register'
-              });
-            }
-          });
-
-          const unsubCache = onSnapshot(collection(db, 'dispatch_excel_cache'), (cacheSnap) => {
-            const rosterExtracted = [];
-            cacheSnap.docs.forEach(d => {
-              const data = d.data();
-              const rDate = data.date || data.dateStr || selectedDate;
-              // Accept if doc ID is 'current', or raw date strings match selectedDate
-              const isMatch = d.id === 'current' || d.id === selectedDate || rDate === selectedDate || true; 
-              if (!isMatch) return;
-
-              // Extract Weekly Offs
-              (data.weeklyOffs || []).forEach(wo => {
-                if (wo.empNo || wo.name) {
-                  rosterExtracted.push({
-                    id: `cache_wo_${wo.empNo}_${rDate}`,
-                    sourceCollection: 'dispatch_excel_cache',
-                    employeeId: String(wo.empNo || '').trim(),
-                    employeeName: String(wo.name || '').trim().toUpperCase(),
-                    code: 'WO',
-                    startDate: rDate,
-                    endDate: rDate,
-                    status: 'ROSTERED',
-                    reason: 'Roster Desk Weekly Off',
-                    source: 'Roster Desk'
-                  });
-                }
-              });
-
-              // Extract Leaves
-              (data.leaves || []).forEach(l => {
-                if (l.empNo || l.name) {
-                  rosterExtracted.push({
-                    id: `cache_leave_${l.empNo}_${rDate}`,
-                    sourceCollection: 'dispatch_excel_cache',
-                    employeeId: String(l.empNo || '').trim(),
-                    employeeName: String(l.name || '').trim().toUpperCase(),
-                    code: l.type || 'CL',
-                    startDate: rDate,
-                    endDate: rDate,
-                    status: 'ROSTERED',
-                    reason: `Roster Leave (${l.type || 'CL'})`,
-                    source: 'Roster Desk'
-                  });
-                }
-              });
-
-              // Extract Standbys
-              (data.standbys || []).forEach(sb => {
-                if (sb.empNo || sb.name) {
-                  rosterExtracted.push({
-                    id: `cache_sb_${sb.empNo}_${rDate}`,
-                    sourceCollection: 'dispatch_excel_cache',
-                    employeeId: String(sb.empNo || '').trim(),
-                    employeeName: String(sb.name || '').trim().toUpperCase(),
-                    code: 'STANDBY',
-                    startDate: rDate,
-                    endDate: rDate,
-                    status: 'ROSTERED',
-                    reason: `Standby Operator (${sb.time || 'Shift'})`,
-                    source: 'Roster Desk'
-                  });
-                }
-              });
-
-              // Extract Step-Back (STBK)
-              (data.outstationStepbacks || []).forEach(stbk => {
-                if (stbk.empNo || stbk.name) {
-                  rosterExtracted.push({
-                    id: `cache_stbk_${stbk.empNo}_${rDate}`,
-                    sourceCollection: 'dispatch_excel_cache',
-                    employeeId: String(stbk.empNo || '').trim(),
-                    employeeName: String(stbk.name || '').trim().toUpperCase(),
-                    code: 'STBK',
-                    startDate: rDate,
-                    endDate: rDate,
-                    status: 'ROSTERED',
-                    reason: `Step-Back Duty @ ${stbk.station || 'PYID'}`,
-                    source: 'Roster Desk'
-                  });
-                }
-              });
-
-              // Extract CRT
-              (data.crtTraining || []).forEach(crt => {
-                if (crt.empNo || crt.name) {
-                  rosterExtracted.push({
-                    id: `cache_crt_${crt.empNo}_${rDate}`,
-                    sourceCollection: 'dispatch_excel_cache',
-                    employeeId: String(crt.empNo || '').trim(),
-                    employeeName: String(crt.name || '').trim().toUpperCase(),
-                    code: 'CRT',
-                    startDate: rDate,
-                    endDate: rDate,
-                    status: 'ROSTERED',
-                    reason: 'Competency Refresher Training (CRT)',
-                    source: 'Roster Desk'
-                  });
-                }
-              });
-
-              // Extract BMRTI Training
-              (data.bmrtiTraining || []).forEach(trg => {
-                if (trg.empNo || trg.name) {
-                  rosterExtracted.push({
-                    id: `cache_trg_${trg.empNo}_${rDate}`,
-                    sourceCollection: 'dispatch_excel_cache',
-                    employeeId: String(trg.empNo || '').trim(),
-                    employeeName: String(trg.name || '').trim().toUpperCase(),
-                    code: 'TRAINING',
-                    startDate: rDate,
-                    endDate: rDate,
-                    status: 'ROSTERED',
-                    reason: 'General Training (BMRTI / RMTT)',
-                    source: 'Roster Desk'
-                  });
-                }
-              });
-
-              // Extract PME
-              (data.pmeOperators || []).forEach(pme => {
-                if (pme.empNo || pme.name) {
-                  rosterExtracted.push({
-                    id: `cache_pme_${pme.empNo}_${rDate}`,
-                    sourceCollection: 'dispatch_excel_cache',
-                    employeeId: String(pme.empNo || '').trim(),
-                    employeeName: String(pme.name || '').trim().toUpperCase(),
-                    code: 'PME',
-                    startDate: rDate,
-                    endDate: rDate,
-                    status: 'ROSTERED',
-                    reason: 'Periodical Medical Examination (PME)',
-                    source: 'Roster Desk'
-                  });
-                }
-              });
-
-              // Extract Relieved Operators
-              (data.relievedOperators || []).forEach(rel => {
-                if (rel.empNo || rel.name) {
-                  rosterExtracted.push({
-                    id: `cache_rel_${rel.empNo}_${rDate}`,
-                    sourceCollection: 'dispatch_excel_cache',
-                    employeeId: String(rel.empNo || '').trim(),
-                    employeeName: String(rel.name || '').trim().toUpperCase(),
-                    code: 'REL',
-                    startDate: rDate,
-                    endDate: rDate,
-                    status: 'ROSTERED',
-                    reason: 'Relieved Operator',
-                    source: 'Roster Desk'
-                  });
-                }
-              });
-            });
-
-            // Master Dataset Fallback Synthesizer for selectedDate if Firestore has no records
-            const fallbackSynthesized = [];
-            if (leaves.length === 0 && absents.length === 0 && weeklyOffs.length === 0 && rosterExtracted.length === 0) {
-              // Extract default allocations from BMRCL_CREW_REGISTRY for live continuity
-              BMRCL_CREW_REGISTRY.forEach(c => {
-                const empId = String(c.id);
-                const name = c.name;
-
-                if (c.activeCrew === false || c.status === 'WO' || ['21498', '21502', '21965', '22264', '22269', '22464', '22465', '22469', '21506', '21509', '21694', '21702'].includes(empId)) {
-                  fallbackSynthesized.push({
-                    id: `fallback_wo_${empId}_${selectedDate}`,
-                    employeeId: empId,
-                    employeeName: name,
-                    code: 'WO',
-                    startDate: selectedDate,
-                    endDate: selectedDate,
-                    status: 'SCHEDULED',
-                    reason: 'Master Registry Weekly Off',
-                    source: 'BMRCL Master Roster'
-                  });
-                } else if (['21949', '22506', '22298'].includes(empId)) {
-                  fallbackSynthesized.push({
-                    id: `fallback_leave_${empId}_${selectedDate}`,
-                    employeeId: empId,
-                    employeeName: name,
-                    code: 'CL',
-                    startDate: selectedDate,
-                    endDate: selectedDate,
-                    status: 'APPROVED',
-                    reason: 'Scheduled Casual Leave',
-                    source: 'BMRCL Master Roster'
-                  });
-                } else if (['22240', '22561', '22522'].includes(empId)) {
-                  fallbackSynthesized.push({
-                    id: `fallback_sb_${empId}_${selectedDate}`,
-                    employeeId: empId,
-                    employeeName: name,
-                    code: 'STANDBY',
-                    startDate: selectedDate,
-                    endDate: selectedDate,
-                    status: 'SCHEDULED',
-                    reason: 'Emergency Standby Operator',
-                    source: 'BMRCL Master Roster'
-                  });
-                } else if (['22244', '21967', '21994'].includes(empId)) {
-                  fallbackSynthesized.push({
-                    id: `fallback_stbk_${empId}_${selectedDate}`,
-                    employeeId: empId,
-                    employeeName: name,
-                    code: 'STBK',
-                    startDate: selectedDate,
-                    endDate: selectedDate,
-                    status: 'SCHEDULED',
-                    reason: 'Outstation Step-Back Duty',
-                    source: 'BMRCL Master Roster'
-                  });
-                } else if (['22501'].includes(empId)) {
-                  fallbackSynthesized.push({
-                    id: `fallback_crt_${empId}_${selectedDate}`,
-                    employeeId: empId,
-                    employeeName: name,
-                    code: 'CRT',
-                    startDate: selectedDate,
-                    endDate: selectedDate,
-                    status: 'SCHEDULED',
-                    reason: 'Competency Refresher Training',
-                    source: 'BMRCL Master Roster'
-                  });
-                } else if (['21490', '21407', '21496', '21414', '21483'].includes(empId)) {
-                  fallbackSynthesized.push({
-                    id: `fallback_trg_${empId}_${selectedDate}`,
-                    employeeId: empId,
-                    employeeName: name,
-                    code: 'TRAINING',
-                    startDate: selectedDate,
-                    endDate: selectedDate,
-                    status: 'SCHEDULED',
-                    reason: 'RMTT Training Course',
-                    source: 'BMRCL Master Roster'
-                  });
-                } else if (['21469', '21470', '21479'].includes(empId)) {
-                  fallbackSynthesized.push({
-                    id: `fallback_rel_${empId}_${selectedDate}`,
-                    employeeId: empId,
-                    employeeName: name,
-                    code: 'REL',
-                    startDate: selectedDate,
-                    endDate: selectedDate,
-                    status: 'SCHEDULED',
-                    reason: 'Relieved Operator',
-                    source: 'BMRCL Master Roster'
-                  });
-                }
-              });
-            }
-
-            // Deduplicate all records strictly by employeeId + startDate + code
-            const combinedMap = new Map();
-            [...leaves, ...absents, ...weeklyOffs, ...rosterExtracted, ...fallbackSynthesized].forEach(item => {
-              const empKey = item.employeeId || item.employeeName;
-              const key = `${empKey}_${item.startDate}_${item.code}`;
-              if (!combinedMap.has(key)) {
-                combinedMap.set(key, item);
-              }
-            });
-
-            setRecordsList(Array.from(combinedMap.values()));
-            setLoading(false);
-          });
-
-          return () => unsubCache();
-        });
-
-        return () => unsubWO();
+        }
       });
-
-      return () => unsubAbsent();
+      syncRecords();
+    }, (err) => {
+      console.warn("Weekly off register subscription error:", err);
+      syncRecords();
     });
 
-    return () => unsubLeaves();
+    // 4. Scoped document listeners for dispatch_excel_cache (selectedDate, altDate, and current)
+    const dateParts = (selectedDate || '').split('-');
+    const altDate = dateParts.length === 3 ? `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}` : null;
+
+    const unsubCacheDate = onSnapshot(doc(db, 'dispatch_excel_cache', selectedDate), (snap) => {
+      cacheDateRecords = snap.exists() ? extractFromCacheDoc(selectedDate, snap.data()) : [];
+      syncRecords();
+    }, (err) => {
+      console.warn("Cache date subscription error:", err);
+      syncRecords();
+    });
+
+    let unsubCacheAlt = null;
+    if (altDate && altDate !== selectedDate) {
+      unsubCacheAlt = onSnapshot(doc(db, 'dispatch_excel_cache', altDate), (snap) => {
+        cacheAltRecords = snap.exists() ? extractFromCacheDoc(altDate, snap.data()) : [];
+        syncRecords();
+      }, (err) => {
+        console.warn("Cache alt-date subscription error:", err);
+        syncRecords();
+      });
+    }
+
+    const unsubCacheCurrent = onSnapshot(doc(db, 'dispatch_excel_cache', 'current'), (snap) => {
+      cacheCurrentRecords = snap.exists() ? extractFromCacheDoc('current', snap.data()) : [];
+      syncRecords();
+    }, (err) => {
+      console.warn("Cache current subscription error:", err);
+      syncRecords();
+    });
+
+    return () => {
+      unsubLeaves();
+      unsubAbsent();
+      unsubWO();
+      unsubCacheDate();
+      if (unsubCacheAlt) unsubCacheAlt();
+      unsubCacheCurrent();
+    };
   }, [selectedDate]);
 
   const handleEmpIdChange = (idVal) => {
