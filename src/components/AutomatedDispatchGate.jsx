@@ -9612,65 +9612,67 @@ Rules:
                     </td>
                   </tr>
                 ) : (
-                  deploymentHistoryList.map((dep, idx) => {
-                    const isSelected =
-                      dep.deploymentDate === targetDeploymentDate &&
-                      dep.dayType === targetDayType;
-                    return (
-                      <tr
-                        key={dep.deploymentId || dep.id || `dep_${idx}`}
-                        className={`hover:bg-slate-800/50 transition ${
-                          isSelected
-                            ? "bg-emerald-950/30 border-l-2 border-emerald-400"
-                            : ""
-                        }`}
-                      >
-                        <td className="py-2 px-3 font-bold text-white">
-                          {dep.deploymentDate || "--"}
-                        </td>
-                        <td className="py-2 px-3 text-cyan-300 font-semibold">
-                          {dep.dayType || "--"}
-                        </td>
-                        <td className="py-2 px-3 text-amber-300 font-mono text-[11px]">
-                          {dep.deploymentId || dep.id}
-                        </td>
-                        <td className="py-2 px-3">
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-950 text-emerald-400 border border-emerald-700/50">
-                            {dep.status || "DEPLOYED"}
-                          </span>
-                        </td>
-                        <td className="py-2 px-3 font-bold text-purple-300">
-                          v{dep.version || 1}
-                        </td>
-                        <td className="py-2 px-3 text-slate-400 text-[10px]">
-                          {dep.deployedAt
-                            ? new Date(dep.deployedAt).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })
-                            : "--"}
-                        </td>
-                        <td className="py-2 px-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (dep.deploymentDate)
-                                onDateSelectionChanged(dep.deploymentDate);
-                              if (dep.dayType)
-                                onDayTypeSelectionChanged(dep.dayType);
-                            }}
-                            className={`px-2.5 py-1 text-[10px] font-bold rounded uppercase transition cursor-pointer ${
-                              isSelected
-                                ? "bg-emerald-600 text-slate-950"
-                                : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
-                            }`}
-                          >
-                            {isSelected ? "Active Target" : "Select Target"}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
+                  (deploymentHistoryList || [])
+                    .filter(Boolean)
+                    .map((dep, idx) => {
+                      const isSelected =
+                        dep?.deploymentDate === targetDeploymentDate &&
+                        dep?.dayType === targetDayType;
+                      return (
+                        <tr
+                          key={dep?.deploymentId || dep?.id || `dep_${idx}`}
+                          className={`hover:bg-slate-800/50 transition ${
+                            isSelected
+                              ? "bg-emerald-950/30 border-l-2 border-emerald-400"
+                              : ""
+                          }`}
+                        >
+                          <td className="py-2 px-3 font-bold text-white">
+                            {dep?.deploymentDate || "--"}
+                          </td>
+                          <td className="py-2 px-3 text-cyan-300 font-semibold">
+                            {dep?.dayType || "--"}
+                          </td>
+                          <td className="py-2 px-3 text-amber-300 font-mono text-[11px]">
+                            {dep?.deploymentId || dep?.id || "--"}
+                          </td>
+                          <td className="py-2 px-3">
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-950 text-emerald-400 border border-emerald-700/50">
+                              {dep?.status || "DEPLOYED"}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 font-bold text-purple-300">
+                            v{dep?.version || 1}
+                          </td>
+                          <td className="py-2 px-3 text-slate-400 text-[10px]">
+                            {dep?.deployedAt
+                              ? new Date(dep.deployedAt).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : "--"}
+                          </td>
+                          <td className="py-2 px-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (dep?.deploymentDate)
+                                  onDateSelectionChanged(dep.deploymentDate);
+                                if (dep?.dayType)
+                                  onDayTypeSelectionChanged(dep.dayType);
+                              }}
+                              className={`px-2.5 py-1 text-[10px] font-bold rounded uppercase transition cursor-pointer ${
+                                isSelected
+                                  ? "bg-emerald-600 text-slate-950"
+                                  : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+                              }`}
+                            >
+                              {isSelected ? "Active Target" : "Select Target"}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
                 )}
               </tbody>
             </table>
@@ -10317,12 +10319,13 @@ Rules:
                 {rollingDays.map((d, idx) => {
                   const isSelected = idx === activeRosterDayOffset;
                   const depMatch = (deploymentHistoryList || []).find((dep) => {
+                    if (!dep) return false;
                     const depDate = formatOperationalDate(
                       dep.deploymentDate || dep.date || dep.targetDate,
                     );
                     return (
                       depDate === d.dateStr ||
-                      (dep.id && dep.id.includes(d.dateStr))
+                      (dep.id && String(dep.id).includes(d.dateStr))
                     );
                   });
                   const isCurrentMatch =
@@ -10333,7 +10336,7 @@ Rules:
                         currentDeploymentRecord.dateStr,
                     ) === d.dateStr;
                   const isDeployed = Boolean(depMatch || isCurrentMatch);
-                  const stagedMatch = stagedRostersByDate[d.dateStr];
+                  const stagedMatch = stagedRostersByDate?.[d.dateStr];
                   const isCurrentStagedMatch =
                     !isDeployed &&
                     currentDeploymentRecord?.status === "STAGED" &&
@@ -10345,16 +10348,19 @@ Rules:
                       (isCurrentMatch ? currentDeploymentRecord?.rosterData?.duties?.length || currentDeploymentRecord?.metadata?.totalDuties : 0) ||
                       (isSelected ? deduplicatedDeployments.length : 0)
                     : isStaged
-                      ? stagedMatch?.duties?.length || 0
+                      ? stagedMatch?.duties?.length ||
+                        (isCurrentStagedMatch ? currentDeploymentRecord?.rosterData?.duties?.length : 0) || 0
                       : 0;
 
                   const rawType = isDeployed
-                    ? depMatch.dayType ||
-                      depMatch.scheduleType ||
+                    ? depMatch?.dayType ||
+                      depMatch?.scheduleType ||
+                      (isCurrentMatch ? currentDeploymentRecord?.dayType || currentDeploymentRecord?.scheduleType : null) ||
                       d.scheduleType
                     : isStaged
-                      ? stagedMatch.dayType ||
-                        stagedMatch.scheduleType ||
+                      ? stagedMatch?.dayType ||
+                        stagedMatch?.scheduleType ||
+                        (isCurrentStagedMatch ? currentDeploymentRecord?.dayType || currentDeploymentRecord?.scheduleType : null) ||
                         d.scheduleType
                       : isSelected
                         ? targetDayType || d.scheduleType
